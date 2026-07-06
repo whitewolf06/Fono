@@ -1,0 +1,493 @@
+﻿//! Tauri IPC команды — мост между фронтендом и Rust-ядром.
+//!
+//! Каждая команда доступна из JS через `invoke('<name>', { args })`.
+//! Список команд см. в `docs/architecture.md` → `commands.rs`.
+//!
+//! В async-командах мы используем `AppHandle::state::<T>()` вместо
+//! `State<'_, T>`, чтобы не удерживать borrow через `.await`.
+
+use std::path::PathBuf;
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+use crate::audio::AudioCapture;
+use crate::error::{AppError, AppResult};
+use crate::llm::LlmClient;
+use crate::pipeline::{self, Pipeline};
+use crate::state::{self, AppState};
+use crate::types::{
+    AiMode, DeviceInfo, PipelineState, Settings, Transcript, WhisperModelInfo, WhisperModelSize,
+};
+
+fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
+    pipeline::set_state(app, state, PipelineState::Idle);
+}
+
+fn emit_pipeline_error(app: &AppHandle, message: &str) {
+    let _ = app.emit("error", message);
+}
+
+// ====== Состояние конвейера ======
+
+#[tauri::command]
+pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
+    state.pipeline_state()
+}
+
+#[tauri::command]
+pub fn start_dictation(app: AppHandle) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    let settings = state.settings();
+
+    if state.is_dictation_paused() {
+        let msg = "Запись приостановлена (через меню/траи).";
+        emit_pipeline_error(&app, msg);
+        return Err(AppError::Config(msg.to_string()));
+    }
+
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+        emit_pipeline_error(&app, &e.to_string());
+        tracing::error!("start_dictation: start_recording FAILED: {e}");
+        set_pipeline_idle(&app, &state.inner());
+        return Err(e);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    let settings = state.settings();
+
+    // Убедимся, что модель whisper загружена.
+    if let Some(path) = settings.whisper_model_path.as_deref() {
+        pipeline
+            .stt()
+            .ensure_loaded(std::path::Path::new(path))?;
+    } else {
+        let error_msg = "Whisper model is not selected. Download and choose a model in settings.".to_string();
+        emit_pipeline_error(&app, &error_msg);
+        set_pipeline_idle(&app, &state.inner());
+        return Err(AppError::Stt(error_msg));
+    }
+
+    let samples = match pipeline.stop_recording() {
+        Ok(s) => s,
+        Err(e) => {
+            emit_pipeline_error(&app, &e.to_string());
+            tracing::error!("stop_dictation: stop_recording FAILED: {e}");
+            set_pipeline_idle(&app, &state.inner());
+            return Err(e);
+        }
+    };
+    if samples.is_empty() {
+        set_pipeline_idle(&app, &state.inner());
+        return Ok(Transcript {
+            text: String::new(),
+            detected_language: None,
+        });
+    }
+
+    // Транскрибируем (CPU-bound — запускаем в spawn_blocking).
+    pipeline::set_state(&app, &state.inner(), PipelineState::Transcribing);
+    let stt = pipeline.stt().clone();
+    let language = settings.language.clone();
+    let app_for_err = app.clone();
+    let transcript = tauri::async_runtime::spawn_blocking(move || {
+        stt.transcribe(&samples, &language)
+    })
+    .await
+    .map_err(|e| {
+        let _ = app_for_err.emit("error", e.to_string());
+        set_pipeline_idle(&app_for_err, &state.inner());
+        AppError::Internal(format!("transcribe join: {e}"))
+    })?
+    .map_err(|e| {
+        let _ = app.emit("error", e.to_string());
+        set_pipeline_idle(&app, &state.inner());
+        e
+    })?;
+
+    tracing::info!("transcript: {:?}", transcript.text);
+
+    // Опциональная AI-обработка.
+    let final_text = match settings.ai_mode {
+        AiMode::Off => transcript.text.clone(),
+        mode => {
+            pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
+            let client = LlmClient::new(
+                settings.llm_base_url.clone(),
+                settings.llm_model.clone(),
+            );
+            match client.process(&transcript.text, mode).await {
+                Ok(t) => t,
+                Err(e) => {
+                    tracing::warn!("LLM failed ({e}) — returning raw transcript");
+                    let _ = app.emit("error", format!("LLM: {e}"));
+                    transcript.text.clone()
+                }
+            }
+        }
+    };
+
+    // Вставка текста.
+    pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
+    if let Err(e) = crate::injection::inject_text(&final_text) {
+        emit_pipeline_error(&app, &e.to_string());
+        set_pipeline_idle(&app, &state.inner());
+        return Err(e);
+    }
+    set_pipeline_idle(&app, &state.inner());
+
+    Ok(Transcript {
+        text: final_text,
+        detected_language: transcript.detected_language,
+    })
+}
+
+/// Тестовая команда: записать `duration_ms` миллисекунд и распознать.
+///
+/// Не делает injection в окно — возвращает транскрипт вызывающему (UI).
+/// Используется кнопкой «🧪 Записать и распознать» в настройках для проверки
+/// аудио-конвейера на машине пользователя.
+#[tauri::command]
+pub async fn transcribe_test(app: AppHandle, duration_ms: u64) -> AppResult<Transcript> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    let settings = state.settings();
+
+    // Проверка модели.
+    if let Some(path) = settings.whisper_model_path.as_deref() {
+        pipeline.stt().ensure_loaded(std::path::Path::new(path))?;
+    } else {
+        let error_msg = "Whisper model is not selected. Download and choose a model in settings.".to_string();
+        emit_pipeline_error(&app, &error_msg);
+        set_pipeline_idle(&app, &state.inner());
+        return Err(AppError::Stt(error_msg));
+    }
+
+    // Старт записи.
+    tracing::info!("transcribe_test: starting recording (device_id={:?})", settings.audio_device_id);
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+        emit_pipeline_error(&app, &e.to_string());
+        tracing::error!("transcribe_test: start_recording FAILED: {e}");
+        set_pipeline_idle(&app, &state.inner());
+        return Err(e);
+    }
+    tracing::info!("transcribe_test: recording started, sleeping {} ms", duration_ms);
+
+    // Ждём указанную длительность.
+    let dur = std::time::Duration::from_millis(duration_ms.max(500).min(30_000));
+    tokio::time::sleep(dur).await;
+
+    tracing::info!("transcribe_test: sleep done, stopping recording");
+    // Стоп и забираем сэмплы.
+    let samples = match pipeline.stop_recording() {
+        Ok(s) => s,
+        Err(e) => {
+            emit_pipeline_error(&app, &e.to_string());
+            tracing::error!("transcribe_test: stop_recording FAILED: {e}");
+            set_pipeline_idle(&app, &state.inner());
+            return Err(e);
+        }
+    };
+    let sample_count = samples.len();
+    tracing::info!("captured {} samples (~{:.1}s @ 16kHz)", sample_count, sample_count as f32 / 16_000.0);
+
+    if sample_count < 1600 {
+        emit_pipeline_error(&app, "Test recording is too short or too quiet. Please speak closer and longer.");
+        // < 0.1 сек — что-то не так с микрофоном
+        set_pipeline_idle(&app, &state.inner());
+        return Err(AppError::Audio(
+            "записано слишком мало аудио — проверьте, что микрофон работает и не занят другим приложением".into(),
+        ));
+    }
+
+    // Транскрипция (CPU-bound).
+    pipeline::set_state(&app, &state.inner(), PipelineState::Transcribing);
+    let stt = pipeline.stt().clone();
+    let language = settings.language.clone();
+    let app_for_err = app.clone();
+    let transcript = tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
+        .await
+        .map_err(|e| {
+            let _ = app_for_err.emit("error", e.to_string());
+            set_pipeline_idle(&app_for_err, &state.inner());
+            AppError::Internal(format!("transcribe join: {e}"))
+        })?
+        .map_err(|e| {
+            let _ = app.emit("error", e.to_string());
+            set_pipeline_idle(&app, &state.inner());
+            e
+        })?;
+
+    tracing::info!("test transcript: {:?}", transcript.text);
+
+    // Опциональная AI-обработка — но на ошибке не падаем.
+    let final_text = match settings.ai_mode {
+        AiMode::Off => transcript.text.clone(),
+        mode => {
+            pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
+            let client = LlmClient::new(
+                settings.llm_base_url.clone(),
+                settings.llm_model.clone(),
+            );
+            match client.process(&transcript.text, mode).await {
+                Ok(t) => t,
+                Err(e) => {
+                    tracing::warn!("LLM failed ({e}) — returning raw transcript");
+                    transcript.text.clone()
+                }
+            }
+        }
+    };
+
+    set_pipeline_idle(&app, &state.inner());
+
+    Ok(Transcript {
+        text: final_text,
+        detected_language: transcript.detected_language,
+    })
+}
+
+// ====== Аудио ======
+
+#[tauri::command]
+pub fn list_audio_devices() -> AppResult<Vec<DeviceInfo>> {
+    AudioCapture::list_input_devices()
+}
+
+// ====== Whisper-модели ======
+
+#[tauri::command]
+pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
+    let dir = state::models_dir()?;
+    let mut out = Vec::new();
+    for size in [
+        WhisperModelSize::Tiny,
+        WhisperModelSize::Base,
+        WhisperModelSize::Small,
+        WhisperModelSize::Medium,
+        WhisperModelSize::Large,
+    ] {
+        let filename = size.filename();
+        let path = dir.join(filename);
+        let (local_path, bytes) = if path.exists() {
+            let meta = std::fs::metadata(&path).ok();
+            (
+                Some(path.to_string_lossy().to_string()),
+                meta.map(|m| m.len()),
+            )
+        } else {
+            (None, Some(size.approx_bytes()))
+        };
+        out.push(WhisperModelInfo {
+            filename: filename.to_string(),
+            size,
+            local_path,
+            bytes,
+        });
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<()> {
+    let model_size: WhisperModelSize =
+        serde_json::from_value(serde_json::Value::String(size.clone()))
+            .map_err(|_| AppError::Config(format!("неизвестный размер модели: {size}")))?;
+    let url = model_size.url().to_string();
+    let target: PathBuf = state::models_dir()?.join(model_size.filename());
+
+    tracing::info!("downloading {} -> {}", url, target.display());
+
+    let app_clone = app.clone();
+    let filename = model_size.filename().to_string();
+    tauri::async_runtime::spawn_blocking(move || -> AppResult<()> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(600))
+            .build()
+            .map_err(|e| AppError::Config(e.to_string()))?;
+        let mut resp = client
+            .get(&url)
+            .send()
+            .map_err(|e| AppError::Config(format!("GET {url}: {e}")))?;
+        if !resp.status().is_success() {
+            return Err(AppError::Config(format!(
+                "HTTP {} при скачивании модели",
+                resp.status()
+            )));
+        }
+        let mut file = std::fs::File::create(&target)?;
+        resp.copy_to(&mut file)
+            .map_err(|e| AppError::Config(format!("copy_to: {e}")))?;
+        tracing::info!("model saved: {}", target.display());
+        let _ = app_clone.emit("model-downloaded", filename);
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))??;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_whisper_model(state: State<'_, AppState>, path: String) -> AppResult<()> {
+    let mut settings = state.settings();
+    settings.whisper_model_path = Some(path);
+    state.set_settings(settings.clone());
+    state::save_settings(&settings)?;
+    Ok(())
+}
+
+// ====== LLM ======
+
+#[tauri::command]
+pub async fn test_llm_connection(state: State<'_, AppState>) -> AppResult<String> {
+    let s = state.settings();
+    let client = LlmClient::new(s.llm_base_url.clone(), s.llm_model.clone());
+    let model_id = client.test_connection().await?;
+    Ok(format!("LM Studio активен, модель: {model_id}"))
+}
+
+// ====== Настройки ======
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, AppState>) -> Settings {
+    state.settings()
+}
+
+#[tauri::command]
+pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> AppResult<()> {
+    let prev = state.settings();
+    if prev.hotkey != settings.hotkey {
+        if let Err(e) = app.global_shortcut().unregister(prev.hotkey.as_str()) {
+            tracing::warn!("save_settings: failed to unregister previous hotkey {:?}: {e}", prev.hotkey);
+        }
+    }
+
+    state::save_settings(&settings)?;
+    state.set_settings(settings.clone());
+
+    if let Err(e) = app.global_shortcut().register(settings.hotkey.as_str()) {
+        return Err(AppError::Config(format!(
+            "Не удалось зарегистрировать хоткей {}: {e}",
+            settings.hotkey
+        )));
+    }
+    Ok(())
+}
+
+// ====== Диагностика ======
+
+/// Возвращает последние строки файла лога (для отображения в UI при ошибках).
+#[tauri::command]
+pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
+    let n = lines.unwrap_or(80).min(500);
+    let log_dir = state::app_data_dir()?.join("logs");
+    // Ищем самый свежий whisperclone.log* (rolling appender добавляет дату).
+    let mut entries: Vec<_> = std::fs::read_dir(&log_dir)
+        .map_err(|e| AppError::Io(e))?
+        .filter_map(|e| e.ok())
+        .collect();
+    entries.sort_by_key(|e| e.file_name());
+    let target = entries
+        .iter()
+        .rev()
+        .find(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("whisperclone.log")
+        })
+        .ok_or_else(|| AppError::Internal("лог-файл не найден".into()))?;
+
+    let content = std::fs::read_to_string(target.path())?;
+    let tail: String = content
+        .lines()
+        .rev()
+        .take(n)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\n");
+    Ok(tail)
+}
+
+/// Тест микрофона: записывает `duration_ms` и возвращает пиковый уровень (0..1)
+/// и количество сэмплов. Позволяет убедиться, что микрофон живой и не зашумлён.
+#[tauri::command]
+pub async fn test_microphone(
+    app: AppHandle,
+    duration_ms: u64,
+) -> AppResult<MicTestResult> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    let settings = state.settings();
+
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+        emit_pipeline_error(&app, &e.to_string());
+        tracing::error!("test_microphone: start_recording FAILED: {e}");
+        set_pipeline_idle(&app, &state.inner());
+        return Err(e);
+    }
+
+    let dur = std::time::Duration::from_millis(duration_ms.max(500).min(5_000));
+    tokio::time::sleep(dur).await;
+
+    let samples = match pipeline.stop_recording() {
+        Ok(s) => s,
+        Err(e) => {
+            emit_pipeline_error(&app, &e.to_string());
+            tracing::error!("test_microphone: stop_recording FAILED: {e}");
+            set_pipeline_idle(&app, &state.inner());
+            return Err(e);
+        }
+    };
+    set_pipeline_idle(&app, &state.inner());
+
+    if samples.is_empty() {
+        emit_pipeline_error(&app, "No input captured. Check microphone and permissions.");
+        return Err(AppError::Audio(
+            "не получено ни одного сэмпла — микрофон молчит или занят".into(),
+        ));
+    }
+
+    // Считаем пиковый и RMS уровень.
+    let mut peak: i32 = 0;
+    let mut sum_sq: i64 = 0;
+    for &s in &samples {
+        let a = s.unsigned_abs() as i32;
+        if a > peak {
+            peak = a;
+        }
+        sum_sq += (s as i64) * (s as i64);
+    }
+    let rms = ((sum_sq as f64 / samples.len() as f64).sqrt()) as f32;
+    let peak_norm = peak as f32 / i16::MAX as f32;
+    let rms_norm = rms / i16::MAX as f32;
+
+    Ok(MicTestResult {
+        samples: samples.len(),
+        duration_ms: (samples.len() as f64 / 16_000.0 * 1000.0) as u64,
+        peak: peak_norm,
+        rms: rms_norm,
+    })
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct MicTestResult {
+    pub samples: usize,
+    pub duration_ms: u64,
+    /// Пиковый уровень, 0.0..1.0 (1.0 = clipping).
+    pub peak: f32,
+    /// Среднеквадратичный уровень, 0.0..1.0.
+    pub rms: f32,
+}
+
+
