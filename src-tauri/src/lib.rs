@@ -78,7 +78,8 @@ pub fn run() {
         .setup(|app| {
             // Трей-иконка с меню
             setup_tray(app)?;
-            setup_global_shortcut(app)?;
+            // NOTE: push-to-talk (global shortcut) временно отключён до Этапа 3.
+            // setup_global_shortcut(app)?;
             // Запуск фонового конвейера
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {

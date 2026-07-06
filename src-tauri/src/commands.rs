@@ -363,22 +363,14 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> AppResult<()> {
-    let prev = state.settings();
-    if prev.hotkey != settings.hotkey {
-        if let Err(e) = app.global_shortcut().unregister(prev.hotkey.as_str()) {
-            tracing::warn!("save_settings: failed to unregister previous hotkey {:?}: {e}", prev.hotkey);
-        }
-    }
+    // NOTE: регистрация хоткея намеренно отключена — push-to-talk будет
+    // реализован в Этапе 3 с полным обработчиком (start/stop_dictation).
+    // Сейчас регистрация без обработчика только сбивает конвейер.
+    let _ = app;
 
     state::save_settings(&settings)?;
     state.set_settings(settings.clone());
-
-    if let Err(e) = app.global_shortcut().register(settings.hotkey.as_str()) {
-        return Err(AppError::Config(format!(
-            "Не удалось зарегистрировать хоткей {}: {e}",
-            settings.hotkey
-        )));
-    }
+    tracing::info!("settings saved: model={:?}, lang={}", settings.whisper_model_path, settings.language);
     Ok(())
 }
 

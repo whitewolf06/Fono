@@ -75,15 +75,37 @@ impl SttEngine {
                 params.set_language(Some(lang));
             }
         }
-        params.set_n_threads(num_threads());
+        let n_threads = num_threads();
+        params.set_n_threads(n_threads);
+        // Критично для GUI: отключаем весь вывод в stderr/stdout — иначе
+        // fprintf блокируется в Tauri webview и whisper зависает намертво.
+        params.set_print_progress(false);
+        params.set_print_realtime(false);
+        params.set_print_timestamps(false);
+        params.set_print_special(false);
+        // Не тянуть контекст с прошлых вызовов и не плодить сегменты —
+        // каждый вызов независимый, как нам и надо.
+        params.set_no_context(true);
+        params.set_single_segment(true);
+        params.set_no_timestamps(true);
 
         // Каждый вызов создаёт свой state — это безопасно для параллельных вызовов.
         let mut state = ctx
             .create_state()
             .map_err(|e| AppError::Stt(format!("create_state: {e}")))?;
+
+        let started = std::time::Instant::now();
+        tracing::info!(
+            "whisper full start: {} samples (~{:.2}s), lang={}, threads={}",
+            samples.len(),
+            samples.len() as f32 / 16_000.0,
+            if language.is_empty() { "auto" } else { language },
+            n_threads
+        );
         state
             .full(params, &pcm_f32)
             .map_err(|e| AppError::Stt(format!("full: {e}")))?;
+        tracing::info!("whisper full done in {:.2}s", started.elapsed().as_secs_f32());
 
         let n_segments = state.full_n_segments();
         let mut text = String::new();
