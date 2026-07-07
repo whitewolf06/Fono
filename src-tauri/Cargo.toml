@@ -80,6 +80,14 @@ incremental = true
 [profile.release]
 codegen-units = 1
 lto = true
-opt-level = "s"
+# opt-level = 3 (не "s"!) — whisper критична скорость, не размер.
+# "s" оптимизирует по размеру и убивает SIMD-распараллеливание.
+opt-level = 3
 panic = "abort"
+strip = true
+
+# Нативные инструкции CPU (AVX2/AVX512/FMA) — критично для whisper.cpp.
+# ggml активно использует SIMD; без этого whisper работает в 3-5x медленнее.
+[profile.release.package.whisper-rs-sys]
+opt-level = 3
 strip = true

@@ -182,8 +182,9 @@ fn num_threads() -> std::os::raw::c_int {
     let cpus = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4);
-    // Не больше 4: для whisper этого достаточно, экономим ресурсы системы.
-    cpus.min(4) as std::os::raw::c_int
+    // Используем до 8 потоков — whisper.cpp хорошо параллелится,
+    // но больше 8 не даёт прироста (memory bandwidth bottleneck).
+    cpus.clamp(2, 8) as std::os::raw::c_int
 }
 
 /// Преобразует numeric language id в ISO-строку.
