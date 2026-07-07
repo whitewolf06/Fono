@@ -405,6 +405,36 @@ export function SettingsView() {
                 {testResult.detected_language &&
                   `Определён язык: ${testResult.detected_language} · `}
                 {testResult.text.length} символов
+                {testResult.transcribe_secs != null && (
+                  <>
+                    {" · "}
+                    <span
+                      className={
+                        testResult.transcribe_secs < 1.5
+                          ? "text-emerald-400"
+                          : testResult.transcribe_secs < 4
+                            ? "text-amber-400"
+                            : "text-red-400"
+                      }
+                    >
+                      обработка {testResult.transcribe_secs.toFixed(2)}с
+                    </span>
+                    {" "}
+                    на{" "}
+                    <strong className="text-neutral-300">
+                      {testResult.device ?? "CPU"}
+                    </strong>
+                    {testResult.audio_secs != null &&
+                      testResult.audio_secs > 0 && (
+                        <span className="text-neutral-500">
+                          {" "}
+                          (RTF ={" "}
+                          {(testResult.transcribe_secs / testResult.audio_secs).toFixed(2)}
+                          x)
+                        </span>
+                      )}
+                  </>
+                )}
               </div>
               <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-4">
                 <div className="mb-2 text-xs font-medium text-neutral-400">

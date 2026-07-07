@@ -75,4 +75,10 @@ export interface Transcript {
   text: string;
   /** Язык, определённый whisper (если language = "auto") */
   detected_language: string | null;
+  /** Время транскрипции в секундах */
+  transcribe_secs?: number | null;
+  /** Длительность аудио в секундах */
+  audio_secs?: number | null;
+  /** Какое устройство использовалось (CPU/CUDA) */
+  device?: string | null;
 }

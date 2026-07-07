@@ -105,7 +105,16 @@ impl SttEngine {
         state
             .full(params, &pcm_f32)
             .map_err(|e| AppError::Stt(format!("full: {e}")))?;
-        tracing::info!("whisper full done in {:.2}s", started.elapsed().as_secs_f32());
+        let elapsed = started.elapsed().as_secs_f32();
+        let audio_secs = samples.len() as f32 / 16_000.0;
+        let rtf = if audio_secs > 0.0 { elapsed / audio_secs } else { 0.0 };
+        tracing::info!(
+            "whisper full done in {:.2}s (audio={:.2}s, RTF={:.2}x, device={})",
+            elapsed,
+            audio_secs,
+            rtf,
+            stt_device()
+        );
 
         let n_segments = state.full_n_segments();
         let mut text = String::new();
@@ -134,6 +143,9 @@ impl SttEngine {
         Ok(Transcript {
             text: text.trim().to_string(),
             detected_language,
+            transcribe_secs: Some(elapsed),
+            audio_secs: Some(audio_secs),
+            device: Some(stt_device().to_string()),
         })
     }
 
@@ -145,6 +157,24 @@ impl SttEngine {
 impl Default for SttEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Возвращает имя backend (CPU/CUDA/Vulkan) — зависит от того, с какими
+/// features собран whisper.cpp. Используется для логирования и отображения
+/// в UI, чтобы пользователь понимал, какое устройство используется.
+fn stt_device() -> &'static str {
+    #[cfg(feature = "cuda")]
+    {
+        "CUDA"
+    }
+    #[cfg(all(feature = "vulkan", not(feature = "cuda")))]
+    {
+        "Vulkan"
+    }
+    #[cfg(not(any(feature = "cuda", feature = "vulkan")))]
+    {
+        "CPU"
     }
 }
 

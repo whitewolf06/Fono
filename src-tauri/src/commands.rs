@@ -88,6 +88,9 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(Transcript {
             text: String::new(),
             detected_language: None,
+            transcribe_secs: None,
+            audio_secs: None,
+            device: None,
         });
     }
 
@@ -145,6 +148,9 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     Ok(Transcript {
         text: final_text,
         detected_language: transcript.detected_language,
+        transcribe_secs: transcript.transcribe_secs,
+        audio_secs: transcript.audio_secs,
+        device: transcript.device,
     })
 }
 
@@ -272,6 +278,9 @@ pub async fn transcribe_test(
     Ok(Transcript {
         text: final_text,
         detected_language: transcript.detected_language,
+        transcribe_secs: transcript.transcribe_secs,
+        audio_secs: transcript.audio_secs,
+        device: transcript.device,
     })
 }
 
