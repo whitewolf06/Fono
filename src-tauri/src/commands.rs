@@ -153,8 +153,17 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
 /// Не делает injection в окно — возвращает транскрипт вызывающему (UI).
 /// Используется кнопкой «🧪 Записать и распознать» в настройках для проверки
 /// аудио-конвейера на машине пользователя.
+///
+/// `inject=true` — после распознавания текст вставляется в активное окно через
+/// SendInput (Этап 2: текст-инъекция). `inject=false` — только возвращает
+/// транскрипт для отображения в UI (безопасно для теста).
 #[tauri::command]
-pub async fn transcribe_test(app: AppHandle, duration_ms: u64) -> AppResult<Transcript> {
+pub async fn transcribe_test(
+    app: AppHandle,
+    duration_ms: u64,
+    inject: Option<bool>,
+) -> AppResult<Transcript> {
+    let inject = inject.unwrap_or(false);
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
@@ -245,6 +254,18 @@ pub async fn transcribe_test(app: AppHandle, duration_ms: u64) -> AppResult<Tran
             }
         }
     };
+
+    // Этап 2: текст-инъекция в активное окно через SendInput.
+    if inject && !final_text.is_empty() {
+        pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
+        match crate::injection::inject_text(&final_text) {
+            Ok(()) => tracing::info!("injected {} chars into active window", final_text.chars().count()),
+            Err(e) => {
+                tracing::warn!("injection failed ({e}) — returning transcript anyway");
+                let _ = app.emit("error", format!("Вставка текста: {e}"));
+            }
+        }
+    }
 
     set_pipeline_idle(&app, &state.inner());
 

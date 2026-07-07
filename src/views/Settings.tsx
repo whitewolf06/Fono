@@ -21,6 +21,7 @@ export function SettingsView() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<Transcript | null>(null);
   const [testDuration, setTestDuration] = useState(4000);
+  const [injectMode, setInjectMode] = useState(false);
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
   const [logs, setLogs] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState(false);
@@ -85,7 +86,7 @@ export function SettingsView() {
     setTestResult(null);
     setTestError(null);
     try {
-      const result = await ipc.transcribeTest(testDuration);
+      const result = await ipc.transcribeTest(testDuration, injectMode);
       setTestResult(result);
     } catch (e) {
       setTestError(String(e));
@@ -305,7 +306,9 @@ export function SettingsView() {
           </div>
           <p className="mb-4 text-sm text-neutral-400">
             Запишите фрагмент речи и проверьте, как whisper.cpp распознаёт ваш
-            голос. Текст не вставляется в окна — просто отображается здесь.
+            голос. Можно просто посмотреть результат здесь, либо включить
+            «вставлять в окно» — тогда текст автоматически напечатается в
+            активном окне (Notepad, Word, браузер, мессенджер).
           </p>
 
           <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -323,6 +326,16 @@ export function SettingsView() {
                 <option value={10000}>10 секунд</option>
               </select>
             </div>
+            <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-neutral-300">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand-500"
+                checked={injectMode}
+                onChange={(e) => setInjectMode(e.target.checked)}
+                disabled={testing}
+              />
+              Вставлять в активное окно
+            </label>
             <button
               className="btn-primary"
               onClick={runTest}
@@ -369,11 +382,20 @@ export function SettingsView() {
           )}
 
           {testing && (
-            <div className="mb-4 flex items-center gap-3 rounded-lg border border-brand-500/40 bg-brand-500/10 px-4 py-3 text-sm text-brand-200">
-              <span className="h-2 w-2 animate-pulse-ring rounded-full bg-brand-500" />
-              {pipelineState === "listening"
-                ? `Говорите сейчас! Запись ${testDuration / 1000} сек…`
-                : "Обработка аудио…"}
+            <div className="mb-4 space-y-2">
+              <div className="flex items-center gap-3 rounded-lg border border-brand-500/40 bg-brand-500/10 px-4 py-3 text-sm text-brand-200">
+                <span className="h-2 w-2 animate-pulse-ring rounded-full bg-brand-500" />
+                {pipelineState === "listening"
+                  ? `Говорите сейчас! Запись ${testDuration / 1000} сек…`
+                  : "Обработка аудио…"}
+              </div>
+              {injectMode && pipelineState === "listening" && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+                  ⚠️ После распознавания текст вставится в <strong>активное
+                  окно</strong>. Переключитесь сейчас в Notepad, Word, браузер
+                  или мессенджер — куда хотите напечатать.
+                </div>
+              )}
             </div>
           )}
 

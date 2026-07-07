@@ -16,9 +16,10 @@ export const ipc = {
   startDictation: () => invoke<void>("start_dictation"),
   stopDictation: () => invoke<Transcript>("stop_dictation"),
 
-  // Тестовая запись фиксированной длительности (без injection в окно).
-  transcribeTest: (durationMs: number) =>
-    invoke<Transcript>("transcribe_test", { durationMs }),
+  // Тестовая запись фиксированной длительности.
+  // inject=true — вставить распознанный текст в активное окно (Этап 2).
+  transcribeTest: (durationMs: number, inject?: boolean) =>
+    invoke<Transcript>("transcribe_test", { durationMs, inject }),
 
   // Аудио
   listAudioDevices: () => invoke<DeviceInfo[]>("list_audio_devices"),
