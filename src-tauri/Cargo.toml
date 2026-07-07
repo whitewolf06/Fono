@@ -69,8 +69,10 @@ chrono = { version = "0.4", features = ["serde"] }
 [features]
 # По умолчанию используем CPU-only whisper
 default = []
-# Раскомментируйте для GPU-ускорения (нужен CUDA Toolkit)
-# cuda = ["whisper-rs/cuda"]
+# GPU-ускорение через CUDA (нужен CUDA Toolkit 12.8+, ~3 ГБ установка)
+cuda = ["whisper-rs/cuda"]
+# GPU-ускорение через Vulkan (нужен Vulkan SDK ~500 МБ, работает на любой GPU)
+vulkan = ["whisper-rs/vulkan"]
 
 [profile.dev]
 incremental = true
