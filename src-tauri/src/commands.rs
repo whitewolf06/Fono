@@ -94,6 +94,21 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         });
     }
 
+    // VAD: обрезаем тишину в начале/конце — whisper получит меньше аудио,
+    // значит отработает быстрее (ускорение 1.5-2x на типичной записи).
+    let samples = crate::vad::trim_silence(&samples);
+    if samples.is_empty() {
+        tracing::info!("VAD: речь не обнаружена вообще — пропускаем транскрипцию");
+        set_pipeline_idle(&app, &state.inner());
+        return Ok(Transcript {
+            text: String::new(),
+            detected_language: None,
+            transcribe_secs: None,
+            audio_secs: None,
+            device: None,
+        });
+    }
+
     // Транскрибируем (CPU-bound — запускаем в spawn_blocking).
     pipeline::set_state(&app, &state.inner(), PipelineState::Transcribing);
     let stt = pipeline.stt().clone();

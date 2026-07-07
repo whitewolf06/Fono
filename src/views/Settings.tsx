@@ -223,6 +223,14 @@ export function SettingsView() {
                 onChange={(e) => update("hotkey", e.target.value)}
                 placeholder="Ctrl+Space"
               />
+              <p className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                ✅ <strong>Push-to-talk активен:</strong> зажмите{" "}
+                <kbd className="rounded bg-neutral-700 px-1.5 py-0.5">
+                  {settings.hotkey}
+                </kbd>{" "}
+                в любом приложении, наговорите текст, отпустите — текст
+                автоматически вставится в активное окно.
+              </p>
             </div>
 
             <label className="flex cursor-pointer items-center gap-3">

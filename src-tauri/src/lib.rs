@@ -11,6 +11,7 @@ pub mod pipeline;
 pub mod state;
 pub mod stt;
 pub mod types;
+pub mod vad;
 
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -78,8 +79,8 @@ pub fn run() {
         .setup(|app| {
             // Трей-иконка с меню
             setup_tray(app)?;
-            // NOTE: push-to-talk (global shortcut) временно отключён до Этапа 3.
-            // setup_global_shortcut(app)?;
+            // Push-to-talk: Ctrl+Space (Pressed) → запись, (Released) → стоп + STT + вставка.
+            setup_global_shortcut(app)?;
             // Запуск фонового конвейера
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -114,15 +115,16 @@ pub fn run() {
         .expect("error while running WhisperClone");
 }
 
-/// Создаёт системный трей с базовым меню.
+/// Регистрирует глобальную горячую клавишу push-to-talk.
+///
+/// Ctrl+Space: зажатие → старт записи, отпускание → стоп + STT + вставка.
 fn setup_global_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
-    let hotkey = app_handle.state::<AppState>().settings().hotkey;
+    let hotkey = app_handle.state::<AppState>().settings().hotkey.clone();
+    tracing::info!("registering push-to-talk hotkey: {}", hotkey);
 
-    app_handle
-        .global_shortcut()
-        .on_shortcut(hotkey.as_str(), move |app, _, event| {
-            match event.state {
+    if let Err(e) = app_handle.global_shortcut().on_shortcut(hotkey.as_str(), move |app, _, event| {
+        match event.state {
                 ShortcutState::Pressed => {
                     if let Err(e) = commands::start_dictation(app.clone()) {
                         let _ = app.emit("error", e.to_string());
@@ -140,7 +142,12 @@ fn setup_global_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
                     }
                 }
             }
-        })?;
+        }) {
+        tracing::error!("Не удалось зарегистрировать горячую клавишу '{}': {e}", hotkey);
+        tracing::error!("Возможно, она уже занята другим приложением. Push-to-talk недоступен, но тест кнопки работает.");
+    } else {
+        tracing::info!("push-to-talk hotkey '{}' registered successfully", hotkey);
+    }
 
     Ok(())
 }
