@@ -166,10 +166,7 @@ pub async fn run_full_pipeline(
         AiMode::Off => transcript.text,
         mode => {
             set_state(handle, state, PipelineState::Processing);
-            let client = LlmClient::new(
-                settings.llm_base_url.clone(),
-                settings.llm_model.clone(),
-            );
+            let client = LlmClient::from_settings(&settings);
             match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                 Ok(t) => t,
                 Err(e) => {

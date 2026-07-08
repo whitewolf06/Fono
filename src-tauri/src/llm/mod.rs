@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
-use crate::types::AiMode;
+use crate::types::{AiMode, LlmProvider, Settings};
 
 const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
@@ -75,26 +75,42 @@ struct ModelInfo {
 pub struct LlmClient {
     base_url: String,
     model: Option<String>,
+    api_key: Option<String>,
 }
 
 impl LlmClient {
-    pub fn new(base_url: impl Into<String>, model: Option<String>) -> Self {
+    pub fn new(base_url: impl Into<String>, model: Option<String>, api_key: Option<String>) -> Self {
         Self {
             base_url: base_url.into(),
             model,
+            api_key,
         }
     }
 
-    /// Проверяет соединение с LM Studio — возвращает имя активной модели.
+    pub fn from_settings(settings: &Settings) -> Self {
+        let base_url = match settings.llm_provider {
+            LlmProvider::OpenAi if settings.llm_base_url.trim().is_empty() => {
+                "https://api.openai.com/v1".to_string()
+            }
+            _ => settings.llm_base_url.clone(),
+        };
+        Self {
+            base_url,
+            model: settings.llm_model.clone(),
+            api_key: settings.llm_api_key.clone(),
+        }
+    }
+
+    /// Проверяет соединение с LLM-сервером — возвращает имя первой доступной модели.
     pub async fn test_connection(&self) -> AppResult<String> {
         let models = self.list_models().await?;
         models
             .into_iter()
             .next()
-            .ok_or_else(|| AppError::Llm("модель не загружена в LM Studio".into()))
+            .ok_or_else(|| AppError::Llm("нет доступных моделей".into()))
     }
 
-    /// Возвращает список доступных моделей из LM Studio.
+    /// Возвращает список доступных моделей.
     pub async fn list_models(&self) -> AppResult<Vec<String>> {
         let client = reqwest::Client::builder()
             .timeout(CONNECT_TIMEOUT)
@@ -102,15 +118,18 @@ impl LlmClient {
             .map_err(|e| AppError::Llm(e.to_string()))?;
 
         let url = format!("{}/models", self.base_url.trim_end_matches('/'));
-        let resp = client
-            .get(&url)
+        let mut req = client.get(&url);
+        if let Some(key) = &self.api_key {
+            req = req.header("Authorization", format!("Bearer {key}"));
+        }
+        let resp = req
             .send()
             .await
             .map_err(|e| AppError::Llm(format!("GET {url}: {e}")))?;
 
         if !resp.status().is_success() {
             return Err(AppError::Llm(format!(
-                "LM Studio ответил {} на GET {url}",
+                "LLM сервер ответил {} на GET {url}",
                 resp.status()
             )));
         }
@@ -142,6 +161,8 @@ impl LlmClient {
 
         let system = system_prompt(mode, clean_prompt);
         let user = user_prompt(transcript, mode);
+        crate::vlog!("LLM request model={} mode={:?}", model, mode);
+        crate::vlog!("LLM user prompt: {}", user);
 
         let req = ChatRequest {
             model,
@@ -170,9 +191,11 @@ impl LlmClient {
             "{}/chat/completions",
             self.base_url.trim_end_matches('/')
         );
-        let resp = client
-            .post(&url)
-            .json(&req)
+        let mut req_builder = client.post(&url).json(&req);
+        if let Some(key) = &self.api_key {
+            req_builder = req_builder.header("Authorization", format!("Bearer {key}"));
+        }
+        let resp = req_builder
             .send()
             .await
             .map_err(|e| AppError::Llm(format!("POST {url}: {e}")))?;
@@ -181,7 +204,7 @@ impl LlmClient {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
             return Err(AppError::Llm(format!(
-                "LM Studio ответил {status}: {text}"
+                "LLM сервер ответил {status}: {text}"
             )));
         }
 
@@ -190,11 +213,13 @@ impl LlmClient {
             .await
             .map_err(|e| AppError::Llm(format!("parse response: {e}")))?;
 
-        body.choices
+        let result = body.choices
             .into_iter()
             .next()
             .map(|c| c.message.content.trim().to_string())
-            .ok_or_else(|| AppError::Llm("пустой ответ LLM".into()))
+            .ok_or_else(|| AppError::Llm("пустой ответ LLM".into()))?;
+        crate::vlog!("LLM response: {}", result);
+        Ok(result)
     }
 }
 

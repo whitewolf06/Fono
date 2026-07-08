@@ -393,11 +393,11 @@ export function SettingsView() {
               </div>
 
               <p className="mb-3 text-xs text-neutral-400">
-                Программа постоянно слушает микрофон моделью (base).
+                Программа постоянно слушает микрофон моделью{" "}
+                <code className="text-brand-300">{settings.wake_word_model}</code>.
                 Когда услышит фразу «{settings.wake_word}» — начнёт запись
-                диктовки, по тишине вставит текст в активное окно. Требует
-                модель <code className="text-brand-300">base</code> (147 МБ).
-                CPU в режиме ожидания: ~5-10%.
+                диктовки, по тишине вставит текст в активное окно. CPU в
+                режиме ожидания: ~5-10%.
               </p>
 
               <div>
@@ -415,6 +415,31 @@ export function SettingsView() {
                 </p>
               </div>
 
+              <div>
+                <label className="label">Модель wake word</label>
+                <select
+                  className="input"
+                  value={settings.wake_word_model}
+                  onChange={(e) =>
+                    update(
+                      "wake_word_model",
+                      e.target.value as SettingsT["wake_word_model"],
+                    )
+                  }
+                  disabled={settings.wake_word_enabled}
+                >
+                  <option value="tiny">tiny (быстро, менее точно)</option>
+                  <option value="base">base (баланс)</option>
+                  <option value="small">small (точнее)</option>
+                  <option value="medium">medium (еще точнее)</option>
+                  <option value="large">large (медленно, самое точное)</option>
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Требуется перезапуск wake word. На GPU даже small/medium
+                  работают быстро.
+                </p>
+              </div>
+
               {wakeStatus === "Triggered" && (
                 <div className="mt-3 rounded-lg border border-brand-500/40 bg-brand-500/10 px-4 py-3 text-sm text-brand-200">
                   🎙️ Wake word сработала! Говорите текст сейчас — запись идёт.
@@ -424,9 +449,61 @@ export function SettingsView() {
           </div>
         </section>
 
+        {/* Оверлей */}
+        <section className="card">
+          <h2 className="mb-4 text-lg font-medium">🪟 Оверлей</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="label">
+                Масштаб ({settings.overlay_scale.toFixed(2)}x)
+              </label>
+              <input
+                type="range"
+                min={0.5}
+                max={2.0}
+                step={0.1}
+                value={settings.overlay_scale}
+                onChange={(e) =>
+                  update("overlay_scale", Number(e.target.value))
+                }
+                className="w-full accent-brand-500"
+              />
+            </div>
+            <div>
+              <label className="label">
+                Прозрачность ({Math.round(settings.overlay_opacity * 100)}%)
+              </label>
+              <input
+                type="range"
+                min={0.2}
+                max={1.0}
+                step={0.05}
+                value={settings.overlay_opacity}
+                onChange={(e) =>
+                  update("overlay_opacity", Number(e.target.value))
+                }
+                className="w-full accent-brand-500"
+              />
+            </div>
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand-500"
+                checked={settings.overlay_mini_mode}
+                onChange={(e) =>
+                  update("overlay_mini_mode", e.target.checked)
+                }
+              />
+              <span className="text-sm text-neutral-200">
+                Мини-режим (только индикатор)
+              </span>
+            </label>
+          </div>
+        </section>
+
         {/* AI-постобработка */}
         <section className="card">
-          <h2 className="mb-4 text-lg font-medium">✨ AI-обработка (LM Studio)</h2>
+          <h2 className="mb-4 text-lg font-medium">✨ AI-обработка</h2>
           <div className="space-y-4">
             <div>
               <label className="label">Режим обработки</label>
@@ -444,14 +521,60 @@ export function SettingsView() {
               </select>
             </div>
             <div>
-              <label className="label">URL сервера LM Studio</label>
+              <label className="label">Провайдер LLM</label>
+              <select
+                className="input"
+                value={settings.llm_provider}
+                onChange={(e) =>
+                  update(
+                    "llm_provider",
+                    e.target.value as SettingsT["llm_provider"],
+                  )
+                }
+              >
+                <option value="lmstudio">LM Studio (локальный)</option>
+                <option value="openai">OpenAI</option>
+                <option value="custom">Custom OpenAI-совместимый</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">
+                URL API{" "}
+                {settings.llm_provider === "lmstudio"
+                  ? "LM Studio"
+                  : settings.llm_provider === "openai"
+                    ? "OpenAI"
+                    : "провайдера"}
+              </label>
               <input
                 className="input"
                 value={settings.llm_base_url}
                 onChange={(e) => update("llm_base_url", e.target.value)}
-                placeholder="http://localhost:1234/v1"
+                placeholder={
+                  settings.llm_provider === "openai"
+                    ? "https://api.openai.com/v1"
+                    : "http://localhost:1234/v1"
+                }
               />
             </div>
+            {settings.llm_provider !== "lmstudio" && (
+              <div>
+                <label className="label">API-ключ</label>
+                <input
+                  type="password"
+                  className="input"
+                  value={settings.llm_api_key ?? ""}
+                  onChange={(e) =>
+                    update("llm_api_key", e.target.value || null)
+                  }
+                  placeholder="sk-..."
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Ключ хранится локально в settings.json. Для продакшена лучше
+                  использовать системное хранилище.
+                </p>
+              </div>
+            )}
             <div>
               <label className="label">Модель LLM</label>
               <div className="flex gap-2">
@@ -835,6 +958,19 @@ export function SettingsView() {
                 символ — переключите на «Буфер обмена».
               </p>
             </div>
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand-500"
+                checked={settings.verbose_logging}
+                onChange={(e) =>
+                  update("verbose_logging", e.target.checked)
+                }
+              />
+              <span className="text-sm text-neutral-200">
+                Подробные логи (для отладки)
+              </span>
+            </label>
             <label className="flex cursor-pointer items-center gap-3">
               <input
                 type="checkbox"

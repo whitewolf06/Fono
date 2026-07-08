@@ -35,6 +35,7 @@ export type WhisperModelSize =
 
 export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";
+export type LlmProvider = "lmstudio" | "openai" | "custom";
 
 export interface Settings {
   /** device_id микрофона или null = системный default */
@@ -71,6 +72,20 @@ export interface Settings {
   command_hotkey: string;
   /** Список приложений для запуска по голосовой команде */
   launch_apps: LaunchApp[];
+  /** Масштаб overlay-окна */
+  overlay_scale: number;
+  /** Прозрачность overlay-окна (0..1) */
+  overlay_opacity: number;
+  /** Мини-режим overlay */
+  overlay_mini_mode: boolean;
+  /** Подробные логи для отладки */
+  verbose_logging: boolean;
+  /** Провайдер LLM */
+  llm_provider: LlmProvider;
+  /** API-ключ для облачного LLM */
+  llm_api_key: string | null;
+  /** Модель whisper для wake word */
+  wake_word_model: WhisperModelSize;
 }
 
 export interface LaunchApp {
@@ -97,6 +112,13 @@ export const DEFAULT_SETTINGS: Settings = {
   injection_mode: "sendinput",
   command_hotkey: "Ctrl+Shift+Space",
   launch_apps: [],
+  overlay_scale: 1.0,
+  overlay_opacity: 1.0,
+  overlay_mini_mode: false,
+  verbose_logging: false,
+  llm_provider: "lmstudio",
+  llm_api_key: null,
+  wake_word_model: "base",
 };
 
 export interface Transcript {

@@ -16,6 +16,7 @@ use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
 /// Пытается выполнить голосовую команду.
 pub fn execute(text: &str, launch_apps: &[LaunchApp]) -> AppResult<String> {
     let normalized = normalize(text);
+    crate::vlog!("voice command normalized: {}", normalized);
 
     if let Some(query) = strip_prefixes(&normalized, &["переключись на", "перейди в", "перейди на", "открой", "включи"]) {
         let query = query.trim();
@@ -33,6 +34,32 @@ pub fn execute(text: &str, launch_apps: &[LaunchApp]) -> AppResult<String> {
         }
         let name = launch_application(query, launch_apps)?;
         return Ok(format!("Запустил «{name}»"));
+    }
+
+    // Системные и медиа-команды.
+    if normalized.contains("громче") {
+        send_media_key(0xAF)?;
+        return Ok("Громкость +".to_string());
+    }
+    if normalized.contains("тише") {
+        send_media_key(0xAE)?;
+        return Ok("Громкость −".to_string());
+    }
+    if normalized.contains("выключи звук") || normalized.contains("mute") || normalized.contains("без звука") {
+        send_media_key(0xAD)?;
+        return Ok("Звук выключен".to_string());
+    }
+    if normalized.contains("пауза") || normalized.contains("play") || normalized.contains("воспроизведение") {
+        send_media_key(0xB3)?;
+        return Ok("Play/Pause".to_string());
+    }
+    if normalized.contains("следующий") || normalized.contains("вперёд") || normalized.contains("вперед") {
+        send_media_key(0xB0)?;
+        return Ok("Следующий трек".to_string());
+    }
+    if normalized.contains("предыдущий") || normalized.contains("назад") {
+        send_media_key(0xB1)?;
+        return Ok("Предыдущий трек".to_string());
     }
 
     Err(AppError::Config(format!(
@@ -60,6 +87,11 @@ pub fn switch_to_window(query: &str) -> AppResult<String> {
         return Err(AppError::Config("не найдено видимых окон".into()));
     }
 
+    crate::vlog!(
+        "voice command window candidates: {:?}",
+        candidates.iter().map(|(_, t)| t.clone()).collect::<Vec<_>>()
+    );
+
     let query_norm = normalize(query);
 
     // Сначала пробуем точное/подстроковое совпадение по всем словам запроса.
@@ -73,6 +105,7 @@ pub fn switch_to_window(query: &str) -> AppResult<String> {
     }
 
     // Fallback: наименьшее расстояние Левенштейна между запросом и заголовком.
+    crate::vlog!("voice command: using fuzzy match for '{}'", query_norm);
     let query_chars: Vec<char> = query_norm.chars().collect();
     let best = candidates
         .iter()
@@ -187,6 +220,54 @@ pub fn launch_application(query: &str, launch_apps: &[LaunchApp]) -> AppResult<S
         .map_err(|e| AppError::Io(e))?;
 
     Ok(app.name.clone())
+}
+
+#[cfg(windows)]
+fn send_media_key(vk: u16) -> AppResult<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
+    };
+
+    let down = INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY(vk),
+                wScan: 0,
+                dwFlags: windows::Win32::UI::Input::KeyboardAndMouse::KEYBD_EVENT_FLAGS(0),
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+    let up = INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY(vk),
+                wScan: 0,
+                dwFlags: KEYEVENTF_KEYUP,
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+    let inputs = [down, up];
+    unsafe {
+        let cbsize = std::mem::size_of::<INPUT>() as i32;
+        let sent = SendInput(&inputs, cbsize);
+        if sent == 0 {
+            return Err(AppError::Injection("SendInput(media key) вернул 0".into()));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn send_media_key(_vk: u16) -> AppResult<()> {
+    Err(AppError::Config(
+        "медиа-клавиши поддерживаются только на Windows".into(),
+    ))
 }
 
 fn normalize(s: &str) -> String {

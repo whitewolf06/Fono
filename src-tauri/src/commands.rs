@@ -135,10 +135,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         AiMode::Off => transcript.text.clone(),
         mode => {
             pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
-            let client = LlmClient::new(
-                settings.llm_base_url.clone(),
-                settings.llm_model.clone(),
-            );
+            let client = LlmClient::from_settings(&settings);
             match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                 Ok(t) => t,
                 Err(e) => {
@@ -149,6 +146,8 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             }
         }
     };
+
+    crate::vlog!("dictation final text: {}", final_text);
 
     // Вставка текста.
     pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
@@ -263,10 +262,7 @@ pub async fn transcribe_test(
         AiMode::Off => transcript.text.clone(),
         mode => {
             pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
-            let client = LlmClient::new(
-                settings.llm_base_url.clone(),
-                settings.llm_model.clone(),
-            );
+            let client = LlmClient::from_settings(&settings);
             match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                 Ok(t) => t,
                 Err(e) => {
@@ -395,15 +391,15 @@ pub fn set_whisper_model(state: State<'_, AppState>, path: String) -> AppResult<
 #[tauri::command]
 pub async fn test_llm_connection(state: State<'_, AppState>) -> AppResult<String> {
     let s = state.settings();
-    let client = LlmClient::new(s.llm_base_url.clone(), s.llm_model.clone());
+    let client = LlmClient::from_settings(&s);
     let model_id = client.test_connection().await?;
-    Ok(format!("LM Studio активен, модель: {model_id}"))
+    Ok(format!("LLM активен, модель: {model_id}"))
 }
 
 #[tauri::command]
 pub async fn list_llm_models(state: State<'_, AppState>) -> AppResult<Vec<String>> {
     let s = state.settings();
-    let client = LlmClient::new(s.llm_base_url.clone(), None);
+    let client = LlmClient::from_settings(&s);
     client.list_models().await
 }
 
@@ -422,6 +418,7 @@ pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Setti
 
     state::save_settings(&settings)?;
     state.set_settings(settings.clone());
+    crate::verbose::set_verbose(settings.verbose_logging);
     tracing::info!("settings saved: model={:?}, lang={}", settings.whisper_model_path, settings.language);
 
     // Перерегистрируем глобальные шорткаты, если изменились hotkey/command_hotkey.
@@ -585,15 +582,15 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     let detector = app.state::<crate::wakeword::WakeWordDetector>();
     let settings = state.settings();
 
-    // Загружаем base-модель для wake word.
+    // Загружаем выбранную модель для wake word.
     let models_dir = crate::state::models_dir()?;
-    let base_path = models_dir.join("ggml-base.bin");
-    if !base_path.exists() {
+    let model_path = models_dir.join(settings.wake_word_model.filename());
+    if !model_path.exists() {
         return Err(AppError::Config(
-            "Модель base не скачана. Скачайте её в разделе «Модель распознавания».".into(),
+            format!("Модель {} не скачана. Скачайте её в разделе «Модель распознавания».", settings.wake_word_model.filename()).into(),
         ));
     }
-    pipeline.stt().ensure_loaded(&base_path, settings.use_gpu)?;
+    pipeline.stt().ensure_loaded(&model_path, settings.use_gpu)?;
 
     detector.set_phrase(settings.wake_word.clone());
 

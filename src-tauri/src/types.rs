@@ -94,6 +94,14 @@ pub enum InjectionMode {
     Clipboard,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LlmProvider {
+    LmStudio,
+    OpenAi,
+    Custom,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
@@ -130,6 +138,20 @@ pub struct Settings {
     pub command_hotkey: String,
     #[serde(default)]
     pub launch_apps: Vec<LaunchApp>,
+    #[serde(default = "default_overlay_scale")]
+    pub overlay_scale: f32,
+    #[serde(default = "default_overlay_opacity")]
+    pub overlay_opacity: f32,
+    #[serde(default)]
+    pub overlay_mini_mode: bool,
+    #[serde(default)]
+    pub verbose_logging: bool,
+    #[serde(default = "default_llm_provider")]
+    pub llm_provider: LlmProvider,
+    #[serde(default)]
+    pub llm_api_key: Option<String>,
+    #[serde(default = "default_wake_word_model")]
+    pub wake_word_model: WhisperModelSize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,6 +181,13 @@ impl Default for Settings {
             injection_mode: default_injection_mode(),
             command_hotkey: default_command_hotkey(),
             launch_apps: Vec::new(),
+            overlay_scale: default_overlay_scale(),
+            overlay_opacity: default_overlay_opacity(),
+            overlay_mini_mode: false,
+            verbose_logging: false,
+            llm_provider: default_llm_provider(),
+            llm_api_key: None,
+            wake_word_model: default_wake_word_model(),
         }
     }
 }
@@ -173,6 +202,22 @@ fn default_injection_mode() -> InjectionMode {
 
 fn default_command_hotkey() -> String {
     "Ctrl+Shift+Space".to_string()
+}
+
+fn default_overlay_scale() -> f32 {
+    1.0
+}
+
+fn default_overlay_opacity() -> f32 {
+    1.0
+}
+
+fn default_llm_provider() -> LlmProvider {
+    LlmProvider::LmStudio
+}
+
+fn default_wake_word_model() -> WhisperModelSize {
+    WhisperModelSize::Base
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

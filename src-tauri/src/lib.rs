@@ -13,6 +13,7 @@ pub mod state;
 pub mod stt;
 pub mod types;
 pub mod vad;
+pub mod verbose;
 pub mod wakeword;
 
 use tauri::{Emitter, Manager, WindowEvent};
@@ -101,6 +102,7 @@ pub fn run() {
 
             // Восстанавливаем позицию overlay-окна из настроек.
             let settings = app.state::<AppState>().settings();
+            crate::verbose::set_verbose(settings.verbose_logging);
             if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
                 if let Some(overlay) = app.get_webview_window("overlay") {
                     let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
@@ -394,13 +396,13 @@ async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box
 
     // Загружаем base-модель для wake word (баланс скорости/точности).
     let models_dir = state::models_dir()?;
-    let base_path = models_dir.join("ggml-base.bin");
+    let base_path = models_dir.join(settings.wake_word_model.filename());
     if !base_path.exists() {
         tracing::warn!(
-            "wake word: base model not found at {}, wake word disabled",
+            "wake word: model not found at {}, wake word disabled",
             base_path.display()
         );
-        let _ = handle.emit("error", "Wake word: модель base не найдена. Скачайте её в настройках.");
+        let _ = handle.emit("error", format!("Wake word: модель {} не найдена. Скачайте её в настройках.", settings.wake_word_model.filename()));
         return Ok(());
     }
 
@@ -533,10 +535,7 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
                 crate::types::AiMode::Off => transcript.text.clone(),
                 mode => {
                     pipeline::set_state(handle, &state.inner(), PipelineState::Processing);
-                    let client = crate::llm::LlmClient::new(
-                        settings.llm_base_url.clone(),
-                        settings.llm_model.clone(),
-                    );
+                    let client = crate::llm::LlmClient::from_settings(&settings);
                     match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                         Ok(t) => t,
                         Err(e) => {
@@ -561,7 +560,7 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
 
     // Переключаемся обратно на base-модель и резюммим wake word.
     let models_dir = state::models_dir()?;
-    let base_path = models_dir.join("ggml-base.bin");
+    let base_path = models_dir.join(settings.wake_word_model.filename());
     if base_path.exists() {
         let _ = pipeline.stt().ensure_loaded(&base_path, settings.use_gpu);
     }
