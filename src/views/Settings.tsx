@@ -21,6 +21,8 @@ export function SettingsView() {
   const [error, setError] = useState<string | null>(null);
   const [llmStatus, setLlmStatus] = useState<string | null>(null);
   const [llmTesting, setLlmTesting] = useState(false);
+  const [llmModels, setLlmModels] = useState<string[]>([]);
+  const [llmModelsLoading, setLlmModelsLoading] = useState(false);
 
   // Тестовая транскрипция
   const [testing, setTesting] = useState(false);
@@ -47,11 +49,24 @@ export function SettingsView() {
 
   useEffect(() => {
     ipc.getSettings().then(setSettings).catch(() => setError("Не удалось загрузить настройки"));
+    loadLlmModels();
     const unlistenP = onError((msg) => setError(msg));
     return () => {
       unlistenP.then((u) => u());
     };
   }, []);
+
+  const loadLlmModels = async () => {
+    setLlmModelsLoading(true);
+    try {
+      const models = await ipc.listLlmModels();
+      setLlmModels(models);
+    } catch (e) {
+      setLlmModels([]);
+    } finally {
+      setLlmModelsLoading(false);
+    }
+  };
 
   const update = <K extends keyof SettingsT>(key: K, value: SettingsT[K]) => {
     setSettings((s) => ({ ...s, [key]: value }));
@@ -377,6 +392,36 @@ export function SettingsView() {
                 onChange={(e) => update("llm_base_url", e.target.value)}
                 placeholder="http://localhost:1234/v1"
               />
+            </div>
+            <div>
+              <label className="label">Модель LLM</label>
+              <div className="flex gap-2">
+                <input
+                  list="llm-models"
+                  className="input flex-1"
+                  value={settings.llm_model ?? ""}
+                  onChange={(e) =>
+                    update("llm_model", e.target.value || null)
+                  }
+                  placeholder="qwen2.5-coder-7b-instruct"
+                />
+                <datalist id="llm-models">
+                  {llmModels.map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
+                <button
+                  className="btn-secondary whitespace-nowrap"
+                  onClick={loadLlmModels}
+                  disabled={llmModelsLoading}
+                  title="Обновить список моделей из LM Studio"
+                >
+                  {llmModelsLoading ? "…" : "Обновить"}
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-neutral-500">
+                Рекомендуется: <span className="text-brand-300">qwen2.5-coder-7b-instruct</span>
+              </p>
             </div>
             <button
               className="btn-secondary"

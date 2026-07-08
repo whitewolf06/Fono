@@ -399,6 +399,13 @@ pub async fn test_llm_connection(state: State<'_, AppState>) -> AppResult<String
     Ok(format!("LM Studio активен, модель: {model_id}"))
 }
 
+#[tauri::command]
+pub async fn list_llm_models(state: State<'_, AppState>) -> AppResult<Vec<String>> {
+    let s = state.settings();
+    let client = LlmClient::new(s.llm_base_url.clone(), None);
+    client.list_models().await
+}
+
 // ====== Настройки ======
 
 #[tauri::command]

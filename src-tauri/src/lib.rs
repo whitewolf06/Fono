@@ -110,6 +110,7 @@ pub fn run() {
             commands::set_whisper_model,
             // llm
             commands::test_llm_connection,
+            commands::list_llm_models,
             // settings
             commands::get_settings,
             commands::save_settings,

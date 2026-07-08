@@ -34,6 +34,7 @@ export const ipc = {
 
   // LLM
   testLlmConnection: () => invoke<string>("test_llm_connection"),
+  listLlmModels: () => invoke<string[]>("list_llm_models"),
 
   // Настройки
   getSettings: () => invoke<Settings>("get_settings"),
