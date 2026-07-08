@@ -59,6 +59,25 @@ impl Pipeline {
         *self.recording.lock()
     }
 
+    /// Нормированный RMS уровень звука последних ~100 мс записи (0.0..1.0).
+    /// Используется wake-диктовкой для определения тишины (стоп по VAD),
+    /// когда основной writer-буфер уже пишется аудио-потоком.
+    /// Возвращает 0.0, если запись не идёт или буфер пока пуст.
+    pub fn current_level(&self) -> f32 {
+        let writer_lock = self.writer.lock();
+        let Some(writer) = writer_lock.as_ref() else {
+            return 0.0;
+        };
+        let buf = writer.lock();
+        let take = buf.len().min(1_600); // 100 мс @ 16 кГц
+        if take == 0 {
+            return 0.0;
+        }
+        let window = &buf[buf.len() - take..];
+        let sum_sq: i64 = window.iter().map(|&s| (s as i64) * (s as i64)).sum();
+        ((sum_sq as f32 / take as f32).sqrt()) / i16::MAX as f32
+    }
+
     /// Запускает запись аудио в накопительный буфер.
     pub fn start_recording(&self, device_id: Option<&str>) -> AppResult<()> {
         if self.is_recording() {

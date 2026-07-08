@@ -546,15 +546,15 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     let detector = app.state::<crate::wakeword::WakeWordDetector>();
     let settings = state.settings();
 
-    // Загружаем tiny-модель.
+    // Загружаем base-модель для wake word.
     let models_dir = crate::state::models_dir()?;
-    let tiny_path = models_dir.join("ggml-tiny.bin");
-    if !tiny_path.exists() {
+    let base_path = models_dir.join("ggml-base.bin");
+    if !base_path.exists() {
         return Err(AppError::Config(
-            "Модель tiny не скачана. Скачайте её в разделе «Модель распознавания».".into(),
+            "Модель base не скачана. Скачайте её в разделе «Модель распознавания».".into(),
         ));
     }
-    pipeline.stt().ensure_loaded(&tiny_path)?;
+    pipeline.stt().ensure_loaded(&base_path)?;
 
     detector.set_phrase(settings.wake_word.clone());
 

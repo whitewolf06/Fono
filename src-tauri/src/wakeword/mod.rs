@@ -13,7 +13,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crossbeam_channel::{unbounded, Receiver, Sender, TryRecvError};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use parking_lot::Mutex;
 
 use crate::error::{AppError, AppResult};
@@ -53,7 +53,7 @@ pub struct WakeWordConfig {
     /// Минимальный RMS уровень в чанке, чтобы гнать его через whisper.
     /// Если тише — пропускаем (экономим CPU).
     pub vad_threshold: f32,
-    /// Загружать ли отдельную tiny-модель для wake word, или использовать основную.
+    /// Загружать ли отдельную base-модель для wake word, или использовать основную.
     pub use_tiny_model: bool,
 }
 
@@ -187,9 +187,14 @@ fn wake_word_loop<F>(
 ) where
     F: Fn(WakeEvent) + Send + 'static,
 {
+    // Нормализуем фразу один раз: lowercase, без пунктуации, без лишних пробелов.
+    // Сравнение ниже ведётся по нормализованным строкам, поэтому запятая в
+    // «Эй, ассистент» не мешает матчу (равно как и регистр/пунктуация в выводе whisper).
+    let phrase_norm = normalize_phrase(&config.phrase);
     tracing::info!(
-        "wake word loop: phrase='{}', chunk_ms={}",
+        "wake word loop: phrase='{}' (normalized='{}'), chunk_ms={}",
         config.phrase,
+        phrase_norm,
         config.chunk_ms
     );
 
@@ -232,6 +237,12 @@ fn wake_word_loop<F>(
 
         // VAD: пропускаем тишину (экономим CPU).
         let vad_result = vad::detect_with_threshold(&samples, config.vad_threshold);
+        tracing::debug!(
+            "wake word: chunk level={:.4} (threshold {:.4}), has_speech={}",
+            chunk_rms(&samples),
+            config.vad_threshold,
+            vad_result.has_speech
+        );
         if !vad_result.has_speech {
             // Тишина — не гоняем whisper.
             continue;
@@ -250,21 +261,28 @@ fn wake_word_loop<F>(
         };
         let elapsed = started.elapsed().as_secs_f32();
 
-        let text_lower = transcript.text.to_lowercase();
-        let text_lower = text_lower.trim();
+        let transcript_norm = normalize_phrase(&transcript.text);
 
         tracing::debug!(
-            "wake word: chunk transcribed in {:.2}s: '{:?}'",
+            "wake word: chunk transcribed in {:.2}s: '{:?}' (normalized='{}')",
             elapsed,
-            transcript.text
+            transcript.text,
+            transcript_norm
         );
 
-        // Проверяем фразу-триггер.
-        if !text_lower.is_empty() && text_lower.contains(&config.phrase) {
+        // Нечёткий матч: base-модель на русском тоже искажает слова
+        // («Эй, ассистент» → «Бег, ассистин»), поэтому точного contains
+        // недостаточно. Сравниваем нормализованные строки по словам через
+        // Левенштейна: допускаем ~30% ошибок на каждое слово.
+        const MATCH_TOLERANCE: f32 = 0.3;
+        if !transcript_norm.is_empty()
+            && phrase_matches(&transcript_norm, &phrase_norm, MATCH_TOLERANCE)
+        {
             tracing::info!(
-                "🎯 WAKE WORD DETECTED: '{:?}' contains '{}'",
+                "🎯 WAKE WORD DETECTED: '{:?}' (normalized='{}') matches '{}'",
                 transcript.text,
-                config.phrase
+                transcript_norm,
+                phrase_norm
             );
             *status.lock() = WakeStatus::Triggered;
             on_event(WakeEvent::Detected {
@@ -337,4 +355,157 @@ fn capture_chunk(
     let mut samples = collected.lock().clone();
     samples.truncate(n);
     Ok(samples)
+}
+
+/// Нормированный RMS уровня чанка (0.0..1.0) — для диагностического лога.
+fn chunk_rms(samples: &[i16]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let sum_sq: i64 = samples.iter().map(|&s| (s as i64) * (s as i64)).sum();
+    ((sum_sq as f32 / samples.len() as f32).sqrt()) / i16::MAX as f32
+}
+
+/// Нормализация строки для сравнения wake-фразы и транскрипта:
+///   - lowercase (unicode-aware),
+///   - выкидываем пунктуацию,
+///   - выкидываем whisper-теги в квадратных/круглых скобках
+///     («[музыка]», «(смех)», «(плач)» и т.п.),
+///   - сжимаем повторные пробелы, trim.
+///
+/// Применяется и к фразе («Эй, ассистент» → «эй ассистент»), и к выводу whisper.
+fn normalize_phrase(s: &str) -> String {
+    let lower = s.to_lowercase();
+
+    let mut out = String::with_capacity(lower.len());
+    let mut in_brackets: Option<char> = None; // '[', '('
+    for ch in lower.chars() {
+        match in_brackets {
+            // Внутри тега — копим, пока не закроется скобка.
+            Some(open) => {
+                let closes = match open {
+                    '[' => ch == ']',
+                    '(' => ch == ')',
+                    _ => true,
+                };
+                if closes {
+                    in_brackets = None;
+                }
+                // Содержимое тега выбрасываем.
+            }
+            None => {
+                // Открывающая скобка — начинаем тег.
+                if ch == '[' || ch == '(' {
+                    in_brackets = Some(ch);
+                    continue;
+                }
+                // Оставляем только буквы/цифры и пробелы.
+                if ch.is_alphanumeric() {
+                    out.push(ch);
+                } else if ch.is_whitespace() {
+                    // Сжимаем пробелы: не добавляем два подряд.
+                    if !out.ends_with(' ') {
+                        out.push(' ');
+                    }
+                }
+                // Прочая пунктуация (запятая, точка, тире…) — выкидываем.
+            }
+        }
+    }
+    out.trim().to_string()
+}
+
+/// Классическое расстояние Левенштейна по unicode-символам.
+/// Нужно, чтобы допускать искажения вывода whisper-tiny
+/// («ассистент» vs «ассистин»).
+fn levenshtein_chars(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    if a.is_empty() {
+        return b.len();
+    }
+    if b.is_empty() {
+        return a.len();
+    }
+
+    let mut prev = (0..=b.len()).collect::<Vec<usize>>();
+    let mut curr = vec![0usize; b.len() + 1];
+
+    for i in 1..=a.len() {
+        curr[0] = i;
+        for j in 1..=b.len() {
+            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[b.len()]
+}
+
+/// Нечёткий матч: каждое «значимое» слово фразы (> 3 символов, чтобы не
+/// опираться на ненадёжное короткое «эй») должно найтись среди слов
+/// транскрипта с допустимым количеством ошибок (`tolerance` — доля длины
+/// слова). Для «ассистент» (9 симв.) при tolerance=0.3 допускается до 3
+/// ошибок → «ассистин» (dist 1) матчится.
+fn phrase_matches(transcript_norm: &str, phrase_norm: &str, tolerance: f32) -> bool {
+    let phrase_words: Vec<&str> = phrase_norm
+        .split_whitespace()
+        .filter(|w| w.chars().count() > 3)
+        .collect();
+    // Если в фразе нет значимых слов — матч нельзя считать надёжным.
+    if phrase_words.is_empty() {
+        return false;
+    }
+
+    let transcript_words: Vec<&str> = transcript_norm.split_whitespace().collect();
+    if transcript_words.is_empty() {
+        return false;
+    }
+
+    phrase_words.iter().all(|pw| {
+        let pw_len = pw.chars().count();
+        let max_dist = ((pw_len as f32) * tolerance).ceil() as usize;
+        transcript_words
+            .iter()
+            .any(|tw| levenshtein_chars(pw, tw) <= max_dist)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_strips_punctuation_and_tags() {
+        assert_eq!(normalize_phrase("Эй, ассистент!"), "эй ассистент");
+        assert_eq!(normalize_phrase("[Музыка]"), "");
+        assert_eq!(normalize_phrase("Привет (смех), мир."), "привет мир");
+        // Несколько пробелов сжимаются в один.
+        assert_eq!(normalize_phrase("а   б"), "а б");
+    }
+
+    #[test]
+    fn levenshtein_basic() {
+        // «ассистент»(9) → «ассистин»(8): замена е→и + удаление финального т = 2 операции.
+        assert_eq!(levenshtein_chars("ассистент", "ассистин"), 2);
+        assert_eq!(levenshtein_chars("abc", "abc"), 0);
+        assert_eq!(levenshtein_chars("kitten", "sitting"), 3);
+    }
+
+    #[test]
+    fn matches_distorted_transcript() {
+        // whisper-tiny искажает «эй ассистент» → «бег ассистин».
+        // Значимое слово фразы — «ассистент», оно матчится.
+        assert!(phrase_matches("бег ассистин", "эй ассистент", 0.3));
+        // Точная фраза тоже матчится.
+        assert!(phrase_matches("эй ассистент", "эй ассистент", 0.3));
+        // Нерелевантная речь — не матчится.
+        assert!(!phrase_matches("сейчас я тебе расскажу", "эй ассистент", 0.3));
+    }
+
+    #[test]
+    fn does_not_match_on_short_word_only() {
+        // Короткое слово «эй» не должно само по себе давать матч.
+        assert!(!phrase_matches("эй послушай", "эй ассистент", 0.3));
+    }
 }

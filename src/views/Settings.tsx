@@ -319,10 +319,10 @@ export function SettingsView() {
               </div>
 
               <p className="mb-3 text-xs text-neutral-400">
-                Программа постоянно слушает микрофон лёгкой моделью (tiny).
+                Программа постоянно слушает микрофон моделью (base).
                 Когда услышит фразу «{settings.wake_word}» — начнёт запись
                 диктовки, по тишине вставит текст в активное окно. Требует
-                модель <code className="text-brand-300">tiny</code> (75 МБ).
+                модель <code className="text-brand-300">base</code> (147 МБ).
                 CPU в режиме ожидания: ~5-10%.
               </p>
 

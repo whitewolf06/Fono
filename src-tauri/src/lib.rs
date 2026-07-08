@@ -86,7 +86,7 @@ pub fn run() {
             setup_global_shortcut(app)?;
 
             // Wake word: запускаем, если включён в настройках.
-            // Загружает tiny-модель для быстрой транскрипции чанков.
+            // Загружает base-модель для транскрипции чанков (баланс скорости/точности).
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = start_wake_word_if_enabled(&handle).await {
@@ -226,7 +226,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Запускает wake word детектор, если он включён в настройках.
 ///
-/// Использует tiny-модель whisper для быстрой транскрипции чанков.
+/// Использует base-модель whisper для транскрипции чанков.
 /// При обнаружении фразы «Эй, ассистент» стартует запись диктовки,
 /// по тишине (VAD) — STT (основной моделью) + вставка текста.
 async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -239,20 +239,20 @@ async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box
         return Ok(());
     }
 
-    // Загружаем tiny-модель для wake word (быстрая транскрипция).
+    // Загружаем base-модель для wake word (баланс скорости/точности).
     let models_dir = state::models_dir()?;
-    let tiny_path = models_dir.join("ggml-tiny.bin");
-    if !tiny_path.exists() {
+    let base_path = models_dir.join("ggml-base.bin");
+    if !base_path.exists() {
         tracing::warn!(
-            "wake word: tiny model not found at {}, wake word disabled",
-            tiny_path.display()
+            "wake word: base model not found at {}, wake word disabled",
+            base_path.display()
         );
-        let _ = handle.emit("error", "Wake word: модель tiny не найдена. Скачайте её в настройках.");
+        let _ = handle.emit("error", "Wake word: модель base не найдена. Скачайте её в настройках.");
         return Ok(());
     }
 
     let pipeline_state = handle.state::<pipeline::Pipeline>();
-    pipeline_state.stt().ensure_loaded(&tiny_path)?;
+    pipeline_state.stt().ensure_loaded(&base_path)?;
 
     let detector = handle.state::<wakeword::WakeWordDetector>();
     detector.set_phrase(settings.wake_word.clone());
@@ -317,34 +317,49 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
     pipeline.start_recording(settings.audio_device_id.as_deref())?;
     tracing::info!("wake dictation: recording started, waiting for VAD silence");
 
-    // Ждём окончания речи: слушаем, пока есть звук, потом тишина 1.5 сек.
+    // Ждём окончания речи: ловим начало речи, затем остановку по тишине.
+    // Уровень звука читаем из writer-буфера записи (см. Pipeline::current_level).
     let max_wait = std::time::Duration::from_secs(30); // максимум 30 сек диктовки
-    let silence_threshold = std::time::Duration::from_millis(1500);
+    let silence_level = 0.012; // ~-38 dBFS, как DEFAULT_THRESHOLD в vad/mod.rs
+    let silence_timeout = std::time::Duration::from_millis(1500); // тишина после речи → стоп
     let started = std::time::Instant::now();
-    let mut last_speech = std::time::Instant::now();
     let mut was_speaking = false;
+    let mut silence_start: Option<std::time::Instant> = None;
 
-    // Пул сэмплов для VAD-проверки (берём последние 100 мс).
-    while started.elapsed() < max_wait {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-        // Проверяем уровень звука через pipeline (последние сэмплы).
-        // Простой подход: если pipeline.recording идёт, проверяем writer.
-        let now = std::time::Instant::now();
-        // TODO: реальный VAD-мониторинг — пока используем таймаут 5 сек как fallback.
-        if was_speaking && now.duration_since(last_speech) > silence_threshold {
+    loop {
+        if started.elapsed() >= max_wait {
             break;
         }
-        // Упрощённо: считаем что пользователь начал говорить сразу.
-        if !was_speaking {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let level = pipeline.current_level();
+        if level > silence_level {
+            // Идёт речь — сбрасываем счётчик тишины.
             was_speaking = true;
-            last_speech = now;
+            silence_start = None;
+        } else if was_speaking && silence_start.is_none() {
+            // Речь была, началась тишина — запускаем таймер.
+            silence_start = Some(std::time::Instant::now());
+            tracing::debug!("wake dictation: silence started (level={:.4})", level);
         }
-        // Обновляем last_speech при каждом чанке (заглушка — реальная логика в VAD-мониторе).
-        last_speech = now;
+
+        // Тишина длится дольше порога после речи → останавливаем запись.
+        if let Some(s) = silence_start {
+            if s.elapsed() >= silence_timeout {
+                tracing::info!(
+                    "wake dictation: silence {:.1}s reached, stopping",
+                    s.elapsed().as_secs_f32()
+                );
+                break;
+            }
+        }
     }
 
-    tracing::info!("wake dictation: stopping recording after {:.1}s", started.elapsed().as_secs_f32());
+    tracing::info!(
+        "wake dictation: stopping recording after {:.1}s (was_speaking={})",
+        started.elapsed().as_secs_f32(),
+        was_speaking
+    );
 
     // Стоп + STT + вставка.
     let samples = pipeline.stop_recording()?;
@@ -391,11 +406,11 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
 
     pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
 
-    // Переключаемся обратно на tiny-модель и резюммим wake word.
+    // Переключаемся обратно на base-модель и резюммим wake word.
     let models_dir = state::models_dir()?;
-    let tiny_path = models_dir.join("ggml-tiny.bin");
-    if tiny_path.exists() {
-        let _ = pipeline.stt().ensure_loaded(&tiny_path);
+    let base_path = models_dir.join("ggml-base.bin");
+    if base_path.exists() {
+        let _ = pipeline.stt().ensure_loaded(&base_path);
     }
     detector.resume();
 
