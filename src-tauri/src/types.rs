@@ -115,6 +115,8 @@ pub struct Settings {
     pub overlay_y: Option<i32>,
     #[serde(default)]
     pub clean_prompt: Option<String>,
+    #[serde(default = "default_use_gpu")]
+    pub use_gpu: bool,
 }
 
 impl Default for Settings {
@@ -133,8 +135,13 @@ impl Default for Settings {
             overlay_x: None,
             overlay_y: None,
             clean_prompt: None,
+            use_gpu: default_use_gpu(),
         }
     }
+}
+
+fn default_use_gpu() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

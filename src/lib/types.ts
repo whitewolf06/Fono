@@ -62,6 +62,8 @@ export interface Settings {
   overlay_y: number | null;
   /** Пользовательский системный промт для режима clean */
   clean_prompt: string | null;
+  /** Использовать GPU (CUDA) для whisper, если доступно */
+  use_gpu: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   overlay_x: null,
   overlay_y: null,
   clean_prompt: null,
+  use_gpu: true,
 };
 
 export interface Transcript {

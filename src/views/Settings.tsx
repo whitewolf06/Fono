@@ -15,6 +15,17 @@ import { MicSelector } from "@/components/MicSelector";
 import { MicTest } from "@/components/MicTest";
 import { ModelManager } from "@/components/ModelManager";
 
+const DEFAULT_CLEAN_PROMPT = `Ты — редактор голосовых транскриптов.
+Задача: превратить сырой распознанный текст в читаемый, не меняя смысл.
+
+Правила:
+1. Удали слова-паразиты и запинки: «ээ», «мм», «ну», «типа», «короче», «как бы», «значит», «вот» и им подобные.
+2. Исправь явные оговорки и повторы, если они мешают чтению.
+3. Поставь пунктуацию и заглавные буквы в начале предложений.
+4. Сохрани язык оригинала и стиль говорящего (формальный/неформальный).
+5. НЕ добавляй пояснений, приветствий и прощаний.
+6. Верни ТОЛЬКО готовый текст.`;
+
 export function SettingsView() {
   const [settings, setSettings] = useState<SettingsT>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
@@ -23,6 +34,7 @@ export function SettingsView() {
   const [llmTesting, setLlmTesting] = useState(false);
   const [llmModels, setLlmModels] = useState<string[]>([]);
   const [llmModelsLoading, setLlmModelsLoading] = useState(false);
+  const [cleanPromptDraft, setCleanPromptDraft] = useState("");
 
   // Тестовая транскрипция
   const [testing, setTesting] = useState(false);
@@ -48,7 +60,10 @@ export function SettingsView() {
   }, []);
 
   useEffect(() => {
-    ipc.getSettings().then(setSettings).catch(() => setError("Не удалось загрузить настройки"));
+    ipc.getSettings().then((s) => {
+      setSettings(s);
+      setCleanPromptDraft(s.clean_prompt ?? "");
+    }).catch(() => setError("Не удалось загрузить настройки"));
     loadLlmModels();
     const unlistenP = onError((msg) => setError(msg));
     return () => {
@@ -253,6 +268,23 @@ export function SettingsView() {
             selectedPath={settings.whisper_model_path}
             onSelect={(p) => update("whisper_model_path", p)}
           />
+          <div className="mt-4">
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand-500"
+                checked={settings.use_gpu}
+                onChange={(e) => update("use_gpu", e.target.checked)}
+              />
+              <span className="text-sm text-neutral-200">
+                Использовать GPU (CUDA) для whisper
+              </span>
+            </label>
+            <p className="mt-1 text-xs text-neutral-500">
+              Требуется видеокарта NVIDIA и CUDA Toolkit. Перезагрузка модели
+              произойдёт при следующем распознавании.
+            </p>
+          </div>
         </section>
 
         {/* Активация */}
@@ -424,19 +456,51 @@ export function SettingsView() {
               </p>
             </div>
             {settings.ai_mode === "clean" && (
-              <div>
-                <label className="label">Системный промт для чистки</label>
-                <textarea
-                  className="input min-h-[120px] font-mono text-xs"
-                  value={settings.clean_prompt ?? ""}
-                  onChange={(e) =>
-                    update("clean_prompt", e.target.value || null)
-                  }
-                  placeholder="Оставь пустым, чтобы использовать промт по умолчанию. Или напиши свои правила для LLM: например, «убирай только „ээ“ и „мм“, сохраняй остальное»."
-                />
-                <p className="mt-1 text-xs text-neutral-500">
-                  Если пусто — используется встроенный промт.
-                </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="label">Системный промт для чистки</label>
+                  <textarea
+                    className="input min-h-[120px] font-mono text-xs"
+                    value={cleanPromptDraft}
+                    onChange={(e) => setCleanPromptDraft(e.target.value)}
+                    placeholder="Оставь пустым, чтобы использовать промт по умолчанию. Или напиши свои правила для LLM: например, «убирай только „ээ“ и „мм“, сохраняй остальное»."
+                  />
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      className="btn-primary text-xs"
+                      onClick={() => {
+                        const next = { ...settings, clean_prompt: cleanPromptDraft.trim() || null };
+                        setSettings(next);
+                        ipc.saveSettings(next)
+                          .then(() => setError(null))
+                          .catch((e) => setError(String(e)));
+                      }}
+                    >
+                      Сохранить промт
+                    </button>
+                    {settings.clean_prompt && (
+                      <button
+                        className="btn-ghost text-xs"
+                        onClick={() => {
+                          setCleanPromptDraft("");
+                          const next = { ...settings, clean_prompt: null };
+                          setSettings(next);
+                          ipc.saveSettings(next).catch((e) => setError(String(e)));
+                        }}
+                      >
+                        Сбросить на дефолт
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-3">
+                  <div className="mb-1 text-xs font-medium text-neutral-400">
+                    Текущий активный промт:
+                  </div>
+                  <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs text-neutral-300">
+                    {settings.clean_prompt?.trim() || DEFAULT_CLEAN_PROMPT}
+                  </pre>
+                </div>
               </div>
             )}
             <button

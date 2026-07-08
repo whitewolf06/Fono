@@ -8,7 +8,6 @@
 
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 use crate::audio::AudioCapture;
 use crate::error::{AppError, AppResult};
@@ -66,7 +65,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     if let Some(path) = settings.whisper_model_path.as_deref() {
         pipeline
             .stt()
-            .ensure_loaded(std::path::Path::new(path))?;
+            .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
     } else {
         let error_msg = "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
@@ -191,7 +190,9 @@ pub async fn transcribe_test(
 
     // Проверка модели.
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline.stt().ensure_loaded(std::path::Path::new(path))?;
+        pipeline
+            .stt()
+            .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
     } else {
         let error_msg = "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
@@ -577,7 +578,7 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
             "Модель base не скачана. Скачайте её в разделе «Модель распознавания».".into(),
         ));
     }
-    pipeline.stt().ensure_loaded(&base_path)?;
+    pipeline.stt().ensure_loaded(&base_path, settings.use_gpu)?;
 
     detector.set_phrase(settings.wake_word.clone());
 

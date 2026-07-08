@@ -314,7 +314,7 @@ async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box
     }
 
     let pipeline_state = handle.state::<pipeline::Pipeline>();
-    pipeline_state.stt().ensure_loaded(&base_path)?;
+    pipeline_state.stt().ensure_loaded(&base_path, settings.use_gpu)?;
 
     let detector = handle.state::<wakeword::WakeWordDetector>();
     detector.set_phrase(settings.wake_word.clone());
@@ -371,7 +371,7 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
 
     // Переключаемся на основную модель (если wake word использовал tiny).
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline.stt().ensure_loaded(std::path::Path::new(path))?;
+        pipeline.stt().ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
     }
 
     // Стартуем запись.
@@ -472,7 +472,7 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
     let models_dir = state::models_dir()?;
     let base_path = models_dir.join("ggml-base.bin");
     if base_path.exists() {
-        let _ = pipeline.stt().ensure_loaded(&base_path);
+        let _ = pipeline.stt().ensure_loaded(&base_path, settings.use_gpu);
     }
     detector.resume();
 

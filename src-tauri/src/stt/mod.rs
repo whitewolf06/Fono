@@ -5,6 +5,7 @@
 //! создаёт отдельный WhisperState, поэтому параллельные транскрипции безопасны.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use whisper_rs::{
@@ -18,6 +19,7 @@ use crate::types::Transcript;
 pub struct SttEngine {
     ctx: Mutex<Option<Arc<WhisperContext>>>,
     loaded_path: Mutex<Option<String>>,
+    use_gpu: AtomicBool,
 }
 
 impl SttEngine {
@@ -25,11 +27,14 @@ impl SttEngine {
         Self {
             ctx: Mutex::new(None),
             loaded_path: Mutex::new(None),
+            use_gpu: AtomicBool::new(false),
         }
     }
 
     /// Загружает модель (.bin) если ещё не загружена / путь изменился.
-    pub fn ensure_loaded(&self, model_path: &Path) -> AppResult<()> {
+    /// `use_gpu` включает CUDA/Vulkan backend whisper.cpp, если приложение
+    /// собрано с соответствующей feature.
+    pub fn ensure_loaded(&self, model_path: &Path, use_gpu: bool) -> AppResult<()> {
         let path_str = model_path.to_string_lossy().to_string();
         let already = self.loaded_path.lock().clone();
         if already.as_deref() == Some(path_str.as_str()) {
@@ -42,15 +47,29 @@ impl SttEngine {
             )));
         }
 
-        tracing::info!("loading whisper model: {}", model_path.display());
-        let params = WhisperContextParameters::default();
+        tracing::info!("loading whisper model: {} (use_gpu={})", model_path.display(), use_gpu);
+        let mut params = WhisperContextParameters::default();
+        params.use_gpu(use_gpu);
         let ctx = WhisperContext::new_with_params(&path_str, params)
             .map_err(|e| AppError::Stt(format!("WhisperContext::new_with_params: {e}")))?;
 
         *self.ctx.lock() = Some(Arc::new(ctx));
         *self.loaded_path.lock() = Some(path_str);
+        self.use_gpu.store(use_gpu, Ordering::Relaxed);
         tracing::info!("whisper model loaded");
         Ok(())
+    }
+
+    /// Возвращает имя активного backend с учётом runtime-флага use_gpu.
+    pub fn device(&self) -> &'static str {
+        let gpu = self.use_gpu.load(Ordering::Relaxed);
+        if gpu {
+            #[cfg(feature = "cuda")]
+            return "CUDA";
+            #[cfg(all(feature = "vulkan", not(feature = "cuda")))]
+            return "Vulkan";
+        }
+        "CPU"
     }
 
 
@@ -113,7 +132,7 @@ impl SttEngine {
             elapsed,
             audio_secs,
             rtf,
-            stt_device()
+            self.device()
         );
 
         let n_segments = state.full_n_segments();
@@ -145,7 +164,7 @@ impl SttEngine {
             detected_language,
             transcribe_secs: Some(elapsed),
             audio_secs: Some(audio_secs),
-            device: Some(stt_device().to_string()),
+            device: Some(self.device().to_string()),
         })
     }
 
@@ -157,24 +176,6 @@ impl SttEngine {
 impl Default for SttEngine {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// Возвращает имя backend (CPU/CUDA/Vulkan) — зависит от того, с какими
-/// features собран whisper.cpp. Используется для логирования и отображения
-/// в UI, чтобы пользователь понимал, какое устройство используется.
-fn stt_device() -> &'static str {
-    #[cfg(feature = "cuda")]
-    {
-        "CUDA"
-    }
-    #[cfg(all(feature = "vulkan", not(feature = "cuda")))]
-    {
-        "Vulkan"
-    }
-    #[cfg(not(any(feature = "cuda", feature = "vulkan")))]
-    {
-        "CPU"
     }
 }
 
