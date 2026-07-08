@@ -140,7 +140,15 @@ impl WakeWordDetector {
         let handle = std::thread::Builder::new()
             .name("wake-word".to_string())
             .spawn(move || {
-                wake_word_loop(stt, audio_device_id, config, status, stop_flag, rx, on_event);
+                wake_word_loop(
+                    stt,
+                    audio_device_id,
+                    config,
+                    status,
+                    stop_flag,
+                    rx,
+                    on_event,
+                );
             })
             .map_err(|e| AppError::Internal(format!("wake word thread: {e}")))?;
 
@@ -318,27 +326,22 @@ fn wake_word_loop<F>(
 
 /// Захватывает ровно `n` сэмплов (16 кГц mono i16) с микрофона.
 /// Блокирующий вызов: ждём пока наберётся нужное количество.
-fn capture_chunk(
-    audio_device_id: &Option<String>,
-    n: usize,
-) -> AppResult<Vec<i16>> {
-    use std::sync::Arc;
+fn capture_chunk(audio_device_id: &Option<String>, n: usize) -> AppResult<Vec<i16>> {
     use parking_lot::Mutex;
+    use std::sync::Arc;
 
     let collected: Arc<Mutex<Vec<i16>>> = Arc::new(Mutex::new(Vec::with_capacity(n)));
     let writer = collected.clone();
 
-    let stream = crate::audio::AudioCapture::start(
-        audio_device_id.as_deref(),
-        move |chunk: &[i16]| {
+    let stream =
+        crate::audio::AudioCapture::start(audio_device_id.as_deref(), move |chunk: &[i16]| {
             let mut w = writer.lock();
             if w.len() < n {
                 let needed = n - w.len();
                 let take = chunk.len().min(needed);
                 w.extend_from_slice(&chunk[..take]);
             }
-        },
-    )?;
+        })?;
 
     // Ждём, пока наберётся нужное количество сэмплов.
     // chunk_ms = n / 16000 * 1000. Для 1500 мс = 24000 сэмплов.
@@ -511,7 +514,11 @@ mod tests {
         // Точная фраза тоже матчится.
         assert!(phrase_matches("эй ассистент", "эй ассистент", 0.3));
         // Нерелевантная речь — не матчится.
-        assert!(!phrase_matches("сейчас я тебе расскажу", "эй ассистент", 0.3));
+        assert!(!phrase_matches(
+            "сейчас я тебе расскажу",
+            "эй ассистент",
+            0.3
+        ));
     }
 
     #[test]

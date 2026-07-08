@@ -14,46 +14,76 @@ use crate::types::LaunchApp;
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
 
 /// Пытается выполнить голосовую команду.
-pub fn execute(text: &str, launch_apps: &[LaunchApp]) -> AppResult<String> {
+pub fn execute(text: &str, launch_apps: &[LaunchApp], volume_step: u32) -> AppResult<String> {
     let normalized = normalize(text);
     crate::vlog!("voice command normalized: {}", normalized);
 
-    if let Some(query) = strip_prefixes(&normalized, &["переключись на", "перейди в", "перейди на", "открой", "включи"]) {
+    if let Some(query) = strip_prefixes(
+        &normalized,
+        &[
+            "переключись на",
+            "перейди в",
+            "перейди на",
+            "открой",
+            "включи",
+        ],
+    ) {
         let query = query.trim();
         if query.is_empty() {
-            return Err(AppError::Config("не указано имя окна для переключения".into()));
+            return Err(AppError::Config(
+                "не указано имя окна для переключения".into(),
+            ));
         }
         let title = switch_to_window(query)?;
         return Ok(format!("Переключился на «{title}»"));
     }
 
-    if let Some(query) = strip_prefixes(&normalized, &["запусти", "старт", "открыть"]) {
+    if let Some(query) = strip_prefixes(&normalized, &["запусти", "старт", "открыть"])
+    {
         let query = query.trim();
         if query.is_empty() {
-            return Err(AppError::Config("не указано имя приложения для запуска".into()));
+            return Err(AppError::Config(
+                "не указано имя приложения для запуска".into(),
+            ));
         }
         let name = launch_application(query, launch_apps)?;
         return Ok(format!("Запустил «{name}»"));
     }
 
     // Системные и медиа-команды.
+    // Стандартный media-key шаг Windows ~2%, поэтому повторяем нажатие
+    // нужное количество раз, чтобы набрать заданный `volume_step`.
+    let volume_presses = (volume_step.max(2) / 2).max(1) as usize;
     if normalized.contains("громче") {
-        send_media_key(0xAF)?;
-        return Ok("Громкость +".to_string());
+        for _ in 0..volume_presses {
+            send_media_key(0xAF)?;
+        }
+        return Ok(format!("Громкость +{volume_step}%"));
     }
     if normalized.contains("тише") {
-        send_media_key(0xAE)?;
-        return Ok("Громкость −".to_string());
+        for _ in 0..volume_presses {
+            send_media_key(0xAE)?;
+        }
+        return Ok(format!("Громкость −{volume_step}%"));
     }
-    if normalized.contains("выключи звук") || normalized.contains("mute") || normalized.contains("без звука") {
+    if normalized.contains("выключи звук")
+        || normalized.contains("mute")
+        || normalized.contains("без звука")
+    {
         send_media_key(0xAD)?;
         return Ok("Звук выключен".to_string());
     }
-    if normalized.contains("пауза") || normalized.contains("play") || normalized.contains("воспроизведение") {
+    if normalized.contains("пауза")
+        || normalized.contains("play")
+        || normalized.contains("воспроизведение")
+    {
         send_media_key(0xB3)?;
         return Ok("Play/Pause".to_string());
     }
-    if normalized.contains("следующий") || normalized.contains("вперёд") || normalized.contains("вперед") {
+    if normalized.contains("следующий")
+        || normalized.contains("вперёд")
+        || normalized.contains("вперед")
+    {
         send_media_key(0xB0)?;
         return Ok("Следующий трек".to_string());
     }
@@ -75,10 +105,7 @@ pub fn switch_to_window(query: &str) -> AppResult<String> {
     let candidates = {
         let vec: Mutex<Vec<(HWND, String)>> = Mutex::new(Vec::new());
         unsafe {
-            let _ = EnumWindows(
-                Some(enum_windows_proc),
-                LPARAM(&vec as *const _ as isize),
-            );
+            let _ = EnumWindows(Some(enum_windows_proc), LPARAM(&vec as *const _ as isize));
         }
         vec.into_inner().unwrap()
     };
@@ -89,18 +116,25 @@ pub fn switch_to_window(query: &str) -> AppResult<String> {
 
     crate::vlog!(
         "voice command window candidates: {:?}",
-        candidates.iter().map(|(_, t)| t.clone()).collect::<Vec<_>>()
+        candidates
+            .iter()
+            .map(|(_, t)| t.clone())
+            .collect::<Vec<_>>()
     );
 
     let query_norm = normalize(query);
 
     // Сначала пробуем точное/подстроковое совпадение по всем словам запроса.
-    if let Some(title) = candidates.iter().find(|(_, t)| {
-        let t_norm = normalize(t);
-        query_norm
-            .split_whitespace()
-            .all(|word| t_norm.contains(word))
-    }).map(|(_, t)| t.clone()) {
+    if let Some(title) = candidates
+        .iter()
+        .find(|(_, t)| {
+            let t_norm = normalize(t);
+            query_norm
+                .split_whitespace()
+                .all(|word| t_norm.contains(word))
+        })
+        .map(|(_, t)| t.clone())
+    {
         return activate(&title, candidates);
     }
 
@@ -302,9 +336,7 @@ fn levenshtein_chars(a: &[char], b: &[char]) -> usize {
         curr[0] = i;
         for j in 1..=m {
             let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            curr[j] = (curr[j - 1] + 1)
-                .min(prev[j] + 1)
-                .min(prev[j - 1] + cost);
+            curr[j] = (curr[j - 1] + 1).min(prev[j] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }

@@ -54,6 +54,7 @@ export function SettingsView() {
 
   useEffect(() => {
     ipc.getPipelineState().then(setPipelineState).catch(() => {});
+    ipc.getWakeWordStatus().then((s) => setWakeStatus(s)).catch(() => {});
     const unlistenState = onPipelineStateChange((s) => setPipelineState(s));
     const unlistenWake = onWakeWordStatus((s) => setWakeStatus(s));
     return () => {
@@ -437,6 +438,31 @@ export function SettingsView() {
                 <p className="mt-1 text-xs text-neutral-500">
                   Требуется перезапуск wake word. На GPU даже small/medium
                   работают быстро.
+                </p>
+              </div>
+
+              <div>
+                <label className="label">
+                  Чувствительность wake word ({settings.wake_word_vad_threshold.toFixed(3)})
+                </label>
+                <input
+                  type="range"
+                  min={0.003}
+                  max={0.05}
+                  step={0.001}
+                  value={settings.wake_word_vad_threshold}
+                  onChange={(e) =>
+                    update(
+                      "wake_word_vad_threshold",
+                      Number(e.target.value),
+                    )
+                  }
+                  disabled={settings.wake_word_enabled}
+                  className="w-full accent-brand-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Если wake word не срабатывает — уменьшите порог. Если
+                  срабатывает от посторонних звуков — увеличьте.
                 </p>
               </div>
 
@@ -958,6 +984,25 @@ export function SettingsView() {
                 символ — переключите на «Буфер обмена».
               </p>
             </div>
+            <div>
+              <label className="label">
+                Шаг изменения громкости ({settings.volume_step}%)
+              </label>
+              <input
+                type="range"
+                min={2}
+                max={20}
+                step={2}
+                value={settings.volume_step}
+                onChange={(e) =>
+                  update("volume_step", Number(e.target.value))
+                }
+                className="w-full accent-brand-500"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Для команд «громче» / «тише». Стандартный шаг Windows ~2%.
+              </p>
+            </div>
             <label className="flex cursor-pointer items-center gap-3">
               <input
                 type="checkbox"
@@ -982,6 +1027,31 @@ export function SettingsView() {
                 Запускать вместе с Windows
               </span>
             </label>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={fetchLogs}
+              >
+                📄 Открыть логи
+              </button>
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={async () => {
+                  try {
+                    await ipc.clearLogs();
+                    setLogs("Лог очищен.");
+                    setShowLogs(true);
+                  } catch (e) {
+                    setError(String(e));
+                  }
+                }}
+              >
+                🧹 Очистить логи
+              </button>
+            </div>
           </div>
         </section>
       </div>

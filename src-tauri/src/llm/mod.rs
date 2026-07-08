@@ -79,7 +79,11 @@ pub struct LlmClient {
 }
 
 impl LlmClient {
-    pub fn new(base_url: impl Into<String>, model: Option<String>, api_key: Option<String>) -> Self {
+    pub fn new(
+        base_url: impl Into<String>,
+        model: Option<String>,
+        api_key: Option<String>,
+    ) -> Self {
         Self {
             base_url: base_url.into(),
             model,
@@ -187,10 +191,7 @@ impl LlmClient {
             .build()
             .map_err(|e| AppError::Llm(e.to_string()))?;
 
-        let url = format!(
-            "{}/chat/completions",
-            self.base_url.trim_end_matches('/')
-        );
+        let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
         let mut req_builder = client.post(&url).json(&req);
         if let Some(key) = &self.api_key {
             req_builder = req_builder.header("Authorization", format!("Bearer {key}"));
@@ -213,7 +214,8 @@ impl LlmClient {
             .await
             .map_err(|e| AppError::Llm(format!("parse response: {e}")))?;
 
-        let result = body.choices
+        let result = body
+            .choices
             .into_iter()
             .next()
             .map(|c| c.message.content.trim().to_string())

@@ -46,12 +46,10 @@ impl AudioCapture {
 
         let device = match device_id {
             Some(id) => {
-                let mut iter = host
-                    .input_devices()
-                    .map_err(|e| {
-                        tracing::error!("AudioCapture::start: input_devices failed: {e}");
-                        AppError::Audio(format!("input_devices: {e}"))
-                    })?;
+                let mut iter = host.input_devices().map_err(|e| {
+                    tracing::error!("AudioCapture::start: input_devices failed: {e}");
+                    AppError::Audio(format!("input_devices: {e}"))
+                })?;
                 iter.find(|d| d.name().ok().as_deref() == Some(id))
                     .ok_or_else(|| {
                         tracing::error!("AudioCapture::start: Device not found: {id}");
@@ -86,12 +84,12 @@ impl AudioCapture {
             .ok_or_else(|| AppError::Audio("No supported input config".into()))?;
 
         let target_rate = SampleRate(16_000);
-        let sample_rate = if range.min_sample_rate() <= target_rate && target_rate <= range.max_sample_rate()
-        {
-            target_rate
-        } else {
-            range.max_sample_rate().min(SampleRate(48_000))
-        };
+        let sample_rate =
+            if range.min_sample_rate() <= target_rate && target_rate <= range.max_sample_rate() {
+                target_rate
+            } else {
+                range.max_sample_rate().min(SampleRate(48_000))
+            };
 
         let supported_config = range.clone().with_sample_rate(sample_rate);
         let channels = supported_config.channels();
@@ -126,12 +124,10 @@ impl AudioCapture {
             })?;
         tracing::info!("AudioCapture::start: build_input_stream OK");
 
-        stream
-            .play()
-            .map_err(|e| {
-                tracing::error!("AudioCapture::start: stream.play FAILED: {e}");
-                AppError::Audio(format!("stream.play: {e}"))
-            })?;
+        stream.play().map_err(|e| {
+            tracing::error!("AudioCapture::start: stream.play FAILED: {e}");
+            AppError::Audio(format!("stream.play: {e}"))
+        })?;
         tracing::info!("AudioCapture::start: stream.play OK — capture active");
 
         tracing::info!(
@@ -171,11 +167,9 @@ fn convert_chunk_to_i16(data: &cpal::Data, format: SampleFormat) -> Vec<i16> {
         SampleFormat::U32 => {
             samples_to_i16::<u32, _>(bytes, |s| ((s as i64 - 2_147_483_648) >> 16) as i16)
         }
-        SampleFormat::U64 => {
-            samples_to_i16::<u64, _>(bytes, |s| {
-                ((s as i128 - 9_223_372_036_854_775_808i128) >> 48) as i16
-            })
-        }
+        SampleFormat::U64 => samples_to_i16::<u64, _>(bytes, |s| {
+            ((s as i128 - 9_223_372_036_854_775_808i128) >> 48) as i16
+        }),
         SampleFormat::F32 => samples_to_i16::<f32, _>(bytes, |s| float_to_i16(s as f64)),
         SampleFormat::F64 => samples_to_i16::<f64, _>(bytes, float_to_i16),
         other => {
@@ -322,20 +316,16 @@ mod tests {
     #[test]
     fn sample_to_i16_u32() {
         let raw = bytes_from_u32(&[0, 1, 2_147_483_647, 2_147_483_648, 4_294_967_295]);
-        let out = samples_to_i16::<u32, _>(
-            &raw,
-            |s| ((s as i64 - 2_147_483_648) >> 16) as i16,
-        );
+        let out = samples_to_i16::<u32, _>(&raw, |s| ((s as i64 - 2_147_483_648) >> 16) as i16);
         assert_eq!(out, vec![-32768, -32768, -1, 0, 32767]);
     }
 
     #[test]
     fn sample_to_i16_u64() {
         let raw = bytes_from_u64(&[0, 1, 9_223_372_036_854_775_808, u64::MAX]);
-        let out = samples_to_i16::<u64, _>(
-            &raw,
-            |s| ((s as i128 - 9_223_372_036_854_775_808i128) >> 48) as i16,
-        );
+        let out = samples_to_i16::<u64, _>(&raw, |s| {
+            ((s as i128 - 9_223_372_036_854_775_808i128) >> 48) as i16
+        });
         assert_eq!(out, vec![-32768, -32768, 0, 32767]);
     }
 

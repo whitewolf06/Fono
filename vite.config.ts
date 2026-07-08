@@ -9,6 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
 
+  // Tauri production build uses file:// URLs — relative paths required
+  base: "./",
+
   // Tauri expects a fixed port, fail if that port is not available
   clearScreen: false,
 

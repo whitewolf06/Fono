@@ -35,9 +35,7 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
     unsafe {
         // Проверяем, что есть окно с фокусом — иначе ввод уйдёт в никуда.
         if GetForegroundWindow().0.is_null() {
-            return Err(AppError::Injection(
-                "нет активного окна для ввода".into(),
-            ));
+            return Err(AppError::Injection("нет активного окна для ввода".into()));
         }
     }
 
@@ -103,14 +101,12 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
 pub fn inject_via_clipboard(text: &str) -> AppResult<()> {
     unsafe {
         if GetForegroundWindow().0.is_null() {
-            return Err(AppError::Injection(
-                "нет активного окна для ввода".into(),
-            ));
+            return Err(AppError::Injection("нет активного окна для ввода".into()));
         }
     }
 
-    let mut clipboard = arboard::Clipboard::new()
-        .map_err(|e| AppError::Injection(format!("буфер обмена: {e}")))?;
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| AppError::Injection(format!("буфер обмена: {e}")))?;
 
     // Сохраняем старое текстовое содержимое, если оно было.
     let old_text = clipboard.get_text().ok();
@@ -152,9 +148,7 @@ fn send_ctrl_v() -> AppResult<()> {
         let cbsize = std::mem::size_of::<INPUT>() as i32;
         let sent = SendInput(&inputs, cbsize);
         if sent == 0 {
-            return Err(AppError::Injection(
-                "SendInput(Ctrl+V) вернул 0".into(),
-            ));
+            return Err(AppError::Injection("SendInput(Ctrl+V) вернул 0".into()));
         }
     }
 

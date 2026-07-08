@@ -8,6 +8,7 @@
 //! Push-to-talk и VAD добавляются на Этапе 3, wake word — на Этапе 4.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -39,6 +40,10 @@ pub struct Pipeline {
     stream: Mutex<Option<StreamHolder>>,
     /// STT движок (переиспользуем между вызовами).
     stt: Arc<SttEngine>,
+    /// Флаг отмены текущей диктовки (кнопка Stop в оверлее).
+    cancelled: Arc<AtomicBool>,
+    /// Флаг подтверждения текущей диктовки (кнопка ✓ в оверлее).
+    confirmed: Arc<AtomicBool>,
 }
 
 impl Pipeline {
@@ -48,7 +53,38 @@ impl Pipeline {
             writer: Mutex::new(None),
             stream: Mutex::new(None),
             stt: Arc::new(SttEngine::new()),
+            cancelled: Arc::new(AtomicBool::new(false)),
+            confirmed: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Запросить отмену текущей диктовки.
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+        tracing::debug!("pipeline: cancellation requested");
+    }
+
+    /// Сбросить флаг отмены (вызывается при старте новой записи).
+    pub fn reset_cancel(&self) {
+        self.cancelled.store(false, Ordering::SeqCst);
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+
+    /// Подтвердить текущую диктовку (закончить запись досрочно).
+    pub fn confirm(&self) {
+        self.confirmed.store(true, Ordering::SeqCst);
+        tracing::debug!("pipeline: confirmation requested");
+    }
+
+    pub fn reset_confirm(&self) {
+        self.confirmed.store(false, Ordering::SeqCst);
+    }
+
+    pub fn is_confirmed(&self) -> bool {
+        self.confirmed.load(Ordering::SeqCst)
     }
 
     pub fn stt(&self) -> &Arc<SttEngine> {
@@ -93,6 +129,8 @@ impl Pipeline {
             writer_for_callback.lock().extend_from_slice(chunk);
         })?;
 
+        self.reset_cancel();
+        self.reset_confirm();
         *self.recording.lock() = true;
         *self.stream.lock() = Some(StreamHolder(stream));
         *writer_lock = Some(writer);
@@ -119,8 +157,7 @@ impl Pipeline {
             tracing::warn!("stop_recording called but was not recording");
             return Ok(Vec::new());
         }
-        let writer = writer
-            .ok_or_else(|| AppError::Audio("запись не была запущена".into()))?;
+        let writer = writer.ok_or_else(|| AppError::Audio("запись не была запущена".into()))?;
         let samples = writer.lock().clone();
         tracing::info!(
             "recording stopped, captured {} samples (~{:.2}s @ 16kHz)",
@@ -167,7 +204,10 @@ pub async fn run_full_pipeline(
         mode => {
             set_state(handle, state, PipelineState::Processing);
             let client = LlmClient::from_settings(&settings);
-            match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
+            match client
+                .process(&transcript.text, mode, settings.clean_prompt.as_deref())
+                .await
+            {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}), returning raw transcript");
@@ -216,7 +256,11 @@ pub async fn start_background(handle: AppHandle) -> AppResult<()> {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         ticks += 1;
         if ticks % 30 == 0 {
-            tracing::trace!("pipeline tick {} (state: {:?})", ticks, handle.state::<AppState>().pipeline_state());
+            tracing::trace!(
+                "pipeline tick {} (state: {:?})",
+                ticks,
+                handle.state::<AppState>().pipeline_state()
+            );
         }
     }
 }

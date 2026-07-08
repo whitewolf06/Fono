@@ -8,10 +8,8 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use whisper_rs::{
-    SamplingStrategy, WhisperContext, WhisperContextParameters,
-};
 use parking_lot::Mutex;
+use whisper_rs::{SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use crate::error::{AppError, AppResult};
 use crate::types::Transcript;
@@ -47,7 +45,11 @@ impl SttEngine {
             )));
         }
 
-        tracing::info!("loading whisper model: {} (use_gpu={})", model_path.display(), use_gpu);
+        tracing::info!(
+            "loading whisper model: {} (use_gpu={})",
+            model_path.display(),
+            use_gpu
+        );
         let mut params = WhisperContextParameters::default();
         params.use_gpu(use_gpu);
         let ctx = WhisperContext::new_with_params(&path_str, params)
@@ -72,18 +74,18 @@ impl SttEngine {
         "CPU"
     }
 
-
     /// Транскрибирует моно-PCM 16 кГц i16 в текст.
     ///
     /// `language` — ISO-код ("ru", "en") или "auto" для автоопределения.
     pub fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
         let ctx_arc = self.ctx.lock().clone();
-        let ctx = ctx_arc
-            .ok_or(AppError::ModelNotLoaded)?;
+        let ctx = ctx_arc.ok_or(AppError::ModelNotLoaded)?;
 
         // whisper.cpp ожидает f32 в диапазоне [-1.0, 1.0]
-        let pcm_f32: Vec<f32> =
-            samples.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+        let pcm_f32: Vec<f32> = samples
+            .iter()
+            .map(|&s| s as f32 / i16::MAX as f32)
+            .collect();
 
         let mut params = whisper_rs::FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
         match language {
@@ -118,7 +120,11 @@ impl SttEngine {
             "whisper full start: {} samples (~{:.2}s), lang={}, threads={}",
             samples.len(),
             samples.len() as f32 / 16_000.0,
-            if language.is_empty() { "auto" } else { language },
+            if language.is_empty() {
+                "auto"
+            } else {
+                language
+            },
             n_threads
         );
         state
@@ -126,7 +132,11 @@ impl SttEngine {
             .map_err(|e| AppError::Stt(format!("full: {e}")))?;
         let elapsed = started.elapsed().as_secs_f32();
         let audio_secs = samples.len() as f32 / 16_000.0;
-        let rtf = if audio_secs > 0.0 { elapsed / audio_secs } else { 0.0 };
+        let rtf = if audio_secs > 0.0 {
+            elapsed / audio_secs
+        } else {
+            0.0
+        };
         tracing::info!(
             "whisper full done in {:.2}s (audio={:.2}s, RTF={:.2}x, device={})",
             elapsed,

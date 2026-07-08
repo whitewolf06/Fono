@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   DeviceInfo,
+  PipelineMode,
   PipelineState,
   Settings,
   Transcript,
@@ -55,6 +56,15 @@ export const ipc = {
   getWakeWordStatus: () => invoke<string>("get_wake_word_status"),
   enableWakeWord: () => invoke<void>("enable_wake_word"),
   disableWakeWord: () => invoke<void>("disable_wake_word"),
+
+  // Подтверждение диктовки (кнопка ✓ в оверлее)
+  confirmDictation: () => invoke<void>("confirm_dictation"),
+
+  // Отмена диктовки (кнопка Stop в оверлее)
+  cancelDictation: () => invoke<void>("cancel_dictation"),
+
+  // Логи
+  clearLogs: () => invoke<void>("clear_logs"),
 };
 
 export interface MicTestResult {
@@ -94,4 +104,16 @@ export function onCommandResult(
   handler: (result: string) => void,
 ): Promise<UnlistenFn> {
   return listen<string>("command-result", (e) => handler(e.payload));
+}
+
+export function onPipelineMode(
+  handler: (mode: PipelineMode) => void,
+): Promise<UnlistenFn> {
+  return listen<PipelineMode>("pipeline-mode", (e) => handler(e.payload));
+}
+
+export function onSettingsChange(
+  handler: (settings: Settings) => void,
+): Promise<UnlistenFn> {
+  return listen<Settings>("settings-changed", (e) => handler(e.payload));
 }

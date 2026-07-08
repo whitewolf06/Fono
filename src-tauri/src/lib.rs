@@ -16,12 +16,12 @@ pub mod vad;
 pub mod verbose;
 pub mod wakeword;
 
+use crate::state::AppState;
+use crate::types::PipelineState;
 use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_global_shortcut::ShortcutState;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-use crate::state::AppState;
-use crate::types::PipelineState;
 
 /// Инициализация логирования: консоль + файл в `%APPDATA%\WhisperClone\logs\`.
 fn init_tracing() {
@@ -48,9 +48,7 @@ fn init_tracing() {
         .with_file(true)
         .with_line_number(true);
 
-    let console_layer = fmt::layer()
-        .with_target(false)
-        .with_file(false);
+    let console_layer = fmt::layer().with_target(false).with_file(false);
 
     let _ = tracing_subscriber::registry()
         .with(env_filter)
@@ -58,10 +56,7 @@ fn init_tracing() {
         .with(file_layer)
         .try_init();
 
-    tracing::info!(
-        "log file: {}",
-        log_dir.join("whisperclone.log").display()
-    );
+    tracing::info!("log file: {}", log_dir.join("whisperclone.log").display());
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -125,6 +120,8 @@ pub fn run() {
             commands::get_pipeline_state,
             commands::start_dictation,
             commands::stop_dictation,
+            commands::confirm_dictation,
+            commands::cancel_dictation,
             commands::transcribe_test,
             // audio
             commands::list_audio_devices,
@@ -142,6 +139,7 @@ pub fn run() {
             commands::save_overlay_position,
             // диагностика
             commands::get_recent_logs,
+            commands::clear_logs,
             commands::test_microphone,
             // wake word
             commands::get_wake_word_status,
@@ -178,6 +176,7 @@ pub fn register_all_shortcuts(
     gs.on_shortcut(settings.hotkey.as_str(), |app, _, event| {
         match event.state {
             ShortcutState::Pressed => {
+                let _ = app.emit("pipeline-mode", "dictation");
                 if let Err(e) = commands::start_dictation(app.clone()) {
                     let _ = app.emit("error", e.to_string());
                     tracing::warn!("start_dictation via global shortcut failed: {e}");
@@ -199,24 +198,23 @@ pub fn register_all_shortcuts(
 
     // Voice commands: зажатие → запись, отпускание → стоп + STT + выполнение команды.
     let command_hotkey = settings.command_hotkey.clone();
-    gs.on_shortcut(command_hotkey.as_str(), |app, _, event| {
-        match event.state {
-            ShortcutState::Pressed => {
-                if let Err(e) = commands::start_dictation(app.clone()) {
-                    let _ = app.emit("error", e.to_string());
-                    tracing::warn!("start voice command recording failed: {e}");
-                }
+    gs.on_shortcut(command_hotkey.as_str(), |app, _, event| match event.state {
+        ShortcutState::Pressed => {
+            let _ = app.emit("pipeline-mode", "command");
+            if let Err(e) = commands::start_dictation(app.clone()) {
+                let _ = app.emit("error", e.to_string());
+                tracing::warn!("start voice command recording failed: {e}");
             }
-            ShortcutState::Released => {
-                if app.state::<pipeline::Pipeline>().is_recording() {
-                    let app_for_command = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(e) = run_voice_command(&app_for_command).await {
-                            tracing::warn!("voice command failed: {e}");
-                            let _ = app_for_command.emit("error", e.to_string());
-                        }
-                    });
-                }
+        }
+        ShortcutState::Released => {
+            if app.state::<pipeline::Pipeline>().is_recording() {
+                let app_for_command = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = run_voice_command(&app_for_command).await {
+                        tracing::warn!("voice command failed: {e}");
+                        let _ = app_for_command.emit("error", e.to_string());
+                    }
+                });
             }
         }
     })?;
@@ -226,7 +224,9 @@ pub fn register_all_shortcuts(
 }
 
 /// Полный цикл голосовой команды: запись → STT → выполнение.
-async fn run_voice_command(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn run_voice_command(
+    app: &tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use tauri::Manager;
     let state = app.state::<state::AppState>();
     let pipeline = app.state::<pipeline::Pipeline>();
@@ -257,14 +257,15 @@ async fn run_voice_command(app: &tauri::AppHandle) -> Result<(), Box<dyn std::er
     pipeline::set_state(app, &state.inner(), PipelineState::Transcribing);
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
-    let transcript = tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
-        .await
-        .map_err(|e| format!("transcribe join: {e}"))??;
+    let transcript =
+        tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
+            .await
+            .map_err(|e| format!("transcribe join: {e}"))??;
 
     tracing::info!("voice command transcript: {:?}", transcript.text);
 
     pipeline::set_state(app, &state.inner(), PipelineState::Processing);
-    match crate::app_commands::execute(&transcript.text, &settings.launch_apps) {
+    match crate::app_commands::execute(&transcript.text, &settings.launch_apps, settings.volume_step) {
         Ok(result) => {
             tracing::info!("voice command result: {result}");
             let _ = app.emit("command-result", result);
@@ -327,7 +328,11 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                         match pipeline.stop_recording() {
                             Ok(samples) => {
                                 let _ = samples;
-                                pipeline::set_state(&app, &state.inner(), crate::types::PipelineState::Idle);
+                                pipeline::set_state(
+                                    &app,
+                                    &state.inner(),
+                                    crate::types::PipelineState::Idle,
+                                );
                             }
                             Err(e) => {
                                 let _ = app.emit("error", e.to_string());
@@ -384,7 +389,9 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// Использует base-модель whisper для транскрипции чанков.
 /// При обнаружении фразы «Эй, ассистент» стартует запись диктовки,
 /// по тишине (VAD) — STT (основной моделью) + вставка текста.
-async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+async fn start_wake_word_if_enabled(
+    handle: &tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::Manager;
     let state = handle.state::<state::AppState>();
     let settings = state.settings();
@@ -402,15 +409,29 @@ async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box
             "wake word: model not found at {}, wake word disabled",
             base_path.display()
         );
-        let _ = handle.emit("error", format!("Wake word: модель {} не найдена. Скачайте её в настройках.", settings.wake_word_model.filename()));
+        let _ = handle.emit(
+            "error",
+            format!(
+                "Wake word: модель {} не найдена. Скачайте её в настройках.",
+                settings.wake_word_model.filename()
+            ),
+        );
         return Ok(());
     }
 
     let pipeline_state = handle.state::<pipeline::Pipeline>();
-    pipeline_state.stt().ensure_loaded(&base_path, settings.use_gpu)?;
+    pipeline_state
+        .stt()
+        .ensure_loaded(&base_path, settings.use_gpu)?;
 
     let detector = handle.state::<wakeword::WakeWordDetector>();
-    detector.set_phrase(settings.wake_word.clone());
+    detector.set_config(wakeword::WakeWordConfig {
+        phrase: settings.wake_word.clone(),
+        chunk_ms: 1500,
+        vad_threshold: settings.wake_word_vad_threshold,
+        use_tiny_model: true,
+        cooldown_ms: 3500,
+    });
 
     let stt = pipeline_state.stt().clone();
     let device_id = settings.audio_device_id.clone();
@@ -444,6 +465,16 @@ async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box
     Ok(())
 }
 
+/// Перезапускает wake word детектор (без изменения флага wake_word_enabled).
+/// Используется когда пользователь меняет настройки wake word "на лету".
+pub async fn restart_wake_word(handle: &tauri::AppHandle) -> Result<(), String> {
+    let detector = handle.state::<wakeword::WakeWordDetector>();
+    detector.stop();
+    start_wake_word_if_enabled(handle)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Запускает диктовку после срабатывания wake word.
 ///
 /// Алгоритм:
@@ -452,7 +483,9 @@ async fn start_wake_word_if_enabled(handle: &tauri::AppHandle) -> Result<(), Box
 ///   3. Слушаем VAD: ждём пока пользователь говорит, потом тишина 1.5 сек → стоп.
 ///   4. STT основной моделью + вставка текста.
 ///   5. Резюммим wake word.
-pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run_dictation_after_wake(
+    handle: &tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use tauri::Manager;
     let state = handle.state::<state::AppState>();
     let pipeline = handle.state::<pipeline::Pipeline>();
@@ -464,11 +497,14 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
 
     // Переключаемся на основную модель (если wake word использовал tiny).
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline.stt().ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
+        pipeline
+            .stt()
+            .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
     }
 
     // Стартуем запись.
     pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
+    let _ = handle.emit("pipeline-mode", "dictation");
     pipeline.start_recording(settings.audio_device_id.as_deref())?;
     tracing::info!("wake dictation: recording started, waiting for VAD silence");
 
@@ -476,13 +512,13 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
     // Уровень звука читаем из writer-буфера записи (см. Pipeline::current_level).
     let max_wait = std::time::Duration::from_secs(30); // максимум 30 сек диктовки
     let silence_level = 0.012; // ~-38 dBFS, как DEFAULT_THRESHOLD в vad/mod.rs
-    let silence_timeout = std::time::Duration::from_millis(1500); // тишина после речи → стоп
+    let silence_timeout = std::time::Duration::from_millis(1000); // тишина после речи → стоп
     let started = std::time::Instant::now();
     let mut was_speaking = false;
     let mut silence_start: Option<std::time::Instant> = None;
 
     loop {
-        if started.elapsed() >= max_wait {
+        if started.elapsed() >= max_wait || pipeline.is_cancelled() || pipeline.is_confirmed() {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -518,15 +554,33 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
 
     // Стоп + STT + вставка.
     let samples = pipeline.stop_recording()?;
+
+    // Сбрасываем флаг подтверждения, чтобы не влиял на следующие вызовы.
+    pipeline.reset_confirm();
+
+    // Если пользователь нажал Stop в оверлее — отбрасываем запись.
+    if pipeline.is_cancelled() {
+        tracing::info!("wake dictation: cancelled by user");
+        pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+        let models_dir = state::models_dir()?;
+        let base_path = models_dir.join(settings.wake_word_model.filename());
+        if base_path.exists() {
+            let _ = pipeline.stt().ensure_loaded(&base_path, settings.use_gpu);
+        }
+        detector.resume();
+        return Ok(());
+    }
+
     if !samples.is_empty() {
         let samples = crate::vad::trim_silence(&samples);
         if !samples.is_empty() {
             pipeline::set_state(handle, &state.inner(), PipelineState::Transcribing);
             let stt = pipeline.stt().clone();
             let language = settings.language.clone();
-            let transcript = tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
-                .await
-                .map_err(|e| format!("transcribe join: {e}"))??;
+            let transcript =
+                tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
+                    .await
+                    .map_err(|e| format!("transcribe join: {e}"))??;
 
             tracing::info!("wake dictation transcript: {:?}", transcript.text);
 
@@ -536,7 +590,10 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
                 mode => {
                     pipeline::set_state(handle, &state.inner(), PipelineState::Processing);
                     let client = crate::llm::LlmClient::from_settings(&settings);
-                    match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
+                    match client
+                        .process(&transcript.text, mode, settings.clean_prompt.as_deref())
+                        .await
+                    {
                         Ok(t) => t,
                         Err(e) => {
                             tracing::warn!("LLM failed ({e}) — raw transcript");
@@ -548,7 +605,8 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
 
             if !final_text.is_empty() {
                 pipeline::set_state(handle, &state.inner(), PipelineState::Injecting);
-                if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
+                if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode)
+                {
                     tracing::warn!("injection failed: {e}");
                     let _ = handle.emit("error", format!("Вставка: {e}"));
                 }

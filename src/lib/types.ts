@@ -36,6 +36,7 @@ export type WhisperModelSize =
 export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";
 export type LlmProvider = "lmstudio" | "openai" | "custom";
+export type PipelineMode = "dictation" | "command";
 
 export interface Settings {
   /** device_id микрофона или null = системный default */
@@ -86,6 +87,10 @@ export interface Settings {
   llm_api_key: string | null;
   /** Модель whisper для wake word */
   wake_word_model: WhisperModelSize;
+  /** Порог VAD для wake word (чувствительность) */
+  wake_word_vad_threshold: number;
+  /** Шаг изменения громкости в процентах */
+  volume_step: number;
 }
 
 export interface LaunchApp {
@@ -119,6 +124,8 @@ export const DEFAULT_SETTINGS: Settings = {
   llm_provider: "lmstudio",
   llm_api_key: null,
   wake_word_model: "base",
+  wake_word_vad_threshold: 0.015,
+  volume_step: 10,
 };
 
 export interface Transcript {

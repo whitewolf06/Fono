@@ -48,11 +48,21 @@ impl WhisperModelSize {
 
     pub fn url(&self) -> &'static str {
         match self {
-            WhisperModelSize::Tiny => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
-            WhisperModelSize::Base => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
-            WhisperModelSize::Small => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
-            WhisperModelSize::Medium => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
-            WhisperModelSize::Large => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+            WhisperModelSize::Tiny => {
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
+            }
+            WhisperModelSize::Base => {
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
+            }
+            WhisperModelSize::Small => {
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+            }
+            WhisperModelSize::Medium => {
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin"
+            }
+            WhisperModelSize::Large => {
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin"
+            }
         }
     }
 
@@ -63,7 +73,8 @@ impl WhisperModelSize {
             WhisperModelSize::Small => 488,
             WhisperModelSize::Medium => 1530,
             WhisperModelSize::Large => 3010,
-        }) * 1024 * 1024
+        }) * 1024
+            * 1024
     }
 }
 
@@ -152,6 +163,10 @@ pub struct Settings {
     pub llm_api_key: Option<String>,
     #[serde(default = "default_wake_word_model")]
     pub wake_word_model: WhisperModelSize,
+    #[serde(default = "default_wake_word_vad_threshold")]
+    pub wake_word_vad_threshold: f32,
+    #[serde(default = "default_volume_step")]
+    pub volume_step: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,6 +203,8 @@ impl Default for Settings {
             llm_provider: default_llm_provider(),
             llm_api_key: None,
             wake_word_model: default_wake_word_model(),
+            wake_word_vad_threshold: default_wake_word_vad_threshold(),
+            volume_step: default_volume_step(),
         }
     }
 }
@@ -218,6 +235,14 @@ fn default_llm_provider() -> LlmProvider {
 
 fn default_wake_word_model() -> WhisperModelSize {
     WhisperModelSize::Base
+}
+
+fn default_wake_word_vad_threshold() -> f32 {
+    0.015
+}
+
+fn default_volume_step() -> u32 {
+    10
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

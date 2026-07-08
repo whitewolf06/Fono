@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { ipc, onPipelineStateChange } from "@/lib/ipc";
-import type { PipelineState, Settings } from "@/lib/types";
+import {
+  ipc,
+  onPipelineMode,
+  onPipelineStateChange,
+  onSettingsChange,
+} from "@/lib/ipc";
+import type { PipelineMode, PipelineState, Settings } from "@/lib/types";
 
 const STATE_LABEL: Record<PipelineState, string> = {
   idle: "Готов",
@@ -22,11 +27,12 @@ const STATE_COLOR: Record<PipelineState, string> = {
   error: "bg-red-600",
 };
 
-const BASE_WIDTH = 160;
+const BASE_WIDTH = 200;
 const BASE_HEIGHT = 64;
 
 export function OverlayView() {
   const [state, setState] = useState<PipelineState>("idle");
+  const [mode, setMode] = useState<PipelineMode>("dictation");
   const [settings, setSettings] = useState<Settings>({
     overlay_scale: 1,
     overlay_opacity: 1,
@@ -39,9 +45,13 @@ export function OverlayView() {
     ipc.getPipelineState().then((s) => mounted && setState(s));
     ipc.getSettings().then((s) => mounted && setSettings(s));
     const unlistenP = onPipelineStateChange((s) => setState(s));
+    const unlistenM = onPipelineMode((m) => mounted && setMode(m));
+    const unlistenS = onSettingsChange((s) => mounted && setSettings(s));
     return () => {
       mounted = false;
       unlistenP.then((u) => u());
+      unlistenM.then((u) => u());
+      unlistenS.then((u) => u());
     };
   }, []);
 
@@ -79,7 +89,18 @@ export function OverlayView() {
     win.startDragging().catch(() => {});
   };
 
+  const handleStop = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    ipc.cancelDictation().catch(() => {});
+  };
+
+  const handleConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    ipc.confirmDictation().catch(() => {});
+  };
+
   const visible = state !== "idle";
+  const modeLabel = mode === "command" ? "команда" : "диктовка";
 
   return (
     <div
@@ -99,10 +120,35 @@ export function OverlayView() {
             } ${state === "listening" ? "animate-pulse-ring" : ""}`}
           />
           {!settings.overlay_mini_mode && (
-            <span className="text-sm font-medium text-neutral-100">
-              {STATE_LABEL[state]}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-neutral-100">
+                {STATE_LABEL[state]}
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-neutral-400">
+                {modeLabel}
+              </span>
+            </div>
           )}
+          {state === "listening" && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={handleConfirm}
+              className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-emerald-600/80 text-[10px] font-bold text-white hover:bg-emerald-500"
+              title="Подтвердить (закончить запись)"
+            >
+              ✓
+            </button>
+          )}
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleStop}
+            className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-red-600/80 text-[10px] font-bold text-white hover:bg-red-500"
+            title="Отменить"
+          >
+            ■
+          </button>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-﻿//! Tauri IPC команды — мост между фронтендом и Rust-ядром.
+//! Tauri IPC команды — мост между фронтендом и Rust-ядром.
 //!
 //! Каждая команда доступна из JS через `invoke('<name>', { args })`.
 //! Список команд см. в `docs/architecture.md` → `commands.rs`.
@@ -56,6 +56,28 @@ pub fn start_dictation(app: AppHandle) -> AppResult<()> {
 }
 
 #[tauri::command]
+pub fn confirm_dictation(app: AppHandle) -> AppResult<()> {
+    let pipeline = app.state::<Pipeline>();
+    pipeline.confirm();
+    tracing::info!("dictation confirmed by overlay");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn cancel_dictation(app: AppHandle) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    let detector = app.state::<crate::wakeword::WakeWordDetector>();
+
+    pipeline.cancel();
+    let _ = pipeline.stop_recording();
+    set_pipeline_idle(&app, &state.inner());
+    detector.resume();
+    tracing::info!("dictation cancelled by overlay");
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
@@ -67,7 +89,8 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             .stt()
             .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
     } else {
-        let error_msg = "Whisper model is not selected. Download and choose a model in settings.".to_string();
+        let error_msg =
+            "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
         set_pipeline_idle(&app, &state.inner());
         return Err(AppError::Stt(error_msg));
@@ -113,20 +136,19 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
     let app_for_err = app.clone();
-    let transcript = tauri::async_runtime::spawn_blocking(move || {
-        stt.transcribe(&samples, &language)
-    })
-    .await
-    .map_err(|e| {
-        let _ = app_for_err.emit("error", e.to_string());
-        set_pipeline_idle(&app_for_err, &state.inner());
-        AppError::Internal(format!("transcribe join: {e}"))
-    })?
-    .map_err(|e| {
-        let _ = app.emit("error", e.to_string());
-        set_pipeline_idle(&app, &state.inner());
-        e
-    })?;
+    let transcript =
+        tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
+            .await
+            .map_err(|e| {
+                let _ = app_for_err.emit("error", e.to_string());
+                set_pipeline_idle(&app_for_err, &state.inner());
+                AppError::Internal(format!("transcribe join: {e}"))
+            })?
+            .map_err(|e| {
+                let _ = app.emit("error", e.to_string());
+                set_pipeline_idle(&app, &state.inner());
+                e
+            })?;
 
     tracing::info!("transcript: {:?}", transcript.text);
 
@@ -136,7 +158,10 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         mode => {
             pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
             let client = LlmClient::from_settings(&settings);
-            match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
+            match client
+                .process(&transcript.text, mode, settings.clean_prompt.as_deref())
+                .await
+            {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}) — returning raw transcript");
@@ -193,14 +218,18 @@ pub async fn transcribe_test(
             .stt()
             .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
     } else {
-        let error_msg = "Whisper model is not selected. Download and choose a model in settings.".to_string();
+        let error_msg =
+            "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
         set_pipeline_idle(&app, &state.inner());
         return Err(AppError::Stt(error_msg));
     }
 
     // Старт записи.
-    tracing::info!("transcribe_test: starting recording (device_id={:?})", settings.audio_device_id);
+    tracing::info!(
+        "transcribe_test: starting recording (device_id={:?})",
+        settings.audio_device_id
+    );
     pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
     if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
         emit_pipeline_error(&app, &e.to_string());
@@ -208,7 +237,10 @@ pub async fn transcribe_test(
         set_pipeline_idle(&app, &state.inner());
         return Err(e);
     }
-    tracing::info!("transcribe_test: recording started, sleeping {} ms", duration_ms);
+    tracing::info!(
+        "transcribe_test: recording started, sleeping {} ms",
+        duration_ms
+    );
 
     // Ждём указанную длительность.
     let dur = std::time::Duration::from_millis(duration_ms.max(500).min(30_000));
@@ -226,10 +258,17 @@ pub async fn transcribe_test(
         }
     };
     let sample_count = samples.len();
-    tracing::info!("captured {} samples (~{:.1}s @ 16kHz)", sample_count, sample_count as f32 / 16_000.0);
+    tracing::info!(
+        "captured {} samples (~{:.1}s @ 16kHz)",
+        sample_count,
+        sample_count as f32 / 16_000.0
+    );
 
     if sample_count < 1600 {
-        emit_pipeline_error(&app, "Test recording is too short or too quiet. Please speak closer and longer.");
+        emit_pipeline_error(
+            &app,
+            "Test recording is too short or too quiet. Please speak closer and longer.",
+        );
         // < 0.1 сек — что-то не так с микрофоном
         set_pipeline_idle(&app, &state.inner());
         return Err(AppError::Audio(
@@ -242,18 +281,19 @@ pub async fn transcribe_test(
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
     let app_for_err = app.clone();
-    let transcript = tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
-        .await
-        .map_err(|e| {
-            let _ = app_for_err.emit("error", e.to_string());
-            set_pipeline_idle(&app_for_err, &state.inner());
-            AppError::Internal(format!("transcribe join: {e}"))
-        })?
-        .map_err(|e| {
-            let _ = app.emit("error", e.to_string());
-            set_pipeline_idle(&app, &state.inner());
-            e
-        })?;
+    let transcript =
+        tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
+            .await
+            .map_err(|e| {
+                let _ = app_for_err.emit("error", e.to_string());
+                set_pipeline_idle(&app_for_err, &state.inner());
+                AppError::Internal(format!("transcribe join: {e}"))
+            })?
+            .map_err(|e| {
+                let _ = app.emit("error", e.to_string());
+                set_pipeline_idle(&app, &state.inner());
+                e
+            })?;
 
     tracing::info!("test transcript: {:?}", transcript.text);
 
@@ -263,7 +303,10 @@ pub async fn transcribe_test(
         mode => {
             pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
             let client = LlmClient::from_settings(&settings);
-            match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
+            match client
+                .process(&transcript.text, mode, settings.clean_prompt.as_deref())
+                .await
+            {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}) — returning raw transcript");
@@ -277,7 +320,10 @@ pub async fn transcribe_test(
     if inject && !final_text.is_empty() {
         pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
         match crate::injection::inject_text(&final_text, settings.injection_mode) {
-            Ok(()) => tracing::info!("injected {} chars into active window", final_text.chars().count()),
+            Ok(()) => tracing::info!(
+                "injected {} chars into active window",
+                final_text.chars().count()
+            ),
             Err(e) => {
                 tracing::warn!("injection failed ({e}) — returning transcript anyway");
                 let _ = app.emit("error", format!("Вставка текста: {e}"));
@@ -411,15 +457,38 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
-pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> AppResult<()> {
+pub fn save_settings(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    settings: Settings,
+) -> AppResult<()> {
     let old_settings = state.settings();
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
         || old_settings.command_hotkey != settings.command_hotkey;
+    let wake_settings_changed = old_settings.wake_word != settings.wake_word
+        || old_settings.wake_word_model != settings.wake_word_model
+        || (old_settings.wake_word_vad_threshold - settings.wake_word_vad_threshold).abs() > f32::EPSILON;
 
     state::save_settings(&settings)?;
     state.set_settings(settings.clone());
     crate::verbose::set_verbose(settings.verbose_logging);
-    tracing::info!("settings saved: model={:?}, lang={}", settings.whisper_model_path, settings.language);
+    let _ = app.emit("settings-changed", settings.clone());
+    tracing::info!(
+        "settings saved: model={:?}, lang={}",
+        settings.whisper_model_path,
+        settings.language
+    );
+
+    // Если wake word уже работает и изменились его настройки — перезапускаем.
+    if settings.wake_word_enabled && wake_settings_changed {
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = crate::restart_wake_word(&app_clone).await {
+                tracing::error!("wake word restart after settings change failed: {e}");
+                let _ = app_clone.emit("error", format!("Wake word: не удалось перезапустить: {e}"));
+            }
+        });
+    }
 
     // Перерегистрируем глобальные шорткаты, если изменились hotkey/command_hotkey.
     if shortcuts_changed {
@@ -440,6 +509,30 @@ pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Setti
 }
 
 // ====== Диагностика ======
+
+/// Очищает текущий лог-файл (truncate).
+#[tauri::command]
+pub fn clear_logs() -> AppResult<()> {
+    let log_dir = state::app_data_dir()?.join("logs");
+    let mut entries: Vec<_> = std::fs::read_dir(&log_dir)
+        .map_err(|e| AppError::Io(e))?
+        .filter_map(|e| e.ok())
+        .collect();
+    entries.sort_by_key(|e| e.file_name());
+    if let Some(target) = entries
+        .iter()
+        .rev()
+        .find(|e| e.file_name().to_string_lossy().starts_with("whisperclone.log"))
+    {
+        std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(target.path())
+            .map_err(|e| AppError::Io(e))?;
+        tracing::info!("log file cleared");
+    }
+    Ok(())
+}
 
 /// Возвращает последние строки файла лога (для отображения в UI при ошибках).
 #[tauri::command]
@@ -478,10 +571,7 @@ pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
 /// Тест микрофона: записывает `duration_ms` и возвращает пиковый уровень (0..1)
 /// и количество сэмплов. Позволяет убедиться, что микрофон живой и не зашумлён.
 #[tauri::command]
-pub async fn test_microphone(
-    app: AppHandle,
-    duration_ms: u64,
-) -> AppResult<MicTestResult> {
+pub async fn test_microphone(app: AppHandle, duration_ms: u64) -> AppResult<MicTestResult> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
@@ -550,11 +640,7 @@ pub struct MicTestResult {
 // ====== Overlay ======
 
 #[tauri::command]
-pub fn save_overlay_position(
-    state: State<'_, AppState>,
-    x: i32,
-    y: i32,
-) -> AppResult<()> {
+pub fn save_overlay_position(state: State<'_, AppState>, x: i32, y: i32) -> AppResult<()> {
     let mut settings = state.settings();
     settings.overlay_x = Some(x);
     settings.overlay_y = Some(y);
@@ -567,9 +653,7 @@ pub fn save_overlay_position(
 
 /// Возвращает статус wake word детектора.
 #[tauri::command]
-pub fn get_wake_word_status(
-    detector: State<'_, crate::wakeword::WakeWordDetector>,
-) -> String {
+pub fn get_wake_word_status(detector: State<'_, crate::wakeword::WakeWordDetector>) -> String {
     format!("{:?}", detector.status())
 }
 
@@ -587,36 +671,46 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     let model_path = models_dir.join(settings.wake_word_model.filename());
     if !model_path.exists() {
         return Err(AppError::Config(
-            format!("Модель {} не скачана. Скачайте её в разделе «Модель распознавания».", settings.wake_word_model.filename()).into(),
+            format!(
+                "Модель {} не скачана. Скачайте её в разделе «Модель распознавания».",
+                settings.wake_word_model.filename()
+            )
+            .into(),
         ));
     }
-    pipeline.stt().ensure_loaded(&model_path, settings.use_gpu)?;
+    pipeline
+        .stt()
+        .ensure_loaded(&model_path, settings.use_gpu)?;
 
-    detector.set_phrase(settings.wake_word.clone());
+    detector.set_config(crate::wakeword::WakeWordConfig {
+        phrase: settings.wake_word.clone(),
+        chunk_ms: 1500,
+        vad_threshold: settings.wake_word_vad_threshold,
+        use_tiny_model: true,
+        cooldown_ms: 3500,
+    });
 
     let stt = pipeline.stt().clone();
     let device_id = settings.audio_device_id.clone();
     let app_clone = app.clone();
 
-    detector.start(stt, device_id, move |event| {
-        match event {
-            crate::wakeword::WakeEvent::Detected { transcription } => {
-                tracing::info!("wake word triggered: {:?}", transcription);
-                let _ = app_clone.emit("wake-word-detected", &transcription);
-                let h = app_clone.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(e) = crate::run_dictation_after_wake(&h).await {
-                        tracing::error!("dictation after wake failed: {e}");
-                        let _ = h.emit("error", e.to_string());
-                    }
-                });
-            }
-            crate::wakeword::WakeEvent::Error(msg) => {
-                let _ = app_clone.emit("error", &msg);
-            }
-            crate::wakeword::WakeEvent::Status(s) => {
-                let _ = app_clone.emit("wake-word-status", format!("{:?}", s));
-            }
+    detector.start(stt, device_id, move |event| match event {
+        crate::wakeword::WakeEvent::Detected { transcription } => {
+            tracing::info!("wake word triggered: {:?}", transcription);
+            let _ = app_clone.emit("wake-word-detected", &transcription);
+            let h = app_clone.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = crate::run_dictation_after_wake(&h).await {
+                    tracing::error!("dictation after wake failed: {e}");
+                    let _ = h.emit("error", e.to_string());
+                }
+            });
+        }
+        crate::wakeword::WakeEvent::Error(msg) => {
+            let _ = app_clone.emit("error", &msg);
+        }
+        crate::wakeword::WakeEvent::Status(s) => {
+            let _ = app_clone.emit("wake-word-status", format!("{:?}", s));
         }
     })?;
 
@@ -632,9 +726,7 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 
 /// Выключает wake word детектор.
 #[tauri::command]
-pub async fn disable_wake_word(
-    app: AppHandle,
-) -> AppResult<()> {
+pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
     let detector = app.state::<crate::wakeword::WakeWordDetector>();
     detector.stop();
@@ -647,5 +739,3 @@ pub async fn disable_wake_word(
     tracing::info!("wake word disabled");
     Ok(())
 }
-
-

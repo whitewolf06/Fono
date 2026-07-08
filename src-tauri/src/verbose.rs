@@ -8,7 +8,10 @@ static VERBOSE: AtomicBool = AtomicBool::new(false);
 
 pub fn set_verbose(value: bool) {
     VERBOSE.store(value, Ordering::Relaxed);
-    tracing::info!("verbose logging {}", if value { "enabled" } else { "disabled" });
+    tracing::info!(
+        "verbose logging {}",
+        if value { "enabled" } else { "disabled" }
+    );
 }
 
 pub fn is_verbose() -> bool {
