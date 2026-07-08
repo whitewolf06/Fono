@@ -67,6 +67,16 @@ export interface Settings {
   use_gpu: boolean;
   /** Способ вставки текста в активное окно */
   injection_mode: InjectionMode;
+  /** Горячая клавиша для голосовых команд */
+  command_hotkey: string;
+  /** Список приложений для запуска по голосовой команде */
+  launch_apps: LaunchApp[];
+}
+
+export interface LaunchApp {
+  name: string;
+  exe_path: string;
+  aliases: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -85,6 +95,8 @@ export const DEFAULT_SETTINGS: Settings = {
   clean_prompt: null,
   use_gpu: true,
   injection_mode: "sendinput",
+  command_hotkey: "Ctrl+Shift+Space",
+  launch_apps: [],
 };
 
 export interface Transcript {

@@ -126,6 +126,17 @@ pub struct Settings {
     pub use_gpu: bool,
     #[serde(default = "default_injection_mode")]
     pub injection_mode: InjectionMode,
+    #[serde(default = "default_command_hotkey")]
+    pub command_hotkey: String,
+    #[serde(default)]
+    pub launch_apps: Vec<LaunchApp>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LaunchApp {
+    pub name: String,
+    pub exe_path: String,
+    pub aliases: Vec<String>,
 }
 
 impl Default for Settings {
@@ -146,6 +157,8 @@ impl Default for Settings {
             clean_prompt: None,
             use_gpu: default_use_gpu(),
             injection_mode: default_injection_mode(),
+            command_hotkey: default_command_hotkey(),
+            launch_apps: Vec::new(),
         }
     }
 }
@@ -156,6 +169,10 @@ fn default_use_gpu() -> bool {
 
 fn default_injection_mode() -> InjectionMode {
     InjectionMode::SendInput
+}
+
+fn default_command_hotkey() -> String {
+    "Ctrl+Shift+Space".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

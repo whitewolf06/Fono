@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import {
   ipc,
+  onCommandResult,
   onError,
   onPipelineStateChange,
   onWakeWordStatus,
 } from "@/lib/ipc";
 import {
   DEFAULT_SETTINGS,
+  type LaunchApp,
   type PipelineState,
   type Settings as SettingsT,
   type Transcript,
@@ -48,6 +50,7 @@ export function SettingsView() {
   const [showLogs, setShowLogs] = useState(false);
   const [manualTranscript, setManualTranscript] = useState<Transcript | null>(null);
   const [dictationAction, setDictationAction] = useState(false);
+  const [commandResult, setCommandResult] = useState<string | null>(null);
 
   useEffect(() => {
     ipc.getPipelineState().then(setPipelineState).catch(() => {});
@@ -66,8 +69,13 @@ export function SettingsView() {
     }).catch(() => setError("Не удалось загрузить настройки"));
     loadLlmModels();
     const unlistenP = onError((msg) => setError(msg));
+    const unlistenCmd = onCommandResult((msg) => {
+      setCommandResult(msg);
+      setTimeout(() => setCommandResult(null), 4000);
+    });
     return () => {
       unlistenP.then((u) => u());
+      unlistenCmd.then((u) => u());
     };
   }, []);
 
@@ -309,6 +317,25 @@ export function SettingsView() {
               </p>
             </div>
 
+            <div>
+              <label className="label">Горячая клавиша голосовых команд</label>
+              <input
+                className="input"
+                value={settings.command_hotkey}
+                onChange={(e) => update("command_hotkey", e.target.value)}
+                placeholder="Ctrl+Shift+Space"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Зажмите{" "}
+                <kbd className="rounded bg-neutral-700 px-1.5 py-0.5">
+                  {settings.command_hotkey}
+                </kbd>{" "}
+                и скажите, например: «переключись на Telegram» или «запусти
+                VS Code». Распознанная команда выполнится, а не вставится как
+                текст.
+              </p>
+            </div>
+
             <div className="rounded-lg border border-neutral-700 bg-neutral-800/40 p-4">
               <div className="mb-3 flex items-center justify-between">
                 <div>
@@ -514,6 +541,79 @@ export function SettingsView() {
               <p className="text-sm text-neutral-300">{llmStatus}</p>
             )}
           </div>
+        </section>
+
+        {/* Голосовые команды */}
+        <section className="card">
+          <h2 className="mb-4 text-lg font-medium">🎙️ Голосовые команды</h2>
+          <p className="mb-4 text-sm text-neutral-400">
+            Настройте приложения, которые можно запускать голосом. Для
+            переключения на уже запущенное окно команда распознаётся
+            автоматически — настраивать не нужно.
+          </p>
+
+          <div className="space-y-3">
+            {settings.launch_apps.map((app, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-[1fr_1fr_auto] items-end gap-2"
+              >
+                <div>
+                  <label className="label">Название</label>
+                  <input
+                    className="input"
+                    value={app.name}
+                    onChange={(e) => {
+                      const next = [...settings.launch_apps];
+                      next[idx] = { ...app, name: e.target.value };
+                      update("launch_apps", next);
+                    }}
+                    placeholder="VS Code"
+                  />
+                </div>
+                <div>
+                  <label className="label">Путь к .exe</label>
+                  <input
+                    className="input"
+                    value={app.exe_path}
+                    onChange={(e) => {
+                      const next = [...settings.launch_apps];
+                      next[idx] = { ...app, exe_path: e.target.value };
+                      update("launch_apps", next);
+                    }}
+                    placeholder="C:\\Program Files\\...\\Code.exe"
+                  />
+                </div>
+                <button
+                  className="btn-ghost text-xs"
+                  onClick={() => {
+                    const next = settings.launch_apps.filter((_, i) => i !== idx);
+                    update("launch_apps", next);
+                  }}
+                >
+                  Удалить
+                </button>
+              </div>
+            ))}
+            <button
+              className="btn-secondary text-xs"
+              onClick={() => {
+                const next: LaunchApp[] = [
+                  ...settings.launch_apps,
+                  { name: "", exe_path: "", aliases: [] },
+                ];
+                update("launch_apps", next);
+              }}
+            >
+              + Добавить приложение
+            </button>
+          </div>
+
+          {commandResult && (
+            <div className="mt-4 rounded-lg border border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-200">
+              {commandResult}
+            </div>
+          )}
         </section>
 
         {/* 🧪 Тест транскрипции */}

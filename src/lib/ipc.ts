@@ -89,3 +89,9 @@ export function onWakeWordStatus(
 ): Promise<UnlistenFn> {
   return listen<string>("wake-word-status", (e) => handler(e.payload));
 }
+
+export function onCommandResult(
+  handler: (result: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("command-result", (e) => handler(e.payload));
+}

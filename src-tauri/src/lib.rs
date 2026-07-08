@@ -2,6 +2,7 @@
 //!
 //! Архитектуру и потоки данных см. в `docs/architecture.md`.
 
+pub mod app_commands;
 pub mod audio;
 pub mod commands;
 pub mod error;
@@ -149,29 +150,30 @@ pub fn run() {
         .expect("error while running WhisperClone");
 }
 
-/// Регистрирует глобальную горячую клавишу push-to-talk.
-///
-/// Зажатие → старт записи, отпускание → стоп + STT + вставка.
+/// Регистрирует глобальные горячие клавиши:
+/// - push-to-talk (dictation)
+/// - voice commands
 fn setup_global_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
-    let hotkey = app_handle.state::<AppState>().settings().hotkey.clone();
-    if let Err(e) = register_push_to_talk(&app_handle, &hotkey) {
-        tracing::error!("Не удалось зарегистрировать горячую клавишу '{}': {e}", hotkey);
-        tracing::error!("Возможно, она уже занята другим приложением. Push-to-talk недоступен, но тест кнопки работает.");
+    let settings = app_handle.state::<AppState>().settings();
+    if let Err(e) = register_all_shortcuts(&app_handle, &settings) {
+        tracing::error!("Не удалось зарегистрировать горячие клавиши: {e}");
+        tracing::error!("Возможно, одна из клавиш уже занята другим приложением.");
     }
     Ok(())
 }
 
-/// Регистрирует (или перерегистрирует) push-to-talk горячую клавишу.
-/// Сначала отменяет все текущие глобальные шорткаты, затем регистрирует новый.
-pub fn register_push_to_talk(
+/// Регистрирует (или перерегистрирует) все глобальные шорткаты.
+/// Сначала отменяет все текущие, затем регистрирует push-to-talk и command hotkey.
+pub fn register_all_shortcuts(
     app: &tauri::AppHandle,
-    hotkey: &str,
+    settings: &crate::types::Settings,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    tracing::info!("registering push-to-talk hotkey: {}", hotkey);
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
-    gs.on_shortcut(hotkey, move |app, _, event| {
+
+    // Push-to-talk: зажатие → запись, отпускание → стоп + STT + вставка.
+    gs.on_shortcut(settings.hotkey.as_str(), |app, _, event| {
         match event.state {
             ShortcutState::Pressed => {
                 if let Err(e) = commands::start_dictation(app.clone()) {
@@ -191,7 +193,87 @@ pub fn register_push_to_talk(
             }
         }
     })?;
-    tracing::info!("push-to-talk hotkey '{}' registered successfully", hotkey);
+    tracing::info!("push-to-talk hotkey '{}' registered", settings.hotkey);
+
+    // Voice commands: зажатие → запись, отпускание → стоп + STT + выполнение команды.
+    let command_hotkey = settings.command_hotkey.clone();
+    gs.on_shortcut(command_hotkey.as_str(), |app, _, event| {
+        match event.state {
+            ShortcutState::Pressed => {
+                if let Err(e) = commands::start_dictation(app.clone()) {
+                    let _ = app.emit("error", e.to_string());
+                    tracing::warn!("start voice command recording failed: {e}");
+                }
+            }
+            ShortcutState::Released => {
+                if app.state::<pipeline::Pipeline>().is_recording() {
+                    let app_for_command = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(e) = run_voice_command(&app_for_command).await {
+                            tracing::warn!("voice command failed: {e}");
+                            let _ = app_for_command.emit("error", e.to_string());
+                        }
+                    });
+                }
+            }
+        }
+    })?;
+    tracing::info!("command hotkey '{}' registered", command_hotkey);
+
+    Ok(())
+}
+
+/// Полный цикл голосовой команды: запись → STT → выполнение.
+async fn run_voice_command(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use tauri::Manager;
+    let state = app.state::<state::AppState>();
+    let pipeline = app.state::<pipeline::Pipeline>();
+    let settings = state.settings();
+
+    let samples = pipeline.stop_recording()?;
+    if samples.is_empty() {
+        pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+        return Ok(());
+    }
+
+    let samples = crate::vad::trim_silence(&samples);
+    if samples.is_empty() {
+        pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+        return Ok(());
+    }
+
+    // Загружаем основную whisper-модель.
+    if let Some(path) = settings.whisper_model_path.as_deref() {
+        pipeline
+            .stt()
+            .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
+    } else {
+        pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+        return Err("Whisper-модель не выбрана".into());
+    }
+
+    pipeline::set_state(app, &state.inner(), PipelineState::Transcribing);
+    let stt = pipeline.stt().clone();
+    let language = settings.language.clone();
+    let transcript = tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
+        .await
+        .map_err(|e| format!("transcribe join: {e}"))??;
+
+    tracing::info!("voice command transcript: {:?}", transcript.text);
+
+    pipeline::set_state(app, &state.inner(), PipelineState::Processing);
+    match crate::app_commands::execute(&transcript.text, &settings.launch_apps) {
+        Ok(result) => {
+            tracing::info!("voice command result: {result}");
+            let _ = app.emit("command-result", result);
+        }
+        Err(e) => {
+            tracing::warn!("voice command execute failed: {e}");
+            let _ = app.emit("error", e.to_string());
+        }
+    }
+
+    pipeline::set_state(app, &state.inner(), PipelineState::Idle);
     Ok(())
 }
 
