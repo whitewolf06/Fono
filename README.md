@@ -101,12 +101,16 @@ npm run tauri build
 ## 🗺️ Roadmap
 
 Подробный план с контрольными точками — в [`docs/roadmap.md`](docs/roadmap.md).
+Актуальный статус — в [`docs/STATUS.md`](docs/STATUS.md).
+
+**Версия: v0.4.0-wakeword** — рабочий MVP.
 
 - [x] Этап 0 — Документация + скаффолд
-- [ ] Этап 1 — Audio capture + whisper.cpp STT
-- [ ] Этап 2 — Текст-инъекция через SendInput
-- [ ] Этап 3 — Push-to-talk MVP 🎯 *(первая контрольная точка «можно пользоваться»)*
-- [ ] Этап 4 — Wake word активация
+- [x] Этап 1 — Audio capture + whisper.cpp STT
+- [x] Этап 2 — Текст-инъекция через SendInput
+- [x] Этап 3 — Push-to-talk + VAD 🎯 *(рабочий голосовой ввод)*
+- [x] Оптимизация CPU (AVX2/FMA, small = 3 сек вместо 34 сек)
+- [x] Этап 4 — Wake word «Эй, ассистент»
 - [ ] Этап 5 — AI-постобработка через LM Studio
 - [ ] Этап 6 — UX polish, настройки, onboarding
 - [ ] Этап 7 — Упаковка (MSI/NSIS), подпись кода, автообновление
