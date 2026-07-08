@@ -170,7 +170,7 @@ pub async fn run_full_pipeline(
                 settings.llm_base_url.clone(),
                 settings.llm_model.clone(),
             );
-            match client.process(&transcript.text, mode).await {
+            match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}), returning raw transcript");

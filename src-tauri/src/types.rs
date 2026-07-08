@@ -109,6 +109,12 @@ pub struct Settings {
     pub llm_model: Option<String>,
     #[serde(default)]
     pub autostart: bool,
+    #[serde(default)]
+    pub overlay_x: Option<i32>,
+    #[serde(default)]
+    pub overlay_y: Option<i32>,
+    #[serde(default)]
+    pub clean_prompt: Option<String>,
 }
 
 impl Default for Settings {
@@ -124,6 +130,9 @@ impl Default for Settings {
             llm_base_url: default_llm_url(),
             llm_model: None,
             autostart: false,
+            overlay_x: None,
+            overlay_y: None,
+            clean_prompt: None,
         }
     }
 }

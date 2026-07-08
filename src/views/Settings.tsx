@@ -423,6 +423,22 @@ export function SettingsView() {
                 Рекомендуется: <span className="text-brand-300">qwen2.5-coder-7b-instruct</span>
               </p>
             </div>
+            {settings.ai_mode === "clean" && (
+              <div>
+                <label className="label">Системный промт для чистки</label>
+                <textarea
+                  className="input min-h-[120px] font-mono text-xs"
+                  value={settings.clean_prompt ?? ""}
+                  onChange={(e) =>
+                    update("clean_prompt", e.target.value || null)
+                  }
+                  placeholder="Оставь пустым, чтобы использовать промт по умолчанию. Или напиши свои правила для LLM: например, «убирай только „ээ“ и „мм“, сохраняй остальное»."
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Если пусто — используется встроенный промт.
+                </p>
+              </div>
+            )}
             <button
               className="btn-secondary"
               onClick={testLlm}

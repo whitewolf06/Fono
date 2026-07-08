@@ -41,6 +41,10 @@ export const ipc = {
   saveSettings: (settings: Settings) =>
     invoke<void>("save_settings", { settings }),
 
+  // Overlay
+  saveOverlayPosition: (x: number, y: number) =>
+    invoke<void>("save_overlay_position", { x, y }),
+
   // Диагностика
   getRecentLogs: (lines?: number) =>
     invoke<string>("get_recent_logs", { lines: lines ?? 80 }),

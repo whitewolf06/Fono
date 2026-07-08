@@ -140,7 +140,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
                 settings.llm_base_url.clone(),
                 settings.llm_model.clone(),
             );
-            match client.process(&transcript.text, mode).await {
+            match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}) — returning raw transcript");
@@ -266,7 +266,7 @@ pub async fn transcribe_test(
                 settings.llm_base_url.clone(),
                 settings.llm_model.clone(),
             );
-            match client.process(&transcript.text, mode).await {
+            match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}) — returning raw transcript");
@@ -534,6 +534,22 @@ pub struct MicTestResult {
     pub rms: f32,
 }
 
+// ====== Overlay ======
+
+#[tauri::command]
+pub fn save_overlay_position(
+    state: State<'_, AppState>,
+    x: i32,
+    y: i32,
+) -> AppResult<()> {
+    let mut settings = state.settings();
+    settings.overlay_x = Some(x);
+    settings.overlay_y = Some(y);
+    state.set_settings(settings.clone());
+    state::save_settings(&settings)?;
+    Ok(())
+}
+
 // ====== Wake word ======
 
 /// Возвращает статус wake word детектора.
@@ -603,11 +619,11 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 
 /// Выключает wake word детектор.
 #[tauri::command]
-pub fn disable_wake_word(
+pub async fn disable_wake_word(
     app: AppHandle,
-    state: State<'_, AppState>,
-    detector: State<'_, crate::wakeword::WakeWordDetector>,
 ) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let detector = app.state::<crate::wakeword::WakeWordDetector>();
     detector.stop();
 
     let mut s = state.settings();
@@ -616,7 +632,6 @@ pub fn disable_wake_word(
     state.set_settings(s);
 
     tracing::info!("wake word disabled");
-    let _ = app;
     Ok(())
 }
 

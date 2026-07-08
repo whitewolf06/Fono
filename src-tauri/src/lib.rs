@@ -14,7 +14,7 @@ pub mod types;
 pub mod vad;
 pub mod wakeword;
 
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_global_shortcut::ShortcutState;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -85,6 +85,27 @@ pub fn run() {
             // Push-to-talk: Ctrl+Space (Pressed) → запись, (Released) → стоп + STT + вставка.
             setup_global_shortcut(app)?;
 
+            // Закрытие окна настроек сворачивает его в трей, а не уничтожает.
+            // Это позволяет снова открыть окно из трея.
+            if let Some(settings_window) = app.get_webview_window("settings") {
+                let settings_window_clone = settings_window.clone();
+                settings_window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = settings_window_clone.hide();
+                        tracing::info!("settings window hidden to tray");
+                    }
+                });
+            }
+
+            // Восстанавливаем позицию overlay-окна из настроек.
+            let settings = app.state::<AppState>().settings();
+            if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
+                if let Some(overlay) = app.get_webview_window("overlay") {
+                    let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
+                }
+            }
+
             // Wake word: запускаем, если включён в настройках.
             // Загружает base-модель для транскрипции чанков (баланс скорости/точности).
             let handle = app.handle().clone();
@@ -114,6 +135,8 @@ pub fn run() {
             // settings
             commands::get_settings,
             commands::save_settings,
+            // overlay
+            commands::save_overlay_position,
             // диагностика
             commands::get_recent_logs,
             commands::test_microphone,
@@ -167,18 +190,29 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder};
     use tauri::tray::TrayIconBuilder;
 
+    let initial_wake = app.state::<AppState>().settings().wake_word_enabled;
+    let wake_label = if initial_wake {
+        "Выключить wake word"
+    } else {
+        "Включить wake word"
+    };
+
     let show = MenuItemBuilder::with_id("show", "Открыть настройки").build(app)?;
     let pause = MenuItemBuilder::with_id("pause", "Пауза").build(app)?;
+    let wake_word = MenuItemBuilder::with_id("wake_word", wake_label).build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "Выход").build(app)?;
     let menu = MenuBuilder::new(app)
         .item(&show)
         .separator()
         .item(&pause)
         .separator()
+        .item(&wake_word)
+        .separator()
         .item(&quit)
         .build()?;
 
     let pause_item = pause.clone();
+    let wake_item = wake_word.clone();
     TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
         .tooltip("WhisperClone")
@@ -186,6 +220,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(w) = app.get_webview_window("settings") {
+                    let _ = w.unminimize();
                     let _ = w.show();
                     let _ = w.set_focus();
                 }
@@ -213,6 +248,32 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                     let _ = pause_item.set_text("Pause");
                     tracing::info!("dictation resumed");
                 }
+            }
+            "wake_word" => {
+                let app_clone = app.clone();
+                let wake_item_clone = wake_item.clone();
+                let is_enabled = app.state::<AppState>().settings().wake_word_enabled;
+                tauri::async_runtime::spawn(async move {
+                    let result = if is_enabled {
+                        commands::disable_wake_word(app_clone.clone()).await
+                    } else {
+                        commands::enable_wake_word(app_clone.clone()).await
+                    };
+                    match result {
+                        Ok(_) => {
+                            let new_label = if is_enabled {
+                                "Включить wake word"
+                            } else {
+                                "Выключить wake word"
+                            };
+                            let _ = wake_item_clone.set_text(new_label);
+                        }
+                        Err(e) => {
+                            tracing::warn!("tray wake word toggle failed: {e}");
+                            let _ = app_clone.emit("error", e.to_string());
+                        }
+                    }
+                });
             }
             "quit" => {
                 tracing::info!("Quit requested from tray");
@@ -385,7 +446,7 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
                         settings.llm_base_url.clone(),
                         settings.llm_model.clone(),
                     );
-                    match client.process(&transcript.text, mode).await {
+                    match client.process(&transcript.text, mode, settings.clean_prompt.as_deref()).await {
                         Ok(t) => t,
                         Err(e) => {
                             tracing::warn!("LLM failed ({e}) — raw transcript");

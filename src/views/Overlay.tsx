@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { ipc, onPipelineStateChange } from "@/lib/ipc";
 import type { PipelineState } from "@/lib/types";
 
@@ -22,6 +23,7 @@ const STATE_COLOR: Record<PipelineState, string> = {
 
 export function OverlayView() {
   const [state, setState] = useState<PipelineState>("idle");
+  const saveTimer = useRef<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -33,12 +35,43 @@ export function OverlayView() {
     };
   }, []);
 
+  useEffect(() => {
+    const win = getCurrentWebviewWindow();
+    let unlisten: (() => void) | undefined;
+
+    const setup = async () => {
+      unlisten = await win.onMoved(({ payload: { x, y } }) => {
+        if (saveTimer.current) {
+          window.clearTimeout(saveTimer.current);
+        }
+        saveTimer.current = window.setTimeout(() => {
+          ipc.saveOverlayPosition(x, y).catch(() => {});
+        }, 500);
+      });
+    };
+    setup();
+
+    return () => {
+      if (unlisten) unlisten();
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, []);
+
+  const handleMouseDown = () => {
+    const win = getCurrentWebviewWindow();
+    win.startDragging().catch(() => {});
+  };
+
   const visible = state !== "idle";
 
   return (
-    <div className="flex h-full items-center justify-center">
+    <div
+      className="flex h-full select-none items-center justify-center"
+      onMouseDown={handleMouseDown}
+      title="Перетащи меня мышью"
+    >
       {visible && (
-        <div className="animate-fade-in pointer-events-none flex items-center gap-3 rounded-full border border-neutral-700/80 bg-neutral-900/90 px-4 py-2 shadow-2xl backdrop-blur-md">
+        <div className="animate-fade-in flex cursor-move items-center gap-3 rounded-full border border-neutral-700/80 bg-neutral-900/90 px-4 py-2 shadow-2xl backdrop-blur-md">
           <span
             className={`h-3 w-3 rounded-full ${
               STATE_COLOR[state]

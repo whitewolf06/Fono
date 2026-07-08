@@ -55,6 +55,9 @@ pub struct WakeWordConfig {
     pub vad_threshold: f32,
     /// Загружать ли отдельную base-модель для wake word, или использовать основную.
     pub use_tiny_model: bool,
+    /// Пауза после срабатывания wake word (мс). Защищает от повторных
+    /// срабатываний на эхо/щелчки, пока идёт диктовка или вставка текста.
+    pub cooldown_ms: u64,
 }
 
 impl Default for WakeWordConfig {
@@ -64,6 +67,7 @@ impl Default for WakeWordConfig {
             chunk_ms: 1500,
             vad_threshold: 0.015,
             use_tiny_model: true,
+            cooldown_ms: 3500,
         }
     }
 }
@@ -296,6 +300,13 @@ fn wake_word_loop<F>(
                     break;
                 }
                 std::thread::sleep(Duration::from_millis(50));
+            }
+
+            // Дебаунс: N мс после срабатывания не слушаем повторно,
+            // чтобы не поймать эхо/щелчки от вставки текста.
+            if !*stop_flag.lock() {
+                tracing::debug!("wake word: cooldown {} ms", config.cooldown_ms);
+                std::thread::sleep(Duration::from_millis(config.cooldown_ms));
             }
         } else {
             *status.lock() = WakeStatus::Listening;

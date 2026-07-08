@@ -56,6 +56,12 @@ export interface Settings {
   llm_model: string | null;
   /** Автозапуск с Windows */
   autostart: boolean;
+  /** X-координата overlay-окна */
+  overlay_x: number | null;
+  /** Y-координата overlay-окна */
+  overlay_y: number | null;
+  /** Пользовательский системный промт для режима clean */
+  clean_prompt: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -69,6 +75,9 @@ export const DEFAULT_SETTINGS: Settings = {
   llm_base_url: "http://localhost:1234/v1",
   llm_model: null,
   autostart: false,
+  overlay_x: null,
+  overlay_y: null,
+  clean_prompt: null,
 };
 
 export interface Transcript {

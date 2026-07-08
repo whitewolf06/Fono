@@ -124,7 +124,13 @@ impl LlmClient {
 
     /// Применяет выбранную обработку к транскрипту.
     /// Если модель не указана или режим Off — возвращает исходный текст.
-    pub async fn process(&self, transcript: &str, mode: AiMode) -> AppResult<String> {
+    /// `clean_prompt` позволяет пользователю переопределить системный промт для режима Clean.
+    pub async fn process(
+        &self,
+        transcript: &str,
+        mode: AiMode,
+        clean_prompt: Option<&str>,
+    ) -> AppResult<String> {
         if matches!(mode, AiMode::Off) {
             return Ok(transcript.to_string());
         }
@@ -134,7 +140,7 @@ impl LlmClient {
             return Ok(transcript.to_string());
         };
 
-        let system = system_prompt(mode);
+        let system = system_prompt(mode, clean_prompt);
         let user = user_prompt(transcript, mode);
 
         let req = ChatRequest {
@@ -192,10 +198,16 @@ impl LlmClient {
     }
 }
 
-fn system_prompt(mode: AiMode) -> String {
+fn system_prompt(mode: AiMode, clean_prompt: Option<&str>) -> String {
     match mode {
         AiMode::Off => String::new(),
-        AiMode::Clean => r#"Ты — редактор голосовых транскриптов.
+        AiMode::Clean => {
+            if let Some(prompt) = clean_prompt {
+                if !prompt.trim().is_empty() {
+                    return prompt.trim().to_string();
+                }
+            }
+            r#"Ты — редактор голосовых транскриптов.
 Задача: превратить сырой распознанный текст в читаемый, не меняя смысл.
 
 Правила:
@@ -204,7 +216,8 @@ fn system_prompt(mode: AiMode) -> String {
 3. Поставь пунктуацию и заглавные буквы в начале предложений.
 4. Сохрани язык оригинала и стиль говорящего (формальный/неформальный).
 5. НЕ добавляй пояснений, приветствий и прощаний.
-6. Верни ТОЛЬКО готовый текст."#.to_string(),
+6. Верни ТОЛЬКО готовый текст."#.to_string()
+        }
         AiMode::Format => r#"Ты — редактор голосовых транскриптов.
 Задача: отформатировать сырой распознанный текст, сохранив смысл.
 
