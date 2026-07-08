@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { ipc, onError, onPipelineStateChange } from "@/lib/ipc";
+import {
+  ipc,
+  onError,
+  onPipelineStateChange,
+  onWakeWordStatus,
+} from "@/lib/ipc";
 import {
   DEFAULT_SETTINGS,
   type PipelineState,
@@ -23,6 +28,8 @@ export function SettingsView() {
   const [testDuration, setTestDuration] = useState(4000);
   const [injectMode, setInjectMode] = useState(false);
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
+  const [wakeStatus, setWakeStatus] = useState<string>("Paused");
+  const [wakeToggling, setWakeToggling] = useState(false);
   const [logs, setLogs] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState(false);
   const [manualTranscript, setManualTranscript] = useState<Transcript | null>(null);
@@ -31,8 +38,10 @@ export function SettingsView() {
   useEffect(() => {
     ipc.getPipelineState().then(setPipelineState).catch(() => {});
     const unlistenState = onPipelineStateChange((s) => setPipelineState(s));
+    const unlistenWake = onWakeWordStatus((s) => setWakeStatus(s));
     return () => {
       unlistenState.then((u) => u());
+      unlistenWake.then((u) => u());
     };
   }, []);
 
@@ -92,6 +101,26 @@ export function SettingsView() {
       setTestError(String(e));
     } finally {
       setTesting(false);
+    }
+  };
+
+  const toggleWakeWord = async () => {
+    setWakeToggling(true);
+    setError(null);
+    try {
+      if (settings.wake_word_enabled) {
+        await ipc.disableWakeWord();
+        setSettings((s) => ({ ...s, wake_word_enabled: false }));
+        setWakeStatus("Paused");
+      } else {
+        await ipc.enableWakeWord();
+        setSettings((s) => ({ ...s, wake_word_enabled: true }));
+        setWakeStatus("Listening");
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWakeToggling(false);
     }
   };
 
@@ -233,33 +262,91 @@ export function SettingsView() {
               </p>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-brand-500"
-                checked={settings.wake_word_enabled}
-                onChange={(e) => update("wake_word_enabled", e.target.checked)}
-              />
-              <span className="text-sm text-neutral-200">
-                Активация по ключевой фразе («Эй, ассистент»)
-              </span>
-            </label>
+            <div className="rounded-lg border border-neutral-700 bg-neutral-800/40 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-neutral-200">
+                    Активация по ключевой фразе
+                  </span>
+                  <span
+                    className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
+                      wakeStatus === "Listening"
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : wakeStatus === "Processing"
+                          ? "bg-amber-500/20 text-amber-300"
+                          : wakeStatus === "Triggered"
+                            ? "bg-brand-500/20 text-brand-300"
+                            : "bg-neutral-700 text-neutral-400"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        wakeStatus === "Listening"
+                          ? "animate-pulse bg-emerald-400"
+                          : wakeStatus === "Processing"
+                            ? "animate-pulse bg-amber-400"
+                            : wakeStatus === "Triggered"
+                              ? "bg-brand-400"
+                              : "bg-neutral-500"
+                      }`}
+                    />
+                    {wakeStatus === "Listening"
+                      ? "Слушаю"
+                      : wakeStatus === "Processing"
+                        ? "Анализирую"
+                        : wakeStatus === "Triggered"
+                          ? "Сработала!"
+                          : wakeStatus === "Paused"
+                            ? "На паузе"
+                            : "Выключено"}
+                  </span>
+                </div>
+                <button
+                  className={
+                    settings.wake_word_enabled
+                      ? "btn-secondary !px-3 !py-1 text-xs"
+                      : "btn-primary !px-3 !py-1 text-xs"
+                  }
+                  onClick={toggleWakeWord}
+                  disabled={wakeToggling}
+                >
+                  {wakeToggling
+                    ? "..."
+                    : settings.wake_word_enabled
+                      ? "Выключить"
+                      : "Включить"}
+                </button>
+              </div>
 
-            {settings.wake_word_enabled && (
+              <p className="mb-3 text-xs text-neutral-400">
+                Программа постоянно слушает микрофон лёгкой моделью (tiny).
+                Когда услышит фразу «{settings.wake_word}» — начнёт запись
+                диктовки, по тишине вставит текст в активное окно. Требует
+                модель <code className="text-brand-300">tiny</code> (75 МБ).
+                CPU в режиме ожидания: ~5-10%.
+              </p>
+
               <div>
                 <label className="label">Ключевая фраза</label>
                 <input
                   className="input"
                   value={settings.wake_word}
                   onChange={(e) => update("wake_word", e.target.value)}
-                  disabled
+                  disabled={settings.wake_word_enabled}
                   placeholder="Эй, ассистент"
                 />
                 <p className="mt-1 text-xs text-neutral-500">
-                  Кастомная фраза будет доступна в следующей версии.
+                  Изменение фразы потребует перезапуска wake word. Сейчас
+                  работает с фразой по умолчанию.
                 </p>
               </div>
-            )}
+
+              {wakeStatus === "Triggered" && (
+                <div className="mt-3 rounded-lg border border-brand-500/40 bg-brand-500/10 px-4 py-3 text-sm text-brand-200">
+                  🎙️ Wake word сработала! Говорите текст сейчас — запись идёт.
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

@@ -45,6 +45,11 @@ export const ipc = {
     invoke<string>("get_recent_logs", { lines: lines ?? 80 }),
   testMicrophone: (durationMs: number) =>
     invoke<MicTestResult>("test_microphone", { durationMs }),
+
+  // Wake word
+  getWakeWordStatus: () => invoke<string>("get_wake_word_status"),
+  enableWakeWord: () => invoke<void>("enable_wake_word"),
+  disableWakeWord: () => invoke<void>("disable_wake_word"),
 };
 
 export interface MicTestResult {
@@ -66,4 +71,16 @@ export function onPipelineStateChange(
 
 export function onError(handler: (msg: string) => void): Promise<UnlistenFn> {
   return listen<string>("error", (e) => handler(e.payload));
+}
+
+export function onWakeWordDetected(
+  handler: (transcription: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("wake-word-detected", (e) => handler(e.payload));
+}
+
+export function onWakeWordStatus(
+  handler: (status: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("wake-word-status", (e) => handler(e.payload));
 }

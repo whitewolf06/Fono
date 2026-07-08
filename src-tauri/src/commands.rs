@@ -527,4 +527,90 @@ pub struct MicTestResult {
     pub rms: f32,
 }
 
+// ====== Wake word ======
+
+/// Возвращает статус wake word детектора.
+#[tauri::command]
+pub fn get_wake_word_status(
+    detector: State<'_, crate::wakeword::WakeWordDetector>,
+) -> String {
+    format!("{:?}", detector.status())
+}
+
+/// Включает wake word детектор.
+#[tauri::command]
+pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
+    use tauri::Manager;
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    let detector = app.state::<crate::wakeword::WakeWordDetector>();
+    let settings = state.settings();
+
+    // Загружаем tiny-модель.
+    let models_dir = crate::state::models_dir()?;
+    let tiny_path = models_dir.join("ggml-tiny.bin");
+    if !tiny_path.exists() {
+        return Err(AppError::Config(
+            "Модель tiny не скачана. Скачайте её в разделе «Модель распознавания».".into(),
+        ));
+    }
+    pipeline.stt().ensure_loaded(&tiny_path)?;
+
+    detector.set_phrase(settings.wake_word.clone());
+
+    let stt = pipeline.stt().clone();
+    let device_id = settings.audio_device_id.clone();
+    let app_clone = app.clone();
+
+    detector.start(stt, device_id, move |event| {
+        match event {
+            crate::wakeword::WakeEvent::Detected { transcription } => {
+                tracing::info!("wake word triggered: {:?}", transcription);
+                let _ = app_clone.emit("wake-word-detected", &transcription);
+                let h = app_clone.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = crate::run_dictation_after_wake(&h).await {
+                        tracing::error!("dictation after wake failed: {e}");
+                        let _ = h.emit("error", e.to_string());
+                    }
+                });
+            }
+            crate::wakeword::WakeEvent::Error(msg) => {
+                let _ = app_clone.emit("error", &msg);
+            }
+            crate::wakeword::WakeEvent::Status(s) => {
+                let _ = app_clone.emit("wake-word-status", format!("{:?}", s));
+            }
+        }
+    })?;
+
+    // Сохраняем в настройках.
+    let mut s = settings;
+    s.wake_word_enabled = true;
+    crate::state::save_settings(&s)?;
+    state.set_settings(s);
+
+    tracing::info!("wake word enabled");
+    Ok(())
+}
+
+/// Выключает wake word детектор.
+#[tauri::command]
+pub fn disable_wake_word(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    detector: State<'_, crate::wakeword::WakeWordDetector>,
+) -> AppResult<()> {
+    detector.stop();
+
+    let mut s = state.settings();
+    s.wake_word_enabled = false;
+    crate::state::save_settings(&s)?;
+    state.set_settings(s);
+
+    tracing::info!("wake word disabled");
+    let _ = app;
+    Ok(())
+}
+
 
