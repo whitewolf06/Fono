@@ -416,14 +416,28 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> AppResult<()> {
-    // NOTE: регистрация хоткея намеренно отключена — push-to-talk будет
-    // реализован в Этапе 3 с полным обработчиком (start/stop_dictation).
-    // Сейчас регистрация без обработчика только сбивает конвейер.
-    let _ = app;
+    let old_settings = state.settings();
+    let hotkey_changed = old_settings.hotkey != settings.hotkey;
 
     state::save_settings(&settings)?;
     state.set_settings(settings.clone());
     tracing::info!("settings saved: model={:?}, lang={}", settings.whisper_model_path, settings.language);
+
+    // Перерегистрируем глобальную горячую клавишу push-to-talk, если она изменилась.
+    if hotkey_changed {
+        if let Err(e) = crate::register_push_to_talk(&app, &settings.hotkey) {
+            // В случае ошибки восстанавливаем старый hotkey в настройках.
+            let mut reverted = settings.clone();
+            reverted.hotkey = old_settings.hotkey.clone();
+            let _ = state::save_settings(&reverted);
+            state.set_settings(reverted);
+            return Err(AppError::Config(format!(
+                "Не удалось зарегистрировать горячую клавишу '{}': {e}. Старое значение восстановлено.",
+                settings.hotkey
+            )));
+        }
+    }
+
     Ok(())
 }
 

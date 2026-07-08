@@ -151,38 +151,47 @@ pub fn run() {
 
 /// Регистрирует глобальную горячую клавишу push-to-talk.
 ///
-/// Ctrl+Space: зажатие → старт записи, отпускание → стоп + STT + вставка.
+/// Зажатие → старт записи, отпускание → стоп + STT + вставка.
 fn setup_global_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
     let hotkey = app_handle.state::<AppState>().settings().hotkey.clone();
-    tracing::info!("registering push-to-talk hotkey: {}", hotkey);
-
-    if let Err(e) = app_handle.global_shortcut().on_shortcut(hotkey.as_str(), move |app, _, event| {
-        match event.state {
-                ShortcutState::Pressed => {
-                    if let Err(e) = commands::start_dictation(app.clone()) {
-                        let _ = app.emit("error", e.to_string());
-                        tracing::warn!("start_dictation via global shortcut failed: {e}");
-                    }
-                }
-                ShortcutState::Released => {
-                    if app.state::<pipeline::Pipeline>().is_recording() {
-                        let app_for_stop = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Err(e) = commands::stop_dictation(app_for_stop).await {
-                                tracing::warn!("stop_dictation via global shortcut failed: {e}");
-                            }
-                        });
-                    }
-                }
-            }
-        }) {
+    if let Err(e) = register_push_to_talk(&app_handle, &hotkey) {
         tracing::error!("Не удалось зарегистрировать горячую клавишу '{}': {e}", hotkey);
         tracing::error!("Возможно, она уже занята другим приложением. Push-to-talk недоступен, но тест кнопки работает.");
-    } else {
-        tracing::info!("push-to-talk hotkey '{}' registered successfully", hotkey);
     }
+    Ok(())
+}
 
+/// Регистрирует (или перерегистрирует) push-to-talk горячую клавишу.
+/// Сначала отменяет все текущие глобальные шорткаты, затем регистрирует новый.
+pub fn register_push_to_talk(
+    app: &tauri::AppHandle,
+    hotkey: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    tracing::info!("registering push-to-talk hotkey: {}", hotkey);
+    let gs = app.global_shortcut();
+    let _ = gs.unregister_all();
+    gs.on_shortcut(hotkey, move |app, _, event| {
+        match event.state {
+            ShortcutState::Pressed => {
+                if let Err(e) = commands::start_dictation(app.clone()) {
+                    let _ = app.emit("error", e.to_string());
+                    tracing::warn!("start_dictation via global shortcut failed: {e}");
+                }
+            }
+            ShortcutState::Released => {
+                if app.state::<pipeline::Pipeline>().is_recording() {
+                    let app_for_stop = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(e) = commands::stop_dictation(app_for_stop).await {
+                            tracing::warn!("stop_dictation via global shortcut failed: {e}");
+                        }
+                    });
+                }
+            }
+        }
+    })?;
+    tracing::info!("push-to-talk hotkey '{}' registered successfully", hotkey);
     Ok(())
 }
 
