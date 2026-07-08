@@ -458,7 +458,7 @@ pub async fn run_dictation_after_wake(handle: &tauri::AppHandle) -> Result<(), B
 
             if !final_text.is_empty() {
                 pipeline::set_state(handle, &state.inner(), PipelineState::Injecting);
-                if let Err(e) = crate::injection::inject_text(&final_text) {
+                if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
                     tracing::warn!("injection failed: {e}");
                     let _ = handle.emit("error", format!("Вставка: {e}"));
                 }

@@ -87,6 +87,13 @@ pub enum AiMode {
     Command,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum InjectionMode {
+    SendInput,
+    Clipboard,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
@@ -117,6 +124,8 @@ pub struct Settings {
     pub clean_prompt: Option<String>,
     #[serde(default = "default_use_gpu")]
     pub use_gpu: bool,
+    #[serde(default = "default_injection_mode")]
+    pub injection_mode: InjectionMode,
 }
 
 impl Default for Settings {
@@ -136,12 +145,17 @@ impl Default for Settings {
             overlay_y: None,
             clean_prompt: None,
             use_gpu: default_use_gpu(),
+            injection_mode: default_injection_mode(),
         }
     }
 }
 
 fn default_use_gpu() -> bool {
     true
+}
+
+fn default_injection_mode() -> InjectionMode {
+    InjectionMode::SendInput
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

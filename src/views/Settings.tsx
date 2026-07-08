@@ -710,17 +710,43 @@ export function SettingsView() {
         {/* Прочее */}
         <section className="card">
           <h2 className="mb-4 text-lg font-medium">⚙️ Прочее</h2>
-          <label className="flex cursor-pointer items-center gap-3">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-brand-500"
-              checked={settings.autostart}
-              onChange={(e) => update("autostart", e.target.checked)}
-            />
-            <span className="text-sm text-neutral-200">
-              Запускать вместе с Windows
-            </span>
-          </label>
+          <div className="space-y-4">
+            <div>
+              <label className="label">Способ вставки текста</label>
+              <select
+                className="input"
+                value={settings.injection_mode}
+                onChange={(e) =>
+                  update(
+                    "injection_mode",
+                    e.target.value as SettingsT["injection_mode"],
+                  )
+                }
+              >
+                <option value="sendinput">
+                  SendInput (быстро, но не везде работает)
+                </option>
+                <option value="clipboard">
+                  Буфер обмена (Ctrl+V, работает в Telegram)
+                </option>
+              </select>
+              <p className="mt-1 text-xs text-neutral-500">
+                Если в приложении вместо текста появляется один повторяющийся
+                символ — переключите на «Буфер обмена».
+              </p>
+            </div>
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand-500"
+                checked={settings.autostart}
+                onChange={(e) => update("autostart", e.target.checked)}
+              />
+              <span className="text-sm text-neutral-200">
+                Запускать вместе с Windows
+              </span>
+            </label>
+          </div>
         </section>
       </div>
 

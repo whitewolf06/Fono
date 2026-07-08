@@ -34,6 +34,7 @@ export type WhisperModelSize =
   | "large";
 
 export type AiMode = "off" | "clean" | "format" | "command";
+export type InjectionMode = "sendinput" | "clipboard";
 
 export interface Settings {
   /** device_id микрофона или null = системный default */
@@ -64,6 +65,8 @@ export interface Settings {
   clean_prompt: string | null;
   /** Использовать GPU (CUDA) для whisper, если доступно */
   use_gpu: boolean;
+  /** Способ вставки текста в активное окно */
+  injection_mode: InjectionMode;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -81,6 +84,7 @@ export const DEFAULT_SETTINGS: Settings = {
   overlay_y: null,
   clean_prompt: null,
   use_gpu: true,
+  injection_mode: "sendinput",
 };
 
 export interface Transcript {

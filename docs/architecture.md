@@ -1,7 +1,7 @@
 # Архитектура WhisperClone
 
 Этот документ описывает модульную структуру приложения, потоки данных и
-ключевые технические решения.
+ключевые технические решения на текущий момент.
 
 ## 1. Высокоуровневая схема
 
@@ -11,33 +11,42 @@
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │  Frontend (Webview, React + TypeScript + Tailwind)         │  │
-│  │  - Onboarding, Settings, Overlay, Tray menu               │  │
-│  │  - IPC через tauri::invoke                                │  │
+│  │  - Settings, Overlay, Onboarding (cosmetic)                │  │
+│  │  - IPC через tauri::invoke / Tauri events                  │  │
 │  └─────────────────────────────┬──────────────────────────────┘  │
 │                                │  invoke / events                │
 │  ┌─────────────────────────────┴──────────────────────────────┐  │
 │  │                     Rust Core (главный процесс)            │  │
 │  │                                                            │  │
-│  │  ┌─────────────┐    ┌──────────────┐   ┌──────────────┐    │  │
-│  │  │   audio/    │───▶│   wakeword/  │   │   hotkey/    │    │  │
-│  │  │  cpal, ring │    │ always-on KW │   │ globalshortcut│   │  │
-│  │  └─────┬───────┘    └──────┬───────┘   └──────┬───────┘    │  │
-│  │        │                   │                  │            │  │
-│  │        ▼     ┌─────────────────────────┐      │            │  │
-│  │      ┌──────────────┐                  │      │            │  │
-│  │      │    vad/      │     pipeline/ (оркестратор) ◀────────┘  │  │
-│  │      │ silero-vad   │                  │                     │  │
-│  │      └─────┬────────┘                  │                     │  │
-│  │            ▼                           ▼                     │  │
-│  │      ┌──────────────┐            ┌──────────────┐            │  │
-│  │      │    stt/      │───────────▶│    llm/      │            │  │
-│  │      │ whisper.cpp  │            │ LM Studio HTTP│           │  │
-│  │      └──────────────┘            └──────┬───────┘            │  │
-│  │                                         ▼                    │  │
-│  │                                  ┌──────────────┐            │  │
-│  │                                  │  injection/  │            │  │
-│  │                                  │  SendInput   │            │  │
-│  │                                  └──────────────┘            │  │
+│  │  ┌─────────────┐    ┌──────────────┐                      │  │
+│  │  │   audio/    │───▶│   wakeword/  │                      │  │
+│  │  │  cpal       │    │ whisper-base │                      │  │
+│  │  └─────┬───────┘    └──────┬───────┘                      │  │
+│  │        │                   │                              │  │
+│  │        │     ┌─────────────────────────┐                  │  │
+│  │        ▼     │                         │                  │  │
+│  │      ┌──────────────┐     pipeline/ (оркестратор)         │  │
+│  │      │    vad/      │◀──── start/stop dictation           │  │
+│  │      │ trim_silence │                  ▲                  │  │
+│  │      └─────┬────────┘                  │                  │  │
+│  │            ▼                           │                  │  │
+│  │      ┌──────────────┐                  │                  │  │
+│  │      │    stt/      │                  │                  │  │
+│  │      │ whisper.cpp  │◀── global Ctrl+Space (tauri-plugin) │  │
+│  │      └──────┬───────┘                  │                  │  │
+│  │             │                          │                  │  │
+│  │             ▼                          │                  │  │
+│  │      ┌──────────────┐                  │                  │  │
+│  │      │    llm/      │                  │                  │  │
+│  │      │ LM Studio    │                  │                  │  │
+│  │      └──────┬───────┘                  │                  │  │
+│  │             │                          │                  │  │
+│  │             ▼                          │                  │  │
+│  │      ┌──────────────┐                  │                  │  │
+│  │      │  injection/  │──────────────────┘                  │  │
+│  │      │ SendInput or │                                     │  │
+│  │      │ Clipboard    │                                     │  │
+│  │      └──────────────┘                                     │  │
 │  └────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -48,20 +57,20 @@
 
 ```
         ┌──────────┐
-        │  IDLE    │  ◀── всегда слушает wake word (низкий CPU)
+        │  IDLE    │  ◀── фоновый wake word (если включён)
         └────┬─────┘
    wake word  │   или глобальная горячая клавиша
    обнаружена │
              ▼
         ┌──────────┐
-        │ LISTENING│  ◀── запись аудио в ring buffer + VAD
+        │ LISTENING│  ◀── запись аудио в буфер
         └────┬─────┘
-   VAD: конец речи (тишина N мс) или повторная wake-фраза
-             │
+   отпускание │   или тишина (только wake word)
+   клавиши     │
              ▼
         ┌──────────┐
-        │TRANSCRIB-│  ◀── whisper.cpp декодит накопленный буфер
-        │  ING     │       (или streaming с partial results)
+        │TRANSCRIB-│  ◀── whisper.cpp декодирует буфер
+n        │  ING     │
         └────┬─────┘
              ▼
         ┌──────────┐
@@ -69,7 +78,7 @@
         └────┬─────┘
              ▼
         ┌──────────┐
-        │ INJECTING│  ◀── SendInput: вставка текста в активное окно
+        │ INJECTING│  ◀── SendInput или Clipboard (Ctrl+V)
         └────┬─────┘
              │
              ▼
@@ -80,111 +89,67 @@
 
 ### События для UI
 
-Каждая смена состояния эмитит Tauri-событие (`state-change`), которое фронтенд
-слушает и обновляет overlay-индикатор:
-- `idle` → спрятать overlay (или показать мини-иконку в трее).
-- `listening` → показываем красный кружок «● слушаю».
-- `transcribing` / `processing` → анимация «думаю…».
-- `injecting` → короткий «вставляю…».
-- `error` → красная иконка с сообщением.
+Каждая смена состояния эмитит Tauri-событие (`pipeline-state`), которое фронтенд
+слушает и обновляет overlay-индикатор.
 
 ## 3. Описание модулей
 
 ### `audio/` — захват аудио
 - Использует крейт `cpal` (WASAPI на Windows).
-- Захватывает дефолтный микрофон (можно выбрать в настройках) на **16 кГц, моно, i16** —
-  формат, ожидаемый whisper.cpp.
-- Записывает сэмплы в **lock-free ring buffer** (SPSC), откуда их читают
-  модули wake word, VAD и STT.
-- Отдельный поток (`std::thread` или `tokio::task::spawn_blocking`) — аудио не должно блокировать UI.
-
-**Ключевые типы:**
-```rust
-pub struct AudioCapture { /* cpal::Stream */ }
-impl AudioCapture {
-    pub fn start(device: Option<DeviceId>, on_samples: Box<dyn Fn(&[i16])>) -> Result<()>;
-    pub fn stop(&self);
-    pub fn list_devices() -> Vec<DeviceInfo>;
-}
-```
+- Захватывает выбранный микрофон на **16 кГц, моно, i16**.
+- Конвертирует любой входной формат (i8/i16/i32/i64/u8/u16/u32/u64/f32/f64) в i16.
+- Записывает сэмплы в `Mutex<Vec<i16>>`, разделяемый между потоками.
 
 ### `wakeword/` — детекция ключевой фразы
-- Запускается **только** в состоянии `IDLE` (когда диктовка не идёт).
-- Непрерывно читает чанки из аудио-ring buffer и прогоняет через модель wake word.
-- На срабатывании — посылает событие в pipeline.
-- Лёгкий CPU: целевой расход 1–3%.
-
-**Альтернативы (выбрать на Этапе 4):**
-- **openWakeWord** (MIT, English-only) — запускать как Python sidecar через
-  `tauri-plugin-python` или перекомпилировать в ONNX и прогонять через `ort` (ONNX Runtime в Rust).
-- **Porcupine** (Picovoice) — кросс-язычный, есть Rust binding, бесплатный tier с ограничениями,
-  обучение кастомной русской фразы через Picovoice Console.
-- **Своя ONNX-модель**, обученная через [livekit-wakeword](https://livekit.com/blog/livekit-wakeword) —
-  полностью своя, MIT.
+- Фоновый поток, который каждые ~1.5 сек берёт чанк аудио.
+- VAD-gating: тихие чанки пропускаются.
+- Транскрибирует чанк моделью `ggml-base.bin`.
+- Нечёткий поиск фразы через расстояние Левенштейна.
+- Cooldown между срабатываниями.
+- При срабатывании запускает post-wake диктовку с VAD-остановкой.
 
 ### `vad/` — Voice Activity Detection
-- Определяет границы речи: где началась и где закончилась.
-- Используется для:
-  - Запуска STT при обнаружении речи (экономит CPU).
-  - Определения конца фразы (N мс тишины) для автоматической остановки диктовки.
-- **Рекомендация:** silero-vad (быстрая, точная, доступна как ONNX → крейт `ort`).
+- Энергетический VAD с порогом ~-38 dBFS.
+- `trim_silence` обрезает тишину в начале/конце записи.
+- Используется только для обрезки и для wake-word диктовки.
 
 ### `stt/` — Speech-to-Text
-- Биндинги к [whisper.cpp](https://github.com/ggerganov/whisper.cpp) через
-  [`whisper-rs`](https://crates.io/crates/whisper-rs) (идиоматическая обёртка над C API).
-- Принимает `&[i16]` PCM 16 кГц, возвращает транскрибированный текст + тайминги.
-- Поддержка моделей: `tiny`, `base`, `small`, `medium`, `large` (GGML).
-- GPU-ускорение: опциональная сборка с CUDA / DirectML для большой скорости.
-
-```rust
-pub struct WhisperModel { /* whisper_rs::WhisperContext */ }
-impl WhisperModel {
-    pub fn load(path: &Path) -> Result<Self>;
-    pub fn transcribe(&self, samples: &[i16], lang: Language) -> Result<Transcript>;
-}
-pub struct Transcript { pub text: String, pub segments: Vec<Segment> }
-```
+- Биндинги к whisper.cpp через `whisper-rs` 0.16.
+- Ленивая загрузка модели (`ensure_loaded`).
+- Поддержка моделей: `tiny`, `base`, `small`, `medium`, `large-v3`.
+- GPU-ускорение: runtime-флаг `use_gpu` передаётся в `WhisperContextParameters`.
+- Возвращает `Transcript` с текстом, языком, временем обработки и устройством (CPU/CUDA).
 
 ### `llm/` — AI-постобработка
 - HTTP-клиент (`reqwest`) к LM Studio: `POST http://localhost:1234/v1/chat/completions`.
-- OpenAI-совместимый формат запросов/ответов.
-- **Режимы обработки** (выбираются в настройках или командой):
-  - `off` — выключено, выдаём «сырой» транскрипт.
-  - `clean` (по умолчанию) — убрать «ээ/мм», добавить пунктуацию, исправить явные оговорки.
-  - `format` — оформить в абзацы / списки.
-  - `command` — команды через префикс («команда: переведи на английский»).
-- Стриминг ответа (SSE) для мгновенной обратной связи.
-- Промпт-шаблоны с жёстким системным сообщением, требующим сохранить смысл.
+- OpenAI-совместимый формат.
+- Режимы: `off`, `clean`, `format`, `command`.
+- Редактируемый системный промт для режима `clean`.
+- При ошибке LLM — fallback на сырой транскрипт.
 
 ### `injection/` — вставка текста
-- Использует крейт [`windows`](https://crates.io/crates/windows) → `SendInput` с `KEYEVENTF_UNICODE`.
-- `SendInput` с Unicode-символами работает с русским, эмодзи, CJK.
-- **Альтернативный режим для длинных текстов** — вставка через буфер обмена
-  (`OpenClipboard`/`SetClipboardData`) + симуляция `Ctrl+V` (с восстановлением
-  предыдущего содержимого буфера).
-- **UIPI caveat:** injection блокируется в elevated-окнах (запущенных от администратора).
-  Документируем как ограничение; опция «запускать приложение от администратора».
+- **SendInput** с `KEYEVENTF_UNICODE` — быстро, поддерживает русский/эмодзи/CJK.
+- **Clipboard** — копирует текст, эмулирует `Ctrl+V`, восстанавливает старый буфер.
+- Режим выбирается в настройках (`injection_mode`).
+- **UIPI caveat:** injection блокируется в elevated-окнах.
 
-### `hotkey/` — глобальные горячие клавиши
-- `tauri-plugin-global-shortcut` (Tauri v2).
+### Глобальная горячая клавиша
+- `tauri-plugin-global-shortcut`.
 - Дефолт: `Ctrl+Space` — push-to-talk (зажать и говорить).
-- Настраивается в Settings.
+- Настраивается в Settings; для применения нового хоткея требуется перезапуск
+  (см. известные ограничения).
 
 ### `pipeline/` — оркестратор
-- Держит текущее состояние конвейера (`Mutex<PipelineState>`).
-- Подписан на события от `wakeword`, `vad`, `hotkey`.
-- Запускает/останавливает запись, дёргает `stt` и `llm`, затем `injection`.
-- Эмитит события смены состояния для UI.
+- FSM и события.
+- Запускает/останавливает запись, дёргает `stt`, `llm`, `injection`.
 
 ### `commands.rs` — Tauri IPC
-- Инвокабельные из фронтенда команды:
-  - `get_state() -> PipelineState`
-  - `start_dictation()` / `stop_dictation()`
-  - `list_audio_devices() -> Vec<DeviceInfo>`
-  - `list_whisper_models() -> Vec<ModelInfo>`
-  - `test_llm_connection() -> Result<String>`
-  - `get_settings() -> Settings` / `save_settings(Settings)`
-  - `set_hotkey(String)`, `set_wake_word(String)`
+- `get_pipeline_state`, `start_dictation`, `stop_dictation`
+- `list_audio_devices`, `list_whisper_models`, `download_whisper_model`
+- `test_llm_connection`, `list_llm_models`
+- `get_settings`, `save_settings`
+- `get_wake_word_status`, `enable_wake_word`, `disable_wake_word`
+- `save_overlay_position`, `get_recent_logs`, `test_microphone`
 
 ## 4. Структура каталогов
 
@@ -192,42 +157,28 @@ pub struct Transcript { pub text: String, pub segments: Vec<Segment> }
 whisperclone/
 ├── README.md
 ├── docs/
-│   ├── architecture.md          ← этот файл
+│   ├── architecture.md
 │   ├── development.md
-│   └── roadmap.md
+│   ├── roadmap.md
+│   └── testing.md
 ├── src-tauri/
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   ├── build.rs
 │   ├── icons/
-│   ├── resources/
-│   │   ├── whisper/             ← *.bin модели (gitignored, скачиваются)
-│   │   └── wakeword/            ← *.onnx / *.ppn модели
 │   └── src/
-│       ├── main.rs              ← точка входа, tauri::Builder, plugins
-│       ├── lib.rs               ← реэкспорт модулей
-│       ├── commands.rs          ← Tauri IPC команды
-│       ├── state.rs             ← AppState (Arc<Mutex<...>>)
-│       ├── error.rs             ← типы ошибок (thiserror)
+│       ├── main.rs
+│       ├── lib.rs
+│       ├── commands.rs
+│       ├── state.rs
+│       ├── error.rs
 │       ├── audio/
-│       │   ├── mod.rs
-│       │   └── capture.rs
 │       ├── wakeword/
-│       │   └── mod.rs
 │       ├── vad/
-│       │   └── mod.rs
 │       ├── stt/
-│       │   └── mod.rs
 │       ├── llm/
-│       │   ├── mod.rs
-│       │   └── prompts.rs
 │       ├── injection/
-│       │   └── mod.rs
-│       ├── hotkey/
-│       │   └── mod.rs
 │       └── pipeline/
-│           ├── mod.rs
-│           └── state.rs
 ├── src/                         ← Frontend (React + Vite + TS)
 │   ├── main.tsx
 │   ├── App.tsx
@@ -236,14 +187,10 @@ whisperclone/
 │   │   ├── Settings.tsx
 │   │   └── Overlay.tsx
 │   ├── components/
-│   │   ├── StatusBadge.tsx
-│   │   ├── MicSelector.tsx
-│   │   └── ModelManager.tsx
 │   ├── lib/
-│   │   ├── ipc.ts               ← типизированный invoke-клиент
-│   │   └── types.ts             ← shared типы (PipelineState, Settings…)
+│   │   ├── ipc.ts
+│   │   └── types.ts
 │   └── styles/
-│       └── globals.css          ← Tailwind layers
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
@@ -252,41 +199,37 @@ whisperclone/
 
 ## 5. Потоки данных и потокобезопасность
 
-- **Аудио-поток** (real-time поток cpal): пишет в lock-free SPSC queue.
-- **Wake word поток**: читает очередь, прогоняет модель, при срабатывании будит pipeline.
-- **Pipeline поток** (tokio task): владеет FSM,协调 запись, VAD, STT, LLM, injection.
-- **UI поток** (Tauri main): только рисует состояние, не блокирует.
-- Состояние (state) — `Arc<Mutex<AppState>>` или `Arc<RwLock<…>>` в `tauri::State`.
+- **Аудио-поток** cpal пишет в `Mutex<Vec<i16>>`.
+- **Wake word поток**: читает буфер, прогоняет модель, при срабатывании будит pipeline.
+- **Pipeline**: async tokio tasks + `spawn_blocking` для STT.
+- **UI**: Tauri webview, получает состояние через события.
+- Глобальное состояние в `tauri::State<AppState>`.
 
-## 6. Производительность и-latency цели
+## 6. Производительность
 
-| Стадия | Целевая задержка |
+| Стадия | Реальная задержка |
 |---|---|
-| Wake word → начало записи | < 200 мс |
+| Wake word → начало записи | ~1.5 сек (частота чанков) |
 | End-of-speech → старт STT | < 100 мс (VAD) |
-| STT (short phrase, base model, CPU) | 300–800 мс |
-| LLM (LM Studio, 12B Q4, 1 предложение) | 500–2000 мс |
+| STT (short phrase, base, CUDA) | ~0.3–1 сек |
+| STT (short phrase, base, CPU) | ~0.5–2 сек |
+| LLM (Qwen2.5-7B Q4, CPU) | 0.5–3 сек |
 | Injection (SendInput) | < 50 мс |
-| **End-to-end** | **1–3 секунды** |
-
-Оптимизации (Этап 8):
-- GPU-ускорение whisper.cpp (CUDA/DirectML).
-- Streaming-транскрипция с partial results.
-- Квантование LLM и/или smaller model для `clean` режима.
+| **End-to-end** | **1–4 секунды** |
 
 ## 7. Безопасность и приватность
 
-- Аудио **не пишется на диск** (если пользователь явно не включит отладку).
+- Аудио не пишется на диск (кроме отладочных логов).
 - Транскрипты не отправляются наружу, кроме явного вызова LLM.
-- LM Studio можно заменить на любой OpenAI-совместимый эндпоинт
-  (включая облако) — это явная опция пользователя.
+- LM Studio можно заменить на любой OpenAI-совместимый эндпоинт.
 
-## 8. Известные ограничения и риски
+## 8. Известные ограничения
 
-| Риск / ограничение | Решение / митигация |
+| Ограничение | Пояснение |
 |---|---|
-| Wake word для русского — нет готовой open-source модели | Обучить свою (livekit-wakeword) или взять Porcupine с кастомной фразой |
-| always-on аудио → расход CPU | Wake word на лёгком потоке + VAD-gating; спим между чанками |
-| `SendInput` блокируется UIPI в elevated-окнах | Документируем; опциональный запуск от администратора |
-| Whisper.cpp медленно на CPU | GPU-билд; streaming; smaller модель для быстрого отклика |
-| LM Studio 12B медленно | Уменьшить модель; квантование; fallback на облако |
+| Elevated-окна | `SendInput` блокируется UIPI в окнах, запущенных от администратора |
+| Смена hotkey | Новый hotkey применяется только после перезапуска приложения |
+| Wake word фраза | Меняется только когда wake word выключен |
+| Автозапуск Windows | Сознательно не реализован |
+| VAD-автостоп push-to-talk | Сознательно не реализован — управление только через клавишу |
+| Telegram / защищённые приложения | Используйте режим «Буфер обмена» в настройках |

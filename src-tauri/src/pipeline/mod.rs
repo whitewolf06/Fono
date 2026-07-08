@@ -182,7 +182,7 @@ pub async fn run_full_pipeline(
     };
 
     set_state(handle, state, PipelineState::Injecting);
-    if let Err(e) = injection::inject_text(&final_text) {
+    if let Err(e) = injection::inject_text(&final_text, settings.injection_mode) {
         let _ = handle.emit("error", e.to_string());
         set_state(handle, state, PipelineState::Idle);
         return Err(e);

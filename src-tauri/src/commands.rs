@@ -152,7 +152,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
 
     // Вставка текста.
     pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
-    if let Err(e) = crate::injection::inject_text(&final_text) {
+    if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
         emit_pipeline_error(&app, &e.to_string());
         set_pipeline_idle(&app, &state.inner());
         return Err(e);
@@ -280,7 +280,7 @@ pub async fn transcribe_test(
     // Этап 2: текст-инъекция в активное окно через SendInput.
     if inject && !final_text.is_empty() {
         pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
-        match crate::injection::inject_text(&final_text) {
+        match crate::injection::inject_text(&final_text, settings.injection_mode) {
             Ok(()) => tracing::info!("injected {} chars into active window", final_text.chars().count()),
             Err(e) => {
                 tracing::warn!("injection failed ({e}) — returning transcript anyway");
