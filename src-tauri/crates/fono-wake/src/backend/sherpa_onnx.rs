@@ -4,10 +4,14 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::audio_source::AudioStream;
+
 use crossbeam_channel::{bounded, Sender};
+
 use parking_lot::Mutex;
 
 use crate::config::WakeWordConfig;
+use crate::diag::{self, Diagnostics, DiagnosticsHandle};
 use crate::engine::WakeWordEngine;
 use crate::error::{WakeWordError, WakeWordResult};
 use crate::event::{WakeWordEvent, WakeWordStatus};
@@ -23,6 +27,7 @@ pub struct SherpaOnnxBackend {
     paused: Arc<AtomicBool>,
     sender: Mutex<Option<Sender<Vec<f32>>>>,
     callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    diag: DiagnosticsHandle,
 }
 
 impl SherpaOnnxBackend {
@@ -34,6 +39,7 @@ impl SherpaOnnxBackend {
             paused: Arc::new(AtomicBool::new(false)),
             sender: Mutex::new(None),
             callback: Arc::new(Mutex::new(None)),
+            diag: diag::new_handle(),
         }
     }
 
@@ -71,12 +77,13 @@ impl WakeWordEngine for SherpaOnnxBackend {
                 WakeWordEvent::MissingModel {
                     path: path.to_string_lossy().into_owned(),
                 },
+                Some(&self.diag),
             );
             *self.status.lock() = WakeWordStatus::MissingModel;
             return Err(WakeWordError::ModelNotFound(path));
         }
 
-        notify(&self.callback, WakeWordEvent::ModelLoading);
+        notify(&self.callback, WakeWordEvent::ModelLoading, Some(&self.diag));
         *self.status.lock() = WakeWordStatus::Loading;
 
         self.running.store(true, Ordering::SeqCst);
@@ -87,12 +94,16 @@ impl WakeWordEngine for SherpaOnnxBackend {
         let running = self.running.clone();
         let paused = self.paused.clone();
         let cb = self.callback.clone();
+        let diag = self.diag.clone();
 
-        let (tx, rx) = bounded::<Vec<f32>>(100);
-        *self.sender.lock() = Some(tx);
+        diag::set_running(&diag, true);
+        diag::set_paused(&diag, false);
+
+        let (tx, rx) = bounded::<Vec<f32>>(400);
+        *self.sender.lock() = Some(tx.clone());
 
         thread::spawn(move || {
-            if let Err(e) = run_spotter(config, running, paused, status, rx, cb) {
+            if let Err(e) = run_spotter(config, running, paused, status, tx, rx, cb, diag) {
                 tracing::error!("fono-wake sherpa: spotter thread ended: {e}");
             }
         });
@@ -104,23 +115,34 @@ impl WakeWordEngine for SherpaOnnxBackend {
         self.running.store(false, Ordering::SeqCst);
         *self.sender.lock() = None;
         *self.status.lock() = WakeWordStatus::Off;
+        diag::set_running(&self.diag, false);
+        diag::set_paused(&self.diag, false);
         Ok(())
     }
 
     fn pause(&mut self) -> WakeWordResult<()> {
         self.paused.store(true, Ordering::SeqCst);
         *self.status.lock() = WakeWordStatus::Paused;
+        diag::set_paused(&self.diag, true);
         Ok(())
     }
 
     fn resume(&mut self) -> WakeWordResult<()> {
         self.paused.store(false, Ordering::SeqCst);
         *self.status.lock() = WakeWordStatus::Listening;
+        diag::set_paused(&self.diag, false);
         Ok(())
     }
 
     fn status(&self) -> WakeWordStatus {
         *self.status.lock()
+    }
+
+    fn diagnostics(&self) -> Option<Diagnostics> {
+        let mut d = self.diag.lock().data.clone();
+        d.running = self.running.load(Ordering::SeqCst);
+        d.paused = self.paused.load(Ordering::SeqCst);
+        Some(d)
     }
 }
 
@@ -129,8 +151,10 @@ fn run_spotter(
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     status: Arc<Mutex<WakeWordStatus>>,
+    tx: Sender<Vec<f32>>,
     rx: crossbeam_channel::Receiver<Vec<f32>>,
     callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    diag: DiagnosticsHandle,
 ) -> WakeWordResult<()> {
     let dir = config.model_dir;
     let encoder = dir.join("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
@@ -155,7 +179,8 @@ fn run_spotter(
         Some(s) => s,
         None => {
             let msg = "failed to create keyword spotter".to_string();
-            notify(&callback, WakeWordEvent::Error { message: msg.clone() });
+            notify(&callback, WakeWordEvent::Error { message: msg.clone() }, Some(&diag));
+            diag::record_event(&diag, "Error");
             *status.lock() = WakeWordStatus::Off;
             return Err(WakeWordError::ModelLoad(msg));
         }
@@ -164,8 +189,27 @@ fn run_spotter(
     let stream = spotter.create_stream();
 
     tracing::info!("fono-wake sherpa: model loaded");
-    notify(&callback, WakeWordEvent::Listening);
+    notify(&callback, WakeWordEvent::Listening, Some(&diag));
+    diag::record_event(&diag, "Listening");
     *status.lock() = WakeWordStatus::Listening;
+
+    // Start microphone capture and feed f32 samples into the processing loop.
+    let capture_tx = tx.clone();
+    let audio_diag = diag.clone();
+    let _audio_stream = AudioStream::start(
+        config.audio_device_id.as_deref(),
+        config.sample_rate,
+        move |frames: &[i16]| {
+            let samples: Vec<f32> = frames
+                .iter()
+                .map(|&s| s as f32 / i16::MAX as f32)
+                .collect();
+            diag::update_audio_level(&audio_diag, &samples);
+            if capture_tx.try_send(samples).is_err() {
+                tracing::debug!("fono-wake sherpa: audio channel full, dropping chunk");
+            }
+        },
+    )?;
 
     let cooldown = Duration::from_millis(config.cooldown_ms);
     let mut last_detection: Option<Instant> = None;
@@ -183,7 +227,15 @@ fn run_spotter(
                 }
 
                 if let Some(result) = spotter.get_result(&stream) {
-                    if !result.keyword.is_empty() || !result.json.is_empty() {
+                    let keyword = result.keyword.trim();
+                    let json = result.json.trim();
+                    if !keyword.is_empty() || !json.is_empty() {
+                        tracing::debug!(
+                            "fono-wake sherpa: result keyword='{keyword}' json='{json}'"
+                        );
+                    }
+                    if !keyword.is_empty() {
+                        diag::record_result(&diag, keyword, json);
                         let now = Instant::now();
                         let allow = last_detection
                             .map(|t| now.duration_since(t) >= cooldown)
@@ -195,9 +247,11 @@ fn run_spotter(
                                 WakeWordEvent::Detected {
                                     phrase: config.phrase.clone(),
                                 },
+                                Some(&diag),
                             );
                         }
                         spotter.reset(&stream);
+                        notify(&callback, WakeWordEvent::Listening, Some(&diag));
                     }
                 }
             }
@@ -211,12 +265,12 @@ fn run_spotter(
 }
 
 /// Map 0..1 sensitivity to a keywords_score that feels reasonable.
-fn map_sensitivity(s: f32) -> f32 {
+pub(crate) fn map_sensitivity(s: f32) -> f32 {
     let s = s.clamp(0.0, 1.0);
     0.5 + s * 3.5
 }
 
-fn phrase_to_tokens(phrase: &str) -> String {
+pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
     let normalized = phrase.trim().to_ascii_uppercase();
 
     // For the default English GigaSpeech KWS model the wake phrase is
@@ -245,10 +299,25 @@ fn phrase_to_tokens(phrase: &str) -> String {
     out.join(" ") + "\n"
 }
 
+fn event_name(event: &WakeWordEvent) -> &'static str {
+    match event {
+        WakeWordEvent::Listening => "Listening",
+        WakeWordEvent::Paused => "Paused",
+        WakeWordEvent::Detected { .. } => "Detected",
+        WakeWordEvent::Error { .. } => "Error",
+        WakeWordEvent::ModelLoading => "ModelLoading",
+        WakeWordEvent::MissingModel { .. } => "MissingModel",
+    }
+}
+
 fn notify(
     callback: &Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
     event: WakeWordEvent,
+    diag: Option<&DiagnosticsHandle>,
 ) {
+    if let Some(d) = diag {
+        diag::record_event(d, event_name(&event));
+    }
     if let Some(cb) = callback.lock().as_ref() {
         cb(event);
     }

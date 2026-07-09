@@ -146,6 +146,8 @@ pub fn run() {
             commands::test_microphone,
             // wake word
             commands::get_wake_word_status,
+            commands::get_wake_word_diagnostics,
+            commands::test_wake_word_model,
             commands::enable_wake_word,
             commands::disable_wake_word,
         ])

@@ -4,6 +4,7 @@ use parking_lot::Mutex;
 
 use crate::backend;
 use crate::config::{WakeWordBackend, WakeWordConfig};
+use crate::diag::Diagnostics;
 use crate::error::WakeWordResult;
 use crate::event::{WakeWordEvent, WakeWordStatus};
 
@@ -17,6 +18,11 @@ pub trait WakeWordEngine: Send {
     fn pause(&mut self) -> WakeWordResult<()>;
     fn resume(&mut self) -> WakeWordResult<()>;
     fn status(&self) -> WakeWordStatus;
+
+    /// Optional runtime diagnostics. Not every backend implements this.
+    fn diagnostics(&self) -> Option<Diagnostics> {
+        None
+    }
 }
 
 /// Thread-safe handle used by the main application.
@@ -157,6 +163,11 @@ impl WakeWordHandle {
 
     pub fn config(&self) -> WakeWordConfig {
         self.inner.lock().config.clone()
+    }
+
+    pub fn diagnostics(&self) -> Option<Diagnostics> {
+        let inner = self.inner.lock();
+        inner.engine.as_ref().and_then(|e| e.diagnostics())
     }
 }
 

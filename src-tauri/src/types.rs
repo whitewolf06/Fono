@@ -252,7 +252,7 @@ fn default_wake_backend() -> WakeWordBackend {
 }
 
 fn default_wake_word_threshold() -> f32 {
-    0.5
+    0.25
 }
 
 fn default_wake_word_sensitivity() -> f32 {

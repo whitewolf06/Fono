@@ -6,6 +6,8 @@ import type {
   PipelineState,
   Settings,
   Transcript,
+  WakeWordDiagnostics,
+  WakeWordTestReport,
   WhisperModelInfo,
 } from "./types";
 
@@ -54,6 +56,9 @@ export const ipc = {
 
   // Wake word
   getWakeWordStatus: () => invoke<string>("get_wake_word_status"),
+  getWakeWordDiagnostics: () =>
+    invoke<WakeWordDiagnostics | null>("get_wake_word_diagnostics"),
+  testWakeWordModel: () => invoke<WakeWordTestReport>("test_wake_word_model"),
   enableWakeWord: () => invoke<void>("enable_wake_word"),
   disableWakeWord: () => invoke<void>("disable_wake_word"),
   isKwsModelDownloaded: () => invoke<boolean>("is_kws_model_downloaded"),

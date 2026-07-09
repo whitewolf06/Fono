@@ -727,6 +727,55 @@ pub fn get_wake_word_status(wake_handle: State<'_, fono_wake::WakeWordHandle>) -
     format!("{}", wake_handle.status())
 }
 
+/// Возвращает runtime-диагностику wake word (уровень сигнала, последний результат).
+#[tauri::command]
+pub fn get_wake_word_diagnostics(
+    wake_handle: State<'_, fono_wake::WakeWordHandle>,
+) -> Option<fono_wake::Diagnostics> {
+    wake_handle.diagnostics()
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct WakeWordTestReport {
+    pub detected: bool,
+    pub keyword: String,
+    pub json: String,
+    pub duration_ms: u64,
+}
+
+/// Запускает оффлайн-проверку wake word на тестовом WAV из модели.
+#[cfg(feature = "sherpa-wake")]
+#[tauri::command]
+pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestReport> {
+    let state = app.state::<AppState>();
+    let settings = state.settings();
+    let config = crate::settings_to_wake_config(&settings)?;
+    let wav_path = config.model_dir.join("test_wavs").join("0.wav");
+    if !wav_path.is_file() {
+        return Err(AppError::Internal(format!(
+            "тестовый WAV не найден: {}",
+            wav_path.display()
+        )));
+    }
+    // Используем встроенные ключевые слова модели, чтобы проверить саму
+    // модель/споттер независимо от пользовательской фразы и микрофона.
+    let res = fono_wake::test_with_wav(&config, &wav_path, true)?;
+    Ok(WakeWordTestReport {
+        detected: res.detected,
+        keyword: res.keyword,
+        json: res.json,
+        duration_ms: res.duration_ms,
+    })
+}
+
+#[cfg(not(feature = "sherpa-wake"))]
+#[tauri::command]
+pub async fn test_wake_word_model(_app: AppHandle) -> AppResult<WakeWordTestReport> {
+    Err(AppError::Internal(
+        "sherpa-wake backend не собран в эту сборку".into(),
+    ))
+}
+
 /// Включает wake word детектор.
 #[tauri::command]
 pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
@@ -767,7 +816,10 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
         }
     });
 
-    let config = crate::settings_to_wake_config(&settings)?;
+    let mut config = crate::settings_to_wake_config(&settings)?;
+    // Включаем независимо от того, что сейчас записано в настройках:
+    // UI сохраняет настройки ДО вызова этой команды, поэтому флаг там ещё false.
+    config.enabled = true;
     wake_handle.update_config(config)?;
 
     // Сохраняем в настройках.
@@ -785,6 +837,7 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
     let wake_handle = app.state::<fono_wake::WakeWordHandle>();
+
     wake_handle.stop();
 
     let mut s = state.settings();

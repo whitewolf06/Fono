@@ -14,6 +14,8 @@ import {
   type PipelineState,
   type Settings as SettingsT,
   type Transcript,
+  type WakeWordDiagnostics,
+  type WakeWordTestReport,
 } from "@/lib/types";
 import { MicSelector } from "@/components/MicSelector";
 import { MicTest } from "@/components/MicTest";
@@ -48,6 +50,9 @@ export function SettingsView() {
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
   const [wakeStatus, setWakeStatus] = useState<string>("Paused");
   const [wakeToggling, setWakeToggling] = useState(false);
+  const [wakeDiag, setWakeDiag] = useState<WakeWordDiagnostics | null>(null);
+  const [wakeTesting, setWakeTesting] = useState(false);
+  const [wakeTestResult, setWakeTestResult] = useState<WakeWordTestReport | null>(null);
   const [kwsDownloaded, setKwsDownloaded] = useState(false);
   const [kwsDownloading, setKwsDownloading] = useState(false);
   const [logs, setLogs] = useState<string | null>(null);
@@ -64,7 +69,6 @@ export function SettingsView() {
     const unlistenWake = onWakeWordStatus((s) => setWakeStatus(s));
     const unlistenDetected = onWakeWordDetected(() => {
       setWakeStatus("Triggered");
-      setTimeout(() => setWakeStatus("Paused"), 1500);
     });
     const unlistenKws = onKwsModelDownloaded((ok) => {
       setKwsDownloaded(ok);
@@ -76,6 +80,18 @@ export function SettingsView() {
       unlistenDetected.then((u) => u());
       unlistenKws.then((u) => u());
     };
+  }, []);
+
+  // Опрос runtime-диагностики wake word (уровень сигнала и последний результат).
+  useEffect(() => {
+    const tick = () => {
+      ipc.getWakeWordDiagnostics()
+        .then((d) => setWakeDiag(d))
+        .catch(() => {});
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -162,19 +178,36 @@ export function SettingsView() {
     setWakeToggling(true);
     setError(null);
     try {
+      // Сначала сохраняем настройки, чтобы backend применил актуальные
+      // значения backend/фразы/порогов.
+      await ipc.saveSettings(settings);
       if (settings.wake_word_enabled) {
         await ipc.disableWakeWord();
         setSettings((s) => ({ ...s, wake_word_enabled: false }));
-        setWakeStatus("Paused");
+        setWakeStatus("off");
       } else {
         await ipc.enableWakeWord();
         setSettings((s) => ({ ...s, wake_word_enabled: true }));
-        setWakeStatus("Listening");
       }
     } catch (e) {
       setError(String(e));
+      setWakeStatus("off");
     } finally {
       setWakeToggling(false);
+    }
+  };
+
+  const runWakeWordTest = async () => {
+    setWakeTesting(true);
+    setWakeTestResult(null);
+    setError(null);
+    try {
+      const result = await ipc.testWakeWordModel();
+      setWakeTestResult(result);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWakeTesting(false);
     }
   };
 
@@ -560,6 +593,100 @@ export function SettingsView() {
                   disabled={settings.wake_word_enabled}
                   className="w-full accent-brand-500"
                 />
+              </div>
+
+              <div className="mt-4 rounded-lg border border-neutral-700 bg-neutral-900/50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-neutral-300">
+                    Отладка wake word
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-secondary !px-2 !py-1 text-xs"
+                    onClick={runWakeWordTest}
+                    disabled={wakeTesting || !kwsDownloaded}
+                  >
+                    {wakeTesting ? "Тест..." : "Тест WAV"}
+                  </button>
+                </div>
+                {wakeDiag ? (
+                  <div className="space-y-2">
+                    <div>
+                      <div className="flex justify-between text-xs text-neutral-400">
+                        <span>RMS</span>
+                        <span>{(wakeDiag.rms * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded bg-neutral-700">
+                        <div
+                          className="h-2 rounded bg-brand-500 transition-all"
+                          style={{ width: `${Math.min(wakeDiag.rms * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs text-neutral-400">
+                        <span>Peak</span>
+                        <span>{(wakeDiag.peak * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded bg-neutral-700">
+                        <div
+                          className="h-2 rounded bg-emerald-500 transition-all"
+                          style={{ width: `${Math.min(wakeDiag.peak * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400">
+                      <div>
+                        Event:{" "}
+                        <span className="text-neutral-200">
+                          {wakeDiag.last_event || "-"}
+                        </span>
+                      </div>
+                      <div>
+                        Frames:{" "}
+                        <span className="text-neutral-200">
+                          {wakeDiag.frames_received}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-neutral-400">
+                      Last keyword:{" "}
+                      <span className="text-neutral-200">
+                        {wakeDiag.last_result_keyword || "-"}
+                      </span>
+                    </div>
+                    {wakeDiag.last_result_json && (
+                      <div className="break-all text-[10px] text-neutral-500">
+                        {wakeDiag.last_result_json}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-xs text-neutral-500">
+                    Диагностика недоступна, пока wake word выключен.
+                  </div>
+                )}
+                {wakeTestResult && (
+                  <div className="mt-2 rounded border border-neutral-700 bg-neutral-800 p-2 text-xs">
+                    <div
+                      className={
+                        wakeTestResult.detected
+                          ? "text-emerald-400"
+                          : "text-rose-400"
+                      }
+                    >
+                      {wakeTestResult.detected ? "✅ Обнаружено" : "❌ Не обнаружено"}
+                      {wakeTestResult.keyword
+                        ? `: «${wakeTestResult.keyword}»`
+                        : ""}
+                    </div>
+                    {wakeTestResult.json && (
+                      <div className="mt-1 text-neutral-500">
+                        JSON: {wakeTestResult.json}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {wakeStatus === "Triggered" && (

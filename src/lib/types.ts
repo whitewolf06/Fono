@@ -110,6 +110,24 @@ export interface LaunchApp {
   aliases: string[];
 }
 
+export interface WakeWordDiagnostics {
+  running: boolean;
+  paused: boolean;
+  frames_received: number;
+  rms: number;
+  peak: number;
+  last_event: string;
+  last_result_keyword: string;
+  last_result_json: string;
+}
+
+export interface WakeWordTestReport {
+  detected: boolean;
+  keyword: string;
+  json: string;
+  duration_ms: number;
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   audio_device_id: null,
   whisper_model_path: null,
@@ -118,7 +136,7 @@ export const DEFAULT_SETTINGS: Settings = {
   wake_word_enabled: false,
   wake_word: "hey fono",
   wake_backend: "sherpa_onnx",
-  wake_word_threshold: 0.5,
+  wake_word_threshold: 0.25,
   wake_word_sensitivity: 0.5,
   ai_mode: "clean",
   llm_base_url: "http://localhost:1234/v1",
