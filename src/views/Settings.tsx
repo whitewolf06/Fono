@@ -3,7 +3,9 @@ import {
   ipc,
   onCommandResult,
   onError,
+  onKwsModelDownloaded,
   onPipelineStateChange,
+  onWakeWordDetected,
   onWakeWordStatus,
 } from "@/lib/ipc";
 import {
@@ -46,6 +48,8 @@ export function SettingsView() {
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
   const [wakeStatus, setWakeStatus] = useState<string>("Paused");
   const [wakeToggling, setWakeToggling] = useState(false);
+  const [kwsDownloaded, setKwsDownloaded] = useState(false);
+  const [kwsDownloading, setKwsDownloading] = useState(false);
   const [logs, setLogs] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState(false);
   const [manualTranscript, setManualTranscript] = useState<Transcript | null>(null);
@@ -55,11 +59,22 @@ export function SettingsView() {
   useEffect(() => {
     ipc.getPipelineState().then(setPipelineState).catch(() => {});
     ipc.getWakeWordStatus().then((s) => setWakeStatus(s)).catch(() => {});
+    ipc.isKwsModelDownloaded().then(setKwsDownloaded).catch(() => {});
     const unlistenState = onPipelineStateChange((s) => setPipelineState(s));
     const unlistenWake = onWakeWordStatus((s) => setWakeStatus(s));
+    const unlistenDetected = onWakeWordDetected(() => {
+      setWakeStatus("Triggered");
+      setTimeout(() => setWakeStatus("Paused"), 1500);
+    });
+    const unlistenKws = onKwsModelDownloaded((ok) => {
+      setKwsDownloaded(ok);
+      setKwsDownloading(false);
+    });
     return () => {
       unlistenState.then((u) => u());
       unlistenWake.then((u) => u());
+      unlistenDetected.then((u) => u());
+      unlistenKws.then((u) => u());
     };
   }, []);
 
@@ -160,6 +175,17 @@ export function SettingsView() {
       setError(String(e));
     } finally {
       setWakeToggling(false);
+    }
+  };
+
+  const downloadKwsModel = async () => {
+    setKwsDownloading(true);
+    setError(null);
+    try {
+      await ipc.downloadKwsModel();
+    } catch (e) {
+      setError(String(e));
+      setKwsDownloading(false);
     }
   };
 
@@ -345,35 +371,41 @@ export function SettingsView() {
                   </span>
                   <span
                     className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                      wakeStatus === "Listening"
+                      wakeStatus === "listening"
                         ? "bg-emerald-500/20 text-emerald-300"
-                        : wakeStatus === "Processing"
+                        : wakeStatus === "processing"
                           ? "bg-amber-500/20 text-amber-300"
-                          : wakeStatus === "Triggered"
-                            ? "bg-brand-500/20 text-brand-300"
-                            : "bg-neutral-700 text-neutral-400"
+                          : wakeStatus === "loading" || wakeStatus === "missing_model"
+                            ? "bg-rose-500/20 text-rose-300"
+                            : wakeStatus === "paused"
+                              ? "bg-neutral-600 text-neutral-300"
+                              : "bg-neutral-700 text-neutral-400"
                     }`}
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        wakeStatus === "Listening"
+                        wakeStatus === "listening"
                           ? "animate-pulse bg-emerald-400"
-                          : wakeStatus === "Processing"
+                          : wakeStatus === "processing"
                             ? "animate-pulse bg-amber-400"
-                            : wakeStatus === "Triggered"
-                              ? "bg-brand-400"
-                              : "bg-neutral-500"
+                            : wakeStatus === "loading" || wakeStatus === "missing_model"
+                              ? "animate-pulse bg-rose-400"
+                              : wakeStatus === "paused"
+                                ? "bg-neutral-400"
+                                : "bg-neutral-500"
                       }`}
                     />
-                    {wakeStatus === "Listening"
+                    {wakeStatus === "listening"
                       ? "Слушаю"
-                      : wakeStatus === "Processing"
+                      : wakeStatus === "processing"
                         ? "Анализирую"
-                        : wakeStatus === "Triggered"
-                          ? "Сработала!"
-                          : wakeStatus === "Paused"
-                            ? "На паузе"
-                            : "Выключено"}
+                        : wakeStatus === "loading"
+                          ? "Загрузка..."
+                          : wakeStatus === "missing_model"
+                            ? "Нет модели"
+                            : wakeStatus === "paused"
+                              ? "На паузе"
+                              : "Выключено"}
                   </span>
                 </div>
                 <button
@@ -394,12 +426,87 @@ export function SettingsView() {
               </div>
 
               <p className="mb-3 text-xs text-neutral-400">
-                Программа постоянно слушает микрофон моделью{" "}
-                <code className="text-brand-300">{settings.wake_word_model}</code>.
-                Когда услышит фразу «{settings.wake_word}» — начнёт запись
-                диктовки, по тишине вставит текст в активное окно. CPU в
-                режиме ожидания: ~5-10%.
+                {settings.wake_backend === "sherpa_onnx" ? (
+                  <>
+                    Используется лёгкая модель sherpa-onnx (~3 МБ) для
+                    мгновенного обнаружения фразы «{settings.wake_word}». Задержка
+                    обычно меньше секунды, CPU в режиме ожидания минимален.
+                  </>
+                ) : settings.wake_backend === "whisper_experimental" ? (
+                  <>
+                    Программа постоянно слушает микрофон моделью{" "}
+                    <code className="text-brand-300">{settings.wake_word_model}</code>.
+                    Когда услышит фразу «{settings.wake_word}» — начнёт запись
+                    диктовки. CPU в режиме ожидания: ~5-10%.
+                  </>
+                ) : (
+                  <>Тестовый режим: срабатывание по таймеру.</>
+                )}
               </p>
+
+              <div>
+                <label className="label">Backend wake word</label>
+                <select
+                  className="input"
+                  value={settings.wake_backend}
+                  onChange={(e) =>
+                    update(
+                      "wake_backend",
+                      e.target.value as SettingsT["wake_backend"],
+                    )
+                  }
+                  disabled={settings.wake_word_enabled}
+                >
+                  <option value="sherpa_onnx">Sherpa-ONNX (рекомендуется)</option>
+                  <option value="whisper_experimental">Whisper (экспериментально)</option>
+                  <option value="mock">Mock (для тестов)</option>
+                </select>
+              </div>
+
+              {settings.wake_backend === "sherpa_onnx" && (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="btn-primary !px-3 !py-1 text-xs"
+                    onClick={downloadKwsModel}
+                    disabled={kwsDownloading || kwsDownloaded}
+                  >
+                    {kwsDownloading
+                      ? "Скачивание..."
+                      : kwsDownloaded
+                        ? "Модель загружена"
+                        : "Скачать KWS-модель"}
+                  </button>
+                  <span className="text-xs text-neutral-500">
+                    {kwsDownloaded
+                      ? "✅ sherpa-onnx-kws-zipformer-gigaspeech"
+                      : "~17 МБ, требуется для работы wake word"}
+                  </span>
+                </div>
+              )}
+
+              {settings.wake_backend === "whisper_experimental" && (
+                <div>
+                  <label className="label">Модель wake word</label>
+                  <select
+                    className="input"
+                    value={settings.wake_word_model}
+                    onChange={(e) =>
+                      update(
+                        "wake_word_model",
+                        e.target.value as SettingsT["wake_word_model"],
+                      )
+                    }
+                    disabled={settings.wake_word_enabled}
+                  >
+                    <option value="tiny">tiny (быстро, менее точно)</option>
+                    <option value="base">base (баланс)</option>
+                    <option value="small">small (точнее)</option>
+                    <option value="medium">medium (еще точнее)</option>
+                    <option value="large">large (медленно, самое точное)</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="label">Ключевая фраза</label>
@@ -408,62 +515,51 @@ export function SettingsView() {
                   value={settings.wake_word}
                   onChange={(e) => update("wake_word", e.target.value)}
                   disabled={settings.wake_word_enabled}
-                  placeholder="Эй, ассистент"
+                  placeholder="hey fono"
                 />
                 <p className="mt-1 text-xs text-neutral-500">
-                  Изменение фразы потребует перезапуска wake word. Сейчас
-                  работает с фразой по умолчанию.
-                </p>
-              </div>
-
-              <div>
-                <label className="label">Модель wake word</label>
-                <select
-                  className="input"
-                  value={settings.wake_word_model}
-                  onChange={(e) =>
-                    update(
-                      "wake_word_model",
-                      e.target.value as SettingsT["wake_word_model"],
-                    )
-                  }
-                  disabled={settings.wake_word_enabled}
-                >
-                  <option value="tiny">tiny (быстро, менее точно)</option>
-                  <option value="base">base (баланс)</option>
-                  <option value="small">small (точнее)</option>
-                  <option value="medium">medium (еще точнее)</option>
-                  <option value="large">large (медленно, самое точное)</option>
-                </select>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Требуется перезапуск wake word. На GPU даже small/medium
-                  работают быстро.
+                  Изменение фразы потребует перезапуска wake word. Для Sherpa-ONNX
+                  сейчас поддерживается фиксированная фраза «hey fono».
                 </p>
               </div>
 
               <div>
                 <label className="label">
-                  Чувствительность wake word ({settings.wake_word_vad_threshold.toFixed(3)})
+                  Порог срабатывания ({settings.wake_word_threshold.toFixed(2)})
                 </label>
                 <input
                   type="range"
-                  min={0.003}
-                  max={0.05}
-                  step={0.001}
-                  value={settings.wake_word_vad_threshold}
+                  min={0.05}
+                  max={0.95}
+                  step={0.05}
+                  value={settings.wake_word_threshold}
                   onChange={(e) =>
-                    update(
-                      "wake_word_vad_threshold",
-                      Number(e.target.value),
-                    )
+                    update("wake_word_threshold", Number(e.target.value))
                   }
                   disabled={settings.wake_word_enabled}
                   className="w-full accent-brand-500"
                 />
                 <p className="mt-1 text-xs text-neutral-500">
-                  Если wake word не срабатывает — уменьшите порог. Если
-                  срабатывает от посторонних звуков — увеличьте.
+                  Меньше — чувствительнее, больше — меньше ложных срабатываний.
                 </p>
+              </div>
+
+              <div>
+                <label className="label">
+                  Чувствительность ({settings.wake_word_sensitivity.toFixed(2)})
+                </label>
+                <input
+                  type="range"
+                  min={0.0}
+                  max={1.0}
+                  step={0.05}
+                  value={settings.wake_word_sensitivity}
+                  onChange={(e) =>
+                    update("wake_word_sensitivity", Number(e.target.value))
+                  }
+                  disabled={settings.wake_word_enabled}
+                  className="w-full accent-brand-500"
+                />
               </div>
 
               {wakeStatus === "Triggered" && (

@@ -14,10 +14,10 @@ pub mod stt;
 pub mod types;
 pub mod vad;
 pub mod verbose;
-pub mod wakeword;
 
 use crate::state::AppState;
-use crate::types::PipelineState;
+use crate::types::{PipelineState, Settings, WakeWordBackend};
+use fono_wake::{WakeWordConfig, WakeWordEvent, WakeWordHandle};
 use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_global_shortcut::ShortcutState;
@@ -75,7 +75,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(app_state)
         .manage(pipeline)
-        .manage(wakeword::WakeWordDetector::new())
+        .manage(WakeWordHandle::new(WakeWordConfig::default()))
         .setup(|app| {
             // Трей-иконка с меню
             setup_tray(app)?;
@@ -129,6 +129,9 @@ pub fn run() {
             commands::list_whisper_models,
             commands::download_whisper_model,
             commands::set_whisper_model,
+            // kws wake word model
+            commands::is_kws_model_downloaded,
+            commands::download_kws_model,
             // llm
             commands::test_llm_connection,
             commands::list_llm_models,
@@ -384,10 +387,33 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Builds a backend-specific wake word config from application settings.
+fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeWordConfig> {
+    let mut config = WakeWordConfig::default();
+    config.enabled = settings.wake_word_enabled;
+    config.backend = settings.wake_backend;
+    config.phrase = settings.wake_word.clone();
+    config.audio_device_id = settings.audio_device_id.clone();
+    config.sample_rate = 16_000;
+    config.threshold = settings.wake_word_threshold;
+    config.sensitivity = settings.wake_word_sensitivity;
+    config.cooldown_ms = 2_000;
+    config.model_dir = match settings.wake_backend {
+        WakeWordBackend::SherpaOnnx => state::app_data_dir()?
+            .join("kws-models")
+            .join("sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"),
+        WakeWordBackend::WhisperExperimental => {
+            state::models_dir()?.join(settings.wake_word_model.filename())
+        }
+        _ => std::path::PathBuf::new(),
+    };
+    Ok(config)
+}
+
 /// Запускает wake word детектор, если он включён в настройках.
 ///
-/// Использует base-модель whisper для транскрипции чанков.
-/// При обнаружении фразы «Эй, ассистент» стартует запись диктовки,
+/// Использует выбранный backend (`sherpa-onnx` по умолчанию).
+/// При обнаружении wake-фразы стартует запись диктовки,
 /// по тишине (VAD) — STT (основной моделью) + вставка текста.
 async fn start_wake_word_if_enabled(
     handle: &tauri::AppHandle,
@@ -401,66 +427,45 @@ async fn start_wake_word_if_enabled(
         return Ok(());
     }
 
-    // Загружаем base-модель для wake word (баланс скорости/точности).
-    let models_dir = state::models_dir()?;
-    let base_path = models_dir.join(settings.wake_word_model.filename());
-    if !base_path.exists() {
-        tracing::warn!(
-            "wake word: model not found at {}, wake word disabled",
-            base_path.display()
-        );
-        let _ = handle.emit(
-            "error",
-            format!(
-                "Wake word: модель {} не найдена. Скачайте её в настройках.",
-                settings.wake_word_model.filename()
-            ),
-        );
-        return Ok(());
-    }
-
-    let pipeline_state = handle.state::<pipeline::Pipeline>();
-    pipeline_state
-        .stt()
-        .ensure_loaded(&base_path, settings.use_gpu)?;
-
-    let detector = handle.state::<wakeword::WakeWordDetector>();
-    detector.set_config(wakeword::WakeWordConfig {
-        phrase: settings.wake_word.clone(),
-        chunk_ms: 1500,
-        vad_threshold: settings.wake_word_vad_threshold,
-        use_tiny_model: true,
-        cooldown_ms: 3500,
+    let wake_handle = handle.state::<WakeWordHandle>();
+    let handle_clone = handle.clone();
+    wake_handle.set_callback(move |event| match event {
+        WakeWordEvent::Detected { phrase } => {
+            tracing::info!("wake word detected: {phrase}");
+            let _ = handle_clone.emit("wake-word-detected", &phrase);
+            let h = handle_clone.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = run_dictation_after_wake(&h).await {
+                    tracing::error!("dictation after wake failed: {e:?}");
+                    let _ = h.emit("error", e.to_string());
+                }
+            });
+        }
+        WakeWordEvent::Error { message } => {
+            tracing::error!("wake word error: {message}");
+            let _ = handle_clone.emit("error", &message);
+        }
+        WakeWordEvent::Listening => {
+            let _ = handle_clone.emit("wake-word-status", "listening");
+        }
+        WakeWordEvent::Paused => {
+            let _ = handle_clone.emit("wake-word-status", "paused");
+        }
+        WakeWordEvent::ModelLoading => {
+            let _ = handle_clone.emit("wake-word-status", "loading");
+        }
+        WakeWordEvent::MissingModel { path } => {
+            tracing::warn!("wake word model missing: {path}");
+            let _ = handle_clone.emit("wake-word-status", "missing_model");
+            let _ = handle_clone.emit(
+                "error",
+                format!("Wake word: модель не найдена. Скачайте её в настройках: {path}"),
+            );
+        }
     });
 
-    let stt = pipeline_state.stt().clone();
-    let device_id = settings.audio_device_id.clone();
-    let handle_clone = handle.clone();
-
-    detector.start(stt, device_id, move |event| {
-        match event {
-            wakeword::WakeEvent::Detected { transcription } => {
-                tracing::info!("wake word triggered: {:?}", transcription);
-                let _ = handle_clone.emit("wake-word-detected", &transcription);
-
-                // Стартуем запись диктовки в отдельном async-потоке.
-                let h = handle_clone.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(e) = run_dictation_after_wake(&h).await {
-                        tracing::error!("dictation after wake failed: {e:?}");
-                        let _ = h.emit("error", e.to_string());
-                    }
-                });
-            }
-            wakeword::WakeEvent::Error(msg) => {
-                tracing::error!("wake word error: {msg}");
-                let _ = handle_clone.emit("error", &msg);
-            }
-            wakeword::WakeEvent::Status(s) => {
-                let _ = handle_clone.emit("wake-word-status", format!("{:?}", s));
-            }
-        }
-    })?;
+    let config = settings_to_wake_config(&settings)?;
+    wake_handle.update_config(config)?;
 
     Ok(())
 }
@@ -468,11 +473,10 @@ async fn start_wake_word_if_enabled(
 /// Перезапускает wake word детектор (без изменения флага wake_word_enabled).
 /// Используется когда пользователь меняет настройки wake word "на лету".
 pub async fn restart_wake_word(handle: &tauri::AppHandle) -> Result<(), String> {
-    let detector = handle.state::<wakeword::WakeWordDetector>();
-    detector.stop();
-    start_wake_word_if_enabled(handle)
-        .await
-        .map_err(|e| e.to_string())
+    let wake_handle = handle.state::<WakeWordHandle>();
+    let settings = handle.state::<state::AppState>().settings();
+    let config = settings_to_wake_config(&settings).map_err(|e| e.to_string())?;
+    wake_handle.update_config(config).map_err(|e| e.to_string())
 }
 
 /// Запускает диктовку после срабатывания wake word.
@@ -489,18 +493,11 @@ pub async fn run_dictation_after_wake(
     use tauri::Manager;
     let state = handle.state::<state::AppState>();
     let pipeline = handle.state::<pipeline::Pipeline>();
-    let detector = handle.state::<wakeword::WakeWordDetector>();
+    let wake_handle = handle.state::<WakeWordHandle>();
     let settings = state.settings();
 
     // Паузим wake word.
-    detector.pause();
-
-    // Переключаемся на основную модель (если wake word использовал tiny).
-    if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline
-            .stt()
-            .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
-    }
+    wake_handle.pause();
 
     // Стартуем запись.
     pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
@@ -562,12 +559,7 @@ pub async fn run_dictation_after_wake(
     if pipeline.is_cancelled() {
         tracing::info!("wake dictation: cancelled by user");
         pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
-        let models_dir = state::models_dir()?;
-        let base_path = models_dir.join(settings.wake_word_model.filename());
-        if base_path.exists() {
-            let _ = pipeline.stt().ensure_loaded(&base_path, settings.use_gpu);
-        }
-        detector.resume();
+        wake_handle.resume();
         return Ok(());
     }
 
@@ -616,13 +608,8 @@ pub async fn run_dictation_after_wake(
 
     pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
 
-    // Переключаемся обратно на base-модель и резюммим wake word.
-    let models_dir = state::models_dir()?;
-    let base_path = models_dir.join(settings.wake_word_model.filename());
-    if base_path.exists() {
-        let _ = pipeline.stt().ensure_loaded(&base_path, settings.use_gpu);
-    }
-    detector.resume();
+    // Резюммим wake word.
+    wake_handle.resume();
 
     Ok(())
 }

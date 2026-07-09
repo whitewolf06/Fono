@@ -44,6 +44,12 @@ impl From<tauri::Error> for AppError {
     }
 }
 
+impl From<fono_wake::WakeWordError> for AppError {
+    fn from(e: fono_wake::WakeWordError) -> Self {
+        AppError::Audio(e.to_string())
+    }
+}
+
 impl serde::Serialize for AppError {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.serialize_str(self.to_string().as_ref())

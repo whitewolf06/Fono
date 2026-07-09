@@ -56,6 +56,8 @@ export const ipc = {
   getWakeWordStatus: () => invoke<string>("get_wake_word_status"),
   enableWakeWord: () => invoke<void>("enable_wake_word"),
   disableWakeWord: () => invoke<void>("disable_wake_word"),
+  isKwsModelDownloaded: () => invoke<boolean>("is_kws_model_downloaded"),
+  downloadKwsModel: () => invoke<void>("download_kws_model"),
 
   // Подтверждение диктовки (кнопка ✓ в оверлее)
   confirmDictation: () => invoke<void>("confirm_dictation"),
@@ -116,4 +118,10 @@ export function onSettingsChange(
   handler: (settings: Settings) => void,
 ): Promise<UnlistenFn> {
   return listen<Settings>("settings-changed", (e) => handler(e.payload));
+}
+
+export function onKwsModelDownloaded(
+  handler: (ok: boolean) => void,
+): Promise<UnlistenFn> {
+  return listen<boolean>("kws-model-downloaded", (e) => handler(e.payload));
 }

@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "crates/fono-wake"]
+resolver = "2"
+
 [package]
 name = "fono"
 version = "0.1.0"
@@ -22,6 +26,9 @@ tauri-plugin-global-shortcut = "2.0"
 tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-opener = "2.0"
+
+# Wake word subsystem
+fono-wake = { path = "crates/fono-wake" }
 
 # Сериализация
 serde = { version = "1.0", features = ["derive"] }
@@ -66,15 +73,20 @@ crossbeam-channel = "0.5"
 once_cell = "1.20"
 dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
+tar = "0.4"
+bzip2 = "0.4"
 
 [features]
 # По умолчанию используем CUDA для whisper (если доступно).
 # В runtime GPU можно отключить в настройках (use_gpu=false).
-default = ["cuda"]
+default = ["cuda", "whisper-wake", "sherpa-wake"]
 # GPU-ускорение через CUDA (нужен CUDA Toolkit 12.8+, ~3 ГБ установка)
 cuda = ["whisper-rs/cuda"]
 # GPU-ускорение через Vulkan (нужен Vulkan SDK ~500 МБ, работает на любой GPU)
 vulkan = ["whisper-rs/vulkan"]
+# Wake word backends
+whisper-wake = ["fono-wake/whisper-wake"]
+sherpa-wake = ["fono-wake/sherpa-wake"]
 
 [profile.dev]
 incremental = true

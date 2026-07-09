@@ -37,6 +37,11 @@ export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";
 export type LlmProvider = "lmstudio" | "openai" | "custom";
 export type PipelineMode = "dictation" | "command";
+export type WakeWordBackend =
+  | "disabled"
+  | "whisper_experimental"
+  | "sherpa_onnx"
+  | "mock";
 
 export interface Settings {
   /** device_id микрофона или null = системный default */
@@ -51,6 +56,12 @@ export interface Settings {
   wake_word_enabled: boolean;
   /** Сама фраза, напр. "Эй, ассистент" */
   wake_word: string;
+  /** Backend wake word */
+  wake_backend: WakeWordBackend;
+  /** Порог срабатывания wake word (backend-specific) */
+  wake_word_threshold: number;
+  /** Чувствительность / boosting score wake word */
+  wake_word_sensitivity: number;
   /** Режим AI-постобработки */
   ai_mode: AiMode;
   /** URL локального LLM-сервера (LM Studio) */
@@ -105,7 +116,10 @@ export const DEFAULT_SETTINGS: Settings = {
   language: "auto",
   hotkey: "Ctrl+Space",
   wake_word_enabled: false,
-  wake_word: "Эй, ассистент",
+  wake_word: "hey fono",
+  wake_backend: "sherpa_onnx",
+  wake_word_threshold: 0.5,
+  wake_word_sensitivity: 0.5,
   ai_mode: "clean",
   llm_base_url: "http://localhost:1234/v1",
   llm_model: null,

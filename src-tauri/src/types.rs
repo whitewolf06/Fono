@@ -3,6 +3,7 @@
 //! Эти структуры зеркалируют `src/lib/types.ts` на фронтенде.
 //! При изменении не забудьте синхронизировать обе стороны.
 
+pub use fono_wake::WakeWordBackend;
 use serde::{Deserialize, Serialize};
 
 /// Состояние голосового конвейера (FSM).
@@ -127,6 +128,12 @@ pub struct Settings {
     pub wake_word_enabled: bool,
     #[serde(default = "default_wake_word")]
     pub wake_word: String,
+    #[serde(default = "default_wake_backend")]
+    pub wake_backend: WakeWordBackend,
+    #[serde(default = "default_wake_word_threshold")]
+    pub wake_word_threshold: f32,
+    #[serde(default = "default_wake_word_sensitivity")]
+    pub wake_word_sensitivity: f32,
     #[serde(default = "default_ai_mode")]
     pub ai_mode: AiMode,
     #[serde(default = "default_llm_url")]
@@ -185,6 +192,9 @@ impl Default for Settings {
             hotkey: default_hotkey(),
             wake_word_enabled: false,
             wake_word: default_wake_word(),
+            wake_backend: default_wake_backend(),
+            wake_word_threshold: default_wake_word_threshold(),
+            wake_word_sensitivity: default_wake_word_sensitivity(),
             ai_mode: default_ai_mode(),
             llm_base_url: default_llm_url(),
             llm_model: None,
@@ -237,6 +247,18 @@ fn default_wake_word_model() -> WhisperModelSize {
     WhisperModelSize::Base
 }
 
+fn default_wake_backend() -> WakeWordBackend {
+    WakeWordBackend::SherpaOnnx
+}
+
+fn default_wake_word_threshold() -> f32 {
+    0.5
+}
+
+fn default_wake_word_sensitivity() -> f32 {
+    0.5
+}
+
 fn default_wake_word_vad_threshold() -> f32 {
     0.015
 }
@@ -267,7 +289,7 @@ fn default_hotkey() -> String {
     "Ctrl+Space".to_string()
 }
 fn default_wake_word() -> String {
-    "Эй, ассистент".to_string()
+    "hey fono".to_string()
 }
 fn default_ai_mode() -> AiMode {
     AiMode::Clean

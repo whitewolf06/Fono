@@ -1,0 +1,25 @@
+[package]
+name = "fono-wake"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Wake word subsystem for Fono"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+tracing = "0.1"
+parking_lot = "0.12"
+crossbeam-channel = "0.5"
+cpal = "0.15"
+
+# Whisper backend
+whisper-rs = { version = "0.16", optional = true }
+
+# Sherpa-ONNX backend
+sherpa-onnx = { version = "1.13", optional = true, default-features = false, features = ["shared"] }
+
+[features]
+default = ["whisper-wake"]
+whisper-wake = ["dep:whisper-rs"]
+sherpa-wake = ["dep:sherpa-onnx"]

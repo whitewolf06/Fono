@@ -67,12 +67,12 @@ pub fn confirm_dictation(app: AppHandle) -> AppResult<()> {
 pub fn cancel_dictation(app: AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
-    let detector = app.state::<crate::wakeword::WakeWordDetector>();
+    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
 
     pipeline.cancel();
     let _ = pipeline.stop_recording();
     set_pipeline_idle(&app, &state.inner());
-    detector.resume();
+    wake_handle.resume();
     tracing::info!("dictation cancelled by overlay");
     Ok(())
 }
@@ -423,6 +423,73 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
     Ok(())
 }
 
+// ====== KWS-модель (sherpa-onnx wake word) ======
+
+const KWS_MODEL_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2";
+const KWS_MODEL_DIR: &str = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01";
+const KWS_ARCHIVE: &str = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2";
+
+/// Проверяет, скачана ли KWS-модель для sherpa-onnx backend.
+#[tauri::command]
+pub fn is_kws_model_downloaded() -> AppResult<bool> {
+    let dir = state::app_data_dir()?.join("kws-models").join(KWS_MODEL_DIR);
+    let encoder = dir.join("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
+    let decoder = dir.join("decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
+    let joiner = dir.join("joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
+    let tokens = dir.join("tokens.txt");
+    Ok(encoder.is_file() && decoder.is_file() && joiner.is_file() && tokens.is_file())
+}
+
+/// Скачивает и распаковывает англоязычную KWS-модель sherpa-onnx.
+#[tauri::command]
+pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
+    let base_dir = state::app_data_dir()?.join("kws-models");
+    std::fs::create_dir_all(&base_dir)?;
+    let archive_path = base_dir.join(KWS_ARCHIVE);
+    let url = KWS_MODEL_URL.to_string();
+
+    tracing::info!("downloading KWS model {} -> {}", url, archive_path.display());
+    let app_clone = app.clone();
+
+    tauri::async_runtime::spawn_blocking(move || -> AppResult<()> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(600))
+            .build()
+            .map_err(|e| AppError::Config(e.to_string()))?;
+        let mut resp = client
+            .get(&url)
+            .send()
+            .map_err(|e| AppError::Config(format!("GET {url}: {e}")))?;
+        if !resp.status().is_success() {
+            return Err(AppError::Config(format!(
+                "HTTP {} при скачивании KWS-модели",
+                resp.status()
+            )));
+        }
+        let mut file = std::fs::File::create(&archive_path)?;
+        resp.copy_to(&mut file)
+            .map_err(|e| AppError::Config(format!("copy_to: {e}")))?;
+        drop(file);
+
+        tracing::info!("extracting KWS model to {}", base_dir.display());
+        let file = std::fs::File::open(&archive_path)?;
+        let decompress = bzip2::read::BzDecoder::new(file);
+        let mut archive = tar::Archive::new(decompress);
+        archive
+            .unpack(&base_dir)
+            .map_err(|e| AppError::Config(format!("unpack: {e}")))?;
+
+        let _ = std::fs::remove_file(&archive_path);
+        tracing::info!("KWS model ready");
+        let _ = app_clone.emit("kws-model-downloaded", true);
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))??;
+
+    Ok(())
+}
+
 #[tauri::command]
 pub fn set_whisper_model(state: State<'_, AppState>, path: String) -> AppResult<()> {
     let mut settings = state.settings();
@@ -467,6 +534,9 @@ pub fn save_settings(
         || old_settings.command_hotkey != settings.command_hotkey;
     let wake_settings_changed = old_settings.wake_word != settings.wake_word
         || old_settings.wake_word_model != settings.wake_word_model
+        || old_settings.wake_backend != settings.wake_backend
+        || (old_settings.wake_word_threshold - settings.wake_word_threshold).abs() > f32::EPSILON
+        || (old_settings.wake_word_sensitivity - settings.wake_word_sensitivity).abs() > f32::EPSILON
         || (old_settings.wake_word_vad_threshold - settings.wake_word_vad_threshold).abs() > f32::EPSILON;
 
     state::save_settings(&settings)?;
@@ -653,8 +723,8 @@ pub fn save_overlay_position(state: State<'_, AppState>, x: i32, y: i32) -> AppR
 
 /// Возвращает статус wake word детектора.
 #[tauri::command]
-pub fn get_wake_word_status(detector: State<'_, crate::wakeword::WakeWordDetector>) -> String {
-    format!("{:?}", detector.status())
+pub fn get_wake_word_status(wake_handle: State<'_, fono_wake::WakeWordHandle>) -> String {
+    format!("{}", wake_handle.status())
 }
 
 /// Включает wake word детектор.
@@ -662,42 +732,14 @@ pub fn get_wake_word_status(detector: State<'_, crate::wakeword::WakeWordDetecto
 pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     use tauri::Manager;
     let state = app.state::<AppState>();
-    let pipeline = app.state::<Pipeline>();
-    let detector = app.state::<crate::wakeword::WakeWordDetector>();
+    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
     let settings = state.settings();
 
-    // Загружаем выбранную модель для wake word.
-    let models_dir = crate::state::models_dir()?;
-    let model_path = models_dir.join(settings.wake_word_model.filename());
-    if !model_path.exists() {
-        return Err(AppError::Config(
-            format!(
-                "Модель {} не скачана. Скачайте её в разделе «Модель распознавания».",
-                settings.wake_word_model.filename()
-            )
-            .into(),
-        ));
-    }
-    pipeline
-        .stt()
-        .ensure_loaded(&model_path, settings.use_gpu)?;
-
-    detector.set_config(crate::wakeword::WakeWordConfig {
-        phrase: settings.wake_word.clone(),
-        chunk_ms: 1500,
-        vad_threshold: settings.wake_word_vad_threshold,
-        use_tiny_model: true,
-        cooldown_ms: 3500,
-    });
-
-    let stt = pipeline.stt().clone();
-    let device_id = settings.audio_device_id.clone();
     let app_clone = app.clone();
-
-    detector.start(stt, device_id, move |event| match event {
-        crate::wakeword::WakeEvent::Detected { transcription } => {
-            tracing::info!("wake word triggered: {:?}", transcription);
-            let _ = app_clone.emit("wake-word-detected", &transcription);
+    wake_handle.set_callback(move |event| match event {
+        fono_wake::WakeWordEvent::Detected { phrase } => {
+            tracing::info!("wake word triggered: {phrase}");
+            let _ = app_clone.emit("wake-word-detected", &phrase);
             let h = app_clone.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = crate::run_dictation_after_wake(&h).await {
@@ -706,13 +748,27 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
                 }
             });
         }
-        crate::wakeword::WakeEvent::Error(msg) => {
-            let _ = app_clone.emit("error", &msg);
+        fono_wake::WakeWordEvent::Error { message } => {
+            let _ = app_clone.emit("error", &message);
         }
-        crate::wakeword::WakeEvent::Status(s) => {
-            let _ = app_clone.emit("wake-word-status", format!("{:?}", s));
+        fono_wake::WakeWordEvent::Listening => {
+            let _ = app_clone.emit("wake-word-status", "listening");
         }
-    })?;
+        fono_wake::WakeWordEvent::Paused => {
+            let _ = app_clone.emit("wake-word-status", "paused");
+        }
+        fono_wake::WakeWordEvent::ModelLoading => {
+            let _ = app_clone.emit("wake-word-status", "loading");
+        }
+        fono_wake::WakeWordEvent::MissingModel { path } => {
+            tracing::warn!("wake word model missing: {path}");
+            let _ = app_clone.emit("wake-word-status", "missing_model");
+            let _ = app_clone.emit("error", format!("Wake word: модель не найдена: {path}"));
+        }
+    });
+
+    let config = crate::settings_to_wake_config(&settings)?;
+    wake_handle.update_config(config)?;
 
     // Сохраняем в настройках.
     let mut s = settings;
@@ -728,8 +784,8 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 #[tauri::command]
 pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
-    let detector = app.state::<crate::wakeword::WakeWordDetector>();
-    detector.stop();
+    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
+    wake_handle.stop();
 
     let mut s = state.settings();
     s.wake_word_enabled = false;
