@@ -1,5 +1,5 @@
 [package]
-name = "whisperclone"
+name = "fono"
 version = "0.1.0"
 description = "Голосовой ввод для Windows — локальный аналог Wispr Flow"
 authors = ["WhisperClone"]

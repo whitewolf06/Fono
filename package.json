@@ -1,5 +1,5 @@
 {
-  "name": "whisperclone",
+  "name": "fono",
   "version": "0.1.0",
   "private": true,
   "description": "Голосовой ввод для Windows — локальный аналог Wispr Flow",
