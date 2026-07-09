@@ -1,7 +1,7 @@
 [package]
 name = "fono"
 version = "0.1.0"
-description = "Голосовой ввод для Windows — локальный аналог Wispr Flow"
+description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
 rust-version = "1.75"

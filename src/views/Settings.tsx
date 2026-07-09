@@ -701,6 +701,42 @@ export function SettingsView() {
             автоматически — настраивать не нужно.
           </p>
 
+          <div className="mb-4 rounded-lg border border-neutral-700 bg-neutral-950 p-3 text-sm text-neutral-300">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-neutral-500">
+              Доступные команды
+            </div>
+            <ul className="list-inside list-disc space-y-1">
+              <li>
+                <span className="text-brand-300">переключись на / перейди в / открой</span>{" "}
+                «название окна» — активировать запущенное окно
+              </li>
+              <li>
+                <span className="text-brand-300">запусти / старт / открыть</span>{" "}
+                «приложение» — запустить программу из списка ниже
+              </li>
+              <li>
+                <span className="text-brand-300">громче</span> — +{settings.volume_step}%
+              </li>
+              <li>
+                <span className="text-brand-300">тише</span> — −{settings.volume_step}%
+              </li>
+              <li>
+                <span className="text-brand-300">выключи звук / mute / без звука</span>{" "}
+                — отключить звук
+              </li>
+              <li>
+                <span className="text-brand-300">пауза / play / воспроизведение</span>{" "}
+                — play/pause
+              </li>
+              <li>
+                <span className="text-brand-300">следующий / вперёд</span> — следующий трек
+              </li>
+              <li>
+                <span className="text-brand-300">предыдущий / назад</span> — предыдущий трек
+              </li>
+            </ul>
+          </div>
+
           <div className="space-y-3">
             {settings.launch_apps.map((app, idx) => (
               <div
@@ -1057,7 +1093,7 @@ export function SettingsView() {
       </div>
 
       <footer className="mt-8 text-center text-xs text-neutral-500">
-        Fono · локальный аналог Wispr Flow · v0.1.0
+        Fono · голосовой ввод и управление ПК · v0.1.0
       </footer>
     </div>
   );

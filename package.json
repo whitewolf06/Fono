@@ -2,7 +2,7 @@
   "name": "fono",
   "version": "0.1.0",
   "private": true,
-  "description": "Голосовой ввод для Windows — локальный аналог Wispr Flow",
+  "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
   "scripts": {
     "dev": "vite",
