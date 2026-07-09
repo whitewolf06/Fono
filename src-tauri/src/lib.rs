@@ -1,4 +1,4 @@
-//! WhisperClone — голосовой ввод для Windows.
+//! Fono — голосовой ввод для Windows.
 //!
 //! Архитектуру и потоки данных см. в `docs/architecture.md`.
 
@@ -23,12 +23,12 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_global_shortcut::ShortcutState;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-/// Инициализация логирования: консоль + файл в `%APPDATA%\WhisperClone\logs\`.
+/// Инициализация логирования: консоль + файл в `%APPDATA%\Fono\logs\`.
 fn init_tracing() {
     use tracing_appender::rolling;
 
     let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,whisperclone=debug"));
+        .unwrap_or_else(|_| EnvFilter::new("info,fono=debug"));
 
     // Файловый appender: один файл в день, в папке logs рядом с настройками.
     let log_dir = state::app_data_dir()
@@ -36,7 +36,7 @@ fn init_tracing() {
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
     let _ = std::fs::create_dir_all(&log_dir);
 
-    let file_appender = rolling::daily(&log_dir, "whisperclone.log");
+    let file_appender = rolling::daily(&log_dir, "fono.log");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     // guard нужно держать вечно — отдадим в leak, чтобы не дропнуть.
     std::mem::forget(guard);
@@ -56,13 +56,13 @@ fn init_tracing() {
         .with(file_layer)
         .try_init();
 
-    tracing::info!("log file: {}", log_dir.join("whisperclone.log").display());
+    tracing::info!("log file: {}", log_dir.join("fono.log").display());
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     init_tracing();
-    tracing::info!("WhisperClone starting up…");
+    tracing::info!("Fono starting up…");
 
     let app_state = state::AppState::new();
     let pipeline = pipeline::Pipeline::new();
@@ -147,7 +147,7 @@ pub fn run() {
             commands::disable_wake_word,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running WhisperClone");
+        .expect("error while running Fono");
 }
 
 /// Регистрирует глобальные горячие клавиши:
@@ -309,7 +309,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let wake_item = wake_word.clone();
     TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
-        .tooltip("WhisperClone")
+        .tooltip("Fono")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show" => {

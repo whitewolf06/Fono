@@ -522,7 +522,7 @@ pub fn clear_logs() -> AppResult<()> {
     if let Some(target) = entries
         .iter()
         .rev()
-        .find(|e| e.file_name().to_string_lossy().starts_with("whisperclone.log"))
+        .find(|e| e.file_name().to_string_lossy().starts_with("fono.log"))
     {
         std::fs::OpenOptions::new()
             .write(true)
@@ -539,7 +539,7 @@ pub fn clear_logs() -> AppResult<()> {
 pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
     let n = lines.unwrap_or(80).min(500);
     let log_dir = state::app_data_dir()?.join("logs");
-    // Ищем самый свежий whisperclone.log* (rolling appender добавляет дату).
+    // Ищем самый свежий fono.log* (rolling appender добавляет дату).
     let mut entries: Vec<_> = std::fs::read_dir(&log_dir)
         .map_err(|e| AppError::Io(e))?
         .filter_map(|e| e.ok())
@@ -551,7 +551,7 @@ pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
         .find(|e| {
             e.file_name()
                 .to_string_lossy()
-                .starts_with("whisperclone.log")
+                .starts_with("fono.log")
         })
         .ok_or_else(|| AppError::Internal("лог-файл не найден".into()))?;
 

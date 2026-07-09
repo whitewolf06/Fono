@@ -2,13 +2,13 @@
 name = "fono"
 version = "0.1.0"
 description = "Голосовой ввод для Windows — локальный аналог Wispr Flow"
-authors = ["WhisperClone"]
+authors = ["Fono"]
 edition = "2021"
 rust-version = "1.75"
 
 # На Windows прячем консольное окно для release-сборки
 [lib]
-name = "whisperclone_lib"
+name = "fono_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

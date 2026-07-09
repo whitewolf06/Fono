@@ -1,4 +1,4 @@
-# Как тестировать WhisperClone
+# Как тестировать Fono
 
 Приложение находится в стадии **рабочего MVP**. Ниже — чек-лист ручного тестирования
 основных сценариев.
@@ -16,12 +16,12 @@ npm run tauri dev
 Исполняемый файл появится в:
 
 ```
-src-tauri\target\release\whisperclone.exe
+src-tauri\target\release\fono.exe
 ```
 
 > При ошибке `Отказано в доступе` убейте запущенный процесс:
 > ```bash
-> cmd //c "taskkill /F /IM whisperclone.exe"
+> cmd //c "taskkill /F /IM fono.exe"
 > ```
 
 ---
@@ -36,7 +36,7 @@ src-tauri\target\release\whisperclone.exe
 - [ ] Пункт «Выход» закрывает приложение.
 - [ ] Изменения настроек сохраняются после перезапуска.
 
-Файл настроек: `%APPDATA%\WhisperClone\settings.json`
+Файл настроек: `%APPDATA%\Fono\settings.json`
 
 ### 2. 🎙️ Микрофон
 
@@ -50,7 +50,7 @@ src-tauri\target\release\whisperclone.exe
 - [ ] Статус меняется на «✓ Скачана».
 - [ ] Нажмите «Выбрать».
 
-Модели хранятся в: `%APPDATA%\WhisperClone\whisper-models\`
+Модели хранятся в: `%APPDATA%\Fono\whisper-models\`
 
 ### 4. 🧪 Тест транскрипции
 
@@ -75,7 +75,7 @@ src-tauri\target\release\whisperclone.exe
 ### 7. ✨ AI-обработка
 
 - [ ] Запустите LM Studio, включите Local Server на порту 1234.
-- [ ] В WhisperClone выберите режим «Чистка».
+- [ ] В Fono выберите режим «Чистка».
 - [ ] Нажмите «Проверить соединение» — должно появиться имя модели.
 - [ ] Сделайте диктовку с «ээ»/«мм» — результат должен быть очищен.
 
@@ -92,7 +92,7 @@ src-tauri\target\release\whisperclone.exe
 
 При возникновении ошибок соберите:
 
-1. **Логи приложения** из `%APPDATA%\WhisperClone\logs\`.
+1. **Логи приложения** из `%APPDATA%\Fono\logs\`.
 2. **Скриншот** окна с ошибкой.
 3. **Версия Windows** (`winver`).
-4. **Содержимое** `%APPDATA%\WhisperClone\settings.json`.
+4. **Содержимое** `%APPDATA%\Fono\settings.json`.

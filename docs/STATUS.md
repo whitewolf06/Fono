@@ -1,4 +1,4 @@
-# Статус WhisperClone
+# Статус Fono
 
 **Версия:** v0.4.0-wakeword
 **Дата:** 8 июля 2026
@@ -29,9 +29,9 @@
 - **Менеджер моделей** — скачивание whisper-моделей из UI
 - **Проверка соединения с LM Studio**
 - **Просмотр логов** прямо в приложении (кнопка «Показать логи»)
-- **Логирование в файл** с timestamps (`%APPDATA%\WhisperClone\logs\`)
+- **Логирование в файл** с timestamps (`%APPDATA%\Fono\logs\`)
 
-### ⚙️ Настройки (сохраняются в `%APPDATA%\WhisperClone\settings.json`)
+### ⚙️ Настройки (сохраняются в `%APPDATA%\Fono\settings.json`)
 - Выбор микрофона
 - Язык распознавания (ru/en/auto)
 - Модель whisper
@@ -91,7 +91,7 @@ LM Studio клиент уже написан, нужно подключить к
 ## 🏗️ Архитектура (краткая)
 
 ```
-whisperclone/
+fono/
 ├── src-tauri/src/
 │   ├── audio/         # cpal (WASAPI), универсальный конвертер форматов
 │   ├── stt/           # whisper.cpp (whisper-rs 0.16), AVX2/FMA оптимизация
@@ -118,7 +118,7 @@ whisperclone/
 export PATH="/c/Users/0whit/.cargo/bin:/c/Program Files/CMake/bin:$PATH"
 export LIBCLANG_PATH="C:/Program Files/LLVM/bin"
 npm run tauri build -- --no-bundle
-./src-tauri/target/release/whisperclone.exe
+./src-tauri/target/release/fono.exe
 ```
 
 Dev-режим (с горячей перезагрузкой UI):

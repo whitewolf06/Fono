@@ -1,4 +1,4 @@
-# Разработка WhisperClone
+# Разработка Fono
 
 
 
@@ -136,13 +136,13 @@ cargo build --release
 
 
 
-Если при пересборке получаете `error: failed to remove file whisperclone.exe ... Отказано в доступе (os error 5)` — приложение запущено. Убейте процесс и повторите:
+Если при пересборке получаете `error: failed to remove file fono.exe ... Отказано в доступе (os error 5)` — приложение запущено. Убейте процесс и повторите:
 
 
 
 ```bash
 
-cmd //c "taskkill /F /IM whisperclone.exe"
+cmd //c "taskkill /F /IM fono.exe"
 
 ```
 
@@ -270,7 +270,7 @@ Runtime-переключатель `use_gpu` в настройках позво�
 
 ```
 
-%APPDATA%\WhisperClone\whisper-models\
+%APPDATA%\Fono\whisper-models\
 
 ```
 
@@ -282,11 +282,11 @@ Runtime-переключатель `use_gpu` в настройках позво�
 
 ```bash
 
-mkdir -p "$APPDATA/WhisperClone/whisper-models"
+mkdir -p "$APPDATA/Fono/whisper-models"
 
 curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
 
-  -o "$APPDATA/WhisperClone/whisper-models/ggml-base.bin"
+  -o "$APPDATA/Fono/whisper-models/ggml-base.bin"
 
 ```
 
@@ -348,9 +348,9 @@ npm run tauri build
 
 Результаты появятся в `src-tauri/target/release/bundle/`:
 
-- `msi/WhisperClone_0.1.0_x64.msi` — MSI-инсталлер.
+- `msi/Fono_0.1.0_x64.msi` — MSI-инсталлер.
 
-- `nsis/WhisperClone_0.1.0_x64-setup.exe` — NSIS-инсталлер.
+- `nsis/Fono_0.1.0_x64-setup.exe` — NSIS-инсталлер.
 
 
 
@@ -454,11 +454,11 @@ npm run format    # prettier
 
 2. Запустите пример `cpal` `beep` напрямую — убедитесь, что крейт работает.
 
-3. Включите `RUST_LOG=whisperclone::audio=debug` и смотрите логи чанков.
+3. Включите `RUST_LOG=fono::audio=debug` и смотрите логи чанков.
 
 4. При необходимости включите `RUST_LOG=debug` и проверьте логи:
 
-   `%APPDATA%\WhisperClone\logs\whisperclone.log.YYYY-MM-DD`.
+   `%APPDATA%\Fono\logs\fono.log.YYYY-MM-DD`.
 
 
 

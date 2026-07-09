@@ -186,7 +186,7 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
         return BOOL(1);
     }
 
-    // Пропускаем окна текущего процесса (WhisperClone).
+    // Пропускаем окна текущего процесса (Fono).
     let mut pid = 0u32;
     let _ = GetWindowThreadProcessId(hwnd, Some(&mut pid));
     if pid == GetCurrentProcessId() {

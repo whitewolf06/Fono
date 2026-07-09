@@ -28,7 +28,7 @@ export function OnboardingView() {
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
       <header className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">
-          Добро пожаловать в WhisperClone
+          Добро пожаловать в Fono
         </h1>
         <p className="mt-2 text-neutral-400">
           Голосовой ввод для Windows — настроим за минуту.
@@ -67,7 +67,7 @@ export function OnboardingView() {
           <div>
             <h2 className="mb-3 text-xl">Привет! 👋</h2>
             <p className="text-neutral-300">
-              WhisperClone превращает вашу речь в текст в любом окне Windows.
+              Fono превращает вашу речь в текст в любом окне Windows.
               Всё работает локально — аудио и текст не покидают ваш компьютер.
             </p>
             <p className="mt-3 text-neutral-300">

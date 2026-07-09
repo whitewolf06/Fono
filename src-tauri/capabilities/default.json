@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main WhisperClone windows (settings + overlay)",
+  "description": "Capability for the main Fono windows (settings + overlay)",
   "windows": ["settings", "overlay"],
   "permissions": [
     "core:default",

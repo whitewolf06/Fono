@@ -65,7 +65,7 @@ impl AppState {
 pub fn app_data_dir() -> AppResult<std::path::PathBuf> {
     let dir = dirs::data_dir()
         .ok_or_else(|| crate::error::AppError::Config("не найден data_dir".into()))?
-        .join("WhisperClone");
+        .join("Fono");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }

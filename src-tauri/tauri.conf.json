@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Fono",
   "version": "0.1.0",
-  "identifier": "com.whisperclone.desktop",
+  "identifier": "com.fono.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -68,7 +68,7 @@
       "icons/icon.png"
     ],
     "resources": ["resources/whisper/*"],
-    "copyright": "© 2026 WhisperClone",
+    "copyright": "© 2026 Fono",
     "category": "Productivity",
     "shortDescription": "Голосовой ввод для Windows",
     "longDescription": "Локальный голосовой ввод в любое окно Windows: транскрипция на whisper.cpp и AI-обработка через LM Studio. Полностью офлайн.",

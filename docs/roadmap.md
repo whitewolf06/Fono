@@ -1,4 +1,4 @@
-# Roadmap WhisperClone
+# Roadmap Fono
 
 Текущий статус: **v0.5.0-mvp** — рабочий MVP для Windows с push-to-talk,
 wake word, AI-постобработкой, GPU-ускорением и выбором способа вставки текста.

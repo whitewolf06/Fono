@@ -220,7 +220,7 @@ export function SettingsView() {
     <div className="mx-auto min-h-screen max-w-3xl px-6 py-8">
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">WhisperClone</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Fono</h1>
           <p className="text-sm text-neutral-400">Голосовой ввод · настройки</p>
         </div>
         <button
@@ -1057,7 +1057,7 @@ export function SettingsView() {
       </div>
 
       <footer className="mt-8 text-center text-xs text-neutral-500">
-        WhisperClone · локальный аналог Wispr Flow · v0.1.0
+        Fono · локальный аналог Wispr Flow · v0.1.0
       </footer>
     </div>
   );
