@@ -49,7 +49,7 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
             .flat_map(|&c| {
                 let s: String = c.to_string();
                 s.encode_utf16()
-                    .map(build_unicode_input)
+                    .flat_map(build_unicode_inputs)
                     .collect::<Vec<_>>()
             })
             .collect();
@@ -57,9 +57,13 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
         unsafe {
             let cbsize = std::mem::size_of::<INPUT>() as i32;
             let sent = SendInput(&inputs, cbsize);
-            if sent == 0 {
+            if sent != inputs.len() as u32 {
+                release_unicode_units(chunk);
                 return Err(AppError::Injection(
-                    "SendInput вернул 0 (ошибка ввода)".into(),
+                    format!(
+                        "SendInput отправил только {sent} из {} событий Unicode",
+                        inputs.len()
+                    ),
                 ));
             }
             total_sent += sent as usize;
@@ -72,7 +76,12 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
 }
 
 #[cfg(windows)]
-fn build_unicode_input(u: u16) -> INPUT {
+fn build_unicode_inputs(u: u16) -> [INPUT; 2] {
+    [build_unicode_input(u, false), build_unicode_input(u, true)]
+}
+
+#[cfg(windows)]
+fn build_unicode_input(u: u16, key_up: bool) -> INPUT {
     INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: INPUT_0 {
@@ -81,9 +90,32 @@ fn build_unicode_input(u: u16) -> INPUT {
                 wScan: u,
                 dwExtraInfo: 0,
                 time: 0,
-                dwFlags: KEYEVENTF_UNICODE,
+                dwFlags: if key_up {
+                    KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+                } else {
+                    KEYEVENTF_UNICODE
+                },
             },
         },
+    }
+}
+
+#[cfg(windows)]
+fn release_unicode_units(chunk: &[char]) {
+    let inputs: Vec<INPUT> = chunk
+        .iter()
+        .flat_map(|c| {
+            c.to_string()
+                .encode_utf16()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|u| build_unicode_input(u, true))
+        })
+        .collect();
+    if !inputs.is_empty() {
+        unsafe {
+            let _ = SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+        }
     }
 }
 
@@ -120,11 +152,16 @@ pub fn inject_via_clipboard(text: &str) -> AppResult<()> {
     send_ctrl_v()?;
 
     // Восстанавливаем старый буфер с небольшой задержкой, чтобы приложение успело вставить.
-    let old_text = old_text.unwrap_or_default();
+    let inserted_text = text.to_string();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(300));
         if let Ok(mut cb) = arboard::Clipboard::new() {
-            let _ = cb.set_text(old_text);
+            // Do not overwrite something the user copied while we waited.
+            if cb.get_text().ok().as_deref() == Some(inserted_text.as_str()) {
+                if let Some(old_text) = old_text {
+                    let _ = cb.set_text(old_text);
+                }
+            }
         }
     });
 
@@ -147,8 +184,15 @@ fn send_ctrl_v() -> AppResult<()> {
     unsafe {
         let cbsize = std::mem::size_of::<INPUT>() as i32;
         let sent = SendInput(&inputs, cbsize);
-        if sent == 0 {
-            return Err(AppError::Injection("SendInput(Ctrl+V) вернул 0".into()));
+        if sent != inputs.len() as u32 {
+            // A partial sequence can leave Ctrl logically pressed. Always try to
+            // release both keys before surfacing the failure.
+            let releases = [up_v, up_ctrl];
+            let _ = SendInput(&releases, cbsize);
+            return Err(AppError::Injection(format!(
+                "SendInput(Ctrl+V) отправил только {sent} из {} событий",
+                inputs.len()
+            )));
         }
     }
 
