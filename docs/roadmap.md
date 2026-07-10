@@ -5,7 +5,19 @@ wake word, AI-постобработкой, GPU-ускорением и выбо
 
 ---
 
-## 🎯 Следующий приоритет — локальный Command Agent (LM Studio)
+## 🚨 P0 — hardening рабочего MVP
+
+Подробный snapshot работающего MVP и порядок доработок: [MVP hardening plan](MVP_HARDENING_PLAN.md).
+
+- [ ] Portable CPU release и тест MSI/NSIS на чистой Windows VM.
+- [ ] `DictationCoordinator` и настоящая отмена операции.
+- [ ] Приватность API-ключа/логов и надёжная text injection.
+- [ ] Единый владелец аудиопотока вместо нескольких CPAL streams.
+- [ ] CI и release smoke-test.
+
+---
+
+## ⏳ P2 — локальный Command Agent (LM Studio)
 
 Цель: после явного префикса «команда» понимать свободные формулировки, но не
 давать LLM произвольный доступ к Windows.
