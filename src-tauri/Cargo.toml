@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/fono-wake"]
+members = [".", "crates/fono-wake", "crates/fono-stt-protocol"]
 resolver = "2"
 
 [package]
