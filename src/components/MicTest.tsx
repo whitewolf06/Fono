@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ipc, type MicTestResult } from "@/lib/ipc";
+import { amplitudeToDb, dbToMeterPercent } from "@/lib/audioLevel";
 
 /**
  * Записывает короткий фрагмент и показывает уровень громкости,
@@ -27,13 +28,8 @@ export function MicTest({ deviceId: _deviceId }: { deviceId: string | null }) {
     }
   };
 
-  // Шкала уровня: 0..60 dB. 0 dB = очень тихо, -60 dB = тишина.
-  // Переводим rms (0..1) в dB: 20*log10(rms). -60..0 dB.
-  const rmsDb = result ? 20 * Math.log10(Math.max(result.rms, 1e-6)) : -60;
-  const peakDb = result ? 20 * Math.log10(Math.max(result.peak, 1e-6)) : -60;
-
-  // Нормализуем для полосы: -60..0 dB → 0..100%.
-  const pct = (db: number) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+  const rmsDb = result ? amplitudeToDb(result.rms) : -60;
+  const peakDb = result ? amplitudeToDb(result.peak) : -60;
 
   let verdict: { text: string; color: string };
   if (!result) {
@@ -93,7 +89,7 @@ export function MicTest({ deviceId: _deviceId }: { deviceId: string | null }) {
             <div className="h-2 overflow-hidden rounded-full bg-neutral-700">
               <div
                 className="h-full bg-emerald-500 transition-all"
-                style={{ width: `${pct(rmsDb)}%` }}
+                style={{ width: `${dbToMeterPercent(rmsDb)}%` }}
               />
             </div>
           </div>
@@ -109,7 +105,7 @@ export function MicTest({ deviceId: _deviceId }: { deviceId: string | null }) {
                 className={`h-full transition-all ${
                   result.peak > 0.95 ? "bg-red-500" : "bg-amber-500"
                 }`}
-                style={{ width: `${pct(peakDb)}%` }}
+                style={{ width: `${dbToMeterPercent(peakDb)}%` }}
               />
             </div>
           </div>

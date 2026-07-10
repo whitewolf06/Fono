@@ -44,8 +44,24 @@ impl AudioStream {
 
         let range = supported
             .iter()
-            .find(|c| c.channels() == 1 && c.min_sample_rate().0 <= target_sample_rate)
-            .or_else(|| supported.first())
+            .min_by_key(|config| {
+                let min_rate = config.min_sample_rate().0;
+                let max_rate = config.max_sample_rate().0;
+                let rate_distance = if min_rate <= target_sample_rate
+                    && target_sample_rate <= max_rate
+                {
+                    0
+                } else {
+                    min_rate
+                        .abs_diff(target_sample_rate)
+                        .min(max_rate.abs_diff(target_sample_rate))
+                };
+                (
+                    if config.channels() == 1 { 0 } else { 1 },
+                    rate_distance,
+                    sample_format_priority(config.sample_format()),
+                )
+            })
             .ok_or_else(|| WakeWordError::Audio("no supported input config".into()))?;
 
         let target_rate = SampleRate(target_sample_rate);
@@ -84,6 +100,22 @@ impl AudioStream {
 
         stream.play()?;
         Ok(Self { _stream: stream })
+    }
+}
+
+fn sample_format_priority(format: SampleFormat) -> u8 {
+    match format {
+        SampleFormat::F32 => 0,
+        SampleFormat::I16 => 1,
+        SampleFormat::I32 => 2,
+        SampleFormat::F64 => 3,
+        SampleFormat::I64 => 4,
+        SampleFormat::U16 => 5,
+        SampleFormat::U32 => 6,
+        SampleFormat::U64 => 7,
+        SampleFormat::I8 => 8,
+        SampleFormat::U8 => 9,
+        _ => 10,
     }
 }
 

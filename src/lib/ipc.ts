@@ -7,6 +7,9 @@ import type {
   Settings,
   Transcript,
   WakeWordDiagnostics,
+  WakeDictationCountdown,
+  WakeWordRecognitionReport,
+  WakeWordSampleReport,
   WakeWordTestReport,
   WhisperModelInfo,
 } from "./types";
@@ -59,6 +62,10 @@ export const ipc = {
   getWakeWordDiagnostics: () =>
     invoke<WakeWordDiagnostics | null>("get_wake_word_diagnostics"),
   testWakeWordModel: () => invoke<WakeWordTestReport>("test_wake_word_model"),
+  recordWakeWordSample: (durationMs = 4000) =>
+    invoke<WakeWordSampleReport>("record_wake_word_sample", { durationMs }),
+  recognizeWakeWordSample: () =>
+    invoke<WakeWordRecognitionReport>("recognize_wake_word_sample"),
   enableWakeWord: () => invoke<void>("enable_wake_word"),
   disableWakeWord: () => invoke<void>("disable_wake_word"),
   isKwsModelDownloaded: () => invoke<boolean>("is_kws_model_downloaded"),
@@ -117,6 +124,14 @@ export function onPipelineMode(
   handler: (mode: PipelineMode) => void,
 ): Promise<UnlistenFn> {
   return listen<PipelineMode>("pipeline-mode", (e) => handler(e.payload));
+}
+
+export function onWakeDictationCountdown(
+  handler: (countdown: WakeDictationCountdown) => void,
+): Promise<UnlistenFn> {
+  return listen<WakeDictationCountdown>("wake-dictation-countdown", (e) =>
+    handler(e.payload),
+  );
 }
 
 export function onSettingsChange(

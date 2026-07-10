@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -186,7 +187,7 @@ fn run_spotter(
         }
     };
 
-    let stream = spotter.create_stream();
+    let mut stream = spotter.create_stream();
 
     tracing::info!("fono-wake sherpa: model loaded");
     notify(&callback, WakeWordEvent::Listening, Some(&diag));
@@ -213,6 +214,15 @@ fn run_spotter(
 
     let cooldown = Duration::from_millis(config.cooldown_ms);
     let mut last_detection: Option<Instant> = None;
+    // Do not feed an unbounded amount of idle background into the KWS stream:
+    // the GigaSpeech decoder stops detecting after prolonged silence. Keep a
+    // short pre-roll and open bounded, fresh streams only for speech sessions.
+    let vad_threshold = config.vad_threshold.max(0.001);
+    let pre_roll_limit = config.sample_rate as usize / 2;
+    let session_limit = config.sample_rate as usize * 6;
+    let mut pre_roll = VecDeque::<f32>::with_capacity(pre_roll_limit);
+    let mut session_active = false;
+    let mut session_samples = 0_usize;
 
     while running.load(Ordering::SeqCst) {
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -220,39 +230,75 @@ fn run_spotter(
                 if paused.load(Ordering::SeqCst) {
                     continue;
                 }
-                stream.accept_waveform(config.sample_rate as i32, &chunk);
+
+                if !session_active {
+                    pre_roll.extend(chunk.iter().copied());
+                    while pre_roll.len() > pre_roll_limit {
+                        pre_roll.pop_front();
+                    }
+                    let rms = (chunk
+                        .iter()
+                        .map(|sample| sample * sample)
+                        .sum::<f32>()
+                        / chunk.len().max(1) as f32)
+                        .sqrt();
+                    if rms < vad_threshold {
+                        continue;
+                    }
+
+                    stream = spotter.create_stream();
+                    let buffered: Vec<f32> = pre_roll.drain(..).collect();
+                    session_samples = buffered.len();
+                    stream.accept_waveform(config.sample_rate as i32, &buffered);
+                    session_active = true;
+                    tracing::debug!(
+                        "fono-wake sherpa: speech session started (rms={rms:.4})"
+                    );
+                } else {
+                    stream.accept_waveform(config.sample_rate as i32, &chunk);
+                    session_samples += chunk.len();
+                }
 
                 while spotter.is_ready(&stream) {
                     spotter.decode(&stream);
+                    if let Some(result) = spotter.get_result(&stream) {
+                        let keyword = result.keyword.trim();
+                        let json = result.json.trim();
+                        if !keyword.is_empty() {
+                            tracing::debug!(
+                                "fono-wake sherpa: result keyword='{keyword}' json='{json}'"
+                            );
+                            diag::record_result(&diag, keyword, json);
+                            let now = Instant::now();
+                            let allow = last_detection
+                                .map(|t| now.duration_since(t) >= cooldown)
+                                .unwrap_or(true);
+                            if allow {
+                                last_detection = Some(now);
+                                notify(
+                                    &callback,
+                                    WakeWordEvent::Detected {
+                                        phrase: config.phrase.clone(),
+                                    },
+                                    Some(&diag),
+                                );
+                            }
+                            stream = spotter.create_stream();
+                            session_active = false;
+                            session_samples = 0;
+                            pre_roll.clear();
+                            notify(&callback, WakeWordEvent::Listening, Some(&diag));
+                            break;
+                        }
+                    }
                 }
 
-                if let Some(result) = spotter.get_result(&stream) {
-                    let keyword = result.keyword.trim();
-                    let json = result.json.trim();
-                    if !keyword.is_empty() || !json.is_empty() {
-                        tracing::debug!(
-                            "fono-wake sherpa: result keyword='{keyword}' json='{json}'"
-                        );
-                    }
-                    if !keyword.is_empty() {
-                        diag::record_result(&diag, keyword, json);
-                        let now = Instant::now();
-                        let allow = last_detection
-                            .map(|t| now.duration_since(t) >= cooldown)
-                            .unwrap_or(true);
-                        if allow {
-                            last_detection = Some(now);
-                            notify(
-                                &callback,
-                                WakeWordEvent::Detected {
-                                    phrase: config.phrase.clone(),
-                                },
-                                Some(&diag),
-                            );
-                        }
-                        spotter.reset(&stream);
-                        notify(&callback, WakeWordEvent::Listening, Some(&diag));
-                    }
+                if session_active && session_samples >= session_limit {
+                    stream = spotter.create_stream();
+                    session_active = false;
+                    session_samples = 0;
+                    pre_roll.clear();
+                    tracing::debug!("fono-wake sherpa: speech session rotated");
                 }
             }
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => continue,
@@ -274,11 +320,27 @@ pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
     let normalized = phrase.trim().to_ascii_uppercase();
 
     // For the default English GigaSpeech KWS model the wake phrase is
-    // tokenized with the included BPE model. The token sequence for the
-    // default phrase is precomputed so Fono works out of the box after the
-    // model is downloaded.
+    // tokenized with the included BPE model. "Fono" is a product name that
+    // the acoustic model can interpret as FONO, PHONO, PHONE-O, or FUNO, so
+    // keep those pronunciations in one keyword graph. Any matched variant is
+    // still reported to the application as the configured wake phrase.
     if normalized.is_empty() || normalized == "HEY FONO" {
-        return "▁HE Y ▁F O N O\n".into();
+        return [
+            "▁HE Y ▁F ON O",
+            "▁HE Y ▁PH ON O",
+            "▁HE Y ▁PH ONE ▁O",
+            "▁HE Y ▁F UN O",
+            // The Russian-accented pronunciation captured from the actual
+            // microphone is consistently decoded acoustically as "SHE PHONO".
+            "▁SHE ▁PH ON O",
+            "▁SHE ▁F ON O",
+            // Detecting the distinctive product-name tail makes a single
+            // spoken "hey fono" sufficient even when HEY is heard as SHE.
+            "▁PH ON O",
+            "▁F ON O",
+        ]
+        .join("\n")
+            + "\n";
     }
 
     // Fallback: naive character-level tokenization. This will rarely work for
@@ -320,5 +382,34 @@ fn notify(
     }
     if let Some(cb) = callback.lock().as_ref() {
         cb(event);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{map_sensitivity, phrase_to_tokens};
+
+    #[test]
+    fn default_phrase_uses_model_bpe_pronunciation_variants() {
+        let expected = concat!(
+            "▁HE Y ▁F ON O\n",
+            "▁HE Y ▁PH ON O\n",
+            "▁HE Y ▁PH ONE ▁O\n",
+            "▁HE Y ▁F UN O\n",
+            "▁SHE ▁PH ON O\n",
+            "▁SHE ▁F ON O\n",
+            "▁PH ON O\n",
+            "▁F ON O\n",
+        );
+        assert_eq!(phrase_to_tokens("hey fono"), expected);
+        assert_eq!(phrase_to_tokens("  HEY FONO  "), expected);
+    }
+
+    #[test]
+    fn sensitivity_is_clamped_before_mapping() {
+        assert_eq!(map_sensitivity(-1.0), 0.5);
+        assert_eq!(map_sensitivity(0.0), 0.5);
+        assert_eq!(map_sensitivity(1.0), 4.0);
+        assert_eq!(map_sensitivity(2.0), 4.0);
     }
 }

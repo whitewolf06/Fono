@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::audio::AudioCapture;
+use crate::audio::{AudioCapture, AudioInputStream};
 use crate::error::{AppError, AppResult};
 use crate::injection;
 use crate::llm::LlmClient;
@@ -21,13 +21,13 @@ use crate::state::AppState;
 use crate::stt::SttEngine;
 use crate::types::{AiMode, PipelineState};
 
-/// Обёртка над `cpal::Stream`, делающая её `Send + Sync`.
+/// Обёртка над общим аудиопотоком, делающая её `Send + Sync`.
 ///
-/// cpal::Stream на Windows содержит `JoinHandle` и Win32 HANDLE,
+/// Внутренний cpal::Stream на Windows содержит `JoinHandle` и Win32 HANDLE,
 /// которые по умолчанию не `Send`. Мы гарантируем, что stream
 /// используется только из одного потока (через Mutex), поэтому
 /// расширяем границы безопасности здесь.
-struct StreamHolder(#[allow(dead_code)] cpal::Stream);
+struct StreamHolder(#[allow(dead_code)] AudioInputStream);
 unsafe impl Send for StreamHolder {}
 unsafe impl Sync for StreamHolder {}
 

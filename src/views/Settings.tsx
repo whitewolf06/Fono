@@ -15,11 +15,14 @@ import {
   type Settings as SettingsT,
   type Transcript,
   type WakeWordDiagnostics,
+  type WakeWordRecognitionReport,
+  type WakeWordSampleReport,
   type WakeWordTestReport,
 } from "@/lib/types";
 import { MicSelector } from "@/components/MicSelector";
 import { MicTest } from "@/components/MicTest";
 import { ModelManager } from "@/components/ModelManager";
+import { amplitudeToDb, amplitudeToMeterPercent } from "@/lib/audioLevel";
 
 const DEFAULT_CLEAN_PROMPT = `Ты — редактор голосовых транскриптов.
 Задача: превратить сырой распознанный текст в читаемый, не меняя смысл.
@@ -48,11 +51,15 @@ export function SettingsView() {
   const [testDuration, setTestDuration] = useState(4000);
   const [injectMode, setInjectMode] = useState(false);
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
-  const [wakeStatus, setWakeStatus] = useState<string>("Paused");
+  const [wakeStatus, setWakeStatus] = useState<string>("loading");
   const [wakeToggling, setWakeToggling] = useState(false);
   const [wakeDiag, setWakeDiag] = useState<WakeWordDiagnostics | null>(null);
   const [wakeTesting, setWakeTesting] = useState(false);
   const [wakeTestResult, setWakeTestResult] = useState<WakeWordTestReport | null>(null);
+  const [wakeSampleRecording, setWakeSampleRecording] = useState(false);
+  const [wakeSampleRecognizing, setWakeSampleRecognizing] = useState(false);
+  const [wakeSample, setWakeSample] = useState<WakeWordSampleReport | null>(null);
+  const [wakeRecognition, setWakeRecognition] = useState<WakeWordRecognitionReport | null>(null);
   const [kwsDownloaded, setKwsDownloaded] = useState(false);
   const [kwsDownloading, setKwsDownloading] = useState(false);
   const [logs, setLogs] = useState<string | null>(null);
@@ -74,11 +81,18 @@ export function SettingsView() {
       setKwsDownloaded(ok);
       setKwsDownloading(false);
     });
+    // Событие запуска можно пропустить, если окно открылось уже после него.
+    // Периодический опрос берёт статус непосредственно у backend и не даёт UI
+    // остаться на устаревшем «На паузе».
+    const statusTimer = window.setInterval(() => {
+      ipc.getWakeWordStatus().then(setWakeStatus).catch(() => {});
+    }, 1000);
     return () => {
       unlistenState.then((u) => u());
       unlistenWake.then((u) => u());
       unlistenDetected.then((u) => u());
       unlistenKws.then((u) => u());
+      window.clearInterval(statusTimer);
     };
   }, []);
 
@@ -208,6 +222,35 @@ export function SettingsView() {
       setError(String(e));
     } finally {
       setWakeTesting(false);
+    }
+  };
+
+  const recordWakeWordSample = async () => {
+    setWakeSampleRecording(true);
+    setWakeSample(null);
+    setWakeRecognition(null);
+    setError(null);
+    try {
+      const result = await ipc.recordWakeWordSample(4000);
+      setWakeSample(result);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWakeSampleRecording(false);
+    }
+  };
+
+  const recognizeWakeWordSample = async () => {
+    setWakeSampleRecognizing(true);
+    setWakeRecognition(null);
+    setError(null);
+    try {
+      const result = await ipc.recognizeWakeWordSample();
+      setWakeRecognition(result);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWakeSampleRecognizing(false);
     }
   };
 
@@ -461,16 +504,15 @@ export function SettingsView() {
               <p className="mb-3 text-xs text-neutral-400">
                 {settings.wake_backend === "sherpa_onnx" ? (
                   <>
-                    Используется лёгкая модель sherpa-onnx (~3 МБ) для
-                    мгновенного обнаружения фразы «{settings.wake_word}». Задержка
-                    обычно меньше секунды, CPU в режиме ожидания минимален.
+                    Используется лёгкая модель sherpa-onnx (~3 МБ). Она быстрая,
+                    но может плохо распознавать нестандартные имена и акцент.
                   </>
                 ) : settings.wake_backend === "whisper_experimental" ? (
                   <>
-                    Программа постоянно слушает микрофон моделью{" "}
+                    Рекомендуемый точный режим: перекрывающиеся окна распознаются моделью{" "}
                     <code className="text-brand-300">{settings.wake_word_model}</code>.
-                    Когда услышит фразу «{settings.wake_word}» — начнёт запись
-                    диктовки. CPU в режиме ожидания: ~5-10%.
+                    Для «{settings.wake_word}» учитываются варианты произношения;
+                    при включённом GPU обработка идёт через CUDA.
                   </>
                 ) : (
                   <>Тестовый режим: срабатывание по таймеру.</>
@@ -490,8 +532,12 @@ export function SettingsView() {
                   }
                   disabled={settings.wake_word_enabled}
                 >
-                  <option value="sherpa_onnx">Sherpa-ONNX (рекомендуется)</option>
-                  <option value="whisper_experimental">Whisper (экспериментально)</option>
+                  <option value="whisper_experimental">
+                    Whisper Small + CUDA (рекомендуется)
+                  </option>
+                  <option value="sherpa_onnx">
+                    Sherpa-ONNX (быстро, менее точно)
+                  </option>
                   <option value="mock">Mock (для тестов)</option>
                 </select>
               </div>
@@ -543,16 +589,25 @@ export function SettingsView() {
 
               <div>
                 <label className="label">Ключевая фраза</label>
-                <input
-                  className="input"
-                  value={settings.wake_word}
-                  onChange={(e) => update("wake_word", e.target.value)}
-                  disabled={settings.wake_word_enabled}
-                  placeholder="hey fono"
-                />
+                <div className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    value={settings.wake_word}
+                    onChange={(e) => update("wake_word", e.target.value)}
+                    placeholder="okay fun"
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary whitespace-nowrap !px-3"
+                    onClick={save}
+                    disabled={saving || !settings.wake_word.trim()}
+                  >
+                    {saving ? "Применяю…" : "Применить"}
+                  </button>
+                </div>
                 <p className="mt-1 text-xs text-neutral-500">
-                  Изменение фразы потребует перезапуска wake word. Для Sherpa-ONNX
-                  сейчас поддерживается фиксированная фраза «hey fono».
+                  Фраза применяется без перезапуска приложения: активный detector
+                  автоматически перезапустится. Для произвольных фраз используйте Whisper.
                 </p>
               </div>
 
@@ -579,6 +634,46 @@ export function SettingsView() {
 
               <div>
                 <label className="label">
+                  Пауза до перевода ({(settings.wake_dictation_silence_ms / 1000).toFixed(1)} сек)
+                </label>
+                <input
+                  type="range"
+                  min={500}
+                  max={10000}
+                  step={100}
+                  value={settings.wake_dictation_silence_ms}
+                  onChange={(e) =>
+                    update("wake_dictation_silence_ms", Number(e.target.value))
+                  }
+                  className="w-full accent-brand-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  После такой паузы запись завершится и начнётся распознавание. Рекомендую 1.8–2.5 сек.
+                </p>
+              </div>
+
+              <div>
+                <label className="label">
+                  Чувствительность окончания диктовки ({(settings.wake_dictation_speech_threshold * 100).toFixed(1)}%)
+                </label>
+                <input
+                  type="range"
+                  min={0.002}
+                  max={0.03}
+                  step={0.001}
+                  value={settings.wake_dictation_speech_threshold}
+                  onChange={(e) =>
+                    update("wake_dictation_speech_threshold", Number(e.target.value))
+                  }
+                  className="w-full accent-brand-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Меньше — таймер лучше удерживается на тихой речи; если он не запускается в тишине, увеличьте значение.
+                </p>
+              </div>
+
+              <div>
+                <label className="label">
                   Чувствительность ({settings.wake_word_sensitivity.toFixed(2)})
                 </label>
                 <input
@@ -595,43 +690,72 @@ export function SettingsView() {
                 />
               </div>
 
+              <div>
+                <label className="label">
+                  Порог начала речи / VAD ({(settings.wake_word_vad_threshold * 100).toFixed(1)}%)
+                </label>
+                <input
+                  type="range"
+                  min={0.005}
+                  max={0.08}
+                  step={0.005}
+                  value={settings.wake_word_vad_threshold}
+                  onChange={(e) =>
+                    update("wake_word_vad_threshold", Number(e.target.value))
+                  }
+                  disabled={settings.wake_word_enabled}
+                  className="w-full accent-brand-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Должен быть выше фонового шума, но ниже уровня обычной речи.
+                </p>
+              </div>
+
               <div className="mt-4 rounded-lg border border-neutral-700 bg-neutral-900/50 p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-medium text-neutral-300">
                     Отладка wake word
                   </span>
-                  <button
-                    type="button"
-                    className="btn-secondary !px-2 !py-1 text-xs"
-                    onClick={runWakeWordTest}
-                    disabled={wakeTesting || !kwsDownloaded}
-                  >
-                    {wakeTesting ? "Тест..." : "Тест WAV"}
-                  </button>
+                  {settings.wake_backend === "sherpa_onnx" && (
+                    <button
+                      type="button"
+                      className="btn-secondary !px-2 !py-1 text-xs"
+                      onClick={runWakeWordTest}
+                      disabled={wakeTesting || !kwsDownloaded}
+                    >
+                      {wakeTesting ? "Тест..." : "Эталон Sherpa WAV"}
+                    </button>
+                  )}
                 </div>
                 {wakeDiag ? (
                   <div className="space-y-2">
                     <div>
                       <div className="flex justify-between text-xs text-neutral-400">
                         <span>RMS</span>
-                        <span>{(wakeDiag.rms * 100).toFixed(1)}%</span>
+                        <span>
+                          {amplitudeToDb(wakeDiag.rms).toFixed(0)} dB ·{" "}
+                          {(wakeDiag.rms * 100).toFixed(1)}%
+                        </span>
                       </div>
                       <div className="h-2 w-full rounded bg-neutral-700">
                         <div
                           className="h-2 rounded bg-brand-500 transition-all"
-                          style={{ width: `${Math.min(wakeDiag.rms * 100, 100)}%` }}
+                          style={{ width: `${amplitudeToMeterPercent(wakeDiag.rms)}%` }}
                         />
                       </div>
                     </div>
                     <div>
                       <div className="flex justify-between text-xs text-neutral-400">
                         <span>Peak</span>
-                        <span>{(wakeDiag.peak * 100).toFixed(1)}%</span>
+                        <span>
+                          {amplitudeToDb(wakeDiag.peak).toFixed(0)} dB ·{" "}
+                          {(wakeDiag.peak * 100).toFixed(1)}%
+                        </span>
                       </div>
                       <div className="h-2 w-full rounded bg-neutral-700">
                         <div
                           className="h-2 rounded bg-emerald-500 transition-all"
-                          style={{ width: `${Math.min(wakeDiag.peak * 100, 100)}%` }}
+                          style={{ width: `${amplitudeToMeterPercent(wakeDiag.peak)}%` }}
                         />
                       </div>
                     </div>
@@ -666,6 +790,72 @@ export function SettingsView() {
                     Диагностика недоступна, пока wake word выключен.
                   </div>
                 )}
+
+                <div className="mt-3 border-t border-neutral-700 pt-3">
+                  <div className="mb-2 text-xs font-medium text-neutral-300">
+                    Проверка вашей записи
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary !px-3 !py-1 text-xs"
+                      onClick={recordWakeWordSample}
+                      disabled={wakeSampleRecording || wakeSampleRecognizing}
+                    >
+                      {wakeSampleRecording
+                        ? "Говорите сейчас…"
+                        : "Записать 4 сек"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary !px-3 !py-1 text-xs"
+                      onClick={recognizeWakeWordSample}
+                      disabled={
+                        !wakeSample || wakeSampleRecording || wakeSampleRecognizing
+                      }
+                    >
+                      {wakeSampleRecognizing
+                        ? "Распознаю…"
+                        : "Распознать запись"}
+                    </button>
+                  </div>
+
+                  {wakeSample && (
+                    <div className="mt-2 text-xs text-neutral-400">
+                      Записано {(wakeSample.duration_ms / 1000).toFixed(1)} с · RMS{" "}
+                      {amplitudeToDb(wakeSample.rms).toFixed(0)} dB · Peak{" "}
+                      {amplitudeToDb(wakeSample.peak).toFixed(0)} dB
+                    </div>
+                  )}
+
+                  {wakeRecognition && (
+                    <div className="mt-2 rounded border border-neutral-700 bg-neutral-800 p-2 text-xs">
+                      <div
+                        className={
+                          wakeRecognition.detected
+                            ? "text-emerald-400"
+                            : "text-rose-400"
+                        }
+                      >
+                        {wakeRecognition.detected
+                          ? "✅ Фраза совпала"
+                          : "❌ Фраза не совпала"}
+                      </div>
+                      <div className="mt-1 text-neutral-300">
+                        Модель услышала: «{wakeRecognition.recognized || "—"}»
+                      </div>
+                      <div className="mt-1 text-neutral-500">
+                        Backend: {wakeRecognition.backend} · обработка{" "}
+                        {wakeRecognition.processing_ms} мс
+                      </div>
+                      {wakeRecognition.json && (
+                        <div className="mt-1 break-all text-[10px] text-neutral-500">
+                          {wakeRecognition.json}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {wakeTestResult && (
                   <div className="mt-2 rounded border border-neutral-700 bg-neutral-800 p-2 text-xs">
                     <div

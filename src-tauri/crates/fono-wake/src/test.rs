@@ -24,9 +24,10 @@ mod sherpa_impl {
 
     /// Run the KWS spotter on a mono WAV file.
     ///
-    /// If `use_builtin_keywords` is true, the model's own `keywords.txt` is used
-    /// instead of the user's phrase. This is useful to verify that the model and
-    /// spotter pipeline work independently of microphone capture.
+    /// If `use_builtin_keywords` is true, the keyword list supplied for the
+    /// model's bundled test WAVs is used instead of the user's phrase. This is
+    /// useful to verify that the model and spotter pipeline work independently
+    /// of microphone capture.
     pub fn test_with_wav(
         config: &WakeWordConfig,
         wav_path: &Path,
@@ -53,15 +54,21 @@ mod sherpa_impl {
             Some(encoder.to_string_lossy().into_owned());
         spotter_config.model_config.transducer.decoder =
             Some(decoder.to_string_lossy().into_owned());
-        spotter_config.model_config.transducer.joiner =
-            Some(joiner.to_string_lossy().into_owned());
+        spotter_config.model_config.transducer.joiner = Some(joiner.to_string_lossy().into_owned());
         spotter_config.model_config.tokens = Some(tokens.to_string_lossy().into_owned());
         spotter_config.model_config.num_threads = 2;
         spotter_config.model_config.provider = Some("cpu".into());
         spotter_config.keywords_threshold = config.threshold.clamp(0.0, 1.0);
         spotter_config.keywords_score = map_sensitivity(config.sensitivity);
         if use_builtin_keywords {
-            let keywords_file = dir.join("keywords.txt");
+            // `test_wavs/0.wav` says "LIGHT UP". That phrase lives in the
+            // test-specific list, not in the model's root `keywords.txt`.
+            let test_keywords_file = dir.join("test_wavs").join("test_keywords.txt");
+            let keywords_file = if test_keywords_file.is_file() {
+                test_keywords_file
+            } else {
+                dir.join("keywords.txt")
+            };
             spotter_config.keywords_file = Some(keywords_file.to_string_lossy().into_owned());
             spotter_config.keywords_buf = None;
         } else {
@@ -69,37 +76,38 @@ mod sherpa_impl {
             spotter_config.keywords_buf = Some(phrase_to_tokens(&config.phrase));
         }
 
-        let spotter = sherpa_onnx::KeywordSpotter::create(&spotter_config).ok_or_else(|| {
-            WakeWordError::ModelLoad("failed to create keyword spotter".into())
-        })?;
+        let spotter = sherpa_onnx::KeywordSpotter::create(&spotter_config)
+            .ok_or_else(|| WakeWordError::ModelLoad("failed to create keyword spotter".into()))?;
 
         let stream = spotter.create_stream();
         stream.accept_waveform(sample_rate, samples);
+
+        // Streaming KWS needs a short tail after the last spoken phoneme so
+        // the decoder can finalize a keyword near the end of a WAV file.
+        let tail_padding = vec![0.0_f32; (sample_rate.max(1) as usize * 2) / 3];
+        stream.accept_waveform(sample_rate, &tail_padding);
         stream.input_finished();
 
+        let mut keyword = String::new();
+        let mut json = String::new();
         while spotter.is_ready(&stream) {
             spotter.decode(&stream);
+            if let Some(result) = spotter.get_result(&stream) {
+                let candidate = result.keyword.trim();
+                if !candidate.is_empty() {
+                    keyword = candidate.to_string();
+                    json = result.json.trim().to_string();
+                    break;
+                }
+            }
         }
 
-        if let Some(result) = spotter.get_result(&stream) {
-            let keyword = result.keyword.trim().to_string();
-            let json = result.json.trim().to_string();
-            let detected = !keyword.is_empty();
-            Ok(WakeWordTestResult {
-                detected,
-                keyword,
-                json,
-                samples: samples.len(),
-                duration_ms,
-            })
-        } else {
-            Ok(WakeWordTestResult {
-                detected: false,
-                keyword: String::new(),
-                json: String::new(),
-                samples: samples.len(),
-                duration_ms,
-            })
-        }
+        Ok(WakeWordTestResult {
+            detected: !keyword.is_empty(),
+            keyword,
+            json,
+            samples: samples.len(),
+            duration_ms,
+        })
     }
 }

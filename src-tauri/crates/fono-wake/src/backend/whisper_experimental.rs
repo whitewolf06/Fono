@@ -1,23 +1,22 @@
-use std::path::PathBuf;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use parking_lot::Mutex;
 use whisper_rs::{SamplingStrategy, WhisperContext, WhisperContextParameters};
 
+use crate::audio_source::AudioStream;
 use crate::config::WakeWordConfig;
+use crate::diag::{self, Diagnostics, DiagnosticsHandle};
 use crate::engine::WakeWordEngine;
 use crate::error::{WakeWordError, WakeWordResult};
 use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::test::WakeWordTestResult;
 
-/// Whisper-based wake word detector.
-///
-/// **Experimental / deprecated**: kept for compatibility. The recommended
-/// backend is `SherpaOnnx` because it is orders of magnitude faster for the
-/// wake-word task.
+/// Whisper-based wake word detector for phrases that tiny open-vocabulary KWS
+/// models cannot recognize reliably.
 pub struct WhisperExperimentalBackend {
     config: WakeWordConfig,
     status: Arc<Mutex<WakeWordStatus>>,
@@ -25,6 +24,7 @@ pub struct WhisperExperimentalBackend {
     paused: Arc<AtomicBool>,
     thread: Mutex<Option<thread::JoinHandle<()>>>,
     callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    diag: DiagnosticsHandle,
 }
 
 impl WhisperExperimentalBackend {
@@ -36,50 +36,61 @@ impl WhisperExperimentalBackend {
             paused: Arc::new(AtomicBool::new(false)),
             thread: Mutex::new(None),
             callback: Arc::new(Mutex::new(None)),
+            diag: diag::new_handle(),
         }
-    }
-
-    fn model_path(&self) -> PathBuf {
-        // For this backend `model_dir` is interpreted as the path to the GGML model file.
-        self.config.model_dir.clone()
     }
 }
 
 impl WakeWordEngine for WhisperExperimentalBackend {
     fn start(&mut self, callback: Box<dyn Fn(WakeWordEvent) + Send>) -> WakeWordResult<()> {
         *self.callback.lock() = Some(callback);
-
-        let model_path = self.model_path();
-        if !model_path.is_file() {
+        if !self.config.model_dir.is_file() {
+            let path = self.config.model_dir.clone();
             *self.status.lock() = WakeWordStatus::MissingModel;
             notify(
                 &self.callback,
                 WakeWordEvent::MissingModel {
-                    path: model_path.to_string_lossy().into_owned(),
+                    path: path.to_string_lossy().into_owned(),
                 },
+                Some(&self.diag),
             );
-            return Err(WakeWordError::ModelNotFound(model_path));
+            return Err(WakeWordError::ModelNotFound(path));
         }
 
-        notify(&self.callback, WakeWordEvent::ModelLoading);
+        notify(&self.callback, WakeWordEvent::ModelLoading, Some(&self.diag));
         *self.status.lock() = WakeWordStatus::Loading;
-
         self.running.store(true, Ordering::SeqCst);
         self.paused.store(false, Ordering::SeqCst);
+        diag::set_running(&self.diag, true);
+        diag::set_paused(&self.diag, false);
 
         let config = self.config.clone();
         let status = self.status.clone();
         let running = self.running.clone();
         let paused = self.paused.clone();
-        let cb = self.callback.clone();
-        let device_id = config.audio_device_id.clone();
-
+        let callback = self.callback.clone();
+        let diag = self.diag.clone();
         let handle = thread::spawn(move || {
-            if let Err(e) = whisper_loop(model_path, device_id, config, running, paused, status, cb) {
-                tracing::error!("fono-wake whisper: loop ended: {e}");
+            let error_callback = callback.clone();
+            let error_diag = diag.clone();
+            if let Err(error) = whisper_loop(
+                config,
+                running,
+                paused,
+                status,
+                callback,
+                diag.clone(),
+            ) {
+                tracing::error!("fono-wake whisper: loop ended: {error}");
+                notify(
+                    &error_callback,
+                    WakeWordEvent::Error {
+                        message: error.to_string(),
+                    },
+                    Some(&error_diag),
+                );
             }
         });
-
         *self.thread.lock() = Some(handle);
         Ok(())
     }
@@ -90,118 +101,177 @@ impl WakeWordEngine for WhisperExperimentalBackend {
             let _ = handle.join();
         }
         *self.status.lock() = WakeWordStatus::Off;
+        diag::set_running(&self.diag, false);
+        diag::set_paused(&self.diag, false);
         Ok(())
     }
 
     fn pause(&mut self) -> WakeWordResult<()> {
         self.paused.store(true, Ordering::SeqCst);
         *self.status.lock() = WakeWordStatus::Paused;
+        diag::set_paused(&self.diag, true);
+        notify(&self.callback, WakeWordEvent::Paused, Some(&self.diag));
         Ok(())
     }
 
     fn resume(&mut self) -> WakeWordResult<()> {
         self.paused.store(false, Ordering::SeqCst);
         *self.status.lock() = WakeWordStatus::Listening;
+        diag::set_paused(&self.diag, false);
+        notify(&self.callback, WakeWordEvent::Listening, Some(&self.diag));
         Ok(())
     }
 
     fn status(&self) -> WakeWordStatus {
         *self.status.lock()
     }
+
+    fn diagnostics(&self) -> Option<Diagnostics> {
+        let mut diagnostics = self.diag.lock().data.clone();
+        diagnostics.running = self.running.load(Ordering::SeqCst);
+        diagnostics.paused = self.paused.load(Ordering::SeqCst);
+        Some(diagnostics)
+    }
 }
 
 fn whisper_loop(
-    model_path: PathBuf,
-    device_id: Option<String>,
     config: WakeWordConfig,
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     status: Arc<Mutex<WakeWordStatus>>,
     callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    diagnostics: DiagnosticsHandle,
 ) -> WakeWordResult<()> {
-    let ctx = load_model(&model_path)?;
-    let ctx = Arc::new(ctx);
+    let context = load_model(&config.model_dir, config.use_gpu)?;
+    let phrase = normalize_phrase(&config.phrase);
+    let language = if config.phrase.is_ascii() { "en" } else { "ru" };
+    let sample_rate = config.sample_rate as usize;
+    let window_limit = sample_rate * 5 / 2;
+    let minimum_window = sample_rate;
+    let audio = Arc::new(Mutex::new(VecDeque::<i16>::with_capacity(window_limit)));
+    let audio_writer = audio.clone();
+    let audio_diag = diagnostics.clone();
 
-    notify(&callback, WakeWordEvent::Listening);
+    let _stream = AudioStream::start(
+        config.audio_device_id.as_deref(),
+        config.sample_rate,
+        move |frames| {
+            let normalized: Vec<f32> = frames
+                .iter()
+                .map(|&sample| sample as f32 / i16::MAX as f32)
+                .collect();
+            diag::update_audio_level(&audio_diag, &normalized);
+
+            let mut buffer = audio_writer.lock();
+            buffer.extend(frames.iter().copied());
+            while buffer.len() > window_limit {
+                buffer.pop_front();
+            }
+        },
+    )?;
+
+    tracing::info!(
+        "fono-wake whisper: model loaded (gpu={}, language={language})",
+        config.use_gpu
+    );
     *status.lock() = WakeWordStatus::Listening;
+    notify(&callback, WakeWordEvent::Listening, Some(&diagnostics));
 
-    let phrase_norm = normalize_phrase(&config.phrase);
-    let chunk_ms = 1_500_u64;
-    let chunk_samples = (16_000.0 * chunk_ms as f32 / 1000.0) as usize;
-    let vad_threshold = config.threshold.max(0.001);
     let cooldown = Duration::from_millis(config.cooldown_ms);
     let mut last_detection: Option<Instant> = None;
-
     while running.load(Ordering::SeqCst) {
+        thread::sleep(Duration::from_millis(750));
         if paused.load(Ordering::SeqCst) {
-            thread::sleep(Duration::from_millis(100));
+            audio.lock().clear();
             continue;
         }
 
-        *status.lock() = WakeWordStatus::Listening;
-        let samples = match capture_chunk(&device_id, chunk_samples) {
-            Ok(s) => s,
-            Err(e) => {
-                notify(&callback, WakeWordEvent::Error { message: e.to_string() });
-                thread::sleep(Duration::from_millis(500));
-                continue;
-            }
-        };
-
-        if samples.is_empty() {
-            thread::sleep(Duration::from_millis(50));
-            continue;
-        }
-
-        if !has_speech(&samples, vad_threshold) {
+        let samples: Vec<i16> = audio.lock().iter().copied().collect();
+        if samples.len() < minimum_window || !has_speech(&samples, config.vad_threshold) {
             continue;
         }
 
         *status.lock() = WakeWordStatus::Processing;
-        let transcript = match transcribe(&ctx, &samples) {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::warn!("fono-wake whisper: transcribe failed: {e}");
+        let transcript = match transcribe(&context, &samples, language) {
+            Ok(transcript) => transcript,
+            Err(error) => {
+                tracing::warn!("fono-wake whisper: transcribe failed: {error}");
+                *status.lock() = WakeWordStatus::Listening;
                 continue;
             }
         };
+        let normalized = normalize_phrase(&transcript);
+        if !normalized.is_empty() {
+            tracing::debug!("fono-wake whisper: transcript='{normalized}'");
+            diag::record_result(&diagnostics, &normalized, &transcript);
+        }
 
-        let transcript_norm = normalize_phrase(&transcript);
-        if !transcript_norm.is_empty() && phrase_matches(&transcript_norm, &phrase_norm, 0.3) {
+        if phrase_matches(&normalized, &phrase) {
             let now = Instant::now();
-            let allow = last_detection
-                .map(|t| now.duration_since(t) >= cooldown)
+            let allowed = last_detection
+                .map(|last| now.duration_since(last) >= cooldown)
                 .unwrap_or(true);
-            if allow {
+            if allowed {
                 last_detection = Some(now);
                 notify(
                     &callback,
                     WakeWordEvent::Detected {
                         phrase: config.phrase.clone(),
                     },
+                    Some(&diagnostics),
                 );
-                thread::sleep(cooldown);
+                audio.lock().clear();
+                *status.lock() = WakeWordStatus::Listening;
+                continue;
             }
         }
+
+        *status.lock() = WakeWordStatus::Listening;
+        notify(&callback, WakeWordEvent::Listening, Some(&diagnostics));
     }
 
     *status.lock() = WakeWordStatus::Off;
     Ok(())
 }
 
-fn load_model(path: &std::path::Path) -> WakeWordResult<WhisperContext> {
+fn load_model(path: &std::path::Path, use_gpu: bool) -> WakeWordResult<WhisperContext> {
     let mut params = WhisperContextParameters::default();
-    params.use_gpu(false);
+    params.use_gpu(use_gpu);
     WhisperContext::new_with_params(path, params)
-        .map_err(|e| WakeWordError::ModelLoad(format!("WhisperContext: {e}")))
+        .map_err(|error| WakeWordError::ModelLoad(format!("WhisperContext: {error}")))
 }
 
-fn transcribe(ctx: &WhisperContext, samples: &[i16]) -> WakeWordResult<String> {
-    let pcm: Vec<f32> = samples.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+pub fn test_with_samples(
+    config: &WakeWordConfig,
+    samples: &[i16],
+) -> WakeWordResult<WakeWordTestResult> {
+    let started = Instant::now();
+    let context = load_model(&config.model_dir, config.use_gpu)?;
+    let language = if config.phrase.is_ascii() { "en" } else { "ru" };
+    let transcript = transcribe(&context, samples, language)?;
+    let normalized = normalize_phrase(&transcript);
+    let phrase = normalize_phrase(&config.phrase);
+    Ok(WakeWordTestResult {
+        detected: phrase_matches(&normalized, &phrase),
+        keyword: transcript.clone(),
+        json: format!(
+            "{{\"transcript\":{},\"normalized\":{}}}",
+            serde_json::to_string(&transcript).unwrap_or_else(|_| "\"\"".into()),
+            serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".into())
+        ),
+        samples: samples.len(),
+        duration_ms: started.elapsed().as_millis() as u64,
+    })
+}
 
+fn transcribe(ctx: &WhisperContext, samples: &[i16], language: &str) -> WakeWordResult<String> {
+    let pcm: Vec<f32> = samples
+        .iter()
+        .map(|&sample| sample as f32 / i16::MAX as f32)
+        .collect();
     let mut params = whisper_rs::FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-    params.set_language(Some("ru"));
-    params.set_n_threads(2);
+    params.set_language(Some(language));
+    params.set_n_threads(4);
     params.set_print_progress(false);
     params.set_print_realtime(false);
     params.set_print_timestamps(false);
@@ -212,240 +282,123 @@ fn transcribe(ctx: &WhisperContext, samples: &[i16]) -> WakeWordResult<String> {
 
     let mut state = ctx
         .create_state()
-        .map_err(|e| WakeWordError::Backend(format!("create_state: {e}")))?;
+        .map_err(|error| WakeWordError::Backend(format!("create_state: {error}")))?;
     state
         .full(params, &pcm)
-        .map_err(|e| WakeWordError::Backend(format!("full: {e}")))?;
+        .map_err(|error| WakeWordError::Backend(format!("full: {error}")))?;
 
-    let n = state.full_n_segments();
     let mut text = String::new();
-    for i in 0..n {
-        if let Some(seg) = state.get_segment(i) {
-            if let Ok(t) = seg.to_str_lossy() {
-                let trimmed = t.trim();
-                if !trimmed.is_empty() {
+    for index in 0..state.full_n_segments() {
+        if let Some(segment) = state.get_segment(index) {
+            if let Ok(value) = segment.to_str_lossy() {
+                let value = value.trim();
+                if !value.is_empty() {
                     if !text.is_empty() {
                         text.push(' ');
                     }
-                    text.push_str(trimmed);
+                    text.push_str(value);
                 }
             }
         }
     }
-    Ok(text.trim().to_string())
-}
-
-fn capture_chunk(device_id: &Option<String>, n: usize) -> WakeWordResult<Vec<i16>> {
-    let host = cpal::default_host();
-    let device = match device_id {
-        Some(id) => host
-            .input_devices()
-            .map_err(|e| WakeWordError::Audio(e.to_string()))?
-            .find(|d| d.name().ok().as_deref() == Some(id))
-            .ok_or_else(|| WakeWordError::Audio(format!("device not found: {id}")))?,
-        None => host
-            .default_input_device()
-            .ok_or_else(|| WakeWordError::Audio("no default input device".into()))?,
-    };
-
-    let config_range = device
-        .default_input_config()
-        .map_err(|e| WakeWordError::Audio(e.to_string()))?;
-    let sample_format = config_range.sample_format();
-    let mut stream_config: cpal::StreamConfig = config_range.into();
-    stream_config.channels = 1;
-    let sample_rate = stream_config.sample_rate.0 as f32;
-
-    let collected: Arc<Mutex<Vec<i16>>> = Arc::new(Mutex::new(Vec::with_capacity(n)));
-    let writer = collected.clone();
-
-    let stream = device.build_input_stream_raw(
-        &stream_config,
-        sample_format,
-        move |data: &cpal::Data, _: &_| {
-            let mut w = writer.lock();
-            if w.len() >= n {
-                return;
-            }
-            let chunk = convert_to_i16(data, sample_format);
-            let mono = if stream_config.channels == 1 {
-                chunk
-            } else {
-                chunk
-                    .chunks(stream_config.channels as usize)
-                    .map(|c| (c.iter().map(|&s| s as i64).sum::<i64>() / c.len() as i64) as i16)
-                    .collect()
-            };
-            let resampled = if (sample_rate - 16_000.0).abs() > 1.0 {
-                linear_resample(&mono, sample_rate, 16_000.0)
-            } else {
-                mono
-            };
-            let needed = n - w.len();
-            let take = resampled.len().min(needed);
-            w.extend_from_slice(&resampled[..take]);
-        },
-        |err| tracing::error!("fono-wake whisper capture error: {err}"),
-        None,
-    )?;
-
-    stream.play()?;
-
-    let wait_ms = (n as f32 / 16_000.0 * 1000.0) as u64 + 200;
-    let deadline = Instant::now() + Duration::from_millis(wait_ms);
-    while collected.lock().len() < n {
-        if Instant::now() > deadline {
-            break;
-        }
-        thread::sleep(Duration::from_millis(20));
-    }
-
-    drop(stream);
-    let mut samples = collected.lock().clone();
-    samples.truncate(n);
-    Ok(samples)
+    Ok(text)
 }
 
 fn has_speech(samples: &[i16], threshold: f32) -> bool {
-    if samples.is_empty() {
-        return false;
-    }
-    let sum_sq: i64 = samples.iter().map(|&s| (s as i64) * (s as i64)).sum();
-    let rms = ((sum_sq as f32 / samples.len() as f32).sqrt()) / i16::MAX as f32;
-    rms >= threshold
-}
-
-fn normalize_phrase(s: &str) -> String {
-    let lower = s.to_lowercase();
-    let mut out = String::with_capacity(lower.len());
-    let mut in_brackets: Option<char> = None;
-    for ch in lower.chars() {
-        match in_brackets {
-            Some(open) => {
-                let closes = match open {
-                    '[' => ch == ']',
-                    '(' => ch == ')',
-                    _ => true,
-                };
-                if closes {
-                    in_brackets = None;
-                }
-            }
-            None => {
-                if ch == '[' || ch == '(' {
-                    in_brackets = Some(ch);
-                    continue;
-                }
-                if ch.is_alphanumeric() {
-                    out.push(ch);
-                } else if ch.is_whitespace() && !out.ends_with(' ') {
-                    out.push(' ');
-                }
-            }
-        }
-    }
-    out.trim().to_string()
-}
-
-fn levenshtein_chars(a: &str, b: &str) -> usize {
-    let a: Vec<char> = a.chars().collect();
-    let b: Vec<char> = b.chars().collect();
-    if a.is_empty() {
-        return b.len();
-    }
-    if b.is_empty() {
-        return a.len();
-    }
-    let mut prev: Vec<usize> = (0..=b.len()).collect();
-    let mut curr = vec![0usize; b.len() + 1];
-    for i in 1..=a.len() {
-        curr[0] = i;
-        for j in 1..=b.len() {
-            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
-        }
-        std::mem::swap(&mut prev, &mut curr);
-    }
-    prev[b.len()]
-}
-
-fn phrase_matches(transcript_norm: &str, phrase_norm: &str, tolerance: f32) -> bool {
-    let phrase_words: Vec<&str> = phrase_norm
-        .split_whitespace()
-        .filter(|w| w.chars().count() > 3)
-        .collect();
-    if phrase_words.is_empty() {
-        return false;
-    }
-    let transcript_words: Vec<&str> = transcript_norm.split_whitespace().collect();
-    if transcript_words.is_empty() {
-        return false;
-    }
-    phrase_words.iter().all(|pw| {
-        let pw_len = pw.chars().count();
-        let max_dist = ((pw_len as f32) * tolerance).ceil() as usize;
-        transcript_words.iter().any(|tw| levenshtein_chars(pw, tw) <= max_dist)
+    let threshold = threshold.max(0.001);
+    samples.chunks(1_600).any(|window| {
+        let sum: i64 = window
+            .iter()
+            .map(|&sample| (sample as i64) * (sample as i64))
+            .sum();
+        let rms = (sum as f32 / window.len().max(1) as f32).sqrt() / i16::MAX as f32;
+        rms >= threshold
     })
 }
 
-fn convert_to_i16(data: &cpal::Data, format: cpal::SampleFormat) -> Vec<i16> {
-    let bytes = data.bytes();
-    match format {
-        cpal::SampleFormat::I8 => samples_to_i16::<i8, _>(bytes, |s| (s as i16) << 8),
-        cpal::SampleFormat::I16 => samples_to_i16::<i16, _>(bytes, |s| s),
-        cpal::SampleFormat::I32 => samples_to_i16::<i32, _>(bytes, |s| (s >> 16) as i16),
-        cpal::SampleFormat::I64 => samples_to_i16::<i64, _>(bytes, |s| (s >> 48) as i16),
-        cpal::SampleFormat::U8 => samples_to_i16::<u8, _>(bytes, |s| (s as i16 - 128) << 8),
-        cpal::SampleFormat::U16 => samples_to_i16::<u16, _>(bytes, |s| (s as i32 - 32768) as i16),
-        cpal::SampleFormat::U32 => {
-            samples_to_i16::<u32, _>(bytes, |s| ((s as i64 - 2_147_483_648) >> 16) as i16)
+fn normalize_phrase(value: &str) -> String {
+    let mut normalized = String::with_capacity(value.len());
+    for character in value.to_lowercase().chars() {
+        if character.is_alphanumeric() {
+            normalized.push(character);
+        } else if character.is_whitespace() && !normalized.ends_with(' ') {
+            normalized.push(' ');
         }
-        cpal::SampleFormat::U64 => samples_to_i16::<u64, _>(bytes, |s| {
-            ((s as i128 - 9_223_372_036_854_775_808i128) >> 48) as i16
-        }),
-        cpal::SampleFormat::F32 => samples_to_i16::<f32, _>(bytes, |s| float_to_i16(s as f64)),
-        cpal::SampleFormat::F64 => samples_to_i16::<f64, _>(bytes, float_to_i16),
-        _ => Vec::new(),
     }
+    normalized.trim().to_string()
 }
 
-fn samples_to_i16<T: Copy, F>(bytes: &[u8], mut convert: F) -> Vec<i16>
-where
-    F: FnMut(T) -> i16,
-{
-    if bytes.is_empty() {
-        return Vec::new();
+fn phrase_matches(transcript: &str, phrase: &str) -> bool {
+    if transcript.is_empty() || phrase.is_empty() {
+        return false;
     }
-    let _sample_size = std::mem::size_of::<T>();
-    let (_, samples, _) = unsafe { bytes.align_to::<T>() };
-    samples.iter().copied().map(&mut convert).collect()
+    if phrase == "hey fono" {
+        let words: Vec<&str> = transcript.split_whitespace().collect();
+        let prefix = words
+            .iter()
+            .any(|word| matches!(*word, "hey" | "she" | "hi" | "хей"));
+        let name = words.iter().any(|word| {
+            matches!(*word, "fono" | "phono" | "phone" | "фоно" | "фона")
+        });
+        return prefix && name;
+    }
+    if phrase == "okay fun" {
+        let words: Vec<&str> = transcript.split_whitespace().collect();
+        let prefix = words
+            .iter()
+            .any(|word| matches!(*word, "okay" | "ok" | "okey" | "окей"));
+        let name = words
+            .iter()
+            .any(|word| matches!(*word, "fun" | "fan" | "фан" | "фэн"));
+        return prefix && name;
+    }
+    transcript.contains(phrase)
 }
 
-fn float_to_i16(v: f64) -> i16 {
-    (v.clamp(-1.0, 1.0) * i16::MAX as f64) as i16
-}
-
-fn linear_resample(input: &[i16], in_rate: f32, out_rate: f32) -> Vec<i16> {
-    let ratio = out_rate / in_rate;
-    let out_len = ((input.len() as f32) * ratio) as usize;
-    let last = input.len().saturating_sub(1);
-    (0..out_len)
-        .map(|i| {
-            let src = i as f32 / ratio;
-            let idx = src.floor() as usize;
-            let frac = src - idx as f32;
-            let a = input[idx.min(last)] as f32;
-            let b = input[(idx + 1).min(last)] as f32;
-            (a + (b - a) * frac) as i16
-        })
-        .collect()
+fn event_name(event: &WakeWordEvent) -> &'static str {
+    match event {
+        WakeWordEvent::Listening => "Listening",
+        WakeWordEvent::Paused => "Paused",
+        WakeWordEvent::Detected { .. } => "Detected",
+        WakeWordEvent::Error { .. } => "Error",
+        WakeWordEvent::ModelLoading => "ModelLoading",
+        WakeWordEvent::MissingModel { .. } => "MissingModel",
+    }
 }
 
 fn notify(
     callback: &Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
     event: WakeWordEvent,
+    diagnostics: Option<&DiagnosticsHandle>,
 ) {
-    if let Some(cb) = callback.lock().as_ref() {
-        cb(event);
+    if let Some(diagnostics) = diagnostics {
+        diag::record_event(diagnostics, event_name(&event));
+    }
+    if let Some(callback) = callback.lock().as_ref() {
+        callback(event);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_phrase, phrase_matches};
+
+    #[test]
+    fn default_phrase_accepts_observed_pronunciation() {
+        assert!(phrase_matches("she phono", "hey fono"));
+        assert!(phrase_matches("hey fono", "hey fono"));
+        assert!(!phrase_matches("phone", "hey fono"));
+    }
+
+    #[test]
+    fn okay_fun_accepts_common_variants() {
+        assert!(phrase_matches("okay fun", "okay fun"));
+        assert!(phrase_matches("ok fan", "okay fun"));
+        assert!(!phrase_matches("have fun", "okay fun"));
+    }
+
+    #[test]
+    fn normalization_removes_punctuation() {
+        assert_eq!(normalize_phrase(" She, PHONO! "), "she phono");
     }
 }

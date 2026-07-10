@@ -5,6 +5,8 @@ use parking_lot::Mutex;
 use crate::backend;
 use crate::config::{WakeWordBackend, WakeWordConfig};
 use crate::diag::Diagnostics;
+#[cfg(any(not(feature = "whisper-wake"), not(feature = "sherpa-wake")))]
+use crate::error::WakeWordError;
 use crate::error::WakeWordResult;
 use crate::event::{WakeWordEvent, WakeWordStatus};
 
@@ -48,25 +50,38 @@ fn notify_handle(
 impl WakeWordHandle {
     pub fn new(config: WakeWordConfig) -> Self {
         let callback = Arc::new(Mutex::new(None));
-        let engine = build_engine(&config, &callback);
-        let engine = match engine {
-            Ok(Some(mut e)) => {
-                let cb = make_event_callback(&callback);
-                match e.start(cb) {
-                    Ok(()) => Some(e),
-                    Err(err) => {
-                        tracing::error!("fono-wake: failed to start engine: {err}");
-                        notify_handle(&callback, WakeWordEvent::Error { message: err.to_string() });
-                        None
+        let engine = if config.enabled {
+            match build_engine(&config, &callback) {
+                Ok(Some(mut engine)) => {
+                    let cb = make_event_callback(&callback);
+                    match engine.start(cb) {
+                        Ok(()) => Some(engine),
+                        Err(err) => {
+                            tracing::error!("fono-wake: failed to start engine: {err}");
+                            notify_handle(
+                                &callback,
+                                WakeWordEvent::Error {
+                                    message: err.to_string(),
+                                },
+                            );
+                            None
+                        }
                     }
                 }
+                Ok(None) => None,
+                Err(err) => {
+                    tracing::error!("fono-wake: failed to build engine: {err}");
+                    notify_handle(
+                        &callback,
+                        WakeWordEvent::Error {
+                            message: err.to_string(),
+                        },
+                    );
+                    None
+                }
             }
-            Ok(None) => None,
-            Err(err) => {
-                tracing::error!("fono-wake: failed to build engine: {err}");
-                notify_handle(&callback, WakeWordEvent::Error { message: err.to_string() });
-                None
-            }
+        } else {
+            None
         };
 
         Self {

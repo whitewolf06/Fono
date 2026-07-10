@@ -37,6 +37,13 @@ export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";
 export type LlmProvider = "lmstudio" | "openai" | "custom";
 export type PipelineMode = "dictation" | "command";
+
+/** Таймер тишины для диктовки, которая запущена ключевой фразой. */
+export interface WakeDictationCountdown {
+  remaining_ms: number;
+  timeout_ms: number;
+  speaking: boolean;
+}
 export type WakeWordBackend =
   | "disabled"
   | "whisper_experimental"
@@ -100,6 +107,10 @@ export interface Settings {
   wake_word_model: WhisperModelSize;
   /** Порог VAD для wake word (чувствительность) */
   wake_word_vad_threshold: number;
+  /** Пауза после речи, завершающая диктовку по wake word. */
+  wake_dictation_silence_ms: number;
+  /** RMS-порог тишины для завершения диктовки после wake word. */
+  wake_dictation_speech_threshold: number;
   /** Шаг изменения громкости в процентах */
   volume_step: number;
 }
@@ -126,6 +137,22 @@ export interface WakeWordTestReport {
   keyword: string;
   json: string;
   duration_ms: number;
+}
+
+export interface WakeWordSampleReport {
+  samples: number;
+  duration_ms: number;
+  rms: number;
+  peak: number;
+}
+
+export interface WakeWordRecognitionReport {
+  backend: string;
+  detected: boolean;
+  recognized: string;
+  json: string;
+  audio_duration_ms: number;
+  processing_ms: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -157,6 +184,8 @@ export const DEFAULT_SETTINGS: Settings = {
   llm_api_key: null,
   wake_word_model: "base",
   wake_word_vad_threshold: 0.015,
+  wake_dictation_silence_ms: 2000,
+  wake_dictation_speech_threshold: 0.006,
   volume_step: 10,
 };
 

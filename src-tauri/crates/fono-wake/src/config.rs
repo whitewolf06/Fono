@@ -14,6 +14,10 @@ pub struct WakeWordConfig {
     pub threshold: f32,
     /// Sensitivity / false-positive tuning; semantics are backend-specific.
     pub sensitivity: f32,
+    /// RMS level that starts a fresh keyword-spotting speech session.
+    pub vad_threshold: f32,
+    /// Use the GPU when the selected backend supports it.
+    pub use_gpu: bool,
     /// Required audio sample rate in Hz.
     pub sample_rate: u32,
     /// Minimum time between detections in milliseconds.
@@ -31,6 +35,8 @@ impl Default for WakeWordConfig {
             model_dir: std::path::PathBuf::new(),
             threshold: 0.5,
             sensitivity: 0.5,
+            vad_threshold: 0.015,
+            use_gpu: false,
             sample_rate: 16_000,
             cooldown_ms: 2_000,
             audio_device_id: None,

@@ -23,6 +23,33 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_global_shortcut::ShortcutState;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
+/// Состояние таймера окончания записи после wake word.
+///
+/// Отправляется только для диктовки, запущенной wake word: обычная запись по
+/// горячей клавише не должна показывать этот обратный отсчёт.
+#[derive(Clone, serde::Serialize)]
+struct WakeDictationCountdown {
+    remaining_ms: u64,
+    timeout_ms: u64,
+    speaking: bool,
+}
+
+fn emit_wake_dictation_countdown(
+    handle: &tauri::AppHandle,
+    remaining: std::time::Duration,
+    timeout: std::time::Duration,
+    speaking: bool,
+) {
+    let _ = handle.emit(
+        "wake-dictation-countdown",
+        WakeDictationCountdown {
+            remaining_ms: remaining.as_millis() as u64,
+            timeout_ms: timeout.as_millis() as u64,
+            speaking,
+        },
+    );
+}
+
 /// Инициализация логирования: консоль + файл в `%APPDATA%\Fono\logs\`.
 fn init_tracing() {
     use tracing_appender::rolling;
@@ -148,6 +175,8 @@ pub fn run() {
             commands::get_wake_word_status,
             commands::get_wake_word_diagnostics,
             commands::test_wake_word_model,
+            commands::record_wake_word_sample,
+            commands::recognize_wake_word_sample,
             commands::enable_wake_word,
             commands::disable_wake_word,
         ])
@@ -399,6 +428,8 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
     config.sample_rate = 16_000;
     config.threshold = settings.wake_word_threshold;
     config.sensitivity = settings.wake_word_sensitivity;
+    config.vad_threshold = settings.wake_word_vad_threshold;
+    config.use_gpu = settings.use_gpu;
     config.cooldown_ms = 2_000;
     config.model_dir = match settings.wake_backend {
         WakeWordBackend::SherpaOnnx => state::app_data_dir()?
@@ -466,6 +497,22 @@ async fn start_wake_word_if_enabled(
         }
     });
 
+    // Подготавливаем основную модель до того, как detector начнёт принимать
+    // ключевую фразу. Раньше первая диктовка после запуска попадала в STT без
+    // контекста модели и оставляла wake word на паузе.
+    if let Some(path) = settings.whisper_model_path.clone() {
+        let stt = handle.state::<pipeline::Pipeline>().stt().clone();
+        let use_gpu = settings.use_gpu;
+        let _ = handle.emit("wake-word-status", "loading");
+        tauri::async_runtime::spawn_blocking(move || {
+            stt.ensure_loaded(std::path::Path::new(&path), use_gpu)
+        })
+        .await
+        .map_err(|e| format!("primary whisper load join: {e}"))??;
+    } else {
+        return Err("Whisper-модель для диктовки не выбрана".into());
+    }
+
     let config = settings_to_wake_config(&settings)?;
     wake_handle.update_config(config)?;
 
@@ -504,17 +551,31 @@ pub async fn run_dictation_after_wake(
     // Стартуем запись.
     pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
     let _ = handle.emit("pipeline-mode", "dictation");
-    pipeline.start_recording(settings.audio_device_id.as_deref())?;
+    if let Err(error) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+        pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+        wake_handle.resume();
+        return Err(Box::new(error));
+    }
     tracing::info!("wake dictation: recording started, waiting for VAD silence");
 
     // Ждём окончания речи: ловим начало речи, затем остановку по тишине.
     // Уровень звука читаем из writer-буфера записи (см. Pipeline::current_level).
     let max_wait = std::time::Duration::from_secs(30); // максимум 30 сек диктовки
-    let silence_level = 0.012; // ~-38 dBFS, как DEFAULT_THRESHOLD в vad/mod.rs
-    let silence_timeout = std::time::Duration::from_millis(1000); // тишина после речи → стоп
+    // У тихой речи RMS может быть ниже прежнего жёсткого 0.012. Порог
+    // настраивается отдельно от VAD wake word и имеет гистерезис: после начала
+    // речи используем более низкий порог удержания, чтобы короткие тихие слоги
+    // не запускали обратный отсчёт посреди фразы.
+    let speech_threshold = settings.wake_dictation_speech_threshold.clamp(0.002, 0.03);
+    let sustain_threshold = (speech_threshold * 0.65).max(0.0015);
+    let silence_timeout = std::time::Duration::from_millis(
+        settings.wake_dictation_silence_ms.clamp(500, 10_000),
+    );
     let started = std::time::Instant::now();
     let mut was_speaking = false;
     let mut silence_start: Option<std::time::Instant> = None;
+    // Показываем оверлей сразу: раньше он появлялся только после первого
+    // VAD-сэмпла выше порога, из-за чего казалось, что он срабатывает не всегда.
+    emit_wake_dictation_countdown(handle, silence_timeout, silence_timeout, true);
 
     loop {
         if started.elapsed() >= max_wait || pipeline.is_cancelled() || pipeline.is_confirmed() {
@@ -523,10 +584,22 @@ pub async fn run_dictation_after_wake(
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         let level = pipeline.current_level();
-        if level > silence_level {
+        let active_threshold = if was_speaking {
+            sustain_threshold
+        } else {
+            speech_threshold
+        };
+        if level > active_threshold {
             // Идёт речь — сбрасываем счётчик тишины.
+            // Отправляем событие только при возвращении к речи: прежняя версия
+            // слала его каждые 100 мс, перегружая WebView и визуально "замораживая"
+            // шкалу. Частые обновления нужны только настоящему отсчёту тишины.
+            let resumed_speaking = silence_start.is_some();
             was_speaking = true;
             silence_start = None;
+            if resumed_speaking {
+                emit_wake_dictation_countdown(handle, silence_timeout, silence_timeout, true);
+            }
         } else if was_speaking && silence_start.is_none() {
             // Речь была, началась тишина — запускаем таймер.
             silence_start = Some(std::time::Instant::now());
@@ -535,15 +608,26 @@ pub async fn run_dictation_after_wake(
 
         // Тишина длится дольше порога после речи → останавливаем запись.
         if let Some(s) = silence_start {
-            if s.elapsed() >= silence_timeout {
+            let elapsed = s.elapsed();
+            let remaining = silence_timeout.saturating_sub(elapsed);
+            emit_wake_dictation_countdown(handle, remaining, silence_timeout, false);
+
+            if elapsed >= silence_timeout {
                 tracing::info!(
                     "wake dictation: silence {:.1}s reached, stopping",
-                    s.elapsed().as_secs_f32()
+                    elapsed.as_secs_f32()
                 );
                 break;
             }
         }
     }
+
+    emit_wake_dictation_countdown(
+        handle,
+        std::time::Duration::ZERO,
+        silence_timeout,
+        false,
+    );
 
     tracing::info!(
         "wake dictation: stopping recording after {:.1}s (was_speaking={})",
@@ -568,13 +652,40 @@ pub async fn run_dictation_after_wake(
     if !samples.is_empty() {
         let samples = crate::vad::trim_silence(&samples);
         if !samples.is_empty() {
+            if let Some(path) = settings.whisper_model_path.as_deref() {
+                if let Err(error) = pipeline
+                    .stt()
+                    .ensure_loaded(std::path::Path::new(path), settings.use_gpu)
+                {
+                    pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                    wake_handle.resume();
+                    return Err(Box::new(error));
+                }
+            } else {
+                pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                wake_handle.resume();
+                return Err("Whisper-модель для диктовки не выбрана".into());
+            }
             pipeline::set_state(handle, &state.inner(), PipelineState::Transcribing);
             let stt = pipeline.stt().clone();
             let language = settings.language.clone();
-            let transcript =
-                tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
-                    .await
-                    .map_err(|e| format!("transcribe join: {e}"))??;
+            let transcript = match tauri::async_runtime::spawn_blocking(move || {
+                stt.transcribe(&samples, &language)
+            })
+            .await
+            {
+                Ok(Ok(transcript)) => transcript,
+                Ok(Err(error)) => {
+                    pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                    wake_handle.resume();
+                    return Err(Box::new(error));
+                }
+                Err(error) => {
+                    pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                    wake_handle.resume();
+                    return Err(format!("transcribe join: {error}").into());
+                }
+            };
 
             tracing::info!("wake dictation transcript: {:?}", transcript.text);
 

@@ -7,6 +7,9 @@
 //! `State<'_, T>`, чтобы не удерживать borrow через `.await`.
 
 use std::path::PathBuf;
+use std::io::Write;
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::audio::AudioCapture;
@@ -25,6 +28,8 @@ fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
 fn emit_pipeline_error(app: &AppHandle, message: &str) {
     let _ = app.emit("error", message);
 }
+
+static WAKE_WORD_TEST_AUDIO: Lazy<Mutex<Vec<i16>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 // ====== Состояние конвейера ======
 
@@ -774,6 +779,156 @@ pub async fn test_wake_word_model(_app: AppHandle) -> AppResult<WakeWordTestRepo
     Err(AppError::Internal(
         "sherpa-wake backend не собран в эту сборку".into(),
     ))
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct WakeWordSampleReport {
+    pub samples: usize,
+    pub duration_ms: u64,
+    pub rms: f32,
+    pub peak: f32,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct WakeWordRecognitionReport {
+    pub backend: String,
+    pub detected: bool,
+    pub recognized: String,
+    pub json: String,
+    pub audio_duration_ms: u64,
+    pub processing_ms: u64,
+}
+
+/// Records a user-controlled wake-word sample through the same shared audio
+/// path as dictation and live wake word. The live detector is paused so it
+/// cannot consume the test phrase as a real command.
+#[tauri::command]
+pub async fn record_wake_word_sample(
+    app: AppHandle,
+    duration_ms: u64,
+) -> AppResult<WakeWordSampleReport> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
+    if pipeline.is_recording() {
+        return Err(AppError::Audio("уже идёт другая запись".into()));
+    }
+
+    let settings = state.settings();
+    wake_handle.pause();
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    if let Err(error) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+        wake_handle.resume();
+        set_pipeline_idle(&app, &state.inner());
+        return Err(error);
+    }
+
+    let duration = std::time::Duration::from_millis(duration_ms.clamp(1_000, 10_000));
+    tokio::time::sleep(duration).await;
+    let samples = pipeline.stop_recording();
+    set_pipeline_idle(&app, &state.inner());
+    wake_handle.resume();
+    let samples = samples?;
+    if samples.is_empty() {
+        return Err(AppError::Audio("тестовая запись пуста".into()));
+    }
+
+    let (rms, peak) = normalized_levels(&samples);
+    *WAKE_WORD_TEST_AUDIO.lock() = samples.clone();
+    Ok(WakeWordSampleReport {
+        samples: samples.len(),
+        duration_ms: samples.len() as u64 * 1_000 / 16_000,
+        rms,
+        peak,
+    })
+}
+
+/// Runs the saved microphone sample through the currently selected wake-word
+/// backend without listening continuously.
+#[tauri::command]
+pub async fn recognize_wake_word_sample(
+    app: AppHandle,
+) -> AppResult<WakeWordRecognitionReport> {
+    let samples = WAKE_WORD_TEST_AUDIO.lock().clone();
+    if samples.is_empty() {
+        return Err(AppError::Audio("сначала запишите тестовую фразу".into()));
+    }
+    let settings = app.state::<AppState>().settings();
+    let config = crate::settings_to_wake_config(&settings)?;
+    let backend = match settings.wake_backend {
+        fono_wake::WakeWordBackend::WhisperExperimental => "Whisper Small",
+        fono_wake::WakeWordBackend::SherpaOnnx => "Sherpa-ONNX",
+        fono_wake::WakeWordBackend::Mock => "Mock",
+        fono_wake::WakeWordBackend::Disabled => "Disabled",
+    }
+    .to_string();
+    let audio_duration_ms = samples.len() as u64 * 1_000 / 16_000;
+    let started = std::time::Instant::now();
+
+    let result = match settings.wake_backend {
+        fono_wake::WakeWordBackend::WhisperExperimental => {
+            tauri::async_runtime::spawn_blocking(move || {
+                fono_wake::test_whisper_with_samples(&config, &samples)
+            })
+            .await
+            .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??
+        }
+        fono_wake::WakeWordBackend::SherpaOnnx => {
+            let wav_path = state::app_data_dir()?.join("wake-word-test.wav");
+            write_pcm16_wav(&wav_path, &samples, 16_000)?;
+            tauri::async_runtime::spawn_blocking(move || {
+                fono_wake::test_with_wav(&config, &wav_path, false)
+            })
+            .await
+            .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??
+        }
+        _ => {
+            return Err(AppError::Internal(
+                "тест записи поддерживается для Whisper и Sherpa-ONNX".into(),
+            ));
+        }
+    };
+
+    Ok(WakeWordRecognitionReport {
+        backend,
+        detected: result.detected,
+        recognized: result.keyword,
+        json: result.json,
+        audio_duration_ms,
+        processing_ms: started.elapsed().as_millis() as u64,
+    })
+}
+
+fn normalized_levels(samples: &[i16]) -> (f32, f32) {
+    let mut sum = 0.0_f64;
+    let mut peak = 0.0_f32;
+    for &sample in samples {
+        let normalized = sample as f32 / i16::MAX as f32;
+        sum += (normalized as f64) * (normalized as f64);
+        peak = peak.max(normalized.abs());
+    }
+    (((sum / samples.len().max(1) as f64) as f32).sqrt(), peak)
+}
+
+fn write_pcm16_wav(path: &std::path::Path, samples: &[i16], sample_rate: u32) -> AppResult<()> {
+    let data_len = (samples.len() * std::mem::size_of::<i16>()) as u32;
+    let mut file = std::fs::File::create(path)?;
+    file.write_all(b"RIFF")?;
+    file.write_all(&(36 + data_len).to_le_bytes())?;
+    file.write_all(b"WAVEfmt ")?;
+    file.write_all(&16_u32.to_le_bytes())?;
+    file.write_all(&1_u16.to_le_bytes())?;
+    file.write_all(&1_u16.to_le_bytes())?;
+    file.write_all(&sample_rate.to_le_bytes())?;
+    file.write_all(&(sample_rate * 2).to_le_bytes())?;
+    file.write_all(&2_u16.to_le_bytes())?;
+    file.write_all(&16_u16.to_le_bytes())?;
+    file.write_all(b"data")?;
+    file.write_all(&data_len.to_le_bytes())?;
+    for sample in samples {
+        file.write_all(&sample.to_le_bytes())?;
+    }
+    Ok(())
 }
 
 /// Включает wake word детектор.

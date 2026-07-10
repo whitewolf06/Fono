@@ -172,6 +172,12 @@ pub struct Settings {
     pub wake_word_model: WhisperModelSize,
     #[serde(default = "default_wake_word_vad_threshold")]
     pub wake_word_vad_threshold: f32,
+    /// Сколько тишины после речи ждать перед завершением диктовки по wake word.
+    #[serde(default = "default_wake_dictation_silence_ms")]
+    pub wake_dictation_silence_ms: u64,
+    /// RMS-порог, ниже которого диктовка после wake word считает звук тишиной.
+    #[serde(default = "default_wake_dictation_speech_threshold")]
+    pub wake_dictation_speech_threshold: f32,
     #[serde(default = "default_volume_step")]
     pub volume_step: u32,
 }
@@ -214,6 +220,8 @@ impl Default for Settings {
             llm_api_key: None,
             wake_word_model: default_wake_word_model(),
             wake_word_vad_threshold: default_wake_word_vad_threshold(),
+            wake_dictation_silence_ms: default_wake_dictation_silence_ms(),
+            wake_dictation_speech_threshold: default_wake_dictation_speech_threshold(),
             volume_step: default_volume_step(),
         }
     }
@@ -261,6 +269,14 @@ fn default_wake_word_sensitivity() -> f32 {
 
 fn default_wake_word_vad_threshold() -> f32 {
     0.015
+}
+
+fn default_wake_dictation_silence_ms() -> u64 {
+    2_000
+}
+
+fn default_wake_dictation_speech_threshold() -> f32 {
+    0.006
 }
 
 fn default_volume_step() -> u32 {

@@ -6,8 +6,14 @@ import {
   onPipelineMode,
   onPipelineStateChange,
   onSettingsChange,
+  onWakeDictationCountdown,
 } from "@/lib/ipc";
-import type { PipelineMode, PipelineState, Settings } from "@/lib/types";
+import type {
+  PipelineMode,
+  PipelineState,
+  Settings,
+  WakeDictationCountdown,
+} from "@/lib/types";
 
 const STATE_LABEL: Record<PipelineState, string> = {
   idle: "Готов",
@@ -27,31 +33,52 @@ const STATE_COLOR: Record<PipelineState, string> = {
   error: "bg-red-600",
 };
 
-const BASE_WIDTH = 200;
-const BASE_HEIGHT = 64;
+// Таймер и две кнопки не помещаются в старые 200 px: flex-элементы выходили
+// за границы webview, из-за чего оверлей выглядел зависшим/обрезанным.
+const BASE_WIDTH = 286;
+const BASE_HEIGHT = 88;
 
 export function OverlayView() {
   const [state, setState] = useState<PipelineState>("idle");
   const [mode, setMode] = useState<PipelineMode>("dictation");
+  const [wakeCountdown, setWakeCountdown] =
+    useState<WakeDictationCountdown | null>(null);
   const [settings, setSettings] = useState<Settings>({
     overlay_scale: 1,
     overlay_opacity: 1,
     overlay_mini_mode: false,
   } as Settings);
   const saveTimer = useRef<number | null>(null);
+  const pipelineStateRef = useRef<PipelineState>("idle");
 
   useEffect(() => {
     let mounted = true;
-    ipc.getPipelineState().then((s) => mounted && setState(s));
+    ipc.getPipelineState().then((s) => {
+      if (!mounted) return;
+      pipelineStateRef.current = s;
+      setState(s);
+    });
     ipc.getSettings().then((s) => mounted && setSettings(s));
-    const unlistenP = onPipelineStateChange((s) => setState(s));
+    const unlistenP = onPipelineStateChange((s) => {
+      pipelineStateRef.current = s;
+      setState(s);
+      if (s !== "listening") setWakeCountdown(null);
+    });
     const unlistenM = onPipelineMode((m) => mounted && setMode(m));
     const unlistenS = onSettingsChange((s) => mounted && setSettings(s));
+    const unlistenC = onWakeDictationCountdown((countdown) => {
+      // Событие может физически прийти уже после перехода к распознаванию.
+      // Не сохраняем такой устаревший таймер до следующей записи.
+      if (mounted && pipelineStateRef.current === "listening") {
+        setWakeCountdown(countdown);
+      }
+    });
     return () => {
       mounted = false;
       unlistenP.then((u) => u());
       unlistenM.then((u) => u());
       unlistenS.then((u) => u());
+      unlistenC.then((u) => u());
     };
   }, []);
 
@@ -101,6 +128,21 @@ export function OverlayView() {
 
   const visible = state !== "idle";
   const modeLabel = mode === "command" ? "команда" : "диктовка";
+  const hasWakeCountdown = state === "listening" && wakeCountdown !== null;
+  const countdownSeconds = wakeCountdown
+    ? (wakeCountdown.remaining_ms / 1000).toFixed(1)
+    : "0.0";
+  const countdownPercent = wakeCountdown
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          wakeCountdown.timeout_ms > 0
+            ? (wakeCountdown.remaining_ms / wakeCountdown.timeout_ms) * 100
+            : 0,
+        ),
+      )
+    : 0;
 
   return (
     <div
@@ -127,6 +169,24 @@ export function OverlayView() {
               <span className="text-[10px] uppercase tracking-wider text-neutral-400">
                 {modeLabel}
               </span>
+              {hasWakeCountdown && (
+                <div className="mt-1 w-28">
+                  <div className="flex justify-between text-[10px] text-neutral-300">
+                    <span>
+                      {wakeCountdown.speaking
+                        ? "Пауза до перевода"
+                        : "Перевод через"}
+                    </span>
+                    <span>{countdownSeconds} с</span>
+                  </div>
+                  <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-neutral-700">
+                    <div
+                      className="h-full rounded-full bg-brand-400 transition-[width] duration-100"
+                      style={{ width: `${countdownPercent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {state === "listening" && (
