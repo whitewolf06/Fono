@@ -35,6 +35,7 @@ export type WhisperModelSize =
 
 export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";
+export type AccelerationMode = "auto" | "cuda" | "vulkan" | "cpu";
 export type LlmProvider = "lmstudio" | "openai" | "custom";
 export type PipelineMode = "dictation" | "command";
 
@@ -83,8 +84,8 @@ export interface Settings {
   overlay_y: number | null;
   /** Пользовательский системный промт для режима clean */
   clean_prompt: string | null;
-  /** Использовать GPU (CUDA) для whisper, если доступно */
-  use_gpu: boolean;
+  /** Предпочтительный backend ускорения Whisper */
+  acceleration: AccelerationMode;
   /** Способ вставки текста в активное окно */
   injection_mode: InjectionMode;
   /** Горячая клавиша для голосовых команд */
@@ -172,7 +173,7 @@ export const DEFAULT_SETTINGS: Settings = {
   overlay_x: null,
   overlay_y: null,
   clean_prompt: null,
-  use_gpu: true,
+  acceleration: "auto",
   injection_mode: "sendinput",
   command_hotkey: "Ctrl+Shift+Space",
   launch_apps: [],

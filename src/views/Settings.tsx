@@ -380,20 +380,22 @@ export function SettingsView() {
             onSelect={(p) => update("whisper_model_path", p)}
           />
           <div className="mt-4">
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-brand-500"
-                checked={settings.use_gpu}
-                onChange={(e) => update("use_gpu", e.target.checked)}
-              />
-              <span className="text-sm text-neutral-200">
-                Использовать GPU (CUDA) для whisper
-              </span>
-            </label>
+            <label className="label">Ускорение распознавания</label>
+            <select
+              className="input"
+              value={settings.acceleration}
+              onChange={(e) =>
+                update("acceleration", e.target.value as SettingsT["acceleration"])
+              }
+            >
+              <option value="auto">Авто (рекомендуется)</option>
+              <option value="cuda">CUDA — NVIDIA</option>
+              <option value="vulkan">Vulkan — AMD / Intel / NVIDIA</option>
+              <option value="cpu">CPU — режим совместимости</option>
+            </select>
             <p className="mt-1 text-xs text-neutral-500">
-              Требуется видеокарта NVIDIA и CUDA Toolkit. Перезагрузка модели
-              произойдёт при следующем распознавании.
+              В режиме «Авто» используется лучший backend, встроенный в этот релиз.
+              Изменение применится при следующем распознавании.
             </p>
           </div>
         </section>

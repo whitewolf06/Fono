@@ -106,6 +106,34 @@ pub enum InjectionMode {
     Clipboard,
 }
 
+/// Preferred Whisper acceleration. `Auto` uses the GPU backend compiled into
+/// this release (CUDA or Vulkan) and falls back to CPU when there is none.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AccelerationMode {
+    Auto,
+    Cuda,
+    Vulkan,
+    Cpu,
+}
+
+impl Default for AccelerationMode {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+impl AccelerationMode {
+    pub fn use_gpu(self) -> bool {
+        match self {
+            Self::Cpu => false,
+            Self::Auto => cfg!(any(feature = "cuda", feature = "vulkan")),
+            Self::Cuda => cfg!(feature = "cuda"),
+            Self::Vulkan => cfg!(feature = "vulkan"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LlmProvider {
@@ -148,8 +176,12 @@ pub struct Settings {
     pub overlay_y: Option<i32>,
     #[serde(default)]
     pub clean_prompt: Option<String>,
-    #[serde(default = "default_use_gpu")]
+    /// Legacy field read from existing settings.json files. New settings use
+    /// `acceleration`; keep it out of IPC and future writes.
+    #[serde(skip_serializing, default = "default_use_gpu")]
     pub use_gpu: bool,
+    #[serde(default)]
+    pub acceleration: AccelerationMode,
     #[serde(default = "default_injection_mode")]
     pub injection_mode: InjectionMode,
     #[serde(default = "default_command_hotkey")]
@@ -209,6 +241,7 @@ impl Default for Settings {
             overlay_y: None,
             clean_prompt: None,
             use_gpu: default_use_gpu(),
+            acceleration: AccelerationMode::Auto,
             injection_mode: default_injection_mode(),
             command_hotkey: default_command_hotkey(),
             launch_apps: Vec::new(),

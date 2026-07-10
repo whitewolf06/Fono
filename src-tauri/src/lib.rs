@@ -327,7 +327,10 @@ async fn run_voice_command(
     if let Some(path) = settings.whisper_model_path.as_deref() {
         pipeline
             .stt()
-            .ensure_loaded(std::path::Path::new(path), settings.use_gpu)?;
+            .ensure_loaded(
+                std::path::Path::new(path),
+                settings.acceleration.use_gpu(),
+            )?;
     } else {
         pipeline::set_state(app, &state.inner(), PipelineState::Idle);
         return Err("Whisper-модель не выбрана".into());
@@ -488,7 +491,7 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
     config.threshold = settings.wake_word_threshold;
     config.sensitivity = settings.wake_word_sensitivity;
     config.vad_threshold = settings.wake_word_vad_threshold;
-    config.use_gpu = settings.use_gpu;
+    config.use_gpu = settings.acceleration.use_gpu();
     config.cooldown_ms = 2_000;
     config.model_dir = match settings.wake_backend {
         WakeWordBackend::SherpaOnnx => state::app_data_dir()?
@@ -561,7 +564,7 @@ async fn start_wake_word_if_enabled(
     // контекста модели и оставляла wake word на паузе.
     if let Some(path) = settings.whisper_model_path.clone() {
         let stt = handle.state::<pipeline::Pipeline>().stt().clone();
-        let use_gpu = settings.use_gpu;
+        let use_gpu = settings.acceleration.use_gpu();
         let _ = handle.emit("wake-word-status", "loading");
         tauri::async_runtime::spawn_blocking(move || {
             stt.ensure_loaded(std::path::Path::new(&path), use_gpu)
@@ -714,7 +717,10 @@ pub async fn run_dictation_after_wake(
             if let Some(path) = settings.whisper_model_path.as_deref() {
                 if let Err(error) = pipeline
                     .stt()
-                    .ensure_loaded(std::path::Path::new(path), settings.use_gpu)
+                    .ensure_loaded(
+                        std::path::Path::new(path),
+                        settings.acceleration.use_gpu(),
+                    )
                 {
                     pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
                     wake_handle.resume();
