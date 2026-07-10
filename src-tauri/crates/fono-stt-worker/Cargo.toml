@@ -1,0 +1,17 @@
+[package]
+name = "fono-stt-worker"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+base64 = "0.22"
+fono-stt-protocol = { path = "../fono-stt-protocol" }
+serde_json = "1.0"
+whisper-rs = "0.16"
+
+[features]
+default = []
+cuda = ["whisper-rs/cuda"]
+vulkan = ["whisper-rs/vulkan"]
+
