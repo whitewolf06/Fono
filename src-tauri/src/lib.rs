@@ -60,7 +60,9 @@ fn extract_wake_command(transcript: &str) -> Option<String> {
     for prefix in ["команда", "выполни команду", "command"] {
         if let Some(rest) = normalized.strip_prefix(prefix) {
             let command = rest
-                .trim_start_matches(|c: char| c.is_whitespace() || matches!(c, ':' | ',' | '.' | '-'))
+                .trim_start_matches(|c: char| {
+                    c.is_whitespace() || matches!(c, ':' | ',' | '.' | '-')
+                })
                 .trim();
             if !command.is_empty() {
                 return Some(command.to_string());
@@ -92,8 +94,8 @@ mod wake_command_tests {
 fn init_tracing() {
     use tracing_appender::rolling;
 
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,fono=debug"));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,fono=debug"));
 
     // Файловый appender: один файл в день, в папке logs рядом с настройками.
     let log_dir = state::app_data_dir()
@@ -303,8 +305,13 @@ async fn run_voice_command(
     let state = app.state::<state::AppState>();
     let pipeline = app.state::<pipeline::Pipeline>();
     let settings = state.settings();
+    let operation = pipeline.operation_id();
 
     let samples = pipeline.stop_recording()?;
+    if !pipeline.is_operation_active(operation) {
+        tracing::info!("voice command discarded because dictation was cancelled or replaced");
+        return Ok(());
+    }
     if samples.is_empty() {
         pipeline::set_state(app, &state.inner(), PipelineState::Idle);
         return Ok(());
@@ -334,10 +341,21 @@ async fn run_voice_command(
             .await
             .map_err(|e| format!("transcribe join: {e}"))??;
 
+    if !pipeline.is_operation_active(operation) {
+        tracing::info!(
+            "voice command transcript discarded because dictation was cancelled or replaced"
+        );
+        return Ok(());
+    }
+
     tracing::info!("voice command transcript: {:?}", transcript.text);
 
     pipeline::set_state(app, &state.inner(), PipelineState::Processing);
-    match crate::app_commands::execute(&transcript.text, &settings.launch_apps, settings.volume_step) {
+    match crate::app_commands::execute(
+        &transcript.text,
+        &settings.launch_apps,
+        settings.volume_step,
+    ) {
         Ok(result) => {
             tracing::info!("voice command result: {result}");
             let _ = app.emit("command-result", result);
@@ -590,14 +608,14 @@ pub async fn run_dictation_after_wake(
     // Стартуем запись.
     pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
     let _ = handle.emit("pipeline-mode", "dictation");
-    if let Err(error) = pipeline.start_recording_with_pre_roll(
-        settings.audio_device_id.as_deref(),
-        &pre_roll,
-    ) {
+    if let Err(error) =
+        pipeline.start_recording_with_pre_roll(settings.audio_device_id.as_deref(), &pre_roll)
+    {
         pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
         wake_handle.resume();
         return Err(Box::new(error));
     }
+    let operation = pipeline.operation_id();
     tracing::info!("wake dictation: recording started, waiting for VAD silence");
 
     // Ждём окончания речи: ловим начало речи, затем остановку по тишине.
@@ -609,9 +627,8 @@ pub async fn run_dictation_after_wake(
     // не запускали обратный отсчёт посреди фразы.
     let speech_threshold = settings.wake_dictation_speech_threshold.clamp(0.002, 0.03);
     let sustain_threshold = (speech_threshold * 0.65).max(0.0015);
-    let silence_timeout = std::time::Duration::from_millis(
-        settings.wake_dictation_silence_ms.clamp(500, 10_000),
-    );
+    let silence_timeout =
+        std::time::Duration::from_millis(settings.wake_dictation_silence_ms.clamp(500, 10_000));
     let started = std::time::Instant::now();
     let mut was_speaking = false;
     let mut silence_start: Option<std::time::Instant> = None;
@@ -664,12 +681,7 @@ pub async fn run_dictation_after_wake(
         }
     }
 
-    emit_wake_dictation_countdown(
-        handle,
-        std::time::Duration::ZERO,
-        silence_timeout,
-        false,
-    );
+    emit_wake_dictation_countdown(handle, std::time::Duration::ZERO, silence_timeout, false);
 
     tracing::info!(
         "wake dictation: stopping recording after {:.1}s (was_speaking={})",
@@ -731,12 +743,22 @@ pub async fn run_dictation_after_wake(
                 }
             };
 
+            if !pipeline.is_operation_active(operation) {
+                tracing::info!("wake dictation transcript discarded because operation was cancelled or replaced");
+                wake_handle.resume();
+                return Ok(());
+            }
+
             tracing::info!("wake dictation transcript: {:?}", transcript.text);
 
             // Явная команда после wake phrase выполняется локально и не
             // вставляется в активное окно. Например: «okay fun, команда,
             // открой Telegram» или «okay fun, команда, громче».
             if let Some(command) = extract_wake_command(&transcript.text) {
+                if !pipeline.is_operation_active(operation) {
+                    wake_handle.resume();
+                    return Ok(());
+                }
                 pipeline::set_state(handle, &state.inner(), PipelineState::Processing);
                 match crate::app_commands::execute(
                     &command,
@@ -775,6 +797,14 @@ pub async fn run_dictation_after_wake(
                     }
                 }
             };
+
+            if !pipeline.is_operation_active(operation) {
+                tracing::info!(
+                    "wake dictation result discarded because operation was cancelled or replaced"
+                );
+                wake_handle.resume();
+                return Ok(());
+            }
 
             if !final_text.is_empty() {
                 pipeline::set_state(handle, &state.inner(), PipelineState::Injecting);

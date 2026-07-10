@@ -7,8 +7,8 @@
 //! и возможность вручную триггернуть транскрипцию.
 //! Push-to-talk и VAD добавляются на Этапе 3, wake word — на Этапе 4.
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -42,6 +42,9 @@ pub struct Pipeline {
     stt: Arc<SttEngine>,
     /// Флаг отмены текущей диктовки (кнопка Stop в оверлее).
     cancelled: Arc<AtomicBool>,
+    /// Monotonic id of the active dictation. It makes cancellation effective even
+    /// when Whisper or an LLM request cannot be interrupted immediately.
+    operation_id: AtomicU64,
     /// Флаг подтверждения текущей диктовки (кнопка ✓ в оверлее).
     confirmed: Arc<AtomicBool>,
 }
@@ -54,6 +57,7 @@ impl Pipeline {
             stream: Mutex::new(None),
             stt: Arc::new(SttEngine::new()),
             cancelled: Arc::new(AtomicBool::new(false)),
+            operation_id: AtomicU64::new(0),
             confirmed: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -61,12 +65,23 @@ impl Pipeline {
     /// Запросить отмену текущей диктовки.
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
+        self.operation_id.fetch_add(1, Ordering::SeqCst);
         tracing::debug!("pipeline: cancellation requested");
     }
 
-    /// Сбросить флаг отмены (вызывается при старте новой записи).
-    pub fn reset_cancel(&self) {
+    /// Starts a new user-visible operation and invalidates every older result.
+    pub fn begin_operation(&self) -> u64 {
         self.cancelled.store(false, Ordering::SeqCst);
+        self.confirmed.store(false, Ordering::SeqCst);
+        self.operation_id.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    pub fn operation_id(&self) -> u64 {
+        self.operation_id.load(Ordering::SeqCst)
+    }
+
+    pub fn is_operation_active(&self, operation_id: u64) -> bool {
+        self.operation_id() == operation_id && !self.is_cancelled()
     }
 
     pub fn is_cancelled(&self) -> bool {
@@ -140,8 +155,7 @@ impl Pipeline {
             writer_for_callback.lock().extend_from_slice(chunk);
         })?;
 
-        self.reset_cancel();
-        self.reset_confirm();
+        self.begin_operation();
         *self.recording.lock() = true;
         *self.stream.lock() = Some(StreamHolder(stream));
         *writer_lock = Some(writer);
@@ -185,6 +199,25 @@ impl Pipeline {
 impl Default for Pipeline {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Pipeline;
+
+    #[test]
+    fn cancellation_invalidates_in_flight_operation() {
+        let pipeline = Pipeline::new();
+        let operation = pipeline.begin_operation();
+        assert!(pipeline.is_operation_active(operation));
+
+        pipeline.cancel();
+        assert!(!pipeline.is_operation_active(operation));
+
+        let next_operation = pipeline.begin_operation();
+        assert!(pipeline.is_operation_active(next_operation));
+        assert_ne!(operation, next_operation);
     }
 }
 

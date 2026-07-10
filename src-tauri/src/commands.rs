@@ -6,10 +6,10 @@
 //! В async-командах мы используем `AppHandle::state::<T>()` вместо
 //! `State<'_, T>`, чтобы не удерживать borrow через `.await`.
 
-use std::path::PathBuf;
-use std::io::Write;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+use std::io::Write;
+use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::audio::AudioCapture;
@@ -23,6 +23,26 @@ use crate::types::{
 
 fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
     pipeline::set_state(app, state, PipelineState::Idle);
+}
+
+fn empty_transcript() -> Transcript {
+    Transcript {
+        text: String::new(),
+        detected_language: None,
+        transcribe_secs: None,
+        audio_secs: None,
+        device: None,
+    }
+}
+
+/// A cancel cannot synchronously stop CPU Whisper or an HTTP request.  Instead,
+/// every result is fenced by the operation id that created it.
+fn operation_still_active(pipeline: &Pipeline, operation: u64, context: &str) -> bool {
+    let active = pipeline.is_operation_active(operation);
+    if !active {
+        tracing::info!("{context}: result discarded because dictation was cancelled or replaced");
+    }
+    active
 }
 
 fn emit_pipeline_error(app: &AppHandle, message: &str) {
@@ -87,6 +107,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
+    let operation = pipeline.operation_id();
 
     // Убедимся, что модель whisper загружена.
     if let Some(path) = settings.whisper_model_path.as_deref() {
@@ -100,6 +121,9 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         set_pipeline_idle(&app, &state.inner());
         return Err(AppError::Stt(error_msg));
     }
+    if !operation_still_active(&pipeline, operation, "stop_dictation after model load") {
+        return Ok(empty_transcript());
+    }
 
     let samples = match pipeline.stop_recording() {
         Ok(s) => s,
@@ -112,13 +136,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     };
     if samples.is_empty() {
         set_pipeline_idle(&app, &state.inner());
-        return Ok(Transcript {
-            text: String::new(),
-            detected_language: None,
-            transcribe_secs: None,
-            audio_secs: None,
-            device: None,
-        });
+        return Ok(empty_transcript());
     }
 
     // VAD: обрезаем тишину в начале/конце — whisper получит меньше аудио,
@@ -127,13 +145,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     if samples.is_empty() {
         tracing::info!("VAD: речь не обнаружена вообще — пропускаем транскрипцию");
         set_pipeline_idle(&app, &state.inner());
-        return Ok(Transcript {
-            text: String::new(),
-            detected_language: None,
-            transcribe_secs: None,
-            audio_secs: None,
-            device: None,
-        });
+        return Ok(empty_transcript());
     }
 
     // Транскрибируем (CPU-bound — запускаем в spawn_blocking).
@@ -154,6 +166,10 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
                 set_pipeline_idle(&app, &state.inner());
                 e
             })?;
+
+    if !operation_still_active(&pipeline, operation, "stop_dictation after transcription") {
+        return Ok(empty_transcript());
+    }
 
     tracing::info!("transcript: {:?}", transcript.text);
 
@@ -176,6 +192,10 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             }
         }
     };
+
+    if !operation_still_active(&pipeline, operation, "stop_dictation before injection") {
+        return Ok(empty_transcript());
+    }
 
     crate::vlog!("dictation final text: {}", final_text);
 
@@ -242,6 +262,7 @@ pub async fn transcribe_test(
         set_pipeline_idle(&app, &state.inner());
         return Err(e);
     }
+    let operation = pipeline.operation_id();
     tracing::info!(
         "transcribe_test: recording started, sleeping {} ms",
         duration_ms
@@ -250,6 +271,10 @@ pub async fn transcribe_test(
     // Ждём указанную длительность.
     let dur = std::time::Duration::from_millis(duration_ms.max(500).min(30_000));
     tokio::time::sleep(dur).await;
+
+    if !operation_still_active(&pipeline, operation, "transcribe_test after recording") {
+        return Ok(empty_transcript());
+    }
 
     tracing::info!("transcribe_test: sleep done, stopping recording");
     // Стоп и забираем сэмплы.
@@ -300,6 +325,10 @@ pub async fn transcribe_test(
                 e
             })?;
 
+    if !operation_still_active(&pipeline, operation, "transcribe_test after transcription") {
+        return Ok(empty_transcript());
+    }
+
     tracing::info!("test transcript: {:?}", transcript.text);
 
     // Опциональная AI-обработка — но на ошибке не падаем.
@@ -320,6 +349,14 @@ pub async fn transcribe_test(
             }
         }
     };
+
+    if !operation_still_active(
+        &pipeline,
+        operation,
+        "transcribe_test before returning result",
+    ) {
+        return Ok(empty_transcript());
+    }
 
     // Этап 2: текст-инъекция в активное окно через SendInput.
     if inject && !final_text.is_empty() {
@@ -437,7 +474,9 @@ const KWS_ARCHIVE: &str = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.
 /// Проверяет, скачана ли KWS-модель для sherpa-onnx backend.
 #[tauri::command]
 pub fn is_kws_model_downloaded() -> AppResult<bool> {
-    let dir = state::app_data_dir()?.join("kws-models").join(KWS_MODEL_DIR);
+    let dir = state::app_data_dir()?
+        .join("kws-models")
+        .join(KWS_MODEL_DIR);
     let encoder = dir.join("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
     let decoder = dir.join("decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
     let joiner = dir.join("joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
@@ -453,7 +492,11 @@ pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
     let archive_path = base_dir.join(KWS_ARCHIVE);
     let url = KWS_MODEL_URL.to_string();
 
-    tracing::info!("downloading KWS model {} -> {}", url, archive_path.display());
+    tracing::info!(
+        "downloading KWS model {} -> {}",
+        url,
+        archive_path.display()
+    );
     let app_clone = app.clone();
 
     tauri::async_runtime::spawn_blocking(move || -> AppResult<()> {
@@ -541,8 +584,10 @@ pub fn save_settings(
         || old_settings.wake_word_model != settings.wake_word_model
         || old_settings.wake_backend != settings.wake_backend
         || (old_settings.wake_word_threshold - settings.wake_word_threshold).abs() > f32::EPSILON
-        || (old_settings.wake_word_sensitivity - settings.wake_word_sensitivity).abs() > f32::EPSILON
-        || (old_settings.wake_word_vad_threshold - settings.wake_word_vad_threshold).abs() > f32::EPSILON;
+        || (old_settings.wake_word_sensitivity - settings.wake_word_sensitivity).abs()
+            > f32::EPSILON
+        || (old_settings.wake_word_vad_threshold - settings.wake_word_vad_threshold).abs()
+            > f32::EPSILON;
 
     state::save_settings(&settings)?;
     state.set_settings(settings.clone());
@@ -560,7 +605,8 @@ pub fn save_settings(
         tauri::async_runtime::spawn(async move {
             if let Err(e) = crate::restart_wake_word(&app_clone).await {
                 tracing::error!("wake word restart after settings change failed: {e}");
-                let _ = app_clone.emit("error", format!("Wake word: не удалось перезапустить: {e}"));
+                let _ =
+                    app_clone.emit("error", format!("Wake word: не удалось перезапустить: {e}"));
             }
         });
     }
@@ -623,11 +669,7 @@ pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
     let target = entries
         .iter()
         .rev()
-        .find(|e| {
-            e.file_name()
-                .to_string_lossy()
-                .starts_with("fono.log")
-        })
+        .find(|e| e.file_name().to_string_lossy().starts_with("fono.log"))
         .ok_or_else(|| AppError::Internal("лог-файл не найден".into()))?;
 
     let content = std::fs::read_to_string(target.path())?;
@@ -846,9 +888,7 @@ pub async fn record_wake_word_sample(
 /// Runs the saved microphone sample through the currently selected wake-word
 /// backend without listening continuously.
 #[tauri::command]
-pub async fn recognize_wake_word_sample(
-    app: AppHandle,
-) -> AppResult<WakeWordRecognitionReport> {
+pub async fn recognize_wake_word_sample(app: AppHandle) -> AppResult<WakeWordRecognitionReport> {
     let samples = WAKE_WORD_TEST_AUDIO.lock().clone();
     if samples.is_empty() {
         return Err(AppError::Audio("сначала запишите тестовую фразу".into()));
