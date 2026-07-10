@@ -48,7 +48,12 @@ pub enum WakeWordEvent {
     /// Engine paused, usually while dictation is in progress.
     Paused,
     /// Wake word detected.
-    Detected { phrase: String },
+    Detected {
+        phrase: String,
+        /// Последние сэмплы до момента детекции. Используются основным
+        /// конвейером как pre-roll, чтобы не терять слова сразу после wake word.
+        pre_roll: Vec<i16>,
+    },
     /// Non-fatal backend error.
     Error { message: String },
     /// Backend is loading its model.

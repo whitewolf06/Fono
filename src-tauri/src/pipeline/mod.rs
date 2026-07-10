@@ -116,12 +116,23 @@ impl Pipeline {
 
     /// Запускает запись аудио в накопительный буфер.
     pub fn start_recording(&self, device_id: Option<&str>) -> AppResult<()> {
+        self.start_recording_with_pre_roll(device_id, &[])
+    }
+
+    /// Запускает запись и добавляет короткий фрагмент до старта захвата.
+    /// Нужен wake word: detector распознаёт фразу с задержкой, а pre-roll
+    /// сохраняет слова, которые пользователь произнёс сразу после неё.
+    pub fn start_recording_with_pre_roll(
+        &self,
+        device_id: Option<&str>,
+        pre_roll: &[i16],
+    ) -> AppResult<()> {
         if self.is_recording() {
             tracing::warn!("start_recording called while already recording");
             return Ok(());
         }
 
-        let writer = Arc::new(Mutex::new(Vec::<i16>::new()));
+        let writer = Arc::new(Mutex::new(pre_roll.to_vec()));
         let mut writer_lock = self.writer.lock();
         let writer_for_callback = Arc::clone(&writer);
 
@@ -134,7 +145,10 @@ impl Pipeline {
         *self.recording.lock() = true;
         *self.stream.lock() = Some(StreamHolder(stream));
         *writer_lock = Some(writer);
-        tracing::info!("recording started, writer buffer attached");
+        tracing::info!(
+            "recording started, writer buffer attached (pre_roll={:.2}s)",
+            pre_roll.len() as f32 / 16_000.0
+        );
         Ok(())
     }
 

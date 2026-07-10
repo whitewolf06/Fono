@@ -941,12 +941,12 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 
     let app_clone = app.clone();
     wake_handle.set_callback(move |event| match event {
-        fono_wake::WakeWordEvent::Detected { phrase } => {
+        fono_wake::WakeWordEvent::Detected { phrase, pre_roll } => {
             tracing::info!("wake word triggered: {phrase}");
             let _ = app_clone.emit("wake-word-detected", &phrase);
             let h = app_clone.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = crate::run_dictation_after_wake(&h).await {
+                if let Err(e) = crate::run_dictation_after_wake(&h, pre_roll).await {
                     tracing::error!("dictation after wake failed: {e}");
                     let _ = h.emit("error", e.to_string());
                 }

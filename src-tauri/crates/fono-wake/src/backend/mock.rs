@@ -58,7 +58,13 @@ impl WakeWordEngine for MockBackend {
                     continue;
                 }
                 *status.lock() = WakeWordStatus::Processing;
-                notify(&cb, WakeWordEvent::Detected { phrase: phrase.clone() });
+                notify(
+                    &cb,
+                    WakeWordEvent::Detected {
+                        phrase: phrase.clone(),
+                        pre_roll: Vec::new(),
+                    },
+                );
                 *status.lock() = WakeWordStatus::Listening;
             }
             *status.lock() = WakeWordStatus::Off;

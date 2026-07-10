@@ -279,6 +279,7 @@ fn run_spotter(
                                     &callback,
                                     WakeWordEvent::Detected {
                                         phrase: config.phrase.clone(),
+                                        pre_roll: Vec::new(),
                                     },
                                     Some(&diag),
                                 );

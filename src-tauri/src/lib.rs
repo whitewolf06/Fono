@@ -501,12 +501,12 @@ async fn start_wake_word_if_enabled(
     let wake_handle = handle.state::<WakeWordHandle>();
     let handle_clone = handle.clone();
     wake_handle.set_callback(move |event| match event {
-        WakeWordEvent::Detected { phrase } => {
+        WakeWordEvent::Detected { phrase, pre_roll } => {
             tracing::info!("wake word detected: {phrase}");
             let _ = handle_clone.emit("wake-word-detected", &phrase);
             let h = handle_clone.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = run_dictation_after_wake(&h).await {
+                if let Err(e) = run_dictation_after_wake(&h, pre_roll).await {
                     tracing::error!("dictation after wake failed: {e:?}");
                     let _ = h.emit("error", e.to_string());
                 }
@@ -576,6 +576,7 @@ pub async fn restart_wake_word(handle: &tauri::AppHandle) -> Result<(), String> 
 ///   5. Резюммим wake word.
 pub async fn run_dictation_after_wake(
     handle: &tauri::AppHandle,
+    pre_roll: Vec<i16>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use tauri::Manager;
     let state = handle.state::<state::AppState>();
@@ -589,7 +590,10 @@ pub async fn run_dictation_after_wake(
     // Стартуем запись.
     pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
     let _ = handle.emit("pipeline-mode", "dictation");
-    if let Err(error) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+    if let Err(error) = pipeline.start_recording_with_pre_roll(
+        settings.audio_device_id.as_deref(),
+        &pre_roll,
+    ) {
         pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
         wake_handle.resume();
         return Err(Box::new(error));
@@ -688,7 +692,9 @@ pub async fn run_dictation_after_wake(
     }
 
     if !samples.is_empty() {
-        let samples = crate::vad::trim_silence(&samples);
+        // Запись уже завершается по VAD выше. Не применяем второй агрессивный
+        // trim_silence: у него был фиксированный порог 1.2%, который отрезал
+        // тихие первые и последние слова после wake word.
         if !samples.is_empty() {
             if let Some(path) = settings.whisper_model_path.as_deref() {
                 if let Err(error) = pipeline

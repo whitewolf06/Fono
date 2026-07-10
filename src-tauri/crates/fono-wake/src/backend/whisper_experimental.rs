@@ -178,6 +178,9 @@ fn whisper_loop(
     notify(&callback, WakeWordEvent::Listening, Some(&diagnostics));
 
     let cooldown = Duration::from_millis(config.cooldown_ms);
+    // Детектор просыпается раз в 750 мс. Берём хвост его кольцевого буфера,
+    // чтобы слова, сказанные сразу после wake phrase, попали в диктовку.
+    let pre_roll_samples = sample_rate * 7 / 10;
     let mut last_detection: Option<Instant> = None;
     while running.load(Ordering::SeqCst) {
         thread::sleep(Duration::from_millis(750));
@@ -213,10 +216,16 @@ fn whisper_loop(
                 .unwrap_or(true);
             if allowed {
                 last_detection = Some(now);
+                let pre_roll = {
+                    let buffer = audio.lock();
+                    let start = buffer.len().saturating_sub(pre_roll_samples);
+                    buffer.iter().skip(start).copied().collect()
+                };
                 notify(
                     &callback,
                     WakeWordEvent::Detected {
                         phrase: config.phrase.clone(),
+                        pre_roll,
                     },
                     Some(&diagnostics),
                 );
