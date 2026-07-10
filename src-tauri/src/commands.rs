@@ -572,6 +572,11 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
+pub fn get_acceleration_capabilities() -> crate::types::AccelerationCapabilities {
+    crate::types::acceleration_capabilities()
+}
+
+#[tauri::command]
 pub fn save_settings(
     app: AppHandle,
     state: State<'_, AppState>,

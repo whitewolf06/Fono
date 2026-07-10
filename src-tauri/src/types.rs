@@ -134,6 +134,19 @@ impl AccelerationMode {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct AccelerationCapabilities {
+    pub cuda: bool,
+    pub vulkan: bool,
+}
+
+pub fn acceleration_capabilities() -> AccelerationCapabilities {
+    AccelerationCapabilities {
+        cuda: cfg!(feature = "cuda"),
+        vulkan: cfg!(feature = "vulkan"),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LlmProvider {

@@ -72,9 +72,59 @@ fn extract_wake_command(transcript: &str) -> Option<String> {
     None
 }
 
+/// Removes only a leading wake phrase from the main dictation transcript.
+/// Audio pre-roll intentionally preserves the first user words; this textual
+/// guard prevents the detector phrase from leaking into the injected result.
+fn strip_leading_wake_phrase(transcript: &str, configured_phrase: &str) -> String {
+    let trimmed = transcript.trim_start();
+    let words: Vec<&str> = trimmed.split_whitespace().take(2).collect();
+    if words.len() < 2 {
+        return trimmed.to_string();
+    }
+    let normalize_word = |word: &str| {
+        word
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>()
+    };
+    let first = normalize_word(words[0]);
+    let second = normalize_word(words[1]);
+    let configured = configured_phrase.to_lowercase();
+    let matched = match configured.as_str() {
+        "okay fun" => {
+            matches!(first.as_str(), "okay" | "ok" | "okey" | "окей")
+                && matches!(second.as_str(), "fun" | "fan" | "фан" | "фэн")
+        }
+        "hey fono" => {
+            matches!(first.as_str(), "hey" | "hi" | "she" | "хей")
+                && matches!(second.as_str(), "fono" | "phono" | "phone" | "фоно" | "фона")
+        }
+        _ => {
+            let expected: Vec<String> = configured
+                .split_whitespace()
+                .map(normalize_word)
+                .collect();
+            expected.len() == 2 && expected[0] == first && expected[1] == second
+        }
+    };
+    if !matched {
+        return trimmed.to_string();
+    }
+
+    let mut rest = trimmed;
+    for word in words {
+        rest = rest.strip_prefix(word).unwrap_or(rest);
+        rest = rest.trim_start();
+    }
+    rest.trim_start_matches(|c: char| c.is_whitespace() || matches!(c, ':' | ',' | '.' | '-'))
+        .trim_start()
+        .to_string()
+}
+
 #[cfg(test)]
 mod wake_command_tests {
-    use super::extract_wake_command;
+    use super::{extract_wake_command, strip_leading_wake_phrase};
 
     #[test]
     fn extracts_only_explicit_command_prefixes() {
@@ -87,6 +137,22 @@ mod wake_command_tests {
             Some("louder".to_string())
         );
         assert_eq!(extract_wake_command("открой Telegram"), None);
+    }
+
+    #[test]
+    fn removes_only_leading_wake_phrase_from_dictation() {
+        assert_eq!(
+            strip_leading_wake_phrase("okay fun, напиши привет", "okay fun"),
+            "напиши привет"
+        );
+        assert_eq!(
+            strip_leading_wake_phrase("ok fan open telegram", "okay fun"),
+            "open telegram"
+        );
+        assert_eq!(
+            strip_leading_wake_phrase("просто okay fun внутри фразы", "okay fun"),
+            "просто okay fun внутри фразы"
+        );
     }
 }
 
@@ -204,6 +270,7 @@ pub fn run() {
             commands::list_llm_models,
             // settings
             commands::get_settings,
+            commands::get_acceleration_capabilities,
             commands::save_settings,
             // overlay
             commands::save_overlay_position,
@@ -758,15 +825,16 @@ pub async fn run_dictation_after_wake(
                 return Ok(());
             }
 
-            tracing::info!(
-                "wake dictation transcript ready ({} chars)",
-                transcript.text.chars().count()
-            );
+            let dictation_text = strip_leading_wake_phrase(&transcript.text, &settings.wake_word);
+            if dictation_text.len() != transcript.text.trim_start().len() {
+                tracing::info!("wake phrase removed from dictation transcript");
+            }
+            tracing::info!("wake dictation transcript ready ({} chars)", dictation_text.chars().count());
 
             // Явная команда после wake phrase выполняется локально и не
             // вставляется в активное окно. Например: «okay fun, команда,
             // открой Telegram» или «okay fun, команда, громче».
-            if let Some(command) = extract_wake_command(&transcript.text) {
+            if let Some(command) = extract_wake_command(&dictation_text) {
                 if !pipeline.is_operation_active(operation) {
                     wake_handle.resume();
                     return Ok(());
@@ -793,18 +861,18 @@ pub async fn run_dictation_after_wake(
 
             // Опциональная AI-обработка.
             let final_text = match settings.ai_mode {
-                crate::types::AiMode::Off => transcript.text.clone(),
+                crate::types::AiMode::Off => dictation_text.clone(),
                 mode => {
                     pipeline::set_state(handle, &state.inner(), PipelineState::Processing);
                     let client = crate::llm::LlmClient::from_settings(&settings);
                     match client
-                        .process(&transcript.text, mode, settings.clean_prompt.as_deref())
+                        .process(&dictation_text, mode, settings.clean_prompt.as_deref())
                         .await
                     {
                         Ok(t) => t,
                         Err(e) => {
                             tracing::warn!("LLM failed ({e}) — raw transcript");
-                            transcript.text.clone()
+                            dictation_text.clone()
                         }
                     }
                 }

@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_SETTINGS,
   type LaunchApp,
+  type AccelerationCapabilities,
   type PipelineState,
   type Settings as SettingsT,
   type Transcript,
@@ -37,6 +38,8 @@ const DEFAULT_CLEAN_PROMPT = `Ты — редактор голосовых тр�
 
 export function SettingsView() {
   const [settings, setSettings] = useState<SettingsT>(DEFAULT_SETTINGS);
+  const [accelerationCapabilities, setAccelerationCapabilities] =
+    useState<AccelerationCapabilities>({ cuda: false, vulkan: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [llmStatus, setLlmStatus] = useState<string | null>(null);
@@ -71,6 +74,7 @@ export function SettingsView() {
   useEffect(() => {
     ipc.getPipelineState().then(setPipelineState).catch(() => {});
     ipc.getWakeWordStatus().then((s) => setWakeStatus(s)).catch(() => {});
+    ipc.getAccelerationCapabilities().then(setAccelerationCapabilities).catch(() => {});
     ipc.isKwsModelDownloaded().then(setKwsDownloaded).catch(() => {});
     const unlistenState = onPipelineStateChange((s) => setPipelineState(s));
     const unlistenWake = onWakeWordStatus((s) => setWakeStatus(s));
@@ -389,8 +393,12 @@ export function SettingsView() {
               }
             >
               <option value="auto">Авто (рекомендуется)</option>
-              <option value="cuda">CUDA — NVIDIA</option>
-              <option value="vulkan">Vulkan — AMD / Intel / NVIDIA</option>
+              <option value="cuda" disabled={!accelerationCapabilities.cuda}>
+                CUDA — NVIDIA{accelerationCapabilities.cuda ? "" : " (нет в этом релизе)"}
+              </option>
+              <option value="vulkan" disabled={!accelerationCapabilities.vulkan}>
+                Vulkan — AMD / Intel / NVIDIA{accelerationCapabilities.vulkan ? "" : " (нет в этом релизе)"}
+              </option>
               <option value="cpu">CPU — режим совместимости</option>
             </select>
             <p className="mt-1 text-xs text-neutral-500">

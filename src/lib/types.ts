@@ -36,6 +36,10 @@ export type WhisperModelSize =
 export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";
 export type AccelerationMode = "auto" | "cuda" | "vulkan" | "cpu";
+export interface AccelerationCapabilities {
+  cuda: boolean;
+  vulkan: boolean;
+}
 export type LlmProvider = "lmstudio" | "openai" | "custom";
 export type PipelineMode = "dictation" | "command";
 

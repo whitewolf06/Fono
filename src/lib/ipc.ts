@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   DeviceInfo,
+  AccelerationCapabilities,
   PipelineMode,
   PipelineState,
   Settings,
@@ -44,6 +45,8 @@ export const ipc = {
 
   // Настройки
   getSettings: () => invoke<Settings>("get_settings"),
+  getAccelerationCapabilities: () =>
+    invoke<AccelerationCapabilities>("get_acceleration_capabilities"),
   saveSettings: (settings: Settings) =>
     invoke<void>("save_settings", { settings }),
 
