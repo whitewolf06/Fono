@@ -166,7 +166,7 @@ impl LlmClient {
         let system = system_prompt(mode, clean_prompt);
         let user = user_prompt(transcript, mode);
         crate::vlog!("LLM request model={} mode={:?}", model, mode);
-        crate::vlog!("LLM user prompt: {}", user);
+        crate::vlog!("LLM user prompt prepared ({} chars)", user.chars().count());
 
         let req = ChatRequest {
             model,
@@ -203,9 +203,8 @@ impl LlmClient {
 
         if !resp.status().is_success() {
             let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
             return Err(AppError::Llm(format!(
-                "LLM сервер ответил {status}: {text}"
+                "LLM сервер ответил статусом {status}"
             )));
         }
 
@@ -220,7 +219,7 @@ impl LlmClient {
             .next()
             .map(|c| c.message.content.trim().to_string())
             .ok_or_else(|| AppError::Llm("пустой ответ LLM".into()))?;
-        crate::vlog!("LLM response: {}", result);
+        crate::vlog!("LLM response received ({} chars)", result.chars().count());
         Ok(result)
     }
 }

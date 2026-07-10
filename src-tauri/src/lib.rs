@@ -348,7 +348,10 @@ async fn run_voice_command(
         return Ok(());
     }
 
-    tracing::info!("voice command transcript: {:?}", transcript.text);
+    tracing::info!(
+        "voice command transcript ready ({} chars)",
+        transcript.text.chars().count()
+    );
 
     pipeline::set_state(app, &state.inner(), PipelineState::Processing);
     match crate::app_commands::execute(
@@ -749,7 +752,10 @@ pub async fn run_dictation_after_wake(
                 return Ok(());
             }
 
-            tracing::info!("wake dictation transcript: {:?}", transcript.text);
+            tracing::info!(
+                "wake dictation transcript ready ({} chars)",
+                transcript.text.chars().count()
+            );
 
             // Явная команда после wake phrase выполняется локально и не
             // вставляется в активное окно. Например: «okay fun, команда,

@@ -244,7 +244,7 @@ pub async fn run_full_pipeline(
         }
     };
 
-    tracing::info!("transcript: {:?}", transcript.text);
+    tracing::info!("transcript ready ({} chars)", transcript.text.chars().count());
 
     let final_text = match settings.ai_mode {
         AiMode::Off => transcript.text,

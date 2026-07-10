@@ -171,7 +171,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
 
-    tracing::info!("transcript: {:?}", transcript.text);
+    tracing::info!("transcript ready ({} chars)", transcript.text.chars().count());
 
     // Опциональная AI-обработка.
     let final_text = match settings.ai_mode {
@@ -197,7 +197,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
 
-    crate::vlog!("dictation final text: {}", final_text);
+    crate::vlog!("dictation final text ready ({} chars)", final_text.chars().count());
 
     // Вставка текста.
     pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
@@ -329,7 +329,7 @@ pub async fn transcribe_test(
         return Ok(empty_transcript());
     }
 
-    tracing::info!("test transcript: {:?}", transcript.text);
+    tracing::info!("test transcript ready ({} chars)", transcript.text.chars().count());
 
     // Опциональная AI-обработка — но на ошибке не падаем.
     let final_text = match settings.ai_mode {
