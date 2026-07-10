@@ -50,6 +50,44 @@ fn emit_wake_dictation_countdown(
     );
 }
 
+/// Возвращает действие, явно продиктованное после wake phrase.
+///
+/// Намеренно не пытаемся угадывать команды из обычного текста: системные
+/// действия должны требовать явного префикса «команда». Результат в нижнем
+/// регистре безопасен для текущего сопоставления окон и приложений.
+fn extract_wake_command(transcript: &str) -> Option<String> {
+    let normalized = transcript.trim().to_lowercase();
+    for prefix in ["команда", "выполни команду", "command"] {
+        if let Some(rest) = normalized.strip_prefix(prefix) {
+            let command = rest
+                .trim_start_matches(|c: char| c.is_whitespace() || matches!(c, ':' | ',' | '.' | '-'))
+                .trim();
+            if !command.is_empty() {
+                return Some(command.to_string());
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod wake_command_tests {
+    use super::extract_wake_command;
+
+    #[test]
+    fn extracts_only_explicit_command_prefixes() {
+        assert_eq!(
+            extract_wake_command("Команда: открой Telegram"),
+            Some("открой telegram".to_string())
+        );
+        assert_eq!(
+            extract_wake_command("command louder"),
+            Some("louder".to_string())
+        );
+        assert_eq!(extract_wake_command("открой Telegram"), None);
+    }
+}
+
 /// Инициализация логирования: консоль + файл в `%APPDATA%\Fono\logs\`.
 fn init_tracing() {
     use tracing_appender::rolling;
@@ -688,6 +726,30 @@ pub async fn run_dictation_after_wake(
             };
 
             tracing::info!("wake dictation transcript: {:?}", transcript.text);
+
+            // Явная команда после wake phrase выполняется локально и не
+            // вставляется в активное окно. Например: «okay fun, команда,
+            // открой Telegram» или «okay fun, команда, громче».
+            if let Some(command) = extract_wake_command(&transcript.text) {
+                pipeline::set_state(handle, &state.inner(), PipelineState::Processing);
+                match crate::app_commands::execute(
+                    &command,
+                    &settings.launch_apps,
+                    settings.volume_step,
+                ) {
+                    Ok(result) => {
+                        tracing::info!("wake command executed: {result}");
+                        let _ = handle.emit("command-result", result);
+                    }
+                    Err(error) => {
+                        tracing::warn!("wake command failed: {error}");
+                        let _ = handle.emit("error", error.to_string());
+                    }
+                }
+                pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                wake_handle.resume();
+                return Ok(());
+            }
 
             // Опциональная AI-обработка.
             let final_text = match settings.ai_mode {
