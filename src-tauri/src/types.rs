@@ -228,7 +228,7 @@ impl Default for Settings {
 }
 
 fn default_use_gpu() -> bool {
-    true
+    cfg!(any(feature = "cuda", feature = "vulkan"))
 }
 
 fn default_injection_mode() -> InjectionMode {

@@ -77,13 +77,13 @@ tar = "0.4"
 bzip2 = "0.4"
 
 [features]
-# По умолчанию используем CUDA для whisper (если доступно).
-# В runtime GPU можно отключить в настройках (use_gpu=false).
-default = ["cuda", "whisper-wake", "sherpa-wake"]
+# Portable CPU build is the release default. GPU builds are explicit opt-in so
+# a normal installer does not require CUDA/CUBLAS on the target machine.
+default = ["whisper-wake", "sherpa-wake"]
 # GPU-ускорение через CUDA (нужен CUDA Toolkit 12.8+, ~3 ГБ установка)
-cuda = ["whisper-rs/cuda"]
+cuda = ["whisper-rs/cuda", "fono-wake/cuda"]
 # GPU-ускорение через Vulkan (нужен Vulkan SDK ~500 МБ, работает на любой GPU)
-vulkan = ["whisper-rs/vulkan"]
+vulkan = ["whisper-rs/vulkan", "fono-wake/vulkan"]
 # Wake word backends
 whisper-wake = ["fono-wake/whisper-wake"]
 sherpa-wake = ["fono-wake/sherpa-wake"]

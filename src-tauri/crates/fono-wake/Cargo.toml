@@ -24,3 +24,5 @@ sherpa-onnx = { version = "1.13", optional = true, default-features = false, fea
 default = ["whisper-wake"]
 whisper-wake = ["dep:whisper-rs"]
 sherpa-wake = ["dep:sherpa-onnx"]
+cuda = ["whisper-rs?/cuda"]
+vulkan = ["whisper-rs?/vulkan"]

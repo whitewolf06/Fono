@@ -142,7 +142,8 @@ fn whisper_loop(
     callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
     diagnostics: DiagnosticsHandle,
 ) -> WakeWordResult<()> {
-    let context = load_model(&config.model_dir, config.use_gpu)?;
+    let use_gpu = config.use_gpu && gpu_backend_compiled();
+    let context = load_model(&config.model_dir, use_gpu)?;
     let phrase = normalize_phrase(&config.phrase);
     let language = if config.phrase.is_ascii() { "en" } else { "ru" };
     let sample_rate = config.sample_rate as usize;
@@ -172,7 +173,7 @@ fn whisper_loop(
 
     tracing::info!(
         "fono-wake whisper: model loaded (gpu={}, language={language})",
-        config.use_gpu
+        use_gpu
     );
     *status.lock() = WakeWordStatus::Listening;
     notify(&callback, WakeWordEvent::Listening, Some(&diagnostics));
@@ -248,6 +249,10 @@ fn load_model(path: &std::path::Path, use_gpu: bool) -> WakeWordResult<WhisperCo
     params.use_gpu(use_gpu);
     WhisperContext::new_with_params(path, params)
         .map_err(|error| WakeWordError::ModelLoad(format!("WhisperContext: {error}")))
+}
+
+fn gpu_backend_compiled() -> bool {
+    cfg!(any(feature = "cuda", feature = "vulkan"))
 }
 
 pub fn test_with_samples(

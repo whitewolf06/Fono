@@ -1,19 +1,6 @@
-# Нативные инструкции CPU (AVX2/AVX512/FMA) для Rust-кода.
-[build]
-rustflags = ["-C", "target-cpu=native"]
-
-# Критично для whisper.cpp: whisper-rs-sys собирает whisper.cpp через cmake,
-# но по умолчанию НЕ включает SIMD (AVX2/FMA/F16C) и НЕ передаёт /O2 в release.
-# Результат без этих флагов: whisper работает в 5-10x медленнее, CPU показывает 0%.
-#
-# whisper-rs-sys читает env vars с префиксами GGML_* и CMAKE_* и передаёт их в cmake.
+# Portable release configuration. Do not force target-cpu=native or AVX2 here:
+# a distributable binary must run on another Windows machine, not only on the
+# CPU that built it. Native/CUDA benchmarking belongs in an explicit local build.
 [env]
-GGML_NATIVE = "ON"
-GGML_AVX = "ON"
-GGML_AVX2 = "ON"
-GGML_FMA = "ON"
-GGML_F16C = "ON"
-GGML_SSE3 = "ON"
-GGML_SSE41 = "ON"
-CMAKE_C_FLAGS_RELEASE = "/O2 /Ob2 /DNDEBUG /arch:AVX2"
-CMAKE_CXX_FLAGS_RELEASE = "/O2 /Ob2 /DNDEBUG /arch:AVX2"
+CMAKE_C_FLAGS_RELEASE = "/O2 /Ob2 /DNDEBUG"
+CMAKE_CXX_FLAGS_RELEASE = "/O2 /Ob2 /DNDEBUG"

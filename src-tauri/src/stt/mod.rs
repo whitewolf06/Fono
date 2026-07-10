@@ -35,7 +35,10 @@ impl SttEngine {
     pub fn ensure_loaded(&self, model_path: &Path, use_gpu: bool) -> AppResult<()> {
         let path_str = model_path.to_string_lossy().to_string();
         let already = self.loaded_path.lock().clone();
-        if already.as_deref() == Some(path_str.as_str()) {
+        let use_gpu = use_gpu && gpu_backend_compiled();
+        if already.as_deref() == Some(path_str.as_str())
+            && self.use_gpu.load(Ordering::Relaxed) == use_gpu
+        {
             return Ok(());
         }
         if !model_path.exists() {
@@ -181,6 +184,10 @@ impl SttEngine {
     pub fn is_loaded(&self) -> bool {
         self.ctx.lock().is_some()
     }
+}
+
+fn gpu_backend_compiled() -> bool {
+    cfg!(any(feature = "cuda", feature = "vulkan"))
 }
 
 impl Default for SttEngine {
