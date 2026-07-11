@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   ipc,
   onCommandResult,
@@ -37,6 +38,7 @@ const DEFAULT_CLEAN_PROMPT = `Ты — редактор голосовых тр�
 6. Верни ТОЛЬКО готовый текст.`;
 
 export function SettingsView() {
+  const [appVersion, setAppVersion] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsT>(DEFAULT_SETTINGS);
   const [accelerationCapabilities, setAccelerationCapabilities] =
     useState<AccelerationCapabilities>({ cuda: false, vulkan: false });
@@ -70,6 +72,10 @@ export function SettingsView() {
   const [manualTranscript, setManualTranscript] = useState<Transcript | null>(null);
   const [dictationAction, setDictationAction] = useState(false);
   const [commandResult, setCommandResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getVersion().then(setAppVersion).catch(() => setAppVersion("dev"));
+  }, []);
 
   useEffect(() => {
     ipc.getPipelineState().then(setPipelineState).catch(() => {});
@@ -326,7 +332,12 @@ export function SettingsView() {
     <div className="mx-auto min-h-screen max-w-3xl px-6 py-8">
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Fono</h1>
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Fono</h1>
+            <span className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
+              v{appVersion ?? "…"}
+            </span>
+          </div>
           <p className="text-sm text-neutral-400">Голосовой ввод · настройки</p>
         </div>
         <button
@@ -1521,7 +1532,7 @@ export function SettingsView() {
       </div>
 
       <footer className="mt-8 text-center text-xs text-neutral-500">
-        Fono · голосовой ввод и управление ПК · v0.1.0
+        Fono · голосовой ввод и управление ПК · v{appVersion ?? "…"}
       </footer>
     </div>
   );
