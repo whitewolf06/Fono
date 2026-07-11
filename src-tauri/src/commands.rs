@@ -113,7 +113,11 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     if let Some(path) = settings.whisper_model_path.as_deref() {
         pipeline
             .stt()
-            .ensure_loaded(std::path::Path::new(path), settings.acceleration.use_gpu())?;
+            .ensure_loaded(
+                std::path::Path::new(path),
+                settings.acceleration,
+                &crate::stt::worker_paths_for_app(&app),
+            )?;
     } else {
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
@@ -241,7 +245,11 @@ pub async fn transcribe_test(
     if let Some(path) = settings.whisper_model_path.as_deref() {
         pipeline
             .stt()
-            .ensure_loaded(std::path::Path::new(path), settings.acceleration.use_gpu())?;
+            .ensure_loaded(
+                std::path::Path::new(path),
+                settings.acceleration,
+                &crate::stt::worker_paths_for_app(&app),
+            )?;
     } else {
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
@@ -572,8 +580,9 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
-pub fn get_acceleration_capabilities() -> crate::types::AccelerationCapabilities {
-    crate::types::acceleration_capabilities()
+pub fn get_acceleration_capabilities(app: AppHandle) -> crate::types::AccelerationCapabilities {
+    let (cuda, vulkan) = crate::stt::worker_paths_for_app(&app).capabilities();
+    crate::types::AccelerationCapabilities { cuda, vulkan }
 }
 
 #[tauri::command]

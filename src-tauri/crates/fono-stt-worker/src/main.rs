@@ -1,3 +1,8 @@
+// This worker communicates exclusively through redirected stdin/stdout from
+// Fono. Marking it as a GUI executable prevents Windows from flashing a
+// terminal window when the helper is started.
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::sync::Arc;
@@ -42,6 +47,10 @@ fn handle_line(
     };
     match request {
         WorkerRequest::Ping => WorkerResponse::Ready { backend: backend() },
+        WorkerRequest::Load { model_path } => match load_context(&model_path, loaded) {
+            Ok(_) => WorkerResponse::ModelLoaded { backend: backend() },
+            Err(message) => worker_error(None, "model_load", message),
+        },
         WorkerRequest::Transcribe {
             id,
             model_path,

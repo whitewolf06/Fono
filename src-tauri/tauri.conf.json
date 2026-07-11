@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build && npm run build:workers"
   },
   "app": {
     "withGlobalTauri": true,
@@ -67,7 +67,7 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "resources": ["resources/whisper/*", "resources/sherpa-onnx/*"],
+    "resources": ["resources/whisper/*", "resources/sherpa-onnx/*", "resources/stt-workers/*"],
     "copyright": "© 2026 Fono",
     "category": "Productivity",
     "shortDescription": "Голосовой ввод для Windows",

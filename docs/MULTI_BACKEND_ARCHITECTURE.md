@@ -25,9 +25,9 @@ STT workers:
 ```text
 Fono UI + DictationCoordinator
         | JSON line protocol (stdin/stdout)
-        +-- fono-stt-cuda.exe
-        +-- fono-stt-vulkan.exe
-        +-- fono-stt-cpu.exe
+        +-- fono-stt-cuda-worker.exe
+        +-- fono-stt-vulkan-worker.exe
+        +-- встроенный CPU backend
 ```
 
 Каждый worker содержит один скомпилированный backend. UI выбирает worker,
@@ -45,6 +45,8 @@ Fono UI + DictationCoordinator
 
 ```json
 {"type":"ready","backend":"cuda"}
+{"type":"load","model_path":"..."}
+{"type":"model_loaded","backend":"cuda"}
 {"type":"result","id":"uuid","text":"...","audio_secs":1.2,"transcribe_secs":0.3,"backend":"cuda"}
 {"type":"error","id":"uuid","code":"model_load","message":"..."}
 ```
@@ -57,7 +59,8 @@ Fono UI + DictationCoordinator
 2. Попробовать CUDA worker; успехом считается `ready` и успешная загрузка
    выбранной модели.
 3. Если CUDA не подходит, попробовать Vulkan worker.
-4. Затем CPU worker.
+4. Затем встроенный GPU backend, если он собран в оболочке Fono.
+5. В последнюю очередь — встроенный CPU backend.
 5. Сохранить фактический backend для UI и диагностического лога.
 
 Ручной выбор CUDA/Vulkan не делает fallback без согласия пользователя: он
@@ -71,3 +74,19 @@ Fono UI + DictationCoordinator
 - CPU worker не подменяет явный GPU выбор.
 - Installer содержит только нужные DLL каждого worker-а.
 - Переключение режима не требует переустановки и не оставляет зависшие процессы.
+
+## Текущая реализация (2026-07-10)
+
+- `crates/fono-stt-protocol` задаёт JSON Lines contract, включая `ping`, `load` и
+  `transcribe`.
+- CUDA worker собран на текущей рабочей цепочке `whisper-rs`; Vulkan worker —
+  отдельный CMake-проект на актуальном `whisper.cpp` (`vendor/whisper.cpp`).
+- Перед первой диктовкой выбранный worker получает `load`, поэтому модель не
+  загружается во время записи пользователя.
+- `SttEngine` выбирает `CUDA → Vulkan → embedded GPU → CPU` для `Auto`. Явный
+  выбор CUDA или Vulkan возвращает ошибку, а не подменяется CPU.
+- `scripts/build-stt-workers.ps1` собирает оба EXE. CUDA runtime DLL кладутся
+  рядом с CUDA worker: пользователю нужен совместимый NVIDIA driver, но не CUDA Toolkit.
+
+Оставшаяся release-проверка: прогнать готовый установщик на чистой AMD/Intel
+машине и подтвердить фактический `device=Vulkan` на реальной диктовке.

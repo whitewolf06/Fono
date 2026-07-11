@@ -402,8 +402,8 @@ export function SettingsView() {
               <option value="cpu">CPU — режим совместимости</option>
             </select>
             <p className="mt-1 text-xs text-neutral-500">
-              В режиме «Авто» используется лучший backend, встроенный в этот релиз.
-              Изменение применится при следующем распознавании.
+              «Авто»: CUDA → Vulkan → встроенный GPU → CPU. Выбранный worker заранее
+              загружает модель; изменение применится при следующем распознавании.
             </p>
           </div>
         </section>

@@ -111,3 +111,34 @@ mod sherpa_impl {
         })
     }
 }
+
+#[cfg(all(test, feature = "sherpa-wake"))]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::config::WakeWordConfig;
+
+    #[test]
+    #[ignore = "requires FONO_KWS_MODEL_DIR with the downloaded GigaSpeech KWS model"]
+    fn downloaded_model_detects_its_bundled_test_wav() {
+        let model_dir = PathBuf::from(
+            std::env::var("FONO_KWS_MODEL_DIR")
+                .expect("set FONO_KWS_MODEL_DIR to the downloaded KWS model directory"),
+        );
+        let config = WakeWordConfig {
+            model_dir: model_dir.clone(),
+            // Match the UI values that previously returned an empty result.
+            threshold: 0.05,
+            sensitivity: 0.95,
+            ..Default::default()
+        };
+        let result = super::sherpa_impl::test_with_wav(
+            &config,
+            &model_dir.join("test_wavs").join("0.wav"),
+            true,
+        )
+        .expect("bundled KWS test wav should run");
+        assert!(result.detected, "expected LIGHT UP, got: {result:?}");
+        assert_eq!(result.keyword, "LIGHT UP");
+    }
+}

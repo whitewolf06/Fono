@@ -10,6 +10,46 @@ fn main() {
 
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         copy_sherpa_dlls();
+        copy_stt_worker_files();
+    }
+}
+
+/// Copies the generated CUDA/Vulkan worker executables beside a directly run
+/// development or release binary. Tauri's installer consumes the same source
+/// folder through `bundle.resources`; this copy is for `target/<profile>/fono.exe`.
+fn copy_stt_worker_files() {
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let profile = env::var("PROFILE").unwrap();
+    let source_dir = manifest_dir.join("resources").join("stt-workers");
+    let target_dir = manifest_dir
+        .join("target")
+        .join(profile)
+        .join("resources")
+        .join("stt-workers");
+
+    println!("cargo:rerun-if-changed={}", source_dir.display());
+    if !source_dir.is_dir() {
+        println!("cargo:warning=STT workers are not prepared yet: {}", source_dir.display());
+        return;
+    }
+    if let Err(error) = std::fs::create_dir_all(&target_dir) {
+        println!("cargo:warning=failed to create {}: {error}", target_dir.display());
+        return;
+    }
+
+    for entry in std::fs::read_dir(&source_dir).into_iter().flatten().flatten() {
+        let source = entry.path();
+        if !matches!(source.extension().and_then(|value| value.to_str()), Some("exe" | "dll")) {
+            continue;
+        }
+        let destination = target_dir.join(entry.file_name());
+        if let Err(error) = std::fs::copy(&source, &destination) {
+            println!(
+                "cargo:warning=failed to copy STT worker {} -> {}: {error}",
+                source.display(),
+                destination.display()
+            );
+        }
     }
 }
 

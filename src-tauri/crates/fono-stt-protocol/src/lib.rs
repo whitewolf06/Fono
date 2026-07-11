@@ -14,6 +14,9 @@ pub enum BackendKind {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WorkerRequest {
     Ping,
+    Load {
+        model_path: String,
+    },
     Transcribe {
         id: String,
         model_path: String,
@@ -27,6 +30,7 @@ pub enum WorkerRequest {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WorkerResponse {
     Ready { backend: BackendKind },
+    ModelLoaded { backend: BackendKind },
     Result {
         id: String,
         text: String,
@@ -58,5 +62,14 @@ mod tests {
             serde_json::from_str::<WorkerRequest>(&json).unwrap(),
             WorkerRequest::Transcribe { id, .. } if id == "request-1"
         ));
+    }
+
+    #[test]
+    fn load_request_has_no_audio_payload() {
+        let request = WorkerRequest::Load {
+            model_path: "model.bin".into(),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert_eq!(json, r#"{"type":"load","model_path":"model.bin"}"#);
     }
 }

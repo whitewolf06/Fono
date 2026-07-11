@@ -1,2 +1,6 @@
 # Generated runtime libraries for sherpa-onnx (shared build)
 resources/sherpa-onnx/*.dll
+
+# Release-time STT workers and the CUDA runtime they ship with.
+resources/stt-workers/*.exe
+resources/stt-workers/*.dll

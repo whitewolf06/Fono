@@ -396,7 +396,8 @@ async fn run_voice_command(
             .stt()
             .ensure_loaded(
                 std::path::Path::new(path),
-                settings.acceleration.use_gpu(),
+                settings.acceleration,
+                &stt::worker_paths_for_app(app),
             )?;
     } else {
         pipeline::set_state(app, &state.inner(), PipelineState::Idle);
@@ -631,10 +632,11 @@ async fn start_wake_word_if_enabled(
     // контекста модели и оставляла wake word на паузе.
     if let Some(path) = settings.whisper_model_path.clone() {
         let stt = handle.state::<pipeline::Pipeline>().stt().clone();
-        let use_gpu = settings.acceleration.use_gpu();
+        let acceleration = settings.acceleration;
+        let worker_paths = stt::worker_paths_for_app(handle);
         let _ = handle.emit("wake-word-status", "loading");
         tauri::async_runtime::spawn_blocking(move || {
-            stt.ensure_loaded(std::path::Path::new(&path), use_gpu)
+            stt.ensure_loaded(std::path::Path::new(&path), acceleration, &worker_paths)
         })
         .await
         .map_err(|e| format!("primary whisper load join: {e}"))??;
@@ -786,7 +788,8 @@ pub async fn run_dictation_after_wake(
                     .stt()
                     .ensure_loaded(
                         std::path::Path::new(path),
-                        settings.acceleration.use_gpu(),
+                        settings.acceleration,
+                        &stt::worker_paths_for_app(handle),
                     )
                 {
                     pipeline::set_state(handle, &state.inner(), PipelineState::Idle);

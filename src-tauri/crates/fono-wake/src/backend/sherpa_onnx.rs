@@ -344,6 +344,14 @@ pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
             + "\n";
     }
 
+    // The GigaSpeech BPE vocabulary contains OKAY as a complete word piece
+    // and FUN as `▁F UN`. Splitting either word character-by-character makes
+    // the keyword graph impossible to reach, so the commonly used Fono phrase
+    // must be represented with its actual model tokens.
+    if normalized == "OKAY FUN" {
+        return "▁OKAY ▁F UN\n".into();
+    }
+
     // Fallback: naive character-level tokenization. This will rarely work for
     // arbitrary phrases, but keeps the API from failing silently. A real
     // implementation should tokenize with the model's BPE vocabulary at
@@ -404,6 +412,11 @@ mod tests {
         );
         assert_eq!(phrase_to_tokens("hey fono"), expected);
         assert_eq!(phrase_to_tokens("  HEY FONO  "), expected);
+    }
+
+    #[test]
+    fn okay_fun_uses_the_model_bpe_tokens() {
+        assert_eq!(phrase_to_tokens("okay fun"), "▁OKAY ▁F UN\n");
     }
 
     #[test]
