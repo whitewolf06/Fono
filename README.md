@@ -1,127 +1,57 @@
-# 🎙️ Fono
+# Fono
 
-> Голосовой ввод и голосовое управление компьютером для Windows — **полностью локально и приватно**.
+Локальный Windows voice layer: диктовка в активное окно, wake word, overlay,
+локальная AI-обработка через LM Studio и безопасные голосовые команды.
 
-Fono — это десктоп-приложение для Windows, которое превращает вашу речь в текст
-в **любом окне** и позволяет управлять компьютером голосом. Скажите ключевую фразу
-или нажмите горячую клавишу — приложение распознает речь локально через whisper.cpp,
-при необходимости обработает её локальным LLM и вставит результат в активное поле ввода.
-Также доступны голосовые команды: переключение окон, запуск программ, управление
-громкостью и медиаплеером.
+## Текущий статус
 
-## ✨ Возможности
+Рабочий Windows MVP. Основной сценарий — hotkey или wake word → запись →
+Whisper → опциональная обработка → вставка текста.
 
-- **Активация по ключевой фразе** (wake word) — как «Hey Siri»: приложение постоянно слушает
-  микрофон лёгкой моделью и реагирует на вашу фразу (например, «Эй, ассистент»).
-- **Push-to-talk** — резервный режим: зажмите глобальную горячую клавишу и диктуйте.
-- **Локальная транскрипция** на [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — 100% офлайн,
-  поддержка 100+ языков (упор на русский и английский).
-- **AI-постобработка** через [LM Studio](https://lmstudio.ai/) на `localhost:1234`:
-  чистка оговорок («ээ», «мм»), пунктуация, форматирование, команды
-  («преврати в email», «переведи на английский», «сделай короче»).
-- **Вставка в любое окно** через Win32 `SendInput` — работает в браузере, Word, мессенджерах, IDE.
-- **Минималистичный overlay-индикатор** статуса (слушаю / транскрибирую / готово).
-- **System tray** — фоновая работа, быстрая пауза, выход, настройки.
-- **Глобальная горячая клавиша** для запуска/остановки диктовки.
+- Push-to-talk и post-wake диктовка с отменой, VAD и overlay.
+- Модели Whisper загружаются через UI и хранятся в `%APPDATA%\Fono\whisper-models`.
+- Режимы STT: **Auto**, **CUDA**, **Vulkan**, **CPU**.
+  Auto выбирает CUDA → Vulkan → встроенный GPU → CPU.
+- CUDA и Vulkan поставляются отдельными worker-процессами; их консоль не
+  отображается пользователю.
+- Wake word: `Whisper Experimental` для гибкой фразы, `Sherpa-ONNX` для
+  быстрого KWS. Для Sherpa сейчас проверены `hey fono` и `okay fun`; произвольная
+  фраза потребует корректной BPE-токенизации.
+- LM Studio уже подключён для clean/format/command режимов.
+- Базовые команды: громкость, медиа, запуск приложений из allowlist и фокус окон.
 
-## 🔒 Приватность
+## Сборка
 
-Весь конвейер работает **локально на вашем компьютере**. Ни аудио, ни текст не покидают
-машину (за исключением случая, когда вы явно подключите облачный LLM/STT — этого нет
-в базовой конфигурации).
+Нужны Rust, Node.js, MSVC Build Tools, CMake, Vulkan SDK и CUDA Toolkit на
+**машине сборки**. Конечному пользователю CUDA Toolkit не нужен: нужные CUDA
+runtime DLL поставляются с CUDA worker.
 
-## 🧱 Стек технологий
-
-| Слой | Технология |
-|---|---|
-| Каркас приложения | [Tauri 2](https://v2.tauri.app/) |
-| Ядро (system, audio, FFI) | Rust |
-| UI | React + TypeScript + Tailwind CSS |
-| Захват аудио | [`cpal`](https://crates.io/crates/cpal) (WASAPI) |
-| STT | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) через FFI ([`whisper-rs`](https://crates.io/crates/whisper-rs)) |
-| VAD (распознавание речи/тишины) | silero-vad |
-| Wake word | openWakeWord / Porcupine / ONNX (см. `docs/architecture.md`) |
-| LLM-постобработка | LM Studio (OpenAI-совместимый API) |
-| Текст-инъекция | Win32 `SendInput` через крейт [`windows`](https://crates.io/crates/windows) |
-| Tray / overlay / hotkey | `tauri-plugin-*` v2 |
-
-## 📦 Установка (для конечных пользователей)
-
-> ⚙️ Раздел будет заполнен после сборки первого инсталлятора (Этап 7).
-> В久之时间内 используйте сборку из исходников по инструкции ниже.
-
-## 🛠️ Сборка из исходников
-
-См. подробную инструкцию в [`docs/development.md`](docs/development.md).
-
-Кратко:
-
-```bash
-# 1. Установите Rust toolchain (https://rustup.rs) и Node.js 20+
-rustc --version    # >= 1.75
-node --version     # >= 20
-
-# 2. Установите зависимости frontend
+```powershell
 npm install
+npm run release
+```
 
-# 3. Запустите dev-режим
+`npm run release` сначала собирает frontend и CUDA/Vulkan worker'ы, затем
+создаёт NSIS/MSI через Tauri. Артефакты появляются в
+`src-tauri\target\release\bundle\`.
+
+Для быстрой разработки:
+
+```powershell
 npm run tauri dev
-
-# 4. Соберите инсталлятор
-npm run tauri build
 ```
 
-Также потребуется:
-- [LM Studio](https://lmstudio.ai/) с загруженной моделью (рекомендуется Qwen2.5-12B или Llama-3-8B),
-  запущенной как локальный сервер на `http://localhost:1234`.
-- Whisper-модели в формате GGML (`ggml-base.bin`, `ggml-medium.bin`) — скачиваются при первом запуске
-  или кладутся вручную в `src-tauri/resources/whisper/`.
+## Документы
 
-## 📐 Архитектура
+- [Текущий статус](docs/STATUS.md)
+- [Roadmap](docs/roadmap.md)
+- [Multi-backend STT](docs/MULTI_BACKEND_ARCHITECTURE.md)
+- [Wake word](docs/WAKE_WORD_ARCHITECTURE.md)
+- [Разработка и release](docs/development.md)
+- [Ручное тестирование](docs/testing.md)
 
-Подробное описание модулей и потоков данных — в [`docs/architecture.md`](docs/architecture.md).
+## Приватность
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Tauri 2 App (Rust core + Webview UI на React/Svelte)   │
-├─────────────────────────────────────────────────────────┤
-│  Frontend (TypeScript)                                  │
-│   - Settings UI, overlay, tray menu, onboarding         │
-├─────────────────────────────────────────────────────────┤
-│  Rust Core                                              │
-│   1. Audio Capture (cpal, ring buffer)                  │
-│   2. Wake Word  (openWakeWord / Porcupine)              │
-│   3. VAD        (silero-vad)                            │
-│   4. STT        (whisper.cpp FFI)                       │
-│   5. LLM        (HTTP → LM Studio localhost:1234)       │
-│   6. Injection  (windows crate: SendInput)              │
-│   7. Hotkey     (tauri-plugin-global-shortcut)          │
-│   8. Tray/Overlay                                    │
-└─────────────────────────────────────────────────────────┘
-```
-
-## 🗺️ Roadmap
-
-Подробный план с контрольными точками — в [`docs/roadmap.md`](docs/roadmap.md).
-Актуальный статус — в [`docs/STATUS.md`](docs/STATUS.md).
-
-**Версия: v0.4.0-wakeword** — рабочий MVP.
-
-- [x] Этап 0 — Документация + скаффолд
-- [x] Этап 1 — Audio capture + whisper.cpp STT
-- [x] Этап 2 — Текст-инъекция через SendInput
-- [x] Этап 3 — Push-to-talk + VAD 🎯 *(рабочий голосовой ввод)*
-- [x] Оптимизация CPU (AVX2/FMA, small = 3 сек вместо 34 сек)
-- [x] Этап 4 — Wake word «Эй, ассистент»
-- [ ] Этап 5 — AI-постобработка через LM Studio
-- [ ] Этап 6 — UX polish, настройки, onboarding
-- [ ] Этап 7 — Упаковка (MSI/NSIS), подпись кода, автообновление
-
-## 📄 Лицензия
-
-TBD (предположительно MIT или Apache-2.0).
-
-## 🙏 Благодарности
-
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (Georgi Gerganov) — за лучший локальный STT.
-- [Tauri](https://tauri.app/) — за прекрасный каркас для лёгких десктоп-приложений.
+Аудио и STT остаются на устройстве. Текст отправляется наружу только если
+пользователь явно настроил внешний OpenAI-совместимый LLM endpoint; LM Studio
+по умолчанию работает локально.
