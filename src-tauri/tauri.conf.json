@@ -67,7 +67,11 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "resources": ["resources/whisper/*", "resources/sherpa-onnx/*", "resources/stt-workers/*"],
+    "resources": {
+      "resources/whisper/*": "resources/whisper/",
+      "resources/stt-workers/*": "resources/stt-workers/",
+      "resources/sherpa-onnx/*.dll": ""
+    },
     "copyright": "© 2026 Fono",
     "category": "Productivity",
     "shortDescription": "Голосовой ввод для Windows",
