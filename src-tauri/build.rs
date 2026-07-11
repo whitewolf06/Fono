@@ -9,9 +9,69 @@ fn main() {
     tauri_build::build();
 
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        sync_sherpa_prebuilt_libraries();
         copy_sherpa_dlls();
         copy_stt_worker_files();
     }
+}
+
+/// `sherpa-onnx-sys` keeps its downloaded prebuilt libraries in Cargo's target
+/// directory. Its linker directive is target-directory-relative, so a custom
+/// `CARGO_TARGET_DIR` (used for an isolated release build or CI) needs the
+/// already downloaded archive mirrored there before the final link step.
+fn sync_sherpa_prebuilt_libraries() {
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let default_target_dir = manifest_dir.join("target");
+    let target_dir = cargo_target_dir(&manifest_dir);
+
+    if target_dir == default_target_dir {
+        return;
+    }
+
+    let source_dir = default_target_dir.join("sherpa-onnx-prebuilt");
+    let destination_dir = target_dir.join("sherpa-onnx-prebuilt");
+    if !source_dir.is_dir() || destination_dir.is_dir() {
+        return;
+    }
+
+    if let Err(error) = copy_directory(&source_dir, &destination_dir) {
+        println!(
+            "cargo:warning=failed to mirror sherpa-onnx prebuilt libraries {} -> {}: {error}",
+            source_dir.display(),
+            destination_dir.display()
+        );
+    }
+}
+
+fn cargo_target_dir(manifest_dir: &std::path::Path) -> PathBuf {
+    env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .map(|path| {
+            if path.is_absolute() {
+                path
+            } else {
+                manifest_dir.join(path)
+            }
+        })
+        .unwrap_or_else(|| manifest_dir.join("target"))
+}
+
+fn copy_directory(
+    source_dir: &std::path::Path,
+    destination_dir: &std::path::Path,
+) -> std::io::Result<()> {
+    std::fs::create_dir_all(destination_dir)?;
+    for entry in std::fs::read_dir(source_dir)? {
+        let entry = entry?;
+        let source = entry.path();
+        let destination = destination_dir.join(entry.file_name());
+        if source.is_dir() {
+            copy_directory(&source, &destination)?;
+        } else {
+            std::fs::copy(source, destination)?;
+        }
+    }
+    Ok(())
 }
 
 /// Copies the generated CUDA/Vulkan worker executables beside a directly run
@@ -21,25 +81,37 @@ fn copy_stt_worker_files() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let profile = env::var("PROFILE").unwrap();
     let source_dir = manifest_dir.join("resources").join("stt-workers");
-    let target_dir = manifest_dir
-        .join("target")
+    let target_dir = cargo_target_dir(&manifest_dir)
         .join(profile)
         .join("resources")
         .join("stt-workers");
 
     println!("cargo:rerun-if-changed={}", source_dir.display());
     if !source_dir.is_dir() {
-        println!("cargo:warning=STT workers are not prepared yet: {}", source_dir.display());
+        println!(
+            "cargo:warning=STT workers are not prepared yet: {}",
+            source_dir.display()
+        );
         return;
     }
     if let Err(error) = std::fs::create_dir_all(&target_dir) {
-        println!("cargo:warning=failed to create {}: {error}", target_dir.display());
+        println!(
+            "cargo:warning=failed to create {}: {error}",
+            target_dir.display()
+        );
         return;
     }
 
-    for entry in std::fs::read_dir(&source_dir).into_iter().flatten().flatten() {
+    for entry in std::fs::read_dir(&source_dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
         let source = entry.path();
-        if !matches!(source.extension().and_then(|value| value.to_str()), Some("exe" | "dll")) {
+        if !matches!(
+            source.extension().and_then(|value| value.to_str()),
+            Some("exe" | "dll")
+        ) {
             continue;
         }
         let destination = target_dir.join(entry.file_name());
@@ -60,7 +132,7 @@ fn copy_stt_worker_files() {
 fn copy_sherpa_dlls() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let profile = env::var("PROFILE").unwrap();
-    let profile_dir = manifest_dir.join("target").join(&profile);
+    let profile_dir = cargo_target_dir(&manifest_dir).join(&profile);
 
     let out_dir = manifest_dir.join("resources").join("sherpa-onnx");
     println!(
