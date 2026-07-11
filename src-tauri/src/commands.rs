@@ -918,6 +918,13 @@ pub async fn recognize_wake_word_sample(app: AppHandle) -> AppResult<WakeWordRec
     .to_string();
     let audio_duration_ms = samples.len() as u64 * 1_000 / 16_000;
     let started = std::time::Instant::now();
+    tracing::info!(
+        backend = %backend,
+        phrase = %settings.wake_word,
+        samples = samples.len(),
+        audio_duration_ms,
+        "wake word recorded-sample recognition started"
+    );
 
     let result = match settings.wake_backend {
         fono_wake::WakeWordBackend::WhisperExperimental => {
@@ -943,6 +950,13 @@ pub async fn recognize_wake_word_sample(app: AppHandle) -> AppResult<WakeWordRec
         }
     };
 
+    tracing::info!(
+        backend = %backend,
+        detected = result.detected,
+        keyword = %result.keyword,
+        processing_ms = started.elapsed().as_millis(),
+        "wake word recorded-sample recognition finished"
+    );
     Ok(WakeWordRecognitionReport {
         backend,
         detected: result.detected,

@@ -174,7 +174,15 @@ fn run_spotter(
     spotter_config.model_config.provider = Some("cpu".into());
     spotter_config.keywords_threshold = config.threshold.clamp(0.0, 1.0);
     spotter_config.keywords_score = map_sensitivity(config.sensitivity);
-    spotter_config.keywords_buf = Some(phrase_to_tokens(&config.phrase));
+    let keywords = phrase_to_tokens(&config.phrase);
+    tracing::info!(
+        phrase = %config.phrase,
+        keywords = %keywords.trim_end(),
+        threshold = spotter_config.keywords_threshold,
+        score = spotter_config.keywords_score,
+        "fono-wake sherpa: creating keyword spotter"
+    );
+    spotter_config.keywords_buf = Some(keywords);
 
     let spotter = match sherpa_onnx::KeywordSpotter::create(&spotter_config) {
         Some(s) => s,
