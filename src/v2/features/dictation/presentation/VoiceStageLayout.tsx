@@ -91,8 +91,8 @@ function VoiceWave({
   intensity: number;
   active: boolean;
 }) {
-  const path =
-    "M0 111 C48 111 63 110 88 104 C113 98 121 75 146 75 C171 75 183 132 213 132 C245 132 255 98 286 98 C316 98 332 118 360 118 C394 118 410 102 440 102 C471 102 486 120 519 120 C553 120 564 91 593 91 C623 91 636 135 668 135 C702 135 713 69 743 69 C774 69 783 110 814 110 C843 110 858 111 900 111";
+  const motionPhase = useWaveMotion();
+  const path = createWavePath({ intensity, active, motionPhase });
   const spikeClusters = [
     [86, 34, 186],
     [104, 61, 159],
@@ -119,16 +119,24 @@ function VoiceWave({
     [839, 87, 135],
     [860, 98, 124],
   ];
-  const spikeScale = active ? 0.9 + intensity * 1.2 : 0.72 + intensity * 0.55;
-  const scaleSpikePoint = (value: number) => 110 + (value - 110) * spikeScale;
+  const spikeScale = active ? 0.96 + intensity * 0.72 : 0.74 + intensity * 0.46;
+  const spikeMotion = active
+    ? 0.08 + intensity * 0.28
+    : 0.035 + intensity * 0.12;
+  const scaleSpikePoint = (value: number, x: number) => {
+    const independentPulse = Math.sin(motionPhase * 2.8 + x * 0.085);
+    const scale = spikeScale * (1 + independentPulse * spikeMotion);
+
+    return 110 + (value - 110) * scale;
+  };
 
   return (
     <svg
       className={`v2-voice-wave ${active ? "is-active" : ""}`}
       style={
         {
-          "--idle-wave-scale": 1.02 + intensity * 0.42,
-          "--active-wave-scale": 1.1 + intensity * 1.25,
+          "--idle-wave-scale": 1.01 + intensity * 0.16,
+          "--active-wave-scale": 1.03 + intensity * 0.44,
         } as CSSProperties
       }
       viewBox="0 0 900 220"
@@ -150,15 +158,29 @@ function VoiceWave({
           <stop offset=".84" stopColor="#35baff" />
           <stop offset="1" stopColor="#1478c8" stopOpacity="0" />
         </linearGradient>
+        <linearGradient
+          id="v2-voice-spike-gradient"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="220"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0" stopColor="#34bbff" stopOpacity="0" />
+          <stop offset="0.34" stopColor="#48c7ff" stopOpacity="0.72" />
+          <stop offset="0.5" stopColor="#ecfdff" stopOpacity="1" />
+          <stop offset="0.66" stopColor="#48c7ff" stopOpacity="0.72" />
+          <stop offset="1" stopColor="#34bbff" stopOpacity="0" />
+        </linearGradient>
       </defs>
       <g className="v2-voice-wave__spikes v2-voice-wave__spikes--ambient">
         {ambientSpikes.map(([x, y1, y2]) => (
           <line
             key={x}
             x1={x}
-            y1={scaleSpikePoint(y1)}
+            y1={scaleSpikePoint(y1, x)}
             x2={x}
-            y2={scaleSpikePoint(y2)}
+            y2={scaleSpikePoint(y2, x)}
           />
         ))}
       </g>
@@ -167,12 +189,13 @@ function VoiceWave({
           <line
             key={x}
             x1={x}
-            y1={scaleSpikePoint(y1)}
+            y1={scaleSpikePoint(y1, x)}
             x2={x}
-            y2={scaleSpikePoint(y2)}
+            y2={scaleSpikePoint(y2, x)}
           />
         ))}
       </g>
+      <path className="v2-voice-wave__aura" d={path} />
       <path className="v2-voice-wave__echo" d={path} />
       <path className="v2-voice-wave__line" d={path} />
       <g className="v2-voice-wave__nodes">
@@ -185,4 +208,60 @@ function VoiceWave({
       </g>
     </svg>
   );
+}
+
+function useWaveMotion() {
+  const [motionPhase, setMotionPhase] = useState(0);
+
+  useEffect(() => {
+    let animationFrame = 0;
+    let previousFrame = 0;
+
+    const animate = (timestamp: number) => {
+      if (timestamp - previousFrame >= 40) {
+        previousFrame = timestamp;
+        setMotionPhase((timestamp / 1000) % (Math.PI * 2));
+      }
+
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    animationFrame = window.requestAnimationFrame(animate);
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, []);
+
+  return motionPhase;
+}
+
+function createWavePath({
+  intensity,
+  active,
+  motionPhase,
+}: {
+  intensity: number;
+  active: boolean;
+  motionPhase: number;
+}) {
+  const step = 30;
+  const baseAmplitude = active ? 18 + intensity * 36 : 9 + intensity * 17;
+  const movement = active ? 0.72 + intensity * 0.9 : 0.32 + intensity * 0.5;
+  const yAt = (x: number) => {
+    const primary = Math.sin(x / 94 + motionPhase * movement);
+    const detail = Math.sin(x / 37 - motionPhase * movement * 1.7) * 0.34;
+    const drift = Math.sin(x / 174 + motionPhase * movement * 0.56) * 0.26;
+
+    return 110 + (primary + detail + drift) * baseAmplitude;
+  };
+  let path = `M 0 ${yAt(0).toFixed(2)}`;
+
+  for (let x = step; x <= 900; x += step) {
+    const previousX = x - step;
+    const previousY = yAt(previousX).toFixed(2);
+    const currentY = yAt(x).toFixed(2);
+
+    path += ` C ${previousX + step / 3} ${previousY}, ${x - step / 3} ${currentY}, ${x} ${currentY}`;
+  }
+
+  return path;
 }
