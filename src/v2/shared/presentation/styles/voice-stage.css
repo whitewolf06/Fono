@@ -1,0 +1,315 @@
+.v2-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  border: 1px solid rgba(147, 220, 255, 0.24);
+  border-radius: 999px;
+  color: #d5ebf8;
+  background: linear-gradient(
+    135deg,
+    rgba(51, 125, 178, 0.2),
+    rgba(4, 20, 39, 0.56)
+  );
+  box-shadow:
+    inset 0 1px rgba(233, 252, 255, 0.13),
+    0 0 20px rgba(40, 151, 233, 0.12);
+  font-size: 16px;
+  backdrop-filter: blur(13px) saturate(150%);
+}
+
+.v2-status-chip--active {
+  border-color: rgba(91, 205, 255, 0.42);
+  color: #b8efff;
+  box-shadow: 0 0 17px rgba(46, 177, 255, 0.22);
+}
+
+.v2-status-chip--muted {
+  color: #b0bfca;
+}
+
+.v2-status-chip .v2-status-dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #87e2ff;
+  background: #3aaff3;
+  box-shadow:
+    0 0 0 5px rgba(63, 182, 255, 0.12),
+    0 0 14px #59caff;
+}
+
+.v2-status-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 17px;
+  margin-left: 5px;
+}
+
+.v2-status-bars i {
+  display: block;
+  width: 2px;
+  height: 7px;
+  border-radius: 4px;
+  background: #79d9ff;
+  box-shadow: 0 0 4px rgba(104, 217, 255, 0.75);
+  animation: v2-status-bars 0.75s ease-in-out infinite alternate;
+}
+
+.v2-status-bars i:nth-child(2) {
+  height: 13px;
+  animation-delay: 0.15s;
+}
+
+.v2-status-bars i:nth-child(3) {
+  height: 8px;
+  animation-delay: 0.3s;
+}
+
+.v2-status-bars i:nth-child(4) {
+  height: 15px;
+  animation-delay: 0.1s;
+}
+
+.v2-voice-stage-layout {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.v2-voice-status {
+  position: absolute;
+  z-index: 4;
+  top: 30px;
+  left: 50%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.v2-voice-status:disabled {
+  cursor: wait;
+}
+
+.v2-voice-wave {
+  position: absolute;
+  z-index: 1;
+  top: calc(50% - 78px);
+  left: 0;
+  width: 100%;
+  height: 220px;
+  overflow: visible;
+  opacity: 0.78;
+}
+
+.v2-voice-wave__line,
+.v2-voice-wave__echo {
+  fill: none;
+  stroke: url("#v2-voice-wave-gradient");
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.v2-voice-wave__line {
+  stroke-width: 2.7;
+  filter: drop-shadow(0 0 7px rgba(79, 196, 255, 0.95));
+  animation: v2-voice-wave-calm 4.8s ease-in-out infinite alternate;
+}
+
+.v2-voice-wave__echo {
+  stroke-width: 1;
+  opacity: 0.2;
+  filter: drop-shadow(0 0 4px rgba(99, 215, 255, 0.7));
+  animation: v2-voice-wave-calm 5.4s ease-in-out infinite alternate-reverse;
+}
+
+.v2-voice-wave__spikes {
+  stroke: url("#v2-voice-wave-gradient");
+  stroke-linecap: round;
+  opacity: 0.58;
+  filter: drop-shadow(0 0 6px rgba(69, 183, 255, 0.85));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: v2-voice-spikes-calm 4.2s ease-in-out infinite alternate;
+}
+
+.v2-voice-wave__nodes {
+  fill: #c0f8ff;
+  filter: drop-shadow(0 0 6px rgba(99, 221, 255, 0.95));
+  animation: v2-voice-nodes 1.9s ease-in-out infinite alternate;
+}
+
+.v2-voice-wave.is-active .v2-voice-wave__line {
+  animation: v2-voice-wave-active 1.15s ease-in-out infinite alternate;
+}
+
+.v2-voice-wave.is-active .v2-voice-wave__echo {
+  animation-duration: 0.88s;
+  opacity: 0.42;
+}
+
+.v2-voice-wave.is-active .v2-voice-wave__spikes {
+  opacity: 0.74;
+  animation: v2-voice-spikes-active 0.72s ease-in-out infinite alternate;
+}
+
+.v2-voice-live-panel {
+  position: absolute;
+  z-index: 4;
+  bottom: 34px;
+  left: 50%;
+  width: min(430px, calc(100% - 48px));
+  padding: 14px 16px;
+  border: 1px solid rgba(122, 211, 255, 0.31);
+  border-radius: 13px;
+  color: #dff4ff;
+  background: linear-gradient(
+    135deg,
+    rgba(71, 179, 237, 0.16),
+    rgba(5, 25, 45, 0.42)
+  );
+  box-shadow:
+    inset 0 1px rgba(237, 253, 255, 0.17),
+    0 12px 35px rgba(0, 8, 20, 0.18);
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px) saturate(150%);
+}
+
+.v2-voice-live-panel > div {
+  display: flex;
+  justify-content: space-between;
+  color: #b5d2e3;
+  font-size: 11px;
+}
+
+.v2-voice-live-panel b {
+  color: #8ce3ff;
+}
+
+.v2-voice-live-panel > i {
+  display: block;
+  height: 3px;
+  margin: 8px 0 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(137, 205, 245, 0.17);
+}
+
+.v2-voice-live-panel > i::after {
+  display: block;
+  width: var(--countdown);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3caefa, #abf2ff);
+  box-shadow: 0 0 8px #51c6ff;
+  content: "";
+  transition: width 0.1s linear;
+}
+
+.v2-voice-live-panel p {
+  min-height: 20px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.v2-voice-debug-panel {
+  position: fixed;
+  z-index: 30;
+  top: 24px;
+  right: 24px;
+  display: grid;
+  width: 156px;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid rgba(158, 222, 255, 0.27);
+  border-radius: 12px;
+  background: rgba(5, 25, 45, 0.58);
+  box-shadow:
+    inset 0 1px rgba(239, 253, 255, 0.16),
+    0 12px 28px rgba(0, 7, 20, 0.18);
+  backdrop-filter: blur(15px) saturate(150%);
+}
+
+.v2-voice-debug-panel > span {
+  color: #7fc8ee;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.v2-voice-debug-panel strong {
+  color: #dff7ff;
+  font-size: 18px;
+}
+
+.v2-voice-debug-panel input {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  appearance: none;
+  border-radius: 999px;
+  outline: none;
+  background: linear-gradient(90deg, #43bdf9, #a9f1ff);
+}
+
+.v2-voice-debug-panel input::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  appearance: none;
+  border: 2px solid #dcfaff;
+  border-radius: 50%;
+  background: #3aaef0;
+  box-shadow: 0 0 9px #54ccff;
+  cursor: grab;
+}
+
+.v2-voice-debug-panel small {
+  color: #a7c4d7;
+  font-size: 10px;
+}
+
+@keyframes v2-voice-wave-calm {
+  to {
+    opacity: 0.64;
+    transform: scaleY(var(--idle-wave-scale));
+  }
+}
+
+@keyframes v2-voice-spikes-calm {
+  to {
+    opacity: 0.26;
+    transform: scaleY(var(--idle-spike-scale));
+  }
+}
+
+@keyframes v2-voice-wave-active {
+  to {
+    stroke-width: 3.2;
+    transform: scaleY(var(--active-wave-scale));
+  }
+}
+
+@keyframes v2-voice-spikes-active {
+  to {
+    transform: scaleY(var(--active-spike-scale));
+  }
+}
+
+@keyframes v2-status-bars {
+  to {
+    transform: scaleY(0.42);
+  }
+}
+
+@keyframes v2-voice-nodes {
+  to {
+    opacity: 0.3;
+    transform: scale(0.72);
+  }
+}

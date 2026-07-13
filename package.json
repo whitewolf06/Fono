@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:ui": "vite --mode ui",
     "build": "tsc && vite build",
     "build:workers": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-stt-workers.ps1",
     "release": "npm run tauri -- build",

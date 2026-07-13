@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fono — Forest UI concept</title>
+    <!-- Prototype exception: markup and demo interactions intentionally stay self-contained. -->
+    <link rel="stylesheet" href="fono-forest-prototype.css" />
+  </head>
+  <body>
+    <div class="forest"></div>
+    <main class="app">
+      <aside class="sidebar">
+        <div class="brand"><div class="brand-mark"></div><div><h1>Fono</h1><p>Локальная диктовка</p></div></div>
+        <nav class="nav" aria-label="Навигация">
+          <button class="active" data-view="voice"><span class="nav-icon">♩</span>Голос</button>
+          <button data-view="history"><span class="nav-icon">◷</span>История</button>
+          <button data-view="commands"><span class="nav-icon">⌘</span>Команды</button>
+          <button data-view="settings"><span class="nav-icon">⚙</span>Настройки</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="status-card"><b><i class="dot"></i>Локальная обработка</b><small>Ваши данные остаются на этом устройстве</small></div>
+          <div class="status-card"><b><span style="color:#6dccff">▥</span>Wake word: Fono</b><small style="color:#84df91">● Активен</small></div>
+          <span class="version">concept v0.1</span>
+        </div>
+      </aside>
+
+      <section class="main">
+        <div class="view active" id="voice">
+          <div class="view-title"><span></span><span class="local-chip"><i class="dot"></i>Локальная обработка</span></div>
+          <div class="voice-stage">
+            <button class="state-pill" id="listenButton" type="button"><i class="pulse"></i><span id="stateLabel">Слушаю</span><span class="bars-mini"><i></i><i></i><i></i><i></i></span></button>
+            <div class="wave" aria-hidden="true">
+              <svg viewBox="0 0 900 220" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="waveGradient" x1="0" x2="1"><stop offset="0" stop-color="#1478c8" stop-opacity="0"/><stop offset=".16" stop-color="#35baff"/><stop offset=".5" stop-color="#d6fbff"/><stop offset=".84" stop-color="#35baff"/><stop offset="1" stop-color="#1478c8" stop-opacity="0"/></linearGradient>
+                  <linearGradient id="spikeGradient" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#1479cc" stop-opacity="0"/><stop offset=".5" stop-color="#8feaff"/><stop offset="1" stop-color="#1479cc" stop-opacity="0"/></linearGradient>
+                  <filter id="waveGlow" x="-30%" y="-70%" width="160%" height="240%"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                <g>
+                  <line class="wave-spike" x1="102" y1="42" x2="102" y2="178"/><line class="wave-spike" x1="118" y1="71" x2="118" y2="149"/><line class="wave-spike" x1="136" y1="24" x2="136" y2="196"/><line class="wave-spike" x1="158" y1="62" x2="158" y2="158"/><line class="wave-spike" x1="184" y1="83" x2="184" y2="137"/>
+                  <line class="wave-spike" x1="252" y1="73" x2="252" y2="147"/><line class="wave-spike" x1="276" y1="40" x2="276" y2="180"/><line class="wave-spike" x1="301" y1="78" x2="301" y2="142"/>
+                  <line class="wave-spike" x1="598" y1="76" x2="598" y2="144"/><line class="wave-spike" x1="625" y1="37" x2="625" y2="183"/><line class="wave-spike" x1="649" y1="70" x2="649" y2="150"/>
+                  <line class="wave-spike" x1="718" y1="82" x2="718" y2="138"/><line class="wave-spike" x1="744" y1="57" x2="744" y2="163"/><line class="wave-spike" x1="768" y1="22" x2="768" y2="198"/><line class="wave-spike" x1="790" y1="67" x2="790" y2="153"/>
+                </g>
+                <path class="wave-path echo-top" d="M0 110 C60 110 64 106 92 106 C124 106 133 78 164 78 C196 78 205 123 241 123 C278 123 287 91 320 91 C352 91 366 113 397 113 C426 113 438 102 462 102 C488 102 501 116 532 116 C564 116 579 89 611 89 C646 89 655 124 692 124 C731 124 741 79 772 79 C805 79 813 109 900 109"/>
+                <path class="wave-path echo" d="M0 110 C60 110 64 106 92 106 C124 106 133 78 164 78 C196 78 205 123 241 123 C278 123 287 91 320 91 C352 91 366 113 397 113 C426 113 438 102 462 102 C488 102 501 116 532 116 C564 116 579 89 611 89 C646 89 655 124 692 124 C731 124 741 79 772 79 C805 79 813 109 900 109"/>
+                <path class="wave-path" d="M0 110 C60 110 64 106 92 106 C124 106 133 78 164 78 C196 78 205 123 241 123 C278 123 287 91 320 91 C352 91 366 113 397 113 C426 113 438 102 462 102 C488 102 501 116 532 116 C564 116 579 89 611 89 C646 89 655 124 692 124 C731 124 741 79 772 79 C805 79 813 109 900 109"/>
+                <circle class="wave-node" cx="92" cy="106" r="3"/><circle class="wave-node" cx="241" cy="123" r="3"/><circle class="wave-node" cx="397" cy="113" r="2.5"/><circle class="wave-node" cx="532" cy="116" r="3"/><circle class="wave-node" cx="692" cy="124" r="3"/><circle class="wave-node" cx="772" cy="79" r="3"/>
+              </svg>
+            </div>
+            <div class="spirit-sprite" role="img" aria-label="Анимированный огонёк Fono"></div>
+            <div class="pond"></div>
+            <span class="stage-caption" id="stageCaption">Говорите естественно. Fono позаботится об остальном.</span>
+            <span class="hotkey">⌨ Горячая клавиша: <b>Win + Alt + F</b></span>
+          </div>
+          <article class="transcript"><span class="eyebrow">Текущая диктовка</span><p id="transcriptText">Fono — локальное приложение для голосового ввода. Говорите свободно, а текст появится там, где вы работаете.<span class="cursor"></span></p><div class="transcript-foot"><span>◉ Русский</span><span class="recognizing" id="recognizing">● Распознаю…</span></div></article>
+        </div>
+
+        <div class="view simple-view" id="history"><div class="view-title"><h2>История</h2><span class="local-chip"><i class="dot"></i>Только на устройстве</span></div><div class="empty-card"><div><strong>Ваши последние диктовки</strong><span>Здесь появятся распознанные фразы и быстрые действия с ними.</span></div></div></div>
+        <div class="view simple-view" id="commands"><div class="view-title"><h2>Голосовые команды</h2><span class="local-chip"><i class="dot"></i>Готово</span></div><div class="empty-card"><div><strong>Команды — отдельный режим</strong><span>Например: «открой Telegram», «громкость 50» или «новый абзац».</span></div></div></div>
+        <div class="view simple-view" id="settings"><div class="view-title"><h2>Настройки</h2><span class="local-chip"><i class="dot"></i>Локальная обработка</span></div><div class="settings-grid"><div class="setting"><span class="toggle"></span><b>Диктовка</b><p>Горячая клавиша, язык и автоматическая вставка текста.</p></div><div class="setting"><span class="toggle"></span><b>Wake word</b><p>Фраза активации и чувствительность распознавания.</p></div><div class="setting"><span class="toggle"></span><b>Overlay</b><p>Положение, размер и вид плавающего окна.</p></div><div class="setting"><span class="toggle"></span><b>Расширенные</b><p>Модель, CUDA/Vulkan, диагностика и отладка.</p></div></div></div>
+      </section>
+
+      <aside class="rightbar">
+        <section class="side-panel recent"><h3>Недавнее <a>Все</a></h3><div class="recent-item"><span>▤</span><span>Идеи для дорожной карты и новый дизайн Fono<small>Сегодня, 10:24</small></span><span class="more">⋮</span></div><div class="recent-item"><span>▤</span><span>Обсудить детали голосовых команд<small>Сегодня, 09:15</small></span><span class="more">⋮</span></div><div class="recent-item"><span>▤</span><span>Напомнить проверить качество wake word<small>Вчера, 18:36</small></span><span class="more">⋮</span></div></section>
+        <section class="side-panel"><h3>Команды</h3><div class="command-list"><div><span>Новая строка</span><span>«новая строка»</span></div><div><span>Новый абзац</span><span>«новый абзац»</span></div><div><span>Отменить</span><span>«отмени это»</span></div><div><span>Вставить дату</span><span>«вставь дату»</span></div></div><div class="command-link"><span>Все команды</span><span>→</span></div></section>
+        <section class="side-panel tip"><span style="font-size:25px">✦</span><div><b>Совет</b>Fono подождёт небольшую паузу, чтобы не обрывать мысль.</div></section>
+      </aside>
+    </main>
+
+    <aside class="overlay" id="overlay"><div class="overlay-head"><div class="overlay-state"><i class="pulse"></i><span id="overlayState">Слушаю</span><span class="bars-mini"><i></i><i></i><i></i></span></div><button class="close" id="closeOverlay" aria-label="Скрыть overlay">×</button></div><div class="overlay-text" id="overlayText">Fono — локальное приложение для голосового ввода.<span class="cursor"></span></div><div class="overlay-wave"><span class="orb-row"><i></i><i></i><i></i><i></i></span></div><div class="overlay-foot"><span id="timer">2.8s</span><button class="stop" id="stopButton" aria-label="Остановить диктовку"><i></i></button><span class="overlay-label">Win + Alt + F</span></div></aside>
+    <button class="overlay-toggle" id="overlayToggle">Показать overlay</button>
+
+    <script>
+      const state = { listening: true, overlayVisible: true, seconds: 2.8 };
+      const body = document.body;
+      const stateLabel = document.getElementById('stateLabel');
+      const overlayState = document.getElementById('overlayState');
+      const caption = document.getElementById('stageCaption');
+      const recognizing = document.getElementById('recognizing');
+      const overlay = document.getElementById('overlay');
+      const overlayToggle = document.getElementById('overlayToggle');
+      const timer = document.getElementById('timer');
+
+      function renderState() {
+        body.classList.toggle('is-idle', !state.listening);
+        const label = state.listening ? 'Слушаю' : 'Готово';
+        stateLabel.textContent = label;
+        overlayState.textContent = label;
+        caption.textContent = state.listening ? 'Говорите естественно. Fono позаботится об остальном.' : 'Нажмите, чтобы начать новую диктовку.';
+        recognizing.textContent = state.listening ? '● Распознаю…' : '✓ Текст готов';
+        overlay.classList.toggle('hidden', !state.overlayVisible);
+        overlayToggle.textContent = state.overlayVisible ? 'Скрыть overlay' : 'Показать overlay';
+      }
+
+      document.getElementById('listenButton').addEventListener('click', () => { state.listening = !state.listening; renderState(); });
+      document.getElementById('stopButton').addEventListener('click', () => { state.listening = false; renderState(); });
+      document.getElementById('closeOverlay').addEventListener('click', () => { state.overlayVisible = false; renderState(); });
+      overlayToggle.addEventListener('click', () => { state.overlayVisible = !state.overlayVisible; renderState(); });
+
+      document.querySelectorAll('.nav button').forEach((button) => button.addEventListener('click', () => {
+        document.querySelectorAll('.nav button').forEach((item) => item.classList.toggle('active', item === button));
+        document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active', view.id === button.dataset.view));
+      }));
+
+      window.setInterval(() => { if (state.listening) { state.seconds = state.seconds >= 3.7 ? 2.1 : state.seconds + .1; timer.textContent = `${state.seconds.toFixed(1)}s`; } }, 100);
+      renderState();
+    </script>
+  </body>
+</html>

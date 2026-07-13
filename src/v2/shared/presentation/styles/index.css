@@ -1,0 +1,14 @@
+@import "./tokens.css";
+@import "./shell.css";
+@import "./dashboard.css";
+@import "./kit.css";
+@import "./voice-stage.css";
+
+.v2-root *,
+.v2-root *::before,
+.v2-root *::after {
+  box-sizing: border-box;
+}
+.v2-root button {
+  font-family: inherit;
+}

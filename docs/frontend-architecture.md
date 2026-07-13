@@ -63,6 +63,18 @@ src/
       overlay/
 ```
 
+## UI-only development mode
+
+Use `npm run dev:ui` and open `http://localhost:1420/?ui=v2` to work on UI v2
+without starting Tauri, Rust workers, a microphone or global shortcuts. This
+route renders `src/v2/app/UiV2App.tsx` with a typed mock runtime.
+
+The mock is a development adapter, not a second source of product logic. A
+feature first depends on its narrow runtime port; later, the mock adapter is
+replaced by a Tauri IPC adapter that uses the existing typed boundary. The
+stable v1 interface remains the default route, and `?ui=v2` is an explicit
+opt-in until the migration is accepted.
+
 `shared/` is not a dumping ground. Move a component, type or utility there
 only when at least two features need it. A feature may use another feature's
 explicit public API, but must not import its internal files.
