@@ -92,17 +92,43 @@ function VoiceWave({
   active: boolean;
 }) {
   const path =
-    "M0 110 C60 110 64 106 92 106 C124 106 133 78 164 78 C196 78 205 123 241 123 C278 123 287 91 320 91 C352 91 366 113 397 113 C426 113 438 102 462 102 C488 102 501 116 532 116 C564 116 579 89 611 89 C646 89 655 124 692 124 C731 124 741 79 772 79 C805 79 813 109 900 109";
+    "M0 111 C48 111 63 110 88 104 C113 98 121 75 146 75 C171 75 183 132 213 132 C245 132 255 98 286 98 C316 98 332 118 360 118 C394 118 410 102 440 102 C471 102 486 120 519 120 C553 120 564 91 593 91 C623 91 636 135 668 135 C702 135 713 69 743 69 C774 69 783 110 814 110 C843 110 858 111 900 111";
+  const spikeClusters = [
+    [86, 34, 186],
+    [104, 61, 159],
+    [121, 8, 212],
+    [140, 43, 177],
+    [159, 72, 148],
+    [177, 93, 127],
+    [702, 94, 126],
+    [720, 64, 156],
+    [739, 10, 210],
+    [758, 40, 180],
+    [777, 69, 151],
+    [795, 91, 129],
+  ];
+  const ambientSpikes = [
+    [38, 95, 127],
+    [57, 85, 137],
+    [246, 99, 123],
+    [267, 88, 134],
+    [286, 94, 128],
+    [595, 97, 125],
+    [615, 87, 135],
+    [635, 99, 123],
+    [839, 87, 135],
+    [860, 98, 124],
+  ];
+  const spikeScale = active ? 0.9 + intensity * 1.2 : 0.72 + intensity * 0.55;
+  const scaleSpikePoint = (value: number) => 110 + (value - 110) * spikeScale;
 
   return (
     <svg
       className={`v2-voice-wave ${active ? "is-active" : ""}`}
       style={
         {
-          "--idle-wave-scale": 1 + intensity * 0.24,
-          "--idle-spike-scale": 0.66 + intensity * 0.32,
-          "--active-wave-scale": 1 + intensity * 0.9,
-          "--active-spike-scale": 0.45 + intensity,
+          "--idle-wave-scale": 1.02 + intensity * 0.42,
+          "--active-wave-scale": 1.1 + intensity * 1.25,
         } as CSSProperties
       }
       viewBox="0 0 900 220"
@@ -110,7 +136,14 @@ function VoiceWave({
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="v2-voice-wave-gradient" x1="0" x2="1">
+        <linearGradient
+          id="v2-voice-wave-gradient"
+          x1="0"
+          y1="0"
+          x2="900"
+          y2="0"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop offset="0" stopColor="#1478c8" stopOpacity="0" />
           <stop offset=".16" stopColor="#35baff" />
           <stop offset=".5" stopColor="#d6fbff" />
@@ -118,17 +151,27 @@ function VoiceWave({
           <stop offset="1" stopColor="#1478c8" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <g className="v2-voice-wave__spikes">
-        <line x1="102" y1="42" x2="102" y2="178" />
-        <line x1="118" y1="71" x2="118" y2="149" />
-        <line x1="136" y1="24" x2="136" y2="196" />
-        <line x1="158" y1="62" x2="158" y2="158" />
-        <line x1="276" y1="40" x2="276" y2="180" />
-        <line x1="301" y1="78" x2="301" y2="142" />
-        <line x1="598" y1="76" x2="598" y2="144" />
-        <line x1="625" y1="37" x2="625" y2="183" />
-        <line x1="744" y1="57" x2="744" y2="163" />
-        <line x1="768" y1="22" x2="768" y2="198" />
+      <g className="v2-voice-wave__spikes v2-voice-wave__spikes--ambient">
+        {ambientSpikes.map(([x, y1, y2]) => (
+          <line
+            key={x}
+            x1={x}
+            y1={scaleSpikePoint(y1)}
+            x2={x}
+            y2={scaleSpikePoint(y2)}
+          />
+        ))}
+      </g>
+      <g className="v2-voice-wave__spikes v2-voice-wave__spikes--cluster">
+        {spikeClusters.map(([x, y1, y2]) => (
+          <line
+            key={x}
+            x1={x}
+            y1={scaleSpikePoint(y1)}
+            x2={x}
+            y2={scaleSpikePoint(y2)}
+          />
+        ))}
       </g>
       <path className="v2-voice-wave__echo" d={path} />
       <path className="v2-voice-wave__line" d={path} />
