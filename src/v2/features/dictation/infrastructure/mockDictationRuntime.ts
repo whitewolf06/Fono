@@ -1,5 +1,9 @@
 import type { DictationRuntime } from "../application/dictationRuntime";
-import type { DictationSnapshot, ReadinessSnapshot } from "@/v2/shared/domain/pipeline";
+import type {
+  DictationSettingsSummary,
+  DictationSnapshot,
+  ReadinessSnapshot,
+} from "@/v2/shared/domain/pipeline";
 
 const initialSnapshot: DictationSnapshot = {
   phase: "idle",
@@ -10,14 +14,21 @@ const initialSnapshot: DictationSnapshot = {
   error: null,
 };
 
-const readiness: ReadinessSnapshot = {
+const initialReadiness: ReadinessSnapshot = {
   microphone: "ready",
   model: "ready",
   wakeWord: "active",
 };
 
+const settingsSummary: DictationSettingsSummary = {
+  recognitionModel: "Whisper Small",
+  accelerator: "Vulkan",
+  postProcessing: "Пунктуация · Light",
+};
+
 export function createMockDictationRuntime(): DictationRuntime {
   let snapshot = initialSnapshot;
+  let readiness = initialReadiness;
   const listeners = new Set<(next: DictationSnapshot) => void>();
   let timer: number | undefined;
 
@@ -34,6 +45,13 @@ export function createMockDictationRuntime(): DictationRuntime {
   return {
     getSnapshot: async () => snapshot,
     getReadiness: async () => readiness,
+    getSettingsSummary: async () => settingsSummary,
+    toggleWakeWord: async () => {
+      readiness = {
+        ...readiness,
+        wakeWord: readiness.wakeWord === "active" ? "disabled" : "active",
+      };
+    },
     start: async () => {
       clearTimer();
       emit({ ...snapshot, phase: "listening", transcript: "", error: null });
@@ -43,11 +61,15 @@ export function createMockDictationRuntime(): DictationRuntime {
       emit({
         ...snapshot,
         phase: "transcribing",
-        transcript: "Fono превращает речь в текст локально — быстро, приватно и без лишних шагов.",
+        transcript:
+          "Fono превращает речь в текст локально — быстро, приватно и без лишних шагов.",
       });
       timer = window.setTimeout(() => {
         emit({ ...snapshot, phase: "processing" });
-        timer = window.setTimeout(() => emit({ ...snapshot, phase: "idle" }), 900);
+        timer = window.setTimeout(
+          () => emit({ ...snapshot, phase: "idle" }),
+          900,
+        );
       }, 900);
     },
     subscribe: (listener) => {

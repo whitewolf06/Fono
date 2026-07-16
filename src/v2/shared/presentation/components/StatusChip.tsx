@@ -1,15 +1,17 @@
-import type { ReactNode } from "react";
-import { StatusDot } from "./StatusDot";
+import type { CSSProperties, ReactNode } from "react";
+import { StatusDot, type StatusTone } from "./StatusDot";
 
 interface StatusChipProps {
-  tone?: "ready" | "active" | "muted";
+  tone?: StatusTone;
   showWaveform?: boolean;
+  progress?: number;
   children: ReactNode;
 }
 
 export function StatusChip({
   tone = "ready",
   showWaveform = false,
+  progress,
   children,
 }: StatusChipProps) {
   return (
@@ -22,6 +24,11 @@ export function StatusChip({
           <i />
           <i />
           <i />
+        </span>
+      )}
+      {progress !== undefined && (
+        <span className="v2-status-chip__progress" aria-hidden="true">
+          <i style={{ "--progress": `${progress}%` } as CSSProperties} />
         </span>
       )}
     </span>

@@ -1,17 +1,18 @@
 import { useMemo, useState } from "react";
-import { VoiceDashboard } from "@/v2/features/dictation/presentation/VoiceDashboard";
 import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStageLayout";
+import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
 import { createMockDictationRuntime } from "@/v2/features/dictation/infrastructure/mockDictationRuntime";
+import type { SettingsSection } from "@/v2/features/settings/application/useSettingsDraft";
+import { SettingsPage } from "@/v2/features/settings/presentation/SettingsPage";
 import { AppIcon } from "@/v2/shared/presentation/components/AppIcon";
 import { UiKitPage } from "@/v2/shared/presentation/UiKitPage";
 import "@/v2/shared/presentation/styles/index.css";
 
-type NavigationItem = "voice" | "voice-copy" | "commands" | "settings" | "kit";
+type NavigationItem = "voice" | "commands" | "settings" | "kit";
 
 const productNavigation: { id: NavigationItem; icon: string; label: string }[] =
   [
     { id: "voice", icon: "♩", label: "Голос" },
-    { id: "voice-copy", icon: "◌", label: "Голос · копия" },
     { id: "commands", icon: "⌘", label: "Команды" },
     { id: "settings", icon: "⚙", label: "Настройки" },
   ];
@@ -24,8 +25,22 @@ const navigation = isUiDevelopment
 
 export function UiV2App() {
   const [activePage, setActivePage] = useState<NavigationItem>("voice");
+  const [settingsSection, setSettingsSection] =
+    useState<SettingsSection>("general");
   const runtime = useMemo(() => createMockDictationRuntime(), []);
   const isCleanVoicePage = activePage === "voice";
+
+  const openSettings = (target: VoiceSetupTarget) => {
+    const sectionByTarget: Record<VoiceSetupTarget, SettingsSection> = {
+      microphone: "audio",
+      "wake-word": "activation",
+      recognition: "audio",
+      "post-processing": "processing",
+    };
+
+    setSettingsSection(sectionByTarget[target]);
+    setActivePage("settings");
+  };
 
   return (
     <div className="v2-root">
@@ -46,7 +61,10 @@ export function UiV2App() {
                 key={item.id}
                 type="button"
                 className={item.id === activePage ? "is-active" : ""}
-                onClick={() => setActivePage(item.id)}
+                onClick={() => {
+                  if (item.id === "settings") setSettingsSection("general");
+                  setActivePage(item.id);
+                }}
               >
                 <i>{item.icon}</i>
                 {item.label}
@@ -59,46 +77,24 @@ export function UiV2App() {
             className="v2-main-content v2-voice-workspace"
             aria-label="Рабочая область голоса"
           >
-            <VoiceStageLayout runtime={runtime} />
+            <VoiceStageLayout runtime={runtime} onOpenSettings={openSettings} />
           </main>
         )}
         {!isCleanVoicePage && (
           <main className="v2-main-content">
-            {activePage === "voice-copy" && (
-              <VoiceDashboard runtime={runtime} />
-            )}
-            {activePage === "commands" && (
-              <PlannedPage
-                title="Команды"
-                description="Экран будет подключён после утверждения состава и поведения голосовых команд."
-              />
-            )}
-            {activePage === "settings" && (
-              <PlannedPage
-                title="Настройки"
-                description="Структура категорий уже зафиксирована в документе UI v2; следующий экран будет собран на общем UI-kit."
-              />
-            )}
-            {activePage === "kit" && <UiKitPage />}
+            <div className="v2-main-content__inner">
+              {activePage === "commands" && (
+                <PlannedPage
+                  title="Команды"
+                  description="Экран будет подключён после утверждения состава и поведения голосовых команд."
+                />
+              )}
+              {activePage === "settings" && (
+                <SettingsPage focusSection={settingsSection} />
+              )}
+              {activePage === "kit" && <UiKitPage />}
+            </div>
           </main>
-        )}
-        {!isCleanVoicePage && (
-          <aside className="v2-context-panel">
-            <section className="v2-glass-card">
-              <h2>Сейчас</h2>
-              <p>UI запущен на моках. Нативная часть Fono не требуется.</p>
-              <span className="v2-context-tag">Vite UI mode</span>
-            </section>
-            <section className="v2-glass-card">
-              <h2>Быстрые действия</h2>
-              <button type="button" onClick={() => setActivePage("settings")}>
-                Открыть настройки <span>→</span>
-              </button>
-              <button type="button" onClick={() => setActivePage("commands")}>
-                Посмотреть команды <span>→</span>
-              </button>
-            </section>
-          </aside>
         )}
       </div>
     </div>

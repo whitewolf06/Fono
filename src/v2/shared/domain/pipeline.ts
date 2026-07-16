@@ -1,10 +1,5 @@
 export type DictationPhase =
-  | "idle"
-  | "listening"
-  | "transcribing"
-  | "processing"
-  | "injecting"
-  | "error";
+  "idle" | "listening" | "transcribing" | "processing" | "injecting" | "error";
 
 export interface DictationSnapshot {
   phase: DictationPhase;
@@ -21,11 +16,35 @@ export interface ReadinessSnapshot {
   wakeWord: "active" | "paused" | "disabled";
 }
 
-export const phaseCopy: Record<DictationPhase, { label: string; hint: string }> = {
-  idle: { label: "Готово", hint: "Нажмите кнопку или используйте горячую клавишу." },
-  listening: { label: "Слушаю", hint: "Говорите естественно — Fono позаботится об остальном." },
-  transcribing: { label: "Распознаю", hint: "Преобразую аудио в текст локально." },
+export interface DictationSettingsSummary {
+  recognitionModel: string;
+  accelerator: string;
+  postProcessing: string;
+}
+
+export const phaseCopy: Record<
+  DictationPhase,
+  { label: string; hint: string }
+> = {
+  idle: {
+    label: "Готово",
+    hint: "Нажмите кнопку или используйте горячую клавишу.",
+  },
+  listening: {
+    label: "Слушаю",
+    hint: "Говорите естественно — Fono позаботится об остальном.",
+  },
+  transcribing: {
+    label: "Распознаю",
+    hint: "Преобразую аудио в текст локально.",
+  },
   processing: { label: "Обрабатываю", hint: "Подготавливаю текст к вставке." },
-  injecting: { label: "Вставляю", hint: "Отправляю готовый текст в активное окно." },
-  error: { label: "Нужна проверка", hint: "Откройте диагностику и проверьте подключение." },
+  injecting: {
+    label: "Вставляю",
+    hint: "Отправляю готовый текст в активное окно.",
+  },
+  error: {
+    label: "Нужна проверка",
+    hint: "Откройте диагностику и проверьте подключение.",
+  },
 };
