@@ -4,6 +4,7 @@
 @import "./kit.css";
 @import "./voice-stage.css";
 @import "./settings.css";
+@import "./commands.css";
 
 .v2-root *,
 .v2-root *::before,

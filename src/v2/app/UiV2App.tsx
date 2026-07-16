@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CommandsPage } from "@/v2/features/commands/presentation/CommandsPage";
 import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStageLayout";
 import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
 import { createMockDictationRuntime } from "@/v2/features/dictation/infrastructure/mockDictationRuntime";
@@ -83,12 +84,7 @@ export function UiV2App() {
         {!isCleanVoicePage && (
           <main className="v2-main-content">
             <div className="v2-main-content__inner">
-              {activePage === "commands" && (
-                <PlannedPage
-                  title="Команды"
-                  description="Экран будет подключён после утверждения состава и поведения голосовых команд."
-                />
-              )}
+              {activePage === "commands" && <CommandsPage />}
               {activePage === "settings" && (
                 <SettingsPage focusSection={settingsSection} />
               )}
@@ -98,22 +94,5 @@ export function UiV2App() {
         )}
       </div>
     </div>
-  );
-}
-
-function PlannedPage({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <section className="v2-planned-page">
-      <p className="v2-kicker">UI v2</p>
-      <h1>{title}</h1>
-      <p>{description}</p>
-      <span>Не подключено к runtime намеренно.</span>
-    </section>
   );
 }

@@ -1,0 +1,434 @@
+.v2-commands-page {
+  display: grid;
+  gap: 16px;
+  min-height: calc(100% - 104px);
+  padding: 0 34px 34px;
+}
+
+.v2-command-card {
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid rgba(160, 220, 255, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(76, 166, 221, 0.16),
+    rgba(3, 18, 35, 0.56) 62%,
+    rgba(23, 93, 143, 0.12)
+  );
+  box-shadow:
+    inset 0 1px rgba(239, 253, 255, 0.15),
+    0 14px 34px rgba(0, 5, 16, 0.15);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.v2-command-card--shortcut {
+  border-color: rgba(100, 205, 255, 0.42);
+  background:
+    radial-gradient(
+      ellipse at 86% 20%,
+      rgba(64, 181, 250, 0.22),
+      transparent 38%
+    ),
+    linear-gradient(135deg, rgba(32, 135, 203, 0.25), rgba(3, 18, 35, 0.62) 66%);
+}
+
+.v2-command-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.v2-command-card__heading > div {
+  min-width: 0;
+}
+
+.v2-command-card__heading h2,
+.v2-command-card__heading p {
+  margin: 0;
+}
+
+.v2-command-card__heading h2 {
+  color: #edfaff;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.v2-command-card__heading p {
+  margin-top: 4px;
+  color: #acc9da;
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.v2-command-card__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(128, 214, 255, 0.3);
+  border-radius: 10px;
+  color: #8bdfff;
+  background: rgba(43, 145, 204, 0.16);
+  box-shadow: inset 0 1px rgba(234, 253, 255, 0.14);
+  font-size: 18px;
+}
+
+.v2-command-card__icon svg,
+.v2-page-frame__icon > svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.55;
+}
+
+.v2-command-shortcut-layout {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.6fr) minmax(0, 1.4fr);
+  align-items: end;
+  gap: 22px;
+}
+
+.v2-command-shortcut-layout .v2-field {
+  font-size: 13px;
+}
+
+.v2-command-shortcut-layout .v2-field input {
+  height: 42px;
+  font-size: 14px;
+}
+
+.v2-command-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v2-command-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #c9e1ef;
+  font-size: 13px;
+}
+
+.v2-command-steps b {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgba(112, 211, 255, 0.4);
+  border-radius: 50%;
+  color: #9de8ff;
+  background: rgba(35, 143, 205, 0.16);
+  font-size: 11px;
+}
+
+.v2-command-note {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid #73d0fb;
+  border-radius: 0 8px 8px 0;
+  color: #b6d9e9;
+  background: rgba(48, 140, 193, 0.11);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.v2-command-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.v2-command-group {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 10px;
+  padding: 14px;
+  border: 1px solid rgba(149, 204, 255, 0.16);
+  border-radius: 11px;
+  background: rgba(4, 16, 29, 0.44);
+}
+
+.v2-command-group__icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  color: #8ae1ff;
+  background: rgba(45, 152, 222, 0.17);
+  font-size: 14px;
+}
+
+.v2-command-group h3,
+.v2-command-group p {
+  margin: 0;
+}
+
+.v2-command-group h3 {
+  color: #e1f2fa;
+  font-size: 14px;
+}
+
+.v2-command-group p {
+  margin-top: 3px;
+  color: #9ebdce;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.v2-command-group ul {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v2-command-group li {
+  display: grid;
+  gap: 4px;
+}
+
+.v2-command-group kbd {
+  width: fit-content;
+  padding: 4px 6px;
+  border: 1px solid rgba(136, 205, 247, 0.17);
+  border-radius: 6px;
+  color: #d9f2ff;
+  background: rgba(0, 12, 24, 0.52);
+  font: inherit;
+  font-size: 12px;
+}
+
+.v2-command-group li span {
+  color: #94b5c7;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.v2-command-volume {
+  max-width: 470px;
+  margin-top: 18px;
+  font-size: 13px;
+}
+
+.v2-command-app-list {
+  display: grid;
+  gap: 12px;
+}
+
+.v2-command-app {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.55fr) minmax(220px, 1.2fr) minmax(
+      160px,
+      0.7fr
+    ) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(149, 204, 255, 0.16);
+  border-radius: 11px;
+  background: rgba(4, 16, 29, 0.44);
+}
+
+.v2-command-app .v2-field {
+  font-size: 12px;
+}
+
+.v2-command-app .v2-icon-button {
+  color: #ffbfc0;
+  font-size: 20px;
+}
+
+.v2-command-empty-state {
+  display: grid;
+  min-height: 126px;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  padding: 18px;
+  border: 1px dashed rgba(142, 208, 248, 0.24);
+  border-radius: 11px;
+  color: #9ac4d9;
+  text-align: center;
+}
+
+.v2-command-empty-state svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #82d9ff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.v2-command-empty-state strong {
+  color: #e2f4fb;
+  font-size: 14px;
+}
+
+.v2-command-empty-state span {
+  max-width: 520px;
+  color: #9bbacb;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.v2-command-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid rgba(161, 216, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(6, 28, 49, 0.38);
+}
+
+.v2-command-preview > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.v2-command-preview strong,
+.v2-command-preview p {
+  display: block;
+  margin: 0;
+}
+
+.v2-command-preview strong {
+  color: #e4f5fc;
+  font-size: 13px;
+}
+
+.v2-command-preview p {
+  margin-top: 3px;
+  color: #9fbecf;
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.v2-command-preview--neutral > span {
+  color: #b9e9ff;
+  background: rgba(58, 167, 219, 0.26);
+}
+
+.v2-command-preview--ready {
+  border-color: rgba(104, 220, 143, 0.3);
+  background: rgba(25, 111, 67, 0.16);
+}
+
+.v2-command-preview--ready > span {
+  color: #083d21;
+  background: #7fe6a1;
+}
+
+.v2-command-preview--attention {
+  border-color: rgba(255, 196, 99, 0.3);
+  background: rgba(135, 91, 16, 0.15);
+}
+
+.v2-command-preview--attention > span {
+  color: #5f3b08;
+  background: #ffd077;
+}
+
+.v2-command-roadmap {
+  border-color: rgba(189, 150, 255, 0.26);
+  background: linear-gradient(
+    125deg,
+    rgba(92, 70, 176, 0.18),
+    rgba(8, 20, 42, 0.54) 62%,
+    rgba(66, 92, 180, 0.13)
+  );
+}
+
+.v2-command-roadmap__badge {
+  margin-left: auto;
+  padding: 6px 9px;
+  border: 1px solid rgba(197, 165, 255, 0.35);
+  border-radius: 999px;
+  color: #decaff;
+  background: rgba(117, 78, 184, 0.18);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.v2-command-roadmap > p {
+  max-width: 720px;
+  margin: 0;
+  color: #c8d8eb;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  .v2-commands-page {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .v2-command-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .v2-command-app {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .v2-command-app .v2-field:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .v2-commands-page {
+    padding: 0 16px 22px;
+  }
+
+  .v2-command-card {
+    padding: 16px;
+  }
+
+  .v2-command-shortcut-layout,
+  .v2-command-app {
+    grid-template-columns: 1fr;
+  }
+
+  .v2-command-app .v2-field:nth-child(2) {
+    grid-column: auto;
+  }
+
+  .v2-command-app .v2-icon-button {
+    width: 100%;
+  }
+
+  .v2-command-card__heading {
+    align-items: flex-start;
+  }
+
+  .v2-command-card__heading .v2-button,
+  .v2-command-roadmap__badge {
+    margin-top: 3px;
+  }
+}
