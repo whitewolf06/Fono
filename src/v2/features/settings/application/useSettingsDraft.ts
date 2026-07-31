@@ -42,6 +42,11 @@ export interface ProcessingPreview {
   fallbackActive: boolean;
 }
 
+export interface SettingsDraftStore {
+  load(): Promise<SettingsDraft>;
+  save(draft: SettingsDraft): Promise<void>;
+}
+
 const initialDraft: SettingsDraft = {
   language: "auto",
   insertionMode: "sendinput",
@@ -70,15 +75,15 @@ const initialProcessingPreview: ProcessingPreview = {
   fallbackActive: false,
 };
 
-export function useSettingsDraft() {
+export function useSettingsDraft(store?: SettingsDraftStore) {
   const [draft, setDraft] = useState<SettingsDraft>(initialDraft);
   const [advancedWakeOpen, setAdvancedWakeOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<SettingsSection[]>(
     loadCollapsedSettingsSections,
   );
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
-    "idle",
-  );
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const [microphoneStatus, setMicrophoneStatus] =
     useState<SettingsStatusDetail>({
       state: "ready",
@@ -110,6 +115,19 @@ export function useSettingsDraft() {
     saveCollapsedSettingsSections(collapsedSections);
   }, [collapsedSections]);
 
+  useEffect(() => {
+    if (!store) return;
+
+    let active = true;
+    void store.load().then((nextDraft) => {
+      if (active) setDraft(nextDraft);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [store]);
+
   const update = <Key extends keyof SettingsDraft>(
     key: Key,
     value: SettingsDraft[Key],
@@ -130,8 +148,19 @@ export function useSettingsDraft() {
     );
   };
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
     setSaveState("saving");
+
+    if (store) {
+      try {
+        await store.save(draft);
+        setSaveState("saved");
+      } catch {
+        setSaveState("error");
+      }
+      return;
+    }
+
     window.setTimeout(() => setSaveState("saved"), 550);
   };
 

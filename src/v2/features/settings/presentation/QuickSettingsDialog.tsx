@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useSettingsDraft } from "../application/useSettingsDraft";
+import type { SettingsDraftStore } from "../application/useSettingsDraft";
 import { RangeField, SettingsStatus, Switch } from "./SettingsPrimitives";
 
 export type QuickSettingsTarget =
@@ -32,9 +33,11 @@ const dialogCopy: Record<
 export function QuickSettingsDialog({
   target,
   onClose,
+  store,
 }: {
   target: QuickSettingsTarget;
   onClose: () => void;
+  store?: SettingsDraftStore;
 }) {
   const {
     draft,
@@ -52,7 +55,7 @@ export function QuickSettingsDialog({
     update,
     wakeWordStatus,
     whisperStatus,
-  } = useSettingsDraft();
+  } = useSettingsDraft(store);
   const copy = dialogCopy[target];
   const wakeWordDisabled = !draft.wakeWordEnabled;
   const processingDisabled = !draft.processingEnabled;

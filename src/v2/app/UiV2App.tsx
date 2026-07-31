@@ -5,6 +5,7 @@ import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStag
 import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
 import { createMockDictationRuntime } from "@/v2/features/dictation/infrastructure/mockDictationRuntime";
 import { createTauriDictationRuntime } from "@/v2/features/dictation/infrastructure/tauriDictationRuntime";
+import { createTauriSettingsDraftStore } from "@/v2/features/settings/infrastructure/tauriSettingsDraftStore";
 import {
   completeOnboarding,
   shouldShowOnboarding,
@@ -45,6 +46,10 @@ export function UiV2App() {
   const runtime = useMemo(
     () =>
       isTauri() ? createTauriDictationRuntime() : createMockDictationRuntime(),
+    [],
+  );
+  const settingsStore = useMemo(
+    () => (isTauri() ? createTauriSettingsDraftStore() : undefined),
     [],
   );
   const isCleanVoicePage = activePage === "voice";
@@ -110,7 +115,10 @@ export function UiV2App() {
             <div className="v2-main-content__inner">
               {activePage === "commands" && <CommandsPage />}
               {activePage === "settings" && (
-                <SettingsPage focusSection={settingsSection} />
+                <SettingsPage
+                  focusSection={settingsSection}
+                  store={settingsStore}
+                />
               )}
               {activePage === "kit" && <UiKitPage />}
             </div>
@@ -121,6 +129,7 @@ export function UiV2App() {
         <QuickSettingsDialog
           target={quickSettingsTarget}
           onClose={() => setQuickSettingsTarget(null)}
+          store={settingsStore}
         />
       )}
       {onboardingOpen && <OnboardingDialog onComplete={closeOnboarding} />}

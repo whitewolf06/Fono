@@ -1,4 +1,7 @@
-import type { SettingsSection } from "../application/useSettingsDraft";
+import type {
+  SettingsDraftStore,
+  SettingsSection,
+} from "../application/useSettingsDraft";
 import { useSettingsDraft } from "../application/useSettingsDraft";
 import {
   ActivationSettingsCard,
@@ -15,9 +18,10 @@ import { PageFrame } from "@/v2/shared/presentation/components/PageFrame";
 
 interface SettingsPageProps {
   focusSection?: SettingsSection;
+  store?: SettingsDraftStore;
 }
 
-export function SettingsPage({ focusSection }: SettingsPageProps) {
+export function SettingsPage({ focusSection, store }: SettingsPageProps) {
   const {
     advancedWakeOpen,
     collapsedSections,
@@ -42,7 +46,7 @@ export function SettingsPage({ focusSection }: SettingsPageProps) {
     update,
     wakeWordStatus,
     whisperStatus,
-  } = useSettingsDraft();
+  } = useSettingsDraft(store);
 
   const sharedProps = { draft, focusSection, update };
   const cardState = (section: SettingsSection) => ({
@@ -54,6 +58,7 @@ export function SettingsPage({ focusSection }: SettingsPageProps) {
     idle: "Сохранить изменения",
     saving: "Сохранение…",
     saved: "Сохранено",
+    error: "Повторить сохранение",
   }[saveState];
 
   return (
@@ -70,7 +75,9 @@ export function SettingsPage({ focusSection }: SettingsPageProps) {
               ? "Изменения ещё не применены."
               : saveState === "saving"
                 ? "Передаю настройки в runtime…"
-                : "Настройки сохранены."}
+                : saveState === "saved"
+                  ? "Настройки сохранены."
+                  : "Не удалось сохранить настройки. Проверьте выбранные устройство и модель."}
           </p>
           <button
             className="v2-button v2-button--primary"
