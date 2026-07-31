@@ -1,9 +1,20 @@
 import { useMemo, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import { CommandsPage } from "@/v2/features/commands/presentation/CommandsPage";
 import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStageLayout";
 import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
 import { createMockDictationRuntime } from "@/v2/features/dictation/infrastructure/mockDictationRuntime";
+import { createTauriDictationRuntime } from "@/v2/features/dictation/infrastructure/tauriDictationRuntime";
+import {
+  completeOnboarding,
+  shouldShowOnboarding,
+} from "@/v2/features/onboarding/infrastructure/onboardingPreferences";
+import { OnboardingDialog } from "@/v2/features/onboarding/presentation/OnboardingDialog";
 import type { SettingsSection } from "@/v2/features/settings/application/useSettingsDraft";
+import {
+  QuickSettingsDialog,
+  type QuickSettingsTarget,
+} from "@/v2/features/settings/presentation/QuickSettingsDialog";
 import { SettingsPage } from "@/v2/features/settings/presentation/SettingsPage";
 import { AppIcon } from "@/v2/shared/presentation/components/AppIcon";
 import { UiKitPage } from "@/v2/shared/presentation/UiKitPage";
@@ -28,19 +39,23 @@ export function UiV2App() {
   const [activePage, setActivePage] = useState<NavigationItem>("voice");
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("general");
-  const runtime = useMemo(() => createMockDictationRuntime(), []);
+  const [quickSettingsTarget, setQuickSettingsTarget] =
+    useState<QuickSettingsTarget | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(shouldShowOnboarding);
+  const runtime = useMemo(
+    () =>
+      isTauri() ? createTauriDictationRuntime() : createMockDictationRuntime(),
+    [],
+  );
   const isCleanVoicePage = activePage === "voice";
 
   const openSettings = (target: VoiceSetupTarget) => {
-    const sectionByTarget: Record<VoiceSetupTarget, SettingsSection> = {
-      microphone: "audio",
-      "wake-word": "activation",
-      recognition: "audio",
-      "post-processing": "processing",
-    };
+    setQuickSettingsTarget(target);
+  };
 
-    setSettingsSection(sectionByTarget[target]);
-    setActivePage("settings");
+  const closeOnboarding = () => {
+    completeOnboarding();
+    setOnboardingOpen(false);
   };
 
   return (
@@ -72,6 +87,15 @@ export function UiV2App() {
               </button>
             ))}
           </nav>
+          <div className="v2-sidebar__bottom">
+            <button
+              className="v2-sidebar-onboarding"
+              type="button"
+              onClick={() => setOnboardingOpen(true)}
+            >
+              Быстрый старт
+            </button>
+          </div>
         </aside>
         {isCleanVoicePage && (
           <main
@@ -93,6 +117,13 @@ export function UiV2App() {
           </main>
         )}
       </div>
+      {quickSettingsTarget && (
+        <QuickSettingsDialog
+          target={quickSettingsTarget}
+          onClose={() => setQuickSettingsTarget(null)}
+        />
+      )}
+      {onboardingOpen && <OnboardingDialog onComplete={closeOnboarding} />}
     </div>
   );
 }

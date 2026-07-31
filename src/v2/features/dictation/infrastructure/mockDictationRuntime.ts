@@ -66,10 +66,13 @@ export function createMockDictationRuntime(): DictationRuntime {
       });
       timer = window.setTimeout(() => {
         emit({ ...snapshot, phase: "processing" });
-        timer = window.setTimeout(
-          () => emit({ ...snapshot, phase: "idle" }),
-          900,
-        );
+        timer = window.setTimeout(() => {
+          emit({ ...snapshot, phase: "injecting" });
+          timer = window.setTimeout(
+            () => emit({ ...snapshot, phase: "idle" }),
+            650,
+          );
+        }, 700);
       }, 900);
     },
     subscribe: (listener) => {

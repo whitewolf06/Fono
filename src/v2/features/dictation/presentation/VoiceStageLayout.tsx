@@ -1,9 +1,10 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { phaseCopy } from "@/v2/shared/domain/pipeline";
 import { MicIcon } from "@/v2/shared/presentation/components/MicIcon";
 import { useDictationDashboard } from "../application/useDictationDashboard";
 import type { DictationRuntime } from "../application/dictationRuntime";
 import { CanvasVoiceWave } from "./CanvasVoiceWave";
+import { DictationHistoryPanel } from "./DictationHistoryPanel";
 import { SvgVoiceWave } from "./SvgVoiceWave";
 import { TranscriptResultCard } from "./TranscriptResultCard";
 import { VoiceSetupCards, type VoiceSetupTarget } from "./VoiceSetupCards";
@@ -17,24 +18,9 @@ export function VoiceStageLayout({
 }) {
   const { snapshot, readiness, settingsSummary, start, stop, toggleWakeWord } =
     useDictationDashboard(runtime);
-  const [remaining, setRemaining] = useState(2.6);
   const [debugVoiceLevel, setDebugVoiceLevel] = useState(18);
   const [waveRenderer, setWaveRenderer] = useState<"svg" | "canvas">("svg");
-
-  useEffect(() => {
-    if (snapshot?.phase !== "listening") {
-      setRemaining(2.6);
-      return undefined;
-    }
-
-    const timer = window.setInterval(() => {
-      setRemaining((value) =>
-        value <= 0.1 ? 2.6 : Number((value - 0.1).toFixed(1)),
-      );
-    }, 100);
-
-    return () => window.clearInterval(timer);
-  }, [snapshot?.phase]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   if (!snapshot) return null;
 
@@ -43,12 +29,6 @@ export function VoiceStageLayout({
     snapshot.phase,
   );
   const status = phaseCopy[snapshot.phase];
-  const displayStatus = isProcessing
-    ? {
-        label: "Обрабатываю…",
-        hint: "Fono завершает диктовку и вставляет текст.",
-      }
-    : status;
   const actionLabel = isListening
     ? "Остановить диктовку"
     : isProcessing
@@ -74,6 +54,11 @@ export function VoiceStageLayout({
           )}
         </div>
         <div className="v2-voice-stage-layout__action">
+          <span
+            className={`v2-voice-stage-layout__status is-${snapshot.phase}`}
+          >
+            {status.label}
+          </span>
           <button
             className={`v2-glow-outline-button v2-voice-stage-layout__primary-action ${
               isProcessing ? "is-processing" : ""
@@ -84,22 +69,8 @@ export function VoiceStageLayout({
           >
             <MicIcon />
             {actionLabel}
-            <span
-              className={`v2-voice-stage-layout__pause-indicator ${
-                isListening ? "is-active" : ""
-              }`}
-              aria-hidden="true"
-            >
-              <i
-                style={
-                  {
-                    "--progress": `${isListening ? (remaining / 2.6) * 100 : 0}%`,
-                  } as CSSProperties
-                }
-              />
-            </span>
           </button>
-          <p className="v2-voice-stage-layout__hint">{displayStatus.hint}</p>
+          <p className="v2-voice-stage-layout__hint">{status.hint}</p>
           <span className="v2-voice-stage-layout__hotkey">
             <kbd>{snapshot.hotkey}</kbd>
             {isListening ? " закончить запись" : " начать запись"}
@@ -109,7 +80,11 @@ export function VoiceStageLayout({
         <TranscriptResultCard
           transcript={snapshot.transcript}
           isProcessing={isProcessing}
+          onOpenHistory={() => setHistoryOpen(true)}
         />
+        {historyOpen && (
+          <DictationHistoryPanel onClose={() => setHistoryOpen(false)} />
+        )}
         {showDebug && (
           <aside className="v2-voice-debug-panel">
             <span>DEBUG · голос</span>

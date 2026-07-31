@@ -18,9 +18,43 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ focusSection }: SettingsPageProps) {
-  const { advancedWakeOpen, draft, setAdvancedWakeOpen, update } =
-    useSettingsDraft();
+  const {
+    advancedWakeOpen,
+    collapsedSections,
+    draft,
+    effectiveAcceleration,
+    hasMicrophoneSample,
+    lmStudioStatus,
+    microphoneStatus,
+    overlayStatus,
+    playMicrophoneSample,
+    processingPreview,
+    reloadWhisperModel,
+    restoreOriginalTranscript,
+    saveSettings,
+    saveState,
+    setAdvancedWakeOpen,
+    showOverlayTest,
+    testLmStudio,
+    testMicrophone,
+    testWakeWord,
+    toggleCollapsedSection,
+    update,
+    wakeWordStatus,
+    whisperStatus,
+  } = useSettingsDraft();
+
   const sharedProps = { draft, focusSection, update };
+  const cardState = (section: SettingsSection) => ({
+    collapsed: collapsedSections.includes(section),
+    onToggleCollapsed: () => toggleCollapsedSection(section),
+  });
+
+  const saveCopy = {
+    idle: "Сохранить изменения",
+    saving: "Сохранение…",
+    saved: "Сохранено",
+  }[saveState];
 
   return (
     <PageFrame
@@ -29,17 +63,63 @@ export function SettingsPage({ focusSection }: SettingsPageProps) {
       description="Все основные настройки Fono собраны на одной странице."
     >
       <div className="v2-settings-page">
+        <div className={`v2-settings-savebar is-${saveState}`}>
+          <span>{saveState === "saved" ? "✓" : "•"}</span>
+          <p>
+            {saveState === "idle"
+              ? "Изменения ещё не применены."
+              : saveState === "saving"
+                ? "Передаю настройки в runtime…"
+                : "Настройки сохранены."}
+          </p>
+          <button
+            className="v2-button v2-button--primary"
+            type="button"
+            disabled={saveState === "saving"}
+            onClick={saveSettings}
+          >
+            {saveCopy}
+          </button>
+        </div>
         <div className="v2-settings-grid">
-          <GeneralSettingsCard {...sharedProps} />
-          <AudioSettingsCard {...sharedProps} />
+          <GeneralSettingsCard {...sharedProps} {...cardState("general")} />
+          <AudioSettingsCard
+            {...sharedProps}
+            {...cardState("audio")}
+            effectiveAcceleration={effectiveAcceleration}
+            hasMicrophoneSample={hasMicrophoneSample}
+            microphoneStatus={microphoneStatus}
+            whisperStatus={whisperStatus}
+            onPlayMicrophoneSample={playMicrophoneSample}
+            onReloadWhisperModel={reloadWhisperModel}
+            onTestMicrophone={testMicrophone}
+          />
           <ActivationSettingsCard
             {...sharedProps}
+            {...cardState("activation")}
             advancedWakeOpen={advancedWakeOpen}
+            wakeWordStatus={wakeWordStatus}
+            onTestWakeWord={testWakeWord}
             onToggleAdvancedWake={() => setAdvancedWakeOpen(!advancedWakeOpen)}
           />
-          <ProcessingSettingsCard {...sharedProps} />
-          <OverlaySettingsCard {...sharedProps} />
-          <DiagnosticsSettingsCard {...sharedProps} />
+          <ProcessingSettingsCard
+            {...sharedProps}
+            {...cardState("processing")}
+            lmStudioStatus={lmStudioStatus}
+            processingPreview={processingPreview}
+            onRestoreOriginalTranscript={restoreOriginalTranscript}
+            onTestLmStudio={testLmStudio}
+          />
+          <OverlaySettingsCard
+            {...sharedProps}
+            {...cardState("overlay")}
+            overlayStatus={overlayStatus}
+            onShowOverlayTest={showOverlayTest}
+          />
+          <DiagnosticsSettingsCard
+            {...sharedProps}
+            {...cardState("advanced")}
+          />
         </div>
       </div>
     </PageFrame>

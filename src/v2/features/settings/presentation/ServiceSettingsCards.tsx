@@ -1,32 +1,65 @@
-import type { SettingsDraft } from "../application/useSettingsDraft";
+import type {
+  ProcessingPreview,
+  SettingsDraft,
+  SettingsStatusDetail,
+} from "../application/useSettingsDraft";
 import {
   RangeField,
   SettingRow,
   SectionIcon,
   SettingsCard,
+  SettingsStatus,
   Switch,
 } from "./SettingsPrimitives";
 
-interface SettingsCardsProps {
+interface SettingsCardBaseProps {
   draft: SettingsDraft;
   focusSection?: string;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   update: <Key extends keyof SettingsDraft>(
     key: Key,
     value: SettingsDraft[Key],
   ) => void;
 }
 
+interface ProcessingSettingsCardProps extends SettingsCardBaseProps {
+  lmStudioStatus: SettingsStatusDetail;
+  processingPreview: ProcessingPreview;
+  onRestoreOriginalTranscript: () => void;
+  onTestLmStudio: () => void;
+}
+
+interface OverlaySettingsCardProps extends SettingsCardBaseProps {
+  overlayStatus: SettingsStatusDetail;
+  onShowOverlayTest: () => void;
+}
+
 export function ProcessingSettingsCard({
+  collapsed,
   draft,
   focusSection,
+  lmStudioStatus,
+  onRestoreOriginalTranscript,
+  onTestLmStudio,
+  onToggleCollapsed,
+  processingPreview,
   update,
-}: SettingsCardsProps) {
+}: ProcessingSettingsCardProps) {
+  const processingDisabled = !draft.processingEnabled;
+  const displayedText =
+    processingPreview.displayedText === "source"
+      ? processingPreview.sourceText
+      : processingPreview.processedText;
+
   return (
     <SettingsCard
+      collapsed={collapsed}
       icon="processing"
       title="Постобработка"
-      description="Опциональная очистка текста перед вставкой."
+      description="Необязательная очистка текста перед вставкой."
       focused={focusSection === "processing"}
+      onToggleCollapsed={onToggleCollapsed}
     >
       <SettingRow
         title="Обрабатывать текст после распознавания"
@@ -37,55 +70,105 @@ export function ProcessingSettingsCard({
           onChange={(checked) => update("processingEnabled", checked)}
         />
       </SettingRow>
-      <fieldset className="v2-radio-group">
-        <legend>Режим обработки</legend>
-        <label className="v2-radio">
-          <input
-            type="radio"
-            name="processing-mode"
-            checked={draft.processingMode === "clean"}
-            onChange={() => update("processingMode", "clean")}
-          />
-          <span aria-hidden="true" />
-          Лёгкая очистка
-        </label>
-        <label className="v2-radio">
-          <input
-            type="radio"
-            name="processing-mode"
-            checked={draft.processingMode === "format"}
-            onChange={() => update("processingMode", "format")}
-          />
-          <span aria-hidden="true" />
-          Форматирование
-        </label>
-      </fieldset>
-      <article className="v2-settings-service-card">
-        <SectionIcon type="processing" />
-        <div>
-          <span>Провайдер</span>
-          <strong>LM Studio · локальный сервер</strong>
-          <small>Подключение будет проверяться при интеграции с runtime.</small>
+      <div
+        className={`v2-settings-dependent-group ${processingDisabled ? "is-disabled" : ""}`}
+      >
+        <SettingRow
+          disabled={processingDisabled}
+          title="Режим обработки"
+          description="Лёгкий режим только очищает текст; форматирование меняет структуру."
+        >
+          <fieldset
+            className="v2-radio-group v2-radio-group--inline"
+            disabled={processingDisabled}
+          >
+            <legend className="v2-sr-only">Режим обработки</legend>
+            <label className="v2-radio">
+              <input
+                type="radio"
+                name="processing-mode"
+                checked={draft.processingMode === "clean"}
+                onChange={() => update("processingMode", "clean")}
+              />
+              <span aria-hidden="true" />
+              Лёгкая очистка
+            </label>
+            <label className="v2-radio">
+              <input
+                type="radio"
+                name="processing-mode"
+                checked={draft.processingMode === "format"}
+                onChange={() => update("processingMode", "format")}
+              />
+              <span aria-hidden="true" />
+              Форматирование
+            </label>
+          </fieldset>
+        </SettingRow>
+        <article className="v2-settings-service-card">
+          <SectionIcon type="processing" />
+          <div>
+            <span>Провайдер</span>
+            <strong>LM Studio · локальный сервер</strong>
+            <small>
+              Если сервер недоступен или истёк тайм-аут, Fono вставит исходную
+              расшифровку.
+            </small>
+          </div>
+          <button
+            className="v2-button"
+            type="button"
+            disabled={processingDisabled}
+            onClick={onTestLmStudio}
+          >
+            Проверить
+          </button>
+        </article>
+        <SettingsStatus status={lmStudioStatus} />
+        <div
+          className={`v2-settings-text-preview ${processingPreview.fallbackActive ? "is-fallback" : ""}`}
+        >
+          <div>
+            <span>
+              {processingPreview.fallbackActive
+                ? "Исходный текст"
+                : "Результат обработки"}
+            </span>
+            <p>{displayedText}</p>
+          </div>
+          <button
+            className="v2-button v2-button--ghost"
+            type="button"
+            disabled={processingPreview.displayedText === "source"}
+            onClick={onRestoreOriginalTranscript}
+          >
+            Вернуть исходный
+          </button>
         </div>
-        <button className="v2-button" type="button">
-          Настроить
-        </button>
-      </article>
+      </div>
     </SettingsCard>
   );
 }
 
 export function OverlaySettingsCard({
+  collapsed,
   draft,
   focusSection,
+  onShowOverlayTest,
+  onToggleCollapsed,
+  overlayStatus,
   update,
-}: SettingsCardsProps) {
+}: OverlaySettingsCardProps) {
+  const overlayDisabled = !draft.overlayVisible;
+
   return (
     <SettingsCard
+      collapsed={collapsed}
       icon="overlay"
       title="Overlay"
       description="Отдельное плавающее окно, видимое во время диктовки."
       focused={focusSection === "overlay"}
+      onToggleCollapsed={onToggleCollapsed}
     >
       <SettingRow
         title="Показывать overlay"
@@ -96,60 +179,79 @@ export function OverlaySettingsCard({
           onChange={(checked) => update("overlayVisible", checked)}
         />
       </SettingRow>
-      <RangeField
-        label="Масштаб"
-        value={draft.overlayScale}
-        min={80}
-        max={130}
-        suffix="%"
-        onChange={(value) => update("overlayScale", value)}
-      />
-      <RangeField
-        label="Непрозрачность"
-        value={draft.overlayOpacity}
-        min={55}
-        max={100}
-        suffix="%"
-        onChange={(value) => update("overlayOpacity", value)}
-      />
-      <SettingRow
-        title="Компактный режим"
-        description="Показывать только ключевой статус и управление."
+      <div
+        className={`v2-settings-dependent-group ${overlayDisabled ? "is-disabled" : ""}`}
       >
-        <Switch
-          checked={draft.overlayMiniMode}
-          onChange={(checked) => update("overlayMiniMode", checked)}
+        <RangeField
+          disabled={overlayDisabled}
+          label="Масштаб"
+          value={draft.overlayScale}
+          min={80}
+          max={130}
+          suffix="%"
+          onChange={(value) => update("overlayScale", value)}
         />
-      </SettingRow>
+        <RangeField
+          disabled={overlayDisabled}
+          label="Непрозрачность"
+          value={draft.overlayOpacity}
+          min={55}
+          max={100}
+          suffix="%"
+          onChange={(value) => update("overlayOpacity", value)}
+        />
+        <SettingRow
+          disabled={overlayDisabled}
+          title="Компактный режим"
+          description="Показывать только ключевой статус и управление."
+        >
+          <Switch
+            checked={draft.overlayMiniMode}
+            disabled={overlayDisabled}
+            onChange={(checked) => update("overlayMiniMode", checked)}
+          />
+        </SettingRow>
+        <div className="v2-settings-action-row">
+          <button
+            className="v2-button"
+            type="button"
+            disabled={overlayDisabled}
+            onClick={onShowOverlayTest}
+          >
+            Показать тестовый overlay
+          </button>
+        </div>
+        <SettingsStatus status={overlayStatus} />
+      </div>
     </SettingsCard>
   );
 }
 
-export function DiagnosticsSettingsCard({ draft, update }: SettingsCardsProps) {
+export function DiagnosticsSettingsCard({
+  collapsed,
+  draft,
+  onToggleCollapsed,
+  update,
+}: SettingsCardBaseProps) {
   return (
     <SettingsCard
+      collapsed={collapsed}
       icon="advanced"
       title="Диагностика"
-      description="Тесты и логи вынесены отдельно от ежедневных настроек."
+      description="Логи и системные ошибки, которые помогут найти проблему."
+      onToggleCollapsed={onToggleCollapsed}
     >
       <article className="v2-settings-service-card">
-        <SectionIcon type="audio" />
+        <SectionIcon type="advanced" />
         <div>
-          <strong>Тест микрофона</strong>
-          <small>Проверить устройство, уровень сигнала и доступ Windows.</small>
+          <strong>Ошибки устройств и ускорения</strong>
+          <small>
+            Сообщения микрофона, CUDA, Vulkan, wake word и LM Studio появятся
+            здесь с понятным действием.
+          </small>
         </div>
         <button className="v2-button" type="button">
-          Открыть тест
-        </button>
-      </article>
-      <article className="v2-settings-service-card">
-        <SectionIcon type="activation" />
-        <div>
-          <strong>Отладка wake word</strong>
-          <small>Тест WAV, запись образца, модель и последний результат.</small>
-        </div>
-        <button className="v2-button" type="button">
-          Открыть отладку
+          Открыть журнал
         </button>
       </article>
       <SettingRow

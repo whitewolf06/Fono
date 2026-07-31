@@ -1,10 +1,13 @@
 import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import type { SettingsStatusDetail } from "../application/useSettingsDraft";
 
 interface SettingsCardProps {
   title: string;
   description: string;
   icon: SettingsIconName;
   focused?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   children: ReactNode;
 }
 
@@ -16,10 +19,22 @@ export function SettingsCard({
   description,
   icon,
   focused = false,
+  collapsed,
+  onToggleCollapsed,
   children,
 }: SettingsCardProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(false);
   const contentId = useId();
+  const isCollapsed = collapsed ?? uncontrolledCollapsed;
+
+  const toggleCollapsed = () => {
+    if (onToggleCollapsed) {
+      onToggleCollapsed();
+      return;
+    }
+
+    setUncontrolledCollapsed((current) => !current);
+  };
 
   return (
     <section
@@ -35,7 +50,7 @@ export function SettingsCard({
           aria-controls={contentId}
           aria-expanded={!isCollapsed}
           aria-label={`${isCollapsed ? "Развернуть" : "Свернуть"} раздел «${title}»`}
-          onClick={() => setIsCollapsed((current) => !current)}
+          onClick={toggleCollapsed}
         />
         <span className="v2-settings-card__icon">
           <SectionIcon type={icon} />
@@ -58,14 +73,16 @@ export function SettingsCard({
 export function SettingRow({
   title,
   description,
+  disabled = false,
   children,
 }: {
   title: string;
   description: string;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="v2-kit-setting">
+    <div className={`v2-kit-setting ${disabled ? "is-disabled" : ""}`}>
       <div>
         <strong>{title}</strong>
         <span>{description}</span>
@@ -78,14 +95,17 @@ export function SettingRow({
 export function Switch({
   checked,
   onChange,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       className={`v2-switch ${checked ? "is-on" : ""}`}
       type="button"
+      disabled={disabled}
       aria-pressed={checked}
       onClick={() => onChange(!checked)}
     >
@@ -102,6 +122,7 @@ export function RangeField({
   max = 100,
   step = 1,
   suffix,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -110,6 +131,7 @@ export function RangeField({
   max?: number;
   step?: number;
   suffix: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="v2-field v2-field--range">
@@ -126,6 +148,7 @@ export function RangeField({
         max={max}
         step={step}
         value={value}
+        disabled={disabled}
         style={
           {
             "--range": `${((value - min) / (max - min)) * 100}%`,
@@ -152,6 +175,22 @@ export function SignalPreview() {
         <i />
       </div>
       <small>Микрофон отвечает, средний уровень 34%.</small>
+    </div>
+  );
+}
+
+export function SettingsStatus({ status }: { status: SettingsStatusDetail }) {
+  const labelByState: Record<SettingsStatusDetail["state"], string> = {
+    idle: "Не проверено",
+    checking: "Проверка…",
+    ready: "Готово",
+    error: "Нужна проверка",
+  };
+
+  return (
+    <div className={`v2-settings-status v2-settings-status--${status.state}`}>
+      <span>{labelByState[status.state]}</span>
+      <p>{status.message}</p>
     </div>
   );
 }

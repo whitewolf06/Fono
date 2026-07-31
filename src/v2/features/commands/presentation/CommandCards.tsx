@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { CommandPreview, LaunchAppDraft } from "../domain/commandCatalog";
 import { builtInCommandGroups } from "../domain/commandCatalog";
 import { AppIcon, ShortcutIcon } from "./CommandIcons";
+import { ShortcutRecorder } from "@/v2/shared/presentation/components/ShortcutRecorder";
 
 interface CommandsDraftValues {
   hotkey: string;
@@ -44,13 +45,15 @@ export function CommandShortcutCard({ draft, update }: CommandCardProps) {
         </div>
       </div>
       <div className="v2-command-shortcut-layout">
-        <label className="v2-field">
-          <span>Горячая клавиша голосовых команд</span>
-          <input
-            value={draft.hotkey}
-            onChange={(event) => update("hotkey", event.target.value)}
-          />
-        </label>
+        <ShortcutRecorder
+          label="Горячая клавиша голосовых команд"
+          value={draft.hotkey}
+          defaultValue="Ctrl + Shift + Space"
+          conflicts={[
+            { value: "Ctrl + Alt + F", label: "горячая клавиша диктовки" },
+          ]}
+          onChange={(value) => update("hotkey", value)}
+        />
         <ol className="v2-command-steps">
           <li>
             <b>1</b> Зажмите клавишу.

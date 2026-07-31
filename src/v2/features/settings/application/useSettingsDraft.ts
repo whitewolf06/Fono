@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  loadCollapsedSettingsSections,
+  saveCollapsedSettingsSections,
+} from "../infrastructure/settingsUiPreferences";
 
 export type SettingsSection =
   "general" | "audio" | "activation" | "processing" | "overlay" | "advanced";
+
+export type SettingsStatus = "idle" | "checking" | "ready" | "error";
 
 export interface SettingsDraft {
   language: string;
@@ -22,6 +28,18 @@ export interface SettingsDraft {
   overlayOpacity: number;
   overlayMiniMode: boolean;
   verboseLogging: boolean;
+}
+
+export interface SettingsStatusDetail {
+  state: SettingsStatus;
+  message: string;
+}
+
+export interface ProcessingPreview {
+  sourceText: string;
+  processedText: string;
+  displayedText: "source" | "processed";
+  fallbackActive: boolean;
 }
 
 const initialDraft: SettingsDraft = {
@@ -45,21 +63,199 @@ const initialDraft: SettingsDraft = {
   verboseLogging: false,
 };
 
+const initialProcessingPreview: ProcessingPreview = {
+  sourceText: "так вот я хотел бы отправить письмо сегодня",
+  processedText: "Так вот, я хотел бы отправить письмо сегодня.",
+  displayedText: "processed",
+  fallbackActive: false,
+};
+
 export function useSettingsDraft() {
   const [draft, setDraft] = useState<SettingsDraft>(initialDraft);
   const [advancedWakeOpen, setAdvancedWakeOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<SettingsSection[]>(
+    loadCollapsedSettingsSections,
+  );
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
+  const [microphoneStatus, setMicrophoneStatus] =
+    useState<SettingsStatusDetail>({
+      state: "ready",
+      message: "Микрофон доступен для записи.",
+    });
+  const [whisperStatus, setWhisperStatus] = useState<SettingsStatusDetail>({
+    state: "ready",
+    message: "Whisper Small загружена и готова к распознаванию.",
+  });
+  const [wakeWordStatus, setWakeWordStatus] = useState<SettingsStatusDetail>({
+    state: "ready",
+    message: "Sherpa-ONNX ожидает ключевую фразу.",
+  });
+  const [overlayStatus, setOverlayStatus] = useState<SettingsStatusDetail>({
+    state: "idle",
+    message: "Тестовый показ ещё не запускался.",
+  });
+  const [lmStudioStatus, setLmStudioStatus] = useState<SettingsStatusDetail>({
+    state: "idle",
+    message: "Подключение ещё не проверялось.",
+  });
+  const [effectiveAcceleration, setEffectiveAcceleration] = useState("Vulkan");
+  const [hasMicrophoneSample, setHasMicrophoneSample] = useState(false);
+  const [processingPreview, setProcessingPreview] = useState(
+    initialProcessingPreview,
+  );
+
+  useEffect(() => {
+    saveCollapsedSettingsSections(collapsedSections);
+  }, [collapsedSections]);
 
   const update = <Key extends keyof SettingsDraft>(
     key: Key,
     value: SettingsDraft[Key],
   ) => {
     setDraft((current) => ({ ...current, [key]: value }));
+    setSaveState("idle");
+
+    if (key === "acceleration") {
+      setEffectiveAcceleration(resolveEffectiveAcceleration(value));
+    }
+  };
+
+  const toggleCollapsedSection = (section: SettingsSection) => {
+    setCollapsedSections((current) =>
+      current.includes(section)
+        ? current.filter((item) => item !== section)
+        : [...current, section],
+    );
+  };
+
+  const saveSettings = () => {
+    setSaveState("saving");
+    window.setTimeout(() => setSaveState("saved"), 550);
+  };
+
+  const testMicrophone = () => {
+    setMicrophoneStatus({
+      state: "checking",
+      message: "Записываю короткий образец…",
+    });
+    window.setTimeout(() => {
+      setHasMicrophoneSample(true);
+      setMicrophoneStatus({
+        state: "ready",
+        message: "Образец записан: средний уровень 34%.",
+      });
+    }, 700);
+  };
+
+  const playMicrophoneSample = () => {
+    setMicrophoneStatus({
+      state: "ready",
+      message: "В UI v2 образец готов к прослушиванию через runtime.",
+    });
+  };
+
+  const reloadWhisperModel = () => {
+    setWhisperStatus({
+      state: "checking",
+      message: "Загружаю Whisper-модель…",
+    });
+    window.setTimeout(() => {
+      setWhisperStatus({
+        state: "ready",
+        message: `${draft.recognitionModel} загружена и готова к распознаванию.`,
+      });
+    }, 650);
+  };
+
+  const testWakeWord = () => {
+    if (!draft.wakeWordEnabled) {
+      setWakeWordStatus({
+        state: "error",
+        message: "Включите wake word, чтобы проверить ключевую фразу.",
+      });
+      return;
+    }
+
+    setWakeWordStatus({
+      state: "checking",
+      message: "Проверяю ключевую фразу…",
+    });
+    window.setTimeout(() => {
+      setWakeWordStatus({
+        state: "ready",
+        message: `Фраза «${draft.wakePhrase}» передана в тест wake word.`,
+      });
+    }, 600);
+  };
+
+  const showOverlayTest = () => {
+    if (!draft.overlayVisible) {
+      setOverlayStatus({
+        state: "error",
+        message: "Включите overlay, чтобы показать тестовое окно.",
+      });
+      return;
+    }
+
+    setOverlayStatus({
+      state: "ready",
+      message: "Тестовый сценарий подготовлен для отдельного overlay-окна.",
+    });
+  };
+
+  const testLmStudio = () => {
+    setLmStudioStatus({ state: "checking", message: "Проверяю подключение…" });
+    window.setTimeout(() => {
+      setLmStudioStatus({
+        state: "error",
+        message:
+          "UI v2 ещё не подключён к runtime LM Studio. Исходный текст останется без обработки.",
+      });
+    }, 550);
+  };
+
+  const restoreOriginalTranscript = () => {
+    setProcessingPreview((current) => ({
+      ...current,
+      displayedText: "source",
+      fallbackActive: true,
+    }));
   };
 
   return {
     advancedWakeOpen,
+    collapsedSections,
     draft,
+    effectiveAcceleration,
+    hasMicrophoneSample,
+    lmStudioStatus,
+    microphoneStatus,
+    overlayStatus,
+    playMicrophoneSample,
+    processingPreview,
+    reloadWhisperModel,
+    restoreOriginalTranscript,
+    saveSettings,
+    saveState,
     setAdvancedWakeOpen,
+    showOverlayTest,
+    testLmStudio,
+    testMicrophone,
+    testWakeWord,
+    toggleCollapsedSection,
     update,
+    wakeWordStatus,
+    whisperStatus,
   };
+}
+
+function resolveEffectiveAcceleration(
+  value: SettingsDraft[keyof SettingsDraft],
+) {
+  if (value === "cuda") return "CUDA";
+  if (value === "vulkan") return "Vulkan";
+  if (value === "cpu") return "CPU";
+  return "Vulkan";
 }

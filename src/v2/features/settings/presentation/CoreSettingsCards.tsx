@@ -1,37 +1,60 @@
-import type { SettingsDraft } from "../application/useSettingsDraft";
+import type {
+  SettingsDraft,
+  SettingsStatusDetail,
+} from "../application/useSettingsDraft";
 import {
   RangeField,
   SettingRow,
   SettingsCard,
+  SettingsStatus,
   SignalPreview,
   Switch,
 } from "./SettingsPrimitives";
+import { ShortcutRecorder } from "@/v2/shared/presentation/components/ShortcutRecorder";
 
-interface SettingsCardsProps {
+interface SettingsCardBaseProps {
   draft: SettingsDraft;
   focusSection?: string;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   update: <Key extends keyof SettingsDraft>(
     key: Key,
     value: SettingsDraft[Key],
   ) => void;
 }
 
-interface ActivationSettingsCardProps extends SettingsCardsProps {
+interface AudioSettingsCardProps extends SettingsCardBaseProps {
+  effectiveAcceleration: string;
+  hasMicrophoneSample: boolean;
+  microphoneStatus: SettingsStatusDetail;
+  whisperStatus: SettingsStatusDetail;
+  onPlayMicrophoneSample: () => void;
+  onReloadWhisperModel: () => void;
+  onTestMicrophone: () => void;
+}
+
+interface ActivationSettingsCardProps extends SettingsCardBaseProps {
   advancedWakeOpen: boolean;
+  wakeWordStatus: SettingsStatusDetail;
+  onTestWakeWord: () => void;
   onToggleAdvancedWake: () => void;
 }
 
 export function GeneralSettingsCard({
+  collapsed,
   draft,
   focusSection,
+  onToggleCollapsed,
   update,
-}: SettingsCardsProps) {
+}: SettingsCardBaseProps) {
   return (
     <SettingsCard
+      collapsed={collapsed}
       icon="general"
       title="Основное"
       description="Настройки, которые влияют на каждую диктовку."
       focused={focusSection === "general"}
+      onToggleCollapsed={onToggleCollapsed}
     >
       <SettingRow
         title="Запускать вместе с Windows"
@@ -42,9 +65,12 @@ export function GeneralSettingsCard({
           onChange={(checked) => update("autostart", checked)}
         />
       </SettingRow>
-      <label className="v2-field">
-        <span>Язык распознавания</span>
+      <SettingRow
+        title="Язык распознавания"
+        description="Автоопределение выбирает язык для каждой новой записи."
+      >
         <select
+          aria-label="Язык распознавания"
           value={draft.language}
           onChange={(event) => update("language", event.target.value)}
         >
@@ -52,56 +78,69 @@ export function GeneralSettingsCard({
           <option value="ru">Русский</option>
           <option value="en">English</option>
         </select>
-      </label>
-      <label className="v2-field">
-        <span>Горячая клавиша диктовки</span>
-        <input
-          value={draft.hotkey}
-          onChange={(event) => update("hotkey", event.target.value)}
-        />
-      </label>
-      <fieldset className="v2-radio-group">
-        <legend>Способ вставки текста</legend>
-        <label className="v2-radio">
-          <input
-            type="radio"
-            name="insertion-mode"
-            checked={draft.insertionMode === "sendinput"}
-            onChange={() => update("insertionMode", "sendinput")}
-          />
-          <span aria-hidden="true" />
-          SendInput
-        </label>
-        <label className="v2-radio">
-          <input
-            type="radio"
-            name="insertion-mode"
-            checked={draft.insertionMode === "clipboard"}
-            onChange={() => update("insertionMode", "clipboard")}
-          />
-          <span aria-hidden="true" />
-          Буфер обмена
-        </label>
-      </fieldset>
+      </SettingRow>
+      <SettingRow
+        title="Способ вставки текста"
+        description="Прямая вставка быстрее; буфер обмена пригодится в несовместимых приложениях."
+      >
+        <fieldset className="v2-radio-group v2-radio-group--inline">
+          <legend className="v2-sr-only">Способ вставки текста</legend>
+          <label className="v2-radio">
+            <input
+              type="radio"
+              name="insertion-mode"
+              checked={draft.insertionMode === "sendinput"}
+              onChange={() => update("insertionMode", "sendinput")}
+            />
+            <span aria-hidden="true" />
+            <b>Прямая вставка</b>
+            <small>SendInput</small>
+          </label>
+          <label className="v2-radio">
+            <input
+              type="radio"
+              name="insertion-mode"
+              checked={draft.insertionMode === "clipboard"}
+              onChange={() => update("insertionMode", "clipboard")}
+            />
+            <span aria-hidden="true" />
+            <b>Буфер обмена</b>
+          </label>
+        </fieldset>
+      </SettingRow>
     </SettingsCard>
   );
 }
 
 export function AudioSettingsCard({
+  collapsed,
   draft,
+  effectiveAcceleration,
   focusSection,
+  hasMicrophoneSample,
+  microphoneStatus,
+  onPlayMicrophoneSample,
+  onReloadWhisperModel,
+  onTestMicrophone,
+  onToggleCollapsed,
   update,
-}: SettingsCardsProps) {
+  whisperStatus,
+}: AudioSettingsCardProps) {
   return (
     <SettingsCard
+      collapsed={collapsed}
       icon="audio"
       title="Аудио и распознавание"
-      description="Источник звука, Whisper-модель и ускоритель обработки."
+      description="Источник звука, Whisper-модель и способ ускорения обработки."
       focused={focusSection === "audio"}
+      onToggleCollapsed={onToggleCollapsed}
     >
-      <label className="v2-field">
-        <span>Микрофон</span>
+      <SettingRow
+        title="Микрофон"
+        description="Выберите устройство, с которого Fono будет получать звук."
+      >
         <select
+          aria-label="Микрофон"
           value={draft.microphone}
           onChange={(event) => update("microphone", event.target.value)}
         >
@@ -109,22 +148,58 @@ export function AudioSettingsCard({
           <option>USB Microphone</option>
           <option>Default system device</option>
         </select>
-      </label>
-      <SignalPreview />
-      <label className="v2-field">
-        <span>Модель распознавания</span>
+      </SettingRow>
+      <div className="v2-settings-test-block">
+        <SignalPreview />
+        <div className="v2-settings-action-row">
+          <button
+            className="v2-button v2-button--primary"
+            type="button"
+            onClick={onTestMicrophone}
+          >
+            Записать тест
+          </button>
+          <button
+            className="v2-button"
+            type="button"
+            disabled={!hasMicrophoneSample}
+            onClick={onPlayMicrophoneSample}
+          >
+            Прослушать
+          </button>
+        </div>
+        <SettingsStatus status={microphoneStatus} />
+      </div>
+      <SettingRow
+        title="Whisper-модель"
+        description="Модель определяет баланс между скоростью и точностью распознавания."
+      >
+        <div className="v2-settings-control-stack">
+          <select
+            aria-label="Whisper-модель"
+            value={draft.recognitionModel}
+            onChange={(event) => update("recognitionModel", event.target.value)}
+          >
+            <option>Whisper Small</option>
+            <option>Whisper Base</option>
+            <option>Whisper Medium</option>
+          </select>
+          <button
+            className="v2-button"
+            type="button"
+            onClick={onReloadWhisperModel}
+          >
+            Загрузить
+          </button>
+        </div>
+      </SettingRow>
+      <SettingsStatus status={whisperStatus} />
+      <SettingRow
+        title="Способ ускорения"
+        description="Fono выбирает worker для распознавания; технический backend указан ниже."
+      >
         <select
-          value={draft.recognitionModel}
-          onChange={(event) => update("recognitionModel", event.target.value)}
-        >
-          <option>Whisper Small</option>
-          <option>Whisper Base</option>
-          <option>Whisper Medium</option>
-        </select>
-      </label>
-      <label className="v2-field">
-        <span>Ускорение</span>
-        <select
+          aria-label="Способ ускорения"
           value={draft.acceleration}
           onChange={(event) =>
             update(
@@ -133,34 +208,49 @@ export function AudioSettingsCard({
             )
           }
         >
-          <option value="auto">Авто — рекомендуемый backend</option>
-          <option value="cuda">CUDA — NVIDIA</option>
-          <option value="vulkan">Vulkan — AMD / Intel / NVIDIA</option>
-          <option value="cpu">CPU — режим совместимости</option>
+          <option value="auto">Авто — рекомендовано</option>
+          <option value="cuda">NVIDIA GPU</option>
+          <option value="vulkan">Другой GPU</option>
+          <option value="cpu">CPU — совместимость</option>
         </select>
-      </label>
-      <p className="v2-settings-note">
-        В режиме «Авто» Fono выбирает доступный GPU worker. CPU остаётся
-        запасным режимом совместимости.
+      </SettingRow>
+      <p className="v2-settings-runtime-note">
+        Фактически используется: <strong>{effectiveAcceleration}</strong>. При
+        недоступности GPU Fono переключится на CPU.
       </p>
     </SettingsCard>
   );
 }
 
 export function ActivationSettingsCard({
+  advancedWakeOpen,
+  collapsed,
   draft,
   focusSection,
-  advancedWakeOpen,
+  onTestWakeWord,
   onToggleAdvancedWake,
+  onToggleCollapsed,
   update,
+  wakeWordStatus,
 }: ActivationSettingsCardProps) {
+  const wakeWordDisabled = !draft.wakeWordEnabled;
+
   return (
     <SettingsCard
+      collapsed={collapsed}
       icon="activation"
       title="Активация"
-      description="Hotkey для точного управления и wake word для работы без рук."
+      description="Горячая клавиша для точного управления и wake word для работы без рук."
       focused={focusSection === "activation"}
+      onToggleCollapsed={onToggleCollapsed}
     >
+      <ShortcutRecorder
+        label="Горячая клавиша диктовки"
+        value={draft.hotkey}
+        defaultValue="Ctrl + Alt + F"
+        conflicts={[{ value: "Ctrl + Shift + Space", label: "режим команд" }]}
+        onChange={(value) => update("hotkey", value)}
+      />
       <SettingRow
         title="Wake word"
         description="Слушать ключевую фразу в фоне и запускать диктовку."
@@ -170,58 +260,82 @@ export function ActivationSettingsCard({
           onChange={(checked) => update("wakeWordEnabled", checked)}
         />
       </SettingRow>
-      <label className="v2-field">
-        <span>Ключевая фраза</span>
-        <input
-          value={draft.wakePhrase}
-          disabled={!draft.wakeWordEnabled}
-          onChange={(event) => update("wakePhrase", event.target.value)}
-        />
-      </label>
-      <RangeField
-        label="Чувствительность"
-        value={draft.wakeSensitivity}
-        suffix="%"
-        onChange={(value) => update("wakeSensitivity", value)}
-      />
-      <RangeField
-        label="Пауза перед распознаванием"
-        value={draft.silenceDelay}
-        min={1}
-        max={6}
-        step={0.5}
-        suffix=" с"
-        onChange={(value) => update("silenceDelay", value)}
-      />
-      <div className="v2-accordion">
-        <button
-          className="v2-accordion__trigger"
-          type="button"
-          aria-expanded={advancedWakeOpen}
-          onClick={onToggleAdvancedWake}
+      <div
+        className={`v2-settings-dependent-group ${wakeWordDisabled ? "is-disabled" : ""}`}
+      >
+        <SettingRow
+          disabled={wakeWordDisabled}
+          title="Ключевая фраза"
+          description="Изменение перезапустит detector при подключении runtime."
         >
-          <span>
-            <b>Расширенные параметры wake word</b>
-            <small>Порог срабатывания и VAD — только для диагностики.</small>
-          </span>
-          <i>{advancedWakeOpen ? "−" : "+"}</i>
-        </button>
-        {advancedWakeOpen && (
-          <div className="v2-accordion__content">
-            <div className="v2-advanced-card">
-              <span>Порог срабатывания</span>
-              <strong>0.25</strong>
+          <input
+            aria-label="Ключевая фраза"
+            value={draft.wakePhrase}
+            disabled={wakeWordDisabled}
+            onChange={(event) => update("wakePhrase", event.target.value)}
+          />
+        </SettingRow>
+        <RangeField
+          disabled={wakeWordDisabled}
+          label="Чувствительность"
+          value={draft.wakeSensitivity}
+          suffix="%"
+          onChange={(value) => update("wakeSensitivity", value)}
+        />
+        <RangeField
+          disabled={wakeWordDisabled}
+          label="Пауза перед распознаванием"
+          value={draft.silenceDelay}
+          min={1}
+          max={6}
+          step={0.5}
+          suffix=" с"
+          onChange={(value) => update("silenceDelay", value)}
+        />
+        <div className="v2-settings-action-row">
+          <button
+            className="v2-button"
+            type="button"
+            disabled={wakeWordDisabled}
+            onClick={onTestWakeWord}
+          >
+            Проверить фразу
+          </button>
+        </div>
+        <SettingsStatus status={wakeWordStatus} />
+        <div className="v2-accordion">
+          <button
+            className="v2-accordion__trigger"
+            type="button"
+            disabled={wakeWordDisabled}
+            aria-expanded={advancedWakeOpen}
+            onClick={onToggleAdvancedWake}
+          >
+            <span>
+              <b>Дополнительно</b>
               <small>
-                Ниже — чувствительнее, но больше ложных срабатываний.
+                Порог срабатывания и VAD — для диагностики wake word.
               </small>
+            </span>
+            <i>{advancedWakeOpen ? "−" : "+"}</i>
+          </button>
+          {advancedWakeOpen && (
+            <div className="v2-accordion__content">
+              <div className="v2-advanced-card">
+                <span>Порог срабатывания</span>
+                <strong>0.25</strong>
+                <small>
+                  Ниже — чувствительнее, но выше риск ложных срабатываний.
+                </small>
+              </div>
+              <div className="v2-advanced-card">
+                <span>Порог VAD</span>
+                <strong>0.015</strong>
+                <small>Отделяет речь от фонового шума.</small>
+              </div>
             </div>
-            <div className="v2-advanced-card">
-              <span>Порог VAD</span>
-              <strong>0.015</strong>
-              <small>Отделяет речь от фонового шума.</small>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </SettingsCard>
   );

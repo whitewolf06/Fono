@@ -1,5 +1,5 @@
 .v2-root {
-  min-width: 960px;
+  min-width: 0;
   min-height: 640px;
   min-height: 100vh;
   padding: 28px;
@@ -109,7 +109,7 @@
 }
 .v2-navigation {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 .v2-navigation button {
   position: relative;
@@ -209,9 +209,28 @@
   color: #88a2b8;
   font-size: 11px;
 }
+.v2-sidebar-onboarding {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid rgba(126, 210, 252, 0.2);
+  border-radius: 9px;
+  color: #b7ddf0;
+  background: rgba(20, 84, 127, 0.16);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.v2-sidebar-onboarding:hover,
+.v2-sidebar-onboarding:focus-visible {
+  border-color: rgba(125, 214, 255, 0.5);
+  color: #ecfbff;
+  outline: none;
+  background: rgba(34, 126, 185, 0.3);
+}
 .v2-main-content {
   min-width: 0;
-  padding: 32px 0 26px;
+  padding: 0 0 24px;
   background-color: #030b16;
   background-image: url("/ui-v2/forest-background.png");
   background-position: center center;
@@ -239,7 +258,7 @@
   display: flex;
   align-items: center;
   gap: 13px;
-  padding: 30px 34px;
+  padding: 24px 24px 20px;
 }
 .v2-page-frame__icon {
   display: grid;
