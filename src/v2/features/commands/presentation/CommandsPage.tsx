@@ -1,3 +1,4 @@
+import type { CommandsDraftStore } from "../application/useCommandsDraft";
 import { useCommandsDraft } from "../application/useCommandsDraft";
 import {
   BuiltInCommandsCard,
@@ -9,15 +10,17 @@ import {
 import { CommandIcon } from "./CommandIcons";
 import { PageFrame } from "@/v2/shared/presentation/components/PageFrame";
 
-export function CommandsPage() {
+export function CommandsPage({ store }: { store?: CommandsDraftStore }) {
   const {
     addApplication,
     draft,
     preview,
     removeApplication,
+    save,
+    saveState,
     update,
     updateApplication,
-  } = useCommandsDraft();
+  } = useCommandsDraft(store);
 
   const cardProps = {
     addApplication,
@@ -34,6 +37,23 @@ export function CommandsPage() {
       description="Управляйте Windows голосом: громкость, медиа, окна и настроенные приложения."
     >
       <div className="v2-commands-page">
+        <div className={`v2-commands-savebar is-${saveState}`}>
+          <span>
+            {saveState === "saved"
+              ? "Команды сохранены"
+              : saveState === "error"
+                ? "Не удалось сохранить команды"
+                : "Изменения применятся после сохранения"}
+          </span>
+          <button
+            className="v2-button v2-button--primary"
+            type="button"
+            disabled={saveState === "saving"}
+            onClick={save}
+          >
+            {saveState === "saving" ? "Сохранение…" : "Сохранить"}
+          </button>
+        </div>
         <CommandShortcutCard {...cardProps} />
         <BuiltInCommandsCard {...cardProps} />
         <LaunchApplicationsCard {...cardProps} />

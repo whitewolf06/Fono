@@ -232,10 +232,9 @@
 
 .v2-command-app {
   display: grid;
-  grid-template-columns: minmax(140px, 0.55fr) minmax(220px, 1.2fr) minmax(
-      160px,
-      0.7fr
-    ) auto;
+  grid-template-columns:
+    minmax(140px, 0.55fr) minmax(220px, 1.2fr) minmax(160px, 0.7fr)
+    auto;
   align-items: end;
   gap: 12px;
   padding: 14px;
@@ -431,4 +430,26 @@
   .v2-command-roadmap__badge {
     margin-top: 3px;
   }
+}
+.v2-commands-savebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(132, 207, 249, 0.18);
+  border-radius: 10px;
+  color: #afcddd;
+  background: rgba(3, 20, 39, 0.5);
+  font-size: 13px;
+}
+
+.v2-commands-savebar.is-saved {
+  border-color: rgba(109, 219, 145, 0.34);
+  color: #98e4ae;
+}
+
+.v2-commands-savebar.is-error {
+  border-color: rgba(255, 145, 145, 0.36);
+  color: #ffb4b4;
 }

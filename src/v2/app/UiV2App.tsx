@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { CommandsPage } from "@/v2/features/commands/presentation/CommandsPage";
+import { createTauriCommandsDraftStore } from "@/v2/features/commands/infrastructure/tauriCommandsDraftStore";
 import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStageLayout";
 import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
 import { createMockDictationRuntime } from "@/v2/features/dictation/infrastructure/mockDictationRuntime";
@@ -50,6 +51,10 @@ export function UiV2App() {
   );
   const settingsStore = useMemo(
     () => (isTauri() ? createTauriSettingsDraftStore() : undefined),
+    [],
+  );
+  const commandsStore = useMemo(
+    () => (isTauri() ? createTauriCommandsDraftStore() : undefined),
     [],
   );
   const isCleanVoicePage = activePage === "voice";
@@ -113,7 +118,9 @@ export function UiV2App() {
         {!isCleanVoicePage && (
           <main className="v2-main-content">
             <div className="v2-main-content__inner">
-              {activePage === "commands" && <CommandsPage />}
+              {activePage === "commands" && (
+                <CommandsPage store={commandsStore} />
+              )}
               {activePage === "settings" && (
                 <SettingsPage
                   focusSection={settingsSection}

@@ -1,11 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { previewCommand, type LaunchAppDraft } from "../domain/commandCatalog";
 
-interface CommandsDraft {
+export interface CommandsDraft {
   hotkey: string;
   volumeStep: number;
   applications: LaunchAppDraft[];
   testPhrase: string;
+}
+
+export interface CommandsDraftStore {
+  load(): Promise<CommandsDraft>;
+  save(draft: CommandsDraft): Promise<void>;
 }
 
 const initialDraft: CommandsDraft = {
@@ -15,8 +20,24 @@ const initialDraft: CommandsDraft = {
   testPhrase: "",
 };
 
-export function useCommandsDraft() {
+export function useCommandsDraft(store?: CommandsDraftStore) {
   const [draft, setDraft] = useState(initialDraft);
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+
+  useEffect(() => {
+    if (!store) return;
+
+    let active = true;
+    void store.load().then((nextDraft) => {
+      if (active) setDraft(nextDraft);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [store]);
 
   const preview = useMemo(
     () =>
@@ -29,6 +50,7 @@ export function useCommandsDraft() {
     value: CommandsDraft[Key],
   ) => {
     setDraft((current) => ({ ...current, [key]: value }));
+    setSaveState("idle");
   };
 
   const addApplication = () => {
@@ -68,11 +90,25 @@ export function useCommandsDraft() {
     }));
   };
 
+  const save = async () => {
+    if (!store) return;
+
+    setSaveState("saving");
+    try {
+      await store.save(draft);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  };
+
   return {
     addApplication,
     draft,
     preview,
     removeApplication,
+    save,
+    saveState,
     update,
     updateApplication,
   };
