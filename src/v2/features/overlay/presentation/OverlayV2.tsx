@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { phaseCopy } from "@/v2/shared/domain/pipeline";
 import {
   createTauriOverlayRuntime,
@@ -7,6 +7,7 @@ import {
 import "./overlay-v2.css";
 
 const runtime = createTauriOverlayRuntime();
+const waveBars = [10, 17, 25, 15, 31, 20, 28, 13, 23, 17, 10];
 
 export function OverlayV2() {
   const [snapshot, setSnapshot] = useState<OverlayRuntimeSnapshot | null>(null);
@@ -27,17 +28,39 @@ export function OverlayV2() {
 
   return (
     <div
-      className="v2-overlay"
+      className={`v2-overlay is-${phase} ${
+        settings.overlay_mini_mode ? "is-mini" : ""
+      }`}
       style={{ opacity: settings.overlay_opacity }}
       title="Перетащите оверлей мышью"
       onMouseDown={() => void runtime.startDragging()}
     >
-      <span className={`v2-overlay__indicator is-${phase}`} />
+      <span className="v2-overlay__glow" aria-hidden="true" />
+      <span className="v2-overlay__indicator" aria-hidden="true" />
       {!settings.overlay_mini_mode && (
-        <span className="v2-overlay__copy">
-          <strong>{copy.label}</strong>
-          <small>диктовка</small>
-        </span>
+        <>
+          <span className="v2-overlay__copy">
+            <strong>{copy.label}</strong>
+            <small>
+              {phase === "listening"
+                ? "Говорите — Fono слушает"
+                : "Локальная диктовка"}
+            </small>
+          </span>
+          <span className="v2-overlay__wave" aria-hidden="true">
+            {waveBars.map((height, index) => (
+              <i
+                key={index}
+                style={
+                  {
+                    "--delay": `${index * 70}ms`,
+                    "--height": `${height}px`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </span>
+        </>
       )}
       {phase === "listening" && (
         <button
