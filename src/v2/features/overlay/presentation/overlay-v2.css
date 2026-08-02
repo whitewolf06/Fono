@@ -158,6 +158,28 @@
   height: 12px;
 }
 
+.v2-overlay__mini-wave {
+  display: flex;
+  width: 30px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.v2-overlay__mini-wave i {
+  width: 2px;
+  height: var(--height);
+  max-height: 20px;
+  border-radius: 999px;
+  background: #82e5ff;
+  box-shadow: 0 0 4px rgba(113, 222, 255, 0.82);
+}
+
+.v2-overlay.is-listening .v2-overlay__mini-wave i {
+  animation: v2-overlay-wave 680ms ease-in-out var(--delay) infinite alternate;
+}
+
 @keyframes v2-overlay-pulse {
   to {
     transform: scale(1.22);

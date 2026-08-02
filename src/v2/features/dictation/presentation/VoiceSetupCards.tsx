@@ -2,7 +2,6 @@ import type {
   DictationSettingsSummary,
   ReadinessSnapshot,
 } from "@/v2/shared/domain/pipeline";
-import type { KeyboardEvent } from "react";
 
 export type VoiceSetupTarget =
   "microphone" | "wake-word" | "recognition" | "post-processing";
@@ -34,14 +33,11 @@ export function VoiceSetupCards({
         className={`v2-voice-setup-card ${
           readiness.microphone === "ready" ? "is-ready" : "is-attention"
         }`}
-        role="group"
-        aria-label="Настройка микрофона"
-        tabIndex={0}
-        onClick={() => onConfigure("microphone")}
-        onKeyDown={(event) =>
-          activateCard(event, () => onConfigure("microphone"))
-        }
       >
+        <CardConfigureButton
+          label="Настроить микрофон"
+          onClick={() => onConfigure("microphone")}
+        />
         <SetupIcon type="microphone" />
         <CardAction
           label="Настроить микрофон"
@@ -58,14 +54,11 @@ export function VoiceSetupCards({
         className={`v2-voice-setup-card ${
           readiness.wakeWord === "active" ? "is-ready" : "is-attention"
         } has-multiple-actions`}
-        role="group"
-        aria-label="Настройка wake word"
-        tabIndex={0}
-        onClick={() => onConfigure("wake-word")}
-        onKeyDown={(event) =>
-          activateCard(event, () => onConfigure("wake-word"))
-        }
       >
+        <CardConfigureButton
+          label="Настроить wake word"
+          onClick={() => onConfigure("wake-word")}
+        />
         <SetupIcon type="wake-word" />
         <div className="v2-voice-setup-card__actions">
           <CardAction
@@ -94,14 +87,11 @@ export function VoiceSetupCards({
         className={`v2-voice-setup-card ${
           readiness.model === "ready" ? "is-ready" : "is-attention"
         }`}
-        role="group"
-        aria-label="Настройка распознавания"
-        tabIndex={0}
-        onClick={() => onConfigure("recognition")}
-        onKeyDown={(event) =>
-          activateCard(event, () => onConfigure("recognition"))
-        }
       >
+        <CardConfigureButton
+          label="Настроить распознавание"
+          onClick={() => onConfigure("recognition")}
+        />
         <SetupIcon type="recognition" />
         <CardAction
           label="Настроить распознавание"
@@ -112,16 +102,11 @@ export function VoiceSetupCards({
         <strong>{settingsSummary.recognitionModel}</strong>
         <small>{settingsSummary.accelerator}</small>
       </article>
-      <article
-        className="v2-voice-setup-card"
-        role="group"
-        aria-label="Настройка постобработки"
-        tabIndex={0}
-        onClick={() => onConfigure("post-processing")}
-        onKeyDown={(event) =>
-          activateCard(event, () => onConfigure("post-processing"))
-        }
-      >
+      <article className="v2-voice-setup-card">
+        <CardConfigureButton
+          label="Настроить постобработку"
+          onClick={() => onConfigure("post-processing")}
+        />
         <SetupIcon type="post-processing" />
         <CardAction
           label="Настроить постобработку"
@@ -162,11 +147,21 @@ function CardAction({
   );
 }
 
-function activateCard(event: KeyboardEvent<HTMLElement>, action: () => void) {
-  if (event.key !== "Enter" && event.key !== " ") return;
-
-  event.preventDefault();
-  action();
+function CardConfigureButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="v2-voice-setup-card__configure"
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+    />
+  );
 }
 
 function SetupIcon({

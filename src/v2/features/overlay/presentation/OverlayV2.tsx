@@ -62,6 +62,21 @@ export function OverlayV2() {
           </span>
         </>
       )}
+      {settings.overlay_mini_mode && (
+        <span className="v2-overlay__mini-wave" aria-hidden="true">
+          {waveBars.slice(3, 8).map((height, index) => (
+            <i
+              key={index}
+              style={
+                {
+                  "--delay": `${index * 80}ms`,
+                  "--height": `${height}px`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </span>
+      )}
       {phase === "listening" && (
         <button
           className="v2-overlay__confirm"

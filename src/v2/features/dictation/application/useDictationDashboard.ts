@@ -26,8 +26,28 @@ export function useDictationDashboard(runtime: DictationRuntime) {
     snapshot,
     readiness,
     settingsSummary,
-    start: () => runtime.start(),
-    stop: () => runtime.stop(),
+    start: async () => {
+      try {
+        await runtime.start();
+      } catch (error) {
+        setSnapshot((current) =>
+          current
+            ? { ...current, phase: "error", error: String(error) }
+            : current,
+        );
+      }
+    },
+    stop: async () => {
+      try {
+        await runtime.stop();
+      } catch (error) {
+        setSnapshot((current) =>
+          current
+            ? { ...current, phase: "error", error: String(error) }
+            : current,
+        );
+      }
+    },
     toggleWakeWord: async () => {
       await runtime.toggleWakeWord();
       const next = await runtime.getReadiness();

@@ -75,6 +75,11 @@ export function VoiceStageLayout({
             <kbd>{snapshot.hotkey}</kbd>
             {isListening ? " закончить запись" : " начать запись"}
           </span>
+          {snapshot.error && (
+            <p className="v2-voice-stage-layout__error" role="alert">
+              {snapshot.error}
+            </p>
+          )}
         </div>
         <div className="v2-voice-stage-layout__spacer" aria-hidden="true" />
         <TranscriptResultCard
