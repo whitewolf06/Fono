@@ -26,6 +26,7 @@ export function createTauriOverlayRuntime() {
       let active = true;
       let phase: PipelineState = "idle";
       let settings: Settings | null = null;
+      let receivedPipelineState = false;
       let stopPipeline: (() => void) | undefined;
       let stopSettings: (() => void) | undefined;
       let stopMove: (() => void) | undefined;
@@ -37,6 +38,7 @@ export function createTauriOverlayRuntime() {
 
       void onPipelineStateChange((nextPhase) => {
         phase = nextPhase;
+        receivedPipelineState = true;
         notify();
       }).then((unlisten) => {
         if (active) stopPipeline = unlisten;
@@ -49,6 +51,15 @@ export function createTauriOverlayRuntime() {
         if (active) stopSettings = unlisten;
         else unlisten();
       });
+      void Promise.all([ipc.getPipelineState(), ipc.getSettings()]).then(
+        ([initialPhase, initialSettings]) => {
+          if (!active) return;
+
+          settings ??= initialSettings;
+          if (!receivedPipelineState) phase = initialPhase;
+          notify();
+        },
+      );
       void getCurrentWebviewWindow()
         .onMoved(({ payload: { x, y } }) => {
           if (moveSaveTimer) window.clearTimeout(moveSaveTimer);
