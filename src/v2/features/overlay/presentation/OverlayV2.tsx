@@ -13,6 +13,11 @@ export function OverlayV2() {
   const [snapshot, setSnapshot] = useState<OverlayRuntimeSnapshot | null>(null);
 
   useEffect(() => {
+    document.body.classList.add("overlay-mode");
+    return () => document.body.classList.remove("overlay-mode");
+  }, []);
+
+  useEffect(() => {
     void runtime.getSnapshot().then(setSnapshot);
     return runtime.subscribe(setSnapshot);
   }, []);
