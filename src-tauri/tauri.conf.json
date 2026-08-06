@@ -25,6 +25,8 @@
         "decorations": true,
         "transparent": false,
         "alwaysOnTop": false,
+        "theme": "Dark",
+        "backgroundColor": "#020914",
         "visible": true,
         "center": true
       },
