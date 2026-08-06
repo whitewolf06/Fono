@@ -9,6 +9,10 @@ export function createTauriSettingsDraftStore(): SettingsDraftStore {
   return {
     load: loadDraft,
     save: saveDraft,
+    testMicrophone: async () => ipc.testMicrophone(2000),
+    downloadWhisperModel: async (model) =>
+      ipc.downloadWhisperModel(model.replace("Whisper ", "").toLowerCase()),
+    testLmStudio: () => ipc.testLlmConnection(),
   };
 }
 

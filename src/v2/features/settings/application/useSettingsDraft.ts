@@ -45,6 +45,9 @@ export interface ProcessingPreview {
 export interface SettingsDraftStore {
   load(): Promise<SettingsDraft>;
   save(draft: SettingsDraft): Promise<void>;
+  testMicrophone?(): Promise<{ peak: number; rms: number }>;
+  downloadWhisperModel?(model: string): Promise<void>;
+  testLmStudio?(): Promise<string>;
 }
 
 const initialDraft: SettingsDraft = {
@@ -165,6 +168,21 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
   };
 
   const testMicrophone = () => {
+    if (store?.testMicrophone) {
+      setMicrophoneStatus({ state: "checking", message: "Testing microphone…" });
+      void store.testMicrophone().then(
+        ({ peak, rms }) => {
+          setHasMicrophoneSample(true);
+          setMicrophoneStatus({
+            state: "ready",
+            message: `Microphone ready: RMS ${Math.round(rms * 100)}%, peak ${Math.round(peak * 100)}%.`,
+          });
+        },
+        (error: unknown) =>
+          setMicrophoneStatus({ state: "error", message: errorMessage(error) }),
+      );
+      return;
+    }
     setMicrophoneStatus({
       state: "checking",
       message: "Записываю короткий образец…",
@@ -186,6 +204,19 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
   };
 
   const reloadWhisperModel = () => {
+    if (store?.downloadWhisperModel) {
+      setWhisperStatus({ state: "checking", message: "Downloading Whisper model…" });
+      void store.downloadWhisperModel(draft.recognitionModel).then(
+        () =>
+          setWhisperStatus({
+            state: "ready",
+            message: `${draft.recognitionModel} is downloaded and ready.`,
+          }),
+        (error: unknown) =>
+          setWhisperStatus({ state: "error", message: errorMessage(error) }),
+      );
+      return;
+    }
     setWhisperStatus({
       state: "checking",
       message: "Загружаю Whisper-модель…",
@@ -235,6 +266,19 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
   };
 
   const testLmStudio = () => {
+    if (store?.testLmStudio) {
+      setLmStudioStatus({ state: "checking", message: "Checking LM Studio…" });
+      void store.testLmStudio().then(
+        (response) =>
+          setLmStudioStatus({
+            state: "ready",
+            message: `LM Studio is available: ${response}`,
+          }),
+        (error: unknown) =>
+          setLmStudioStatus({ state: "error", message: errorMessage(error) }),
+      );
+      return;
+    }
     setLmStudioStatus({ state: "checking", message: "Проверяю подключение…" });
     window.setTimeout(() => {
       setLmStudioStatus({
@@ -287,4 +331,8 @@ function resolveEffectiveAcceleration(
   if (value === "vulkan") return "Vulkan";
   if (value === "cpu") return "CPU";
   return "Vulkan";
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Native check failed.";
 }
