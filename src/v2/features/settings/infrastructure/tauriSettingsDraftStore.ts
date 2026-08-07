@@ -17,9 +17,10 @@ export function createTauriSettingsDraftStore(): SettingsDraftStore {
 }
 
 async function loadDraft(): Promise<SettingsDraft> {
-  const [settings, devices] = await Promise.all([
+  const [settings, devices, models] = await Promise.all([
     ipc.getSettings(),
     ipc.listAudioDevices(),
+    ipc.listWhisperModels(),
   ]);
 
   return {
@@ -28,7 +29,14 @@ async function loadDraft(): Promise<SettingsDraft> {
     autostart: settings.autostart,
     hotkey: settings.hotkey,
     microphone: microphoneLabel(settings, devices),
+    microphoneOptions: [
+      "Default system device",
+      ...devices.map((device) => device.name),
+    ],
     recognitionModel: recognitionModelLabel(settings.whisper_model_path),
+    recognitionModelOptions: models.map(
+      (model) => `Whisper ${capitalize(model.size)}`,
+    ),
     acceleration: settings.acceleration,
     wakeWordEnabled: settings.wake_word_enabled,
     wakePhrase: settings.wake_word,

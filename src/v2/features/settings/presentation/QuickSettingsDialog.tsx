@@ -113,9 +113,9 @@ export function QuickSettingsDialog({
                   value={draft.microphone}
                   onChange={(event) => update("microphone", event.target.value)}
                 >
-                  <option>Microphone Array (Realtek)</option>
-                  <option>USB Microphone</option>
-                  <option>Default system device</option>
+                  {draft.microphoneOptions.map((microphone) => (
+                    <option key={microphone}>{microphone}</option>
+                  ))}
                 </select>
               </DialogField>
               <div className="v2-quick-settings-dialog__actions">
@@ -185,9 +185,9 @@ export function QuickSettingsDialog({
                       update("recognitionModel", event.target.value)
                     }
                   >
-                    <option>Whisper Small</option>
-                    <option>Whisper Base</option>
-                    <option>Whisper Medium</option>
+                    {draft.recognitionModelOptions.map((model) => (
+                      <option key={model}>{model}</option>
+                    ))}
                   </select>
                   <button
                     className="v2-button"

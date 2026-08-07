@@ -14,11 +14,26 @@ export function useDictationDashboard(runtime: DictationRuntime) {
 
   useEffect(() => {
     let active = true;
-    runtime.getSnapshot().then((next) => active && setSnapshot(next));
-    runtime.getReadiness().then((next) => active && setReadiness(next));
+    const showRuntimeError = (error: unknown) => {
+      if (!active) return;
+      setSnapshot((current) => ({
+        phase: "error",
+        mode: current?.mode ?? "dictation",
+        transcript: current?.transcript ?? "",
+        hotkey: current?.hotkey ?? "Ctrl+Space",
+        language: current?.language ?? "auto",
+        error: String(error),
+      }));
+    };
+    runtime
+      .getSnapshot()
+      .then((next) => active && setSnapshot(next), showRuntimeError);
+    runtime
+      .getReadiness()
+      .then((next) => active && setReadiness(next), showRuntimeError);
     runtime
       .getSettingsSummary()
-      .then((next) => active && setSettingsSummary(next));
+      .then((next) => active && setSettingsSummary(next), showRuntimeError);
     return runtime.subscribe((next) => active && setSnapshot(next));
   }, [runtime]);
 
@@ -49,9 +64,17 @@ export function useDictationDashboard(runtime: DictationRuntime) {
       }
     },
     toggleWakeWord: async () => {
-      await runtime.toggleWakeWord();
-      const next = await runtime.getReadiness();
-      setReadiness(next);
+      try {
+        await runtime.toggleWakeWord();
+        const next = await runtime.getReadiness();
+        setReadiness(next);
+      } catch (error) {
+        setSnapshot((current) =>
+          current
+            ? { ...current, phase: "error", error: String(error) }
+            : current,
+        );
+      }
     },
   };
 }

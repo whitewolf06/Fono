@@ -15,7 +15,9 @@ export interface SettingsDraft {
   autostart: boolean;
   hotkey: string;
   microphone: string;
+  microphoneOptions: string[];
   recognitionModel: string;
+  recognitionModelOptions: string[];
   acceleration: "auto" | "cuda" | "vulkan" | "cpu";
   wakeWordEnabled: boolean;
   wakePhrase: string;
@@ -56,7 +58,9 @@ const initialDraft: SettingsDraft = {
   autostart: true,
   hotkey: "Ctrl + Alt + F",
   microphone: "Microphone Array (Realtek)",
+  microphoneOptions: ["Default system device"],
   recognitionModel: "Whisper Small",
+  recognitionModelOptions: ["Whisper Small"],
   acceleration: "auto",
   wakeWordEnabled: true,
   wakePhrase: "okay fun",
@@ -122,9 +126,14 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
     if (!store) return;
 
     let active = true;
-    void store.load().then((nextDraft) => {
-      if (active) setDraft(nextDraft);
-    });
+    void store.load().then(
+      (nextDraft) => {
+        if (active) setDraft(nextDraft);
+      },
+      () => {
+        if (active) setSaveState("error");
+      },
+    );
 
     return () => {
       active = false;
@@ -169,7 +178,10 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
 
   const testMicrophone = () => {
     if (store?.testMicrophone) {
-      setMicrophoneStatus({ state: "checking", message: "Testing microphone…" });
+      setMicrophoneStatus({
+        state: "checking",
+        message: "Testing microphone…",
+      });
       void store.testMicrophone().then(
         ({ peak, rms }) => {
           setHasMicrophoneSample(true);
@@ -205,7 +217,10 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
 
   const reloadWhisperModel = () => {
     if (store?.downloadWhisperModel) {
-      setWhisperStatus({ state: "checking", message: "Downloading Whisper model…" });
+      setWhisperStatus({
+        state: "checking",
+        message: "Downloading Whisper model…",
+      });
       void store.downloadWhisperModel(draft.recognitionModel).then(
         () =>
           setWhisperStatus({
