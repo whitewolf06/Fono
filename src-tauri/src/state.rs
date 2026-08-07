@@ -15,6 +15,7 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     pub pipeline_state: Mutex<crate::types::PipelineState>,
     pub dictation_paused: Mutex<bool>,
+    pending_voice_command: Mutex<Option<String>>,
 }
 
 impl AppState {
@@ -23,6 +24,7 @@ impl AppState {
             settings: Mutex::new(Settings::default()),
             pipeline_state: Mutex::new(crate::types::PipelineState::Idle),
             dictation_paused: Mutex::new(false),
+            pending_voice_command: Mutex::new(None),
         };
         // Пробуем подгрузить сохранённые настройки с диска
         if let Some(s) = load_settings().unwrap_or(None) {
@@ -59,6 +61,18 @@ impl AppState {
         let mut paused = self.dictation_paused.lock();
         *paused = !*paused;
         *paused
+    }
+
+    pub fn pending_voice_command(&self) -> Option<String> {
+        self.pending_voice_command.lock().clone()
+    }
+
+    pub fn set_pending_voice_command(&self, command: Option<String>) {
+        *self.pending_voice_command.lock() = command;
+    }
+
+    pub fn take_pending_voice_command(&self) -> Option<String> {
+        self.pending_voice_command.lock().take()
     }
 }
 

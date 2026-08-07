@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { CommandsPage } from "@/v2/features/commands/presentation/CommandsPage";
+import { VoiceCommandConfirmationDialog } from "@/v2/features/commands/presentation/VoiceCommandConfirmationDialog";
 import { createTauriCommandsDraftStore } from "@/v2/features/commands/infrastructure/tauriCommandsDraftStore";
 import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStageLayout";
 import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
@@ -140,6 +141,7 @@ export function UiV2App() {
         />
       )}
       {onboardingOpen && <OnboardingDialog onComplete={closeOnboarding} />}
+      {isTauri() && <VoiceCommandConfirmationDialog />}
     </div>
   );
 }

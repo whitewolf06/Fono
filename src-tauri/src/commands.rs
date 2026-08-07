@@ -37,6 +37,26 @@ pub fn reinsert_dictation(app: AppHandle, text: String) -> AppResult<()> {
     crate::injection::inject_text(&text, settings.injection_mode)
 }
 
+#[tauri::command]
+pub fn get_pending_voice_command(state: State<'_, AppState>) -> Option<String> {
+    state.pending_voice_command()
+}
+
+#[tauri::command]
+pub fn cancel_voice_command(state: State<'_, AppState>) {
+    state.set_pending_voice_command(None);
+}
+
+#[tauri::command]
+pub fn confirm_voice_command(app: AppHandle) -> AppResult<String> {
+    let state = app.state::<AppState>();
+    let text = state
+        .take_pending_voice_command()
+        .ok_or_else(|| AppError::Config("No pending voice command".into()))?;
+    let settings = state.settings();
+    crate::app_commands::execute(&text, &settings.launch_apps, settings.volume_step)
+}
+
 fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
     pipeline::set_state(app, state, PipelineState::Idle);
 }

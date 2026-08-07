@@ -27,6 +27,10 @@ export const ipc = {
   clearDictationHistory: () => invoke<void>("clear_dictation_history"),
   reinsertDictation: (text: string) =>
     invoke<void>("reinsert_dictation", { text }),
+  getPendingVoiceCommand: () =>
+    invoke<string | null>("get_pending_voice_command"),
+  confirmVoiceCommand: () => invoke<string>("confirm_voice_command"),
+  cancelVoiceCommand: () => invoke<void>("cancel_voice_command"),
 
   // Тестовая запись фиксированной длительности.
   // inject=true — вставить распознанный текст в активное окно (Этап 2).
@@ -125,6 +129,12 @@ export function onCommandResult(
   handler: (result: string) => void,
 ): Promise<UnlistenFn> {
   return listen<string>("command-result", (e) => handler(e.payload));
+}
+
+export function onCommandProposal(
+  handler: (command: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("command-proposal", (event) => handler(event.payload));
 }
 
 export function onPipelineMode(

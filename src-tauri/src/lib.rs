@@ -259,6 +259,9 @@ pub fn run() {
             commands::get_dictation_history,
             commands::clear_dictation_history,
             commands::reinsert_dictation,
+            commands::get_pending_voice_command,
+            commands::cancel_voice_command,
+            commands::confirm_voice_command,
             // audio
             commands::list_audio_devices,
             // whisper
@@ -427,22 +430,8 @@ async fn run_voice_command(
         transcript.text.chars().count()
     );
 
-    pipeline::set_state(app, &state.inner(), PipelineState::Processing);
-    match crate::app_commands::execute(
-        &transcript.text,
-        &settings.launch_apps,
-        settings.volume_step,
-    ) {
-        Ok(result) => {
-            tracing::info!("voice command result: {result}");
-            let _ = app.emit("command-result", result);
-        }
-        Err(e) => {
-            tracing::warn!("voice command execute failed: {e}");
-            let _ = app.emit("error", e.to_string());
-        }
-    }
-
+    state.set_pending_voice_command(Some(transcript.text.clone()));
+    let _ = app.emit("command-proposal", transcript.text);
     pipeline::set_state(app, &state.inner(), PipelineState::Idle);
     Ok(())
 }
