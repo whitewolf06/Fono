@@ -18,8 +18,24 @@ use crate::llm::LlmClient;
 use crate::pipeline::{self, Pipeline};
 use crate::state::{self, AppState};
 use crate::types::{
-    AiMode, DeviceInfo, PipelineState, Settings, Transcript, WhisperModelInfo, WhisperModelSize,
+    AiMode, DeviceInfo, DictationHistoryEntry, PipelineState, Settings, Transcript, WhisperModelInfo, WhisperModelSize,
 };
+
+#[tauri::command]
+pub fn get_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
+    state::load_dictation_history()
+}
+
+#[tauri::command]
+pub fn clear_dictation_history() -> AppResult<()> {
+    state::clear_dictation_history()
+}
+
+#[tauri::command]
+pub fn reinsert_dictation(app: AppHandle, text: String) -> AppResult<()> {
+    let settings = app.state::<AppState>().settings();
+    crate::injection::inject_text(&text, settings.injection_mode)
+}
 
 fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
     pipeline::set_state(app, state, PipelineState::Idle);
@@ -211,6 +227,15 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Err(e);
     }
     set_pipeline_idle(&app, &state.inner());
+
+    if !final_text.trim().is_empty() {
+        let _ = state::append_dictation_history(DictationHistoryEntry {
+            id: format!("{}", chrono::Utc::now().timestamp_millis()),
+            text: final_text.clone(),
+            created_at: chrono::Utc::now(),
+            device: transcript.device.clone(),
+        });
+    }
 
     Ok(Transcript {
         text: final_text,

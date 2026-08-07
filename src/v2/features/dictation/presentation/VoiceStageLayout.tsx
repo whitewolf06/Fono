@@ -4,7 +4,8 @@ import { MicIcon } from "@/v2/shared/presentation/components/MicIcon";
 import { useDictationDashboard } from "../application/useDictationDashboard";
 import type { DictationRuntime } from "../application/dictationRuntime";
 import { CanvasVoiceWave } from "./CanvasVoiceWave";
-import { DictationHistoryPanel } from "./DictationHistoryPanel";
+import { DictationHistoryDrawer } from "./DictationHistoryDrawer";
+import { createTauriDictationHistoryStore } from "../infrastructure/tauriDictationHistoryStore";
 import { SvgVoiceWave } from "./SvgVoiceWave";
 import { TranscriptResultCard } from "./TranscriptResultCard";
 import { VoiceSetupCards, type VoiceSetupTarget } from "./VoiceSetupCards";
@@ -21,6 +22,7 @@ export function VoiceStageLayout({
   const [debugVoiceLevel, setDebugVoiceLevel] = useState(18);
   const [waveRenderer, setWaveRenderer] = useState<"svg" | "canvas">("svg");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const historyStore = createTauriDictationHistoryStore();
 
   if (!snapshot) return null;
 
@@ -88,7 +90,10 @@ export function VoiceStageLayout({
           onOpenHistory={() => setHistoryOpen(true)}
         />
         {historyOpen && (
-          <DictationHistoryPanel onClose={() => setHistoryOpen(false)} />
+          <DictationHistoryDrawer
+            onClose={() => setHistoryOpen(false)}
+            store={historyStore}
+          />
         )}
         {showDebug && (
           <aside className="v2-voice-debug-panel">

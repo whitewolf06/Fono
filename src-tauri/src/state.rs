@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use crate::error::AppResult;
 use crate::types::Settings;
+use crate::types::DictationHistoryEntry;
 
 pub struct AppState {
     pub settings: Mutex<Settings>,
@@ -73,6 +74,29 @@ pub fn app_data_dir() -> AppResult<std::path::PathBuf> {
 /// Путь к файлу настроек.
 pub fn settings_path() -> AppResult<std::path::PathBuf> {
     Ok(app_data_dir()?.join("settings.json"))
+}
+
+pub fn history_path() -> AppResult<std::path::PathBuf> {
+    Ok(app_data_dir()?.join("dictation-history.json"))
+}
+
+pub fn load_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
+    let path = history_path()?;
+    if !path.exists() { return Ok(Vec::new()); }
+    Ok(serde_json::from_str(&std::fs::read_to_string(path)?)?)
+}
+
+pub fn append_dictation_history(entry: DictationHistoryEntry) -> AppResult<()> {
+    let mut entries = load_dictation_history()?;
+    entries.insert(0, entry);
+    entries.truncate(200);
+    std::fs::write(history_path()?, serde_json::to_string_pretty(&entries)?)?;
+    Ok(())
+}
+
+pub fn clear_dictation_history() -> AppResult<()> {
+    std::fs::write(history_path()?, "[]")?;
+    Ok(())
 }
 
 /// Каталог для whisper-моделей.

@@ -344,6 +344,14 @@ pub struct Transcript {
     pub device: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DictationHistoryEntry {
+    pub id: String,
+    pub text: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub device: Option<String>,
+}
+
 fn default_language() -> String {
     "auto".to_string()
 }

@@ -256,6 +256,9 @@ pub fn run() {
             commands::confirm_dictation,
             commands::cancel_dictation,
             commands::transcribe_test,
+            commands::get_dictation_history,
+            commands::clear_dictation_history,
+            commands::reinsert_dictation,
             // audio
             commands::list_audio_devices,
             // whisper

@@ -22,6 +22,11 @@ export const ipc = {
   getPipelineState: () => invoke<PipelineState>("get_pipeline_state"),
   startDictation: () => invoke<void>("start_dictation"),
   stopDictation: () => invoke<Transcript>("stop_dictation"),
+  getDictationHistory: () =>
+    invoke<import("./types").DictationHistoryEntry[]>("get_dictation_history"),
+  clearDictationHistory: () => invoke<void>("clear_dictation_history"),
+  reinsertDictation: (text: string) =>
+    invoke<void>("reinsert_dictation", { text }),
 
   // Тестовая запись фиксированной длительности.
   // inject=true — вставить распознанный текст в активное окно (Этап 2).
@@ -32,8 +37,7 @@ export const ipc = {
   listAudioDevices: () => invoke<DeviceInfo[]>("list_audio_devices"),
 
   // Whisper-модели
-  listWhisperModels: () =>
-    invoke<WhisperModelInfo[]>("list_whisper_models"),
+  listWhisperModels: () => invoke<WhisperModelInfo[]>("list_whisper_models"),
   downloadWhisperModel: (size: string) =>
     invoke<void>("download_whisper_model", { size }),
   setWhisperModel: (path: string) =>

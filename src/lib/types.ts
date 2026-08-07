@@ -2,12 +2,7 @@
 // В Rust они зеркалируются в src-tauri/src/types.rs (serde::Serialize).
 
 export type PipelineState =
-  | "idle"
-  | "listening"
-  | "transcribing"
-  | "processing"
-  | "injecting"
-  | "error";
+  "idle" | "listening" | "transcribing" | "processing" | "injecting" | "error";
 
 export interface DeviceInfo {
   id: string;
@@ -26,12 +21,7 @@ export interface WhisperModelInfo {
   bytes: number | null;
 }
 
-export type WhisperModelSize =
-  | "tiny"
-  | "base"
-  | "small"
-  | "medium"
-  | "large";
+export type WhisperModelSize = "tiny" | "base" | "small" | "medium" | "large";
 
 export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";
@@ -50,10 +40,7 @@ export interface WakeDictationCountdown {
   speaking: boolean;
 }
 export type WakeWordBackend =
-  | "disabled"
-  | "whisper_experimental"
-  | "sherpa_onnx"
-  | "mock";
+  "disabled" | "whisper_experimental" | "sherpa_onnx" | "mock";
 
 export interface Settings {
   /** device_id микрофона или null = системный default */
@@ -204,4 +191,18 @@ export interface Transcript {
   audio_secs?: number | null;
   /** Какое устройство использовалось (CPU/CUDA) */
   device?: string | null;
+}
+
+export interface DictationHistoryEntry {
+  id: string;
+  text: string;
+  created_at: string;
+  device: string | null;
+}
+
+export interface DictationHistoryEntry {
+  id: string;
+  text: string;
+  created_at: string;
+  device: string | null;
 }
