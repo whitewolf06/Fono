@@ -18,7 +18,8 @@ use crate::llm::LlmClient;
 use crate::pipeline::{self, Pipeline};
 use crate::state::{self, AppState};
 use crate::types::{
-    AiMode, DeviceInfo, DictationHistoryEntry, PipelineState, Settings, Transcript, WhisperModelInfo, WhisperModelSize,
+    AiMode, DeviceInfo, DictationHistoryEntry, PipelineState, Settings, Transcript,
+    WhisperModelInfo, WhisperModelSize,
 };
 
 #[tauri::command]
@@ -29,6 +30,16 @@ pub fn get_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
 #[tauri::command]
 pub fn clear_dictation_history() -> AppResult<()> {
     state::clear_dictation_history()
+}
+
+#[tauri::command]
+pub fn delete_dictation_history_entry(id: String) -> AppResult<()> {
+    state::delete_dictation_history_entry(&id)
+}
+
+#[tauri::command]
+pub fn copy_dictation_text(text: String) -> AppResult<()> {
+    crate::injection::copy_text(&text)
 }
 
 #[tauri::command]
@@ -147,13 +158,11 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
 
     // Убедимся, что модель whisper загружена.
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline
-            .stt()
-            .ensure_loaded(
-                std::path::Path::new(path),
-                settings.acceleration,
-                &crate::stt::worker_paths_for_app(&app),
-            )?;
+        pipeline.stt().ensure_loaded(
+            std::path::Path::new(path),
+            settings.acceleration,
+            &crate::stt::worker_paths_for_app(&app),
+        )?;
     } else {
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
@@ -211,7 +220,10 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
 
-    tracing::info!("transcript ready ({} chars)", transcript.text.chars().count());
+    tracing::info!(
+        "transcript ready ({} chars)",
+        transcript.text.chars().count()
+    );
 
     // Опциональная AI-обработка.
     let final_text = match settings.ai_mode {
@@ -237,7 +249,10 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
 
-    crate::vlog!("dictation final text ready ({} chars)", final_text.chars().count());
+    crate::vlog!(
+        "dictation final text ready ({} chars)",
+        final_text.chars().count()
+    );
 
     // Вставка текста.
     pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
@@ -288,13 +303,11 @@ pub async fn transcribe_test(
 
     // Проверка модели.
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline
-            .stt()
-            .ensure_loaded(
-                std::path::Path::new(path),
-                settings.acceleration,
-                &crate::stt::worker_paths_for_app(&app),
-            )?;
+        pipeline.stt().ensure_loaded(
+            std::path::Path::new(path),
+            settings.acceleration,
+            &crate::stt::worker_paths_for_app(&app),
+        )?;
     } else {
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
@@ -382,7 +395,10 @@ pub async fn transcribe_test(
         return Ok(empty_transcript());
     }
 
-    tracing::info!("test transcript ready ({} chars)", transcript.text.chars().count());
+    tracing::info!(
+        "test transcript ready ({} chars)",
+        transcript.text.chars().count()
+    );
 
     // Опциональная AI-обработка — но на ошибке не падаем.
     let final_text = match settings.ai_mode {

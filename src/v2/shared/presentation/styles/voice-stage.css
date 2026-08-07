@@ -862,6 +862,22 @@
   font-size: 12px;
 }
 
+.v2-history-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start !important;
+  gap: 16px !important;
+}
+
+.v2-history-panel__actions button:disabled {
+  cursor: wait;
+  opacity: 0.48;
+}
+
+.v2-history-panel__actions button.is-danger {
+  color: #ff8f9c;
+}
+
 .v2-history-panel__empty {
   margin: 24px 0;
   color: #a8c7d9;

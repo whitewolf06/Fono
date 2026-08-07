@@ -199,10 +199,3 @@ export interface DictationHistoryEntry {
   created_at: string;
   device: string | null;
 }
-
-export interface DictationHistoryEntry {
-  id: string;
-  text: string;
-  created_at: string;
-  device: string | null;
-}

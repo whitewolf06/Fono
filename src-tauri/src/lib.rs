@@ -82,8 +82,7 @@ fn strip_leading_wake_phrase(transcript: &str, configured_phrase: &str) -> Strin
         return trimmed.to_string();
     }
     let normalize_word = |word: &str| {
-        word
-            .to_lowercase()
+        word.to_lowercase()
             .chars()
             .filter(|c| c.is_alphanumeric())
             .collect::<String>()
@@ -98,13 +97,13 @@ fn strip_leading_wake_phrase(transcript: &str, configured_phrase: &str) -> Strin
         }
         "hey fono" => {
             matches!(first.as_str(), "hey" | "hi" | "she" | "хей")
-                && matches!(second.as_str(), "fono" | "phono" | "phone" | "фоно" | "фона")
+                && matches!(
+                    second.as_str(),
+                    "fono" | "phono" | "phone" | "фоно" | "фона"
+                )
         }
         _ => {
-            let expected: Vec<String> = configured
-                .split_whitespace()
-                .map(normalize_word)
-                .collect();
+            let expected: Vec<String> = configured.split_whitespace().map(normalize_word).collect();
             expected.len() == 2 && expected[0] == first && expected[1] == second
         }
     };
@@ -258,6 +257,8 @@ pub fn run() {
             commands::transcribe_test,
             commands::get_dictation_history,
             commands::clear_dictation_history,
+            commands::delete_dictation_history_entry,
+            commands::copy_dictation_text,
             commands::reinsert_dictation,
             commands::get_pending_voice_command,
             commands::cancel_voice_command,
@@ -398,13 +399,11 @@ async fn run_voice_command(
 
     // Загружаем основную whisper-модель.
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline
-            .stt()
-            .ensure_loaded(
-                std::path::Path::new(path),
-                settings.acceleration,
-                &stt::worker_paths_for_app(app),
-            )?;
+        pipeline.stt().ensure_loaded(
+            std::path::Path::new(path),
+            settings.acceleration,
+            &stt::worker_paths_for_app(app),
+        )?;
     } else {
         pipeline::set_state(app, &state.inner(), PipelineState::Idle);
         return Err("Whisper-модель не выбрана".into());
@@ -432,6 +431,11 @@ async fn run_voice_command(
 
     state.set_pending_voice_command(Some(transcript.text.clone()));
     let _ = app.emit("command-proposal", transcript.text);
+    if let Some(settings_window) = app.get_webview_window("settings") {
+        let _ = settings_window.unminimize();
+        let _ = settings_window.show();
+        let _ = settings_window.set_focus();
+    }
     pipeline::set_state(app, &state.inner(), PipelineState::Idle);
     Ok(())
 }
@@ -688,10 +692,10 @@ pub async fn run_dictation_after_wake(
     // Ждём окончания речи: ловим начало речи, затем остановку по тишине.
     // Уровень звука читаем из writer-буфера записи (см. Pipeline::current_level).
     let max_wait = std::time::Duration::from_secs(30); // максимум 30 сек диктовки
-    // У тихой речи RMS может быть ниже прежнего жёсткого 0.012. Порог
-    // настраивается отдельно от VAD wake word и имеет гистерезис: после начала
-    // речи используем более низкий порог удержания, чтобы короткие тихие слоги
-    // не запускали обратный отсчёт посреди фразы.
+                                                       // У тихой речи RMS может быть ниже прежнего жёсткого 0.012. Порог
+                                                       // настраивается отдельно от VAD wake word и имеет гистерезис: после начала
+                                                       // речи используем более низкий порог удержания, чтобы короткие тихие слоги
+                                                       // не запускали обратный отсчёт посреди фразы.
     let speech_threshold = settings.wake_dictation_speech_threshold.clamp(0.002, 0.03);
     let sustain_threshold = (speech_threshold * 0.65).max(0.0015);
     let silence_timeout =
@@ -776,14 +780,11 @@ pub async fn run_dictation_after_wake(
         // тихие первые и последние слова после wake word.
         if !samples.is_empty() {
             if let Some(path) = settings.whisper_model_path.as_deref() {
-                if let Err(error) = pipeline
-                    .stt()
-                    .ensure_loaded(
-                        std::path::Path::new(path),
-                        settings.acceleration,
-                        &stt::worker_paths_for_app(handle),
-                    )
-                {
+                if let Err(error) = pipeline.stt().ensure_loaded(
+                    std::path::Path::new(path),
+                    settings.acceleration,
+                    &stt::worker_paths_for_app(handle),
+                ) {
                     pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
                     wake_handle.resume();
                     return Err(Box::new(error));
@@ -824,7 +825,10 @@ pub async fn run_dictation_after_wake(
             if dictation_text.len() != transcript.text.trim_start().len() {
                 tracing::info!("wake phrase removed from dictation transcript");
             }
-            tracing::info!("wake dictation transcript ready ({} chars)", dictation_text.chars().count());
+            tracing::info!(
+                "wake dictation transcript ready ({} chars)",
+                dictation_text.chars().count()
+            );
 
             // Явная команда после wake phrase выполняется локально и не
             // вставляется в активное окно. Например: «okay fun, команда,

@@ -31,6 +31,22 @@ pub fn inject_text(text: &str, mode: InjectionMode) -> AppResult<()> {
 }
 
 #[cfg(windows)]
+pub fn copy_text(text: &str) -> AppResult<()> {
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| AppError::Injection(format!("clipboard: {e}")))?;
+    clipboard
+        .set_text(text.to_string())
+        .map_err(|e| AppError::Injection(format!("clipboard: {e}")))
+}
+
+#[cfg(not(windows))]
+pub fn copy_text(_text: &str) -> AppResult<()> {
+    Err(AppError::Config(
+        "clipboard is supported only on Windows".into(),
+    ))
+}
+
+#[cfg(windows)]
 fn inject_text_sendinput(text: &str) -> AppResult<()> {
     unsafe {
         // Проверяем, что есть окно с фокусом — иначе ввод уйдёт в никуда.
@@ -59,12 +75,10 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
             let sent = SendInput(&inputs, cbsize);
             if sent != inputs.len() as u32 {
                 release_unicode_units(chunk);
-                return Err(AppError::Injection(
-                    format!(
-                        "SendInput отправил только {sent} из {} событий Unicode",
-                        inputs.len()
-                    ),
-                ));
+                return Err(AppError::Injection(format!(
+                    "SendInput отправил только {sent} из {} событий Unicode",
+                    inputs.len()
+                )));
             }
             total_sent += sent as usize;
         }

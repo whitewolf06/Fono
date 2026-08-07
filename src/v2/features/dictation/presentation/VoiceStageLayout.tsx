@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { phaseCopy } from "@/v2/shared/domain/pipeline";
 import { MicIcon } from "@/v2/shared/presentation/components/MicIcon";
 import { useDictationDashboard } from "../application/useDictationDashboard";
@@ -22,7 +22,7 @@ export function VoiceStageLayout({
   const [debugVoiceLevel, setDebugVoiceLevel] = useState(18);
   const [waveRenderer, setWaveRenderer] = useState<"svg" | "canvas">("svg");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const historyStore = createTauriDictationHistoryStore();
+  const historyStore = useMemo(createTauriDictationHistoryStore, []);
 
   if (!snapshot) return null;
 

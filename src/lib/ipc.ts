@@ -25,6 +25,10 @@ export const ipc = {
   getDictationHistory: () =>
     invoke<import("./types").DictationHistoryEntry[]>("get_dictation_history"),
   clearDictationHistory: () => invoke<void>("clear_dictation_history"),
+  deleteDictationHistoryEntry: (id: string) =>
+    invoke<void>("delete_dictation_history_entry", { id }),
+  copyDictationText: (text: string) =>
+    invoke<void>("copy_dictation_text", { text }),
   reinsertDictation: (text: string) =>
     invoke<void>("reinsert_dictation", { text }),
   getPendingVoiceCommand: () =>

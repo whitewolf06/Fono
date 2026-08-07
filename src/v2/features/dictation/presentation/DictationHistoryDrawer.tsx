@@ -55,6 +55,31 @@ export function DictationHistoryDrawer({ onClose, store }: Props) {
     }
   };
 
+  const copy = async (entry: DictationHistoryEntry) => {
+    setBusyEntryId(entry.id);
+    setError(null);
+    try {
+      await store.copy(entry.text);
+    } catch (cause) {
+      setError(messageFrom(cause, "Не удалось скопировать текст."));
+    } finally {
+      setBusyEntryId(null);
+    }
+  };
+
+  const remove = async (entry: DictationHistoryEntry) => {
+    setBusyEntryId(entry.id);
+    setError(null);
+    try {
+      await store.delete(entry.id);
+      setEntries((current) => current.filter(({ id }) => id !== entry.id));
+    } catch (cause) {
+      setError(messageFrom(cause, "Не удалось удалить запись."));
+    } finally {
+      setBusyEntryId(null);
+    }
+  };
+
   const clear = async () => {
     setError(null);
     try {
@@ -101,13 +126,30 @@ export function DictationHistoryDrawer({ onClose, store }: Props) {
                 <strong>{entry.device ?? "Fono"}</strong>
               </div>
               <p>{entry.text}</p>
-              <button
-                type="button"
-                disabled={busyEntryId === entry.id}
-                onClick={() => void reinsert(entry)}
-              >
-                {busyEntryId === entry.id ? "Вставляю…" : "Вставить повторно"}
-              </button>
+              <div className="v2-history-panel__actions">
+                <button
+                  type="button"
+                  disabled={busyEntryId === entry.id}
+                  onClick={() => void copy(entry)}
+                >
+                  Копировать
+                </button>
+                <button
+                  type="button"
+                  disabled={busyEntryId === entry.id}
+                  onClick={() => void reinsert(entry)}
+                >
+                  Вставить повторно
+                </button>
+                <button
+                  className="is-danger"
+                  type="button"
+                  disabled={busyEntryId === entry.id}
+                  onClick={() => void remove(entry)}
+                >
+                  Удалить
+                </button>
+              </div>
             </article>
           ))}
           {!error && !visibleEntries.length && (

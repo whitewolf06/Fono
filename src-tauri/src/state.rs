@@ -8,8 +8,8 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 
 use crate::error::AppResult;
-use crate::types::Settings;
 use crate::types::DictationHistoryEntry;
+use crate::types::Settings;
 
 pub struct AppState {
     pub settings: Mutex<Settings>,
@@ -96,7 +96,9 @@ pub fn history_path() -> AppResult<std::path::PathBuf> {
 
 pub fn load_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
     let path = history_path()?;
-    if !path.exists() { return Ok(Vec::new()); }
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
     Ok(serde_json::from_str(&std::fs::read_to_string(path)?)?)
 }
 
@@ -110,6 +112,13 @@ pub fn append_dictation_history(entry: DictationHistoryEntry) -> AppResult<()> {
 
 pub fn clear_dictation_history() -> AppResult<()> {
     std::fs::write(history_path()?, "[]")?;
+    Ok(())
+}
+
+pub fn delete_dictation_history_entry(id: &str) -> AppResult<()> {
+    let mut entries = load_dictation_history()?;
+    entries.retain(|entry| entry.id != id);
+    std::fs::write(history_path()?, serde_json::to_string_pretty(&entries)?)?;
     Ok(())
 }
 
