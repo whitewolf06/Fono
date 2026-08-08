@@ -6,6 +6,31 @@
 Область: src-tauri и собственные Rust-crates проекта  
 Не входит в область: переписывание UI v2, изменение моделей Whisper/Sherpa, рефакторинг vendored whisper.cpp
 
+## 0. Текущий прогресс реализации
+
+Срез на 2026-08-08:
+
+| Работа | Статус | Результат |
+| --- | --- | --- |
+| BR-004 | Выполнена первая safety-версия | Буфер ограничен 5 минутами, watchdog закрывает потерянную запись, повторный start возвращает Busy |
+| BR-005 | Выполнено | Микрофон освобождается до VAD, загрузки модели и транскрипции |
+| BR-006 | Частично выполнено | Deadline покрывает stdin/stdout, timeout приводит к kill + wait, I/O threads join, stderr bounded, следующая операция перезапускает worker |
+| BR-007 | Частично выполнено | Sherpa/Whisper/Mock имеют Drop/stop, Sherpa сохраняет JoinHandle; callback вызывается вне mutex |
+| BR-011 | Частично выполнено | build.rs использует OUT_DIR, release manifest fail-fast, Sherpa DLL allowlist; отдельный release-resource pipeline еще предстоит |
+| BR-017 | Выполнено | Проходят no-default, Whisper-only, Sherpa-only и default configurations |
+| BR-032 | Выполнено как gate | Весь workspace проходит strict Clippy с -D warnings |
+| BR-033 | Частично выполнено | Cargo.lock отслеживается, toolchain закреплен; dependency audit policy еще предстоит |
+
+Промежуточные коммиты:
+
+- bf8e35c — новый канонический план;
+- 46960bd — воспроизводимая build-база и feature matrix;
+- 6e031e9 — bounded recording и безопасный stop-flow;
+- f88aace — strict Clippy и wake lifecycle;
+- 8b84995 — worker deadlines и recovery.
+
+Это не означает завершение этапа 1: еще нужны fault-injection stress tests, транзакционное persistence, полный wake reconfigure soak и отдельный Coordinator.
+
 ## 1. Цель
 
 Перестроить Rust-бэкенд Fono так, чтобы он:
