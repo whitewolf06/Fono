@@ -381,7 +381,13 @@ async fn run_voice_command(
     let settings = state.settings();
     let operation = pipeline.operation_id();
 
-    let samples = pipeline.stop_recording()?;
+    let samples = match pipeline.stop_recording() {
+        Ok(samples) => samples,
+        Err(error) => {
+            pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+            return Err(Box::new(error));
+        }
+    };
     if !pipeline.is_operation_active(operation) {
         tracing::info!("voice command discarded because dictation was cancelled or replaced");
         return Ok(());
@@ -399,11 +405,14 @@ async fn run_voice_command(
 
     // Загружаем основную whisper-модель.
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline.stt().ensure_loaded(
+        if let Err(error) = pipeline.stt().ensure_loaded(
             std::path::Path::new(path),
             settings.acceleration,
             &stt::worker_paths_for_app(app),
-        )?;
+        ) {
+            pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+            return Err(Box::new(error));
+        }
     } else {
         pipeline::set_state(app, &state.inner(), PipelineState::Idle);
         return Err("Whisper-модель не выбрана".into());
@@ -677,15 +686,14 @@ pub async fn run_dictation_after_wake(
     wake_handle.pause();
 
     // Стартуем запись.
-    pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
-    let _ = handle.emit("pipeline-mode", "dictation");
     if let Err(error) =
         pipeline.start_recording_with_pre_roll(settings.audio_device_id.as_deref(), &pre_roll)
     {
-        pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
         wake_handle.resume();
         return Err(Box::new(error));
     }
+    pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
+    let _ = handle.emit("pipeline-mode", "dictation");
     let operation = pipeline.operation_id();
     tracing::info!("wake dictation: recording started, waiting for VAD silence");
 
@@ -761,7 +769,14 @@ pub async fn run_dictation_after_wake(
     );
 
     // Стоп + STT + вставка.
-    let samples = pipeline.stop_recording()?;
+    let samples = match pipeline.stop_recording() {
+        Ok(samples) => samples,
+        Err(error) => {
+            pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+            wake_handle.resume();
+            return Err(Box::new(error));
+        }
+    };
 
     // Сбрасываем флаг подтверждения, чтобы не влиял на следующие вызовы.
     pipeline.reset_confirm();

@@ -4,6 +4,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
+    #[error("операция уже выполняется: {0}")]
+    Busy(String),
+
     #[error("аудио ошибка: {0}")]
     Audio(String),
 

@@ -21,6 +21,11 @@ use crate::state::AppState;
 use crate::stt::SttEngine;
 use crate::types::{AiMode, PipelineState};
 
+const RECORDING_SAMPLE_RATE: usize = 16_000;
+pub const MAX_RECORDING_SECONDS: usize = 5 * 60;
+const MAX_RECORDING_SAMPLES: usize = RECORDING_SAMPLE_RATE * MAX_RECORDING_SECONDS;
+const INITIAL_RECORDING_CAPACITY: usize = RECORDING_SAMPLE_RATE * 30;
+
 /// Обёртка над общим аудиопотоком, делающая её `Send + Sync`.
 ///
 /// Внутренний cpal::Stream на Windows содержит `JoinHandle` и Win32 HANDLE,
@@ -38,6 +43,8 @@ pub struct Pipeline {
     writer: Mutex<Option<Arc<Mutex<Vec<i16>>>>>,
     /// Активный аудио-поток. Dropstream останавливает захват.
     stream: Mutex<Option<StreamHolder>>,
+    /// Set when the audio callback has filled the bounded recording buffer.
+    recording_limit_reached: Arc<AtomicBool>,
     /// STT движок (переиспользуем между вызовами).
     stt: Arc<SttEngine>,
     /// Флаг отмены текущей диктовки (кнопка Stop в оверлее).
@@ -55,6 +62,7 @@ impl Pipeline {
             recording: Mutex::new(false),
             writer: Mutex::new(None),
             stream: Mutex::new(None),
+            recording_limit_reached: Arc::new(AtomicBool::new(false)),
             stt: Arc::new(SttEngine::new()),
             cancelled: Arc::new(AtomicBool::new(false)),
             operation_id: AtomicU64::new(0),
@@ -110,6 +118,10 @@ impl Pipeline {
         *self.recording.lock()
     }
 
+    pub fn recording_limit_reached(&self) -> bool {
+        self.recording_limit_reached.load(Ordering::SeqCst)
+    }
+
     /// Нормированный RMS уровень звука последних ~100 мс записи (0.0..1.0).
     /// Используется wake-диктовкой для определения тишины (стоп по VAD),
     /// когда основной writer-буфер уже пишется аудио-потоком.
@@ -142,58 +154,87 @@ impl Pipeline {
         device_id: Option<&str>,
         pre_roll: &[i16],
     ) -> AppResult<()> {
-        if self.is_recording() {
+        let mut recording = self.recording.lock();
+        if *recording {
             tracing::warn!("start_recording called while already recording");
-            return Ok(());
+            return Err(AppError::Busy("audio recording is already active".into()));
+        }
+        if pre_roll.len() > MAX_RECORDING_SAMPLES {
+            return Err(AppError::Audio(format!(
+                "pre-roll exceeds the maximum recording length of {MAX_RECORDING_SECONDS} seconds"
+            )));
         }
 
-        let writer = Arc::new(Mutex::new(pre_roll.to_vec()));
-        let mut writer_lock = self.writer.lock();
+        self.recording_limit_reached.store(false, Ordering::SeqCst);
+        let mut samples = Vec::with_capacity(
+            INITIAL_RECORDING_CAPACITY
+                .max(pre_roll.len())
+                .min(MAX_RECORDING_SAMPLES),
+        );
+        samples.extend_from_slice(pre_roll);
+        let writer = Arc::new(Mutex::new(samples));
         let writer_for_callback = Arc::clone(&writer);
+        let limit_reached = Arc::clone(&self.recording_limit_reached);
 
         let stream = AudioCapture::start(device_id, move |chunk: &[i16]| {
-            writer_for_callback.lock().extend_from_slice(chunk);
+            let mut samples = writer_for_callback.lock();
+            if append_bounded(&mut samples, chunk, MAX_RECORDING_SAMPLES) {
+                limit_reached.store(true, Ordering::Relaxed);
+            }
         })?;
 
         self.begin_operation();
-        *self.recording.lock() = true;
         *self.stream.lock() = Some(StreamHolder(stream));
-        *writer_lock = Some(writer);
+        *self.writer.lock() = Some(writer);
+        *recording = true;
         tracing::info!(
-            "recording started, writer buffer attached (pre_roll={:.2}s)",
-            pre_roll.len() as f32 / 16_000.0
+            "recording started, bounded writer attached (pre_roll={:.2}s, max={}s)",
+            pre_roll.len() as f32 / RECORDING_SAMPLE_RATE as f32,
+            MAX_RECORDING_SECONDS
         );
         Ok(())
     }
 
     /// Останавливает запись и возвращает накопленные сэмплы.
     pub fn stop_recording(&self) -> AppResult<Vec<i16>> {
-        let was_recording = {
-            let mut recording = self.recording.lock();
-            let was = *recording;
-            *recording = false;
-            was
-        };
-
-        // Дропаем stream — cpal остановит захват.
-        if let Some(holder) = self.stream.lock().take() {
-            drop(holder);
-        }
-
-        let writer = self.writer.lock().take();
-        if !was_recording {
+        let mut recording = self.recording.lock();
+        if !*recording {
             tracing::warn!("stop_recording called but was not recording");
             return Ok(Vec::new());
         }
+
+        // Keep the lifecycle lock until the old stream is fully stopped. A
+        // concurrent start cannot install a new stream that this call would
+        // accidentally take and drop.
+        if let Some(holder) = self.stream.lock().take() {
+            drop(holder);
+        }
+        let writer = self.writer.lock().take();
+        *recording = false;
+        drop(recording);
+
         let writer = writer.ok_or_else(|| AppError::Audio("запись не была запущена".into()))?;
-        let samples = writer.lock().clone();
+        let samples = std::mem::take(&mut *writer.lock());
+        if self.recording_limit_reached() {
+            tracing::warn!(
+                max_seconds = MAX_RECORDING_SECONDS,
+                "recording buffer limit reached; additional audio was discarded"
+            );
+        }
         tracing::info!(
             "recording stopped, captured {} samples (~{:.2}s @ 16kHz)",
             samples.len(),
-            samples.len() as f32 / 16_000.0
+            samples.len() as f32 / RECORDING_SAMPLE_RATE as f32
         );
         Ok(samples)
     }
+}
+
+fn append_bounded(samples: &mut Vec<i16>, chunk: &[i16], maximum: usize) -> bool {
+    let available = maximum.saturating_sub(samples.len());
+    let accepted = available.min(chunk.len());
+    samples.extend_from_slice(&chunk[..accepted]);
+    accepted < chunk.len()
 }
 
 impl Default for Pipeline {
@@ -204,7 +245,7 @@ impl Default for Pipeline {
 
 #[cfg(test)]
 mod tests {
-    use super::Pipeline;
+    use super::{append_bounded, Pipeline};
 
     #[test]
     fn cancellation_invalidates_in_flight_operation() {
@@ -218,6 +259,24 @@ mod tests {
         let next_operation = pipeline.begin_operation();
         assert!(pipeline.is_operation_active(next_operation));
         assert_ne!(operation, next_operation);
+    }
+
+    #[test]
+    fn bounded_recording_never_exceeds_its_sample_limit() {
+        let mut samples = vec![1, 2];
+
+        assert!(append_bounded(&mut samples, &[3, 4, 5], 4));
+        assert_eq!(samples, vec![1, 2, 3, 4]);
+        assert!(append_bounded(&mut samples, &[6], 4));
+        assert_eq!(samples.len(), 4);
+    }
+
+    #[test]
+    fn bounded_recording_accepts_a_complete_chunk_when_capacity_is_available() {
+        let mut samples = Vec::new();
+
+        assert!(!append_bounded(&mut samples, &[1, 2, 3], 4));
+        assert_eq!(samples, vec![1, 2, 3]);
     }
 }
 

@@ -118,14 +118,51 @@ pub fn start_dictation(app: AppHandle) -> AppResult<()> {
         return Err(AppError::Config(msg.to_string()));
     }
 
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
     if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
         emit_pipeline_error(&app, &e.to_string());
         tracing::error!("start_dictation: start_recording FAILED: {e}");
-        set_pipeline_idle(&app, &state.inner());
         return Err(e);
     }
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    arm_recording_safety_timeout(app.clone(), pipeline.operation_id());
     Ok(())
+}
+
+fn arm_recording_safety_timeout(app: AppHandle, operation: u64) {
+    tauri::async_runtime::spawn(async move {
+        let deadline = tokio::time::Instant::now()
+            + std::time::Duration::from_secs(pipeline::MAX_RECORDING_SECONDS as u64);
+        loop {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            tokio::time::sleep(remaining.min(std::time::Duration::from_secs(1))).await;
+
+            let pipeline = app.state::<Pipeline>();
+            if !pipeline.is_operation_active(operation) || !pipeline.is_recording() {
+                return;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                break;
+            }
+        }
+
+        let pipeline = app.state::<Pipeline>();
+        tracing::warn!(
+            operation,
+            max_seconds = pipeline::MAX_RECORDING_SECONDS,
+            "recording safety timeout reached; cancelling the operation"
+        );
+        pipeline.cancel();
+        let _ = pipeline.stop_recording();
+        set_pipeline_idle(&app, app.state::<AppState>().inner());
+        app.state::<fono_wake::WakeWordHandle>().resume();
+        emit_pipeline_error(
+            &app,
+            &format!(
+                "Recording was cancelled after the {} second safety limit.",
+                pipeline::MAX_RECORDING_SECONDS
+            ),
+        );
+    });
 }
 
 #[tauri::command]
@@ -157,24 +194,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let settings = state.settings();
     let operation = pipeline.operation_id();
 
-    // Убедимся, что модель whisper загружена.
-    if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline.stt().ensure_loaded(
-            std::path::Path::new(path),
-            settings.acceleration,
-            &crate::stt::worker_paths_for_app(&app),
-        )?;
-    } else {
-        let error_msg =
-            "Whisper model is not selected. Download and choose a model in settings.".to_string();
-        emit_pipeline_error(&app, &error_msg);
-        set_pipeline_idle(&app, &state.inner());
-        return Err(AppError::Stt(error_msg));
-    }
-    if !operation_still_active(&pipeline, operation, "stop_dictation after model load") {
-        return Ok(empty_transcript());
-    }
-
+    // Always release the microphone before model loading or transcription.
     let samples = match pipeline.stop_recording() {
         Ok(s) => s,
         Err(e) => {
@@ -184,6 +204,18 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             return Err(e);
         }
     };
+    if pipeline.recording_limit_reached() {
+        emit_pipeline_error(
+            &app,
+            &format!(
+                "Recording reached the {} second safety limit; the captured part will be transcribed.",
+                pipeline::MAX_RECORDING_SECONDS
+            ),
+        );
+    }
+    if !operation_still_active(&pipeline, operation, "stop_dictation after recording") {
+        return Ok(empty_transcript());
+    }
     if samples.is_empty() {
         set_pipeline_idle(&app, &state.inner());
         return Ok(empty_transcript());
@@ -198,8 +230,29 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
 
-    // Транскрибируем (CPU-bound — запускаем в spawn_blocking).
     pipeline::set_state(&app, &state.inner(), PipelineState::Transcribing);
+    if let Some(path) = settings.whisper_model_path.as_deref() {
+        if let Err(error) = pipeline.stt().ensure_loaded(
+            std::path::Path::new(path),
+            settings.acceleration,
+            &crate::stt::worker_paths_for_app(&app),
+        ) {
+            emit_pipeline_error(&app, &error.to_string());
+            set_pipeline_idle(&app, &state.inner());
+            return Err(error);
+        }
+    } else {
+        let error_msg =
+            "Whisper model is not selected. Download and choose a model in settings.".to_string();
+        emit_pipeline_error(&app, &error_msg);
+        set_pipeline_idle(&app, &state.inner());
+        return Err(AppError::Stt(error_msg));
+    }
+    if !operation_still_active(&pipeline, operation, "stop_dictation after model load") {
+        return Ok(empty_transcript());
+    }
+
+    // Транскрибируем (CPU-bound — запускаем в spawn_blocking).
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
     let app_for_err = app.clone();
@@ -322,13 +375,12 @@ pub async fn transcribe_test(
         "transcribe_test: starting recording (device_id={:?})",
         settings.audio_device_id
     );
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
     if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
         emit_pipeline_error(&app, &e.to_string());
         tracing::error!("transcribe_test: start_recording FAILED: {e}");
-        set_pipeline_idle(&app, &state.inner());
         return Err(e);
     }
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
     let operation = pipeline.operation_id();
     tracing::info!(
         "transcribe_test: recording started, sleeping {} ms",
@@ -769,13 +821,12 @@ pub async fn test_microphone(app: AppHandle, duration_ms: u64) -> AppResult<MicT
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
 
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
     if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
         emit_pipeline_error(&app, &e.to_string());
         tracing::error!("test_microphone: start_recording FAILED: {e}");
-        set_pipeline_idle(&app, &state.inner());
         return Err(e);
     }
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
 
     let dur = std::time::Duration::from_millis(duration_ms.max(500).min(5_000));
     tokio::time::sleep(dur).await;
@@ -934,12 +985,11 @@ pub async fn record_wake_word_sample(
 
     let settings = state.settings();
     wake_handle.pause();
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
     if let Err(error) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
         wake_handle.resume();
-        set_pipeline_idle(&app, &state.inner());
         return Err(error);
     }
+    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
 
     let duration = std::time::Duration::from_millis(duration_ms.clamp(1_000, 10_000));
     tokio::time::sleep(duration).await;
