@@ -121,40 +121,6 @@ fn strip_leading_wake_phrase(transcript: &str, configured_phrase: &str) -> Strin
         .to_string()
 }
 
-#[cfg(test)]
-mod wake_command_tests {
-    use super::{extract_wake_command, strip_leading_wake_phrase};
-
-    #[test]
-    fn extracts_only_explicit_command_prefixes() {
-        assert_eq!(
-            extract_wake_command("Команда: открой Telegram"),
-            Some("открой telegram".to_string())
-        );
-        assert_eq!(
-            extract_wake_command("command louder"),
-            Some("louder".to_string())
-        );
-        assert_eq!(extract_wake_command("открой Telegram"), None);
-    }
-
-    #[test]
-    fn removes_only_leading_wake_phrase_from_dictation() {
-        assert_eq!(
-            strip_leading_wake_phrase("okay fun, напиши привет", "okay fun"),
-            "напиши привет"
-        );
-        assert_eq!(
-            strip_leading_wake_phrase("ok fan open telegram", "okay fun"),
-            "open telegram"
-        );
-        assert_eq!(
-            strip_leading_wake_phrase("просто okay fun внутри фразы", "okay fun"),
-            "просто okay fun внутри фразы"
-        );
-    }
-}
-
 /// Инициализация логирования: консоль + файл в `%APPDATA%\Fono\logs\`.
 fn init_tracing() {
     use tracing_appender::rolling;
@@ -384,7 +350,7 @@ async fn run_voice_command(
     let samples = match pipeline.stop_recording() {
         Ok(samples) => samples,
         Err(error) => {
-            pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+            pipeline::set_state(app, state.inner(), PipelineState::Idle);
             return Err(Box::new(error));
         }
     };
@@ -393,13 +359,13 @@ async fn run_voice_command(
         return Ok(());
     }
     if samples.is_empty() {
-        pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+        pipeline::set_state(app, state.inner(), PipelineState::Idle);
         return Ok(());
     }
 
     let samples = crate::vad::trim_silence(&samples);
     if samples.is_empty() {
-        pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+        pipeline::set_state(app, state.inner(), PipelineState::Idle);
         return Ok(());
     }
 
@@ -410,15 +376,15 @@ async fn run_voice_command(
             settings.acceleration,
             &stt::worker_paths_for_app(app),
         ) {
-            pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+            pipeline::set_state(app, state.inner(), PipelineState::Idle);
             return Err(Box::new(error));
         }
     } else {
-        pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+        pipeline::set_state(app, state.inner(), PipelineState::Idle);
         return Err("Whisper-модель не выбрана".into());
     }
 
-    pipeline::set_state(app, &state.inner(), PipelineState::Transcribing);
+    pipeline::set_state(app, state.inner(), PipelineState::Transcribing);
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
     let transcript =
@@ -445,7 +411,7 @@ async fn run_voice_command(
         let _ = settings_window.show();
         let _ = settings_window.set_focus();
     }
-    pipeline::set_state(app, &state.inner(), PipelineState::Idle);
+    pipeline::set_state(app, state.inner(), PipelineState::Idle);
     Ok(())
 }
 
@@ -498,8 +464,8 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                             Ok(samples) => {
                                 let _ = samples;
                                 pipeline::set_state(
-                                    &app,
-                                    &state.inner(),
+                                    app,
+                                    state.inner(),
                                     crate::types::PipelineState::Idle,
                                 );
                             }
@@ -555,18 +521,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Builds a backend-specific wake word config from application settings.
 fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeWordConfig> {
-    let mut config = WakeWordConfig::default();
-    config.enabled = settings.wake_word_enabled;
-    config.backend = settings.wake_backend;
-    config.phrase = settings.wake_word.clone();
-    config.audio_device_id = settings.audio_device_id.clone();
-    config.sample_rate = 16_000;
-    config.threshold = settings.wake_word_threshold;
-    config.sensitivity = settings.wake_word_sensitivity;
-    config.vad_threshold = settings.wake_word_vad_threshold;
-    config.use_gpu = settings.acceleration.use_gpu();
-    config.cooldown_ms = 2_000;
-    config.model_dir = match settings.wake_backend {
+    let model_dir = match settings.wake_backend {
         WakeWordBackend::SherpaOnnx => state::app_data_dir()?
             .join("kws-models")
             .join("sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"),
@@ -575,7 +530,19 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
         }
         _ => std::path::PathBuf::new(),
     };
-    Ok(config)
+    Ok(WakeWordConfig {
+        enabled: settings.wake_word_enabled,
+        backend: settings.wake_backend,
+        phrase: settings.wake_word.clone(),
+        audio_device_id: settings.audio_device_id.clone(),
+        sample_rate: 16_000,
+        threshold: settings.wake_word_threshold,
+        sensitivity: settings.wake_word_sensitivity,
+        vad_threshold: settings.wake_word_vad_threshold,
+        use_gpu: settings.acceleration.use_gpu(),
+        cooldown_ms: 2_000,
+        model_dir,
+    })
 }
 
 /// Запускает wake word детектор, если он включён в настройках.
@@ -692,7 +659,7 @@ pub async fn run_dictation_after_wake(
         wake_handle.resume();
         return Err(Box::new(error));
     }
-    pipeline::set_state(handle, &state.inner(), PipelineState::Listening);
+    pipeline::set_state(handle, state.inner(), PipelineState::Listening);
     let _ = handle.emit("pipeline-mode", "dictation");
     let operation = pipeline.operation_id();
     tracing::info!("wake dictation: recording started, waiting for VAD silence");
@@ -772,7 +739,7 @@ pub async fn run_dictation_after_wake(
     let samples = match pipeline.stop_recording() {
         Ok(samples) => samples,
         Err(error) => {
-            pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+            pipeline::set_state(handle, state.inner(), PipelineState::Idle);
             wake_handle.resume();
             return Err(Box::new(error));
         }
@@ -784,7 +751,7 @@ pub async fn run_dictation_after_wake(
     // Если пользователь нажал Stop в оверлее — отбрасываем запись.
     if pipeline.is_cancelled() {
         tracing::info!("wake dictation: cancelled by user");
-        pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+        pipeline::set_state(handle, state.inner(), PipelineState::Idle);
         wake_handle.resume();
         return Ok(());
     }
@@ -800,16 +767,16 @@ pub async fn run_dictation_after_wake(
                     settings.acceleration,
                     &stt::worker_paths_for_app(handle),
                 ) {
-                    pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
                     wake_handle.resume();
                     return Err(Box::new(error));
                 }
             } else {
-                pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                pipeline::set_state(handle, state.inner(), PipelineState::Idle);
                 wake_handle.resume();
                 return Err("Whisper-модель для диктовки не выбрана".into());
             }
-            pipeline::set_state(handle, &state.inner(), PipelineState::Transcribing);
+            pipeline::set_state(handle, state.inner(), PipelineState::Transcribing);
             let stt = pipeline.stt().clone();
             let language = settings.language.clone();
             let transcript = match tauri::async_runtime::spawn_blocking(move || {
@@ -819,12 +786,12 @@ pub async fn run_dictation_after_wake(
             {
                 Ok(Ok(transcript)) => transcript,
                 Ok(Err(error)) => {
-                    pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
                     wake_handle.resume();
                     return Err(Box::new(error));
                 }
                 Err(error) => {
-                    pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
                     wake_handle.resume();
                     return Err(format!("transcribe join: {error}").into());
                 }
@@ -853,7 +820,7 @@ pub async fn run_dictation_after_wake(
                     wake_handle.resume();
                     return Ok(());
                 }
-                pipeline::set_state(handle, &state.inner(), PipelineState::Processing);
+                pipeline::set_state(handle, state.inner(), PipelineState::Processing);
                 match crate::app_commands::execute(
                     &command,
                     &settings.launch_apps,
@@ -868,7 +835,7 @@ pub async fn run_dictation_after_wake(
                         let _ = handle.emit("error", error.to_string());
                     }
                 }
-                pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+                pipeline::set_state(handle, state.inner(), PipelineState::Idle);
                 wake_handle.resume();
                 return Ok(());
             }
@@ -877,7 +844,7 @@ pub async fn run_dictation_after_wake(
             let final_text = match settings.ai_mode {
                 crate::types::AiMode::Off => dictation_text.clone(),
                 mode => {
-                    pipeline::set_state(handle, &state.inner(), PipelineState::Processing);
+                    pipeline::set_state(handle, state.inner(), PipelineState::Processing);
                     let client = crate::llm::LlmClient::from_settings(&settings);
                     match client
                         .process(&dictation_text, mode, settings.clean_prompt.as_deref())
@@ -901,7 +868,7 @@ pub async fn run_dictation_after_wake(
             }
 
             if !final_text.is_empty() {
-                pipeline::set_state(handle, &state.inner(), PipelineState::Injecting);
+                pipeline::set_state(handle, state.inner(), PipelineState::Injecting);
                 if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode)
                 {
                     tracing::warn!("injection failed: {e}");
@@ -911,10 +878,44 @@ pub async fn run_dictation_after_wake(
         }
     }
 
-    pipeline::set_state(handle, &state.inner(), PipelineState::Idle);
+    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
 
     // Резюммим wake word.
     wake_handle.resume();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod wake_command_tests {
+    use super::{extract_wake_command, strip_leading_wake_phrase};
+
+    #[test]
+    fn extracts_only_explicit_command_prefixes() {
+        assert_eq!(
+            extract_wake_command("Команда: открой Telegram"),
+            Some("открой telegram".to_string())
+        );
+        assert_eq!(
+            extract_wake_command("command louder"),
+            Some("louder".to_string())
+        );
+        assert_eq!(extract_wake_command("открой Telegram"), None);
+    }
+
+    #[test]
+    fn removes_only_leading_wake_phrase_from_dictation() {
+        assert_eq!(
+            strip_leading_wake_phrase("okay fun, напиши привет", "okay fun"),
+            "напиши привет"
+        );
+        assert_eq!(
+            strip_leading_wake_phrase("ok fan open telegram", "okay fun"),
+            "open telegram"
+        );
+        assert_eq!(
+            strip_leading_wake_phrase("просто okay fun внутри фразы", "okay fun"),
+            "просто okay fun внутри фразы"
+        );
+    }
 }

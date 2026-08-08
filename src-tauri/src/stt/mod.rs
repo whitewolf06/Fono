@@ -107,7 +107,7 @@ pub fn worker_paths_for_app(app: &AppHandle) -> WorkerPaths {
     #[cfg(debug_assertions)]
     {
         let _ = app;
-        return WorkerPaths::from_resource_dir(Path::new(env!("CARGO_MANIFEST_DIR")));
+        WorkerPaths::from_resource_dir(Path::new(env!("CARGO_MANIFEST_DIR")))
     }
     #[cfg(not(debug_assertions))]
     {

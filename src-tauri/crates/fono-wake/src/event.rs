@@ -1,18 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WakeWordBackend {
     Disabled,
     WhisperExperimental,
+    #[default]
     SherpaOnnx,
     Mock,
-}
-
-impl Default for WakeWordBackend {
-    fn default() -> Self {
-        WakeWordBackend::SherpaOnnx
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

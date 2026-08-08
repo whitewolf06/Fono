@@ -108,19 +108,14 @@ pub enum InjectionMode {
 
 /// Preferred Whisper acceleration. `Auto` uses the GPU backend compiled into
 /// this release (CUDA or Vulkan) and falls back to CPU when there is none.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AccelerationMode {
+    #[default]
     Auto,
     Cuda,
     Vulkan,
     Cpu,
-}
-
-impl Default for AccelerationMode {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 impl AccelerationMode {

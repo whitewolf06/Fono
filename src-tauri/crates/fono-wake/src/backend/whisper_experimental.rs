@@ -8,12 +8,14 @@ use parking_lot::Mutex;
 use whisper_rs::{SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use crate::audio_source::AudioStream;
+use crate::callback::CallbackSlot;
 use crate::config::WakeWordConfig;
 use crate::diag::{self, Diagnostics, DiagnosticsHandle};
 use crate::engine::WakeWordEngine;
 use crate::error::{WakeWordError, WakeWordResult};
 use crate::event::{WakeWordEvent, WakeWordStatus};
 use crate::test::WakeWordTestResult;
+use crate::WakeCallback;
 
 /// Whisper-based wake word detector for phrases that tiny open-vocabulary KWS
 /// models cannot recognize reliably.
@@ -23,7 +25,7 @@ pub struct WhisperExperimentalBackend {
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     thread: Mutex<Option<thread::JoinHandle<()>>>,
-    callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    callback: CallbackSlot,
     diag: DiagnosticsHandle,
 }
 
@@ -35,15 +37,15 @@ impl WhisperExperimentalBackend {
             running: Arc::new(AtomicBool::new(false)),
             paused: Arc::new(AtomicBool::new(false)),
             thread: Mutex::new(None),
-            callback: Arc::new(Mutex::new(None)),
+            callback: CallbackSlot::default(),
             diag: diag::new_handle(),
         }
     }
 }
 
 impl WakeWordEngine for WhisperExperimentalBackend {
-    fn start(&mut self, callback: Box<dyn Fn(WakeWordEvent) + Send>) -> WakeWordResult<()> {
-        *self.callback.lock() = Some(callback);
+    fn start(&mut self, callback: WakeCallback) -> WakeWordResult<()> {
+        self.callback.set(callback);
         if !self.config.model_dir.is_file() {
             let path = self.config.model_dir.clone();
             *self.status.lock() = WakeWordStatus::MissingModel;
@@ -133,12 +135,18 @@ impl WakeWordEngine for WhisperExperimentalBackend {
     }
 }
 
+impl Drop for WhisperExperimentalBackend {
+    fn drop(&mut self) {
+        let _ = self.stop();
+    }
+}
+
 fn whisper_loop(
     config: WakeWordConfig,
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     status: Arc<Mutex<WakeWordStatus>>,
-    callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    callback: CallbackSlot,
     diagnostics: DiagnosticsHandle,
 ) -> WakeWordResult<()> {
     let use_gpu = config.use_gpu && gpu_backend_compiled();
@@ -379,17 +387,11 @@ fn event_name(event: &WakeWordEvent) -> &'static str {
     }
 }
 
-fn notify(
-    callback: &Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
-    event: WakeWordEvent,
-    diagnostics: Option<&DiagnosticsHandle>,
-) {
+fn notify(callback: &CallbackSlot, event: WakeWordEvent, diagnostics: Option<&DiagnosticsHandle>) {
     if let Some(diagnostics) = diagnostics {
         diag::record_event(diagnostics, event_name(&event));
     }
-    if let Some(callback) = callback.lock().as_ref() {
-        callback(event);
-    }
+    callback.notify(event);
 }
 
 #[cfg(test)]

@@ -243,43 +243,6 @@ impl Default for Pipeline {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{append_bounded, Pipeline};
-
-    #[test]
-    fn cancellation_invalidates_in_flight_operation() {
-        let pipeline = Pipeline::new();
-        let operation = pipeline.begin_operation();
-        assert!(pipeline.is_operation_active(operation));
-
-        pipeline.cancel();
-        assert!(!pipeline.is_operation_active(operation));
-
-        let next_operation = pipeline.begin_operation();
-        assert!(pipeline.is_operation_active(next_operation));
-        assert_ne!(operation, next_operation);
-    }
-
-    #[test]
-    fn bounded_recording_never_exceeds_its_sample_limit() {
-        let mut samples = vec![1, 2];
-
-        assert!(append_bounded(&mut samples, &[3, 4, 5], 4));
-        assert_eq!(samples, vec![1, 2, 3, 4]);
-        assert!(append_bounded(&mut samples, &[6], 4));
-        assert_eq!(samples.len(), 4);
-    }
-
-    #[test]
-    fn bounded_recording_accepts_a_complete_chunk_when_capacity_is_available() {
-        let mut samples = Vec::new();
-
-        assert!(!append_bounded(&mut samples, &[1, 2, 3], 4));
-        assert_eq!(samples, vec![1, 2, 3]);
-    }
-}
-
 /// Полный цикл диктовки: STT → (опционально LLM) → injection.
 ///
 /// Предполагается, что модель STT уже загружена и settings корректны.
@@ -371,5 +334,42 @@ pub async fn start_background(handle: AppHandle) -> AppResult<()> {
                 handle.state::<AppState>().pipeline_state()
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{append_bounded, Pipeline};
+
+    #[test]
+    fn cancellation_invalidates_in_flight_operation() {
+        let pipeline = Pipeline::new();
+        let operation = pipeline.begin_operation();
+        assert!(pipeline.is_operation_active(operation));
+
+        pipeline.cancel();
+        assert!(!pipeline.is_operation_active(operation));
+
+        let next_operation = pipeline.begin_operation();
+        assert!(pipeline.is_operation_active(next_operation));
+        assert_ne!(operation, next_operation);
+    }
+
+    #[test]
+    fn bounded_recording_never_exceeds_its_sample_limit() {
+        let mut samples = vec![1, 2];
+
+        assert!(append_bounded(&mut samples, &[3, 4, 5], 4));
+        assert_eq!(samples, vec![1, 2, 3, 4]);
+        assert!(append_bounded(&mut samples, &[6], 4));
+        assert_eq!(samples.len(), 4);
+    }
+
+    #[test]
+    fn bounded_recording_accepts_a_complete_chunk_when_capacity_is_available() {
+        let mut samples = Vec::new();
+
+        assert!(!append_bounded(&mut samples, &[1, 2, 3], 4));
+        assert_eq!(samples, vec![1, 2, 3]);
     }
 }

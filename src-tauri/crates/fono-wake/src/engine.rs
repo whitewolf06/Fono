@@ -1,21 +1,21 @@
-use std::sync::Arc;
-
 use parking_lot::Mutex;
 
 use crate::backend;
+use crate::callback::CallbackSlot;
 use crate::config::{WakeWordBackend, WakeWordConfig};
 use crate::diag::Diagnostics;
 #[cfg(any(not(feature = "whisper-wake"), not(feature = "sherpa-wake")))]
 use crate::error::WakeWordError;
 use crate::error::WakeWordResult;
 use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::WakeCallback;
 
 /// Backend-agnostic wake word engine.
 ///
 /// Backends are selected via `WakeWordConfig::backend`. The engine runs in its
 /// own thread and emits events through the supplied callback.
 pub trait WakeWordEngine: Send {
-    fn start(&mut self, callback: Box<dyn Fn(WakeWordEvent) + Send>) -> WakeWordResult<()>;
+    fn start(&mut self, callback: WakeCallback) -> WakeWordResult<()>;
     fn stop(&mut self) -> WakeWordResult<()>;
     fn pause(&mut self) -> WakeWordResult<()>;
     fn resume(&mut self) -> WakeWordResult<()>;
@@ -35,35 +35,23 @@ pub struct WakeWordHandle {
 struct Inner {
     config: WakeWordConfig,
     engine: Option<Box<dyn WakeWordEngine>>,
-    callback: Arc<Mutex<Option<Arc<dyn Fn(WakeWordEvent) + Send + Sync>>>>,
-}
-
-fn notify_handle(
-    callback: &Arc<Mutex<Option<Arc<dyn Fn(WakeWordEvent) + Send + Sync>>>>,
-    event: WakeWordEvent,
-) {
-    if let Some(cb) = callback.lock().as_ref() {
-        cb(event);
-    }
+    callback: CallbackSlot,
 }
 
 impl WakeWordHandle {
     pub fn new(config: WakeWordConfig) -> Self {
-        let callback = Arc::new(Mutex::new(None));
+        let callback = CallbackSlot::default();
         let engine = if config.enabled {
-            match build_engine(&config, &callback) {
+            match build_engine(&config) {
                 Ok(Some(mut engine)) => {
                     let cb = make_event_callback(&callback);
                     match engine.start(cb) {
                         Ok(()) => Some(engine),
                         Err(err) => {
                             tracing::error!("fono-wake: failed to start engine: {err}");
-                            notify_handle(
-                                &callback,
-                                WakeWordEvent::Error {
-                                    message: err.to_string(),
-                                },
-                            );
+                            callback.notify(WakeWordEvent::Error {
+                                message: err.to_string(),
+                            });
                             None
                         }
                     }
@@ -71,12 +59,9 @@ impl WakeWordHandle {
                 Ok(None) => None,
                 Err(err) => {
                     tracing::error!("fono-wake: failed to build engine: {err}");
-                    notify_handle(
-                        &callback,
-                        WakeWordEvent::Error {
-                            message: err.to_string(),
-                        },
-                    );
+                    callback.notify(WakeWordEvent::Error {
+                        message: err.to_string(),
+                    });
                     None
                 }
             }
@@ -99,7 +84,7 @@ impl WakeWordHandle {
         F: Fn(WakeWordEvent) + Send + Sync + 'static,
     {
         let inner = self.inner.lock();
-        *inner.callback.lock() = Some(Arc::new(callback));
+        inner.callback.set(std::sync::Arc::new(callback));
     }
 
     /// Replace configuration and restart the engine if wake word is enabled.
@@ -112,14 +97,14 @@ impl WakeWordHandle {
         inner.engine = None;
 
         if !config.enabled {
-            notify_handle(&inner.callback, WakeWordEvent::Paused);
+            inner.callback.notify(WakeWordEvent::Paused);
             return Ok(());
         }
 
-        let mut engine = match build_engine(&config, &inner.callback)? {
+        let mut engine = match build_engine(&config)? {
             Some(e) => e,
             None => {
-                notify_handle(&inner.callback, WakeWordEvent::Paused);
+                inner.callback.notify(WakeWordEvent::Paused);
                 return Ok(());
             }
         };
@@ -136,7 +121,7 @@ impl WakeWordHandle {
             return Ok(());
         }
         let config = inner.config.clone();
-        let mut engine = match build_engine(&config, &inner.callback)? {
+        let mut engine = match build_engine(&config)? {
             Some(e) => e,
             None => return Ok(()),
         };
@@ -186,10 +171,7 @@ impl WakeWordHandle {
     }
 }
 
-fn build_engine(
-    config: &WakeWordConfig,
-    _callback: &Arc<Mutex<Option<Arc<dyn Fn(WakeWordEvent) + Send + Sync>>>>,
-) -> WakeWordResult<Option<Box<dyn WakeWordEngine>>> {
+fn build_engine(config: &WakeWordConfig) -> WakeWordResult<Option<Box<dyn WakeWordEngine>>> {
     match config.backend {
         WakeWordBackend::Disabled => Ok(None),
         WakeWordBackend::Mock => Ok(Some(Box::new(backend::MockBackend::new(config.clone())))),
@@ -216,11 +198,9 @@ fn build_engine(
     }
 }
 
-fn make_event_callback(
-    callback: &Arc<Mutex<Option<Arc<dyn Fn(WakeWordEvent) + Send + Sync>>>>,
-) -> Box<dyn Fn(WakeWordEvent) + Send> {
+fn make_event_callback(callback: &CallbackSlot) -> WakeCallback {
     let cb = callback.clone();
-    Box::new(move |event| notify_handle(&cb, event))
+    std::sync::Arc::new(move |event| cb.notify(event))
 }
 
 impl Default for WakeWordHandle {

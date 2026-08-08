@@ -71,7 +71,7 @@ impl AudioStream {
                 range.max_sample_rate().min(SampleRate(48_000))
             };
 
-        let supported_config = range.clone().with_sample_rate(sample_rate);
+        let supported_config = (*range).with_sample_rate(sample_rate);
         let channels = supported_config.channels();
         let sample_format = supported_config.sample_format();
         let stream_config: cpal::StreamConfig = supported_config.into();

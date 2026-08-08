@@ -123,7 +123,7 @@ pub fn start_dictation(app: AppHandle) -> AppResult<()> {
         tracing::error!("start_dictation: start_recording FAILED: {e}");
         return Err(e);
     }
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    pipeline::set_state(&app, state.inner(), PipelineState::Listening);
     arm_recording_safety_timeout(app.clone(), pipeline.operation_id());
     Ok(())
 }
@@ -181,7 +181,7 @@ pub fn cancel_dictation(app: AppHandle) -> AppResult<()> {
 
     pipeline.cancel();
     let _ = pipeline.stop_recording();
-    set_pipeline_idle(&app, &state.inner());
+    set_pipeline_idle(&app, state.inner());
     wake_handle.resume();
     tracing::info!("dictation cancelled by overlay");
     Ok(())
@@ -200,7 +200,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         Err(e) => {
             emit_pipeline_error(&app, &e.to_string());
             tracing::error!("stop_dictation: stop_recording FAILED: {e}");
-            set_pipeline_idle(&app, &state.inner());
+            set_pipeline_idle(&app, state.inner());
             return Err(e);
         }
     };
@@ -217,7 +217,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
     if samples.is_empty() {
-        set_pipeline_idle(&app, &state.inner());
+        set_pipeline_idle(&app, state.inner());
         return Ok(empty_transcript());
     }
 
@@ -226,11 +226,11 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let samples = crate::vad::trim_silence(&samples);
     if samples.is_empty() {
         tracing::info!("VAD: речь не обнаружена вообще — пропускаем транскрипцию");
-        set_pipeline_idle(&app, &state.inner());
+        set_pipeline_idle(&app, state.inner());
         return Ok(empty_transcript());
     }
 
-    pipeline::set_state(&app, &state.inner(), PipelineState::Transcribing);
+    pipeline::set_state(&app, state.inner(), PipelineState::Transcribing);
     if let Some(path) = settings.whisper_model_path.as_deref() {
         if let Err(error) = pipeline.stt().ensure_loaded(
             std::path::Path::new(path),
@@ -238,14 +238,14 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             &crate::stt::worker_paths_for_app(&app),
         ) {
             emit_pipeline_error(&app, &error.to_string());
-            set_pipeline_idle(&app, &state.inner());
+            set_pipeline_idle(&app, state.inner());
             return Err(error);
         }
     } else {
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
-        set_pipeline_idle(&app, &state.inner());
+        set_pipeline_idle(&app, state.inner());
         return Err(AppError::Stt(error_msg));
     }
     if !operation_still_active(&pipeline, operation, "stop_dictation after model load") {
@@ -261,12 +261,12 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             .await
             .map_err(|e| {
                 let _ = app_for_err.emit("error", e.to_string());
-                set_pipeline_idle(&app_for_err, &state.inner());
+                set_pipeline_idle(&app_for_err, state.inner());
                 AppError::Internal(format!("transcribe join: {e}"))
             })?
             .map_err(|e| {
                 let _ = app.emit("error", e.to_string());
-                set_pipeline_idle(&app, &state.inner());
+                set_pipeline_idle(&app, state.inner());
                 e
             })?;
 
@@ -283,7 +283,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let final_text = match settings.ai_mode {
         AiMode::Off => transcript.text.clone(),
         mode => {
-            pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
+            pipeline::set_state(&app, state.inner(), PipelineState::Processing);
             let client = LlmClient::from_settings(&settings);
             match client
                 .process(&transcript.text, mode, settings.clean_prompt.as_deref())
@@ -309,13 +309,13 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     );
 
     // Вставка текста.
-    pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
+    pipeline::set_state(&app, state.inner(), PipelineState::Injecting);
     if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
         emit_pipeline_error(&app, &e.to_string());
-        set_pipeline_idle(&app, &state.inner());
+        set_pipeline_idle(&app, state.inner());
         return Err(e);
     }
-    set_pipeline_idle(&app, &state.inner());
+    set_pipeline_idle(&app, state.inner());
 
     if !final_text.trim().is_empty() {
         let _ = state::append_dictation_history(DictationHistoryEntry {
@@ -366,7 +366,7 @@ pub async fn transcribe_test(
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
-        set_pipeline_idle(&app, &state.inner());
+        set_pipeline_idle(&app, state.inner());
         return Err(AppError::Stt(error_msg));
     }
 
@@ -380,7 +380,7 @@ pub async fn transcribe_test(
         tracing::error!("transcribe_test: start_recording FAILED: {e}");
         return Err(e);
     }
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    pipeline::set_state(&app, state.inner(), PipelineState::Listening);
     let operation = pipeline.operation_id();
     tracing::info!(
         "transcribe_test: recording started, sleeping {} ms",
@@ -388,7 +388,7 @@ pub async fn transcribe_test(
     );
 
     // Ждём указанную длительность.
-    let dur = std::time::Duration::from_millis(duration_ms.max(500).min(30_000));
+    let dur = std::time::Duration::from_millis(duration_ms.clamp(500, 30_000));
     tokio::time::sleep(dur).await;
 
     if !operation_still_active(&pipeline, operation, "transcribe_test after recording") {
@@ -402,7 +402,7 @@ pub async fn transcribe_test(
         Err(e) => {
             emit_pipeline_error(&app, &e.to_string());
             tracing::error!("transcribe_test: stop_recording FAILED: {e}");
-            set_pipeline_idle(&app, &state.inner());
+            set_pipeline_idle(&app, state.inner());
             return Err(e);
         }
     };
@@ -419,14 +419,14 @@ pub async fn transcribe_test(
             "Test recording is too short or too quiet. Please speak closer and longer.",
         );
         // < 0.1 сек — что-то не так с микрофоном
-        set_pipeline_idle(&app, &state.inner());
+        set_pipeline_idle(&app, state.inner());
         return Err(AppError::Audio(
             "записано слишком мало аудио — проверьте, что микрофон работает и не занят другим приложением".into(),
         ));
     }
 
     // Транскрипция (CPU-bound).
-    pipeline::set_state(&app, &state.inner(), PipelineState::Transcribing);
+    pipeline::set_state(&app, state.inner(), PipelineState::Transcribing);
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
     let app_for_err = app.clone();
@@ -435,12 +435,12 @@ pub async fn transcribe_test(
             .await
             .map_err(|e| {
                 let _ = app_for_err.emit("error", e.to_string());
-                set_pipeline_idle(&app_for_err, &state.inner());
+                set_pipeline_idle(&app_for_err, state.inner());
                 AppError::Internal(format!("transcribe join: {e}"))
             })?
             .map_err(|e| {
                 let _ = app.emit("error", e.to_string());
-                set_pipeline_idle(&app, &state.inner());
+                set_pipeline_idle(&app, state.inner());
                 e
             })?;
 
@@ -457,7 +457,7 @@ pub async fn transcribe_test(
     let final_text = match settings.ai_mode {
         AiMode::Off => transcript.text.clone(),
         mode => {
-            pipeline::set_state(&app, &state.inner(), PipelineState::Processing);
+            pipeline::set_state(&app, state.inner(), PipelineState::Processing);
             let client = LlmClient::from_settings(&settings);
             match client
                 .process(&transcript.text, mode, settings.clean_prompt.as_deref())
@@ -482,7 +482,7 @@ pub async fn transcribe_test(
 
     // Этап 2: текст-инъекция в активное окно через SendInput.
     if inject && !final_text.is_empty() {
-        pipeline::set_state(&app, &state.inner(), PipelineState::Injecting);
+        pipeline::set_state(&app, state.inner(), PipelineState::Injecting);
         match crate::injection::inject_text(&final_text, settings.injection_mode) {
             Ok(()) => tracing::info!(
                 "injected {} chars into active window",
@@ -495,7 +495,7 @@ pub async fn transcribe_test(
         }
     }
 
-    set_pipeline_idle(&app, &state.inner());
+    set_pipeline_idle(&app, state.inner());
 
     Ok(Transcript {
         text: final_text,
@@ -764,7 +764,7 @@ pub fn save_settings(
 pub fn clear_logs() -> AppResult<()> {
     let log_dir = state::app_data_dir()?.join("logs");
     let mut entries: Vec<_> = std::fs::read_dir(&log_dir)
-        .map_err(|e| AppError::Io(e))?
+        .map_err(AppError::Io)?
         .filter_map(|e| e.ok())
         .collect();
     entries.sort_by_key(|e| e.file_name());
@@ -777,7 +777,7 @@ pub fn clear_logs() -> AppResult<()> {
             .write(true)
             .truncate(true)
             .open(target.path())
-            .map_err(|e| AppError::Io(e))?;
+            .map_err(AppError::Io)?;
         tracing::info!("log file cleared");
     }
     Ok(())
@@ -790,7 +790,7 @@ pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
     let log_dir = state::app_data_dir()?.join("logs");
     // Ищем самый свежий fono.log* (rolling appender добавляет дату).
     let mut entries: Vec<_> = std::fs::read_dir(&log_dir)
-        .map_err(|e| AppError::Io(e))?
+        .map_err(AppError::Io)?
         .filter_map(|e| e.ok())
         .collect();
     entries.sort_by_key(|e| e.file_name());
@@ -826,9 +826,9 @@ pub async fn test_microphone(app: AppHandle, duration_ms: u64) -> AppResult<MicT
         tracing::error!("test_microphone: start_recording FAILED: {e}");
         return Err(e);
     }
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    pipeline::set_state(&app, state.inner(), PipelineState::Listening);
 
-    let dur = std::time::Duration::from_millis(duration_ms.max(500).min(5_000));
+    let dur = std::time::Duration::from_millis(duration_ms.clamp(500, 5_000));
     tokio::time::sleep(dur).await;
 
     let samples = match pipeline.stop_recording() {
@@ -836,11 +836,11 @@ pub async fn test_microphone(app: AppHandle, duration_ms: u64) -> AppResult<MicT
         Err(e) => {
             emit_pipeline_error(&app, &e.to_string());
             tracing::error!("test_microphone: stop_recording FAILED: {e}");
-            set_pipeline_idle(&app, &state.inner());
+            set_pipeline_idle(&app, state.inner());
             return Err(e);
         }
     };
-    set_pipeline_idle(&app, &state.inner());
+    set_pipeline_idle(&app, state.inner());
 
     if samples.is_empty() {
         emit_pipeline_error(&app, "No input captured. Check microphone and permissions.");
@@ -989,12 +989,12 @@ pub async fn record_wake_word_sample(
         wake_handle.resume();
         return Err(error);
     }
-    pipeline::set_state(&app, &state.inner(), PipelineState::Listening);
+    pipeline::set_state(&app, state.inner(), PipelineState::Listening);
 
     let duration = std::time::Duration::from_millis(duration_ms.clamp(1_000, 10_000));
     tokio::time::sleep(duration).await;
     let samples = pipeline.stop_recording();
-    set_pipeline_idle(&app, &state.inner());
+    set_pipeline_idle(&app, state.inner());
     wake_handle.resume();
     let samples = samples?;
     if samples.is_empty() {

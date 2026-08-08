@@ -11,11 +11,13 @@ use crossbeam_channel::{bounded, Sender};
 
 use parking_lot::Mutex;
 
+use crate::callback::CallbackSlot;
 use crate::config::WakeWordConfig;
 use crate::diag::{self, Diagnostics, DiagnosticsHandle};
 use crate::engine::WakeWordEngine;
 use crate::error::{WakeWordError, WakeWordResult};
 use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::WakeCallback;
 
 /// Fixed keyword model layout used by Fono.
 ///
@@ -27,7 +29,8 @@ pub struct SherpaOnnxBackend {
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     sender: Mutex<Option<Sender<Vec<f32>>>>,
-    callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    thread: Mutex<Option<thread::JoinHandle<()>>>,
+    callback: CallbackSlot,
     diag: DiagnosticsHandle,
 }
 
@@ -39,7 +42,8 @@ impl SherpaOnnxBackend {
             running: Arc::new(AtomicBool::new(false)),
             paused: Arc::new(AtomicBool::new(false)),
             sender: Mutex::new(None),
-            callback: Arc::new(Mutex::new(None)),
+            thread: Mutex::new(None),
+            callback: CallbackSlot::default(),
             diag: diag::new_handle(),
         }
     }
@@ -78,8 +82,8 @@ impl SherpaOnnxBackend {
 }
 
 impl WakeWordEngine for SherpaOnnxBackend {
-    fn start(&mut self, callback: Box<dyn Fn(WakeWordEvent) + Send>) -> WakeWordResult<()> {
-        *self.callback.lock() = Some(callback);
+    fn start(&mut self, callback: WakeCallback) -> WakeWordResult<()> {
+        self.callback.set(callback);
 
         if let Some(path) = self.first_missing_file() {
             notify(
@@ -116,11 +120,20 @@ impl WakeWordEngine for SherpaOnnxBackend {
         let (tx, rx) = bounded::<Vec<f32>>(400);
         *self.sender.lock() = Some(tx.clone());
 
-        thread::spawn(move || {
-            if let Err(e) = run_spotter(config, running, paused, status, tx, rx, cb, diag) {
+        let runtime = SpotterRuntime {
+            config,
+            running,
+            paused,
+            status,
+            callback: cb,
+            diag,
+        };
+        let thread = thread::spawn(move || {
+            if let Err(e) = run_spotter(runtime, tx, rx) {
                 tracing::error!("fono-wake sherpa: spotter thread ended: {e}");
             }
         });
+        *self.thread.lock() = Some(thread);
 
         Ok(())
     }
@@ -128,6 +141,9 @@ impl WakeWordEngine for SherpaOnnxBackend {
     fn stop(&mut self) -> WakeWordResult<()> {
         self.running.store(false, Ordering::SeqCst);
         *self.sender.lock() = None;
+        if let Some(thread) = self.thread.lock().take() {
+            let _ = thread.join();
+        }
         *self.status.lock() = WakeWordStatus::Off;
         diag::set_running(&self.diag, false);
         diag::set_paused(&self.diag, false);
@@ -160,16 +176,34 @@ impl WakeWordEngine for SherpaOnnxBackend {
     }
 }
 
-fn run_spotter(
+impl Drop for SherpaOnnxBackend {
+    fn drop(&mut self) {
+        let _ = self.stop();
+    }
+}
+
+struct SpotterRuntime {
     config: WakeWordConfig,
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     status: Arc<Mutex<WakeWordStatus>>,
+    callback: CallbackSlot,
+    diag: DiagnosticsHandle,
+}
+
+fn run_spotter(
+    runtime: SpotterRuntime,
     tx: Sender<Vec<f32>>,
     rx: crossbeam_channel::Receiver<Vec<f32>>,
-    callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
-    diag: DiagnosticsHandle,
 ) -> WakeWordResult<()> {
+    let SpotterRuntime {
+        config,
+        running,
+        paused,
+        status,
+        callback,
+        diag,
+    } = runtime;
     let dir = config.model_dir;
     let encoder = dir.join("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
     let decoder = dir.join("decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
@@ -376,12 +410,8 @@ pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
     // implementation should tokenize with the model's BPE vocabulary at
     // runtime (see `text2token` in sherpa-onnx).
     let mut out: Vec<String> = Vec::new();
-    for (i, word) in normalized.split_whitespace().enumerate() {
-        if i > 0 {
-            out.push("▁".into());
-        } else {
-            out.push("▁".into());
-        }
+    for word in normalized.split_whitespace() {
+        out.push("▁".into());
         for ch in word.chars() {
             out.push(ch.to_string());
         }
@@ -400,17 +430,11 @@ fn event_name(event: &WakeWordEvent) -> &'static str {
     }
 }
 
-fn notify(
-    callback: &Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
-    event: WakeWordEvent,
-    diag: Option<&DiagnosticsHandle>,
-) {
+fn notify(callback: &CallbackSlot, event: WakeWordEvent, diag: Option<&DiagnosticsHandle>) {
     if let Some(d) = diag {
         diag::record_event(d, event_name(&event));
     }
-    if let Some(cb) = callback.lock().as_ref() {
-        cb(event);
-    }
+    callback.notify(event);
 }
 
 #[cfg(test)]

@@ -5,10 +5,12 @@ use std::time::Duration;
 
 use parking_lot::Mutex;
 
+use crate::callback::CallbackSlot;
 use crate::config::WakeWordConfig;
 use crate::engine::WakeWordEngine;
 use crate::error::WakeWordResult;
 use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::WakeCallback;
 
 /// Simulated wake word for tests and UI demos.
 ///
@@ -20,7 +22,7 @@ pub struct MockBackend {
     paused: Arc<AtomicBool>,
     thread: Option<thread::JoinHandle<()>>,
     status: Arc<Mutex<WakeWordStatus>>,
-    callback: Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
+    callback: CallbackSlot,
 }
 
 impl MockBackend {
@@ -31,14 +33,14 @@ impl MockBackend {
             paused: Arc::new(AtomicBool::new(false)),
             thread: None,
             status: Arc::new(Mutex::new(WakeWordStatus::Off)),
-            callback: Arc::new(Mutex::new(None)),
+            callback: CallbackSlot::default(),
         }
     }
 }
 
 impl WakeWordEngine for MockBackend {
-    fn start(&mut self, callback: Box<dyn Fn(WakeWordEvent) + Send>) -> WakeWordResult<()> {
-        *self.callback.lock() = Some(callback);
+    fn start(&mut self, callback: WakeCallback) -> WakeWordResult<()> {
+        self.callback.set(callback);
         self.running.store(true, Ordering::SeqCst);
         *self.status.lock() = WakeWordStatus::Listening;
         let running = self.running.clone();
@@ -58,13 +60,10 @@ impl WakeWordEngine for MockBackend {
                     continue;
                 }
                 *status.lock() = WakeWordStatus::Processing;
-                notify(
-                    &cb,
-                    WakeWordEvent::Detected {
-                        phrase: phrase.clone(),
-                        pre_roll: Vec::new(),
-                    },
-                );
+                cb.notify(WakeWordEvent::Detected {
+                    phrase: phrase.clone(),
+                    pre_roll: Vec::new(),
+                });
                 *status.lock() = WakeWordStatus::Listening;
             }
             *status.lock() = WakeWordStatus::Off;
@@ -99,8 +98,8 @@ impl WakeWordEngine for MockBackend {
     }
 }
 
-fn notify(callback: &Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>, event: WakeWordEvent) {
-    if let Some(cb) = callback.lock().as_ref() {
-        cb(event);
+impl Drop for MockBackend {
+    fn drop(&mut self) {
+        let _ = self.stop();
     }
 }

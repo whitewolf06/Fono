@@ -251,7 +251,7 @@ pub fn launch_application(query: &str, launch_apps: &[LaunchApp]) -> AppResult<S
 
     std::process::Command::new(&app.exe_path)
         .spawn()
-        .map_err(|e| AppError::Io(e))?;
+        .map_err(AppError::Io)?;
 
     Ok(app.name.clone())
 }

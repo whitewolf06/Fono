@@ -18,6 +18,12 @@ pub struct AppState {
     pending_voice_command: Mutex<Option<String>>,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
     pub fn new() -> Self {
         let state = Self {
