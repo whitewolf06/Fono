@@ -8,6 +8,7 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+#[cfg(feature = "sherpa-wake")]
 use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -989,21 +990,9 @@ pub async fn recognize_wake_word_sample(app: AppHandle) -> AppResult<WakeWordRec
 
     let result = match settings.wake_backend {
         fono_wake::WakeWordBackend::WhisperExperimental => {
-            tauri::async_runtime::spawn_blocking(move || {
-                fono_wake::test_whisper_with_samples(&config, &samples)
-            })
-            .await
-            .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??
+            recognize_whisper_sample(config, samples).await?
         }
-        fono_wake::WakeWordBackend::SherpaOnnx => {
-            let wav_path = state::app_data_dir()?.join("wake-word-test.wav");
-            write_pcm16_wav(&wav_path, &samples, 16_000)?;
-            tauri::async_runtime::spawn_blocking(move || {
-                fono_wake::test_with_wav(&config, &wav_path, false)
-            })
-            .await
-            .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??
-        }
+        fono_wake::WakeWordBackend::SherpaOnnx => recognize_sherpa_sample(config, samples).await?,
         _ => {
             return Err(AppError::Internal(
                 "тест записи поддерживается для Whisper и Sherpa-ONNX".into(),
@@ -1028,6 +1017,52 @@ pub async fn recognize_wake_word_sample(app: AppHandle) -> AppResult<WakeWordRec
     })
 }
 
+#[cfg(feature = "whisper-wake")]
+async fn recognize_whisper_sample(
+    config: fono_wake::WakeWordConfig,
+    samples: Vec<i16>,
+) -> AppResult<fono_wake::WakeWordTestResult> {
+    Ok(tauri::async_runtime::spawn_blocking(move || {
+        fono_wake::test_whisper_with_samples(&config, &samples)
+    })
+    .await
+    .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??)
+}
+
+#[cfg(not(feature = "whisper-wake"))]
+async fn recognize_whisper_sample(
+    _config: fono_wake::WakeWordConfig,
+    _samples: Vec<i16>,
+) -> AppResult<fono_wake::WakeWordTestResult> {
+    Err(AppError::Internal(
+        "whisper-wake backend не собран в эту сборку".into(),
+    ))
+}
+
+#[cfg(feature = "sherpa-wake")]
+async fn recognize_sherpa_sample(
+    config: fono_wake::WakeWordConfig,
+    samples: Vec<i16>,
+) -> AppResult<fono_wake::WakeWordTestResult> {
+    let wav_path = state::app_data_dir()?.join("wake-word-test.wav");
+    write_pcm16_wav(&wav_path, &samples, 16_000)?;
+    Ok(tauri::async_runtime::spawn_blocking(move || {
+        fono_wake::test_with_wav(&config, &wav_path, false)
+    })
+    .await
+    .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??)
+}
+
+#[cfg(not(feature = "sherpa-wake"))]
+async fn recognize_sherpa_sample(
+    _config: fono_wake::WakeWordConfig,
+    _samples: Vec<i16>,
+) -> AppResult<fono_wake::WakeWordTestResult> {
+    Err(AppError::Internal(
+        "sherpa-wake backend не собран в эту сборку".into(),
+    ))
+}
+
 fn normalized_levels(samples: &[i16]) -> (f32, f32) {
     let mut sum = 0.0_f64;
     let mut peak = 0.0_f32;
@@ -1039,8 +1074,9 @@ fn normalized_levels(samples: &[i16]) -> (f32, f32) {
     (((sum / samples.len().max(1) as f64) as f32).sqrt(), peak)
 }
 
+#[cfg(feature = "sherpa-wake")]
 fn write_pcm16_wav(path: &std::path::Path, samples: &[i16], sample_rate: u32) -> AppResult<()> {
-    let data_len = (samples.len() * std::mem::size_of::<i16>()) as u32;
+    let data_len = std::mem::size_of_val(samples) as u32;
     let mut file = std::fs::File::create(path)?;
     file.write_all(b"RIFF")?;
     file.write_all(&(36 + data_len).to_le_bytes())?;

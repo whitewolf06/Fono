@@ -1,186 +1,256 @@
 use std::env;
-use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+const REQUIRED_STT_WORKERS: &[&str] = &["fono-stt-cuda-worker.exe", "fono-stt-vulkan-worker.exe"];
+
+const REQUIRED_CUDA_RUNTIME_PREFIXES: &[&str] = &["cublas64_", "cublasLt64_", "cudart64_"];
+
+const SHERPA_RUNTIME_DLLS: &[&str] = &[
+    "onnxruntime.dll",
+    "onnxruntime_providers_shared.dll",
+    "sherpa-onnx-c-api.dll",
+    "sherpa-onnx-cxx-api.dll",
+];
 
 fn main() {
-    // NOTE: SIMD-флаги для whisper.cpp задаются в `.cargo/config.toml` через [env],
-    // потому что build.rs применяется только к нашему crate, а whisper.cpp
-    // собирается как зависимость whisper-rs-sys.
-
+    // SIMD flags for whisper.cpp are configured in .cargo/config.toml because
+    // this build script only applies to the application crate.
     tauri_build::build();
 
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        sync_sherpa_prebuilt_libraries();
-        copy_sherpa_dlls();
-        copy_stt_worker_files();
-    }
-}
+    println!("cargo:rerun-if-env-changed=PROFILE");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SHERPA_WAKE");
 
-/// `sherpa-onnx-sys` keeps its downloaded prebuilt libraries in Cargo's target
-/// directory. Its linker directive is target-directory-relative, so a custom
-/// `CARGO_TARGET_DIR` (used for an isolated release build or CI) needs the
-/// already downloaded archive mirrored there before the final link step.
-fn sync_sherpa_prebuilt_libraries() {
-    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let default_target_dir = manifest_dir.join("target");
-    let target_dir = cargo_target_dir(&manifest_dir);
-
-    if target_dir == default_target_dir {
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
 
-    let source_dir = default_target_dir.join("sherpa-onnx-prebuilt");
-    let destination_dir = target_dir.join("sherpa-onnx-prebuilt");
-    if !source_dir.is_dir() || destination_dir.is_dir() {
-        return;
-    }
+    let layout = BuildLayout::from_env().unwrap_or_else(|error| {
+        panic!("cannot determine Cargo output layout: {error}");
+    });
 
-    if let Err(error) = copy_directory(&source_dir, &destination_dir) {
-        println!(
-            "cargo:warning=failed to mirror sherpa-onnx prebuilt libraries {} -> {}: {error}",
-            source_dir.display(),
-            destination_dir.display()
-        );
+    stage_stt_workers(&layout);
+
+    if layout.is_release() && env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some() {
+        stage_sherpa_runtime_for_bundle(&layout);
     }
 }
 
-fn cargo_target_dir(manifest_dir: &std::path::Path) -> PathBuf {
-    env::var_os("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .map(|path| {
-            if path.is_absolute() {
-                path
-            } else {
-                manifest_dir.join(path)
-            }
-        })
-        .unwrap_or_else(|| manifest_dir.join("target"))
+#[derive(Debug)]
+struct BuildLayout {
+    manifest_dir: PathBuf,
+    profile: String,
+    profile_dir: PathBuf,
 }
 
-fn copy_directory(
-    source_dir: &std::path::Path,
-    destination_dir: &std::path::Path,
-) -> std::io::Result<()> {
-    std::fs::create_dir_all(destination_dir)?;
-    for entry in std::fs::read_dir(source_dir)? {
-        let entry = entry?;
-        let source = entry.path();
-        let destination = destination_dir.join(entry.file_name());
-        if source.is_dir() {
-            copy_directory(&source, &destination)?;
-        } else {
-            std::fs::copy(source, destination)?;
+impl BuildLayout {
+    fn from_env() -> Result<Self, String> {
+        let manifest_dir = required_absolute_path("CARGO_MANIFEST_DIR")?;
+        let out_dir = required_absolute_path("OUT_DIR")?;
+        let profile =
+            env::var("PROFILE").map_err(|error| format!("PROFILE is not set: {error}"))?;
+
+        // Cargo does not expose a CLI --target-dir through CARGO_TARGET_DIR.
+        // OUT_DIR is authoritative and has the shape:
+        // <target-root>[/<target-triple>]/<profile>/build/<package-hash>/out.
+        let package_build_dir = out_dir
+            .parent()
+            .ok_or_else(|| format!("OUT_DIR has no package directory: {}", out_dir.display()))?;
+        let build_dir = package_build_dir
+            .parent()
+            .ok_or_else(|| format!("OUT_DIR has no build directory: {}", out_dir.display()))?;
+        if build_dir.file_name() != Some(OsStr::new("build")) {
+            return Err(format!(
+                "unexpected OUT_DIR layout, expected a build directory: {}",
+                out_dir.display()
+            ));
         }
+        let profile_dir = build_dir
+            .parent()
+            .ok_or_else(|| format!("OUT_DIR has no profile directory: {}", out_dir.display()))?
+            .to_path_buf();
+        if profile_dir.file_name() != Some(OsStr::new(&profile)) {
+            return Err(format!(
+                "OUT_DIR profile directory {} does not match PROFILE={profile}",
+                profile_dir.display()
+            ));
+        }
+
+        Ok(Self {
+            manifest_dir,
+            profile,
+            profile_dir,
+        })
     }
-    Ok(())
+
+    fn is_release(&self) -> bool {
+        self.profile == "release"
+    }
 }
 
-/// Copies the generated CUDA/Vulkan worker executables beside a directly run
-/// development or release binary. Tauri's installer consumes the same source
-/// folder through `bundle.resources`; this copy is for `target/<profile>/fono.exe`.
-fn copy_stt_worker_files() {
-    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let profile = env::var("PROFILE").unwrap();
-    let source_dir = manifest_dir.join("resources").join("stt-workers");
-    let target_dir = cargo_target_dir(&manifest_dir)
-        .join(profile)
-        .join("resources")
-        .join("stt-workers");
+fn required_absolute_path(name: &str) -> Result<PathBuf, String> {
+    let value = env::var_os(name).ok_or_else(|| format!("{name} is not set"))?;
+    let path = PathBuf::from(value);
+    if !path.is_absolute() {
+        return Err(format!("{name} must be absolute, got {}", path.display()));
+    }
+    Ok(path)
+}
+
+/// Copies prepared GPU workers next to a directly run application executable.
+///
+/// A release build is a packaging boundary: missing or partial workers are a
+/// hard error. Debug/test builds can run with the in-process CPU backend, so an
+/// absent worker directory is reported but does not block normal development.
+fn stage_stt_workers(layout: &BuildLayout) {
+    let source_dir = layout.manifest_dir.join("resources").join("stt-workers");
+    let destination_dir = layout.profile_dir.join("resources").join("stt-workers");
 
     println!("cargo:rerun-if-changed={}", source_dir.display());
+
     if !source_dir.is_dir() {
-        println!(
-            "cargo:warning=STT workers are not prepared yet: {}",
-            source_dir.display()
-        );
-        return;
-    }
-    if let Err(error) = std::fs::create_dir_all(&target_dir) {
-        println!(
-            "cargo:warning=failed to create {}: {error}",
-            target_dir.display()
+        build_problem(
+            layout.is_release(),
+            format!(
+                "STT workers are not prepared at {}; run npm run build:workers before a release build",
+                source_dir.display()
+            ),
         );
         return;
     }
 
-    for entry in std::fs::read_dir(&source_dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-    {
-        let source = entry.path();
-        if !matches!(
-            source.extension().and_then(|value| value.to_str()),
-            Some("exe" | "dll")
-        ) {
-            continue;
-        }
-        let destination = target_dir.join(entry.file_name());
-        if let Err(error) = std::fs::copy(&source, &destination) {
-            println!(
-                "cargo:warning=failed to copy STT worker {} -> {}: {error}",
-                source.display(),
-                destination.display()
+    let files = runtime_files(&source_dir).unwrap_or_else(|error| {
+        build_problem(
+            layout.is_release(),
+            format!(
+                "cannot inspect STT worker directory {}: {error}",
+                source_dir.display()
+            ),
+        );
+        Vec::new()
+    });
+
+    if layout.is_release() {
+        validate_release_worker_manifest(&source_dir, &files);
+    }
+
+    if files.is_empty() {
+        build_problem(
+            layout.is_release(),
+            format!("STT worker directory is empty: {}", source_dir.display()),
+        );
+        return;
+    }
+
+    if let Err(error) = fs::create_dir_all(&destination_dir) {
+        build_problem(
+            layout.is_release(),
+            format!(
+                "cannot create STT worker destination {}: {error}",
+                destination_dir.display()
+            ),
+        );
+        return;
+    }
+
+    for source in files {
+        let destination = destination_dir.join(
+            source
+                .file_name()
+                .expect("runtime_files only returns paths with a file name"),
+        );
+        if let Err(error) = fs::copy(&source, &destination) {
+            build_problem(
+                layout.is_release(),
+                format!(
+                    "cannot copy STT worker {} to {}: {error}",
+                    source.display(),
+                    destination.display()
+                ),
             );
         }
     }
 }
 
-/// Копирует runtime DLL от sherpa-onnx (shared build) в ресурсы бандла.
-/// При использовании feature `sherpa-wake` crate `sherpa-onnx-sys` кладёт DLL
-/// рядом с бинарником в `target/<profile>`. Tauri bundler не забирает их
-/// автоматически, поэтому копируем в `resources/sherpa-onnx/`.
-fn copy_sherpa_dlls() {
-    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let profile = env::var("PROFILE").unwrap();
-    let profile_dir = cargo_target_dir(&manifest_dir).join(&profile);
-
-    let out_dir = manifest_dir.join("resources").join("sherpa-onnx");
-    println!(
-        "cargo:warning=copy_sherpa_dlls: profile_dir={} out_dir={}",
-        profile_dir.display(),
-        out_dir.display()
-    );
-    if let Err(e) = std::fs::create_dir_all(&out_dir) {
-        println!("cargo:warning=failed to create {}: {e}", out_dir.display());
-        return;
+fn runtime_files(directory: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(directory)? {
+        let path = entry?.path();
+        let extension = path.extension().and_then(OsStr::to_str);
+        if path.is_file() && matches!(extension, Some("exe" | "dll")) {
+            files.push(path);
+        }
     }
+    files.sort();
+    Ok(files)
+}
 
-    let entries = match std::fs::read_dir(&profile_dir) {
-        Ok(e) => e,
-        Err(e) => {
-            println!(
-                "cargo:warning=failed to read {}: {e}",
-                profile_dir.display()
-            );
-            return;
-        }
-    };
+fn validate_release_worker_manifest(source_dir: &Path, files: &[PathBuf]) {
+    let names: Vec<&str> = files
+        .iter()
+        .filter_map(|path| path.file_name().and_then(OsStr::to_str))
+        .collect();
 
-    let mut copied = 0;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("dll") {
-            continue;
+    let mut missing = Vec::new();
+    for required in REQUIRED_STT_WORKERS {
+        if !names.contains(required) {
+            missing.push((*required).to_string());
         }
-        let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
-            continue;
-        };
-        // Не копируем собственные DLL приложения.
-        if name.starts_with("fono") || name.starts_with("whisperclone") {
-            continue;
-        }
-        let dest = out_dir.join(name);
-        if let Err(e) = std::fs::copy(&path, &dest) {
-            println!(
-                "cargo:warning=failed to copy {} -> {}: {e}",
-                path.display(),
-                dest.display()
-            );
-        } else {
-            copied += 1;
-            println!("cargo:warning=copied {name}");
+    }
+    for prefix in REQUIRED_CUDA_RUNTIME_PREFIXES {
+        if !names.iter().any(|name| name.starts_with(prefix)) {
+            missing.push(format!("{prefix}*.dll"));
         }
     }
 
-    println!("cargo:warning=copied {copied} sherpa-onnx runtime DLLs");
+    if !missing.is_empty() {
+        panic!(
+            "incomplete release STT worker manifest in {}: missing {}",
+            source_dir.display(),
+            missing.join(", ")
+        );
+    }
+}
+
+/// Stages only the known Sherpa shared runtime DLLs for Tauri bundling.
+///
+/// The dependency build places these DLLs beside the release executable. The
+/// ignored resources directory is a deterministic staging area consumed by
+/// tauri.conf.json; copying arbitrary DLLs from the profile is forbidden.
+fn stage_sherpa_runtime_for_bundle(layout: &BuildLayout) {
+    let destination_dir = layout.manifest_dir.join("resources").join("sherpa-onnx");
+
+    fs::create_dir_all(&destination_dir).unwrap_or_else(|error| {
+        panic!(
+            "cannot create Sherpa bundle staging directory {}: {error}",
+            destination_dir.display()
+        )
+    });
+
+    for name in SHERPA_RUNTIME_DLLS {
+        let source = layout.profile_dir.join(name);
+        if !source.is_file() {
+            panic!(
+                "required Sherpa runtime DLL is missing from release output: {}",
+                source.display()
+            );
+        }
+
+        let destination = destination_dir.join(name);
+        fs::copy(&source, &destination).unwrap_or_else(|error| {
+            panic!(
+                "cannot stage Sherpa runtime DLL {} to {}: {error}",
+                source.display(),
+                destination.display()
+            )
+        });
+    }
+}
+
+fn build_problem(fatal: bool, message: String) {
+    if fatal {
+        panic!("{message}");
+    }
+    println!("cargo:warning={message}");
 }

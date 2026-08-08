@@ -12,7 +12,6 @@ build/
 # Tauri / Rust
 src-tauri/target/
 src-tauri/target-*/
-src-tauri/Cargo.lock
 src-tauri/gen/
 
 # Models (large binary files)

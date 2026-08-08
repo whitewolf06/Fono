@@ -28,7 +28,7 @@ tauri-plugin-fs = "2.0"
 tauri-plugin-opener = "2.0"
 
 # Wake word subsystem
-fono-wake = { path = "crates/fono-wake" }
+fono-wake = { path = "crates/fono-wake", default-features = false }
 fono-stt-protocol = { path = "crates/fono-stt-protocol" }
 
 # Сериализация

@@ -2,7 +2,7 @@
 
 ## Требования машины сборки
 
-- Rust 1.75+ и Node.js 20+.
+- Rust toolchain из `src-tauri/rust-toolchain.toml` и Node.js 20+.
 - MSVC Build Tools 2022 + Windows SDK.
 - CMake и LLVM/libclang.
 - CUDA Toolkit для CUDA worker.
@@ -39,8 +39,12 @@ npm run tauri dev
 
 ```powershell
 cd src-tauri
-cargo test -p fono-wake --features "whisper-wake sherpa-wake"
+cargo fmt --all --check
+cargo check -p fono --no-default-features
+cargo check -p fono --no-default-features --features whisper-wake
+cargo check -p fono --no-default-features --features sherpa-wake
 cargo check -p fono
+cargo test --workspace
 ```
 
 ## Release
@@ -57,9 +61,11 @@ bundle. Скрипт создаёт:
 - `fono-stt-cuda-worker.exe` + CUDA runtime DLL;
 - `fono-stt-vulkan-worker.exe` на актуальном `vendor/whisper.cpp`.
 
-Не заменяйте worker-файлы вручную в installer: `build.rs` синхронизирует их с
-`target/<profile>/resources/stt-workers` для прямого запуска EXE, а
-`tauri.conf.json` кладёт их в bundle.
+Не заменяйте worker-файлы вручную в installer: `build.rs` определяет реальный
+Cargo output через `OUT_DIR`, проверяет release-manifest и синхронизирует файлы с
+`<target-dir>/<profile>/resources/stt-workers` для прямого запуска EXE.
+`tauri.conf.json` кладёт подготовленные файлы в bundle. Неполный набор workers
+или Sherpa runtime DLL завершает release-сборку ошибкой.
 
 Готовые артефакты:
 
