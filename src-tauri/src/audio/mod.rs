@@ -16,7 +16,9 @@ pub struct AudioCapture;
 impl AudioCapture {
     pub fn list_input_devices() -> AppResult<Vec<DeviceInfo>> {
         let host = cpal::default_host();
-        let default_name = host.default_input_device().and_then(|device| device.name().ok());
+        let default_name = host
+            .default_input_device()
+            .and_then(|device| device.name().ok());
 
         let mut devices = Vec::new();
         if let Ok(inputs) = host.input_devices() {

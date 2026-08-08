@@ -4,9 +4,9 @@ pub use mock::MockBackend;
 #[cfg(feature = "whisper-wake")]
 mod whisper_experimental;
 #[cfg(feature = "whisper-wake")]
-pub use whisper_experimental::WhisperExperimentalBackend;
-#[cfg(feature = "whisper-wake")]
 pub use whisper_experimental::test_with_samples as test_whisper_with_samples;
+#[cfg(feature = "whisper-wake")]
+pub use whisper_experimental::WhisperExperimentalBackend;
 
 #[cfg(feature = "sherpa-wake")]
 pub(crate) mod sherpa_onnx;

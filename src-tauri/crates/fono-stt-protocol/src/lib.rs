@@ -29,8 +29,12 @@ pub enum WorkerRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WorkerResponse {
-    Ready { backend: BackendKind },
-    ModelLoaded { backend: BackendKind },
+    Ready {
+        backend: BackendKind,
+    },
+    ModelLoaded {
+        backend: BackendKind,
+    },
     Result {
         id: String,
         text: String,

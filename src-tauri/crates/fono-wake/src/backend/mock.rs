@@ -7,8 +7,8 @@ use parking_lot::Mutex;
 
 use crate::config::WakeWordConfig;
 use crate::engine::WakeWordEngine;
-use crate::event::{WakeWordEvent, WakeWordStatus};
 use crate::error::WakeWordResult;
+use crate::event::{WakeWordEvent, WakeWordStatus};
 
 /// Simulated wake word for tests and UI demos.
 ///
@@ -99,10 +99,7 @@ impl WakeWordEngine for MockBackend {
     }
 }
 
-fn notify(
-    callback: &Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>,
-    event: WakeWordEvent,
-) {
+fn notify(callback: &Arc<Mutex<Option<Box<dyn Fn(WakeWordEvent) + Send>>>>, event: WakeWordEvent) {
     if let Some(cb) = callback.lock().as_ref() {
         cb(event);
     }

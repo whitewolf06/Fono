@@ -43,7 +43,10 @@ impl WorkerPaths {
     }
 
     pub fn capabilities(&self) -> (bool, bool) {
-        (self.cuda.is_some() || cfg!(feature = "cuda"), self.vulkan.is_some() || cfg!(feature = "vulkan"))
+        (
+            self.cuda.is_some() || cfg!(feature = "cuda"),
+            self.vulkan.is_some() || cfg!(feature = "vulkan"),
+        )
     }
 
     fn candidates(&self, mode: AccelerationMode) -> Vec<EngineCandidate> {
@@ -144,7 +147,9 @@ impl EngineState {
                 current.model_path == model_path && current.use_gpu == *use_gpu
             }
             (Self::Worker(current), EngineCandidate::Worker { backend, path }) => {
-                current.model_path == model_path && current.backend == *backend && current.path == *path
+                current.model_path == model_path
+                    && current.backend == *backend
+                    && current.path == *path
             }
             _ => false,
         }
@@ -283,9 +288,12 @@ impl WorkerSession {
             command.creation_flags(0x08000000); // CREATE_NO_WINDOW
         }
 
-        let mut child = command
-            .spawn()
-            .map_err(|error| AppError::Stt(format!("cannot start {} worker: {error}", backend_name(backend))))?;
+        let mut child = command.spawn().map_err(|error| {
+            AppError::Stt(format!(
+                "cannot start {} worker: {error}",
+                backend_name(backend)
+            ))
+        })?;
         let stdin = child
             .stdin
             .take()
@@ -316,7 +324,10 @@ impl WorkerSession {
         })? {
             WorkerResponse::ModelLoaded { backend: actual } if actual == backend => {}
             WorkerResponse::Error { message, .. } => {
-                return Err(AppError::Stt(format!("{} worker could not load model: {message}", backend_name(backend))))
+                return Err(AppError::Stt(format!(
+                    "{} worker could not load model: {message}",
+                    backend_name(backend)
+                )))
             }
             other => {
                 return Err(AppError::Stt(format!(
@@ -341,11 +352,12 @@ impl WorkerSession {
             .read_line(&mut response)
             .map_err(|error| AppError::Stt(format!("worker stdout: {error}")))?;
         if bytes == 0 {
-            return Err(AppError::Stt("worker exited before returning a response".into()));
+            return Err(AppError::Stt(
+                "worker exited before returning a response".into(),
+            ));
         }
-        serde_json::from_str(response.trim()).map_err(|error| {
-            AppError::Stt(format!("worker returned invalid JSON: {error}"))
-        })
+        serde_json::from_str(response.trim())
+            .map_err(|error| AppError::Stt(format!("worker returned invalid JSON: {error}")))
     }
 
     fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
@@ -440,7 +452,8 @@ impl SttEngine {
                     EmbeddedEngine::load(model_path, *use_gpu).map(EngineState::Embedded)
                 }
                 EngineCandidate::Worker { backend, path } => {
-                    WorkerSession::start(path.clone(), *backend, model_path).map(EngineState::Worker)
+                    WorkerSession::start(path.clone(), *backend, model_path)
+                        .map(EngineState::Worker)
                 }
             };
             match loaded {
@@ -542,19 +555,28 @@ mod tests {
         let candidates = paths.candidates(AccelerationMode::Auto);
         assert!(matches!(
             candidates.first(),
-            Some(EngineCandidate::Worker { backend: BackendKind::Cuda, .. })
+            Some(EngineCandidate::Worker {
+                backend: BackendKind::Cuda,
+                ..
+            })
         ));
         assert!(matches!(
             candidates.get(1),
-            Some(EngineCandidate::Worker { backend: BackendKind::Vulkan, .. })
+            Some(EngineCandidate::Worker {
+                backend: BackendKind::Vulkan,
+                ..
+            })
         ));
     }
 
     #[test]
     fn explicit_vulkan_never_adds_cpu_fallback() {
         let paths = WorkerPaths::default();
-        assert!(paths.candidates(AccelerationMode::Vulkan).iter().all(|candidate| {
-            !matches!(candidate, EngineCandidate::Embedded { use_gpu: false })
-        }));
+        assert!(paths
+            .candidates(AccelerationMode::Vulkan)
+            .iter()
+            .all(|candidate| {
+                !matches!(candidate, EngineCandidate::Embedded { use_gpu: false })
+            }));
     }
 }

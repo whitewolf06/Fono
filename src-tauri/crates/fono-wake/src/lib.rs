@@ -12,13 +12,13 @@ pub mod error;
 pub mod event;
 pub mod test;
 
+#[cfg(feature = "whisper-wake")]
+pub use backend::test_whisper_with_samples;
 pub use config::WakeWordConfig;
 pub use diag::Diagnostics;
 pub use engine::{WakeWordEngine, WakeWordHandle};
 pub use error::{WakeWordError, WakeWordResult};
 pub use event::{WakeWordBackend, WakeWordEvent, WakeWordStatus};
-#[cfg(feature = "whisper-wake")]
-pub use backend::test_whisper_with_samples;
-pub use test::WakeWordTestResult;
 #[cfg(feature = "sherpa-wake")]
 pub use test::test_with_wav;
+pub use test::WakeWordTestResult;

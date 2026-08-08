@@ -57,7 +57,11 @@ impl WakeWordEngine for WhisperExperimentalBackend {
             return Err(WakeWordError::ModelNotFound(path));
         }
 
-        notify(&self.callback, WakeWordEvent::ModelLoading, Some(&self.diag));
+        notify(
+            &self.callback,
+            WakeWordEvent::ModelLoading,
+            Some(&self.diag),
+        );
         *self.status.lock() = WakeWordStatus::Loading;
         self.running.store(true, Ordering::SeqCst);
         self.paused.store(false, Ordering::SeqCst);
@@ -73,14 +77,9 @@ impl WakeWordEngine for WhisperExperimentalBackend {
         let handle = thread::spawn(move || {
             let error_callback = callback.clone();
             let error_diag = diag.clone();
-            if let Err(error) = whisper_loop(
-                config,
-                running,
-                paused,
-                status,
-                callback,
-                diag.clone(),
-            ) {
+            if let Err(error) =
+                whisper_loop(config, running, paused, status, callback, diag.clone())
+            {
                 tracing::error!("fono-wake whisper: loop ended: {error}");
                 notify(
                     &error_callback,
@@ -351,9 +350,9 @@ fn phrase_matches(transcript: &str, phrase: &str) -> bool {
         let prefix = words
             .iter()
             .any(|word| matches!(*word, "hey" | "she" | "hi" | "хей"));
-        let name = words.iter().any(|word| {
-            matches!(*word, "fono" | "phono" | "phone" | "фоно" | "фона")
-        });
+        let name = words
+            .iter()
+            .any(|word| matches!(*word, "fono" | "phono" | "phone" | "фоно" | "фона"));
         return prefix && name;
     }
     if phrase == "okay fun" {

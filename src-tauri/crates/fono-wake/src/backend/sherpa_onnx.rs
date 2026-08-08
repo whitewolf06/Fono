@@ -51,9 +51,18 @@ impl SherpaOnnxBackend {
     fn expected_files(&self) -> [(PathBuf, &'static str); 4] {
         let dir = self.model_dir();
         [
-            (dir.join("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"), "encoder"),
-            (dir.join("decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"), "decoder"),
-            (dir.join("joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"), "joiner"),
+            (
+                dir.join("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"),
+                "encoder",
+            ),
+            (
+                dir.join("decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"),
+                "decoder",
+            ),
+            (
+                dir.join("joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"),
+                "joiner",
+            ),
             (dir.join("tokens.txt"), "tokens"),
         ]
     }
@@ -84,7 +93,11 @@ impl WakeWordEngine for SherpaOnnxBackend {
             return Err(WakeWordError::ModelNotFound(path));
         }
 
-        notify(&self.callback, WakeWordEvent::ModelLoading, Some(&self.diag));
+        notify(
+            &self.callback,
+            WakeWordEvent::ModelLoading,
+            Some(&self.diag),
+        );
         *self.status.lock() = WakeWordStatus::Loading;
 
         self.running.store(true, Ordering::SeqCst);
@@ -188,7 +201,13 @@ fn run_spotter(
         Some(s) => s,
         None => {
             let msg = "failed to create keyword spotter".to_string();
-            notify(&callback, WakeWordEvent::Error { message: msg.clone() }, Some(&diag));
+            notify(
+                &callback,
+                WakeWordEvent::Error {
+                    message: msg.clone(),
+                },
+                Some(&diag),
+            );
             diag::record_event(&diag, "Error");
             *status.lock() = WakeWordStatus::Off;
             return Err(WakeWordError::ModelLoad(msg));
@@ -209,10 +228,7 @@ fn run_spotter(
         config.audio_device_id.as_deref(),
         config.sample_rate,
         move |frames: &[i16]| {
-            let samples: Vec<f32> = frames
-                .iter()
-                .map(|&s| s as f32 / i16::MAX as f32)
-                .collect();
+            let samples: Vec<f32> = frames.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
             diag::update_audio_level(&audio_diag, &samples);
             if capture_tx.try_send(samples).is_err() {
                 tracing::debug!("fono-wake sherpa: audio channel full, dropping chunk");
@@ -244,10 +260,7 @@ fn run_spotter(
                     while pre_roll.len() > pre_roll_limit {
                         pre_roll.pop_front();
                     }
-                    let rms = (chunk
-                        .iter()
-                        .map(|sample| sample * sample)
-                        .sum::<f32>()
+                    let rms = (chunk.iter().map(|sample| sample * sample).sum::<f32>()
                         / chunk.len().max(1) as f32)
                         .sqrt();
                     if rms < vad_threshold {
@@ -259,9 +272,7 @@ fn run_spotter(
                     session_samples = buffered.len();
                     stream.accept_waveform(config.sample_rate as i32, &buffered);
                     session_active = true;
-                    tracing::debug!(
-                        "fono-wake sherpa: speech session started (rms={rms:.4})"
-                    );
+                    tracing::debug!("fono-wake sherpa: speech session started (rms={rms:.4})");
                 } else {
                     stream.accept_waveform(config.sample_rate as i32, &chunk);
                     session_samples += chunk.len();

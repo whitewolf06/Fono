@@ -47,15 +47,14 @@ impl AudioStream {
             .min_by_key(|config| {
                 let min_rate = config.min_sample_rate().0;
                 let max_rate = config.max_sample_rate().0;
-                let rate_distance = if min_rate <= target_sample_rate
-                    && target_sample_rate <= max_rate
-                {
-                    0
-                } else {
-                    min_rate
-                        .abs_diff(target_sample_rate)
-                        .min(max_rate.abs_diff(target_sample_rate))
-                };
+                let rate_distance =
+                    if min_rate <= target_sample_rate && target_sample_rate <= max_rate {
+                        0
+                    } else {
+                        min_rate
+                            .abs_diff(target_sample_rate)
+                            .min(max_rate.abs_diff(target_sample_rate))
+                    };
                 (
                     if config.channels() == 1 { 0 } else { 1 },
                     rate_distance,
@@ -65,11 +64,12 @@ impl AudioStream {
             .ok_or_else(|| WakeWordError::Audio("no supported input config".into()))?;
 
         let target_rate = SampleRate(target_sample_rate);
-        let sample_rate = if range.min_sample_rate() <= target_rate && target_rate <= range.max_sample_rate() {
-            target_rate
-        } else {
-            range.max_sample_rate().min(SampleRate(48_000))
-        };
+        let sample_rate =
+            if range.min_sample_rate() <= target_rate && target_rate <= range.max_sample_rate() {
+                target_rate
+            } else {
+                range.max_sample_rate().min(SampleRate(48_000))
+            };
 
         let supported_config = range.clone().with_sample_rate(sample_rate);
         let channels = supported_config.channels();
@@ -77,9 +77,7 @@ impl AudioStream {
         let stream_config: cpal::StreamConfig = supported_config.into();
         let in_rate = stream_config.sample_rate.0 as f32;
 
-        tracing::debug!(
-            "fono-wake audio: {in_rate} Hz, {channels} ch, {sample_format:?}"
-        );
+        tracing::debug!("fono-wake audio: {in_rate} Hz, {channels} ch, {sample_format:?}");
 
         let stream = device.build_input_stream_raw(
             &stream_config,
@@ -128,7 +126,9 @@ fn convert_to_i16(data: &cpal::Data, format: SampleFormat) -> Vec<i16> {
         SampleFormat::I64 => samples_to_i16::<i64, _>(bytes, |s| (s >> 48) as i16),
         SampleFormat::U8 => samples_to_i16::<u8, _>(bytes, |s| (s as i16 - 128) << 8),
         SampleFormat::U16 => samples_to_i16::<u16, _>(bytes, |s| (s as i32 - 32768) as i16),
-        SampleFormat::U32 => samples_to_i16::<u32, _>(bytes, |s| ((s as i64 - 2_147_483_648) >> 16) as i16),
+        SampleFormat::U32 => {
+            samples_to_i16::<u32, _>(bytes, |s| ((s as i64 - 2_147_483_648) >> 16) as i16)
+        }
         SampleFormat::U64 => samples_to_i16::<u64, _>(bytes, |s| {
             ((s as i128 - 9_223_372_036_854_775_808i128) >> 48) as i16
         }),

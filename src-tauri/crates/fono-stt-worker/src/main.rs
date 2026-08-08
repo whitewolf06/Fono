@@ -31,10 +31,7 @@ fn main() {
     }
 }
 
-fn handle_line(
-    line: &str,
-    loaded: &mut Option<(String, Arc<WhisperContext>)>,
-) -> WorkerResponse {
+fn handle_line(line: &str, loaded: &mut Option<(String, Arc<WhisperContext>)>) -> WorkerResponse {
     let request = match serde_json::from_str::<WorkerRequest>(line) {
         Ok(request) => request,
         Err(error) => {
