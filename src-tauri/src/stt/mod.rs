@@ -4,13 +4,16 @@
 //! in separate processes makes runtime selection possible without linking two
 //! incompatible GPU backends into the Tauri process.
 
-use std::io::{BufRead, BufReader, Write};
+use std::collections::VecDeque;
+use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Arc;
-use std::time::Instant;
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use base64::Engine;
+use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, SendTimeoutError, Sender};
 use fono_stt_protocol::{BackendKind, WorkerRequest, WorkerResponse};
 use parking_lot::Mutex;
 use tauri::AppHandle;
@@ -20,6 +23,14 @@ use whisper_rs::{SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use crate::error::{AppError, AppResult};
 use crate::types::{AccelerationMode, Transcript};
+
+const WORKER_PING_TIMEOUT: Duration = Duration::from_secs(5);
+const WORKER_LOAD_TIMEOUT: Duration = Duration::from_secs(120);
+const WORKER_TRANSCRIBE_BASE_TIMEOUT: Duration = Duration::from_secs(30);
+const WORKER_TRANSCRIBE_MAX_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const WORKER_MAX_RESPONSE_BYTES: usize = 1024 * 1024;
+const WORKER_MAX_STDERR_LINE_BYTES: usize = 4 * 1024;
+const WORKER_STDERR_TAIL_LINES: usize = 32;
 
 #[derive(Debug, Clone, Default)]
 pub struct WorkerPaths {
@@ -137,11 +148,11 @@ enum EngineCandidate {
 enum EngineState {
     Empty,
     Embedded(EmbeddedEngine),
-    Worker(WorkerSession),
+    Worker(Box<WorkerSession>),
 }
 
 impl EngineState {
-    fn compatible(&self, model_path: &str, candidate: &EngineCandidate) -> bool {
+    fn compatible(&mut self, model_path: &str, candidate: &EngineCandidate) -> bool {
         match (self, candidate) {
             (Self::Embedded(current), EngineCandidate::Embedded { use_gpu }) => {
                 current.model_path == model_path && current.use_gpu == *use_gpu
@@ -150,6 +161,7 @@ impl EngineState {
                 current.model_path == model_path
                     && current.backend == *backend
                     && current.path == *path
+                    && current.is_alive()
             }
             _ => false,
         }
@@ -266,8 +278,24 @@ struct WorkerSession {
     path: PathBuf,
     model_path: String,
     child: Child,
-    stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
+    stdin_tx: Option<Sender<WorkerWrite>>,
+    stdin_thread: Option<JoinHandle<()>>,
+    stdout_rx: Receiver<WorkerOutput>,
+    stdout_thread: Option<JoinHandle<()>>,
+    stderr_tail: Arc<Mutex<VecDeque<String>>>,
+    stderr_thread: Option<JoinHandle<()>>,
+    next_request_id: u64,
+}
+
+enum WorkerOutput {
+    Line(String),
+    Eof,
+    Error(String),
+}
+
+struct WorkerWrite {
+    line: String,
+    result_tx: Sender<Result<(), String>>,
 }
 
 impl WorkerSession {
@@ -277,8 +305,8 @@ impl WorkerSession {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             // whisper.cpp emits progress and backend diagnostics to stderr.
-            // It must not block the JSON protocol pipe or surface dictated text.
-            .stderr(Stdio::null());
+            // Drain it on a dedicated thread and retain only a bounded tail.
+            .stderr(Stdio::piped());
 
         #[cfg(windows)]
         {
@@ -294,21 +322,36 @@ impl WorkerSession {
                 backend_name(backend)
             ))
         })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| AppError::Stt("worker stdin is unavailable".into()))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| AppError::Stt("worker stdout is unavailable".into()))?;
+        let Some(stdin) = child.stdin.take() else {
+            terminate_child(&mut child);
+            return Err(AppError::Stt("worker stdin is unavailable".into()));
+        };
+        let Some(stdout) = child.stdout.take() else {
+            terminate_child(&mut child);
+            return Err(AppError::Stt("worker stdout is unavailable".into()));
+        };
+        let Some(stderr) = child.stderr.take() else {
+            terminate_child(&mut child);
+            return Err(AppError::Stt("worker stderr is unavailable".into()));
+        };
+        let (stdout_rx, stdout_thread) = spawn_stdout_reader(stdout);
+        let (stdin_tx, stdin_thread) = spawn_stdin_writer(stdin);
+        let stderr_tail = Arc::new(Mutex::new(VecDeque::with_capacity(
+            WORKER_STDERR_TAIL_LINES,
+        )));
+        let stderr_thread = spawn_stderr_reader(stderr, stderr_tail.clone());
         let mut worker = Self {
             backend,
             path,
             model_path: model_path.to_string_lossy().to_string(),
             child,
-            stdin,
-            stdout: BufReader::new(stdout),
+            stdin_tx: Some(stdin_tx),
+            stdin_thread: Some(stdin_thread),
+            stdout_rx,
+            stdout_thread: Some(stdout_thread),
+            stderr_tail,
+            stderr_thread: Some(stderr_thread),
+            next_request_id: 0,
         };
         match worker.request(&WorkerRequest::Ping)? {
             WorkerResponse::Ready { backend: actual } if actual == backend => {}
@@ -341,23 +384,61 @@ impl WorkerSession {
     }
 
     fn request(&mut self, request: &WorkerRequest) -> AppResult<WorkerResponse> {
+        let timeout = worker_request_timeout(request);
+        let deadline = Instant::now() + timeout;
         let line = serde_json::to_string(request)
             .map_err(|error| AppError::Stt(format!("worker request serialization: {error}")))?;
-        writeln!(self.stdin, "{line}")
-            .and_then(|_| self.stdin.flush())
-            .map_err(|error| AppError::Stt(format!("worker stdin: {error}")))?;
-        let mut response = String::new();
-        let bytes = self
-            .stdout
-            .read_line(&mut response)
-            .map_err(|error| AppError::Stt(format!("worker stdout: {error}")))?;
-        if bytes == 0 {
-            return Err(AppError::Stt(
-                "worker exited before returning a response".into(),
-            ));
+        let (result_tx, result_rx) = bounded(1);
+        let write = WorkerWrite { line, result_tx };
+        let Some(stdin_tx) = self.stdin_tx.as_ref() else {
+            return Err(self.fail_request("worker stdin is closed".into()));
+        };
+        if let Err(error) = stdin_tx.send_timeout(write, remaining_until(deadline)) {
+            let message = match error {
+                SendTimeoutError::Timeout(_) => "worker stdin queue timed out",
+                SendTimeoutError::Disconnected(_) => "worker stdin writer disconnected",
+            };
+            return Err(self.fail_request(message.into()));
         }
+        match result_rx.recv_timeout(remaining_until(deadline)) {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                return Err(self.fail_request(format!("worker stdin: {error}")));
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                return Err(self.fail_request(format!(
+                    "{} worker stdin write timed out after {:.1}s",
+                    backend_name(self.backend),
+                    timeout.as_secs_f32()
+                )));
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(self.fail_request("worker stdin writer disconnected".into()));
+            }
+        }
+
+        let response = match self.stdout_rx.recv_timeout(remaining_until(deadline)) {
+            Ok(WorkerOutput::Line(response)) => response,
+            Ok(WorkerOutput::Eof) => {
+                return Err(self.fail_request("worker exited before returning a response".into()))
+            }
+            Ok(WorkerOutput::Error(error)) => {
+                return Err(self.fail_request(format!("worker stdout: {error}")))
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                return Err(self.fail_request(format!(
+                    "{} worker request timed out after {:.1}s",
+                    backend_name(self.backend),
+                    timeout.as_secs_f32()
+                )))
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(self.fail_request("worker stdout reader disconnected".into()))
+            }
+        };
+
         serde_json::from_str(response.trim())
-            .map_err(|error| AppError::Stt(format!("worker returned invalid JSON: {error}")))
+            .map_err(|error| self.fail_request(format!("worker returned invalid JSON: {error}")))
     }
 
     fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
@@ -365,20 +446,23 @@ impl WorkerSession {
         for sample in samples {
             pcm.extend_from_slice(&sample.to_le_bytes());
         }
+        self.next_request_id = self.next_request_id.wrapping_add(1);
+        let request_id = format!("dictation-{}", self.next_request_id);
         let response = self.request(&WorkerRequest::Transcribe {
-            id: "dictation".into(),
+            id: request_id.clone(),
             model_path: self.model_path.clone(),
             language: language.into(),
             samples_i16_base64: base64::engine::general_purpose::STANDARD.encode(pcm),
         })?;
         match response {
             WorkerResponse::Result {
+                id,
                 text,
                 audio_secs,
                 transcribe_secs,
                 backend,
                 ..
-            } if backend == self.backend => Ok(Transcript {
+            } if backend == self.backend && id == request_id => Ok(Transcript {
                 text,
                 detected_language: None,
                 transcribe_secs: Some(transcribe_secs),
@@ -395,13 +479,205 @@ impl WorkerSession {
             ))),
         }
     }
+
+    fn is_alive(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(None))
+            && self
+                .stdin_thread
+                .as_ref()
+                .is_some_and(|thread| !thread.is_finished())
+            && self
+                .stdout_thread
+                .as_ref()
+                .is_some_and(|thread| !thread.is_finished())
+            && self
+                .stderr_thread
+                .as_ref()
+                .is_some_and(|thread| !thread.is_finished())
+    }
+
+    fn fail_request(&mut self, message: String) -> AppError {
+        self.terminate();
+        let diagnostics = self.stderr_diagnostics();
+        if diagnostics.is_empty() {
+            AppError::Stt(message)
+        } else {
+            AppError::Stt(format!("{message}; worker stderr: {diagnostics}"))
+        }
+    }
+
+    fn stderr_diagnostics(&self) -> String {
+        self.stderr_tail
+            .lock()
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
+
+    fn terminate(&mut self) {
+        self.stdin_tx.take();
+        terminate_child(&mut self.child);
+        if let Some(thread) = self.stdin_thread.take() {
+            let _ = thread.join();
+        }
+        if let Some(thread) = self.stdout_thread.take() {
+            let _ = thread.join();
+        }
+        if let Some(thread) = self.stderr_thread.take() {
+            let _ = thread.join();
+        }
+    }
 }
 
 impl Drop for WorkerSession {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        self.terminate();
     }
+}
+
+fn worker_request_timeout(request: &WorkerRequest) -> Duration {
+    match request {
+        WorkerRequest::Ping => WORKER_PING_TIMEOUT,
+        WorkerRequest::Load { .. } => WORKER_LOAD_TIMEOUT,
+        WorkerRequest::Transcribe {
+            samples_i16_base64, ..
+        } => transcribe_timeout(samples_i16_base64.len()),
+    }
+}
+
+fn transcribe_timeout(encoded_bytes: usize) -> Duration {
+    let approximate_pcm_bytes = (encoded_bytes as u64 / 4).saturating_mul(3);
+    let audio_seconds = approximate_pcm_bytes / 2 / 16_000;
+    (WORKER_TRANSCRIBE_BASE_TIMEOUT + Duration::from_secs(audio_seconds.saturating_mul(2)))
+        .min(WORKER_TRANSCRIBE_MAX_TIMEOUT)
+}
+
+fn terminate_child(child: &mut Child) {
+    if matches!(child.try_wait(), Ok(Some(_))) {
+        return;
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn remaining_until(deadline: Instant) -> Duration {
+    deadline.saturating_duration_since(Instant::now())
+}
+
+fn spawn_stdin_writer(stdin: ChildStdin) -> (Sender<WorkerWrite>, JoinHandle<()>) {
+    let (sender, receiver) = bounded::<WorkerWrite>(1);
+    let thread = thread::spawn(move || {
+        let mut stdin = stdin;
+        while let Ok(write) = receiver.recv() {
+            let result = writeln!(stdin, "{}", write.line)
+                .and_then(|_| stdin.flush())
+                .map_err(|error| error.to_string());
+            let failed = result.is_err();
+            let _ = write.result_tx.try_send(result);
+            if failed {
+                break;
+            }
+        }
+    });
+    (sender, thread)
+}
+
+fn spawn_stdout_reader(stdout: ChildStdout) -> (Receiver<WorkerOutput>, JoinHandle<()>) {
+    let (sender, receiver) = bounded(8);
+    let thread = thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
+        loop {
+            let output = match read_limited_line(&mut reader, WORKER_MAX_RESPONSE_BYTES) {
+                Ok(Some(line)) => WorkerOutput::Line(line),
+                Ok(None) => WorkerOutput::Eof,
+                Err(error) => WorkerOutput::Error(error.to_string()),
+            };
+            let terminal = !matches!(output, WorkerOutput::Line(_));
+            if sender.try_send(output).is_err() || terminal {
+                break;
+            }
+        }
+    });
+    (receiver, thread)
+}
+
+fn spawn_stderr_reader(stderr: ChildStderr, tail: Arc<Mutex<VecDeque<String>>>) -> JoinHandle<()> {
+    thread::spawn(move || {
+        let mut reader = BufReader::new(stderr);
+        loop {
+            let line = match read_limited_line(&mut reader, WORKER_MAX_STDERR_LINE_BYTES) {
+                Ok(Some(line)) => line,
+                Ok(None) => break,
+                Err(error) => {
+                    let mut tail = tail.lock();
+                    push_stderr_line(&mut tail, format!("<stderr reader error: {error}>"));
+                    continue;
+                }
+            };
+            push_stderr_line(&mut tail.lock(), line);
+        }
+    })
+}
+
+fn push_stderr_line(tail: &mut VecDeque<String>, line: String) {
+    if tail.len() == WORKER_STDERR_TAIL_LINES {
+        tail.pop_front();
+    }
+    tail.push_back(line);
+}
+
+fn read_limited_line<R: BufRead>(
+    reader: &mut R,
+    maximum_bytes: usize,
+) -> std::io::Result<Option<String>> {
+    let mut bytes = Vec::new();
+    let mut exceeded_limit = false;
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            if bytes.is_empty() {
+                if exceeded_limit {
+                    return Err(std::io::Error::new(
+                        ErrorKind::InvalidData,
+                        format!("worker line exceeds {maximum_bytes} bytes"),
+                    ));
+                }
+                return Ok(None);
+            }
+            break;
+        }
+
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let consumed = newline.map_or(available.len(), |index| index + 1);
+        if !exceeded_limit && bytes.len().saturating_add(consumed) > maximum_bytes {
+            exceeded_limit = true;
+            bytes.clear();
+        }
+        if !exceeded_limit {
+            bytes.extend_from_slice(&available[..consumed]);
+        }
+        reader.consume(consumed);
+        if newline.is_some() {
+            if exceeded_limit {
+                return Err(std::io::Error::new(
+                    ErrorKind::InvalidData,
+                    format!("worker line exceeds {maximum_bytes} bytes"),
+                ));
+            }
+            break;
+        }
+    }
+
+    if bytes.last() == Some(&b'\n') {
+        bytes.pop();
+    }
+    if bytes.last() == Some(&b'\r') {
+        bytes.pop();
+    }
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|error| std::io::Error::new(ErrorKind::InvalidData, error))
 }
 
 pub struct SttEngine {
@@ -453,6 +729,7 @@ impl SttEngine {
                 }
                 EngineCandidate::Worker { backend, path } => {
                     WorkerSession::start(path.clone(), *backend, model_path)
+                        .map(Box::new)
                         .map(EngineState::Worker)
                 }
             };
@@ -479,11 +756,20 @@ impl SttEngine {
 
     pub fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
         let mut state = self.state.lock();
-        match &mut *state {
-            EngineState::Empty => Err(AppError::ModelNotLoaded),
-            EngineState::Embedded(engine) => engine.transcribe(samples, language),
-            EngineState::Worker(worker) => worker.transcribe(samples, language),
+        let (result, worker_failed) = match &mut *state {
+            EngineState::Empty => (Err(AppError::ModelNotLoaded), false),
+            EngineState::Embedded(engine) => (engine.transcribe(samples, language), false),
+            EngineState::Worker(worker) => {
+                let result = worker.transcribe(samples, language);
+                let failed = result.is_err();
+                (result, failed)
+            }
+        };
+        if worker_failed {
+            tracing::warn!("STT worker session failed and will be restarted on the next operation");
+            *state = EngineState::Empty;
         }
+        result
     }
 
     pub fn device(&self) -> String {
@@ -544,6 +830,8 @@ fn lang_id_to_str(id: i32) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use super::*;
 
     #[test]
@@ -578,5 +866,24 @@ mod tests {
             .all(|candidate| {
                 !matches!(candidate, EngineCandidate::Embedded { use_gpu: false })
             }));
+    }
+
+    #[test]
+    fn worker_response_reader_enforces_limit_and_recovers_at_next_line() {
+        let mut input = Cursor::new(b"response-too-long\nok\n");
+
+        let error = read_limited_line(&mut input, 8).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert_eq!(read_limited_line(&mut input, 8).unwrap(), Some("ok".into()));
+        assert_eq!(read_limited_line(&mut input, 8).unwrap(), None);
+    }
+
+    #[test]
+    fn worker_transcription_timeout_is_bounded() {
+        assert_eq!(transcribe_timeout(0), WORKER_TRANSCRIBE_BASE_TIMEOUT);
+        assert_eq!(
+            transcribe_timeout(usize::MAX),
+            WORKER_TRANSCRIBE_MAX_TIMEOUT
+        );
     }
 }
