@@ -269,7 +269,7 @@ pub fn run() {
             commands::cancel_voice_command,
             commands::confirm_voice_command,
             // audio
-            commands::list_audio_devices,
+            ipc::audio::list_audio_devices,
             // whisper
             commands::list_whisper_models,
             commands::download_whisper_model,

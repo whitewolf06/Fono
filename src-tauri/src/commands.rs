@@ -12,14 +12,13 @@ use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::audio::AudioCapture;
 use crate::error::{AppError, AppResult};
 use crate::llm::LlmClient;
 use crate::operation::{OperationSource, TerminalReason};
 use crate::pipeline::{self, Pipeline};
 use crate::state::{self, AppState};
 use crate::types::{
-    AiMode, DeviceInfo, DictationHistoryEntry, PipelineState, Settings, Transcript,
+    AiMode, DictationHistoryEntry, PipelineState, Settings, Transcript,
     WhisperModelInfo, WhisperModelSize,
 };
 
@@ -604,11 +603,6 @@ pub async fn transcribe_test(
 }
 
 // ====== Аудио ======
-
-#[tauri::command]
-pub fn list_audio_devices() -> AppResult<Vec<DeviceInfo>> {
-    AudioCapture::list_input_devices()
-}
 
 // ====== Whisper-модели ======
 
