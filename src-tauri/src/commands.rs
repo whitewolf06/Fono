@@ -23,17 +23,6 @@ use crate::types::{
 };
 
 #[tauri::command]
-pub fn copy_dictation_text(text: String) -> AppResult<()> {
-    crate::injection::copy_text(&text)
-}
-
-#[tauri::command]
-pub fn reinsert_dictation(app: AppHandle, text: String) -> AppResult<()> {
-    let settings = app.state::<AppState>().settings();
-    crate::injection::inject_text(&text, settings.injection_mode)
-}
-
-#[tauri::command]
 pub fn get_pending_voice_command(state: State<'_, AppState>) -> Option<String> {
     state.pending_voice_command()
 }
