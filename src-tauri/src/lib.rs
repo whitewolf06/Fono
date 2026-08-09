@@ -52,6 +52,41 @@ fn emit_wake_dictation_countdown(
     );
 }
 
+/// Restores wake-word listening when a wake-triggered operation leaves scope.
+/// The guard deliberately owns no operation state: it only pairs the engine
+/// pause with its mandatory resume across every early return and await point.
+trait WakeLifecycle {
+    fn pause(&self);
+    fn resume(&self);
+}
+
+impl WakeLifecycle for WakeWordHandle {
+    fn pause(&self) {
+        WakeWordHandle::pause(self);
+    }
+
+    fn resume(&self) {
+        WakeWordHandle::resume(self);
+    }
+}
+
+struct WakePauseGuard<'a, T: WakeLifecycle> {
+    wake_handle: &'a T,
+}
+
+impl<'a, T: WakeLifecycle> WakePauseGuard<'a, T> {
+    fn pause(wake_handle: &'a T) -> Self {
+        wake_handle.pause();
+        Self { wake_handle }
+    }
+}
+
+impl<T: WakeLifecycle> Drop for WakePauseGuard<'_, T> {
+    fn drop(&mut self) {
+        self.wake_handle.resume();
+    }
+}
+
 /// Возвращает действие, явно продиктованное после wake phrase.
 ///
 /// Намеренно не пытаемся угадывать команды из обычного текста: системные
@@ -652,8 +687,8 @@ pub async fn run_dictation_after_wake(
     let wake_handle = handle.state::<WakeWordHandle>();
     let settings = state.settings();
 
-    // Паузим wake word.
-    wake_handle.pause();
+    // The listener is always resumed by the guard, including error paths.
+    let _wake_pause = WakePauseGuard::pause(wake_handle.inner());
 
     // Стартуем запись.
     if let Err(error) = pipeline.start_recording_with_pre_roll_from(
@@ -661,7 +696,6 @@ pub async fn run_dictation_after_wake(
         &pre_roll,
         OperationSource::WakeWord,
     ) {
-        wake_handle.resume();
         return Err(Box::new(error));
     }
     let operation = pipeline.operation_id();
@@ -673,7 +707,6 @@ pub async fn run_dictation_after_wake(
         PipelineState::Listening,
         TerminalReason::Completed,
     ) {
-        wake_handle.resume();
         return Ok(());
     }
     let _ = handle.emit("pipeline-mode", "dictation");
@@ -699,7 +732,6 @@ pub async fn run_dictation_after_wake(
 
     loop {
         if !pipeline.is_operation_active(operation) {
-            wake_handle.resume();
             return Ok(());
         }
         if started.elapsed() >= max_wait || pipeline.is_operation_confirmed(operation) {
@@ -766,7 +798,6 @@ pub async fn run_dictation_after_wake(
                 PipelineState::Idle,
                 TerminalReason::Failed,
             );
-            wake_handle.resume();
             return Err(Box::new(error));
         }
     };
@@ -774,7 +805,6 @@ pub async fn run_dictation_after_wake(
     // Если пользователь нажал Stop в оверлее — отбрасываем запись.
     if !pipeline.is_operation_active(operation) {
         tracing::info!("wake dictation: cancelled by user");
-        wake_handle.resume();
         return Ok(());
     }
 
@@ -797,7 +827,6 @@ pub async fn run_dictation_after_wake(
                         PipelineState::Idle,
                         TerminalReason::Failed,
                     );
-                    wake_handle.resume();
                     return Err(Box::new(error));
                 }
             } else {
@@ -809,7 +838,6 @@ pub async fn run_dictation_after_wake(
                     PipelineState::Idle,
                     TerminalReason::Failed,
                 );
-                wake_handle.resume();
                 return Err("Whisper-модель для диктовки не выбрана".into());
             }
             if !pipeline::set_state_for_operation(
@@ -820,7 +848,6 @@ pub async fn run_dictation_after_wake(
                 PipelineState::Transcribing,
                 TerminalReason::Completed,
             ) {
-                wake_handle.resume();
                 return Ok(());
             }
             let stt = pipeline.stt().clone();
@@ -840,7 +867,6 @@ pub async fn run_dictation_after_wake(
                         PipelineState::Idle,
                         TerminalReason::Failed,
                     );
-                    wake_handle.resume();
                     return Err(Box::new(error));
                 }
                 Err(error) => {
@@ -852,14 +878,12 @@ pub async fn run_dictation_after_wake(
                         PipelineState::Idle,
                         TerminalReason::Failed,
                     );
-                    wake_handle.resume();
                     return Err(format!("transcribe join: {error}").into());
                 }
             };
 
             if !pipeline.is_operation_active(operation) {
                 tracing::info!("wake dictation transcript discarded because operation was cancelled or replaced");
-                wake_handle.resume();
                 return Ok(());
             }
 
@@ -877,7 +901,6 @@ pub async fn run_dictation_after_wake(
             // открой Telegram» или «okay fun, команда, громче».
             if let Some(command) = extract_wake_command(&dictation_text) {
                 if !pipeline.is_operation_active(operation) {
-                    wake_handle.resume();
                     return Ok(());
                 }
                 if !pipeline::set_state_for_operation(
@@ -888,7 +911,6 @@ pub async fn run_dictation_after_wake(
                     PipelineState::Processing,
                     TerminalReason::Completed,
                 ) {
-                    wake_handle.resume();
                     return Ok(());
                 }
                 match crate::app_commands::execute(
@@ -913,7 +935,6 @@ pub async fn run_dictation_after_wake(
                     PipelineState::Idle,
                     TerminalReason::Completed,
                 );
-                wake_handle.resume();
                 return Ok(());
             }
 
@@ -929,7 +950,6 @@ pub async fn run_dictation_after_wake(
                         PipelineState::Processing,
                         TerminalReason::Completed,
                     ) {
-                        wake_handle.resume();
                         return Ok(());
                     }
                     let client = crate::llm::LlmClient::from_settings(&settings);
@@ -950,7 +970,6 @@ pub async fn run_dictation_after_wake(
                 tracing::info!(
                     "wake dictation result discarded because operation was cancelled or replaced"
                 );
-                wake_handle.resume();
                 return Ok(());
             }
 
@@ -963,7 +982,6 @@ pub async fn run_dictation_after_wake(
                     PipelineState::Injecting,
                     TerminalReason::Completed,
                 ) {
-                    wake_handle.resume();
                     return Ok(());
                 }
                 if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode)
@@ -985,14 +1003,42 @@ pub async fn run_dictation_after_wake(
     );
 
     // Резюммим wake word.
-    wake_handle.resume();
 
     Ok(())
 }
 
 #[cfg(test)]
 mod wake_command_tests {
-    use super::{extract_wake_command, strip_leading_wake_phrase};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::{extract_wake_command, strip_leading_wake_phrase, WakeLifecycle, WakePauseGuard};
+
+    #[derive(Default)]
+    struct FakeWakeLifecycle {
+        pauses: AtomicUsize,
+        resumes: AtomicUsize,
+    }
+
+    impl WakeLifecycle for FakeWakeLifecycle {
+        fn pause(&self) {
+            self.pauses.fetch_add(1, Ordering::SeqCst);
+        }
+
+        fn resume(&self) {
+            self.resumes.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn wake_pause_guard_resumes_on_early_scope_exit() {
+        let wake = FakeWakeLifecycle::default();
+        {
+            let _guard = WakePauseGuard::pause(&wake);
+            assert_eq!(wake.pauses.load(Ordering::SeqCst), 1);
+            assert_eq!(wake.resumes.load(Ordering::SeqCst), 0);
+        }
+        assert_eq!(wake.resumes.load(Ordering::SeqCst), 1);
+    }
 
     #[test]
     fn extracts_only_explicit_command_prefixes() {

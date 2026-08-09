@@ -13,6 +13,7 @@
 | Работа | Статус | Результат |
 | --- | --- | --- |
 | BR-001 | Частично выполнено | Введён `OperationCoordinator`: один active lease, источники UI/hotkey/wake/diagnostics, типизированные фазы и terminal events. UI/hotkey и wake-flow меняют state только по точному `operation_id`, а Pipeline публикует `operation-state`; полный перенос cleanup на operation-specific leases еще предстоит |
+| BR-002 | Частично выполнено | Wake-triggered диктовка использует `WakePauseGuard`: wake listener возобновляется при любом раннем выходе и после любой await-ветки; инвариант покрыт unit-тестом. Остальные audio/overlay cleanup-пути еще предстоит собрать в leases |
 | BR-004 | Выполнена первая safety-версия | Буфер ограничен 5 минутами, watchdog закрывает потерянную запись, повторный start возвращает Busy |
 | BR-005 | Выполнено | Микрофон освобождается до VAD, загрузки модели и транскрипции |
 | BR-006 | Частично выполнено | Supervision вынесен в `stt/worker.rs`: модуль владеет child/I/O threads, deadline покрывает stdin/stdout, timeout приводит к kill + wait, I/O threads join, stderr bounded, следующая операция перезапускает worker. Fault-injection тесты покрывают зависание, аварийный выход и битый JSON реального дочернего worker |
