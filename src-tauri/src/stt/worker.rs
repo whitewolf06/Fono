@@ -28,6 +28,40 @@ const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 const MAX_STDERR_LINE_BYTES: usize = 4 * 1024;
 const STDERR_TAIL_LINES: usize = 32;
 
+#[derive(Clone, Copy)]
+struct WorkerTimeouts {
+    ping: Duration,
+    load: Duration,
+    transcribe_base: Duration,
+    transcribe_max: Duration,
+}
+
+const PRODUCTION_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
+    ping: PING_TIMEOUT,
+    load: LOAD_TIMEOUT,
+    transcribe_base: TRANSCRIBE_BASE_TIMEOUT,
+    transcribe_max: TRANSCRIBE_MAX_TIMEOUT,
+};
+
+impl WorkerTimeouts {
+    fn for_request(self, request: &WorkerRequest) -> Duration {
+        match request {
+            WorkerRequest::Ping => self.ping,
+            WorkerRequest::Load { .. } => self.load,
+            WorkerRequest::Transcribe {
+                samples_i16_base64, ..
+            } => self.transcribe_timeout(samples_i16_base64.len()),
+        }
+    }
+
+    fn transcribe_timeout(self, encoded_bytes: usize) -> Duration {
+        let approximate_pcm_bytes = (encoded_bytes as u64 / 4).saturating_mul(3);
+        let audio_seconds = approximate_pcm_bytes / 2 / 16_000;
+        (self.transcribe_base + Duration::from_secs(audio_seconds.saturating_mul(2)))
+            .min(self.transcribe_max)
+    }
+}
+
 pub(super) struct WorkerSession {
     backend: BackendKind,
     path: PathBuf,
@@ -40,6 +74,7 @@ pub(super) struct WorkerSession {
     stderr_tail: Arc<Mutex<VecDeque<String>>>,
     stderr_thread: Option<JoinHandle<()>>,
     next_request_id: u64,
+    timeouts: WorkerTimeouts,
 }
 
 enum WorkerOutput {
@@ -55,6 +90,15 @@ struct WorkerWrite {
 
 impl WorkerSession {
     pub(super) fn start(path: PathBuf, backend: BackendKind, model_path: &Path) -> AppResult<Self> {
+        Self::start_with_timeouts(path, backend, model_path, PRODUCTION_TIMEOUTS)
+    }
+
+    fn start_with_timeouts(
+        path: PathBuf,
+        backend: BackendKind,
+        model_path: &Path,
+        timeouts: WorkerTimeouts,
+    ) -> AppResult<Self> {
         let mut command = Command::new(&path);
         command
             .stdin(Stdio::piped())
@@ -103,6 +147,7 @@ impl WorkerSession {
             stderr_tail,
             stderr_thread: Some(stderr_thread),
             next_request_id: 0,
+            timeouts,
         };
         match worker.request(&WorkerRequest::Ping)? {
             WorkerResponse::Ready { backend: actual } if actual == backend => {}
@@ -190,7 +235,7 @@ impl WorkerSession {
     }
 
     fn request(&mut self, request: &WorkerRequest) -> AppResult<WorkerResponse> {
-        let timeout = request_timeout(request);
+        let timeout = self.timeouts.for_request(request);
         let deadline = Instant::now() + timeout;
         let line = serde_json::to_string(request)
             .map_err(|error| AppError::Stt(format!("worker request serialization: {error}")))?;
@@ -301,21 +346,9 @@ impl Drop for WorkerSession {
     }
 }
 
-fn request_timeout(request: &WorkerRequest) -> Duration {
-    match request {
-        WorkerRequest::Ping => PING_TIMEOUT,
-        WorkerRequest::Load { .. } => LOAD_TIMEOUT,
-        WorkerRequest::Transcribe {
-            samples_i16_base64, ..
-        } => transcribe_timeout(samples_i16_base64.len()),
-    }
-}
-
+#[cfg(test)]
 fn transcribe_timeout(encoded_bytes: usize) -> Duration {
-    let approximate_pcm_bytes = (encoded_bytes as u64 / 4).saturating_mul(3);
-    let audio_seconds = approximate_pcm_bytes / 2 / 16_000;
-    (TRANSCRIBE_BASE_TIMEOUT + Duration::from_secs(audio_seconds.saturating_mul(2)))
-        .min(TRANSCRIBE_MAX_TIMEOUT)
+    PRODUCTION_TIMEOUTS.transcribe_timeout(encoded_bytes)
 }
 
 fn terminate_child(child: &mut Child) {
@@ -455,9 +488,73 @@ fn backend_name(backend: BackendKind) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::io::Cursor;
+    use std::path::{Path, PathBuf};
+    use std::process;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use super::*;
+
+    const TEST_TIMEOUT: Duration = Duration::from_millis(250);
+    const TEST_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
+        ping: TEST_TIMEOUT,
+        load: TEST_TIMEOUT,
+        transcribe_base: TEST_TIMEOUT,
+        transcribe_max: TEST_TIMEOUT,
+    };
+
+    struct WorkerFixture {
+        directory: PathBuf,
+        script: PathBuf,
+    }
+
+    impl WorkerFixture {
+        fn create(after_load: &str) -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock is before the Unix epoch")
+                .as_nanos();
+            let directory = std::env::temp_dir().join(format!(
+                "fono-stt-worker-fixture-{}-{unique}",
+                process::id()
+            ));
+            fs::create_dir(&directory).expect("create worker fixture directory");
+            let script = directory.join("worker.cmd");
+            fs::write(
+                &script,
+                format!(
+                    "@echo off\r\nset /p request=\r\necho {{\"type\":\"ready\",\"backend\":\"cuda\"}}\r\nset /p request=\r\necho {{\"type\":\"model_loaded\",\"backend\":\"cuda\"}}\r\nset /p request=\r\n{after_load}\r\n"
+                ),
+            )
+            .expect("write worker fixture");
+            Self { directory, script }
+        }
+
+        fn start(&self) -> WorkerSession {
+            WorkerSession::start_with_timeouts(
+                self.script.clone(),
+                BackendKind::Cuda,
+                Path::new("fixture-model.bin"),
+                TEST_TIMEOUTS,
+            )
+            .expect("fixture worker completes handshake")
+        }
+    }
+
+    impl Drop for WorkerFixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.directory);
+        }
+    }
+
+    fn assert_session_is_terminated(session: &mut WorkerSession) {
+        assert!(matches!(session.child.try_wait(), Ok(Some(_))));
+        assert!(session.stdin_tx.is_none());
+        assert!(session.stdin_thread.is_none());
+        assert!(session.stdout_thread.is_none());
+        assert!(session.stderr_thread.is_none());
+    }
 
     #[test]
     fn response_reader_enforces_limit_and_recovers_at_next_line() {
@@ -473,5 +570,45 @@ mod tests {
     fn transcription_timeout_is_bounded() {
         assert_eq!(transcribe_timeout(0), TRANSCRIBE_BASE_TIMEOUT);
         assert_eq!(transcribe_timeout(usize::MAX), TRANSCRIBE_MAX_TIMEOUT);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn malformed_worker_response_terminates_the_session() {
+        let fixture = WorkerFixture::create("echo not-json\r\n:hang\r\ngoto hang");
+        let mut session = fixture.start();
+
+        let error = session.transcribe(&[0; 160], "auto").unwrap_err();
+
+        assert!(error.to_string().contains("invalid JSON"));
+        assert_session_is_terminated(&mut session);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn worker_exit_before_response_terminates_the_session() {
+        let fixture = WorkerFixture::create("exit /b 17");
+        let mut session = fixture.start();
+
+        let error = session.transcribe(&[0; 160], "auto").unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("exited before returning a response"));
+        assert_session_is_terminated(&mut session);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn hung_worker_response_respects_deadline_and_terminates_the_session() {
+        let fixture = WorkerFixture::create(":hang\r\ngoto hang");
+        let mut session = fixture.start();
+        let started = Instant::now();
+
+        let error = session.transcribe(&[0; 160], "auto").unwrap_err();
+
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert!(error.to_string().contains("timed out"));
+        assert_session_is_terminated(&mut session);
     }
 }
