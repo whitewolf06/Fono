@@ -24,6 +24,7 @@
 | BR-017 | Выполнено | Проходят no-default, Whisper-only, Sherpa-only и default configurations |
 | BR-032 | Выполнено как gate | Весь workspace проходит strict Clippy с -D warnings |
 | BR-033 | Частично выполнено | Cargo.lock отслеживается, toolchain закреплен; dependency audit policy еще предстоит |
+| BR-030 | Частично выполнено | LLM использует один `reqwest::Client` с connection pool, connect/request deadlines, bounded JSON response (2 MiB) и отказом от пустого content. Cancellation через operation lease и HTTP fault-injection ещё предстоят. |
 
 Промежуточные коммиты:
 

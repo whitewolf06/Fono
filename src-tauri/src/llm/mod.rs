@@ -5,7 +5,8 @@
 //! в запросе, но активные инструменты пока не вызываются (заготовка для
 //! будущих команд: «ответь на email», «кратко перескажи» и т.п.).
 
-use serde::{Deserialize, Serialize};
+use once_cell::sync::Lazy;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 use crate::types::{AiMode, LlmProvider, Settings};
@@ -13,6 +14,15 @@ use crate::types::{AiMode, LlmProvider, Settings};
 const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 const MAX_TOKENS: u32 = 2048;
+const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+
+static HTTP_CLIENT: Lazy<Result<reqwest::Client, String>> = Lazy::new(|| {
+    reqwest::Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        .pool_idle_timeout(std::time::Duration::from_secs(90))
+        .build()
+        .map_err(|error| error.to_string())
+});
 
 #[derive(Debug, Serialize)]
 struct ChatRequest<'a> {
@@ -116,13 +126,8 @@ impl LlmClient {
 
     /// Возвращает список доступных моделей.
     pub async fn list_models(&self) -> AppResult<Vec<String>> {
-        let client = reqwest::Client::builder()
-            .timeout(CONNECT_TIMEOUT)
-            .build()
-            .map_err(|e| AppError::Llm(e.to_string()))?;
-
         let url = format!("{}/models", self.base_url.trim_end_matches('/'));
-        let mut req = client.get(&url);
+        let mut req = shared_http_client()?.get(&url).timeout(CONNECT_TIMEOUT);
         if let Some(key) = &self.api_key {
             req = req.header("Authorization", format!("Bearer {key}"));
         }
@@ -137,10 +142,7 @@ impl LlmClient {
                 resp.status()
             )));
         }
-        let body: ModelsResponse = resp
-            .json()
-            .await
-            .map_err(|e| AppError::Llm(format!("parse /models: {e}")))?;
+        let body: ModelsResponse = decode_json_response(resp, "parse /models").await?;
 
         Ok(body.data.into_iter().map(|m| m.id).collect())
     }
@@ -186,13 +188,11 @@ impl LlmClient {
             tools: available_tools(),
         };
 
-        let client = reqwest::Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .build()
-            .map_err(|e| AppError::Llm(e.to_string()))?;
-
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
-        let mut req_builder = client.post(&url).json(&req);
+        let mut req_builder = shared_http_client()?
+            .post(&url)
+            .timeout(REQUEST_TIMEOUT)
+            .json(&req);
         if let Some(key) = &self.api_key {
             req_builder = req_builder.header("Authorization", format!("Bearer {key}"));
         }
@@ -208,20 +208,47 @@ impl LlmClient {
             )));
         }
 
-        let body: ChatResponse = resp
-            .json()
-            .await
-            .map_err(|e| AppError::Llm(format!("parse response: {e}")))?;
-
-        let result = body
-            .choices
-            .into_iter()
-            .next()
-            .map(|c| c.message.content.trim().to_string())
-            .ok_or_else(|| AppError::Llm("пустой ответ LLM".into()))?;
+        let body: ChatResponse = decode_json_response(resp, "parse response").await?;
+        let result = response_content(body)?;
         crate::vlog!("LLM response received ({} chars)", result.chars().count());
         Ok(result)
     }
+}
+
+fn shared_http_client() -> AppResult<&'static reqwest::Client> {
+    HTTP_CLIENT
+        .as_ref()
+        .map_err(|error| AppError::Llm(format!("initialize HTTP client: {error}")))
+}
+
+async fn decode_json_response<T>(mut response: reqwest::Response, context: &str) -> AppResult<T>
+where
+    T: DeserializeOwned,
+{
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::Llm(format!("{context}: {error}")))?
+    {
+        if bytes.len().saturating_add(chunk.len()) > MAX_RESPONSE_BYTES {
+            return Err(AppError::Llm(format!(
+                "{context}: LLM response exceeds {MAX_RESPONSE_BYTES} bytes"
+            )));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&bytes).map_err(|error| AppError::Llm(format!("{context}: {error}")))
+}
+
+fn response_content(response: ChatResponse) -> AppResult<String> {
+    response
+        .choices
+        .into_iter()
+        .next()
+        .map(|choice| choice.message.content.trim().to_string())
+        .filter(|content| !content.is_empty())
+        .ok_or_else(|| AppError::Llm("empty LLM response".into()))
 }
 
 fn system_prompt(mode: AiMode, clean_prompt: Option<&str>) -> String {
@@ -284,4 +311,40 @@ fn available_tools<'a>() -> Vec<Tool<'a>> {
 fn user_prompt(transcript: &str, _mode: AiMode) -> String {
     // Транскрипт передаём как есть. LLM получает уже сам текст.
     transcript.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn response_with(content: &str) -> ChatResponse {
+        ChatResponse {
+            choices: vec![ChatChoice {
+                message: ChatChoiceMessage {
+                    content: content.to_string(),
+                },
+            }],
+        }
+    }
+
+    #[test]
+    fn response_content_trims_valid_content() {
+        assert_eq!(
+            response_content(response_with("  result  ")).unwrap(),
+            "result"
+        );
+    }
+
+    #[test]
+    fn response_content_rejects_empty_content() {
+        assert!(response_content(response_with(" \n ")).is_err());
+        assert!(response_content(ChatResponse { choices: vec![] }).is_err());
+    }
+
+    #[test]
+    fn http_client_is_shared_between_requests() {
+        let first = shared_http_client().expect("initialize shared client");
+        let second = shared_http_client().expect("reuse shared client");
+        assert!(std::ptr::eq(first, second));
+    }
 }
