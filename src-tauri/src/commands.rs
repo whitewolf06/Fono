@@ -814,23 +814,6 @@ pub fn set_whisper_model(state: State<'_, AppState>, path: String) -> AppResult<
     Ok(())
 }
 
-// ====== LLM ======
-
-#[tauri::command]
-pub async fn test_llm_connection(state: State<'_, AppState>) -> AppResult<String> {
-    let s = state.settings();
-    let client = LlmClient::from_settings(&s);
-    let model_id = client.test_connection().await?;
-    Ok(format!("LLM активен, модель: {model_id}"))
-}
-
-#[tauri::command]
-pub async fn list_llm_models(state: State<'_, AppState>) -> AppResult<Vec<String>> {
-    let s = state.settings();
-    let client = LlmClient::from_settings(&s);
-    client.list_models().await
-}
-
 // ====== Настройки ======
 
 #[tauri::command]

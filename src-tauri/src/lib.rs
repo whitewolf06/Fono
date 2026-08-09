@@ -278,8 +278,8 @@ pub fn run() {
             commands::is_kws_model_downloaded,
             commands::download_kws_model,
             // llm
-            commands::test_llm_connection,
-            commands::list_llm_models,
+            ipc::llm::test_llm_connection,
+            ipc::llm::list_llm_models,
             // settings
             commands::get_settings,
             commands::get_acceleration_capabilities,
