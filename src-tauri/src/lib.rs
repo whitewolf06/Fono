@@ -281,11 +281,11 @@ pub fn run() {
             ipc::llm::test_llm_connection,
             ipc::llm::list_llm_models,
             // settings
-            commands::get_settings,
-            commands::get_acceleration_capabilities,
-            commands::save_settings,
+            ipc::settings::get_settings,
+            ipc::settings::get_acceleration_capabilities,
+            ipc::settings::save_settings,
             // overlay
-            commands::save_overlay_position,
+            ipc::settings::save_overlay_position,
             // диагностика
             commands::get_recent_logs,
             commands::clear_logs,
