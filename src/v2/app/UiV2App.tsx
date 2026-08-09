@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
+import { ipc } from "@/lib/ipc";
+import type { BuildInfo } from "@/lib/types";
 import { CommandsPage } from "@/v2/features/commands/presentation/CommandsPage";
 import { VoiceCommandConfirmationDialog } from "@/v2/features/commands/presentation/VoiceCommandConfirmationDialog";
 import { createTauriCommandsDraftStore } from "@/v2/features/commands/infrastructure/tauriCommandsDraftStore";
@@ -20,6 +22,7 @@ import {
 } from "@/v2/features/settings/presentation/QuickSettingsDialog";
 import { SettingsPage } from "@/v2/features/settings/presentation/SettingsPage";
 import { AppIcon } from "@/v2/shared/presentation/components/AppIcon";
+import { BuildInfoIndicator } from "@/v2/shared/presentation/components/BuildInfoIndicator";
 import { UiKitPage } from "@/v2/shared/presentation/UiKitPage";
 import "@/v2/shared/presentation/styles/index.css";
 
@@ -33,6 +36,7 @@ const productNavigation: { id: NavigationItem; icon: string; label: string }[] =
   ];
 
 const isUiDevelopment = window.location.hostname === "localhost";
+const isNativeRuntime = isTauri();
 
 const navigation = isUiDevelopment
   ? [...productNavigation, { id: "kit" as const, icon: "◈", label: "UI kit" }]
@@ -45,20 +49,44 @@ export function UiV2App() {
   const [quickSettingsTarget, setQuickSettingsTarget] =
     useState<QuickSettingsTarget | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(shouldShowOnboarding);
+  const [backendBuildInfo, setBackendBuildInfo] = useState<BuildInfo | null>(
+    null,
+  );
+  const [backendBuildError, setBackendBuildError] = useState(false);
   const runtime = useMemo(
     () =>
-      isTauri() ? createTauriDictationRuntime() : createMockDictationRuntime(),
+      isNativeRuntime
+        ? createTauriDictationRuntime()
+        : createMockDictationRuntime(),
     [],
   );
   const settingsStore = useMemo(
-    () => (isTauri() ? createTauriSettingsDraftStore() : undefined),
+    () => (isNativeRuntime ? createTauriSettingsDraftStore() : undefined),
     [],
   );
   const commandsStore = useMemo(
-    () => (isTauri() ? createTauriCommandsDraftStore() : undefined),
+    () => (isNativeRuntime ? createTauriCommandsDraftStore() : undefined),
     [],
   );
   const isCleanVoicePage = activePage === "voice";
+
+  useEffect(() => {
+    if (!isNativeRuntime) return;
+
+    let active = true;
+    void ipc
+      .getBuildInfo()
+      .then((info) => {
+        if (active) setBackendBuildInfo(info);
+      })
+      .catch(() => {
+        if (active) setBackendBuildError(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const openSettings = (target: VoiceSetupTarget) => {
     setQuickSettingsTarget(target);
@@ -99,6 +127,11 @@ export function UiV2App() {
             ))}
           </nav>
           <div className="v2-sidebar__bottom">
+            <BuildInfoIndicator
+              backend={backendBuildInfo}
+              backendError={backendBuildError}
+              isNativeRuntime={isNativeRuntime}
+            />
             <button
               className="v2-sidebar-onboarding"
               type="button"
@@ -141,7 +174,7 @@ export function UiV2App() {
         />
       )}
       {onboardingOpen && <OnboardingDialog onComplete={closeOnboarding} />}
-      {isTauri() && <VoiceCommandConfirmationDialog />}
+      {isNativeRuntime && <VoiceCommandConfirmationDialog />}
     </div>
   );
 }

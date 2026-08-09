@@ -24,6 +24,23 @@ use crate::types::{
     WhisperModelInfo, WhisperModelSize,
 };
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfo {
+    version: &'static str,
+    revision: &'static str,
+    profile: &'static str,
+}
+
+#[tauri::command]
+pub fn get_build_info() -> BuildInfo {
+    BuildInfo {
+        version: env!("CARGO_PKG_VERSION"),
+        revision: env!("FONO_BUILD_REVISION"),
+        profile: env!("FONO_BUILD_PROFILE"),
+    }
+}
+
 #[tauri::command]
 pub fn get_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
     state::load_dictation_history()

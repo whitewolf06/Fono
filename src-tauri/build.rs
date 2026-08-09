@@ -2,6 +2,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 const REQUIRED_STT_WORKERS: &[&str] = &["fono-stt-cuda-worker.exe", "fono-stt-vulkan-worker.exe"];
 
@@ -21,6 +22,15 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SHERPA_WAKE");
+    println!("cargo:rerun-if-env-changed=FONO_BUILD_REVISION");
+    println!("cargo:rerun-if-changed=../.git/HEAD");
+
+    let revision = env::var("FONO_BUILD_REVISION").unwrap_or_else(|_| git_revision());
+    println!("cargo:rustc-env=FONO_BUILD_REVISION={revision}");
+    println!(
+        "cargo:rustc-env=FONO_BUILD_PROFILE={}",
+        env::var("PROFILE").unwrap_or_else(|_| "unknown".to_string())
+    );
 
     if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
@@ -34,6 +44,34 @@ fn main() {
 
     if layout.is_release() && env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some() {
         stage_sherpa_runtime_for_bundle(&layout);
+    }
+}
+
+fn git_revision() -> String {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let revision = Command::new("git")
+        .args(["rev-parse", "--short=12", "HEAD"])
+        .current_dir(&manifest_dir)
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|revision| revision.trim().to_string())
+        .filter(|revision| !revision.is_empty());
+    let Some(revision) = revision else {
+        return "unknown".to_string();
+    };
+    let is_dirty = Command::new("git")
+        .args(["status", "--porcelain", "--untracked-files=no"])
+        .current_dir(manifest_dir)
+        .output()
+        .ok()
+        .is_some_and(|output| output.status.success() && !output.stdout.is_empty());
+
+    if is_dirty {
+        format!("{revision}-dirty")
+    } else {
+        revision
     }
 }
 

@@ -252,6 +252,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // state
+            commands::get_build_info,
             commands::get_pipeline_state,
             commands::start_dictation,
             commands::stop_dictation,

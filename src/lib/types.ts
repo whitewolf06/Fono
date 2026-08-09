@@ -199,3 +199,8 @@ export interface DictationHistoryEntry {
   created_at: string;
   device: string | null;
 }
+export interface BuildInfo {
+  version: string;
+  revision: string;
+  profile: string;
+}

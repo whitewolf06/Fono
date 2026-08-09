@@ -2,12 +2,46 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageVersion = JSON.parse(
+  readFileSync(path.join(__dirname, "package.json"), "utf8"),
+).version as string;
+
+function gitRevision() {
+  try {
+    const revision = execFileSync("git", ["rev-parse", "--short=12", "HEAD"], {
+      cwd: __dirname,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const isDirty = execFileSync(
+      "git",
+      ["status", "--porcelain", "--untracked-files=no"],
+      {
+        cwd: __dirname,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim().length > 0;
+
+    return isDirty ? `${revision}-dirty` : revision;
+  } catch {
+    return "unknown";
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __FONO_FRONTEND_BUILD__: JSON.stringify({
+      version: packageVersion,
+      revision: gitRevision(),
+    }),
+  },
 
   // Tauri production build uses file:// URLs — relative paths required
   base: "./",

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  BuildInfo,
   DeviceInfo,
   AccelerationCapabilities,
   PipelineMode,
@@ -18,6 +19,7 @@ import type {
 // ====== Синхронные команды ======
 
 export const ipc = {
+  getBuildInfo: () => invoke<BuildInfo>("get_build_info"),
   // Состояние конвейера
   getPipelineState: () => invoke<PipelineState>("get_pipeline_state"),
   startDictation: () => invoke<void>("start_dictation"),

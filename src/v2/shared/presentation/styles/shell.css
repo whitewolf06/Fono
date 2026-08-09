@@ -167,6 +167,57 @@
   gap: 12px;
   margin-top: auto;
 }
+.v2-build-info {
+  display: grid;
+  gap: 5px;
+  padding: 10px 11px;
+  border: 1px solid rgba(136, 203, 242, 0.2);
+  border-radius: 9px;
+  color: #94b2c7;
+  background: rgba(2, 16, 32, 0.38);
+  font-size: 10px;
+}
+.v2-build-info__status,
+.v2-build-info__row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.v2-build-info__status {
+  gap: 6px;
+  color: #c5ddeb;
+  font-size: 10px;
+  font-weight: 600;
+}
+.v2-build-info__status span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.v2-build-info__status .is-ready {
+  background: #61df96;
+  box-shadow: 0 0 7px rgba(97, 223, 150, 0.75);
+}
+.v2-build-info__status .is-warning {
+  background: #f3c96c;
+  box-shadow: 0 0 7px rgba(243, 201, 108, 0.64);
+}
+.v2-build-info__row {
+  gap: 7px;
+}
+.v2-build-info__row > span {
+  flex: 0 0 16px;
+  color: #6faed1;
+  font-weight: 700;
+}
+.v2-build-info code {
+  overflow: hidden;
+  color: #8faec2;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .v2-sidebar-status {
   padding: 13px;
   border: 1px solid rgba(163, 220, 255, 0.19);
