@@ -16,7 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::audio::AudioCapture;
 use crate::error::{AppError, AppResult};
 use crate::llm::LlmClient;
-use crate::operation::OperationSource;
+use crate::operation::{OperationSource, TerminalReason};
 use crate::pipeline::{self, Pipeline};
 use crate::state::{self, AppState};
 use crate::types::{
@@ -72,6 +72,31 @@ pub fn confirm_voice_command(app: AppHandle) -> AppResult<String> {
 
 fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
     pipeline::set_state(app, state, PipelineState::Idle);
+}
+
+fn set_pipeline_state_for_operation(
+    app: &AppHandle,
+    state: &AppState,
+    pipeline: &Pipeline,
+    operation: u64,
+    new: PipelineState,
+    terminal_reason: TerminalReason,
+) -> bool {
+    let Some(event) = pipeline.sync_operation_state_for(operation, new, terminal_reason) else {
+        tracing::debug!(operation, ?new, "ignoring stale pipeline state update");
+        return false;
+    };
+    let _ = app.emit("operation-state", event);
+    state.set_pipeline_state(new);
+    let _ = app.emit("pipeline-state", new);
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = if matches!(new, PipelineState::Idle) {
+            overlay.hide()
+        } else {
+            overlay.show()
+        };
+    }
+    true
 }
 
 fn empty_transcript() -> Transcript {
@@ -209,7 +234,14 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         Err(e) => {
             emit_pipeline_error(&app, &e.to_string());
             tracing::error!("stop_dictation: stop_recording FAILED: {e}");
-            set_pipeline_idle(&app, state.inner());
+            let _ = set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
             return Err(e);
         }
     };
@@ -226,7 +258,14 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
     if samples.is_empty() {
-        set_pipeline_idle(&app, state.inner());
+        let _ = set_pipeline_state_for_operation(
+            &app,
+            state.inner(),
+            &pipeline,
+            operation,
+            PipelineState::Idle,
+            TerminalReason::Completed,
+        );
         return Ok(empty_transcript());
     }
 
@@ -235,11 +274,27 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let samples = crate::vad::trim_silence(&samples);
     if samples.is_empty() {
         tracing::info!("VAD: речь не обнаружена вообще — пропускаем транскрипцию");
-        set_pipeline_idle(&app, state.inner());
+        let _ = set_pipeline_state_for_operation(
+            &app,
+            state.inner(),
+            &pipeline,
+            operation,
+            PipelineState::Idle,
+            TerminalReason::Completed,
+        );
         return Ok(empty_transcript());
     }
 
-    pipeline::set_state(&app, state.inner(), PipelineState::Transcribing);
+    if !set_pipeline_state_for_operation(
+        &app,
+        state.inner(),
+        &pipeline,
+        operation,
+        PipelineState::Transcribing,
+        TerminalReason::Completed,
+    ) {
+        return Ok(empty_transcript());
+    }
     if let Some(path) = settings.whisper_model_path.as_deref() {
         if let Err(error) = pipeline.stt().ensure_loaded(
             std::path::Path::new(path),
@@ -247,14 +302,28 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             &crate::stt::worker_paths_for_app(&app),
         ) {
             emit_pipeline_error(&app, &error.to_string());
-            set_pipeline_idle(&app, state.inner());
+            let _ = set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
             return Err(error);
         }
     } else {
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
-        set_pipeline_idle(&app, state.inner());
+        let _ = set_pipeline_state_for_operation(
+            &app,
+            state.inner(),
+            &pipeline,
+            operation,
+            PipelineState::Idle,
+            TerminalReason::Failed,
+        );
         return Err(AppError::Stt(error_msg));
     }
     if !operation_still_active(&pipeline, operation, "stop_dictation after model load") {
@@ -270,12 +339,26 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
             .await
             .map_err(|e| {
                 let _ = app_for_err.emit("error", e.to_string());
-                set_pipeline_idle(&app_for_err, state.inner());
+                let _ = set_pipeline_state_for_operation(
+                    &app_for_err,
+                    state.inner(),
+                    &pipeline,
+                    operation,
+                    PipelineState::Idle,
+                    TerminalReason::Failed,
+                );
                 AppError::Internal(format!("transcribe join: {e}"))
             })?
             .map_err(|e| {
                 let _ = app.emit("error", e.to_string());
-                set_pipeline_idle(&app, state.inner());
+                let _ = set_pipeline_state_for_operation(
+                    &app,
+                    state.inner(),
+                    &pipeline,
+                    operation,
+                    PipelineState::Idle,
+                    TerminalReason::Failed,
+                );
                 e
             })?;
 
@@ -292,7 +375,16 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let final_text = match settings.ai_mode {
         AiMode::Off => transcript.text.clone(),
         mode => {
-            pipeline::set_state(&app, state.inner(), PipelineState::Processing);
+            if !set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Processing,
+                TerminalReason::Completed,
+            ) {
+                return Ok(empty_transcript());
+            }
             let client = LlmClient::from_settings(&settings);
             match client
                 .process(&transcript.text, mode, settings.clean_prompt.as_deref())
@@ -318,13 +410,36 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     );
 
     // Вставка текста.
-    pipeline::set_state(&app, state.inner(), PipelineState::Injecting);
+    if !set_pipeline_state_for_operation(
+        &app,
+        state.inner(),
+        &pipeline,
+        operation,
+        PipelineState::Injecting,
+        TerminalReason::Completed,
+    ) {
+        return Ok(empty_transcript());
+    }
     if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
         emit_pipeline_error(&app, &e.to_string());
-        set_pipeline_idle(&app, state.inner());
+        let _ = set_pipeline_state_for_operation(
+            &app,
+            state.inner(),
+            &pipeline,
+            operation,
+            PipelineState::Idle,
+            TerminalReason::Failed,
+        );
         return Err(e);
     }
-    set_pipeline_idle(&app, state.inner());
+    let _ = set_pipeline_state_for_operation(
+        &app,
+        state.inner(),
+        &pipeline,
+        operation,
+        PipelineState::Idle,
+        TerminalReason::Completed,
+    );
 
     if !final_text.trim().is_empty() {
         let _ = state::append_dictation_history(DictationHistoryEntry {

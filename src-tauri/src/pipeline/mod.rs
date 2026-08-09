@@ -121,23 +121,30 @@ impl Pipeline {
 
     pub fn sync_operation_state(&self, state: PipelineState) -> Option<OperationEvent> {
         let operation = self.operations.current()?;
+        self.sync_operation_state_for(operation.id, state, TerminalReason::Completed)
+    }
+
+    pub fn sync_operation_state_for(
+        &self,
+        operation_id: u64,
+        state: PipelineState,
+        terminal_reason: TerminalReason,
+    ) -> Option<OperationEvent> {
         match state {
-            PipelineState::Idle => self
-                .operations
-                .finish(operation.id, TerminalReason::Completed),
-            PipelineState::Error => self.operations.finish(operation.id, TerminalReason::Failed),
+            PipelineState::Idle => self.operations.finish(operation_id, terminal_reason),
+            PipelineState::Error => self.operations.finish(operation_id, TerminalReason::Failed),
             PipelineState::Listening => self
                 .operations
-                .transition(operation.id, OperationPhase::Recording),
+                .transition(operation_id, OperationPhase::Recording),
             PipelineState::Transcribing => self
                 .operations
-                .transition(operation.id, OperationPhase::Transcribing),
+                .transition(operation_id, OperationPhase::Transcribing),
             PipelineState::Processing => self
                 .operations
-                .transition(operation.id, OperationPhase::Processing),
+                .transition(operation_id, OperationPhase::Processing),
             PipelineState::Injecting => self
                 .operations
-                .transition(operation.id, OperationPhase::Injecting),
+                .transition(operation_id, OperationPhase::Injecting),
         }
     }
 
