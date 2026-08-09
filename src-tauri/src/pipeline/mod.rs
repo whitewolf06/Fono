@@ -67,6 +67,13 @@ impl Pipeline {
         event
     }
 
+    pub fn shutdown(&self) -> Option<OperationEvent> {
+        let event = self.cancel();
+        let _ = self.stop_recording();
+        self.audio_owner.shutdown();
+        event
+    }
+
     pub fn finish_operation(
         &self,
         operation_id: u64,

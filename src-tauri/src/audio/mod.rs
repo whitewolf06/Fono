@@ -124,6 +124,17 @@ impl AudioRecordingOwner {
             .recv()
             .map_err(|_| AppError::Audio("audio owner stopped before stop completed".into()))
     }
+
+    pub fn shutdown(&self) {
+        let (response_tx, response_rx) = bounded(1);
+        let _ = self.commands.send(AudioOwnerCommand::Shutdown {
+            response: response_tx,
+        });
+        let _ = response_rx.recv();
+        if let Some(thread) = self.thread.lock().take() {
+            let _ = thread.join();
+        }
+    }
 }
 
 impl Default for AudioRecordingOwner {
@@ -134,14 +145,7 @@ impl Default for AudioRecordingOwner {
 
 impl Drop for AudioRecordingOwner {
     fn drop(&mut self) {
-        let (response_tx, response_rx) = bounded(1);
-        let _ = self.commands.send(AudioOwnerCommand::Shutdown {
-            response: response_tx,
-        });
-        let _ = response_rx.recv();
-        if let Some(thread) = self.thread.get_mut().take() {
-            let _ = thread.join();
-        }
+        self.shutdown();
     }
 }
 

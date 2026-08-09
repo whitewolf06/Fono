@@ -20,7 +20,7 @@ use crate::operation::{OperationSource, TerminalReason};
 use crate::state::AppState;
 use crate::types::{PipelineState, Settings, WakeWordBackend};
 use fono_wake::{WakeWordConfig, WakeWordEvent, WakeWordHandle};
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_global_shortcut::ShortcutState;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -298,8 +298,26 @@ pub fn run() {
             commands::enable_wake_word,
             commands::disable_wake_word,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Fono");
+        .build(tauri::generate_context!())
+        .expect("error while building Fono")
+        .run(|app, event| {
+            if matches!(event, RunEvent::ExitRequested { .. }) {
+                shutdown_app(app);
+            }
+        });
+}
+
+fn shutdown_app(app: &tauri::AppHandle) {
+    tracing::info!("Fono shutdown requested");
+    let pipeline = app.state::<pipeline::Pipeline>();
+    if let Some(event) = pipeline.shutdown() {
+        let _ = app.emit("operation-state", event);
+    }
+    app.state::<WakeWordHandle>().stop();
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = overlay.hide();
+    }
+    pipeline::set_state(app, app.state::<AppState>().inner(), PipelineState::Idle);
 }
 
 /// Регистрирует глобальные горячие клавиши:
