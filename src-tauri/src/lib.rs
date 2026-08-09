@@ -7,6 +7,7 @@ pub mod audio;
 pub mod commands;
 pub mod error;
 pub mod injection;
+pub mod ipc;
 pub mod llm;
 pub mod operation;
 pub mod pipeline;
@@ -252,16 +253,16 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // state
-            commands::get_build_info,
+            ipc::system::get_build_info,
             commands::get_pipeline_state,
             commands::start_dictation,
             commands::stop_dictation,
             commands::confirm_dictation,
             commands::cancel_dictation,
             commands::transcribe_test,
-            commands::get_dictation_history,
-            commands::clear_dictation_history,
-            commands::delete_dictation_history_entry,
+            ipc::system::get_dictation_history,
+            ipc::system::clear_dictation_history,
+            ipc::system::delete_dictation_history_entry,
             commands::copy_dictation_text,
             commands::reinsert_dictation,
             commands::get_pending_voice_command,
