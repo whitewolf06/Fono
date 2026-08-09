@@ -18,8 +18,8 @@ use crate::operation::{OperationSource, TerminalReason};
 use crate::pipeline::{self, Pipeline};
 use crate::state::{self, AppState};
 use crate::types::{
-    AiMode, DictationHistoryEntry, PipelineState, Settings, Transcript,
-    WhisperModelInfo, WhisperModelSize,
+    AiMode, DictationHistoryEntry, PipelineState, Settings, Transcript, WhisperModelInfo,
+    WhisperModelSize,
 };
 
 #[tauri::command]
