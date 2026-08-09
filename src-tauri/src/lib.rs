@@ -8,6 +8,7 @@ pub mod commands;
 pub mod error;
 pub mod injection;
 pub mod llm;
+pub mod operation;
 pub mod pipeline;
 pub mod state;
 pub mod stt;
@@ -15,6 +16,7 @@ pub mod types;
 pub mod vad;
 pub mod verbose;
 
+use crate::operation::OperationSource;
 use crate::state::AppState;
 use crate::types::{PipelineState, Settings, WakeWordBackend};
 use fono_wake::{WakeWordConfig, WakeWordEvent, WakeWordHandle};
@@ -291,7 +293,8 @@ pub fn register_all_shortcuts(
         match event.state {
             ShortcutState::Pressed => {
                 let _ = app.emit("pipeline-mode", "dictation");
-                if let Err(e) = commands::start_dictation(app.clone()) {
+                if let Err(e) = commands::start_dictation_from(app.clone(), OperationSource::Hotkey)
+                {
                     let _ = app.emit("error", e.to_string());
                     tracing::warn!("start_dictation via global shortcut failed: {e}");
                 }
@@ -315,7 +318,7 @@ pub fn register_all_shortcuts(
     gs.on_shortcut(command_hotkey.as_str(), |app, _, event| match event.state {
         ShortcutState::Pressed => {
             let _ = app.emit("pipeline-mode", "command");
-            if let Err(e) = commands::start_dictation(app.clone()) {
+            if let Err(e) = commands::start_dictation_from(app.clone(), OperationSource::Hotkey) {
                 let _ = app.emit("error", e.to_string());
                 tracing::warn!("start voice command recording failed: {e}");
             }
@@ -653,9 +656,11 @@ pub async fn run_dictation_after_wake(
     wake_handle.pause();
 
     // Стартуем запись.
-    if let Err(error) =
-        pipeline.start_recording_with_pre_roll(settings.audio_device_id.as_deref(), &pre_roll)
-    {
+    if let Err(error) = pipeline.start_recording_with_pre_roll_from(
+        settings.audio_device_id.as_deref(),
+        &pre_roll,
+        OperationSource::WakeWord,
+    ) {
         wake_handle.resume();
         return Err(Box::new(error));
     }

@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::audio::AudioCapture;
 use crate::error::{AppError, AppResult};
 use crate::llm::LlmClient;
+use crate::operation::OperationSource;
 use crate::pipeline::{self, Pipeline};
 use crate::state::{self, AppState};
 use crate::types::{
@@ -108,6 +109,10 @@ pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
 
 #[tauri::command]
 pub fn start_dictation(app: AppHandle) -> AppResult<()> {
+    start_dictation_from(app, OperationSource::Ui)
+}
+
+pub(crate) fn start_dictation_from(app: AppHandle, source: OperationSource) -> AppResult<()> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
@@ -118,7 +123,7 @@ pub fn start_dictation(app: AppHandle) -> AppResult<()> {
         return Err(AppError::Config(msg.to_string()));
     }
 
-    if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+    if let Err(e) = pipeline.start_recording_from(settings.audio_device_id.as_deref(), source) {
         emit_pipeline_error(&app, &e.to_string());
         tracing::error!("start_dictation: start_recording FAILED: {e}");
         return Err(e);
@@ -151,7 +156,9 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64) {
             max_seconds = pipeline::MAX_RECORDING_SECONDS,
             "recording safety timeout reached; cancelling the operation"
         );
-        pipeline.cancel();
+        if let Some(event) = pipeline.cancel() {
+            let _ = app.emit("operation-state", event);
+        }
         let _ = pipeline.stop_recording();
         set_pipeline_idle(&app, app.state::<AppState>().inner());
         app.state::<fono_wake::WakeWordHandle>().resume();
@@ -179,7 +186,9 @@ pub fn cancel_dictation(app: AppHandle) -> AppResult<()> {
     let pipeline = app.state::<Pipeline>();
     let wake_handle = app.state::<fono_wake::WakeWordHandle>();
 
-    pipeline.cancel();
+    if let Some(event) = pipeline.cancel() {
+        let _ = app.emit("operation-state", event);
+    }
     let _ = pipeline.stop_recording();
     set_pipeline_idle(&app, state.inner());
     wake_handle.resume();
@@ -375,7 +384,10 @@ pub async fn transcribe_test(
         "transcribe_test: starting recording (device_id={:?})",
         settings.audio_device_id
     );
-    if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+    if let Err(e) = pipeline.start_recording_from(
+        settings.audio_device_id.as_deref(),
+        OperationSource::Diagnostics,
+    ) {
         emit_pipeline_error(&app, &e.to_string());
         tracing::error!("transcribe_test: start_recording FAILED: {e}");
         return Err(e);
@@ -821,7 +833,10 @@ pub async fn test_microphone(app: AppHandle, duration_ms: u64) -> AppResult<MicT
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
 
-    if let Err(e) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+    if let Err(e) = pipeline.start_recording_from(
+        settings.audio_device_id.as_deref(),
+        OperationSource::Diagnostics,
+    ) {
         emit_pipeline_error(&app, &e.to_string());
         tracing::error!("test_microphone: start_recording FAILED: {e}");
         return Err(e);
@@ -985,7 +1000,10 @@ pub async fn record_wake_word_sample(
 
     let settings = state.settings();
     wake_handle.pause();
-    if let Err(error) = pipeline.start_recording(settings.audio_device_id.as_deref()) {
+    if let Err(error) = pipeline.start_recording_from(
+        settings.audio_device_id.as_deref(),
+        OperationSource::Diagnostics,
+    ) {
         wake_handle.resume();
         return Err(error);
     }

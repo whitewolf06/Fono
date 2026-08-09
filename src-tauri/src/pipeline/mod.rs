@@ -7,7 +7,7 @@
 //! и возможность вручную триггернуть транскрипцию.
 //! Push-to-talk и VAD добавляются на Этапе 3, wake word — на Этапе 4.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -17,6 +17,10 @@ use crate::audio::{AudioCapture, AudioInputStream};
 use crate::error::{AppError, AppResult};
 use crate::injection;
 use crate::llm::LlmClient;
+use crate::operation::{
+    OperationCoordinator, OperationEvent, OperationPhase, OperationSnapshot, OperationSource,
+    TerminalReason,
+};
 use crate::state::AppState;
 use crate::stt::SttEngine;
 use crate::types::{AiMode, PipelineState};
@@ -47,13 +51,8 @@ pub struct Pipeline {
     recording_limit_reached: Arc<AtomicBool>,
     /// STT движок (переиспользуем между вызовами).
     stt: Arc<SttEngine>,
-    /// Флаг отмены текущей диктовки (кнопка Stop в оверлее).
-    cancelled: Arc<AtomicBool>,
-    /// Monotonic id of the active dictation. It makes cancellation effective even
-    /// when Whisper or an LLM request cannot be interrupted immediately.
-    operation_id: AtomicU64,
-    /// Флаг подтверждения текущей диктовки (кнопка ✓ в оверлее).
-    confirmed: Arc<AtomicBool>,
+    /// Единственный владелец пользовательской операции и её lifecycle.
+    operations: OperationCoordinator,
 }
 
 impl Pipeline {
@@ -64,50 +63,82 @@ impl Pipeline {
             stream: Mutex::new(None),
             recording_limit_reached: Arc::new(AtomicBool::new(false)),
             stt: Arc::new(SttEngine::new()),
-            cancelled: Arc::new(AtomicBool::new(false)),
-            operation_id: AtomicU64::new(0),
-            confirmed: Arc::new(AtomicBool::new(false)),
+            operations: OperationCoordinator::new(),
         }
     }
 
     /// Запросить отмену текущей диктовки.
-    pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
-        self.operation_id.fetch_add(1, Ordering::SeqCst);
-        tracing::debug!("pipeline: cancellation requested");
+    pub fn cancel(&self) -> Option<OperationEvent> {
+        let operation = self.operations.current()?;
+        let event = self.operations.cancel(operation.id);
+        if event.is_some() {
+            tracing::debug!(operation = operation.id, "pipeline: cancellation requested");
+        }
+        event
     }
 
-    /// Starts a new user-visible operation and invalidates every older result.
-    pub fn begin_operation(&self) -> u64 {
-        self.cancelled.store(false, Ordering::SeqCst);
-        self.confirmed.store(false, Ordering::SeqCst);
-        self.operation_id.fetch_add(1, Ordering::SeqCst) + 1
+    pub fn finish_operation(
+        &self,
+        operation_id: u64,
+        reason: TerminalReason,
+    ) -> Option<OperationEvent> {
+        self.operations.finish(operation_id, reason)
     }
 
     pub fn operation_id(&self) -> u64 {
-        self.operation_id.load(Ordering::SeqCst)
+        self.operations
+            .current()
+            .map_or(0, |operation| operation.id)
+    }
+
+    pub fn current_operation(&self) -> Option<OperationSnapshot> {
+        self.operations.current()
     }
 
     pub fn is_operation_active(&self, operation_id: u64) -> bool {
-        self.operation_id() == operation_id && !self.is_cancelled()
+        self.operations.is_active(operation_id)
     }
 
     pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
+        self.operations.current().is_none()
     }
 
     /// Подтвердить текущую диктовку (закончить запись досрочно).
     pub fn confirm(&self) {
-        self.confirmed.store(true, Ordering::SeqCst);
-        tracing::debug!("pipeline: confirmation requested");
+        if let Some(operation) = self.operations.current() {
+            let _ = self.operations.confirm(operation.id);
+            tracing::debug!(operation = operation.id, "pipeline: confirmation requested");
+        }
     }
 
-    pub fn reset_confirm(&self) {
-        self.confirmed.store(false, Ordering::SeqCst);
-    }
+    pub fn reset_confirm(&self) {}
 
     pub fn is_confirmed(&self) -> bool {
-        self.confirmed.load(Ordering::SeqCst)
+        self.operations
+            .current()
+            .is_some_and(|operation| operation.confirmed)
+    }
+
+    pub fn sync_operation_state(&self, state: PipelineState) -> Option<OperationEvent> {
+        let operation = self.operations.current()?;
+        match state {
+            PipelineState::Idle => self
+                .operations
+                .finish(operation.id, TerminalReason::Completed),
+            PipelineState::Error => self.operations.finish(operation.id, TerminalReason::Failed),
+            PipelineState::Listening => self
+                .operations
+                .transition(operation.id, OperationPhase::Recording),
+            PipelineState::Transcribing => self
+                .operations
+                .transition(operation.id, OperationPhase::Transcribing),
+            PipelineState::Processing => self
+                .operations
+                .transition(operation.id, OperationPhase::Processing),
+            PipelineState::Injecting => self
+                .operations
+                .transition(operation.id, OperationPhase::Injecting),
+        }
     }
 
     pub fn stt(&self) -> &Arc<SttEngine> {
@@ -143,7 +174,15 @@ impl Pipeline {
 
     /// Запускает запись аудио в накопительный буфер.
     pub fn start_recording(&self, device_id: Option<&str>) -> AppResult<()> {
-        self.start_recording_with_pre_roll(device_id, &[])
+        self.start_recording_from(device_id, OperationSource::Ui)
+    }
+
+    pub fn start_recording_from(
+        &self,
+        device_id: Option<&str>,
+        source: OperationSource,
+    ) -> AppResult<()> {
+        self.start_recording_with_pre_roll_from(device_id, &[], source)
     }
 
     /// Запускает запись и добавляет короткий фрагмент до старта захвата.
@@ -154,12 +193,23 @@ impl Pipeline {
         device_id: Option<&str>,
         pre_roll: &[i16],
     ) -> AppResult<()> {
+        self.start_recording_with_pre_roll_from(device_id, pre_roll, OperationSource::Ui)
+    }
+
+    pub fn start_recording_with_pre_roll_from(
+        &self,
+        device_id: Option<&str>,
+        pre_roll: &[i16],
+        source: OperationSource,
+    ) -> AppResult<()> {
         let mut recording = self.recording.lock();
         if *recording {
             tracing::warn!("start_recording called while already recording");
             return Err(AppError::Busy("audio recording is already active".into()));
         }
+        let operation = self.operations.start(source)?;
         if pre_roll.len() > MAX_RECORDING_SAMPLES {
+            let _ = self.operations.finish(operation.id, TerminalReason::Failed);
             return Err(AppError::Audio(format!(
                 "pre-roll exceeds the maximum recording length of {MAX_RECORDING_SECONDS} seconds"
             )));
@@ -176,18 +226,25 @@ impl Pipeline {
         let writer_for_callback = Arc::clone(&writer);
         let limit_reached = Arc::clone(&self.recording_limit_reached);
 
-        let stream = AudioCapture::start(device_id, move |chunk: &[i16]| {
+        let stream = match AudioCapture::start(device_id, move |chunk: &[i16]| {
             let mut samples = writer_for_callback.lock();
             if append_bounded(&mut samples, chunk, MAX_RECORDING_SAMPLES) {
                 limit_reached.store(true, Ordering::Relaxed);
             }
-        })?;
+        }) {
+            Ok(stream) => stream,
+            Err(error) => {
+                let _ = self.operations.finish(operation.id, TerminalReason::Failed);
+                return Err(error);
+            }
+        };
 
-        self.begin_operation();
         *self.stream.lock() = Some(StreamHolder(stream));
         *self.writer.lock() = Some(writer);
         *recording = true;
         tracing::info!(
+            operation = operation.id,
+            source = ?source,
             "recording started, bounded writer attached (pre_roll={:.2}s, max={}s)",
             pre_roll.len() as f32 / RECORDING_SAMPLE_RATE as f32,
             MAX_RECORDING_SECONDS
@@ -303,6 +360,9 @@ pub async fn run_full_pipeline(
 
 /// Обновляет состояние FSM, эмитит событие во фронтенд и управляет overlay-окном.
 pub fn set_state(handle: &AppHandle, state: &AppState, new: PipelineState) {
+    if let Some(event) = handle.state::<Pipeline>().sync_operation_state(new) {
+        let _ = handle.emit("operation-state", event);
+    }
     state.set_pipeline_state(new);
     tracing::debug!("pipeline state -> {new:?}");
     let _ = handle.emit("pipeline-state", new);
@@ -339,20 +399,47 @@ pub async fn start_background(handle: AppHandle) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
+    use crate::operation::{OperationEvent, OperationPhase, OperationSource, TerminalReason};
+    use crate::types::PipelineState;
+
     use super::{append_bounded, Pipeline};
 
     #[test]
     fn cancellation_invalidates_in_flight_operation() {
         let pipeline = Pipeline::new();
-        let operation = pipeline.begin_operation();
-        assert!(pipeline.is_operation_active(operation));
+        let operation = pipeline.operations.start(OperationSource::Ui).unwrap();
+        assert!(pipeline.is_operation_active(operation.id));
 
         pipeline.cancel();
-        assert!(!pipeline.is_operation_active(operation));
+        assert!(!pipeline.is_operation_active(operation.id));
 
-        let next_operation = pipeline.begin_operation();
-        assert!(pipeline.is_operation_active(next_operation));
-        assert_ne!(operation, next_operation);
+        let next_operation = pipeline.operations.start(OperationSource::Hotkey).unwrap();
+        assert!(pipeline.is_operation_active(next_operation.id));
+        assert_ne!(operation.id, next_operation.id);
+    }
+
+    #[test]
+    fn pipeline_state_updates_are_bound_to_the_active_operation() {
+        let pipeline = Pipeline::new();
+        let operation = pipeline
+            .operations
+            .start(OperationSource::WakeWord)
+            .unwrap();
+
+        assert!(matches!(
+            pipeline.sync_operation_state(PipelineState::Transcribing),
+            Some(OperationEvent::PhaseChanged(snapshot))
+                if snapshot.id == operation.id && snapshot.phase == OperationPhase::Transcribing
+        ));
+        assert!(pipeline
+            .sync_operation_state(PipelineState::Processing)
+            .is_some());
+        assert!(matches!(
+            pipeline.sync_operation_state(PipelineState::Idle),
+            Some(OperationEvent::Finished(terminal))
+                if terminal.id == operation.id && terminal.reason == TerminalReason::Completed
+        ));
+        assert!(!pipeline.is_operation_active(operation.id));
     }
 
     #[test]
