@@ -152,6 +152,9 @@ where
     if bytes.len() % sample_size != 0 {
         tracing::warn!("fono-wake: misaligned audio bytes");
     }
+    // SAFETY: `align_to` never reinterprets the unaligned prefix/suffix. The
+    // aligned middle is read only as `T: Copy`; the caller selects `T` from
+    // CPAL's declared sample format, so no references outlive `bytes`.
     let (_, samples, _) = unsafe { bytes.align_to::<T>() };
     samples.iter().copied().map(&mut convert).collect()
 }

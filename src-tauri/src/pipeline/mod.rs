@@ -13,7 +13,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::audio::{AudioCapture, AudioInputStream};
+use crate::audio::{AudioRecordingOwner, RecordingWriter};
 use crate::error::{AppError, AppResult};
 use crate::injection;
 use crate::llm::LlmClient;
@@ -30,23 +30,13 @@ pub const MAX_RECORDING_SECONDS: usize = 5 * 60;
 const MAX_RECORDING_SAMPLES: usize = RECORDING_SAMPLE_RATE * MAX_RECORDING_SECONDS;
 const INITIAL_RECORDING_CAPACITY: usize = RECORDING_SAMPLE_RATE * 30;
 
-/// Обёртка над общим аудиопотоком, делающая её `Send + Sync`.
-///
-/// Внутренний cpal::Stream на Windows содержит `JoinHandle` и Win32 HANDLE,
-/// которые по умолчанию не `Send`. Мы гарантируем, что stream
-/// используется только из одного потока (через Mutex), поэтому
-/// расширяем границы безопасности здесь.
-struct StreamHolder(#[allow(dead_code)] AudioInputStream);
-unsafe impl Send for StreamHolder {}
-unsafe impl Sync for StreamHolder {}
-
 /// Разделяемое состояние конвейера.
 pub struct Pipeline {
     recording: Mutex<bool>,
     /// Arc-буфер накопленных сэмплов, разделяемый с аудио-callback'ом cpal.
-    writer: Mutex<Option<Arc<Mutex<Vec<i16>>>>>,
-    /// Активный аудио-поток. Dropstream останавливает захват.
-    stream: Mutex<Option<StreamHolder>>,
+    writer: Mutex<Option<RecordingWriter>>,
+    /// Единственный owner CPAL stream. Сам stream никогда не покидает свой поток.
+    audio_owner: AudioRecordingOwner,
     /// Set when the audio callback has filled the bounded recording buffer.
     recording_limit_reached: Arc<AtomicBool>,
     /// STT движок (переиспользуем между вызовами).
@@ -60,7 +50,7 @@ impl Pipeline {
         Self {
             recording: Mutex::new(false),
             writer: Mutex::new(None),
-            stream: Mutex::new(None),
+            audio_owner: AudioRecordingOwner::new(),
             recording_limit_reached: Arc::new(AtomicBool::new(false)),
             stt: Arc::new(SttEngine::new()),
             operations: OperationCoordinator::new(),
@@ -224,23 +214,16 @@ impl Pipeline {
         );
         samples.extend_from_slice(pre_roll);
         let writer = Arc::new(Mutex::new(samples));
-        let writer_for_callback = Arc::clone(&writer);
-        let limit_reached = Arc::clone(&self.recording_limit_reached);
+        if let Err(error) = self.audio_owner.start(
+            device_id,
+            Arc::clone(&writer),
+            Arc::clone(&self.recording_limit_reached),
+            MAX_RECORDING_SAMPLES,
+        ) {
+            let _ = self.operations.finish(operation.id, TerminalReason::Failed);
+            return Err(error);
+        }
 
-        let stream = match AudioCapture::start(device_id, move |chunk: &[i16]| {
-            let mut samples = writer_for_callback.lock();
-            if append_bounded(&mut samples, chunk, MAX_RECORDING_SAMPLES) {
-                limit_reached.store(true, Ordering::Relaxed);
-            }
-        }) {
-            Ok(stream) => stream,
-            Err(error) => {
-                let _ = self.operations.finish(operation.id, TerminalReason::Failed);
-                return Err(error);
-            }
-        };
-
-        *self.stream.lock() = Some(StreamHolder(stream));
         *self.writer.lock() = Some(writer);
         *recording = true;
         tracing::info!(
@@ -261,15 +244,15 @@ impl Pipeline {
             return Ok(Vec::new());
         }
 
-        // Keep the lifecycle lock until the old stream is fully stopped. A
-        // concurrent start cannot install a new stream that this call would
-        // accidentally take and drop.
-        if let Some(holder) = self.stream.lock().take() {
-            drop(holder);
-        }
+        // Keep the lifecycle lock until the owner confirms that the old stream
+        // was dropped. A concurrent start cannot install a new recording while
+        // this call is releasing the previous one.
+        let stopped = self.audio_owner.stop();
         let writer = self.writer.lock().take();
         *recording = false;
         drop(recording);
+
+        stopped?;
 
         let writer = writer.ok_or_else(|| AppError::Audio("запись не была запущена".into()))?;
         let samples = std::mem::take(&mut *writer.lock());
@@ -288,6 +271,7 @@ impl Pipeline {
     }
 }
 
+#[cfg(test)]
 fn append_bounded(samples: &mut Vec<i16>, chunk: &[i16], maximum: usize) -> bool {
     let available = maximum.saturating_sub(samples.len());
     let accepted = available.min(chunk.len());
