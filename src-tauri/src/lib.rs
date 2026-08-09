@@ -271,12 +271,12 @@ pub fn run() {
             // audio
             ipc::audio::list_audio_devices,
             // whisper
-            commands::list_whisper_models,
-            commands::download_whisper_model,
-            commands::set_whisper_model,
+            ipc::models::list_whisper_models,
+            ipc::models::download_whisper_model,
+            ipc::models::set_whisper_model,
             // kws wake word model
-            commands::is_kws_model_downloaded,
-            commands::download_kws_model,
+            ipc::models::is_kws_model_downloaded,
+            ipc::models::download_kws_model,
             // llm
             ipc::llm::test_llm_connection,
             ipc::llm::list_llm_models,
