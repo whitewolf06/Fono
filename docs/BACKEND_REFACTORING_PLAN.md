@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | BR-004 | Выполнена первая safety-версия | Буфер ограничен 5 минутами, watchdog закрывает потерянную запись, повторный start возвращает Busy |
 | BR-005 | Выполнено | Микрофон освобождается до VAD, загрузки модели и транскрипции |
-| BR-006 | Частично выполнено | Deadline покрывает stdin/stdout, timeout приводит к kill + wait, I/O threads join, stderr bounded, следующая операция перезапускает worker |
+| BR-006 | Частично выполнено | Supervision вынесен в `stt/worker.rs`: модуль владеет child/I/O threads, deadline покрывает stdin/stdout, timeout приводит к kill + wait, I/O threads join, stderr bounded, следующая операция перезапускает worker |
 | BR-007 | Частично выполнено | Sherpa/Whisper/Mock имеют Drop/stop, Sherpa сохраняет JoinHandle; callback вызывается вне mutex |
 | BR-011 | Частично выполнено | build.rs использует OUT_DIR, release manifest fail-fast, Sherpa DLL allowlist; отдельный release-resource pipeline еще предстоит |
 | BR-017 | Выполнено | Проходят no-default, Whisper-only, Sherpa-only и default configurations |
