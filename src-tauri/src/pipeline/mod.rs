@@ -99,10 +99,6 @@ impl Pipeline {
         self.operations.is_active(operation_id)
     }
 
-    pub fn is_cancelled(&self) -> bool {
-        self.operations.current().is_none()
-    }
-
     /// Подтвердить текущую диктовку (закончить запись досрочно).
     pub fn confirm(&self) {
         if let Some(operation) = self.operations.current() {
@@ -111,12 +107,10 @@ impl Pipeline {
         }
     }
 
-    pub fn reset_confirm(&self) {}
-
-    pub fn is_confirmed(&self) -> bool {
+    pub fn is_operation_confirmed(&self, operation_id: u64) -> bool {
         self.operations
             .current()
-            .is_some_and(|operation| operation.confirmed)
+            .is_some_and(|operation| operation.id == operation_id && operation.confirmed)
     }
 
     pub fn sync_operation_state(&self, state: PipelineState) -> Option<OperationEvent> {
@@ -382,6 +376,39 @@ pub fn set_state(handle: &AppHandle, state: &AppState, new: PipelineState) {
             overlay.show()
         };
     }
+}
+
+/// Applies a state transition only if it belongs to the specified operation.
+/// This prevents an old async STT/LLM result from hiding the overlay or
+/// finishing a newer dictation after cancellation.
+pub fn set_state_for_operation(
+    handle: &AppHandle,
+    state: &AppState,
+    pipeline: &Pipeline,
+    operation_id: u64,
+    new: PipelineState,
+    terminal_reason: TerminalReason,
+) -> bool {
+    let Some(event) = pipeline.sync_operation_state_for(operation_id, new, terminal_reason) else {
+        tracing::debug!(
+            operation = operation_id,
+            ?new,
+            "ignoring stale pipeline state update"
+        );
+        return false;
+    };
+    let _ = handle.emit("operation-state", event);
+    state.set_pipeline_state(new);
+    tracing::debug!(operation = operation_id, "pipeline state -> {new:?}");
+    let _ = handle.emit("pipeline-state", new);
+    if let Some(overlay) = handle.get_webview_window("overlay") {
+        let _ = if matches!(new, PipelineState::Idle) {
+            overlay.hide()
+        } else {
+            overlay.show()
+        };
+    }
+    true
 }
 
 /// Точка входа фоновой задачи (wake word, idle-логика). На Этапе 0 — пусто.

@@ -82,21 +82,7 @@ fn set_pipeline_state_for_operation(
     new: PipelineState,
     terminal_reason: TerminalReason,
 ) -> bool {
-    let Some(event) = pipeline.sync_operation_state_for(operation, new, terminal_reason) else {
-        tracing::debug!(operation, ?new, "ignoring stale pipeline state update");
-        return false;
-    };
-    let _ = app.emit("operation-state", event);
-    state.set_pipeline_state(new);
-    let _ = app.emit("pipeline-state", new);
-    if let Some(overlay) = app.get_webview_window("overlay") {
-        let _ = if matches!(new, PipelineState::Idle) {
-            overlay.hide()
-        } else {
-            overlay.show()
-        };
-    }
-    true
+    pipeline::set_state_for_operation(app, state, pipeline, operation, new, terminal_reason)
 }
 
 fn empty_transcript() -> Transcript {

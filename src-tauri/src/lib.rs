@@ -16,7 +16,7 @@ pub mod types;
 pub mod vad;
 pub mod verbose;
 
-use crate::operation::OperationSource;
+use crate::operation::{OperationSource, TerminalReason};
 use crate::state::AppState;
 use crate::types::{PipelineState, Settings, WakeWordBackend};
 use fono_wake::{WakeWordConfig, WakeWordEvent, WakeWordHandle};
@@ -664,9 +664,19 @@ pub async fn run_dictation_after_wake(
         wake_handle.resume();
         return Err(Box::new(error));
     }
-    pipeline::set_state(handle, state.inner(), PipelineState::Listening);
-    let _ = handle.emit("pipeline-mode", "dictation");
     let operation = pipeline.operation_id();
+    if !pipeline::set_state_for_operation(
+        handle,
+        state.inner(),
+        &pipeline,
+        operation,
+        PipelineState::Listening,
+        TerminalReason::Completed,
+    ) {
+        wake_handle.resume();
+        return Ok(());
+    }
+    let _ = handle.emit("pipeline-mode", "dictation");
     tracing::info!("wake dictation: recording started, waiting for VAD silence");
 
     // Ждём окончания речи: ловим начало речи, затем остановку по тишине.
@@ -688,7 +698,11 @@ pub async fn run_dictation_after_wake(
     emit_wake_dictation_countdown(handle, silence_timeout, silence_timeout, true);
 
     loop {
-        if started.elapsed() >= max_wait || pipeline.is_cancelled() || pipeline.is_confirmed() {
+        if !pipeline.is_operation_active(operation) {
+            wake_handle.resume();
+            return Ok(());
+        }
+        if started.elapsed() >= max_wait || pipeline.is_operation_confirmed(operation) {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -744,19 +758,22 @@ pub async fn run_dictation_after_wake(
     let samples = match pipeline.stop_recording() {
         Ok(samples) => samples,
         Err(error) => {
-            pipeline::set_state(handle, state.inner(), PipelineState::Idle);
+            let _ = pipeline::set_state_for_operation(
+                handle,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
             wake_handle.resume();
             return Err(Box::new(error));
         }
     };
 
-    // Сбрасываем флаг подтверждения, чтобы не влиял на следующие вызовы.
-    pipeline.reset_confirm();
-
     // Если пользователь нажал Stop в оверлее — отбрасываем запись.
-    if pipeline.is_cancelled() {
+    if !pipeline.is_operation_active(operation) {
         tracing::info!("wake dictation: cancelled by user");
-        pipeline::set_state(handle, state.inner(), PipelineState::Idle);
         wake_handle.resume();
         return Ok(());
     }
@@ -772,16 +789,40 @@ pub async fn run_dictation_after_wake(
                     settings.acceleration,
                     &stt::worker_paths_for_app(handle),
                 ) {
-                    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
+                    let _ = pipeline::set_state_for_operation(
+                        handle,
+                        state.inner(),
+                        &pipeline,
+                        operation,
+                        PipelineState::Idle,
+                        TerminalReason::Failed,
+                    );
                     wake_handle.resume();
                     return Err(Box::new(error));
                 }
             } else {
-                pipeline::set_state(handle, state.inner(), PipelineState::Idle);
+                let _ = pipeline::set_state_for_operation(
+                    handle,
+                    state.inner(),
+                    &pipeline,
+                    operation,
+                    PipelineState::Idle,
+                    TerminalReason::Failed,
+                );
                 wake_handle.resume();
                 return Err("Whisper-модель для диктовки не выбрана".into());
             }
-            pipeline::set_state(handle, state.inner(), PipelineState::Transcribing);
+            if !pipeline::set_state_for_operation(
+                handle,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Transcribing,
+                TerminalReason::Completed,
+            ) {
+                wake_handle.resume();
+                return Ok(());
+            }
             let stt = pipeline.stt().clone();
             let language = settings.language.clone();
             let transcript = match tauri::async_runtime::spawn_blocking(move || {
@@ -791,12 +832,26 @@ pub async fn run_dictation_after_wake(
             {
                 Ok(Ok(transcript)) => transcript,
                 Ok(Err(error)) => {
-                    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
+                    let _ = pipeline::set_state_for_operation(
+                        handle,
+                        state.inner(),
+                        &pipeline,
+                        operation,
+                        PipelineState::Idle,
+                        TerminalReason::Failed,
+                    );
                     wake_handle.resume();
                     return Err(Box::new(error));
                 }
                 Err(error) => {
-                    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
+                    let _ = pipeline::set_state_for_operation(
+                        handle,
+                        state.inner(),
+                        &pipeline,
+                        operation,
+                        PipelineState::Idle,
+                        TerminalReason::Failed,
+                    );
                     wake_handle.resume();
                     return Err(format!("transcribe join: {error}").into());
                 }
@@ -825,7 +880,17 @@ pub async fn run_dictation_after_wake(
                     wake_handle.resume();
                     return Ok(());
                 }
-                pipeline::set_state(handle, state.inner(), PipelineState::Processing);
+                if !pipeline::set_state_for_operation(
+                    handle,
+                    state.inner(),
+                    &pipeline,
+                    operation,
+                    PipelineState::Processing,
+                    TerminalReason::Completed,
+                ) {
+                    wake_handle.resume();
+                    return Ok(());
+                }
                 match crate::app_commands::execute(
                     &command,
                     &settings.launch_apps,
@@ -840,7 +905,14 @@ pub async fn run_dictation_after_wake(
                         let _ = handle.emit("error", error.to_string());
                     }
                 }
-                pipeline::set_state(handle, state.inner(), PipelineState::Idle);
+                let _ = pipeline::set_state_for_operation(
+                    handle,
+                    state.inner(),
+                    &pipeline,
+                    operation,
+                    PipelineState::Idle,
+                    TerminalReason::Completed,
+                );
                 wake_handle.resume();
                 return Ok(());
             }
@@ -849,7 +921,17 @@ pub async fn run_dictation_after_wake(
             let final_text = match settings.ai_mode {
                 crate::types::AiMode::Off => dictation_text.clone(),
                 mode => {
-                    pipeline::set_state(handle, state.inner(), PipelineState::Processing);
+                    if !pipeline::set_state_for_operation(
+                        handle,
+                        state.inner(),
+                        &pipeline,
+                        operation,
+                        PipelineState::Processing,
+                        TerminalReason::Completed,
+                    ) {
+                        wake_handle.resume();
+                        return Ok(());
+                    }
                     let client = crate::llm::LlmClient::from_settings(&settings);
                     match client
                         .process(&dictation_text, mode, settings.clean_prompt.as_deref())
@@ -873,7 +955,17 @@ pub async fn run_dictation_after_wake(
             }
 
             if !final_text.is_empty() {
-                pipeline::set_state(handle, state.inner(), PipelineState::Injecting);
+                if !pipeline::set_state_for_operation(
+                    handle,
+                    state.inner(),
+                    &pipeline,
+                    operation,
+                    PipelineState::Injecting,
+                    TerminalReason::Completed,
+                ) {
+                    wake_handle.resume();
+                    return Ok(());
+                }
                 if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode)
                 {
                     tracing::warn!("injection failed: {e}");
@@ -883,7 +975,14 @@ pub async fn run_dictation_after_wake(
         }
     }
 
-    pipeline::set_state(handle, state.inner(), PipelineState::Idle);
+    let _ = pipeline::set_state_for_operation(
+        handle,
+        state.inner(),
+        &pipeline,
+        operation,
+        PipelineState::Idle,
+        TerminalReason::Completed,
+    );
 
     // Резюммим wake word.
     wake_handle.resume();
