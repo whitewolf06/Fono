@@ -20,6 +20,7 @@
 | BR-006 | Частично выполнено | Supervision вынесен в `stt/worker.rs`: модуль владеет child/I/O threads, deadline покрывает stdin/stdout, timeout приводит к kill + wait, I/O threads join, stderr bounded, следующая операция перезапускает worker. Fault-injection тесты покрывают зависание, аварийный выход и битый JSON реального дочернего worker |
 | BR-007 | Частично выполнено | Sherpa/Whisper/Mock имеют Drop/stop, Sherpa сохраняет JoinHandle; callback вызывается вне mutex |
 | BR-008 | Частично выполнено | Настройки и история пишутся через синхронизированный временный файл; на Windows используется атомарный `ReplaceFileW` с backup предыдущей полной версии. Повреждённый или пропавший primary JSON автоматически восстанавливается из backup, сериализация операций записи защищена process-local mutex; migration/schema version остаётся отдельной работой. |
+| BR-009 | Частично выполнено | Настройки проходят базовую валидацию; новые hotkey регистрируются до persistence/publication. Ошибка регистрации или записи возвращает предыдущие shortcuts, а состояние в памяти/UI публикуется только после успешной записи. Асинхронный prepare/activate/rollback wake и модели ещё предстоит. |
 | BR-011 | Частично выполнено | build.rs использует OUT_DIR, release manifest fail-fast, Sherpa DLL allowlist; отдельный release-resource pipeline еще предстоит |
 | BR-017 | Выполнено | Проходят no-default, Whisper-only, Sherpa-only и default configurations |
 | BR-032 | Выполнено как gate | Весь workspace проходит strict Clippy с -D warnings |

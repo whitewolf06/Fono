@@ -794,8 +794,8 @@ pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
 pub fn set_whisper_model(state: State<'_, AppState>, path: String) -> AppResult<()> {
     let mut settings = state.settings();
     settings.whisper_model_path = Some(path);
-    state.set_settings(settings.clone());
     state::save_settings(&settings)?;
+    state.set_settings(settings);
     Ok(())
 }
 
@@ -836,6 +836,7 @@ pub fn save_settings(
     settings: Settings,
 ) -> AppResult<()> {
     let old_settings = state.settings();
+    validate_settings(&settings)?;
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
         || old_settings.command_hotkey != settings.command_hotkey;
     let wake_settings_changed = old_settings.wake_word != settings.wake_word
@@ -847,7 +848,27 @@ pub fn save_settings(
         || (old_settings.wake_word_vad_threshold - settings.wake_word_vad_threshold).abs()
             > f32::EPSILON;
 
-    state::save_settings(&settings)?;
+    // Runtime preparation happens before durable state is changed. If either
+    // registration or persistence fails, the old shortcuts remain usable.
+    if shortcuts_changed {
+        if let Err(e) = crate::register_all_shortcuts(&app, &settings) {
+            let rollback = restore_shortcuts(&app, &old_settings);
+            return Err(AppError::Config(format!(
+                "Не удалось зарегистрировать горячие клавиши: {e}. {rollback}"
+            )));
+        }
+    }
+
+    if let Err(error) = state::save_settings(&settings) {
+        if shortcuts_changed {
+            let rollback = restore_shortcuts(&app, &old_settings);
+            return Err(AppError::Config(format!(
+                "Не удалось сохранить новые настройки: {error}. {rollback}"
+            )));
+        }
+        return Err(error);
+    }
+
     state.set_settings(settings.clone());
     crate::verbose::set_verbose(settings.verbose_logging);
     let _ = app.emit("settings-changed", settings.clone());
@@ -857,7 +878,9 @@ pub fn save_settings(
         settings.language
     );
 
-    // Если wake word уже работает и изменились его настройки — перезапускаем.
+    // Wake restart still runs asynchronously because model initialization can be
+    // slow. It is intentionally after the atomic settings commit; full wake
+    // prepare/activate rollback remains a separate BR-009 step.
     if settings.wake_word_enabled && wake_settings_changed {
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async move {
@@ -869,22 +892,43 @@ pub fn save_settings(
         });
     }
 
-    // Перерегистрируем глобальные шорткаты, если изменились hotkey/command_hotkey.
-    if shortcuts_changed {
-        if let Err(e) = crate::register_all_shortcuts(&app, &settings) {
-            // Восстанавливаем старые значения hotkey.
-            let mut reverted = settings.clone();
-            reverted.hotkey = old_settings.hotkey.clone();
-            reverted.command_hotkey = old_settings.command_hotkey.clone();
-            let _ = state::save_settings(&reverted);
-            state.set_settings(reverted);
-            return Err(AppError::Config(format!(
-                "Не удалось зарегистрировать горячие клавиши: {e}. Старые значения восстановлены."
-            )));
+    Ok(())
+}
+
+fn validate_settings(settings: &Settings) -> AppResult<()> {
+    if settings.hotkey.trim().is_empty() || settings.command_hotkey.trim().is_empty() {
+        return Err(AppError::Config(
+            "Горячие клавиши не могут быть пустыми".into(),
+        ));
+    }
+    if settings
+        .hotkey
+        .eq_ignore_ascii_case(&settings.command_hotkey)
+    {
+        return Err(AppError::Config(
+            "Горячие клавиши диктовки и команд должны отличаться".into(),
+        ));
+    }
+    if !settings.wake_word_threshold.is_finite()
+        || !settings.wake_word_sensitivity.is_finite()
+        || !settings.wake_word_vad_threshold.is_finite()
+        || !settings.wake_dictation_speech_threshold.is_finite()
+    {
+        return Err(AppError::Config(
+            "Параметры wake word должны быть конечными числами".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn restore_shortcuts(app: &AppHandle, settings: &Settings) -> String {
+    match crate::register_all_shortcuts(app, settings) {
+        Ok(()) => "Старые значения восстановлены.".to_string(),
+        Err(error) => {
+            tracing::error!("failed to restore previous shortcuts: {error}");
+            format!("Не удалось восстановить старые горячие клавиши: {error}")
         }
     }
-
-    Ok(())
 }
 
 // ====== Диагностика ======
@@ -1021,8 +1065,8 @@ pub fn save_overlay_position(state: State<'_, AppState>, x: i32, y: i32) -> AppR
     let mut settings = state.settings();
     settings.overlay_x = Some(x);
     settings.overlay_y = Some(y);
-    state.set_settings(settings.clone());
     state::save_settings(&settings)?;
+    state.set_settings(settings);
     Ok(())
 }
 
@@ -1353,4 +1397,32 @@ pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
 
     tracing::info!("wake word disabled");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_validation_rejects_duplicate_hotkeys() {
+        let mut settings = Settings::default();
+        settings.command_hotkey = settings.hotkey.clone();
+
+        assert!(validate_settings(&settings).is_err());
+    }
+
+    #[test]
+    fn settings_validation_rejects_non_finite_wake_values() {
+        let settings = Settings {
+            wake_word_threshold: f32::NAN,
+            ..Settings::default()
+        };
+
+        assert!(validate_settings(&settings).is_err());
+    }
+
+    #[test]
+    fn settings_validation_accepts_defaults() {
+        assert!(validate_settings(&Settings::default()).is_ok());
+    }
 }
