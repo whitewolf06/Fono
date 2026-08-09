@@ -8,7 +8,6 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-#[cfg(feature = "sherpa-wake")]
 use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -684,6 +683,7 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
             .map_err(|_| AppError::Config(format!("неизвестный размер модели: {size}")))?;
     let url = model_size.url().to_string();
     let target: PathBuf = state::models_dir()?.join(model_size.filename());
+    let staging = target.with_extension("bin.part");
 
     tracing::info!("downloading {} -> {}", url, target.display());
 
@@ -704,10 +704,32 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
                 resp.status()
             )));
         }
-        let mut file = std::fs::File::create(&target)?;
-        resp.copy_to(&mut file)
-            .map_err(|e| AppError::Config(format!("copy_to: {e}")))?;
-        tracing::info!("model saved: {}", target.display());
+        let transfer = (|| -> AppResult<()> {
+            let mut file = std::fs::File::create(&staging)?;
+            let bytes = resp
+                .copy_to(&mut file)
+                .map_err(|e| AppError::Config(format!("copy_to: {e}")))?;
+            if bytes == 0 {
+                return Err(AppError::Config(
+                    "model download returned an empty file".into(),
+                ));
+            }
+            file.sync_all()?;
+            drop(file);
+            if target.exists() {
+                return Err(AppError::Config(format!(
+                    "model already exists at {}; keeping existing file",
+                    target.display()
+                )));
+            }
+            std::fs::rename(&staging, &target)?;
+            Ok(())
+        })();
+        if transfer.is_err() {
+            let _ = std::fs::remove_file(&staging);
+        }
+        transfer?;
+        tracing::info!("model activated: {}", target.display());
         let _ = app_clone.emit("model-downloaded", filename);
         Ok(())
     })
@@ -729,11 +751,15 @@ pub fn is_kws_model_downloaded() -> AppResult<bool> {
     let dir = state::app_data_dir()?
         .join("kws-models")
         .join(KWS_MODEL_DIR);
+    Ok(kws_model_is_complete(&dir))
+}
+
+fn kws_model_is_complete(dir: &std::path::Path) -> bool {
     let encoder = dir.join("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
     let decoder = dir.join("decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
     let joiner = dir.join("joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx");
     let tokens = dir.join("tokens.txt");
-    Ok(encoder.is_file() && decoder.is_file() && joiner.is_file() && tokens.is_file())
+    encoder.is_file() && decoder.is_file() && joiner.is_file() && tokens.is_file()
 }
 
 /// Скачивает и распаковывает англоязычную KWS-модель sherpa-onnx.
@@ -741,7 +767,8 @@ pub fn is_kws_model_downloaded() -> AppResult<bool> {
 pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
     let base_dir = state::app_data_dir()?.join("kws-models");
     std::fs::create_dir_all(&base_dir)?;
-    let archive_path = base_dir.join(KWS_ARCHIVE);
+    let staging_dir = base_dir.join(format!(".{KWS_MODEL_DIR}.staging"));
+    let archive_path = staging_dir.join(KWS_ARCHIVE);
     let url = KWS_MODEL_URL.to_string();
 
     tracing::info!(
@@ -752,37 +779,57 @@ pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
     let app_clone = app.clone();
 
     tauri::async_runtime::spawn_blocking(move || -> AppResult<()> {
-        let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(600))
-            .build()
-            .map_err(|e| AppError::Config(e.to_string()))?;
-        let mut resp = client
-            .get(&url)
-            .send()
-            .map_err(|e| AppError::Config(format!("GET {url}: {e}")))?;
-        if !resp.status().is_success() {
-            return Err(AppError::Config(format!(
-                "HTTP {} при скачивании KWS-модели",
-                resp.status()
-            )));
+        if staging_dir.exists() {
+            std::fs::remove_dir_all(&staging_dir)?;
         }
-        let mut file = std::fs::File::create(&archive_path)?;
-        resp.copy_to(&mut file)
-            .map_err(|e| AppError::Config(format!("copy_to: {e}")))?;
-        drop(file);
+        std::fs::create_dir_all(&staging_dir)?;
+        let result = (|| -> AppResult<()> {
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(600))
+                .build()
+                .map_err(|e| AppError::Config(e.to_string()))?;
+            let mut resp = client
+                .get(&url)
+                .send()
+                .map_err(|e| AppError::Config(format!("GET {url}: {e}")))?;
+            if !resp.status().is_success() {
+                return Err(AppError::Config(format!(
+                    "HTTP {} при скачивании KWS-модели",
+                    resp.status()
+                )));
+            }
+            let mut file = std::fs::File::create(&archive_path)?;
+            resp.copy_to(&mut file)
+                .map_err(|e| AppError::Config(format!("copy_to: {e}")))?;
+            drop(file);
 
-        tracing::info!("extracting KWS model to {}", base_dir.display());
-        let file = std::fs::File::open(&archive_path)?;
-        let decompress = bzip2::read::BzDecoder::new(file);
-        let mut archive = tar::Archive::new(decompress);
-        archive
-            .unpack(&base_dir)
-            .map_err(|e| AppError::Config(format!("unpack: {e}")))?;
+            tracing::info!("extracting KWS model to {}", staging_dir.display());
+            let file = std::fs::File::open(&archive_path)?;
+            let decompress = bzip2::read::BzDecoder::new(file);
+            let mut archive = tar::Archive::new(decompress);
+            archive
+                .unpack(&staging_dir)
+                .map_err(|e| AppError::Config(format!("unpack: {e}")))?;
 
-        let _ = std::fs::remove_file(&archive_path);
-        tracing::info!("KWS model ready");
-        let _ = app_clone.emit("kws-model-downloaded", true);
-        Ok(())
+            let staged_model = staging_dir.join(KWS_MODEL_DIR);
+            if !kws_model_is_complete(&staged_model) {
+                return Err(AppError::Config(
+                    "KWS archive is missing required model files".into(),
+                ));
+            }
+            let target = base_dir.join(KWS_MODEL_DIR);
+            if target.exists() {
+                return Err(AppError::Config(
+                    "KWS model already exists; keeping current model".into(),
+                ));
+            }
+            std::fs::rename(&staged_model, &target)?;
+            tracing::info!("KWS model ready");
+            let _ = app_clone.emit("kws-model-downloaded", true);
+            Ok(())
+        })();
+        let _ = std::fs::remove_dir_all(&staging_dir);
+        result
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))??;
