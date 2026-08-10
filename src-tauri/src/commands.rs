@@ -588,7 +588,7 @@ pub(crate) async fn record_wake_word_sample(
         return Err(AppError::Audio("тестовая запись пуста".into()));
     }
 
-    let (rms, peak) = normalized_levels(&samples);
+    let (rms, peak) = crate::ipc::wake::normalized_levels(&samples);
     *WAKE_WORD_TEST_AUDIO.lock() = samples.clone();
     Ok(WakeWordSampleReport {
         samples: samples.len(),
@@ -699,17 +699,6 @@ async fn recognize_sherpa_sample(
     Err(AppError::Internal(
         "sherpa-wake backend не собран в эту сборку".into(),
     ))
-}
-
-fn normalized_levels(samples: &[i16]) -> (f32, f32) {
-    let mut sum = 0.0_f64;
-    let mut peak = 0.0_f32;
-    for &sample in samples {
-        let normalized = sample as f32 / i16::MAX as f32;
-        sum += (normalized as f64) * (normalized as f64);
-        peak = peak.max(normalized.abs());
-    }
-    (((sum / samples.len().max(1) as f64) as f32).sqrt(), peak)
 }
 
 #[cfg(feature = "sherpa-wake")]

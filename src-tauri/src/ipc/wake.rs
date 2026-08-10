@@ -5,6 +5,17 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
+pub(crate) fn normalized_levels(samples: &[i16]) -> (f32, f32) {
+    let mut sum = 0.0_f64;
+    let mut peak = 0.0_f32;
+    for &sample in samples {
+        let normalized = sample as f32 / i16::MAX as f32;
+        sum += (normalized as f64) * (normalized as f64);
+        peak = peak.max(normalized.abs());
+    }
+    (((sum / samples.len().max(1) as f64) as f32).sqrt(), peak)
+}
+
 #[tauri::command]
 pub fn get_wake_word_status(wake_handle: State<'_, fono_wake::WakeWordHandle>) -> String {
     wake_handle.status().to_string()
