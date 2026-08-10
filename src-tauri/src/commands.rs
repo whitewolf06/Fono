@@ -612,8 +612,7 @@ pub struct WakeWordRecognitionReport {
 /// Records a user-controlled wake-word sample through the same shared audio
 /// path as dictation and live wake word. The live detector is paused so it
 /// cannot consume the test phrase as a real command.
-#[tauri::command]
-pub async fn record_wake_word_sample(
+pub(crate) async fn record_wake_word_sample(
     app: AppHandle,
     duration_ms: u64,
 ) -> AppResult<WakeWordSampleReport> {
@@ -657,8 +656,9 @@ pub async fn record_wake_word_sample(
 
 /// Runs the saved microphone sample through the currently selected wake-word
 /// backend without listening continuously.
-#[tauri::command]
-pub async fn recognize_wake_word_sample(app: AppHandle) -> AppResult<WakeWordRecognitionReport> {
+pub(crate) async fn recognize_wake_word_sample(
+    app: AppHandle,
+) -> AppResult<WakeWordRecognitionReport> {
     let samples = WAKE_WORD_TEST_AUDIO.lock().clone();
     if samples.is_empty() {
         return Err(AppError::Audio("сначала запишите тестовую фразу".into()));

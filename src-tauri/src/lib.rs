@@ -294,8 +294,8 @@ pub fn run() {
             ipc::wake::get_wake_word_status,
             ipc::wake::get_wake_word_diagnostics,
             ipc::wake::test_wake_word_model,
-            commands::record_wake_word_sample,
-            commands::recognize_wake_word_sample,
+            ipc::wake::record_wake_word_sample,
+            ipc::wake::recognize_wake_word_sample,
             ipc::wake::enable_wake_word,
             ipc::wake::disable_wake_word,
         ])

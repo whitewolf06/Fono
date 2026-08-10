@@ -115,3 +115,18 @@ pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
     tracing::info!("wake word disabled");
     Ok(())
 }
+
+#[tauri::command]
+pub async fn record_wake_word_sample(
+    app: AppHandle,
+    duration_ms: u64,
+) -> AppResult<crate::commands::WakeWordSampleReport> {
+    crate::commands::record_wake_word_sample(app, duration_ms).await
+}
+
+#[tauri::command]
+pub async fn recognize_wake_word_sample(
+    app: AppHandle,
+) -> AppResult<crate::commands::WakeWordRecognitionReport> {
+    crate::commands::recognize_wake_word_sample(app).await
+}
