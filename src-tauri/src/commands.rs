@@ -9,7 +9,7 @@
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::io::Write;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::error::{AppError, AppResult};
 use crate::llm::LlmClient;
@@ -60,11 +60,6 @@ fn emit_pipeline_error(app: &AppHandle, message: &str) {
 static WAKE_WORD_TEST_AUDIO: Lazy<Mutex<Vec<i16>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 // ====== Состояние конвейера ======
-
-#[tauri::command]
-pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
-    state.pipeline_state()
-}
 
 #[tauri::command]
 pub fn start_dictation(app: AppHandle) -> AppResult<()> {
@@ -129,30 +124,6 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64) {
             ),
         );
     });
-}
-
-#[tauri::command]
-pub fn confirm_dictation(app: AppHandle) -> AppResult<()> {
-    let pipeline = app.state::<Pipeline>();
-    pipeline.confirm();
-    tracing::info!("dictation confirmed by overlay");
-    Ok(())
-}
-
-#[tauri::command]
-pub fn cancel_dictation(app: AppHandle) -> AppResult<()> {
-    let state = app.state::<AppState>();
-    let pipeline = app.state::<Pipeline>();
-    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
-
-    if let Some(event) = pipeline.cancel() {
-        let _ = app.emit("operation-state", event);
-    }
-    let _ = pipeline.stop_recording();
-    set_pipeline_idle(&app, state.inner());
-    wake_handle.resume();
-    tracing::info!("dictation cancelled by overlay");
-    Ok(())
 }
 
 #[tauri::command]

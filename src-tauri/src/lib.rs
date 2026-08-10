@@ -254,11 +254,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // state
             ipc::system::get_build_info,
-            commands::get_pipeline_state,
+            ipc::dictation::get_pipeline_state,
             commands::start_dictation,
             commands::stop_dictation,
-            commands::confirm_dictation,
-            commands::cancel_dictation,
+            ipc::dictation::confirm_dictation,
+            ipc::dictation::cancel_dictation,
             commands::transcribe_test,
             ipc::system::get_dictation_history,
             ipc::system::clear_dictation_history,

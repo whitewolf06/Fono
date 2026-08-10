@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod diagnostics;
+pub mod dictation;
 pub mod llm;
 pub mod models;
 pub mod settings;
