@@ -265,9 +265,9 @@ pub fn run() {
             ipc::system::delete_dictation_history_entry,
             ipc::text::copy_dictation_text,
             ipc::text::reinsert_dictation,
-            commands::get_pending_voice_command,
-            commands::cancel_voice_command,
-            commands::confirm_voice_command,
+            ipc::voice::get_pending_voice_command,
+            ipc::voice::cancel_voice_command,
+            ipc::voice::confirm_voice_command,
             // audio
             ipc::audio::list_audio_devices,
             // whisper
