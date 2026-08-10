@@ -19,6 +19,10 @@ pub fn start_dictation(app: AppHandle) -> AppResult<()> {
     crate::commands::start_dictation_from(app, OperationSource::Ui)
 }
 
+pub(crate) fn start_dictation_from(app: AppHandle, source: OperationSource) -> AppResult<()> {
+    crate::commands::start_dictation_from(app, source)
+}
+
 #[tauri::command]
 pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     crate::commands::stop_dictation(app).await

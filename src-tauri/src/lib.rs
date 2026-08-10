@@ -348,7 +348,8 @@ pub fn register_all_shortcuts(
         match event.state {
             ShortcutState::Pressed => {
                 let _ = app.emit("pipeline-mode", "dictation");
-                if let Err(e) = commands::start_dictation_from(app.clone(), OperationSource::Hotkey)
+                if let Err(e) =
+                    ipc::dictation::start_dictation_from(app.clone(), OperationSource::Hotkey)
                 {
                     let _ = app.emit("error", e.to_string());
                     tracing::warn!("start_dictation via global shortcut failed: {e}");
@@ -373,7 +374,9 @@ pub fn register_all_shortcuts(
     gs.on_shortcut(command_hotkey.as_str(), |app, _, event| match event.state {
         ShortcutState::Pressed => {
             let _ = app.emit("pipeline-mode", "command");
-            if let Err(e) = commands::start_dictation_from(app.clone(), OperationSource::Hotkey) {
+            if let Err(e) =
+                ipc::dictation::start_dictation_from(app.clone(), OperationSource::Hotkey)
+            {
                 let _ = app.emit("error", e.to_string());
                 tracing::warn!("start voice command recording failed: {e}");
             }
