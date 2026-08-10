@@ -1,7 +1,7 @@
 # Fono: план рефакторинга Rust-бэкенда
 
-Статус: новый целевой план  
-Дата ревизии: 2026-08-08  
+Статус: выполняется; оставшиеся работы уточнены  
+Дата ревизии: 2026-08-10  
 Рабочая ветка: codex/backend-refactoring  
 Область: src-tauri и собственные Rust-crates проекта  
 Не входит в область: переписывание UI v2, изменение моделей Whisper/Sherpa, рефакторинг vendored whisper.cpp
@@ -36,6 +36,17 @@
 - 8b84995 — worker deadlines и recovery.
 
 Это не означает завершение этапа 1: еще нужны fault-injection stress tests, транзакционное persistence, полный wake reconfigure soak и отдельный Coordinator.
+
+### Зафиксированный остаток работ на 2026-08-10
+
+Следующие пункты являются оставшейся областью текущей ветки. Разделение IPC уже начато: выделены `system`, `audio`, `text`, `llm`, `models`, `settings`, `diagnostics`, `voice`, `wake` и `dictation`. Это не завершает BR-014: две большие реализации пока остаются в `src-tauri/src/commands.rs`.
+
+1. **Завершить BR-014 без переходных production-путей.** Физически перенести `start_dictation_from`, `stop_dictation` и `transcribe_test` вместе с operation fencing, VAD, STT, LLM, injection и history в dictation use-case. Затем перенести запись и распознавание тестовой wake-фразы вместе с временным буфером в wake use-case. Удалить `commands.rs` и все helpers, которые после переноса не имеют второго потребителя.
+2. **BR-015 — versioned typed events.** Описать DTO для pipeline, wake, settings, model-download и error events; сохранить UI v2 compatibility mapper до отдельной синхронной миграции renderer.
+3. **BR-016 — один orchestration path.** Удалить дублирующие cleanup/transition ветки после переноса dictation и wake use-case; доказать тестами, что единственный `Pipeline` владеет записью и terminal state.
+4. **Завершить отмену длительных работ.** Operation cancellation должна прерывать LLM-запрос и загрузку модели, а downloads должны иметь progress, checksum/size verification и cleanup staging-файлов.
+5. **Расширить проверки отказов.** Добавить unit/integration tests для cancellation во время STT/LLM/download, ошибки записи, repeated start/stop, wake pause/resume, shutdown и history persistence warning.
+6. **Финальная квалификация desktop build.** После зелёных `fmt`, `test` и strict Clippy собрать Tauri desktop без installer и вручную проверить main window, overlay, UI/hotkey/wake dictation, history, settings и shutdown. Installer проверяется только отдельным release-этапом.
 
 ## 1. Цель
 
