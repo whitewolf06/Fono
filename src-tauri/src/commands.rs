@@ -61,11 +61,6 @@ static WAKE_WORD_TEST_AUDIO: Lazy<Mutex<Vec<i16>>> = Lazy::new(|| Mutex::new(Vec
 
 // ====== Состояние конвейера ======
 
-#[tauri::command]
-pub fn start_dictation(app: AppHandle) -> AppResult<()> {
-    start_dictation_from(app, OperationSource::Ui)
-}
-
 pub(crate) fn start_dictation_from(app: AppHandle, source: OperationSource) -> AppResult<()> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();

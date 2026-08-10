@@ -255,7 +255,7 @@ pub fn run() {
             // state
             ipc::system::get_build_info,
             ipc::dictation::get_pipeline_state,
-            commands::start_dictation,
+            ipc::dictation::start_dictation,
             commands::stop_dictation,
             ipc::dictation::confirm_dictation,
             ipc::dictation::cancel_dictation,

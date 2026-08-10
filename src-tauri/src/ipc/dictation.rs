@@ -3,6 +3,7 @@
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::AppResult;
+use crate::operation::OperationSource;
 use crate::pipeline::{self, Pipeline};
 use crate::state::AppState;
 use crate::types::PipelineState;
@@ -10,6 +11,11 @@ use crate::types::PipelineState;
 #[tauri::command]
 pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
     state.pipeline_state()
+}
+
+#[tauri::command]
+pub fn start_dictation(app: AppHandle) -> AppResult<()> {
+    crate::commands::start_dictation_from(app, OperationSource::Ui)
 }
 
 #[tauri::command]
