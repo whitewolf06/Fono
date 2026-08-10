@@ -8,7 +8,6 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use std::io::Write;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::error::{AppError, AppResult};
@@ -683,7 +682,7 @@ async fn recognize_sherpa_sample(
     samples: Vec<i16>,
 ) -> AppResult<fono_wake::WakeWordTestResult> {
     let wav_path = state::app_data_dir()?.join("wake-word-test.wav");
-    write_pcm16_wav(&wav_path, &samples, 16_000)?;
+    crate::ipc::wake::write_pcm16_wav(&wav_path, &samples, 16_000)?;
     Ok(tauri::async_runtime::spawn_blocking(move || {
         fono_wake::test_with_wav(&config, &wav_path, false)
     })
@@ -699,26 +698,4 @@ async fn recognize_sherpa_sample(
     Err(AppError::Internal(
         "sherpa-wake backend не собран в эту сборку".into(),
     ))
-}
-
-#[cfg(feature = "sherpa-wake")]
-fn write_pcm16_wav(path: &std::path::Path, samples: &[i16], sample_rate: u32) -> AppResult<()> {
-    let data_len = std::mem::size_of_val(samples) as u32;
-    let mut file = std::fs::File::create(path)?;
-    file.write_all(b"RIFF")?;
-    file.write_all(&(36 + data_len).to_le_bytes())?;
-    file.write_all(b"WAVEfmt ")?;
-    file.write_all(&16_u32.to_le_bytes())?;
-    file.write_all(&1_u16.to_le_bytes())?;
-    file.write_all(&1_u16.to_le_bytes())?;
-    file.write_all(&sample_rate.to_le_bytes())?;
-    file.write_all(&(sample_rate * 2).to_le_bytes())?;
-    file.write_all(&2_u16.to_le_bytes())?;
-    file.write_all(&16_u16.to_le_bytes())?;
-    file.write_all(b"data")?;
-    file.write_all(&data_len.to_le_bytes())?;
-    for sample in samples {
-        file.write_all(&sample.to_le_bytes())?;
-    }
-    Ok(())
 }
