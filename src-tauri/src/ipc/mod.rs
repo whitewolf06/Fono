@@ -5,3 +5,4 @@ pub mod models;
 pub mod settings;
 pub mod system;
 pub mod text;
+pub mod wake;

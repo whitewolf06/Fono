@@ -291,13 +291,13 @@ pub fn run() {
             ipc::diagnostics::clear_logs,
             ipc::diagnostics::test_microphone,
             // wake word
-            commands::get_wake_word_status,
-            commands::get_wake_word_diagnostics,
-            commands::test_wake_word_model,
+            ipc::wake::get_wake_word_status,
+            ipc::wake::get_wake_word_diagnostics,
+            ipc::wake::test_wake_word_model,
             commands::record_wake_word_sample,
             commands::recognize_wake_word_sample,
-            commands::enable_wake_word,
-            commands::disable_wake_word,
+            ipc::wake::enable_wake_word,
+            ipc::wake::disable_wake_word,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Fono")
@@ -546,9 +546,9 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 let is_enabled = app.state::<AppState>().settings().wake_word_enabled;
                 tauri::async_runtime::spawn(async move {
                     let result = if is_enabled {
-                        commands::disable_wake_word(app_clone.clone()).await
+                        ipc::wake::disable_wake_word(app_clone.clone()).await
                     } else {
-                        commands::enable_wake_word(app_clone.clone()).await
+                        ipc::wake::enable_wake_word(app_clone.clone()).await
                     };
                     match result {
                         Ok(_) => {
