@@ -7,6 +7,7 @@ use crate::operation::OperationSource;
 use crate::pipeline::{self, Pipeline};
 use crate::state::AppState;
 use crate::types::PipelineState;
+use crate::types::Transcript;
 
 #[tauri::command]
 pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
@@ -16,6 +17,20 @@ pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
 #[tauri::command]
 pub fn start_dictation(app: AppHandle) -> AppResult<()> {
     crate::commands::start_dictation_from(app, OperationSource::Ui)
+}
+
+#[tauri::command]
+pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
+    crate::commands::stop_dictation(app).await
+}
+
+#[tauri::command]
+pub async fn transcribe_test(
+    app: AppHandle,
+    duration_ms: u64,
+    inject: Option<bool>,
+) -> AppResult<Transcript> {
+    crate::commands::transcribe_test(app, duration_ms, inject).await
 }
 
 #[tauri::command]

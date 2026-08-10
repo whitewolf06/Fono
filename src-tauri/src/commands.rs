@@ -121,8 +121,7 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64) {
     });
 }
 
-#[tauri::command]
-pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
+pub(crate) async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
@@ -368,8 +367,7 @@ pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
 /// `inject=true` — после распознавания текст вставляется в активное окно через
 /// SendInput (Этап 2: текст-инъекция). `inject=false` — только возвращает
 /// транскрипт для отображения в UI (безопасно для теста).
-#[tauri::command]
-pub async fn transcribe_test(
+pub(crate) async fn transcribe_test(
     app: AppHandle,
     duration_ms: u64,
     inject: Option<bool>,
