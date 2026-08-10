@@ -287,9 +287,9 @@ pub fn run() {
             // overlay
             ipc::settings::save_overlay_position,
             // диагностика
-            commands::get_recent_logs,
-            commands::clear_logs,
-            commands::test_microphone,
+            ipc::diagnostics::get_recent_logs,
+            ipc::diagnostics::clear_logs,
+            ipc::diagnostics::test_microphone,
             // wake word
             commands::get_wake_word_status,
             commands::get_wake_word_diagnostics,

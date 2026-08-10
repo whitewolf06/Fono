@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod diagnostics;
 pub mod llm;
 pub mod models;
 pub mod settings;
