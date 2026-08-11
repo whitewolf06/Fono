@@ -31,8 +31,9 @@ npm install
 npm run release
 ```
 
-`npm run release` сначала собирает frontend и CUDA/Vulkan worker'ы, затем
-создаёт NSIS/MSI через Tauri. Артефакты появляются в
+`npm run release` сначала собирает frontend, затем готовит закрытый manifest
+CUDA/Vulkan workers и Sherpa runtime DLL, после чего создаёт NSIS/MSI через
+Tauri. Артефакты появляются в
 `src-tauri\target\release\bundle\`.
 
 Для быстрой разработки:

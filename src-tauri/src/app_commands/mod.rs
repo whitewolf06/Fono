@@ -16,7 +16,10 @@ use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
 /// Пытается выполнить голосовую команду.
 pub fn execute(text: &str, launch_apps: &[LaunchApp], volume_step: u32) -> AppResult<String> {
     let normalized = normalize(text);
-    crate::vlog!("voice command normalized: {}", normalized);
+    crate::vlog!(
+        "voice command normalized ({} chars)",
+        normalized.chars().count()
+    );
 
     if let Some(query) = strip_prefixes(
         &normalized,
@@ -139,7 +142,10 @@ pub fn switch_to_window(query: &str) -> AppResult<String> {
     }
 
     // Fallback: наименьшее расстояние Левенштейна между запросом и заголовком.
-    crate::vlog!("voice command: using fuzzy match for '{}'", query_norm);
+    crate::vlog!(
+        "voice command: using fuzzy match ({} chars)",
+        query_norm.chars().count()
+    );
     let query_chars: Vec<char> = query_norm.chars().collect();
     let best = candidates
         .iter()
@@ -304,7 +310,7 @@ fn send_media_key(_vk: u16) -> AppResult<()> {
     ))
 }
 
-fn normalize(s: &str) -> String {
+pub(crate) fn normalize(s: &str) -> String {
     s.to_lowercase()
         .replace(|c: char| !c.is_alphanumeric() && c != ' ', " ")
         .split_whitespace()

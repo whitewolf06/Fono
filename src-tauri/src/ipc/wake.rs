@@ -1,53 +1,20 @@
 //! IPC commands for controlling and validating wake-word detection.
 
-use tauri::{AppHandle, Emitter, Manager, State};
-
-#[cfg(feature = "sherpa-wake")]
-use std::io::Write;
+use tauri::{AppHandle, Manager, State};
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
-pub(crate) fn normalized_levels(samples: &[i16]) -> (f32, f32) {
-    let mut sum = 0.0_f64;
-    let mut peak = 0.0_f32;
-    for &sample in samples {
-        let normalized = sample as f32 / i16::MAX as f32;
-        sum += (normalized as f64) * (normalized as f64);
-        peak = peak.max(normalized.abs());
-    }
-    (((sum / samples.len().max(1) as f64) as f32).sqrt(), peak)
-}
-
-#[cfg(feature = "sherpa-wake")]
-pub(crate) fn write_pcm16_wav(
-    path: &std::path::Path,
-    samples: &[i16],
-    sample_rate: u32,
-) -> AppResult<()> {
-    let data_len = std::mem::size_of_val(samples) as u32;
-    let mut file = std::fs::File::create(path)?;
-    file.write_all(b"RIFF")?;
-    file.write_all(&(36 + data_len).to_le_bytes())?;
-    file.write_all(b"WAVEfmt ")?;
-    file.write_all(&16_u32.to_le_bytes())?;
-    file.write_all(&1_u16.to_le_bytes())?;
-    file.write_all(&1_u16.to_le_bytes())?;
-    file.write_all(&sample_rate.to_le_bytes())?;
-    file.write_all(&(sample_rate * 2).to_le_bytes())?;
-    file.write_all(&2_u16.to_le_bytes())?;
-    file.write_all(&16_u16.to_le_bytes())?;
-    file.write_all(b"data")?;
-    file.write_all(&data_len.to_le_bytes())?;
-    for sample in samples {
-        file.write_all(&sample.to_le_bytes())?;
-    }
-    Ok(())
-}
-
 #[tauri::command]
 pub fn get_wake_word_status(wake_handle: State<'_, fono_wake::WakeWordHandle>) -> String {
     wake_handle.status().to_string()
+}
+
+#[tauri::command]
+pub fn get_wake_word_capabilities(
+    wake_handle: State<'_, fono_wake::WakeWordHandle>,
+) -> fono_wake::WakeWordCapabilities {
+    wake_handle.capabilities()
 }
 
 #[tauri::command]
@@ -103,31 +70,41 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     wake_handle.set_callback(move |event| match event {
         fono_wake::WakeWordEvent::Detected { phrase, pre_roll } => {
             tracing::info!("wake word triggered: {phrase}");
-            let _ = app_clone.emit("wake-word-detected", &phrase);
+            crate::events::emit_wake_detected(&app_clone, &phrase);
             let handle = app_clone.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = crate::run_dictation_after_wake(&handle, pre_roll).await {
                     tracing::error!("dictation after wake failed: {error}");
-                    let _ = handle.emit("error", error.to_string());
+                    crate::events::emit_error(
+                        &handle,
+                        crate::events::ErrorCodeV1::Wake,
+                        error.to_string(),
+                        None,
+                    );
                 }
             });
         }
         fono_wake::WakeWordEvent::Error { message } => {
-            let _ = app_clone.emit("error", &message);
+            crate::events::emit_error(&app_clone, crate::events::ErrorCodeV1::Wake, &message, None);
         }
         fono_wake::WakeWordEvent::Listening => {
-            let _ = app_clone.emit("wake-word-status", "listening");
+            crate::events::emit_wake_status(&app_clone, crate::events::WakeStatusV1::Listening);
         }
         fono_wake::WakeWordEvent::Paused => {
-            let _ = app_clone.emit("wake-word-status", "paused");
+            crate::events::emit_wake_status(&app_clone, crate::events::WakeStatusV1::Paused);
         }
         fono_wake::WakeWordEvent::ModelLoading => {
-            let _ = app_clone.emit("wake-word-status", "loading");
+            crate::events::emit_wake_status(&app_clone, crate::events::WakeStatusV1::Loading);
         }
         fono_wake::WakeWordEvent::MissingModel { path } => {
             tracing::warn!("wake word model missing: {path}");
-            let _ = app_clone.emit("wake-word-status", "missing_model");
-            let _ = app_clone.emit("error", format!("Wake word: модель не найдена: {path}"));
+            crate::events::emit_wake_status(&app_clone, crate::events::WakeStatusV1::MissingModel);
+            crate::events::emit_error(
+                &app_clone,
+                crate::events::ErrorCodeV1::Wake,
+                format!("Wake word: модель не найдена: {path}"),
+                None,
+            );
         }
     });
 
@@ -137,7 +114,14 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 
     let mut updated = settings;
     updated.wake_word_enabled = true;
-    crate::state::save_settings(&updated)?;
+    if let Err(error) = crate::state::save_settings(&updated) {
+        let mut rollback = updated.clone();
+        rollback.wake_word_enabled = false;
+        if let Ok(config) = crate::settings_to_wake_config(&rollback) {
+            let _ = wake_handle.update_config(config);
+        }
+        return Err(error);
+    }
     state.set_settings(updated);
     tracing::info!("wake word enabled");
     Ok(())
@@ -146,11 +130,18 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 #[tauri::command]
 pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
-    app.state::<fono_wake::WakeWordHandle>().stop();
+    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
+    let previous = state.settings();
+    wake_handle.stop();
 
-    let mut updated = state.settings();
+    let mut updated = previous.clone();
     updated.wake_word_enabled = false;
-    crate::state::save_settings(&updated)?;
+    if let Err(error) = crate::state::save_settings(&updated) {
+        if let Ok(config) = crate::settings_to_wake_config(&previous) {
+            let _ = wake_handle.update_config(config);
+        }
+        return Err(error);
+    }
     state.set_settings(updated);
     tracing::info!("wake word disabled");
     Ok(())
@@ -160,13 +151,13 @@ pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
 pub async fn record_wake_word_sample(
     app: AppHandle,
     duration_ms: u64,
-) -> AppResult<crate::commands::WakeWordSampleReport> {
-    crate::commands::record_wake_word_sample(app, duration_ms).await
+) -> AppResult<crate::application::wake::WakeWordSampleReport> {
+    crate::application::wake::record_sample(app, duration_ms).await
 }
 
 #[tauri::command]
 pub async fn recognize_wake_word_sample(
     app: AppHandle,
-) -> AppResult<crate::commands::WakeWordRecognitionReport> {
-    crate::commands::recognize_wake_word_sample(app).await
+) -> AppResult<crate::application::wake::WakeWordRecognitionReport> {
+    crate::application::wake::recognize_sample(app).await
 }

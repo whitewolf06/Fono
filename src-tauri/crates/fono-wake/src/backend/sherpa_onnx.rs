@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::audio_source::AudioStream;
+use crate::audio_source::AudioHub;
 
 use crossbeam_channel::{bounded, Sender};
 
@@ -16,7 +16,7 @@ use crate::config::WakeWordConfig;
 use crate::diag::{self, Diagnostics, DiagnosticsHandle};
 use crate::engine::WakeWordEngine;
 use crate::error::{WakeWordError, WakeWordResult};
-use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::event::{capabilities_for_backend, WakeWordCapabilities, WakeWordEvent, WakeWordStatus};
 use crate::WakeCallback;
 
 /// Fixed keyword model layout used by Fono.
@@ -25,6 +25,7 @@ use crate::WakeCallback;
 /// into the configured `model_dir`.
 pub struct SherpaOnnxBackend {
     config: WakeWordConfig,
+    audio_hub: AudioHub,
     status: Arc<Mutex<WakeWordStatus>>,
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
@@ -35,9 +36,10 @@ pub struct SherpaOnnxBackend {
 }
 
 impl SherpaOnnxBackend {
-    pub fn new(config: WakeWordConfig) -> Self {
+    pub fn new(config: WakeWordConfig, audio_hub: AudioHub) -> Self {
         Self {
             config,
+            audio_hub,
             status: Arc::new(Mutex::new(WakeWordStatus::Off)),
             running: Arc::new(AtomicBool::new(false)),
             paused: Arc::new(AtomicBool::new(false)),
@@ -113,6 +115,7 @@ impl WakeWordEngine for SherpaOnnxBackend {
         let paused = self.paused.clone();
         let cb = self.callback.clone();
         let diag = self.diag.clone();
+        let audio_hub = self.audio_hub.clone();
 
         diag::set_running(&diag, true);
         diag::set_paused(&diag, false);
@@ -122,6 +125,7 @@ impl WakeWordEngine for SherpaOnnxBackend {
 
         let runtime = SpotterRuntime {
             config,
+            audio_hub,
             running,
             paused,
             status,
@@ -168,6 +172,10 @@ impl WakeWordEngine for SherpaOnnxBackend {
         *self.status.lock()
     }
 
+    fn capabilities(&self) -> WakeWordCapabilities {
+        capabilities_for_backend(self.config.backend)
+    }
+
     fn diagnostics(&self) -> Option<Diagnostics> {
         let mut d = self.diag.lock().data.clone();
         d.running = self.running.load(Ordering::SeqCst);
@@ -184,6 +192,7 @@ impl Drop for SherpaOnnxBackend {
 
 struct SpotterRuntime {
     config: WakeWordConfig,
+    audio_hub: AudioHub,
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     status: Arc<Mutex<WakeWordStatus>>,
@@ -198,6 +207,7 @@ fn run_spotter(
 ) -> WakeWordResult<()> {
     let SpotterRuntime {
         config,
+        audio_hub,
         running,
         paused,
         status,
@@ -221,7 +231,7 @@ fn run_spotter(
     spotter_config.model_config.provider = Some("cpu".into());
     spotter_config.keywords_threshold = config.threshold.clamp(0.0, 1.0);
     spotter_config.keywords_score = map_sensitivity(config.sensitivity);
-    let keywords = phrase_to_tokens(&config.phrase);
+    let keywords = phrase_to_tokens(&config.phrase)?;
     tracing::info!(
         phrase = %config.phrase,
         keywords = %keywords.trim_end(),
@@ -258,7 +268,7 @@ fn run_spotter(
     // Start microphone capture and feed f32 samples into the processing loop.
     let capture_tx = tx.clone();
     let audio_diag = diag.clone();
-    let _audio_stream = AudioStream::start(
+    let _subscription = audio_hub.subscribe(
         config.audio_device_id.as_deref(),
         config.sample_rate,
         move |frames: &[i16]| {
@@ -370,7 +380,7 @@ pub(crate) fn map_sensitivity(s: f32) -> f32 {
     0.5 + s * 3.5
 }
 
-pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
+pub(crate) fn phrase_to_tokens(phrase: &str) -> WakeWordResult<String> {
     let normalized = phrase.trim().to_ascii_uppercase();
 
     // For the default English GigaSpeech KWS model the wake phrase is
@@ -379,7 +389,7 @@ pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
     // keep those pronunciations in one keyword graph. Any matched variant is
     // still reported to the application as the configured wake phrase.
     if normalized.is_empty() || normalized == "HEY FONO" {
-        return [
+        return Ok([
             "▁HE Y ▁F ON O",
             "▁HE Y ▁PH ON O",
             "▁HE Y ▁PH ONE ▁O",
@@ -394,7 +404,7 @@ pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
             "▁F ON O",
         ]
         .join("\n")
-            + "\n";
+            + "\n");
     }
 
     // The GigaSpeech BPE vocabulary contains OKAY as a complete word piece
@@ -402,21 +412,12 @@ pub(crate) fn phrase_to_tokens(phrase: &str) -> String {
     // the keyword graph impossible to reach, so the commonly used Fono phrase
     // must be represented with its actual model tokens.
     if normalized == "OKAY FUN" {
-        return "▁OKAY ▁F UN\n".into();
+        return Ok("▁OKAY ▁F UN\n".into());
     }
 
-    // Fallback: naive character-level tokenization. This will rarely work for
-    // arbitrary phrases, but keeps the API from failing silently. A real
-    // implementation should tokenize with the model's BPE vocabulary at
-    // runtime (see `text2token` in sherpa-onnx).
-    let mut out: Vec<String> = Vec::new();
-    for word in normalized.split_whitespace() {
-        out.push("▁".into());
-        for ch in word.chars() {
-            out.push(ch.to_string());
-        }
-    }
-    out.join(" ") + "\n"
+    Err(WakeWordError::Backend(format!(
+        "Sherpa-ONNX supports only the bundled phrases: hey fono, okay fun (requested: {phrase})"
+    )))
 }
 
 fn event_name(event: &WakeWordEvent) -> &'static str {
@@ -453,13 +454,19 @@ mod tests {
             "▁PH ON O\n",
             "▁F ON O\n",
         );
-        assert_eq!(phrase_to_tokens("hey fono"), expected);
-        assert_eq!(phrase_to_tokens("  HEY FONO  "), expected);
+        assert_eq!(phrase_to_tokens("hey fono").unwrap(), expected);
+        assert_eq!(phrase_to_tokens("  HEY FONO  ").unwrap(), expected);
     }
 
     #[test]
     fn okay_fun_uses_the_model_bpe_tokens() {
-        assert_eq!(phrase_to_tokens("okay fun"), "▁OKAY ▁F UN\n");
+        assert_eq!(phrase_to_tokens("okay fun").unwrap(), "▁OKAY ▁F UN\n");
+    }
+
+    #[test]
+    fn unsupported_phrase_is_rejected_instead_of_using_naive_tokens() {
+        let error = phrase_to_tokens("привет фоно").unwrap_err();
+        assert!(error.to_string().contains("supports only"));
     }
 
     #[test]

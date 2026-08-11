@@ -1,5 +1,4 @@
 use crate::error::AppResult;
-use crate::state;
 use crate::types::DictationHistoryEntry;
 
 #[derive(serde::Serialize)]
@@ -21,15 +20,15 @@ pub fn get_build_info() -> BuildInfo {
 
 #[tauri::command]
 pub fn get_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
-    state::load_dictation_history()
+    crate::history::list()
 }
 
 #[tauri::command]
 pub fn clear_dictation_history() -> AppResult<()> {
-    state::clear_dictation_history()
+    crate::history::clear()
 }
 
 #[tauri::command]
 pub fn delete_dictation_history_entry(id: String) -> AppResult<()> {
-    state::delete_dictation_history_entry(&id)
+    crate::history::delete(&id)
 }

@@ -10,12 +10,14 @@ use std::time::Instant;
 
 use fono_stt_protocol::BackendKind;
 use parking_lot::Mutex;
+use serde::Serialize;
 use tauri::AppHandle;
 #[cfg(not(debug_assertions))]
 use tauri::Manager;
 use whisper_rs::{SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use crate::error::{AppError, AppResult};
+use crate::operation::OperationCancellation;
 use crate::types::{AccelerationMode, Transcript};
 
 mod worker;
@@ -137,17 +139,53 @@ enum EngineCandidate {
 
 enum EngineState {
     Empty,
-    Embedded(EmbeddedEngine),
-    Worker(Box<WorkerSession>),
+    Embedded {
+        engine: Arc<Mutex<EmbeddedEngine>>,
+        device: &'static str,
+    },
+    Worker {
+        session: Arc<Mutex<WorkerSession>>,
+        device: &'static str,
+    },
+}
+
+/// Observable readiness of the selected STT backend. It is separate from the
+/// routing state so callers can inspect loading/failure without taking a
+/// long-lived engine lock.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum SttReadiness {
+    Unloaded,
+    Loading,
+    Ready { device: String },
+    Failed { message: String },
+}
+
+/// Point-in-time health probe that never waits for an active transcription.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum SttHealth {
+    Unloaded,
+    Busy { device: String },
+    Ready { device: String },
+    Failed { device: String, message: String },
+}
+
+#[derive(Clone)]
+enum ActiveEngine {
+    Embedded(Arc<Mutex<EmbeddedEngine>>),
+    Worker(Arc<Mutex<WorkerSession>>),
 }
 
 impl EngineState {
     fn compatible(&mut self, model_path: &str, candidate: &EngineCandidate) -> bool {
         match (self, candidate) {
-            (Self::Embedded(current), EngineCandidate::Embedded { use_gpu }) => {
+            (Self::Embedded { engine, .. }, EngineCandidate::Embedded { use_gpu }) => {
+                let current = engine.lock();
                 current.model_path == model_path && current.use_gpu == *use_gpu
             }
-            (Self::Worker(current), EngineCandidate::Worker { backend, path }) => {
+            (Self::Worker { session, .. }, EngineCandidate::Worker { backend, path }) => {
+                let mut current = session.lock();
                 current.compatible_with(model_path, *backend, path)
             }
             _ => false,
@@ -157,8 +195,92 @@ impl EngineState {
     fn device(&self) -> String {
         match self {
             Self::Empty => "CPU".into(),
-            Self::Embedded(current) => current.device().into(),
-            Self::Worker(current) => current.device().into(),
+            Self::Embedded { device, .. } | Self::Worker { device, .. } => (*device).into(),
+        }
+    }
+
+    fn active(&self) -> Option<ActiveEngine> {
+        match self {
+            Self::Empty => None,
+            Self::Embedded { engine, .. } => Some(ActiveEngine::Embedded(Arc::clone(engine))),
+            Self::Worker { session, .. } => Some(ActiveEngine::Worker(Arc::clone(session))),
+        }
+    }
+
+    fn contains(&self, active: &ActiveEngine) -> bool {
+        match (self, active) {
+            (Self::Embedded { engine, .. }, ActiveEngine::Embedded(active)) => {
+                Arc::ptr_eq(engine, active)
+            }
+            (Self::Worker { session, .. }, ActiveEngine::Worker(active)) => {
+                Arc::ptr_eq(session, active)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl ActiveEngine {
+    fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
+        match self {
+            Self::Embedded(engine) => engine.lock().transcribe(samples, language),
+            Self::Worker(session) => session.lock().transcribe(samples, language),
+        }
+    }
+
+    fn transcribe_cancellable(
+        &self,
+        samples: &[i16],
+        language: &str,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<Transcript> {
+        if cancellation.is_cancelled() {
+            return Err(AppError::Cancelled(
+                "STT request cancelled before start".into(),
+            ));
+        }
+        let result = match self {
+            // whisper.cpp exposes no safe interruption handle for `full`.
+            // The check after inference prevents a late result escaping to a
+            // terminal operation, while worker inference is interrupted below.
+            Self::Embedded(engine) => engine.lock().transcribe(samples, language),
+            Self::Worker(session) => {
+                session
+                    .lock()
+                    .transcribe_cancellable(samples, language, cancellation)
+            }
+        };
+        if cancellation.is_cancelled() {
+            return Err(AppError::Cancelled("STT request cancelled".into()));
+        }
+        result
+    }
+
+    fn is_worker(&self) -> bool {
+        matches!(self, Self::Worker(_))
+    }
+
+    fn health(&self, device: String) -> SttHealth {
+        match self {
+            Self::Embedded(engine) => {
+                if engine.try_lock().is_some() {
+                    SttHealth::Ready { device }
+                } else {
+                    SttHealth::Busy { device }
+                }
+            }
+            Self::Worker(session) => {
+                let Some(mut session) = session.try_lock() else {
+                    return SttHealth::Busy { device };
+                };
+                match session.ping() {
+                    Ok(()) => SttHealth::Ready { device },
+                    Err(error) => SttHealth::Failed {
+                        device,
+                        message: error.to_string(),
+                    },
+                }
+            }
         }
     }
 }
@@ -262,12 +384,16 @@ impl EmbeddedEngine {
 
 pub struct SttEngine {
     state: Mutex<EngineState>,
+    load_gate: Mutex<()>,
+    readiness: Mutex<SttReadiness>,
 }
 
 impl SttEngine {
     pub fn new() -> Self {
         Self {
             state: Mutex::new(EngineState::Empty),
+            load_gate: Mutex::new(()),
+            readiness: Mutex::new(SttReadiness::Unloaded),
         }
     }
 
@@ -278,45 +404,75 @@ impl SttEngine {
         worker_paths: &WorkerPaths,
     ) -> AppResult<()> {
         if !model_path.exists() {
-            return Err(AppError::Stt(format!(
-                "model file not found: {}",
-                model_path.display()
-            )));
+            let error = AppError::Stt(format!("model file not found: {}", model_path.display()));
+            self.set_failed_readiness(&error);
+            return Err(error);
         }
         let model_path_string = model_path.to_string_lossy().to_string();
         let candidates = worker_paths.candidates(acceleration);
         if candidates.is_empty() {
-            return Err(AppError::Stt(format!(
+            let error = AppError::Stt(format!(
                 "{} backend is not packaged in this release",
                 acceleration_name(acceleration)
-            )));
+            ));
+            self.set_failed_readiness(&error);
+            return Err(error);
         }
 
-        let mut state = self.state.lock();
-        if candidates
-            .iter()
-            .any(|candidate| state.compatible(&model_path_string, candidate))
+        // Loading an embedded model or starting a worker can take seconds.
+        // Serialize replacements separately, but do not hold the routing lock:
+        // ongoing transcription and device/status reads keep using the previous
+        // engine until the replacement is fully prepared.
+        let _load_gate = self.load_gate.lock();
         {
-            return Ok(());
+            let mut state = self.state.lock();
+            if candidates
+                .iter()
+                .any(|candidate| state.compatible(&model_path_string, candidate))
+            {
+                self.set_readiness(SttReadiness::Ready {
+                    device: state.device(),
+                });
+                return Ok(());
+            }
         }
-        *state = EngineState::Empty;
+        self.set_readiness(SttReadiness::Loading);
 
         let mut errors = Vec::new();
         for candidate in candidates {
             let loaded = match &candidate {
-                EngineCandidate::Embedded { use_gpu } => {
-                    EmbeddedEngine::load(model_path, *use_gpu).map(EngineState::Embedded)
-                }
+                EngineCandidate::Embedded { use_gpu } => EmbeddedEngine::load(model_path, *use_gpu)
+                    .map(|engine| {
+                        let device = engine.device();
+                        EngineState::Embedded {
+                            engine: Arc::new(Mutex::new(engine)),
+                            device,
+                        }
+                    }),
                 EngineCandidate::Worker { backend, path } => {
-                    WorkerSession::start(path.clone(), *backend, model_path)
-                        .map(Box::new)
-                        .map(EngineState::Worker)
+                    WorkerSession::start(path.clone(), *backend, model_path).map(|worker| {
+                        let device = worker.device();
+                        EngineState::Worker {
+                            session: Arc::new(Mutex::new(worker)),
+                            device,
+                        }
+                    })
                 }
             };
             match loaded {
                 Ok(loaded) => {
                     tracing::info!("STT backend selected: {}", loaded.device());
-                    *state = loaded;
+                    let device = loaded.device();
+                    let previous = {
+                        let mut state = self.state.lock();
+                        std::mem::replace(&mut *state, loaded)
+                    };
+                    // Worker shutdown and native model cleanup may block. They
+                    // must happen after the routing state lock is released.
+                    drop(previous);
+                    self.set_readiness(SttReadiness::Ready {
+                        device: device.to_string(),
+                    });
                     return Ok(());
                 }
                 Err(error) => {
@@ -327,27 +483,50 @@ impl SttEngine {
                 }
             }
         }
-        Err(AppError::Stt(format!(
+        let error = AppError::Stt(format!(
             "could not start {} backend: {}",
             acceleration_name(acceleration),
             errors.join("; ")
-        )))
+        ));
+        self.set_failed_readiness(&error);
+        Err(error)
     }
 
     pub fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
-        let mut state = self.state.lock();
-        let (result, worker_failed) = match &mut *state {
-            EngineState::Empty => (Err(AppError::ModelNotLoaded), false),
-            EngineState::Embedded(engine) => (engine.transcribe(samples, language), false),
-            EngineState::Worker(worker) => {
-                let result = worker.transcribe(samples, language);
-                let failed = result.is_err();
-                (result, failed)
-            }
+        self.transcribe_internal(samples, language, None)
+    }
+
+    pub fn transcribe_cancellable(
+        &self,
+        samples: &[i16],
+        language: &str,
+        cancellation: OperationCancellation,
+    ) -> AppResult<Transcript> {
+        self.transcribe_internal(samples, language, Some(&cancellation))
+    }
+
+    fn transcribe_internal(
+        &self,
+        samples: &[i16],
+        language: &str,
+        cancellation: Option<&OperationCancellation>,
+    ) -> AppResult<Transcript> {
+        // Select the current session under the short-lived routing lock, then
+        // run the expensive inference behind the selected engine's own lock.
+        // Consequently device/status readers and a future supervisor mailbox
+        // do not wait for a complete Whisper/worker request while holding the
+        // global engine-state mutex.
+        let active = self.state.lock().active().ok_or(AppError::ModelNotLoaded)?;
+        let result = match cancellation {
+            Some(cancellation) => active.transcribe_cancellable(samples, language, cancellation),
+            None => active.transcribe(samples, language),
         };
-        if worker_failed {
+        if result.is_err() && active.is_worker() {
             tracing::warn!("STT worker session failed and will be restarted on the next operation");
-            *state = EngineState::Empty;
+            let mut state = self.state.lock();
+            if state.contains(&active) {
+                *state = EngineState::Empty;
+            }
         }
         result
     }
@@ -358,6 +537,42 @@ impl SttEngine {
 
     pub fn is_loaded(&self) -> bool {
         !matches!(&*self.state.lock(), EngineState::Empty)
+    }
+
+    pub fn readiness(&self) -> SttReadiness {
+        self.readiness.lock().clone()
+    }
+
+    pub fn health(&self) -> SttHealth {
+        let (active, device) = {
+            let state = self.state.lock();
+            (state.active(), state.device())
+        };
+        let Some(active) = active else {
+            return SttHealth::Unloaded;
+        };
+
+        let health = active.health(device);
+        if let SttHealth::Failed { message, .. } = &health {
+            let mut state = self.state.lock();
+            if state.contains(&active) {
+                *state = EngineState::Empty;
+            }
+            self.set_readiness(SttReadiness::Failed {
+                message: message.clone(),
+            });
+        }
+        health
+    }
+
+    fn set_readiness(&self, readiness: SttReadiness) {
+        *self.readiness.lock() = readiness;
+    }
+
+    fn set_failed_readiness(&self, error: &AppError) {
+        self.set_readiness(SttReadiness::Failed {
+            message: error.to_string(),
+        });
     }
 }
 
@@ -436,5 +651,30 @@ mod tests {
             .all(|candidate| {
                 !matches!(candidate, EngineCandidate::Embedded { use_gpu: false })
             }));
+    }
+
+    #[test]
+    fn readiness_starts_unloaded_and_records_model_errors() {
+        let engine = SttEngine::new();
+        assert_eq!(engine.readiness(), SttReadiness::Unloaded);
+
+        let error = engine
+            .ensure_loaded(
+                Path::new("missing-model-for-readiness-test.bin"),
+                AccelerationMode::Cpu,
+                &WorkerPaths::default(),
+            )
+            .expect_err("missing model must fail before backend startup");
+
+        assert!(error.to_string().contains("model file not found"));
+        assert!(matches!(
+            engine.readiness(),
+            SttReadiness::Failed { message } if message.contains("model file not found")
+        ));
+    }
+
+    #[test]
+    fn health_is_unloaded_before_any_model_is_prepared() {
+        assert_eq!(SttEngine::new().health(), SttHealth::Unloaded);
     }
 }

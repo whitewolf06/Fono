@@ -1,22 +1,36 @@
 //! Shared application audio entrypoint.
 //!
 //! Capture, format selection, channel mixing and resampling live in
-//! `fono-wake::audio_source`, so dictation, microphone tests and wake word all
-//! receive the same mono 16 kHz PCM stream.
+//! `fono-wake::audio_source`. `AudioHub` owns one physical stream and fans
+//! its mono 16 kHz PCM frames out to wake word and dictation subscribers.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
-use std::thread::{self, JoinHandle};
 
 use cpal::traits::{DeviceTrait, HostTrait};
-use crossbeam_channel::{bounded, Receiver, Sender};
 use parking_lot::Mutex;
 
 use crate::error::{AppError, AppResult};
 use crate::types::DeviceInfo;
 
-pub type AudioInputStream = fono_wake::audio_source::AudioStream;
 pub type RecordingWriter = Arc<Mutex<Vec<i16>>>;
+
+/// Narrow port between Pipeline and the physical audio subscription. Keeping
+/// this boundary explicit permits lifecycle fault tests without a microphone.
+pub(crate) trait AudioRecorder: Send + Sync {
+    fn start(
+        &self,
+        device_id: Option<&str>,
+        writer: RecordingWriter,
+        limit_reached: Arc<AtomicBool>,
+        level_bits: Arc<AtomicU32>,
+        maximum_samples: usize,
+    ) -> AppResult<()>;
+
+    fn stop(&self) -> AppResult<()>;
+
+    fn shutdown(&self);
+}
 
 pub struct AudioCapture;
 
@@ -41,53 +55,19 @@ impl AudioCapture {
         }
         Ok(devices)
     }
-
-    /// Start the same normalized mono 16 kHz input used by wake word.
-    pub fn start<F>(device_id: Option<&str>, on_samples: F) -> AppResult<AudioInputStream>
-    where
-        F: FnMut(&[i16]) + Send + 'static,
-    {
-        tracing::info!("AudioCapture::start: shared input, device_id={device_id:?}");
-        AudioInputStream::start(device_id, 16_000, on_samples).map_err(|error| {
-            tracing::error!("AudioCapture::start failed: {error}");
-            AppError::Audio(error.to_string())
-        })
-    }
 }
 
-/// Owns the non-Send CPAL stream on one dedicated thread.
-///
-/// Pipeline code only receives a command sender, which is safe to share between
-/// Tauri command handlers. `Stop` drops the CPAL stream on this owner thread
-/// before the recording buffer is returned to a caller.
+/// Dictation's subscription to the process-wide physical input stream.
 pub struct AudioRecordingOwner {
-    commands: Sender<AudioOwnerCommand>,
-    thread: Mutex<Option<JoinHandle<()>>>,
-}
-
-enum AudioOwnerCommand {
-    Start {
-        device_id: Option<String>,
-        writer: RecordingWriter,
-        limit_reached: Arc<AtomicBool>,
-        maximum_samples: usize,
-        response: Sender<AppResult<()>>,
-    },
-    Stop {
-        response: Sender<()>,
-    },
-    Shutdown {
-        response: Sender<()>,
-    },
+    audio_hub: fono_wake::AudioHub,
+    subscription: Mutex<Option<fono_wake::AudioSubscription>>,
 }
 
 impl AudioRecordingOwner {
-    pub fn new() -> Self {
-        let (commands, receiver) = bounded(4);
-        let thread = thread::spawn(move || run_audio_owner(receiver));
+    pub fn new(audio_hub: fono_wake::AudioHub) -> Self {
         Self {
-            commands,
-            thread: Mutex::new(Some(thread)),
+            audio_hub,
+            subscription: Mutex::new(None),
         }
     }
 
@@ -96,50 +76,45 @@ impl AudioRecordingOwner {
         device_id: Option<&str>,
         writer: RecordingWriter,
         limit_reached: Arc<AtomicBool>,
+        level_bits: Arc<AtomicU32>,
         maximum_samples: usize,
     ) -> AppResult<()> {
-        let (response_tx, response_rx) = bounded(1);
-        self.commands
-            .send(AudioOwnerCommand::Start {
-                device_id: device_id.map(str::to_owned),
-                writer,
-                limit_reached,
-                maximum_samples,
-                response: response_tx,
+        let subscription = self
+            .audio_hub
+            .subscribe(device_id, 16_000, move |chunk: &[i16]| {
+                let sum_sq: f64 = chunk
+                    .iter()
+                    .map(|&sample| {
+                        let normalized = sample as f64 / i16::MAX as f64;
+                        normalized * normalized
+                    })
+                    .sum();
+                let rms = if chunk.is_empty() {
+                    0.0
+                } else {
+                    (sum_sq / chunk.len() as f64).sqrt() as f32
+                };
+                level_bits.store(rms.to_bits(), Ordering::Relaxed);
+                let mut samples = writer.lock();
+                let available = maximum_samples.saturating_sub(samples.len());
+                let accepted = available.min(chunk.len());
+                samples.extend_from_slice(&chunk[..accepted]);
+                if accepted < chunk.len() {
+                    limit_reached.store(true, Ordering::Relaxed);
+                }
             })
-            .map_err(|_| AppError::Audio("audio owner thread is unavailable".into()))?;
-        response_rx
-            .recv()
-            .map_err(|_| AppError::Audio("audio owner stopped before start completed".into()))?
+            .map_err(|error| AppError::Audio(error.to_string()))?;
+        *self.subscription.lock() = Some(subscription);
+        Ok(())
     }
 
     pub fn stop(&self) -> AppResult<()> {
-        let (response_tx, response_rx) = bounded(1);
-        self.commands
-            .send(AudioOwnerCommand::Stop {
-                response: response_tx,
-            })
-            .map_err(|_| AppError::Audio("audio owner thread is unavailable".into()))?;
-        response_rx
-            .recv()
-            .map_err(|_| AppError::Audio("audio owner stopped before stop completed".into()))
+        self.subscription.lock().take();
+        Ok(())
     }
 
     pub fn shutdown(&self) {
-        let (response_tx, response_rx) = bounded(1);
-        let _ = self.commands.send(AudioOwnerCommand::Shutdown {
-            response: response_tx,
-        });
-        let _ = response_rx.recv();
-        if let Some(thread) = self.thread.lock().take() {
-            let _ = thread.join();
-        }
-    }
-}
-
-impl Default for AudioRecordingOwner {
-    fn default() -> Self {
-        Self::new()
+        let _ = self.stop();
     }
 }
 
@@ -149,48 +124,31 @@ impl Drop for AudioRecordingOwner {
     }
 }
 
-fn run_audio_owner(receiver: Receiver<AudioOwnerCommand>) {
-    let mut stream: Option<AudioInputStream> = None;
-    while let Ok(command) = receiver.recv() {
-        match command {
-            AudioOwnerCommand::Start {
-                device_id,
-                writer,
-                limit_reached,
-                maximum_samples,
-                response,
-            } => {
-                drop(stream.take());
-                limit_reached.store(false, Ordering::SeqCst);
-                let result = AudioCapture::start(device_id.as_deref(), move |chunk: &[i16]| {
-                    let mut samples = writer.lock();
-                    let available = maximum_samples.saturating_sub(samples.len());
-                    let accepted = available.min(chunk.len());
-                    samples.extend_from_slice(&chunk[..accepted]);
-                    if accepted < chunk.len() {
-                        limit_reached.store(true, Ordering::Relaxed);
-                    }
-                });
-                match result {
-                    Ok(started) => {
-                        stream = Some(started);
-                        let _ = response.send(Ok(()));
-                    }
-                    Err(error) => {
-                        let _ = response.send(Err(error));
-                    }
-                }
-            }
-            AudioOwnerCommand::Stop { response } => {
-                drop(stream.take());
-                let _ = response.send(());
-            }
-            AudioOwnerCommand::Shutdown { response } => {
-                drop(stream.take());
-                let _ = response.send(());
-                break;
-            }
-        }
+impl AudioRecorder for AudioRecordingOwner {
+    fn start(
+        &self,
+        device_id: Option<&str>,
+        writer: RecordingWriter,
+        limit_reached: Arc<AtomicBool>,
+        level_bits: Arc<AtomicU32>,
+        maximum_samples: usize,
+    ) -> AppResult<()> {
+        Self::start(
+            self,
+            device_id,
+            writer,
+            limit_reached,
+            level_bits,
+            maximum_samples,
+        )
+    }
+
+    fn stop(&self) -> AppResult<()> {
+        Self::stop(self)
+    }
+
+    fn shutdown(&self) {
+        Self::shutdown(self);
     }
 }
 
@@ -200,7 +158,7 @@ mod tests {
 
     #[test]
     fn owner_thread_shuts_down_without_an_active_stream() {
-        let owner = AudioRecordingOwner::new();
+        let owner = AudioRecordingOwner::new(fono_wake::AudioHub::new());
         drop(owner);
     }
 }

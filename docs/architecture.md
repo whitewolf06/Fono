@@ -89,8 +89,9 @@ n        │  ING     │
 
 ### События для UI
 
-Каждая смена состояния эмитит Tauri-событие (`pipeline-state`), которое фронтенд
-слушает и обновляет overlay-индикатор.
+Backend публикует versioned envelope `backend-event-v1` (`schema_version = 1`,
+типизированный payload и `operation_id`). Legacy-события, включая
+`pipeline-state`, пока формируются compatibility mapper'ом для UI v2.
 
 ## 3. Описание модулей
 
@@ -98,9 +99,27 @@ n        │  ING     │
 - Использует крейт `cpal` (WASAPI на Windows).
 - Захватывает выбранный микрофон на **16 кГц, моно, i16**.
 - Конвертирует любой входной формат (i8/i16/i32/i64/u8/u16/u32/u64/f32/f64) в i16.
-- Записывает сэмплы в `Mutex<Vec<i16>>`, разделяемый между потоками.
+- CPAL stream принадлежит выделенному owner thread внутри `AudioHub` и не
+  передаётся между потоками через unsafe wrapper.
+- Callback переиспользует conversion/mix/resample buffers; уровень последних
+  frames публикуется через atomic, без сканирования recording buffer.
+- `AudioHub` открывает один physical stream для выбранного device/rate и
+  выдаёт bounded RAII subscriptions wake и dictation. При wake → dictation
+  wake только ставится на pause, а устройство не закрывается и не открывается
+  заново.
+
+### Operation resources
+
+`fono-core::OperationCoordinator` владеет operation-scoped leases `audio`,
+`stt`, `injection` и `command_proposal`. Pipeline переводит lease вместе со
+стадией операции, а terminal transition удаляет весь набор даже при cancel или
+fault. Audio и overlay adapter boundaries имеют автоматический fault-injection;
+это не заменяет ручную проверку реального устройства и окна.
 
 ### `wakeword/` — детекция ключевой фразы
+- Каждый backend публикует capabilities. Sherpa-ONNX поддерживает только
+  `hey fono` и `okay fun`; Whisper Experimental допускает произвольную phrase.
+  Неподдерживаемая Sherpa phrase отклоняется до сохранения settings.
 - Фоновый поток, который каждые ~1.5 сек берёт чанк аудио.
 - VAD-gating: тихие чанки пропускаются.
 - Транскрибирует чанк моделью `ggml-base.bin`.
@@ -119,6 +138,14 @@ n        │  ING     │
 - Поддержка моделей: `tiny`, `base`, `small`, `medium`, `large-v3`.
 - GPU-ускорение: runtime-флаг `use_gpu` передаётся в `WhisperContextParameters`.
 - Возвращает `Transcript` с текстом, языком, временем обработки и устройством (CPU/CUDA).
+- Routing state удерживается только при выборе или замене backend-а; длительная
+  транскрипция выполняется под отдельным lock выбранной embedded/worker session.
+  `SttReadiness` отдельно публикует `unloaded/loading/ready/failed` через IPC.
+  `SttHealth` использует non-blocking `try_lock`: `busy` не ждёт inference, а
+  свободный worker подтверждается protocol-v2 `ping`. Cancellation прерывает
+  ожидание ответа worker и завершает его session; для embedded Whisper остаются
+  безопасные проверки до/после native inference и operation fencing. Это не
+  заменяет будущие actor/mailbox и фоновую preload orchestration.
 
 ### `llm/` — AI-постобработка
 - HTTP-клиент (`reqwest`) к LM Studio: `POST http://localhost:1234/v1/chat/completions`.
@@ -147,13 +174,16 @@ n        │  ING     │
 - FSM и события.
 - Запускает/останавливает запись, дёргает `stt`, `llm`, `injection`.
 
-### `commands.rs` — Tauri IPC
-- `get_pipeline_state`, `start_dictation`, `stop_dictation`
-- `list_audio_devices`, `list_whisper_models`, `download_whisper_model`
-- `test_llm_connection`, `list_llm_models`
-- `get_settings`, `save_settings`
-- `get_wake_word_status`, `enable_wake_word`, `disable_wake_word`
-- `save_overlay_position`, `get_recent_logs`, `test_microphone`
+### `application/`, `ipc/` и `fono-core`
+- `ipc/*` содержит только Tauri command facade и сохраняет публичные имена IPC.
+- `application/*` владеет orchestration dictation, diagnostics, wake sample и
+  cancellable model downloads.
+- `crates/fono-core` содержит независимые от Tauri operation FSM, coordinator и
+  cancellation policy.
+- Settings/history используют versioned atomic documents с backup и migration;
+  LLM API key хранится в Windows Credential Manager и не возвращается renderer'у.
+- Standalone STT workers используют protocol v2: handshake/capabilities,
+  request/operation IDs, frame limits, health и graceful shutdown.
 
 ## 4. Структура каталогов
 
@@ -173,7 +203,11 @@ fono/
 │   └── src/
 │       ├── main.rs
 │       ├── lib.rs
-│       ├── commands.rs
+│       ├── application/
+│       ├── ipc/
+│       ├── events.rs
+│       ├── history.rs
+│       ├── secrets.rs
 │       ├── state.rs
 │       ├── error.rs
 │       ├── audio/
@@ -203,9 +237,10 @@ fono/
 
 ## 5. Потоки данных и потокобезопасность
 
-- **Аудио-поток** cpal пишет в `Mutex<Vec<i16>>`.
+- **Аудио owner thread** владеет cpal stream и пишет в bounded recording buffer.
 - **Wake word поток**: читает буфер, прогоняет модель, при срабатывании будит pipeline.
-- **Pipeline**: async tokio tasks + `spawn_blocking` для STT.
+- **Pipeline**: `fono-core::OperationCoordinator`, async waits и
+  `spawn_blocking` для CPU/native STT.
 - **UI**: Tauri webview, получает состояние через события.
 - Глобальное состояние в `tauri::State<AppState>`.
 
@@ -234,7 +269,7 @@ fono/
 | Elevated-окна | `SendInput` блокируется UIPI в окнах, запущенных от администратора |
 | Смена hotkey | Применяется сразу после сохранения настроек |
 | Wake word фраза | Меняется только когда wake word выключен |
-| Голосовые команды | Пока базовое распознавание префиксов; без LLM-интерпретации |
+| Голосовые команды | Базовое распознавание явного префикса; command hotkey и wake-команда требуют preview → confirm, без LLM-интерпретации |
 | Автозапуск Windows | Сознательно не реализован |
 | VAD-автостоп push-to-talk | Сознательно не реализован — управление только через клавишу |
 | Telegram / защищённые приложения | Используйте режим «Буфер обмена» в настройках |

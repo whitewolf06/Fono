@@ -7,10 +7,10 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build && npm run build:workers"
+    "beforeBuildCommand": "npm run build && npm run prepare:release-resources"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "settings",
@@ -49,7 +49,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' customprotocol: asset:; connect-src ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:* https:; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     },
     "trayIcon": {
       "id": "main",

@@ -108,10 +108,17 @@ impl LlmClient {
             }
             _ => settings.llm_base_url.clone(),
         };
+        let api_key = match crate::secrets::load_llm_api_key() {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::warn!(%error, "could not load LLM API key from secure storage");
+                None
+            }
+        };
         Self {
             base_url,
             model: settings.llm_model.clone(),
-            api_key: settings.llm_api_key.clone(),
+            api_key,
         }
     }
 
@@ -316,6 +323,9 @@ fn user_prompt(transcript: &str, _mode: AiMode) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
 
     fn response_with(content: &str) -> ChatResponse {
         ChatResponse {
@@ -325,6 +335,40 @@ mod tests {
                 },
             }],
         }
+    }
+
+    fn test_server(status: &str, content_type: &str, body: Vec<u8>) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local test server");
+        let address = listener
+            .local_addr()
+            .expect("read local test server address");
+        let status = status.to_string();
+        let content_type = content_type.to_string();
+
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept one client");
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+            let mut request = [0_u8; 1_024];
+            let _ = stream.read(&mut request);
+            let headers = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream
+                .write_all(headers.as_bytes())
+                .and_then(|_| stream.write_all(&body))
+                .expect("write local test response");
+        });
+
+        format!("http://{address}/v1")
+    }
+
+    fn run_async<T>(future: impl std::future::Future<Output = T>) -> T {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("create test runtime")
+            .block_on(future)
     }
 
     #[test]
@@ -346,5 +390,40 @@ mod tests {
         let first = shared_http_client().expect("initialize shared client");
         let second = shared_http_client().expect("reuse shared client");
         assert!(std::ptr::eq(first, second));
+    }
+
+    #[test]
+    fn http_fault_injection_preserves_non_success_status() {
+        let base_url = test_server(
+            "503 Service Unavailable",
+            "application/json",
+            b"{}".to_vec(),
+        );
+        let client = LlmClient::new(base_url, Some("test-model".to_string()), None);
+
+        let error = run_async(client.list_models()).expect_err("503 must fail");
+        assert!(error.to_string().contains("503 Service Unavailable"));
+    }
+
+    #[test]
+    fn http_fault_injection_rejects_malformed_json() {
+        let base_url = test_server("200 OK", "application/json", b"not-json".to_vec());
+        let client = LlmClient::new(base_url, Some("test-model".to_string()), None);
+
+        let error = run_async(client.list_models()).expect_err("malformed JSON must fail");
+        assert!(error.to_string().contains("parse /models"));
+    }
+
+    #[test]
+    fn http_fault_injection_rejects_oversized_response() {
+        let base_url = test_server(
+            "200 OK",
+            "application/json",
+            vec![b'x'; MAX_RESPONSE_BYTES + 1],
+        );
+        let client = LlmClient::new(base_url, Some("test-model".to_string()), None);
+
+        let error = run_async(client.list_models()).expect_err("oversized response must fail");
+        assert!(error.to_string().contains("response exceeds"));
     }
 }

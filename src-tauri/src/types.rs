@@ -77,6 +77,28 @@ impl WhisperModelSize {
         }) * 1024
             * 1024
     }
+
+    /// SHA-256 published for the exact files behind the Hugging Face URLs.
+    /// Source: https://huggingface.co/ggerganov/whisper.cpp/tree/main
+    pub fn sha256(&self) -> &'static str {
+        match self {
+            WhisperModelSize::Tiny => {
+                "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
+            }
+            WhisperModelSize::Base => {
+                "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"
+            }
+            WhisperModelSize::Small => {
+                "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"
+            }
+            WhisperModelSize::Medium => {
+                "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208"
+            }
+            WhisperModelSize::Large => {
+                "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2"
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,7 +229,12 @@ pub struct Settings {
     #[serde(default = "default_llm_provider")]
     pub llm_provider: LlmProvider,
     #[serde(default)]
+    #[serde(skip_serializing)]
     pub llm_api_key: Option<String>,
+    #[serde(default)]
+    pub has_llm_api_key: bool,
+    #[serde(default = "default_history_enabled")]
+    pub history_enabled: bool,
     #[serde(default = "default_wake_word_model")]
     pub wake_word_model: WhisperModelSize,
     #[serde(default = "default_wake_word_vad_threshold")]
@@ -227,6 +254,39 @@ pub struct LaunchApp {
     pub name: String,
     pub exe_path: String,
     pub aliases: Vec<String>,
+}
+
+/// Immutable settings required to execute a confirmed voice-command proposal.
+/// Secrets and unrelated UI settings are deliberately excluded.
+#[derive(Debug, Clone)]
+pub struct CommandSettingsSnapshot {
+    pub version: u64,
+    pub launch_apps: Vec<LaunchApp>,
+    pub volume_step: u32,
+}
+
+/// A command is always previewed before it may affect another application.
+/// The payload is serialisable so the renderer can show the proposal without
+/// reaching into application state.
+#[derive(Debug, Clone, Serialize)]
+pub struct CommandProposal {
+    pub id: u64,
+    pub operation_id: u64,
+    pub source: crate::operation::OperationSource,
+    pub original_text: String,
+    pub normalized_action: String,
+    pub confidence: Option<f32>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub settings_version: u64,
+    #[serde(skip)]
+    pub settings_snapshot: CommandSettingsSnapshot,
+}
+
+impl CommandProposal {
+    pub fn is_expired_at(&self, now: chrono::DateTime<chrono::Utc>) -> bool {
+        now >= self.expires_at
+    }
 }
 
 impl Default for Settings {
@@ -259,6 +319,8 @@ impl Default for Settings {
             verbose_logging: false,
             llm_provider: default_llm_provider(),
             llm_api_key: None,
+            has_llm_api_key: false,
+            history_enabled: default_history_enabled(),
             wake_word_model: default_wake_word_model(),
             wake_word_vad_threshold: default_wake_word_vad_threshold(),
             wake_dictation_silence_ms: default_wake_dictation_silence_ms(),
@@ -270,6 +332,10 @@ impl Default for Settings {
 
 fn default_use_gpu() -> bool {
     cfg!(any(feature = "cuda", feature = "vulkan"))
+}
+
+fn default_history_enabled() -> bool {
+    true
 }
 
 fn default_injection_mode() -> InjectionMode {

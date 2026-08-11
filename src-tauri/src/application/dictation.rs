@@ -1,20 +1,16 @@
-//! Tauri IPC команды — мост между фронтендом и Rust-ядром.
+//! Application use case for UI, hotkey and diagnostic dictation flows.
 //!
-//! Каждая команда доступна из JS через `invoke('<name>', { args })`.
-//! Список команд см. в `docs/architecture.md` → `commands.rs`.
-//!
-//! В async-командах мы используем `AppHandle::state::<T>()` вместо
-//! `State<'_, T>`, чтобы не удерживать borrow через `.await`.
+//! The Tauri IPC modules only translate command arguments. This module owns
+//! recording, operation fencing, VAD, STT, optional LLM processing, text
+//! injection and history persistence for dictation.
 
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
 use crate::llm::LlmClient;
-use crate::operation::{OperationSource, TerminalReason};
+use crate::operation::{OperationCancellation, OperationSource, TerminalReason};
 use crate::pipeline::{self, Pipeline};
-use crate::state::{self, AppState};
+use crate::state::AppState;
 use crate::types::{AiMode, DictationHistoryEntry, PipelineState, Transcript};
 
 fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
@@ -52,15 +48,26 @@ fn operation_still_active(pipeline: &Pipeline, operation: u64, context: &str) ->
     active
 }
 
-fn emit_pipeline_error(app: &AppHandle, message: &str) {
-    let _ = app.emit("error", message);
+pub(crate) async fn wait_for_cancellation(cancellation: OperationCancellation) {
+    while !cancellation.is_cancelled() {
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
 }
 
-static WAKE_WORD_TEST_AUDIO: Lazy<Mutex<Vec<i16>>> = Lazy::new(|| Mutex::new(Vec::new()));
+fn emit_pipeline_error(app: &AppHandle, message: &str) {
+    crate::events::emit_error(
+        app,
+        crate::events::ErrorCodeV1::Internal,
+        message,
+        app.state::<Pipeline>()
+            .current_operation()
+            .map(|item| item.id),
+    );
+}
 
 // ====== Состояние конвейера ======
 
-pub(crate) fn start_dictation_from(app: AppHandle, source: OperationSource) -> AppResult<()> {
+pub(crate) fn start(app: AppHandle, source: OperationSource) -> AppResult<()> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
@@ -105,7 +112,7 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64) {
             "recording safety timeout reached; cancelling the operation"
         );
         if let Some(event) = pipeline.cancel() {
-            let _ = app.emit("operation-state", event);
+            crate::events::emit_operation(&app, event);
         }
         let _ = pipeline.stop_recording();
         set_pipeline_idle(&app, app.state::<AppState>().inner());
@@ -120,11 +127,14 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64) {
     });
 }
 
-pub(crate) async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
+pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
     let operation = pipeline.operation_id();
+    let cancellation = pipeline
+        .cancellation(operation)
+        .ok_or_else(|| AppError::Internal("active dictation has no cancellation signal".into()))?;
 
     // Always release the microphone before model loading or transcription.
     let samples = match pipeline.stop_recording() {
@@ -194,11 +204,27 @@ pub(crate) async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
     if let Some(path) = settings.whisper_model_path.as_deref() {
-        if let Err(error) = pipeline.stt().ensure_loaded(
-            std::path::Path::new(path),
-            settings.acceleration,
-            &crate::stt::worker_paths_for_app(&app),
-        ) {
+        let stt = pipeline.stt().clone();
+        let path = std::path::PathBuf::from(path);
+        let acceleration = settings.acceleration;
+        let worker_paths = crate::stt::worker_paths_for_app(&app);
+        let load = tauri::async_runtime::spawn_blocking(move || {
+            stt.ensure_loaded(&path, acceleration, &worker_paths)
+        });
+        let load_result = tokio::select! {
+            result = load => Some(result),
+            _ = wait_for_cancellation(cancellation.clone()) => None,
+        };
+        let Some(load_result) = load_result else {
+            tracing::info!(
+                operation,
+                "model load detached after dictation cancellation"
+            );
+            return Ok(empty_transcript());
+        };
+        let load_result =
+            load_result.map_err(|error| AppError::Internal(format!("model load join: {error}")))?;
+        if let Err(error) = load_result {
             emit_pipeline_error(&app, &error.to_string());
             let _ = set_pipeline_state_for_operation(
                 &app,
@@ -232,33 +258,53 @@ pub(crate) async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
     let app_for_err = app.clone();
-    let transcript =
-        tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
-            .await
-            .map_err(|e| {
-                let _ = app_for_err.emit("error", e.to_string());
-                let _ = set_pipeline_state_for_operation(
-                    &app_for_err,
-                    state.inner(),
-                    &pipeline,
-                    operation,
-                    PipelineState::Idle,
-                    TerminalReason::Failed,
-                );
-                AppError::Internal(format!("transcribe join: {e}"))
-            })?
-            .map_err(|e| {
-                let _ = app.emit("error", e.to_string());
-                let _ = set_pipeline_state_for_operation(
-                    &app,
-                    state.inner(),
-                    &pipeline,
-                    operation,
-                    PipelineState::Idle,
-                    TerminalReason::Failed,
-                );
-                e
-            })?;
+    let stt_cancellation = cancellation.clone();
+    let transcribe = tauri::async_runtime::spawn_blocking(move || {
+        stt.transcribe_cancellable(&samples, &language, stt_cancellation)
+    });
+    let transcript_result = tokio::select! {
+        result = transcribe => Some(result),
+        _ = wait_for_cancellation(cancellation.clone()) => None,
+    };
+    let Some(transcript_result) = transcript_result else {
+        tracing::info!(operation, "STT wait interrupted by dictation cancellation");
+        return Ok(empty_transcript());
+    };
+    let transcript = transcript_result
+        .map_err(|e| {
+            crate::events::emit_error(
+                &app_for_err,
+                crate::events::ErrorCodeV1::Stt,
+                e.to_string(),
+                Some(operation),
+            );
+            let _ = set_pipeline_state_for_operation(
+                &app_for_err,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
+            AppError::Internal(format!("transcribe join: {e}"))
+        })?
+        .map_err(|e| {
+            crate::events::emit_error(
+                &app,
+                crate::events::ErrorCodeV1::Stt,
+                e.to_string(),
+                Some(operation),
+            );
+            let _ = set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
+            e
+        })?;
 
     if !operation_still_active(&pipeline, operation, "stop_dictation after transcription") {
         return Ok(empty_transcript());
@@ -284,14 +330,28 @@ pub(crate) async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
                 return Ok(empty_transcript());
             }
             let client = LlmClient::from_settings(&settings);
-            match client
-                .process(&transcript.text, mode, settings.clean_prompt.as_deref())
-                .await
-            {
+            let process = client.process(&transcript.text, mode, settings.clean_prompt.as_deref());
+            let result = tokio::select! {
+                result = process => Some(result),
+                _ = wait_for_cancellation(cancellation.clone()) => None,
+            };
+            let Some(result) = result else {
+                tracing::info!(
+                    operation,
+                    "LLM request interrupted by dictation cancellation"
+                );
+                return Ok(empty_transcript());
+            };
+            match result {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}) — returning raw transcript");
-                    let _ = app.emit("error", format!("LLM: {e}"));
+                    crate::events::emit_error(
+                        &app,
+                        crate::events::ErrorCodeV1::Llm,
+                        format!("LLM: {e}"),
+                        Some(operation),
+                    );
                     transcript.text.clone()
                 }
             }
@@ -339,13 +399,21 @@ pub(crate) async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
         TerminalReason::Completed,
     );
 
-    if !final_text.trim().is_empty() {
-        let _ = state::append_dictation_history(DictationHistoryEntry {
-            id: format!("{}", chrono::Utc::now().timestamp_millis()),
+    if !final_text.trim().is_empty() && settings.history_enabled {
+        if let Err(error) = crate::history::append(DictationHistoryEntry {
+            id: crate::history::next_id(),
             text: final_text.clone(),
             created_at: chrono::Utc::now(),
             device: transcript.device.clone(),
-        });
+        }) {
+            tracing::warn!(operation, "dictation history persistence failed: {error}");
+            crate::events::emit_error(
+                &app,
+                crate::events::ErrorCodeV1::Internal,
+                format!("Не удалось сохранить историю диктовки: {error}"),
+                Some(operation),
+            );
+        }
     }
 
     Ok(Transcript {
@@ -376,20 +444,14 @@ pub(crate) async fn transcribe_test(
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
 
-    // Проверка модели.
-    if let Some(path) = settings.whisper_model_path.as_deref() {
-        pipeline.stt().ensure_loaded(
-            std::path::Path::new(path),
-            settings.acceleration,
-            &crate::stt::worker_paths_for_app(&app),
-        )?;
+    let model_path = if let Some(path) = settings.whisper_model_path.as_deref() {
+        std::path::PathBuf::from(path)
     } else {
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
-        set_pipeline_idle(&app, state.inner());
         return Err(AppError::Stt(error_msg));
-    }
+    };
 
     // Старт записи.
     tracing::info!(
@@ -406,6 +468,9 @@ pub(crate) async fn transcribe_test(
     }
     pipeline::set_state(&app, state.inner(), PipelineState::Listening);
     let operation = pipeline.operation_id();
+    let cancellation = pipeline.cancellation(operation).ok_or_else(|| {
+        AppError::Internal("active diagnostic dictation has no cancellation signal".into())
+    })?;
     tracing::info!(
         "transcribe_test: recording started, sleeping {} ms",
         duration_ms
@@ -413,7 +478,13 @@ pub(crate) async fn transcribe_test(
 
     // Ждём указанную длительность.
     let dur = std::time::Duration::from_millis(duration_ms.clamp(500, 30_000));
-    tokio::time::sleep(dur).await;
+    tokio::select! {
+        _ = tokio::time::sleep(dur) => {}
+        _ = wait_for_cancellation(cancellation.clone()) => {
+            tracing::info!(operation, "diagnostic recording wait cancelled");
+            return Ok(empty_transcript());
+        }
+    }
 
     if !operation_still_active(&pipeline, operation, "transcribe_test after recording") {
         return Ok(empty_transcript());
@@ -426,7 +497,14 @@ pub(crate) async fn transcribe_test(
         Err(e) => {
             emit_pipeline_error(&app, &e.to_string());
             tracing::error!("transcribe_test: stop_recording FAILED: {e}");
-            set_pipeline_idle(&app, state.inner());
+            let _ = set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
             return Err(e);
         }
     };
@@ -443,30 +521,96 @@ pub(crate) async fn transcribe_test(
             "Test recording is too short or too quiet. Please speak closer and longer.",
         );
         // < 0.1 сек — что-то не так с микрофоном
-        set_pipeline_idle(&app, state.inner());
+        let _ = set_pipeline_state_for_operation(
+            &app,
+            state.inner(),
+            &pipeline,
+            operation,
+            PipelineState::Idle,
+            TerminalReason::Failed,
+        );
         return Err(AppError::Audio(
             "записано слишком мало аудио — проверьте, что микрофон работает и не занят другим приложением".into(),
         ));
     }
 
+    if !set_pipeline_state_for_operation(
+        &app,
+        state.inner(),
+        &pipeline,
+        operation,
+        PipelineState::Transcribing,
+        TerminalReason::Completed,
+    ) {
+        return Ok(empty_transcript());
+    }
+    let stt = pipeline.stt().clone();
+    let acceleration = settings.acceleration;
+    let worker_paths = crate::stt::worker_paths_for_app(&app);
+    let load = tauri::async_runtime::spawn_blocking(move || {
+        stt.ensure_loaded(&model_path, acceleration, &worker_paths)
+    });
+    let load_result = tokio::select! {
+        result = load => Some(result),
+        _ = wait_for_cancellation(cancellation.clone()) => None,
+    };
+    let Some(load_result) = load_result else {
+        tracing::info!(operation, "diagnostic model load wait cancelled");
+        return Ok(empty_transcript());
+    };
+    load_result.map_err(|error| AppError::Internal(format!("model load join: {error}")))??;
+
     // Транскрипция (CPU-bound).
-    pipeline::set_state(&app, state.inner(), PipelineState::Transcribing);
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
     let app_for_err = app.clone();
-    let transcript =
-        tauri::async_runtime::spawn_blocking(move || stt.transcribe(&samples, &language))
-            .await
-            .map_err(|e| {
-                let _ = app_for_err.emit("error", e.to_string());
-                set_pipeline_idle(&app_for_err, state.inner());
-                AppError::Internal(format!("transcribe join: {e}"))
-            })?
-            .map_err(|e| {
-                let _ = app.emit("error", e.to_string());
-                set_pipeline_idle(&app, state.inner());
-                e
-            })?;
+    let stt_cancellation = cancellation.clone();
+    let transcribe = tauri::async_runtime::spawn_blocking(move || {
+        stt.transcribe_cancellable(&samples, &language, stt_cancellation)
+    });
+    let transcript_result = tokio::select! {
+        result = transcribe => Some(result),
+        _ = wait_for_cancellation(cancellation.clone()) => None,
+    };
+    let Some(transcript_result) = transcript_result else {
+        tracing::info!(operation, "diagnostic STT wait cancelled");
+        return Ok(empty_transcript());
+    };
+    let transcript = transcript_result
+        .map_err(|e| {
+            crate::events::emit_error(
+                &app_for_err,
+                crate::events::ErrorCodeV1::Stt,
+                e.to_string(),
+                Some(operation),
+            );
+            let _ = set_pipeline_state_for_operation(
+                &app_for_err,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
+            AppError::Internal(format!("transcribe join: {e}"))
+        })?
+        .map_err(|e| {
+            crate::events::emit_error(
+                &app,
+                crate::events::ErrorCodeV1::Stt,
+                e.to_string(),
+                Some(operation),
+            );
+            let _ = set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
+            e
+        })?;
 
     if !operation_still_active(&pipeline, operation, "transcribe_test after transcription") {
         return Ok(empty_transcript());
@@ -481,12 +625,27 @@ pub(crate) async fn transcribe_test(
     let final_text = match settings.ai_mode {
         AiMode::Off => transcript.text.clone(),
         mode => {
-            pipeline::set_state(&app, state.inner(), PipelineState::Processing);
+            if !set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Processing,
+                TerminalReason::Completed,
+            ) {
+                return Ok(empty_transcript());
+            }
             let client = LlmClient::from_settings(&settings);
-            match client
-                .process(&transcript.text, mode, settings.clean_prompt.as_deref())
-                .await
-            {
+            let process = client.process(&transcript.text, mode, settings.clean_prompt.as_deref());
+            let result = tokio::select! {
+                result = process => Some(result),
+                _ = wait_for_cancellation(cancellation.clone()) => None,
+            };
+            let Some(result) = result else {
+                tracing::info!(operation, "diagnostic LLM request cancelled");
+                return Ok(empty_transcript());
+            };
+            match result {
                 Ok(t) => t,
                 Err(e) => {
                     tracing::warn!("LLM failed ({e}) — returning raw transcript");
@@ -506,7 +665,16 @@ pub(crate) async fn transcribe_test(
 
     // Этап 2: текст-инъекция в активное окно через SendInput.
     if inject && !final_text.is_empty() {
-        pipeline::set_state(&app, state.inner(), PipelineState::Injecting);
+        if !set_pipeline_state_for_operation(
+            &app,
+            state.inner(),
+            &pipeline,
+            operation,
+            PipelineState::Injecting,
+            TerminalReason::Completed,
+        ) {
+            return Ok(empty_transcript());
+        }
         match crate::injection::inject_text(&final_text, settings.injection_mode) {
             Ok(()) => tracing::info!(
                 "injected {} chars into active window",
@@ -514,12 +682,24 @@ pub(crate) async fn transcribe_test(
             ),
             Err(e) => {
                 tracing::warn!("injection failed ({e}) — returning transcript anyway");
-                let _ = app.emit("error", format!("Вставка текста: {e}"));
+                crate::events::emit_error(
+                    &app,
+                    crate::events::ErrorCodeV1::Injection,
+                    format!("Вставка текста: {e}"),
+                    Some(operation),
+                );
             }
         }
     }
 
-    set_pipeline_idle(&app, state.inner());
+    let _ = set_pipeline_state_for_operation(
+        &app,
+        state.inner(),
+        &pipeline,
+        operation,
+        PipelineState::Idle,
+        TerminalReason::Completed,
+    );
 
     Ok(Transcript {
         text: final_text,
@@ -528,174 +708,4 @@ pub(crate) async fn transcribe_test(
         audio_secs: transcript.audio_secs,
         device: transcript.device,
     })
-}
-
-// ====== Аудио ======
-
-// ====== Wake word ======
-
-#[derive(Debug, serde::Serialize)]
-pub struct WakeWordSampleReport {
-    pub samples: usize,
-    pub duration_ms: u64,
-    pub rms: f32,
-    pub peak: f32,
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct WakeWordRecognitionReport {
-    pub backend: String,
-    pub detected: bool,
-    pub recognized: String,
-    pub json: String,
-    pub audio_duration_ms: u64,
-    pub processing_ms: u64,
-}
-
-/// Records a user-controlled wake-word sample through the same shared audio
-/// path as dictation and live wake word. The live detector is paused so it
-/// cannot consume the test phrase as a real command.
-pub(crate) async fn record_wake_word_sample(
-    app: AppHandle,
-    duration_ms: u64,
-) -> AppResult<WakeWordSampleReport> {
-    let state = app.state::<AppState>();
-    let pipeline = app.state::<Pipeline>();
-    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
-    if pipeline.is_recording() {
-        return Err(AppError::Audio("уже идёт другая запись".into()));
-    }
-
-    let settings = state.settings();
-    wake_handle.pause();
-    if let Err(error) = pipeline.start_recording_from(
-        settings.audio_device_id.as_deref(),
-        OperationSource::Diagnostics,
-    ) {
-        wake_handle.resume();
-        return Err(error);
-    }
-    pipeline::set_state(&app, state.inner(), PipelineState::Listening);
-
-    let duration = std::time::Duration::from_millis(duration_ms.clamp(1_000, 10_000));
-    tokio::time::sleep(duration).await;
-    let samples = pipeline.stop_recording();
-    set_pipeline_idle(&app, state.inner());
-    wake_handle.resume();
-    let samples = samples?;
-    if samples.is_empty() {
-        return Err(AppError::Audio("тестовая запись пуста".into()));
-    }
-
-    let (rms, peak) = crate::ipc::wake::normalized_levels(&samples);
-    *WAKE_WORD_TEST_AUDIO.lock() = samples.clone();
-    Ok(WakeWordSampleReport {
-        samples: samples.len(),
-        duration_ms: samples.len() as u64 * 1_000 / 16_000,
-        rms,
-        peak,
-    })
-}
-
-/// Runs the saved microphone sample through the currently selected wake-word
-/// backend without listening continuously.
-pub(crate) async fn recognize_wake_word_sample(
-    app: AppHandle,
-) -> AppResult<WakeWordRecognitionReport> {
-    let samples = WAKE_WORD_TEST_AUDIO.lock().clone();
-    if samples.is_empty() {
-        return Err(AppError::Audio("сначала запишите тестовую фразу".into()));
-    }
-    let settings = app.state::<AppState>().settings();
-    let config = crate::settings_to_wake_config(&settings)?;
-    let backend = match settings.wake_backend {
-        fono_wake::WakeWordBackend::WhisperExperimental => "Whisper Small",
-        fono_wake::WakeWordBackend::SherpaOnnx => "Sherpa-ONNX",
-        fono_wake::WakeWordBackend::Mock => "Mock",
-        fono_wake::WakeWordBackend::Disabled => "Disabled",
-    }
-    .to_string();
-    let audio_duration_ms = samples.len() as u64 * 1_000 / 16_000;
-    let started = std::time::Instant::now();
-    tracing::info!(
-        backend = %backend,
-        phrase = %settings.wake_word,
-        samples = samples.len(),
-        audio_duration_ms,
-        "wake word recorded-sample recognition started"
-    );
-
-    let result = match settings.wake_backend {
-        fono_wake::WakeWordBackend::WhisperExperimental => {
-            recognize_whisper_sample(config, samples).await?
-        }
-        fono_wake::WakeWordBackend::SherpaOnnx => recognize_sherpa_sample(config, samples).await?,
-        _ => {
-            return Err(AppError::Internal(
-                "тест записи поддерживается для Whisper и Sherpa-ONNX".into(),
-            ));
-        }
-    };
-
-    tracing::info!(
-        backend = %backend,
-        detected = result.detected,
-        keyword = %result.keyword,
-        processing_ms = started.elapsed().as_millis(),
-        "wake word recorded-sample recognition finished"
-    );
-    Ok(WakeWordRecognitionReport {
-        backend,
-        detected: result.detected,
-        recognized: result.keyword,
-        json: result.json,
-        audio_duration_ms,
-        processing_ms: started.elapsed().as_millis() as u64,
-    })
-}
-
-#[cfg(feature = "whisper-wake")]
-async fn recognize_whisper_sample(
-    config: fono_wake::WakeWordConfig,
-    samples: Vec<i16>,
-) -> AppResult<fono_wake::WakeWordTestResult> {
-    Ok(tauri::async_runtime::spawn_blocking(move || {
-        fono_wake::test_whisper_with_samples(&config, &samples)
-    })
-    .await
-    .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??)
-}
-
-#[cfg(not(feature = "whisper-wake"))]
-async fn recognize_whisper_sample(
-    _config: fono_wake::WakeWordConfig,
-    _samples: Vec<i16>,
-) -> AppResult<fono_wake::WakeWordTestResult> {
-    Err(AppError::Internal(
-        "whisper-wake backend не собран в эту сборку".into(),
-    ))
-}
-
-#[cfg(feature = "sherpa-wake")]
-async fn recognize_sherpa_sample(
-    config: fono_wake::WakeWordConfig,
-    samples: Vec<i16>,
-) -> AppResult<fono_wake::WakeWordTestResult> {
-    let wav_path = state::app_data_dir()?.join("wake-word-test.wav");
-    crate::ipc::wake::write_pcm16_wav(&wav_path, &samples, 16_000)?;
-    Ok(tauri::async_runtime::spawn_blocking(move || {
-        fono_wake::test_with_wav(&config, &wav_path, false)
-    })
-    .await
-    .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??)
-}
-
-#[cfg(not(feature = "sherpa-wake"))]
-async fn recognize_sherpa_sample(
-    _config: fono_wake::WakeWordConfig,
-    _samples: Vec<i16>,
-) -> AppResult<fono_wake::WakeWordTestResult> {
-    Err(AppError::Internal(
-        "sherpa-wake backend не собран в эту сборку".into(),
-    ))
 }

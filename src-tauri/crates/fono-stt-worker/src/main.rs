@@ -3,62 +3,127 @@
 // terminal window when the helper is started.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, ErrorKind, Write};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
 use base64::Engine;
-use fono_stt_protocol::{BackendKind, WorkerRequest, WorkerResponse};
+use fono_stt_protocol::{
+    BackendKind, RequestMeta, WorkerCapabilities, WorkerRequest, WorkerResponse,
+    MAX_REQUEST_FRAME_BYTES, PROTOCOL_VERSION,
+};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 fn main() {
     let stdin = io::stdin();
+    let mut reader = stdin.lock();
     let mut stdout = io::stdout().lock();
     let mut loaded: Option<(String, Arc<WhisperContext>)> = None;
 
-    for line in stdin.lock().lines() {
-        let response = match line {
-            Ok(line) => handle_line(&line, &mut loaded),
-            Err(error) => WorkerResponse::Error {
-                id: None,
-                code: "stdin".into(),
-                message: error.to_string(),
-            },
+    loop {
+        let line = match read_limited_line(&mut reader, MAX_REQUEST_FRAME_BYTES) {
+            Ok(Some(line)) => line,
+            Ok(None) => break,
+            Err(error) => {
+                let response = worker_error(
+                    RequestMeta::new("unparsed", None),
+                    "request_frame",
+                    error.to_string(),
+                );
+                write_response(&mut stdout, &response);
+                continue;
+            }
         };
-        let _ = writeln!(stdout, "{}", serde_json::to_string(&response).unwrap());
+        let (response, shutdown) = handle_line(&line, &mut loaded);
+        write_response(&mut stdout, &response);
+        if shutdown {
+            break;
+        }
+    }
+}
+
+fn write_response(stdout: &mut impl Write, response: &WorkerResponse) {
+    if let Ok(json) = serde_json::to_string(response) {
+        let _ = writeln!(stdout, "{json}");
         let _ = stdout.flush();
     }
 }
 
-fn handle_line(line: &str, loaded: &mut Option<(String, Arc<WhisperContext>)>) -> WorkerResponse {
+fn handle_line(
+    line: &str,
+    loaded: &mut Option<(String, Arc<WhisperContext>)>,
+) -> (WorkerResponse, bool) {
     let request = match serde_json::from_str::<WorkerRequest>(line) {
         Ok(request) => request,
         Err(error) => {
-            return WorkerResponse::Error {
-                id: None,
-                code: "request_json".into(),
-                message: error.to_string(),
-            }
+            return (
+                worker_error(
+                    RequestMeta::new("unparsed", None),
+                    "request_json",
+                    error.to_string(),
+                ),
+                false,
+            )
         }
     };
-    match request {
-        WorkerRequest::Ping => WorkerResponse::Ready { backend: backend() },
-        WorkerRequest::Load { model_path } => match load_context(&model_path, loaded) {
-            Ok(_) => WorkerResponse::ModelLoaded { backend: backend() },
-            Err(message) => worker_error(None, "model_load", message),
+    let meta = request.meta().clone();
+    if meta.protocol_version != PROTOCOL_VERSION {
+        return (
+            worker_error(
+                meta,
+                "protocol_version",
+                format!(
+                    "unsupported protocol version {}; expected {PROTOCOL_VERSION}",
+                    request.meta().protocol_version
+                ),
+            ),
+            false,
+        );
+    }
+
+    let response = match request {
+        WorkerRequest::Hello { meta } => WorkerResponse::Ready {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: meta.request_id,
+            backend: backend(),
+            capabilities: WorkerCapabilities::default(),
+        },
+        WorkerRequest::Ping { meta } => WorkerResponse::Pong {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: meta.request_id,
+            backend: backend(),
+        },
+        WorkerRequest::Load { meta, model_path } => match load_context(&model_path, loaded) {
+            Ok(_) => WorkerResponse::ModelLoaded {
+                protocol_version: PROTOCOL_VERSION,
+                request_id: meta.request_id,
+                backend: backend(),
+            },
+            Err(message) => worker_error(meta, "model_load", message),
         },
         WorkerRequest::Transcribe {
-            id,
+            meta,
             model_path,
             language,
             samples_i16_base64,
-        } => transcribe(id, &model_path, &language, &samples_i16_base64, loaded),
-    }
+        } => transcribe(meta, &model_path, &language, &samples_i16_base64, loaded),
+        WorkerRequest::Shutdown { meta } => {
+            loaded.take();
+            return (
+                WorkerResponse::ShuttingDown {
+                    protocol_version: PROTOCOL_VERSION,
+                    request_id: meta.request_id,
+                },
+                true,
+            );
+        }
+    };
+    (response, false)
 }
 
 fn transcribe(
-    id: String,
+    meta: RequestMeta,
     model_path: &str,
     language: &str,
     samples_i16_base64: &str,
@@ -66,11 +131,11 @@ fn transcribe(
 ) -> WorkerResponse {
     let samples = match decode_i16(samples_i16_base64) {
         Ok(samples) => samples,
-        Err(message) => return worker_error(Some(id), "audio", message),
+        Err(message) => return worker_error(meta, "audio", message),
     };
     let context = match load_context(model_path, loaded) {
         Ok(context) => context,
-        Err(message) => return worker_error(Some(id), "model_load", message),
+        Err(message) => return worker_error(meta, "model_load", message),
     };
     let started = Instant::now();
     let pcm: Vec<f32> = samples
@@ -92,10 +157,10 @@ fn transcribe(
 
     let mut state = match context.create_state() {
         Ok(state) => state,
-        Err(error) => return worker_error(Some(id), "state", error.to_string()),
+        Err(error) => return worker_error(meta, "state", error.to_string()),
     };
     if let Err(error) = state.full(params, &pcm) {
-        return worker_error(Some(id), "transcribe", error.to_string());
+        return worker_error(meta, "transcribe", error.to_string());
     }
     let text = (0..state.full_n_segments())
         .filter_map(|index| state.get_segment(index))
@@ -105,7 +170,9 @@ fn transcribe(
         .collect::<Vec<_>>()
         .join(" ");
     WorkerResponse::Result {
-        id,
+        protocol_version: PROTOCOL_VERSION,
+        request_id: meta.request_id,
+        operation_id: meta.operation_id.unwrap_or_else(|| "unknown".into()),
         text,
         audio_secs: samples.len() as f32 / 16_000.0,
         transcribe_secs: started.elapsed().as_secs_f32(),
@@ -147,12 +214,63 @@ fn decode_i16(value: &str) -> Result<Vec<i16>, String> {
         .collect())
 }
 
-fn worker_error(id: Option<String>, code: &str, message: String) -> WorkerResponse {
+fn worker_error(meta: RequestMeta, code: &str, message: String) -> WorkerResponse {
     WorkerResponse::Error {
-        id,
+        protocol_version: PROTOCOL_VERSION,
+        request_id: meta.request_id,
+        operation_id: meta.operation_id,
         code: code.into(),
         message,
     }
+}
+
+fn read_limited_line<R: BufRead>(
+    reader: &mut R,
+    maximum_bytes: usize,
+) -> io::Result<Option<String>> {
+    let mut bytes = Vec::new();
+    let mut exceeded_limit = false;
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            if bytes.is_empty() {
+                return if exceeded_limit {
+                    Err(io::Error::new(
+                        ErrorKind::InvalidData,
+                        format!("request frame exceeds {maximum_bytes} bytes"),
+                    ))
+                } else {
+                    Ok(None)
+                };
+            }
+            break;
+        }
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let consumed = newline.map_or(available.len(), |index| index + 1);
+        if !exceeded_limit && bytes.len().saturating_add(consumed) > maximum_bytes {
+            exceeded_limit = true;
+            bytes.clear();
+        }
+        if !exceeded_limit {
+            bytes.extend_from_slice(&available[..consumed]);
+        }
+        reader.consume(consumed);
+        if newline.is_some() {
+            if exceeded_limit {
+                return Err(io::Error::new(
+                    ErrorKind::InvalidData,
+                    format!("request frame exceeds {maximum_bytes} bytes"),
+                ));
+            }
+            break;
+        }
+    }
+    while matches!(bytes.last(), Some(b'\n' | b'\r')) {
+        bytes.pop();
+    }
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|error| io::Error::new(ErrorKind::InvalidData, error))
 }
 
 fn backend() -> BackendKind {
@@ -162,4 +280,37 @@ fn backend() -> BackendKind {
     return BackendKind::Vulkan;
     #[cfg(not(any(feature = "cuda", feature = "vulkan")))]
     BackendKind::Cpu
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    #[test]
+    fn oversized_request_is_rejected_without_consuming_next_frame() {
+        let mut input = Cursor::new(b"too-long\n{}\n");
+        assert!(read_limited_line(&mut input, 4).is_err());
+        assert_eq!(read_limited_line(&mut input, 4).unwrap(), Some("{}".into()));
+    }
+
+    #[test]
+    fn mismatched_protocol_version_returns_a_structured_error() {
+        let request = WorkerRequest::Ping {
+            meta: RequestMeta {
+                protocol_version: PROTOCOL_VERSION + 1,
+                request_id: "ping-1".into(),
+                operation_id: None,
+            },
+        };
+        let (response, shutdown) =
+            handle_line(&serde_json::to_string(&request).unwrap(), &mut None);
+        assert!(!shutdown);
+        assert!(matches!(
+            response,
+            WorkerResponse::Error { request_id, code, .. }
+                if request_id == "ping-1" && code == "protocol_version"
+        ));
+    }
 }

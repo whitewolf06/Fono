@@ -14,17 +14,21 @@ use std::time::{Duration, Instant};
 
 use base64::Engine;
 use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, SendTimeoutError, Sender};
-use fono_stt_protocol::{BackendKind, WorkerRequest, WorkerResponse};
+use fono_stt_protocol::{
+    BackendKind, RequestMeta, WorkerRequest, WorkerResponse, MAX_REQUEST_FRAME_BYTES,
+    MAX_RESPONSE_FRAME_BYTES, PROTOCOL_VERSION,
+};
 use parking_lot::Mutex;
 
 use crate::error::{AppError, AppResult};
+use crate::operation::OperationCancellation;
 use crate::types::Transcript;
 
 const PING_TIMEOUT: Duration = Duration::from_secs(5);
 const LOAD_TIMEOUT: Duration = Duration::from_secs(120);
 const TRANSCRIBE_BASE_TIMEOUT: Duration = Duration::from_secs(30);
 const TRANSCRIBE_MAX_TIMEOUT: Duration = Duration::from_secs(10 * 60);
-const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
+const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(20);
 const MAX_STDERR_LINE_BYTES: usize = 4 * 1024;
 const STDERR_TAIL_LINES: usize = 32;
 
@@ -46,7 +50,9 @@ const PRODUCTION_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
 impl WorkerTimeouts {
     fn for_request(self, request: &WorkerRequest) -> Duration {
         match request {
-            WorkerRequest::Ping => self.ping,
+            WorkerRequest::Hello { .. }
+            | WorkerRequest::Ping { .. }
+            | WorkerRequest::Shutdown { .. } => self.ping,
             WorkerRequest::Load { .. } => self.load,
             WorkerRequest::Transcribe {
                 samples_i16_base64, ..
@@ -149,8 +155,16 @@ impl WorkerSession {
             next_request_id: 0,
             timeouts,
         };
-        match worker.request(&WorkerRequest::Ping)? {
-            WorkerResponse::Ready { backend: actual } if actual == backend => {}
+        let hello_meta = worker.next_meta("hello", None);
+        match worker.request(&WorkerRequest::Hello { meta: hello_meta })? {
+            WorkerResponse::Ready {
+                backend: actual,
+                capabilities,
+                ..
+            } if actual == backend
+                && capabilities.protocol_version == PROTOCOL_VERSION
+                && capabilities.maximum_request_bytes >= MAX_REQUEST_FRAME_BYTES
+                && capabilities.maximum_response_bytes >= MAX_RESPONSE_FRAME_BYTES => {}
             other => {
                 return Err(AppError::Stt(format!(
                     "{} worker returned an unexpected handshake: {other:?}",
@@ -158,10 +172,14 @@ impl WorkerSession {
                 )))
             }
         }
+        let load_meta = worker.next_meta("load", None);
         match worker.request(&WorkerRequest::Load {
+            meta: load_meta,
             model_path: worker.model_path.clone(),
         })? {
-            WorkerResponse::ModelLoaded { backend: actual } if actual == backend => {}
+            WorkerResponse::ModelLoaded {
+                backend: actual, ..
+            } if actual == backend => {}
             WorkerResponse::Error { message, .. } => {
                 return Err(AppError::Stt(format!(
                     "{} worker could not load model: {message}",
@@ -195,34 +213,76 @@ impl WorkerSession {
         backend_name(self.backend)
     }
 
-    pub(super) fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
-        let mut pcm = Vec::with_capacity(samples.len() * 2);
-        for sample in samples {
-            pcm.extend_from_slice(&sample.to_le_bytes());
+    pub(super) fn ping(&mut self) -> AppResult<()> {
+        let meta = self.next_meta("ping", None);
+        match self.request(&WorkerRequest::Ping { meta: meta.clone() })? {
+            WorkerResponse::Pong {
+                backend,
+                request_id,
+                ..
+            } if backend == self.backend && request_id == meta.request_id => Ok(()),
+            other => Err(AppError::Stt(format!(
+                "{} worker returned an unexpected health response: {other:?}",
+                backend_name(self.backend)
+            ))),
         }
-        self.next_request_id = self.next_request_id.wrapping_add(1);
-        let request_id = format!("dictation-{}", self.next_request_id);
-        let response = self.request(&WorkerRequest::Transcribe {
-            id: request_id.clone(),
-            model_path: self.model_path.clone(),
-            language: language.into(),
-            samples_i16_base64: base64::engine::general_purpose::STANDARD.encode(pcm),
-        })?;
+    }
+
+    pub(super) fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
+        self.transcribe_with_cancellation(samples, language, None)
+    }
+
+    pub(super) fn transcribe_cancellable(
+        &mut self,
+        samples: &[i16],
+        language: &str,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<Transcript> {
+        self.transcribe_with_cancellation(samples, language, Some(cancellation))
+    }
+
+    fn transcribe_with_cancellation(
+        &mut self,
+        samples: &[i16],
+        language: &str,
+        cancellation: Option<&OperationCancellation>,
+    ) -> AppResult<Transcript> {
+        let meta = self.next_meta("transcribe", None);
+        let request_id = meta.request_id.clone();
+        let operation_id = format!("dictation-{request_id}");
+        let response = self.request_with_cancellation(
+            &WorkerRequest::Transcribe {
+                meta: RequestMeta {
+                    operation_id: Some(operation_id.clone()),
+                    ..meta
+                },
+                model_path: self.model_path.clone(),
+                language: language.into(),
+                samples_i16_base64: encode_samples_i16_base64(samples),
+            },
+            cancellation,
+        )?;
         match response {
             WorkerResponse::Result {
-                id,
+                request_id: actual_request_id,
+                operation_id: actual_operation_id,
                 text,
                 audio_secs,
                 transcribe_secs,
                 backend,
                 ..
-            } if backend == self.backend && id == request_id => Ok(Transcript {
-                text,
-                detected_language: None,
-                transcribe_secs: Some(transcribe_secs),
-                audio_secs: Some(audio_secs),
-                device: Some(backend_name(backend).into()),
-            }),
+            } if backend == self.backend
+                && actual_request_id == request_id
+                && actual_operation_id == operation_id =>
+            {
+                Ok(Transcript {
+                    text,
+                    detected_language: None,
+                    transcribe_secs: Some(transcribe_secs),
+                    audio_secs: Some(audio_secs),
+                    device: Some(backend_name(backend).into()),
+                })
+            }
             WorkerResponse::Error { message, .. } => Err(AppError::Stt(format!(
                 "{} worker transcription failed: {message}",
                 backend_name(self.backend)
@@ -235,10 +295,26 @@ impl WorkerSession {
     }
 
     fn request(&mut self, request: &WorkerRequest) -> AppResult<WorkerResponse> {
+        self.request_with_cancellation(request, None)
+    }
+
+    fn request_with_cancellation(
+        &mut self,
+        request: &WorkerRequest,
+        cancellation: Option<&OperationCancellation>,
+    ) -> AppResult<WorkerResponse> {
         let timeout = self.timeouts.for_request(request);
         let deadline = Instant::now() + timeout;
+        if cancellation.is_some_and(OperationCancellation::is_cancelled) {
+            return Err(self.cancel_request());
+        }
         let line = serde_json::to_string(request)
             .map_err(|error| AppError::Stt(format!("worker request serialization: {error}")))?;
+        if line.len() > MAX_REQUEST_FRAME_BYTES {
+            return Err(self.fail_request(format!(
+                "worker request exceeds {MAX_REQUEST_FRAME_BYTES} bytes"
+            )));
+        }
         let (result_tx, result_rx) = bounded(1);
         let write = WorkerWrite { line, result_tx };
         let Some(stdin_tx) = self.stdin_tx.as_ref() else {
@@ -266,28 +342,59 @@ impl WorkerSession {
             }
         }
 
-        let response = match self.stdout_rx.recv_timeout(remaining_until(deadline)) {
-            Ok(WorkerOutput::Line(response)) => response,
-            Ok(WorkerOutput::Eof) => {
-                return Err(self.fail_request("worker exited before returning a response".into()))
+        let response = loop {
+            if cancellation.is_some_and(OperationCancellation::is_cancelled) {
+                return Err(self.cancel_request());
             }
-            Ok(WorkerOutput::Error(error)) => {
-                return Err(self.fail_request(format!("worker stdout: {error}")))
-            }
-            Err(RecvTimeoutError::Timeout) => {
+            let remaining = remaining_until(deadline);
+            if remaining.is_zero() {
                 return Err(self.fail_request(format!(
                     "{} worker request timed out after {:.1}s",
                     backend_name(self.backend),
                     timeout.as_secs_f32()
-                )))
+                )));
             }
-            Err(RecvTimeoutError::Disconnected) => {
-                return Err(self.fail_request("worker stdout reader disconnected".into()))
+            match self
+                .stdout_rx
+                .recv_timeout(remaining.min(CANCELLATION_POLL_INTERVAL))
+            {
+                Ok(WorkerOutput::Line(response)) => break response,
+                Ok(WorkerOutput::Eof) => {
+                    return Err(
+                        self.fail_request("worker exited before returning a response".into())
+                    )
+                }
+                Ok(WorkerOutput::Error(error)) => {
+                    return Err(self.fail_request(format!("worker stdout: {error}")))
+                }
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(self.fail_request("worker stdout reader disconnected".into()))
+                }
             }
         };
 
-        serde_json::from_str(response.trim())
-            .map_err(|error| self.fail_request(format!("worker returned invalid JSON: {error}")))
+        let response: WorkerResponse = serde_json::from_str(response.trim())
+            .map_err(|error| self.fail_request(format!("worker returned invalid JSON: {error}")))?;
+        if response.protocol_version() != PROTOCOL_VERSION {
+            return Err(self.fail_request(format!(
+                "worker returned protocol version {}; expected {PROTOCOL_VERSION}",
+                response.protocol_version()
+            )));
+        }
+        if response.request_id() != request.meta().request_id {
+            return Err(self.fail_request(format!(
+                "worker returned request_id {}; expected {}",
+                response.request_id(),
+                request.meta().request_id
+            )));
+        }
+        Ok(response)
+    }
+
+    fn next_meta(&mut self, kind: &str, operation_id: Option<String>) -> RequestMeta {
+        self.next_request_id = self.next_request_id.wrapping_add(1);
+        RequestMeta::new(format!("{kind}-{}", self.next_request_id), operation_id)
     }
 
     fn is_alive(&mut self) -> bool {
@@ -316,6 +423,11 @@ impl WorkerSession {
         }
     }
 
+    fn cancel_request(&mut self) -> AppError {
+        let error = self.fail_request("worker request cancelled".into());
+        AppError::Cancelled(error.to_string())
+    }
+
     fn stderr_diagnostics(&self) -> String {
         self.stderr_tail
             .lock()
@@ -338,10 +450,58 @@ impl WorkerSession {
             let _ = thread.join();
         }
     }
+
+    fn request_graceful_shutdown(&mut self) {
+        if self.stdin_tx.is_none() || !matches!(self.child.try_wait(), Ok(None)) {
+            return;
+        }
+        let request = WorkerRequest::Shutdown {
+            meta: self.next_meta("shutdown", None),
+        };
+        let Ok(line) = serde_json::to_string(&request) else {
+            return;
+        };
+        let (result_tx, result_rx) = bounded(1);
+        let Some(stdin_tx) = self.stdin_tx.as_ref() else {
+            return;
+        };
+        if stdin_tx
+            .send_timeout(WorkerWrite { line, result_tx }, Duration::from_millis(500))
+            .is_err()
+            || !matches!(
+                result_rx.recv_timeout(Duration::from_millis(500)),
+                Ok(Ok(()))
+            )
+        {
+            return;
+        }
+        if let Ok(WorkerOutput::Line(line)) =
+            self.stdout_rx.recv_timeout(Duration::from_millis(500))
+        {
+            let acknowledged =
+                serde_json::from_str::<WorkerResponse>(&line).is_ok_and(|response| {
+                    response.protocol_version() == PROTOCOL_VERSION
+                        && response.request_id() == request.meta().request_id
+                        && matches!(response, WorkerResponse::ShuttingDown { .. })
+                });
+            if acknowledged {
+                let _ = self.child.wait();
+            }
+        }
+    }
+}
+
+fn encode_samples_i16_base64(samples: &[i16]) -> String {
+    let mut pcm = Vec::with_capacity(std::mem::size_of_val(samples));
+    for sample in samples {
+        pcm.extend_from_slice(&sample.to_le_bytes());
+    }
+    base64::engine::general_purpose::STANDARD.encode(pcm)
 }
 
 impl Drop for WorkerSession {
     fn drop(&mut self) {
+        self.request_graceful_shutdown();
         self.terminate();
     }
 }
@@ -386,7 +546,7 @@ fn spawn_stdout_reader(stdout: ChildStdout) -> (Receiver<WorkerOutput>, JoinHand
     let thread = thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
         loop {
-            let output = match read_limited_line(&mut reader, MAX_RESPONSE_BYTES) {
+            let output = match read_limited_line(&mut reader, MAX_RESPONSE_FRAME_BYTES) {
                 Ok(Some(line)) => WorkerOutput::Line(line),
                 Ok(None) => WorkerOutput::Eof,
                 Err(error) => WorkerOutput::Error(error.to_string()),
@@ -492,9 +652,12 @@ mod tests {
     use std::io::Cursor;
     use std::path::{Path, PathBuf};
     use std::process;
+    use std::sync::Arc;
+    use std::thread;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use super::*;
+    use crate::operation::{OperationCoordinator, OperationSource};
 
     const TEST_TIMEOUT: Duration = Duration::from_millis(250);
     const TEST_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
@@ -524,7 +687,7 @@ mod tests {
             fs::write(
                 &script,
                 format!(
-                    "@echo off\r\nset /p request=\r\necho {{\"type\":\"ready\",\"backend\":\"cuda\"}}\r\nset /p request=\r\necho {{\"type\":\"model_loaded\",\"backend\":\"cuda\"}}\r\nset /p request=\r\n{after_load}\r\n"
+                    "@echo off\r\nset /p request=\r\necho {{\"type\":\"ready\",\"protocol_version\":2,\"request_id\":\"hello-1\",\"backend\":\"cuda\",\"capabilities\":{{\"protocol_version\":2,\"supports_health\":true,\"supports_shutdown\":true,\"maximum_request_bytes\":16777216,\"maximum_response_bytes\":1048576}}}}\r\nset /p request=\r\necho {{\"type\":\"model_loaded\",\"protocol_version\":2,\"request_id\":\"load-2\",\"backend\":\"cuda\"}}\r\nset /p request=\r\n{after_load}\r\n"
                 ),
             )
             .expect("write worker fixture");
@@ -572,6 +735,47 @@ mod tests {
         assert_eq!(transcribe_timeout(usize::MAX), TRANSCRIBE_MAX_TIMEOUT);
     }
 
+    #[test]
+    fn base64_transport_measurement_for_typical_recording_lengths() {
+        const SAMPLE_RATE: usize = 16_000;
+        for seconds in [5_usize, 30, 120] {
+            let samples = vec![123_i16; seconds * SAMPLE_RATE];
+            let started = Instant::now();
+            let encoded = encode_samples_i16_base64(&samples);
+            let elapsed = started.elapsed();
+            let request = WorkerRequest::Transcribe {
+                meta: RequestMeta::new("measurement", Some("measurement-operation".into())),
+                model_path: "model.bin".into(),
+                language: "auto".into(),
+                samples_i16_base64: encoded,
+            };
+            let json = serde_json::to_string(&request).expect("serialize measurement request");
+            println!(
+                "stt transport: {seconds}s pcm={}B json={}B encode={}ms",
+                std::mem::size_of_val(samples.as_slice()),
+                json.len(),
+                elapsed.as_millis()
+            );
+            assert!(json.len() <= MAX_REQUEST_FRAME_BYTES);
+        }
+    }
+
+    #[test]
+    fn maximum_recording_fits_the_versioned_transport_frame() {
+        const SAMPLE_RATE: usize = 16_000;
+        const MAX_RECORDING_SECONDS: usize = 5 * 60;
+        let samples = vec![0_i16; MAX_RECORDING_SECONDS * SAMPLE_RATE];
+        let encoded = encode_samples_i16_base64(&samples);
+        let request = WorkerRequest::Transcribe {
+            meta: RequestMeta::new("maximum", Some("maximum-operation".into())),
+            model_path: "model.bin".into(),
+            language: "auto".into(),
+            samples_i16_base64: encoded,
+        };
+        let json = serde_json::to_string(&request).expect("serialize maximum request");
+        assert!(json.len() <= MAX_REQUEST_FRAME_BYTES);
+    }
+
     #[cfg(windows)]
     #[test]
     fn malformed_worker_response_terminates_the_session() {
@@ -600,6 +804,20 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
+    fn foreign_request_id_terminates_the_session() {
+        let fixture = WorkerFixture::create(
+            "echo {\"type\":\"result\",\"protocol_version\":2,\"request_id\":\"foreign\",\"operation_id\":\"dictation-transcribe-3\",\"text\":\"x\",\"audio_secs\":0.01,\"transcribe_secs\":0.01,\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
+        );
+        let mut session = fixture.start();
+
+        let error = session.transcribe(&[0; 160], "auto").unwrap_err();
+
+        assert!(error.to_string().contains("returned request_id foreign"));
+        assert_session_is_terminated(&mut session);
+    }
+
+    #[cfg(windows)]
+    #[test]
     fn hung_worker_response_respects_deadline_and_terminates_the_session() {
         let fixture = WorkerFixture::create(":hang\r\ngoto hang");
         let mut session = fixture.start();
@@ -610,5 +828,47 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(5));
         assert!(error.to_string().contains("timed out"));
         assert_session_is_terminated(&mut session);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn cancelled_transcription_terminates_hung_worker() {
+        let fixture = WorkerFixture::create(":hang\r\ngoto hang");
+        let mut session = fixture.start();
+        let coordinator = Arc::new(OperationCoordinator::new());
+        let operation = coordinator
+            .start(OperationSource::Ui)
+            .expect("start operation for cancellation test");
+        let cancellation = coordinator
+            .cancellation(operation.id)
+            .expect("cancellation signal belongs to the active operation");
+        let coordinator_for_cancel = Arc::clone(&coordinator);
+        let cancel = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(25));
+            coordinator_for_cancel.cancel(operation.id);
+        });
+        let started = Instant::now();
+
+        let error = session
+            .transcribe_cancellable(&[0; 160], "auto", &cancellation)
+            .expect_err("cancelled transcription cannot wait for the worker deadline");
+
+        cancel.join().expect("cancellation thread completes");
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(matches!(error, AppError::Cancelled(_)));
+        assert!(error.to_string().contains("worker request cancelled"));
+        assert_session_is_terminated(&mut session);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn health_ping_uses_the_versioned_request_and_response() {
+        let fixture = WorkerFixture::create(
+            "echo {\"type\":\"pong\",\"protocol_version\":2,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
+        );
+        let mut session = fixture.start();
+
+        session.ping().expect("matching pong keeps worker healthy");
+        assert!(session.is_alive());
     }
 }

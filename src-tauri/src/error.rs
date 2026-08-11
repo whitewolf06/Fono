@@ -7,6 +7,9 @@ pub enum AppError {
     #[error("операция уже выполняется: {0}")]
     Busy(String),
 
+    #[error("операция отменена: {0}")]
+    Cancelled(String),
+
     #[error("аудио ошибка: {0}")]
     Audio(String),
 
@@ -50,6 +53,23 @@ impl From<tauri::Error> for AppError {
 impl From<fono_wake::WakeWordError> for AppError {
     fn from(e: fono_wake::WakeWordError) -> Self {
         AppError::Audio(e.to_string())
+    }
+}
+
+impl From<fono_core::CoordinatorError> for AppError {
+    fn from(error: fono_core::CoordinatorError) -> Self {
+        match error {
+            fono_core::CoordinatorError::Busy(message) => AppError::Busy(message),
+            fono_core::CoordinatorError::StaleOperation(operation_id) => {
+                AppError::Cancelled(format!("operation {operation_id} is no longer active"))
+            }
+            fono_core::CoordinatorError::ResourceAlreadyLeased {
+                operation_id,
+                resource,
+            } => AppError::Busy(format!(
+                "resource {resource:?} is already leased by operation {operation_id}"
+            )),
+        }
     }
 }
 

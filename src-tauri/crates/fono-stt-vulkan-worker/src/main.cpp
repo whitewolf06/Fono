@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using json = nlohmann::json;
@@ -107,17 +108,23 @@ std::optional<std::vector<int16_t>> decode_pcm_i16_base64(const std::string & en
     return samples;
 }
 
-json worker_error(const std::optional<std::string> & id, const std::string & code, const std::string & message) {
+constexpr int PROTOCOL_VERSION = 2;
+constexpr size_t MAX_REQUEST_FRAME_BYTES = 16 * 1024 * 1024;
+constexpr size_t MAX_RESPONSE_FRAME_BYTES = 1024 * 1024;
+
+json worker_error(
+    const std::optional<std::string> & request_id,
+    const std::string & code,
+    const std::string & message,
+    const std::optional<std::string> & operation_id = std::nullopt) {
     json response = {
         {"type", "error"},
+        {"protocol_version", PROTOCOL_VERSION},
+        {"request_id", request_id.value_or("unparsed")},
+        {"operation_id", operation_id.has_value() ? json(*operation_id) : json(nullptr)},
         {"code", code},
         {"message", message},
     };
-    if (id.has_value()) {
-        response["id"] = *id;
-    } else {
-        response["id"] = nullptr;
-    }
     return response;
 }
 
@@ -145,23 +152,28 @@ bool ensure_model(const std::string & model_path, std::optional<LoadedModel> & l
 }
 
 json transcribe(const json & request, std::optional<LoadedModel> & loaded) {
-    const auto id = request.value("id", "");
+    const auto request_id = request.value("request_id", "");
+    const auto operation_id = request.value("operation_id", "");
     const auto model_path = request.value("model_path", "");
     const auto language = request.value("language", "auto");
     const auto encoded = request.value("samples_i16_base64", "");
-    if (id.empty() || model_path.empty()) {
-        return worker_error(id.empty() ? std::nullopt : std::make_optional(id), "request", "id and model_path are required");
+    if (request_id.empty() || operation_id.empty() || model_path.empty()) {
+        return worker_error(
+            request_id.empty() ? std::nullopt : std::make_optional(request_id),
+            "request",
+            "request_id, operation_id and model_path are required",
+            operation_id.empty() ? std::nullopt : std::make_optional(operation_id));
     }
 
     std::string audio_error;
     const auto samples = decode_pcm_i16_base64(encoded, audio_error);
     if (!samples.has_value()) {
-        return worker_error(id, "audio", audio_error);
+        return worker_error(request_id, "audio", audio_error, operation_id);
     }
 
     std::string model_error;
     if (!ensure_model(model_path, loaded, model_error)) {
-        return worker_error(id, "model_load", model_error);
+        return worker_error(request_id, "model_load", model_error, operation_id);
     }
 
     std::vector<float> pcm;
@@ -187,7 +199,7 @@ json transcribe(const json & request, std::optional<LoadedModel> & loaded) {
 
     const auto started = std::chrono::steady_clock::now();
     if (whisper_full(loaded->context.get(), params, pcm.data(), static_cast<int>(pcm.size())) != 0) {
-        return worker_error(id, "transcribe", "Whisper transcription failed");
+        return worker_error(request_id, "transcribe", "Whisper transcription failed", operation_id);
     }
 
     std::string text;
@@ -209,7 +221,9 @@ json transcribe(const json & request, std::optional<LoadedModel> & loaded) {
     const auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - started).count();
     return {
         {"type", "result"},
-        {"id", id},
+        {"protocol_version", PROTOCOL_VERSION},
+        {"request_id", request_id},
+        {"operation_id", operation_id},
         {"text", text},
         {"audio_secs", static_cast<float>(samples->size()) / 16000.0f},
         {"transcribe_secs", elapsed},
@@ -217,26 +231,53 @@ json transcribe(const json & request, std::optional<LoadedModel> & loaded) {
     };
 }
 
-json handle_line(const std::string & line, std::optional<LoadedModel> & loaded) {
+std::pair<json, bool> handle_line(const std::string & line, std::optional<LoadedModel> & loaded) {
     try {
         const auto request = json::parse(line);
+        const auto request_id = request.value("request_id", "unparsed");
+        const auto operation_id = request.contains("operation_id")
+            ? std::make_optional(request.value("operation_id", ""))
+            : std::nullopt;
+        if (request.value("protocol_version", 0) != PROTOCOL_VERSION) {
+            return {worker_error(request_id, "protocol_version", "unsupported protocol version", operation_id), false};
+        }
         const auto type = request.value("type", "");
+        if (type == "hello") {
+            json response = {
+                {"type", "ready"},
+                {"protocol_version", PROTOCOL_VERSION},
+                {"request_id", request_id},
+                {"backend", "vulkan"},
+                {"capabilities", json{
+                    {"protocol_version", PROTOCOL_VERSION},
+                    {"supports_health", true},
+                    {"supports_shutdown", true},
+                    {"maximum_request_bytes", MAX_REQUEST_FRAME_BYTES},
+                    {"maximum_response_bytes", MAX_RESPONSE_FRAME_BYTES},
+                }},
+            };
+            return {std::move(response), false};
+        }
         if (type == "ping") {
-            return {{"type", "ready"}, {"backend", "vulkan"}};
+            return {{{"type", "pong"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", request_id}, {"backend", "vulkan"}}, false};
         }
         if (type == "load") {
             std::string model_error;
             if (!ensure_model(request.value("model_path", ""), loaded, model_error)) {
-                return worker_error(std::nullopt, "model_load", model_error);
+                return {worker_error(request_id, "model_load", model_error, operation_id), false};
             }
-            return {{"type", "model_loaded"}, {"backend", "vulkan"}};
+            return {{{"type", "model_loaded"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", request_id}, {"backend", "vulkan"}}, false};
         }
         if (type == "transcribe") {
-            return transcribe(request, loaded);
+            return {transcribe(request, loaded), false};
         }
-        return worker_error(std::nullopt, "request", "unsupported request type");
+        if (type == "shutdown") {
+            loaded.reset();
+            return {{{"type", "shutting_down"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", request_id}}, true};
+        }
+        return {worker_error(request_id, "request", "unsupported request type", operation_id), false};
     } catch (const std::exception & error) {
-        return worker_error(std::nullopt, "request_json", error.what());
+        return {worker_error(std::nullopt, "request_json", error.what()), false};
     }
 }
 
@@ -247,8 +288,15 @@ int main() {
     std::optional<LoadedModel> loaded;
     std::string line;
     while (std::getline(std::cin, line)) {
-        const auto response = handle_line(line, loaded);
+        if (line.size() > MAX_REQUEST_FRAME_BYTES) {
+            std::cout << worker_error(std::nullopt, "request_frame", "request frame exceeds limit").dump() << '\n' << std::flush;
+            continue;
+        }
+        const auto [response, shutdown] = handle_line(line, loaded);
         std::cout << response.dump() << '\n' << std::flush;
+        if (shutdown) {
+            break;
+        }
     }
     return 0;
 }

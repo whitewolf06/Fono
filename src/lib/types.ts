@@ -41,6 +41,12 @@ export interface WakeDictationCountdown {
 }
 export type WakeWordBackend =
   "disabled" | "whisper_experimental" | "sherpa_onnx" | "mock";
+export interface WakeWordCapabilities {
+  backend: WakeWordBackend;
+  supports_custom_phrase: boolean;
+  supported_phrases: string[];
+  includes_pre_roll: boolean;
+}
 
 export interface Settings {
   /** device_id микрофона или null = системный default */
@@ -95,6 +101,8 @@ export interface Settings {
   llm_provider: LlmProvider;
   /** API-ключ для облачного LLM */
   llm_api_key: string | null;
+  has_llm_api_key: boolean;
+  history_enabled: boolean;
   /** Модель whisper для wake word */
   wake_word_model: WhisperModelSize;
   /** Порог VAD для wake word (чувствительность) */
@@ -111,6 +119,18 @@ export interface LaunchApp {
   name: string;
   exe_path: string;
   aliases: string[];
+}
+
+export interface CommandProposal {
+  id: number;
+  operation_id: number;
+  source: "ui" | "hotkey" | "wake_word" | "diagnostic";
+  original_text: string;
+  normalized_action: string;
+  confidence: number | null;
+  created_at: string;
+  expires_at: string;
+  settings_version: number;
 }
 
 export interface WakeWordDiagnostics {
@@ -174,6 +194,8 @@ export const DEFAULT_SETTINGS: Settings = {
   verbose_logging: false,
   llm_provider: "lmstudio",
   llm_api_key: null,
+  has_llm_api_key: false,
+  history_enabled: true,
   wake_word_model: "base",
   wake_word_vad_threshold: 0.015,
   wake_dictation_silence_ms: 2000,

@@ -22,6 +22,7 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SHERPA_WAKE");
+    println!("cargo:rerun-if-env-changed=FONO_PREPARING_RELEASE_RESOURCES");
     println!("cargo:rerun-if-env-changed=FONO_BUILD_REVISION");
     println!("cargo:rerun-if-changed=../.git/HEAD");
 
@@ -42,8 +43,11 @@ fn main() {
 
     stage_stt_workers(&layout);
 
-    if layout.is_release() && env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some() {
-        stage_sherpa_runtime_for_bundle(&layout);
+    if layout.is_release()
+        && env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some()
+        && env::var_os("FONO_PREPARING_RELEASE_RESOURCES").is_none()
+    {
+        validate_sherpa_runtime_manifest(&layout);
     }
 }
 
@@ -242,6 +246,17 @@ fn validate_release_worker_manifest(source_dir: &Path, files: &[PathBuf]) {
         }
     }
 
+    let unexpected: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|name| {
+            !REQUIRED_STT_WORKERS.contains(name)
+                && !REQUIRED_CUDA_RUNTIME_PREFIXES
+                    .iter()
+                    .any(|prefix| name.starts_with(prefix))
+        })
+        .collect();
+
     if !missing.is_empty() {
         panic!(
             "incomplete release STT worker manifest in {}: missing {}",
@@ -249,40 +264,47 @@ fn validate_release_worker_manifest(source_dir: &Path, files: &[PathBuf]) {
             missing.join(", ")
         );
     }
+    if !unexpected.is_empty() {
+        panic!(
+            "release STT worker manifest in {} contains unexpected runtime files: {}",
+            source_dir.display(),
+            unexpected.join(", ")
+        );
+    }
 }
 
-/// Stages only the known Sherpa shared runtime DLLs for Tauri bundling.
-///
-/// The dependency build places these DLLs beside the release executable. The
-/// ignored resources directory is a deterministic staging area consumed by
-/// tauri.conf.json; copying arbitrary DLLs from the profile is forbidden.
-fn stage_sherpa_runtime_for_bundle(layout: &BuildLayout) {
-    let destination_dir = layout.manifest_dir.join("resources").join("sherpa-onnx");
-
-    fs::create_dir_all(&destination_dir).unwrap_or_else(|error| {
+/// The release-preparation script owns source-tree staging. `build.rs` only
+/// validates its deterministic result and never writes bundle resources.
+fn validate_sherpa_runtime_manifest(layout: &BuildLayout) {
+    let directory = layout.manifest_dir.join("resources").join("sherpa-onnx");
+    let files = runtime_files(&directory).unwrap_or_else(|error| {
         panic!(
-            "cannot create Sherpa bundle staging directory {}: {error}",
-            destination_dir.display()
+            "cannot inspect Sherpa runtime manifest in {}: {error}",
+            directory.display()
         )
     });
+    let names: Vec<&str> = files
+        .iter()
+        .filter_map(|path| path.file_name().and_then(OsStr::to_str))
+        .collect();
+    let missing: Vec<&str> = SHERPA_RUNTIME_DLLS
+        .iter()
+        .copied()
+        .filter(|required| !names.contains(required))
+        .collect();
+    let unexpected: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|name| !SHERPA_RUNTIME_DLLS.contains(name))
+        .collect();
 
-    for name in SHERPA_RUNTIME_DLLS {
-        let source = layout.profile_dir.join(name);
-        if !source.is_file() {
-            panic!(
-                "required Sherpa runtime DLL is missing from release output: {}",
-                source.display()
-            );
-        }
-
-        let destination = destination_dir.join(name);
-        fs::copy(&source, &destination).unwrap_or_else(|error| {
-            panic!(
-                "cannot stage Sherpa runtime DLL {} to {}: {error}",
-                source.display(),
-                destination.display()
-            )
-        });
+    if !missing.is_empty() || !unexpected.is_empty() {
+        panic!(
+            "invalid Sherpa runtime manifest in {}: missing [{}], unexpected [{}]; run npm run prepare:release-resources",
+            directory.display(),
+            missing.join(", "),
+            unexpected.join(", ")
+        );
     }
 }
 

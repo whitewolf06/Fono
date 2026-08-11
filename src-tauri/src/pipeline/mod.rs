@@ -7,23 +7,21 @@
 //! и возможность вручную триггернуть транскрипцию.
 //! Push-to-talk и VAD добавляются на Этапе 3, wake word — на Этапе 4.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
-use crate::audio::{AudioRecordingOwner, RecordingWriter};
+use crate::audio::{AudioRecorder, AudioRecordingOwner, RecordingWriter};
 use crate::error::{AppError, AppResult};
-use crate::injection;
-use crate::llm::LlmClient;
 use crate::operation::{
-    OperationCoordinator, OperationEvent, OperationPhase, OperationSnapshot, OperationSource,
-    TerminalReason,
+    OperationCancellation, OperationCoordinator, OperationEvent, OperationPhase, OperationResource,
+    OperationSnapshot, OperationSource, TerminalReason,
 };
 use crate::state::AppState;
 use crate::stt::SttEngine;
-use crate::types::{AiMode, PipelineState};
+use crate::types::PipelineState;
 
 const RECORDING_SAMPLE_RATE: usize = 16_000;
 pub const MAX_RECORDING_SECONDS: usize = 5 * 60;
@@ -35,10 +33,12 @@ pub struct Pipeline {
     recording: Mutex<bool>,
     /// Arc-буфер накопленных сэмплов, разделяемый с аудио-callback'ом cpal.
     writer: Mutex<Option<RecordingWriter>>,
-    /// Единственный owner CPAL stream. Сам stream никогда не покидает свой поток.
-    audio_owner: AudioRecordingOwner,
+    /// Adapter for the physical CPAL subscription; production keeps stream
+    /// ownership inside AudioRecordingOwner while tests can inject failures.
+    audio_owner: Box<dyn AudioRecorder>,
     /// Set when the audio callback has filled the bounded recording buffer.
     recording_limit_reached: Arc<AtomicBool>,
+    audio_level_bits: Arc<AtomicU32>,
     /// STT движок (переиспользуем между вызовами).
     stt: Arc<SttEngine>,
     /// Единственный владелец пользовательской операции и её lifecycle.
@@ -47,11 +47,20 @@ pub struct Pipeline {
 
 impl Pipeline {
     pub fn new() -> Self {
+        Self::new_with_audio_hub(fono_wake::AudioHub::new())
+    }
+
+    pub fn new_with_audio_hub(audio_hub: fono_wake::AudioHub) -> Self {
+        Self::new_with_audio_owner(Box::new(AudioRecordingOwner::new(audio_hub)))
+    }
+
+    fn new_with_audio_owner(audio_owner: Box<dyn AudioRecorder>) -> Self {
         Self {
             recording: Mutex::new(false),
             writer: Mutex::new(None),
-            audio_owner: AudioRecordingOwner::new(),
+            audio_owner,
             recording_limit_reached: Arc::new(AtomicBool::new(false)),
+            audio_level_bits: Arc::new(AtomicU32::new(0.0f32.to_bits())),
             stt: Arc::new(SttEngine::new()),
             operations: OperationCoordinator::new(),
         }
@@ -96,6 +105,10 @@ impl Pipeline {
         self.operations.is_active(operation_id)
     }
 
+    pub fn cancellation(&self, operation_id: u64) -> Option<OperationCancellation> {
+        self.operations.cancellation(operation_id)
+    }
+
     /// Подтвердить текущую диктовку (закончить запись досрочно).
     pub fn confirm(&self) {
         if let Some(operation) = self.operations.current() {
@@ -121,7 +134,7 @@ impl Pipeline {
         state: PipelineState,
         terminal_reason: TerminalReason,
     ) -> Option<OperationEvent> {
-        match state {
+        let event = match state {
             PipelineState::Idle => self.operations.finish(operation_id, terminal_reason),
             PipelineState::Error => self.operations.finish(operation_id, TerminalReason::Failed),
             PipelineState::Listening => self
@@ -136,7 +149,32 @@ impl Pipeline {
             PipelineState::Injecting => self
                 .operations
                 .transition(operation_id, OperationPhase::Injecting),
+        };
+
+        if event.is_some() {
+            match state {
+                PipelineState::Transcribing => {
+                    self.operations
+                        .release_resource(operation_id, OperationResource::Audio);
+                    let _ = self
+                        .operations
+                        .acquire_resource(operation_id, OperationResource::Stt);
+                }
+                PipelineState::Processing => {
+                    self.operations
+                        .release_resource(operation_id, OperationResource::Stt);
+                }
+                PipelineState::Injecting => {
+                    self.operations
+                        .release_resource(operation_id, OperationResource::Stt);
+                    let _ = self
+                        .operations
+                        .acquire_resource(operation_id, OperationResource::Injection);
+                }
+                PipelineState::Idle | PipelineState::Error | PipelineState::Listening => {}
+            }
         }
+        event
     }
 
     pub fn stt(&self) -> &Arc<SttEngine> {
@@ -156,23 +194,7 @@ impl Pipeline {
     /// когда основной writer-буфер уже пишется аудио-потоком.
     /// Возвращает 0.0, если запись не идёт или буфер пока пуст.
     pub fn current_level(&self) -> f32 {
-        let writer_lock = self.writer.lock();
-        let Some(writer) = writer_lock.as_ref() else {
-            return 0.0;
-        };
-        let buf = writer.lock();
-        let take = buf.len().min(1_600); // 100 мс @ 16 кГц
-        if take == 0 {
-            return 0.0;
-        }
-        let window = &buf[buf.len() - take..];
-        let sum_sq: i64 = window.iter().map(|&s| (s as i64) * (s as i64)).sum();
-        ((sum_sq as f32 / take as f32).sqrt()) / i16::MAX as f32
-    }
-
-    /// Запускает запись аудио в накопительный буфер.
-    pub fn start_recording(&self, device_id: Option<&str>) -> AppResult<()> {
-        self.start_recording_from(device_id, OperationSource::Ui)
+        f32::from_bits(self.audio_level_bits.load(Ordering::Relaxed))
     }
 
     pub fn start_recording_from(
@@ -186,14 +208,6 @@ impl Pipeline {
     /// Запускает запись и добавляет короткий фрагмент до старта захвата.
     /// Нужен wake word: detector распознаёт фразу с задержкой, а pre-roll
     /// сохраняет слова, которые пользователь произнёс сразу после неё.
-    pub fn start_recording_with_pre_roll(
-        &self,
-        device_id: Option<&str>,
-        pre_roll: &[i16],
-    ) -> AppResult<()> {
-        self.start_recording_with_pre_roll_from(device_id, pre_roll, OperationSource::Ui)
-    }
-
     pub fn start_recording_with_pre_roll_from(
         &self,
         device_id: Option<&str>,
@@ -206,6 +220,8 @@ impl Pipeline {
             return Err(AppError::Busy("audio recording is already active".into()));
         }
         let operation = self.operations.start(source)?;
+        self.operations
+            .acquire_resource(operation.id, OperationResource::Audio)?;
         if pre_roll.len() > MAX_RECORDING_SAMPLES {
             let _ = self.operations.finish(operation.id, TerminalReason::Failed);
             return Err(AppError::Audio(format!(
@@ -225,6 +241,7 @@ impl Pipeline {
             device_id,
             Arc::clone(&writer),
             Arc::clone(&self.recording_limit_reached),
+            Arc::clone(&self.audio_level_bits),
             MAX_RECORDING_SAMPLES,
         ) {
             let _ = self.operations.finish(operation.id, TerminalReason::Failed);
@@ -257,9 +274,15 @@ impl Pipeline {
         let stopped = self.audio_owner.stop();
         let writer = self.writer.lock().take();
         *recording = false;
+        self.audio_level_bits
+            .store(0.0f32.to_bits(), Ordering::Relaxed);
         drop(recording);
 
         stopped?;
+        if let Some(operation) = self.operations.current() {
+            self.operations
+                .release_resource(operation.id, OperationResource::Audio);
+        }
 
         let writer = writer.ok_or_else(|| AppError::Audio("запись не была запущена".into()))?;
         let samples = std::mem::take(&mut *writer.lock());
@@ -292,81 +315,16 @@ impl Default for Pipeline {
     }
 }
 
-/// Полный цикл диктовки: STT → (опционально LLM) → injection.
-///
-/// Предполагается, что модель STT уже загружена и settings корректны.
-pub async fn run_full_pipeline(
-    handle: &AppHandle,
-    state: &AppState,
-    pipeline: &Pipeline,
-    samples: Vec<i16>,
-) -> AppResult<()> {
-    set_state(handle, state, PipelineState::Transcribing);
-
-    let settings = state.settings();
-    let language = settings.language.clone();
-
-    let transcript = match pipeline.stt().transcribe(&samples, &language) {
-        Ok(t) => t,
-        Err(e) => {
-            let _ = handle.emit("error", e.to_string());
-            set_state(handle, state, PipelineState::Idle);
-            return Err(e);
-        }
-    };
-
-    tracing::info!(
-        "transcript ready ({} chars)",
-        transcript.text.chars().count()
-    );
-
-    let final_text = match settings.ai_mode {
-        AiMode::Off => transcript.text,
-        mode => {
-            set_state(handle, state, PipelineState::Processing);
-            let client = LlmClient::from_settings(&settings);
-            match client
-                .process(&transcript.text, mode, settings.clean_prompt.as_deref())
-                .await
-            {
-                Ok(t) => t,
-                Err(e) => {
-                    tracing::warn!("LLM failed ({e}), returning raw transcript");
-                    let _ = handle.emit("error", format!("LLM: {e}"));
-                    transcript.text
-                }
-            }
-        }
-    };
-
-    set_state(handle, state, PipelineState::Injecting);
-    if let Err(e) = injection::inject_text(&final_text, settings.injection_mode) {
-        let _ = handle.emit("error", e.to_string());
-        set_state(handle, state, PipelineState::Idle);
-        return Err(e);
-    }
-
-    set_state(handle, state, PipelineState::Idle);
-    Ok(())
-}
-
 /// Обновляет состояние FSM, эмитит событие во фронтенд и управляет overlay-окном.
 pub fn set_state(handle: &AppHandle, state: &AppState, new: PipelineState) {
     if let Some(event) = handle.state::<Pipeline>().sync_operation_state(new) {
-        let _ = handle.emit("operation-state", event);
+        crate::events::emit_operation(handle, event);
     }
     state.set_pipeline_state(new);
     tracing::debug!("pipeline state -> {new:?}");
-    let _ = handle.emit("pipeline-state", new);
+    crate::events::emit_pipeline_state(handle, new);
 
-    // Показываем overlay только в активных состояниях; в Idle — прячем.
-    if let Some(overlay) = handle.get_webview_window("overlay") {
-        let _ = if matches!(new, PipelineState::Idle) {
-            overlay.hide()
-        } else {
-            overlay.show()
-        };
-    }
+    sync_overlay_window(handle, new);
 }
 
 /// Applies a state transition only if it belongs to the specified operation.
@@ -388,46 +346,74 @@ pub fn set_state_for_operation(
         );
         return false;
     };
-    let _ = handle.emit("operation-state", event);
+    crate::events::emit_operation(handle, event);
     state.set_pipeline_state(new);
     tracing::debug!(operation = operation_id, "pipeline state -> {new:?}");
-    let _ = handle.emit("pipeline-state", new);
-    if let Some(overlay) = handle.get_webview_window("overlay") {
-        let _ = if matches!(new, PipelineState::Idle) {
-            overlay.hide()
-        } else {
-            overlay.show()
-        };
-    }
+    crate::events::emit_pipeline_state(handle, new);
+    sync_overlay_window(handle, new);
     true
 }
 
-/// Точка входа фоновой задачи (wake word, idle-логика). На Этапе 0 — пусто.
-pub async fn start_background(handle: AppHandle) -> AppResult<()> {
-    tracing::info!("pipeline background task started");
-
-    // Простой цикл-keeper: просыпается раз в секунду, оставляет место для
-    // wake-word и idle-логики будущих этапов.
-    let mut ticks = 0u64;
-    loop {
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        ticks += 1;
-        if ticks % 30 == 0 {
-            tracing::trace!(
-                "pipeline tick {} (state: {:?})",
-                ticks,
-                handle.state::<AppState>().pipeline_state()
-            );
+fn sync_overlay_window(handle: &AppHandle, state: PipelineState) {
+    let Some(overlay) = handle.get_webview_window("overlay") else {
+        return;
+    };
+    sync_overlay_visibility(state, |visible| {
+        if visible {
+            overlay.show()
+        } else {
+            overlay.hide()
         }
+    });
+}
+
+/// Keeps window-management failures outside the operation lifecycle. The
+/// caller has already committed its pipeline transition before this adapter is
+/// invoked, so a missing or closing overlay cannot retain a resource lease.
+fn sync_overlay_visibility<E>(state: PipelineState, set_visible: impl FnOnce(bool) -> Result<(), E>)
+where
+    E: std::fmt::Display,
+{
+    let visible = !matches!(state, PipelineState::Idle);
+    if let Err(error) = set_visible(visible) {
+        tracing::warn!(%error, visible, ?state, "could not synchronize overlay visibility");
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, AtomicU32};
+    use std::sync::Arc;
+
+    use parking_lot::Mutex;
+
+    use crate::audio::{AudioRecorder, RecordingWriter};
+    use crate::error::{AppError, AppResult};
     use crate::operation::{OperationEvent, OperationPhase, OperationSource, TerminalReason};
     use crate::types::PipelineState;
 
-    use super::{append_bounded, Pipeline};
+    use super::{append_bounded, sync_overlay_visibility, Pipeline};
+
+    struct FailingAudioRecorder;
+
+    impl AudioRecorder for FailingAudioRecorder {
+        fn start(
+            &self,
+            _device_id: Option<&str>,
+            _writer: RecordingWriter,
+            _limit_reached: Arc<AtomicBool>,
+            _level_bits: Arc<AtomicU32>,
+            _maximum_samples: usize,
+        ) -> AppResult<()> {
+            Err(AppError::Audio("injected audio acquisition failure".into()))
+        }
+
+        fn stop(&self) -> AppResult<()> {
+            Ok(())
+        }
+
+        fn shutdown(&self) {}
+    }
 
     #[test]
     fn cancellation_invalidates_in_flight_operation() {
@@ -441,6 +427,78 @@ mod tests {
         let next_operation = pipeline.operations.start(OperationSource::Hotkey).unwrap();
         assert!(pipeline.is_operation_active(next_operation.id));
         assert_ne!(operation.id, next_operation.id);
+    }
+
+    #[test]
+    fn audio_acquisition_failure_releases_operation_and_resource_lease() {
+        let pipeline = Pipeline::new_with_audio_owner(Box::new(FailingAudioRecorder));
+
+        let error = pipeline
+            .start_recording_from(None, OperationSource::WakeWord)
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("injected audio acquisition failure"));
+        assert_eq!(pipeline.operation_id(), 0);
+        assert!(!pipeline.is_recording());
+    }
+
+    #[test]
+    fn overlay_fault_injection_cannot_undo_a_terminal_transition() {
+        let pipeline = Pipeline::new();
+        let operation = pipeline.operations.start(OperationSource::Ui).unwrap();
+        pipeline
+            .sync_operation_state_for(
+                operation.id,
+                PipelineState::Transcribing,
+                TerminalReason::Completed,
+            )
+            .expect("start STT phase");
+        pipeline
+            .sync_operation_state_for(
+                operation.id,
+                PipelineState::Injecting,
+                TerminalReason::Completed,
+            )
+            .expect("start injection phase");
+        assert!(pipeline.is_operation_active(operation.id));
+
+        let observed = Mutex::new(Vec::new());
+
+        sync_overlay_visibility(PipelineState::Injecting, |visible| {
+            observed.lock().push(visible);
+            Err("injected overlay show failure")
+        });
+        sync_overlay_visibility(PipelineState::Idle, |visible| {
+            observed.lock().push(visible);
+            Err("injected overlay hide failure")
+        });
+
+        assert_eq!(*observed.lock(), vec![true, false]);
+
+        pipeline
+            .sync_operation_state_for(operation.id, PipelineState::Idle, TerminalReason::Completed)
+            .expect("finish operation before hiding overlay");
+        sync_overlay_visibility(PipelineState::Idle, |_| {
+            Err("injected terminal overlay hide failure")
+        });
+        assert!(!pipeline.is_operation_active(operation.id));
+        assert!(pipeline.operations.resources(operation.id).is_none());
+    }
+
+    #[test]
+    fn shutdown_is_idempotent_and_finishes_the_active_operation() {
+        let pipeline = Pipeline::new();
+        let operation = pipeline.operations.start(OperationSource::Ui).unwrap();
+
+        assert!(matches!(
+            pipeline.shutdown(),
+            Some(OperationEvent::Finished(terminal))
+                if terminal.id == operation.id && terminal.reason == TerminalReason::Cancelled
+        ));
+        assert!(pipeline.shutdown().is_none());
+        assert!(!pipeline.is_operation_active(operation.id));
     }
 
     #[test]

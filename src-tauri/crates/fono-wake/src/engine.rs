@@ -1,13 +1,13 @@
 use parking_lot::Mutex;
 
+use crate::audio_source::AudioHub;
 use crate::backend;
 use crate::callback::CallbackSlot;
 use crate::config::{WakeWordBackend, WakeWordConfig};
 use crate::diag::Diagnostics;
-#[cfg(any(not(feature = "whisper-wake"), not(feature = "sherpa-wake")))]
 use crate::error::WakeWordError;
 use crate::error::WakeWordResult;
-use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::event::{capabilities_for_backend, WakeWordCapabilities, WakeWordEvent, WakeWordStatus};
 use crate::WakeCallback;
 
 /// Backend-agnostic wake word engine.
@@ -21,14 +21,39 @@ pub trait WakeWordEngine: Send {
     fn resume(&mut self) -> WakeWordResult<()>;
     fn status(&self) -> WakeWordStatus;
 
+    fn capabilities(&self) -> WakeWordCapabilities;
+
     /// Optional runtime diagnostics. Not every backend implements this.
     fn diagnostics(&self) -> Option<Diagnostics> {
         None
     }
 }
 
+pub fn validate_config(config: &WakeWordConfig) -> WakeWordResult<()> {
+    if config.backend == WakeWordBackend::Disabled {
+        return Ok(());
+    }
+    let capabilities = capabilities_for_backend(config.backend);
+    if capabilities.supports_custom_phrase {
+        return Ok(());
+    }
+    let requested = config.phrase.trim();
+    if capabilities
+        .supported_phrases
+        .iter()
+        .any(|phrase| phrase.eq_ignore_ascii_case(requested))
+    {
+        return Ok(());
+    }
+    Err(WakeWordError::Backend(format!(
+        "backend {:?} does not support the wake phrase {:?}",
+        config.backend, config.phrase
+    )))
+}
+
 /// Thread-safe handle used by the main application.
 pub struct WakeWordHandle {
+    audio_hub: AudioHub,
     inner: Mutex<Inner>,
 }
 
@@ -40,9 +65,13 @@ struct Inner {
 
 impl WakeWordHandle {
     pub fn new(config: WakeWordConfig) -> Self {
+        Self::new_with_audio_hub(config, AudioHub::new())
+    }
+
+    pub fn new_with_audio_hub(config: WakeWordConfig, audio_hub: AudioHub) -> Self {
         let callback = CallbackSlot::default();
         let engine = if config.enabled {
-            match build_engine(&config) {
+            match build_engine(&config, audio_hub.clone()) {
                 Ok(Some(mut engine)) => {
                     let cb = make_event_callback(&callback);
                     match engine.start(cb) {
@@ -70,6 +99,7 @@ impl WakeWordHandle {
         };
 
         Self {
+            audio_hub,
             inner: Mutex::new(Inner {
                 config,
                 engine,
@@ -90,28 +120,31 @@ impl WakeWordHandle {
     /// Replace configuration and restart the engine if wake word is enabled.
     pub fn update_config(&self, config: WakeWordConfig) -> WakeWordResult<()> {
         let mut inner = self.inner.lock();
-        if let Some(engine) = inner.engine.as_mut() {
-            let _ = engine.stop();
-        }
-        inner.config = config.clone();
-        inner.engine = None;
-
         if !config.enabled {
+            if let Some(engine) = inner.engine.as_mut() {
+                let _ = engine.stop();
+            }
+            inner.config = config;
+            inner.engine = None;
             inner.callback.notify(WakeWordEvent::Paused);
             return Ok(());
         }
 
-        let mut engine = match build_engine(&config)? {
+        // Prepare and start the replacement before touching the currently
+        // working engine. A model/audio failure therefore leaves the previous
+        // runtime configuration active.
+        let mut replacement = match build_engine(&config, self.audio_hub.clone())? {
             Some(e) => e,
-            None => {
-                inner.callback.notify(WakeWordEvent::Paused);
-                return Ok(());
-            }
+            None => return Ok(()),
         };
-
         let cb = make_event_callback(&inner.callback);
-        engine.start(cb)?;
-        inner.engine = Some(engine);
+        replacement.start(cb)?;
+
+        if let Some(engine) = inner.engine.as_mut() {
+            let _ = engine.stop();
+        }
+        inner.config = config;
+        inner.engine = Some(replacement);
         Ok(())
     }
 
@@ -121,7 +154,7 @@ impl WakeWordHandle {
             return Ok(());
         }
         let config = inner.config.clone();
-        let mut engine = match build_engine(&config)? {
+        let mut engine = match build_engine(&config, self.audio_hub.clone())? {
             Some(e) => e,
             None => return Ok(()),
         };
@@ -169,9 +202,25 @@ impl WakeWordHandle {
         let inner = self.inner.lock();
         inner.engine.as_ref().and_then(|e| e.diagnostics())
     }
+
+    pub fn capabilities(&self) -> WakeWordCapabilities {
+        let inner = self.inner.lock();
+        inner
+            .engine
+            .as_ref()
+            .map(|engine| engine.capabilities())
+            .unwrap_or_else(|| capabilities_for_backend(inner.config.backend))
+    }
 }
 
-fn build_engine(config: &WakeWordConfig) -> WakeWordResult<Option<Box<dyn WakeWordEngine>>> {
+fn build_engine(
+    config: &WakeWordConfig,
+    audio_hub: AudioHub,
+) -> WakeWordResult<Option<Box<dyn WakeWordEngine>>> {
+    validate_config(config)?;
+    #[cfg(not(any(feature = "whisper-wake", feature = "sherpa-wake")))]
+    let _ = audio_hub;
+
     match config.backend {
         WakeWordBackend::Disabled => Ok(None),
         WakeWordBackend::Mock => Ok(Some(Box::new(backend::MockBackend::new(config.clone())))),
@@ -180,6 +229,7 @@ fn build_engine(config: &WakeWordConfig) -> WakeWordResult<Option<Box<dyn WakeWo
             {
                 Ok(Some(Box::new(backend::WhisperExperimentalBackend::new(
                     config.clone(),
+                    audio_hub,
                 ))))
             }
             #[cfg(not(feature = "whisper-wake"))]
@@ -190,6 +240,7 @@ fn build_engine(config: &WakeWordConfig) -> WakeWordResult<Option<Box<dyn WakeWo
             {
                 Ok(Some(Box::new(backend::SherpaOnnxBackend::new(
                     config.clone(),
+                    audio_hub,
                 ))))
             }
             #[cfg(not(feature = "sherpa-wake"))]
@@ -206,5 +257,33 @@ fn make_event_callback(callback: &CallbackSlot) -> WakeCallback {
 impl Default for WakeWordHandle {
     fn default() -> Self {
         Self::new(WakeWordConfig::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::WakeWordConfig;
+    use crate::event::WakeWordBackend;
+
+    use super::validate_config;
+
+    #[test]
+    fn sherpa_rejects_a_phrase_outside_its_bundled_vocabulary() {
+        let config = WakeWordConfig {
+            backend: WakeWordBackend::SherpaOnnx,
+            phrase: "привет фоно".into(),
+            ..WakeWordConfig::default()
+        };
+        assert!(validate_config(&config).is_err());
+    }
+
+    #[test]
+    fn whisper_accepts_a_custom_phrase() {
+        let config = WakeWordConfig {
+            backend: WakeWordBackend::WhisperExperimental,
+            phrase: "привет фоно".into(),
+            ..WakeWordConfig::default()
+        };
+        assert!(validate_config(&config).is_ok());
     }
 }

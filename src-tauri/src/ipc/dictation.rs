@@ -1,6 +1,6 @@
 //! IPC commands for observing and controlling the active dictation operation.
 
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::error::AppResult;
 use crate::operation::OperationSource;
@@ -16,16 +16,16 @@ pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
 
 #[tauri::command]
 pub fn start_dictation(app: AppHandle) -> AppResult<()> {
-    crate::commands::start_dictation_from(app, OperationSource::Ui)
+    crate::application::dictation::start(app, OperationSource::Ui)
 }
 
 pub(crate) fn start_dictation_from(app: AppHandle, source: OperationSource) -> AppResult<()> {
-    crate::commands::start_dictation_from(app, source)
+    crate::application::dictation::start(app, source)
 }
 
 #[tauri::command]
 pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
-    crate::commands::stop_dictation(app).await
+    crate::application::dictation::stop(app).await
 }
 
 #[tauri::command]
@@ -34,7 +34,7 @@ pub async fn transcribe_test(
     duration_ms: u64,
     inject: Option<bool>,
 ) -> AppResult<Transcript> {
-    crate::commands::transcribe_test(app, duration_ms, inject).await
+    crate::application::dictation::transcribe_test(app, duration_ms, inject).await
 }
 
 #[tauri::command]
@@ -49,7 +49,7 @@ pub fn cancel_dictation(app: AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     if let Some(event) = pipeline.cancel() {
-        let _ = app.emit("operation-state", event);
+        crate::events::emit_operation(&app, event);
     }
     let _ = pipeline.stop_recording();
     pipeline::set_state(&app, state.inner(), PipelineState::Idle);

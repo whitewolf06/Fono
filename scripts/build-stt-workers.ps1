@@ -11,6 +11,13 @@ $tauriRoot = Join-Path $repoRoot 'src-tauri'
 $workersDir = Join-Path $tauriRoot 'resources\stt-workers'
 New-Item -ItemType Directory -Path $workersDir -Force | Out-Null
 
+# Generated worker artifacts are a closed manifest. Remove only generated
+# executables/DLLs in the explicit staging directory before rebuilding so a
+# previous CUDA Toolkit or worker build cannot leak into the next installer.
+Get-ChildItem -LiteralPath $workersDir -File |
+    Where-Object { $_.Extension -in '.exe', '.dll' } |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
+
 function Invoke-Native([string]$File, [string[]]$Arguments) {
     & $File @Arguments
     if ($LASTEXITCODE -ne 0) {

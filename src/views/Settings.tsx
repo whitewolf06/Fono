@@ -1030,14 +1030,38 @@ export function SettingsView() {
                   className="input"
                   value={settings.llm_api_key ?? ""}
                   onChange={(e) =>
-                    update("llm_api_key", e.target.value || null)
+                    setSettings((current) => ({
+                      ...current,
+                      llm_api_key: e.target.value || null,
+                      has_llm_api_key:
+                        e.target.value.length > 0 || current.has_llm_api_key,
+                    }))
                   }
-                  placeholder="sk-..."
+                  placeholder={
+                    settings.has_llm_api_key
+                      ? "Ключ сохранён в Windows"
+                      : "sk-..."
+                  }
                 />
                 <p className="mt-1 text-xs text-neutral-500">
-                  Ключ хранится локально в settings.json. Для продакшена лучше
-                  использовать системное хранилище.
+                  Ключ хранится в Windows Credential Manager и не возвращается
+                  в интерфейс.
                 </p>
+                {settings.has_llm_api_key && (
+                  <button
+                    type="button"
+                    className="mt-2 text-xs text-red-400 hover:text-red-300"
+                    onClick={() =>
+                      setSettings((current) => ({
+                        ...current,
+                        llm_api_key: null,
+                        has_llm_api_key: false,
+                      }))
+                    }
+                  >
+                    Удалить сохранённый ключ
+                  </button>
+                )}
               </div>
             )}
             <div>

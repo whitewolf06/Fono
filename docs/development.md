@@ -45,6 +45,9 @@ cargo check -p fono --no-default-features --features whisper-wake
 cargo check -p fono --no-default-features --features sherpa-wake
 cargo check -p fono
 cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo deny check --config deny.toml
+cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_recording_lengths -- --nocapture
 ```
 
 ## Release
@@ -55,17 +58,27 @@ cargo test --workspace
 npm run release
 ```
 
-Он запускает frontend build, `scripts/build-stt-workers.ps1`, затем Tauri
-bundle. Скрипт создаёт:
+Если frontend и release resources уже подготовлены и проверены отдельно, повторную упаковку
+можно запустить через Tauri CLI с `src-tauri/tauri.prebuilt.conf.json`; этот
+override отключает только `beforeBuildCommand`, но не Rust build и bundling.
+
+Он запускает frontend build, затем `scripts/prepare-release-resources.ps1` и
+Tauri bundle. Подготовительный скрипт очищает только generated `.exe`/`.dll` в
+явно заданных staging-каталогах, пересобирает workers, отдельным release build
+получает Sherpa runtime и формирует закрытый manifest. Он создаёт:
 
 - `fono-stt-cuda-worker.exe` + CUDA runtime DLL;
 - `fono-stt-vulkan-worker.exe` на актуальном `vendor/whisper.cpp`.
 
 Не заменяйте worker-файлы вручную в installer: `build.rs` определяет реальный
-Cargo output через `OUT_DIR`, проверяет release-manifest и синхронизирует файлы с
-`<target-dir>/<profile>/resources/stt-workers` для прямого запуска EXE.
-`tauri.conf.json` кладёт подготовленные файлы в bundle. Неполный набор workers
-или Sherpa runtime DLL завершает release-сборку ошибкой.
+Cargo output через `OUT_DIR`, проверяет release-manifest и синхронизирует workers
+с `<target-dir>/<profile>/resources/stt-workers` для прямого запуска EXE. Сам
+`build.rs` не меняет source tree: `tauri.conf.json` кладёт только подготовленный
+manifest в bundle. Неполный или содержащий посторонние `.exe`/`.dll` набор
+workers либо Sherpa runtime завершает release-сборку ошибкой.
+
+Release использует зафиксированные `Cargo.lock` и toolchain. Политика обновления
+зависимостей и лицензий находится в `docs/dependency-policy.md`.
 
 Готовые артефакты:
 
@@ -81,6 +94,16 @@ src-tauri\target\release\bundle\msi\
 3. Убедиться, что в логах есть `STT backend selected: CUDA` либо `Vulkan`.
 4. Для Sherpa скачать KWS model и проверить встроенный `LIGHT UP` WAV, затем
    ручную запись текущей wake-фразы.
-5. Проверить, что worker не открывает Terminal.
+   Для Sherpa доступны только `hey fono` и `okay fun`; для другой фразы
+   используйте Whisper Experimental.
+5. Проверить wake → post-wake dictation → Listening: микрофон не должен
+   переподключаться между этими фазами, так как их обслуживает один `AudioHub`.
+6. Для command hotkey и явной команды после wake phrase убедиться, что действие
+   выполняется только после preview и confirm; смена настроек либо ожидание более
+   30 секунд инвалидирует preview.
+7. Проверить, что worker не открывает Terminal.
 
 Логи находятся в `%APPDATA%\Fono\logs`.
+
+API key LLM хранится в Windows Credential Manager под target
+`Fono/llm-api-key`; `settings.json`, IPC и диагностические логи его не содержат.

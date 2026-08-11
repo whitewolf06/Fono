@@ -7,13 +7,13 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use whisper_rs::{SamplingStrategy, WhisperContext, WhisperContextParameters};
 
-use crate::audio_source::AudioStream;
+use crate::audio_source::AudioHub;
 use crate::callback::CallbackSlot;
 use crate::config::WakeWordConfig;
 use crate::diag::{self, Diagnostics, DiagnosticsHandle};
 use crate::engine::WakeWordEngine;
 use crate::error::{WakeWordError, WakeWordResult};
-use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::event::{capabilities_for_backend, WakeWordCapabilities, WakeWordEvent, WakeWordStatus};
 use crate::test::WakeWordTestResult;
 use crate::WakeCallback;
 
@@ -21,6 +21,7 @@ use crate::WakeCallback;
 /// models cannot recognize reliably.
 pub struct WhisperExperimentalBackend {
     config: WakeWordConfig,
+    audio_hub: AudioHub,
     status: Arc<Mutex<WakeWordStatus>>,
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
@@ -30,9 +31,10 @@ pub struct WhisperExperimentalBackend {
 }
 
 impl WhisperExperimentalBackend {
-    pub fn new(config: WakeWordConfig) -> Self {
+    pub fn new(config: WakeWordConfig, audio_hub: AudioHub) -> Self {
         Self {
             config,
+            audio_hub,
             status: Arc::new(Mutex::new(WakeWordStatus::Off)),
             running: Arc::new(AtomicBool::new(false)),
             paused: Arc::new(AtomicBool::new(false)),
@@ -76,12 +78,19 @@ impl WakeWordEngine for WhisperExperimentalBackend {
         let paused = self.paused.clone();
         let callback = self.callback.clone();
         let diag = self.diag.clone();
+        let audio_hub = self.audio_hub.clone();
         let handle = thread::spawn(move || {
             let error_callback = callback.clone();
             let error_diag = diag.clone();
-            if let Err(error) =
-                whisper_loop(config, running, paused, status, callback, diag.clone())
-            {
+            if let Err(error) = whisper_loop(
+                config,
+                audio_hub,
+                running,
+                paused,
+                status,
+                callback,
+                diag.clone(),
+            ) {
                 tracing::error!("fono-wake whisper: loop ended: {error}");
                 notify(
                     &error_callback,
@@ -127,6 +136,10 @@ impl WakeWordEngine for WhisperExperimentalBackend {
         *self.status.lock()
     }
 
+    fn capabilities(&self) -> WakeWordCapabilities {
+        capabilities_for_backend(self.config.backend)
+    }
+
     fn diagnostics(&self) -> Option<Diagnostics> {
         let mut diagnostics = self.diag.lock().data.clone();
         diagnostics.running = self.running.load(Ordering::SeqCst);
@@ -143,6 +156,7 @@ impl Drop for WhisperExperimentalBackend {
 
 fn whisper_loop(
     config: WakeWordConfig,
+    audio_hub: AudioHub,
     running: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     status: Arc<Mutex<WakeWordStatus>>,
@@ -160,7 +174,7 @@ fn whisper_loop(
     let audio_writer = audio.clone();
     let audio_diag = diagnostics.clone();
 
-    let _stream = AudioStream::start(
+    let _subscription = audio_hub.subscribe(
         config.audio_device_id.as_deref(),
         config.sample_rate,
         move |frames| {
@@ -354,26 +368,32 @@ fn phrase_matches(transcript: &str, phrase: &str) -> bool {
         return false;
     }
     if phrase == "hey fono" {
-        let words: Vec<&str> = transcript.split_whitespace().collect();
-        let prefix = words
-            .iter()
-            .any(|word| matches!(*word, "hey" | "she" | "hi" | "хей"));
-        let name = words
-            .iter()
-            .any(|word| matches!(*word, "fono" | "phono" | "phone" | "фоно" | "фона"));
-        return prefix && name;
+        return has_adjacent_variant(
+            transcript,
+            &["hey", "she", "hi", "хей"],
+            &["fono", "phono", "phone", "фоно", "фона"],
+        );
     }
     if phrase == "okay fun" {
-        let words: Vec<&str> = transcript.split_whitespace().collect();
-        let prefix = words
-            .iter()
-            .any(|word| matches!(*word, "okay" | "ok" | "okey" | "окей"));
-        let name = words
-            .iter()
-            .any(|word| matches!(*word, "fun" | "fan" | "фан" | "фэн"));
-        return prefix && name;
+        return has_adjacent_variant(
+            transcript,
+            &["okay", "ok", "okey", "окей"],
+            &["fun", "fan", "фан", "фэн"],
+        );
     }
-    transcript.contains(phrase)
+    let expected: Vec<&str> = phrase.split_whitespace().collect();
+    let actual: Vec<&str> = transcript.split_whitespace().collect();
+    actual
+        .windows(expected.len())
+        .any(|window| window == expected)
+}
+
+fn has_adjacent_variant(transcript: &str, prefixes: &[&str], names: &[&str]) -> bool {
+    transcript
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|pair| prefixes.contains(&pair[0]) && names.contains(&pair[1]))
 }
 
 fn event_name(event: &WakeWordEvent) -> &'static str {
@@ -403,6 +423,8 @@ mod tests {
         assert!(phrase_matches("she phono", "hey fono"));
         assert!(phrase_matches("hey fono", "hey fono"));
         assert!(!phrase_matches("phone", "hey fono"));
+        assert!(!phrase_matches("hey please open fono", "hey fono"));
+        assert!(!phrase_matches("fono hey", "hey fono"));
     }
 
     #[test]
@@ -410,10 +432,18 @@ mod tests {
         assert!(phrase_matches("okay fun", "okay fun"));
         assert!(phrase_matches("ok fan", "okay fun"));
         assert!(!phrase_matches("have fun", "okay fun"));
+        assert!(!phrase_matches("okay now fun", "okay fun"));
     }
 
     #[test]
     fn normalization_removes_punctuation() {
         assert_eq!(normalize_phrase(" She, PHONO! "), "she phono");
+    }
+
+    #[test]
+    fn custom_phrase_requires_adjacent_words() {
+        assert!(phrase_matches("открой фоно", "открой фоно"));
+        assert!(!phrase_matches("открой пожалуйста фоно", "открой фоно"));
+        assert!(!phrase_matches("фоно открой", "открой фоно"));
     }
 }

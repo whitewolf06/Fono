@@ -73,7 +73,7 @@ mod sherpa_impl {
             spotter_config.keywords_buf = None;
         } else {
             spotter_config.keywords_file = None;
-            spotter_config.keywords_buf = Some(phrase_to_tokens(&config.phrase));
+            spotter_config.keywords_buf = Some(phrase_to_tokens(&config.phrase)?);
         }
 
         let spotter = sherpa_onnx::KeywordSpotter::create(&spotter_config)

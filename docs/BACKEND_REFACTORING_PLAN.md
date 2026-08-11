@@ -1,31 +1,51 @@
 # Fono: план рефакторинга Rust-бэкенда
 
-Статус: выполняется; оставшиеся работы уточнены
-Дата ревизии: 2026-08-10
+Статус: основной hardening-срез реализован; полный DoD ещё требует runtime qualification
+Дата ревизии: 2026-08-11
 Рабочая ветка: codex/backend-refactoring  
 Область: src-tauri и собственные Rust-crates проекта  
 Не входит в область: переписывание UI v2, изменение моделей Whisper/Sherpa, рефакторинг vendored whisper.cpp
 
 ## 0. Текущий прогресс реализации
 
-Срез на 2026-08-08:
+Срез на 2026-08-11:
 
 | Работа | Статус | Результат |
 | --- | --- | --- |
-| BR-001 | Частично выполнено | Введён `OperationCoordinator`: один active lease, источники UI/hotkey/wake/diagnostics, типизированные фазы и terminal events. UI/hotkey и wake-flow меняют state только по точному `operation_id`, а Pipeline публикует `operation-state`; полный перенос cleanup на operation-specific leases еще предстоит |
-| BR-002 | Частично выполнено | Wake-triggered диктовка использует `WakePauseGuard`: wake listener возобновляется при любом раннем выходе и после любой await-ветки; инвариант покрыт unit-тестом. Остальные audio/overlay cleanup-пути еще предстоит собрать в leases |
-| BR-003 | Частично выполнено | Удалён `StreamHolder` с `unsafe impl Send + Sync`: CPAL stream живёт на выделенном `AudioRecordingOwner` thread, Pipeline использует только start/stop commands. Оставшийся `align_to` имеет safety comment; полный audit audio conversion ещё предстоит |
+| BR-001 | Выполнена coordinator-версия | `OperationCoordinator`, FSM и cancellation policy вынесены в независимый `fono-core`; UI/hotkey/wake/diagnostics используют единый active lease и operation fencing |
+| BR-002 | Выполнена coordinator-версия | Wake-triggered диктовка использует `WakePauseGuard`; `OperationCoordinator` выдаёт operation-scoped leases для audio/STT/injection и очищает их при cancel/failure/finish. Инъецируемый audio adapter покрывает отказ acquisition без активной операции/lease; 1000 core-циклов `start → leases → cancel/failed` не оставляют активных lease. HTTP и overlay adapter fault-injection покрыты без внешней сети/Tauri runtime |
+| BR-003 | Выполнено | Удалён `StreamHolder` с `unsafe impl Send + Sync`: CPAL stream принадлежит выделенному owner thread внутри `AudioHub`. Единственный unsafe в audio conversion — локальный `align_to` с проверяемым safety contract |
 | BR-004 | Выполнена первая safety-версия | Буфер ограничен 5 минутами, watchdog закрывает потерянную запись, повторный start возвращает Busy |
 | BR-005 | Выполнено | Микрофон освобождается до VAD, загрузки модели и транскрипции |
-| BR-006 | Частично выполнено | Supervision вынесен в `stt/worker.rs`: модуль владеет child/I/O threads, deadline покрывает stdin/stdout, timeout приводит к kill + wait, I/O threads join, stderr bounded, следующая операция перезапускает worker. Fault-injection тесты покрывают зависание, аварийный выход и битый JSON реального дочернего worker |
-| BR-007 | Частично выполнено | Sherpa/Whisper/Mock имеют Drop/stop, Sherpa сохраняет JoinHandle; callback вызывается вне mutex |
-| BR-008 | Частично выполнено | Настройки и история пишутся через синхронизированный временный файл; на Windows используется атомарный `ReplaceFileW` с backup предыдущей полной версии. Повреждённый или пропавший primary JSON автоматически восстанавливается из backup, сериализация операций записи защищена process-local mutex; migration/schema version остаётся отдельной работой. |
-| BR-009 | Частично выполнено | Настройки проходят базовую валидацию; новые hotkey регистрируются до persistence/publication. Ошибка регистрации или записи возвращает предыдущие shortcuts, а состояние в памяти/UI публикуется только после успешной записи. Асинхронный prepare/activate/rollback wake и модели ещё предстоит. |
-| BR-011 | Частично выполнено | build.rs использует OUT_DIR, release manifest fail-fast, Sherpa DLL allowlist; отдельный release-resource pipeline еще предстоит |
+| BR-006 | Выполнено | Supervisor владеет child/I/O threads, deadlines, bounded diagnostics, kill/wait recovery; protocol v2 добавляет handshake, capabilities, request/operation IDs, frame limits, health и graceful shutdown |
+| BR-007 | Выполнена lifecycle-версия | Sherpa/Whisper/Mock имеют idempotent stop/Drop и JoinHandle; replacement wake engine стартует до остановки старого, поэтому ошибка prepare не разрушает рабочую конфигурацию |
+| BR-008 | Выполнено | Settings/history — versioned documents (`schema_version = 1`) с legacy migration, temp+sync+atomic replace и recovery backup |
+| BR-009 | Выполнена транзакционная версия | Hotkeys, model load, wake replacement и secret update подготавливаются до persistence/publication; ошибки откатывают runtime registrations и credential |
+| BR-010 | Выполнено для текущего среза | Whisper/KWS downloads используют cancellable staging, progress events, проверку Content-Length и структуры; Whisper дополнительно проверяется по фиксированному SHA-256. При cancel/error staging удаляется, частичный файл не активируется |
+| BR-011 | Выполнено как release-resource pipeline | `prepare-release-resources.ps1` очищает только generated staging `.exe`/`.dll`, пересобирает CUDA/Vulkan workers, отдельным release build получает Sherpa runtime и формирует закрытый manifest. `build.rs` использует OUT_DIR, валидирует manifest fail-fast и не модифицирует source tree |
+| BR-012 | Выполнено | Tauri exit вызывает idempotent shutdown Pipeline, `AudioHub`, wake engine и clipboard injection worker |
+| BR-013 | Частично выполнено | FSM/coordinator/cancellation и resource leases вынесены в `fono-core`; ports/adapters ещё остаются в application crate |
+| BR-014 | Выполнено для текущего среза | Удалён `commands.rs`; dictation, wake-sample, diagnostics и model-download orchestration перенесены в `application/`, а прежние IPC names сохранены тонкими facade-функциями |
+| BR-015 | Выполнена первая versioned-версия | Pipeline, wake, settings, model-download и error events публикуются как `backend-event-v1` с `schema_version = 1`; compatibility mapper продолжает публиковать прежние UI v2 channels |
+| BR-016 | Выполнено для текущего среза | Удалены неиспользуемые `run_full_pipeline`, `start_background` и wrapper-пути записи; operation-specific transitions и terminal state принадлежат единственному `Pipeline` |
 | BR-017 | Выполнено | Проходят no-default, Whisper-only, Sherpa-only и default configurations |
+| BR-018 | Выполнено | Rust CUDA/CPU worker и C++ Vulkan worker переведены на versioned protocol v2; response с чужим request_id завершает session |
+| BR-019 | Выполнено | Command hotkey и явная команда после wake phrase создают typed `CommandProposal` с operation/source/normalized action/TTL/settings snapshot; preview обязателен, proposal истекает через 30 секунд и invalidated при изменении settings. Автоматическое выполнение исключено |
+| BR-020 | Выполнено для Windows | LLM API key хранится в Windows Credential Manager, не сериализуется в settings/event и renderer получает только `has_llm_api_key` |
+| BR-021 | Выполнено | settings/overlay capabilities разделены, `withGlobalTauri` отключён, CSP включён, неиспользуемые runtime plugins удалены |
+| BR-022 | Выполнено | History вынесена в сериализованный repository с retention=200, collision-safe ID, privacy flag и warning event при ошибке записи |
+| BR-023 | Выполнено | `AudioHub` владеет одним physical CPAL stream и выдаёт bounded RAII subscriptions. Wake и dictation используют одинаковый device/rate; lease передаётся без закрытия устройства при переходе wake → dictation |
+| BR-024 | Выполнена allocation-reuse версия | Audio callback переиспользует conversion/mix/resample buffers; level meter вычисляется в callback и читается через atomic |
+| BR-026 | Выполнена baseline-версия | Измерительный test сериализует реальные JSON/base64 requests на 5/30/120 секунд и проверяет maximum 5-minute recording. На текущей машине: 0.21/1.28/5.12 MiB JSON, 3/24/102 ms encode; binary PCM не вводился, так как payload остаётся ниже 16 MiB лимита |
+| BR-027 | Выполнена lock-scope/health/cancel версия | Routing state STT удерживается только при выборе/замене backend-а; длительная транскрипция сериализована отдельным lock выбранной embedded/worker session. Model/worker replacement готовится под отдельным load-gate вне routing lock, предыдущая session освобождается уже после swap. Typed health API использует `try_lock`: занятая транскрипция даёт `busy`, свободный worker получает versioned `ping`. Отмена прерывает ожидание ответа worker и завершает зависшую session; embedded Whisper сохраняет кооперативную отмену с result fencing, потому что native `full` не имеет безопасного interrupt API. Полноценный actor/mailbox ещё предстоит |
+| BR-028 | Выполнена readiness-contract версия | Backend публикует typed `unloaded/loading/ready/failed` readiness через IPC; model replacement по-прежнему готовится до swap. Фоновая preload orchestration и UI-индикация остаются отдельным следующим срезом |
+| BR-029 | Выполнено | Clipboard injection сериализована bounded owner worker'ом, проверяет foreground HWND, восстанавливает text/image/file-list и явно завершается при shutdown |
 | BR-032 | Выполнено как gate | Весь workspace проходит strict Clippy с -D warnings |
-| BR-033 | Частично выполнено | Cargo.lock отслеживается, toolchain закреплен; dependency audit policy еще предстоит |
-| BR-030 | Частично выполнено | LLM использует один `reqwest::Client` с connection pool, connect/request deadlines, bounded JSON response (2 MiB) и отказом от пустого content. Cancellation через operation lease и HTTP fault-injection ещё предстоят. |
+| BR-033 | Частично выполнено | Cargo.lock/toolchain закреплены, `cargo-deny` установлен и проверяет поставляемый Windows target; licenses/bans/sources проходят. Advisories блокируют 5 unmaintained `unic-*` транзитивно из `tauri-utils`, у всех нет safe upgrade; нужен owner-approved exception с expiry либо обновление Tauri |
+| BR-034 | Выполнено | Backend публикует typed capabilities; Sherpa принимает только подтверждённые bundled phrases и отклоняет остальные до persistence. Whisper matching требует adjacency и порядок слов; варианты русского/английского и false positives покрыты unit-тестами |
+| BR-035 | Выполнено для текущего среза | Логи ротируются с retention 14 файлов и читаются bounded tail; diagnostic WAV/temp downloads/in-memory sample очищаются; transcript не логируется |
+| BR-036 | Выполнено для текущего среза | architecture/development/testing docs синхронизированы с IPC/application/fono-core, protocol v2, secrets и shared physical audio |
+| BR-030 | Выполнена baseline-версия | LLM использует один `reqwest::Client` с connection pool, connect/request deadlines, bounded JSON response (2 MiB) и отказом от пустого content. Operation cancellation прерывает ожидание HTTP request во всех dictation flows; локальный HTTP fault-injection harness проверяет 503, malformed JSON и response limit без внешней сети. End-to-end проверка конкретного внешнего LLM-сервера остаётся manual qualification. |
 
 Промежуточные коммиты:
 
@@ -35,18 +55,19 @@
 - f88aace — strict Clippy и wake lifecycle;
 - 8b84995 — worker deadlines и recovery.
 
-Это не означает завершение этапа 1: еще нужны fault-injection stress tests, транзакционное persistence, полный wake reconfigure soak и отдельный Coordinator.
+Это не означает полного Definition of Done: остаётся внешний fault-injection для resource acquisition, STT actor/mailbox и warm readiness, soak/leak и ручная release qualification.
 
-### Зафиксированный остаток работ на 2026-08-10
+### Результат текущего среза на 2026-08-11
 
-Следующие пункты являются оставшейся областью текущей ветки. Разделение IPC уже начато: выделены `system`, `audio`, `text`, `llm`, `models`, `settings`, `diagnostics`, `voice`, `wake` и `dictation`. Это не завершает BR-014: две большие реализации пока остаются в `src-tauri/src/commands.rs`.
-
-1. **Завершить BR-014 без переходных production-путей.** Физически перенести `start_dictation_from`, `stop_dictation` и `transcribe_test` вместе с operation fencing, VAD, STT, LLM, injection и history в dictation use-case. Затем перенести запись и распознавание тестовой wake-фразы вместе с временным буфером в wake use-case. Удалить `commands.rs` и все helpers, которые после переноса не имеют второго потребителя.
-2. **BR-015 — versioned typed events.** Описать DTO для pipeline, wake, settings, model-download и error events; сохранить UI v2 compatibility mapper до отдельной синхронной миграции renderer.
-3. **BR-016 — один orchestration path.** Удалить дублирующие cleanup/transition ветки после переноса dictation и wake use-case; доказать тестами, что единственный `Pipeline` владеет записью и terminal state.
-4. **Завершить отмену длительных работ.** Operation cancellation должна прерывать LLM-запрос и загрузку модели, а downloads должны иметь progress, checksum/size verification и cleanup staging-файлов.
-5. **Расширить проверки отказов.** Добавить unit/integration tests для cancellation во время STT/LLM/download, ошибки записи, repeated start/stop, wake pause/resume, shutdown и history persistence warning.
-6. **Финальная квалификация desktop build.** После зелёных `fmt`, `test` и strict Clippy собрать Tauri desktop без installer и вручную проверить main window, overlay, UI/hotkey/wake dictation, history, settings и shutdown. Installer проверяется только отдельным release-этапом.
+| Пункт | Статус | Подтверждение |
+| --- | --- | --- |
+| BR-014 без переходных production-путей | Выполнено | `commands.rs` удалён; use cases находятся в `application/`; IPC contracts сохранены |
+| BR-015 versioned typed events | Выполнена v1 | Единый `backend-event-v1` и legacy compatibility emissions покрыты serialization tests |
+| BR-016 один владелец transition/terminal state | Выполнено | Старые pipeline implementations удалены; stale/cancel/shutdown invariants покрыты тестами |
+| Отмена длительных работ | Выполнено для dictation/download flows | STT worker при cancel завершает зависшую session; встроенный Whisper кооперативно отбрасывает поздний результат. Model-load waits и LLM requests fenced/cancellable; downloads имеют progress, cancel, size/checksum verification и staging cleanup |
+| Проверки отказов | Выполнен автоматизированный gate | Workspace tests покрывают worker hang/crash/malformed response, cancellation signal/download, repeated operation ownership, wake pause/resume, shutdown idempotency и atomic persistence recovery |
+| Desktop qualification | Startup smoke выполнен частично | Release EXE запущен как Tauri process; smoke обнаружил старые GPU workers, после чего CUDA/Vulkan workers пересобраны на protocol v2 и повторный запуск удержал worker session. Оба packaged workers отдельно прошли `hello → ready → shutdown` с protocol=2 и exit=0. Main/overlay/hotkey/microphone/history/settings/shutdown ещё требуют пользовательского прогона |
+| Installer qualification | Артефакты сформированы, smoke не выполнен | NSIS собран штатным `makensis`; MSI слинкован с `-sval`, потому что Windows Installer Service недоступен для ICE validation в текущей среде. Установка/запуск не проверялись |
 
 ## 1. Цель
 

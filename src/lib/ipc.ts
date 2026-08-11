@@ -35,6 +35,14 @@ export const ipc = {
     invoke<void>("reinsert_dictation", { text }),
   getPendingVoiceCommand: () =>
     invoke<string | null>("get_pending_voice_command"),
+  getPendingCommandProposal: () =>
+    invoke<import("./types").CommandProposal | null>(
+      "get_pending_command_proposal",
+    ),
+  getWakeWordCapabilities: () =>
+    invoke<import("./types").WakeWordCapabilities>(
+      "get_wake_word_capabilities",
+    ),
   confirmVoiceCommand: () => invoke<string>("confirm_voice_command"),
   cancelVoiceCommand: () => invoke<void>("cancel_voice_command"),
 

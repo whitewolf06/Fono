@@ -9,6 +9,7 @@
     "dev:ui": "vite --mode ui",
     "build": "tsc && vite build",
     "build:workers": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-stt-workers.ps1",
+    "prepare:release-resources": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prepare-release-resources.ps1",
     "release": "npm run tauri -- build",
     "preview": "vite preview",
     "tauri": "tauri",

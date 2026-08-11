@@ -6,7 +6,7 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::Write,
@@ -17,18 +17,26 @@ use std::{
     },
 };
 
-use crate::error::AppResult;
-use crate::types::DictationHistoryEntry;
-use crate::types::Settings;
+use crate::error::{AppError, AppResult};
+use crate::types::{CommandProposal, CommandSettingsSnapshot, Settings};
 
 static PERSISTENCE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+const PERSISTENCE_SCHEMA_VERSION: u16 = 1;
+
+#[derive(Debug, Deserialize, Serialize)]
+struct VersionedDocument<T> {
+    schema_version: u16,
+    data: T,
+}
 
 pub struct AppState {
     pub settings: Mutex<Settings>,
     pub pipeline_state: Mutex<crate::types::PipelineState>,
     pub dictation_paused: Mutex<bool>,
-    pending_voice_command: Mutex<Option<String>>,
+    settings_version: AtomicU64,
+    next_command_proposal_id: AtomicU64,
+    pending_command_proposal: Mutex<Option<CommandProposal>>,
 }
 
 impl Default for AppState {
@@ -43,7 +51,9 @@ impl AppState {
             settings: Mutex::new(Settings::default()),
             pipeline_state: Mutex::new(crate::types::PipelineState::Idle),
             dictation_paused: Mutex::new(false),
-            pending_voice_command: Mutex::new(None),
+            settings_version: AtomicU64::new(1),
+            next_command_proposal_id: AtomicU64::new(1),
+            pending_command_proposal: Mutex::new(None),
         };
         // Пробуем подгрузить сохранённые настройки с диска
         match load_settings() {
@@ -60,6 +70,7 @@ impl AppState {
 
     pub fn set_settings(&self, settings: Settings) {
         *self.settings.lock() = settings;
+        self.settings_version.fetch_add(1, Ordering::SeqCst);
     }
 
     pub fn pipeline_state(&self) -> crate::types::PipelineState {
@@ -84,16 +95,51 @@ impl AppState {
         *paused
     }
 
-    pub fn pending_voice_command(&self) -> Option<String> {
-        self.pending_voice_command.lock().clone()
+    pub fn command_settings_snapshot(&self) -> CommandSettingsSnapshot {
+        let settings = self.settings();
+        CommandSettingsSnapshot {
+            version: self.settings_version.load(Ordering::SeqCst),
+            launch_apps: settings.launch_apps,
+            volume_step: settings.volume_step,
+        }
     }
 
-    pub fn set_pending_voice_command(&self, command: Option<String>) {
-        *self.pending_voice_command.lock() = command;
+    pub fn next_command_proposal_id(&self) -> u64 {
+        self.next_command_proposal_id
+            .fetch_add(1, Ordering::Relaxed)
     }
 
-    pub fn take_pending_voice_command(&self) -> Option<String> {
-        self.pending_voice_command.lock().take()
+    pub fn pending_command_proposal(&self) -> Option<CommandProposal> {
+        let mut pending = self.pending_command_proposal.lock();
+        if pending
+            .as_ref()
+            .is_some_and(|proposal| proposal.is_expired_at(chrono::Utc::now()))
+        {
+            *pending = None;
+        }
+        pending.clone()
+    }
+
+    pub fn set_pending_command_proposal(&self, proposal: Option<CommandProposal>) {
+        *self.pending_command_proposal.lock() = proposal;
+    }
+
+    pub fn take_pending_command_proposal(&self) -> AppResult<CommandProposal> {
+        let proposal = self
+            .pending_command_proposal
+            .lock()
+            .take()
+            .ok_or_else(|| AppError::Config("No pending voice command".into()))?;
+        if proposal.is_expired_at(chrono::Utc::now()) {
+            return Err(AppError::Config("Voice command proposal expired".into()));
+        }
+        let current_version = self.settings_version.load(Ordering::SeqCst);
+        if proposal.settings_version != current_version {
+            return Err(AppError::Config(
+                "Voice command proposal was invalidated by settings changes".into(),
+            ));
+        }
+        Ok(proposal)
     }
 }
 
@@ -115,32 +161,25 @@ pub fn history_path() -> AppResult<std::path::PathBuf> {
     Ok(app_data_dir()?.join("dictation-history.json"))
 }
 
-pub fn load_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
-    let _guard = PERSISTENCE_LOCK.lock();
+pub(crate) fn load_history_document<T>() -> AppResult<Vec<T>>
+where
+    T: DeserializeOwned + Serialize,
+{
     let path = history_path()?;
-    Ok(load_json_with_backup(&path)?.unwrap_or_default())
+    let Some((entries, legacy)) = load_versioned_json_with_backup(&path)? else {
+        return Ok(Vec::new());
+    };
+    if legacy {
+        save_versioned_json_atomically(&path, &entries)?;
+    }
+    Ok(entries)
 }
 
-pub fn append_dictation_history(entry: DictationHistoryEntry) -> AppResult<()> {
-    let _guard = PERSISTENCE_LOCK.lock();
-    let path = history_path()?;
-    let mut entries: Vec<DictationHistoryEntry> = load_json_with_backup(&path)?.unwrap_or_default();
-    entries.insert(0, entry);
-    entries.truncate(200);
-    save_json_atomically(&path, &entries)
-}
-
-pub fn clear_dictation_history() -> AppResult<()> {
-    let _guard = PERSISTENCE_LOCK.lock();
-    save_json_atomically(&history_path()?, &Vec::<DictationHistoryEntry>::new())
-}
-
-pub fn delete_dictation_history_entry(id: &str) -> AppResult<()> {
-    let _guard = PERSISTENCE_LOCK.lock();
-    let path = history_path()?;
-    let mut entries: Vec<DictationHistoryEntry> = load_json_with_backup(&path)?.unwrap_or_default();
-    entries.retain(|entry| entry.id != id);
-    save_json_atomically(&path, &entries)
+pub(crate) fn save_history_document<T>(entries: &[T]) -> AppResult<()>
+where
+    T: Serialize,
+{
+    save_versioned_json_atomically(&history_path()?, &entries)
 }
 
 /// Каталог для whisper-моделей.
@@ -153,19 +192,65 @@ pub fn models_dir() -> AppResult<std::path::PathBuf> {
 pub fn load_settings() -> AppResult<Option<Settings>> {
     let _guard = PERSISTENCE_LOCK.lock();
     let path = settings_path()?;
-    let settings = load_json_with_backup(&path)?;
-    if settings.is_some() {
+    let Some((mut settings, legacy)) = load_versioned_json_with_backup::<Settings>(&path)? else {
+        return Ok(None);
+    };
+
+    if let Some(api_key) = settings.llm_api_key.take() {
+        crate::secrets::store_llm_api_key(&api_key)?;
+        settings.has_llm_api_key = true;
+    } else {
+        settings.has_llm_api_key = crate::secrets::load_llm_api_key()?.is_some();
+    }
+    if legacy {
+        save_versioned_json_atomically(&path, &settings)?;
+    }
+    {
         tracing::info!(?path, "loaded settings");
     }
-    Ok(settings)
+    Ok(Some(settings))
 }
 
 pub fn save_settings(settings: &Settings) -> AppResult<()> {
     let _guard = PERSISTENCE_LOCK.lock();
     let path = settings_path()?;
-    save_json_atomically(&path, settings)?;
+    save_versioned_json_atomically(&path, settings)?;
     tracing::info!(?path, "saved settings");
     Ok(())
+}
+
+fn load_versioned_json_with_backup<T>(path: &Path) -> AppResult<Option<(T, bool)>>
+where
+    T: DeserializeOwned + Serialize,
+{
+    let Some(raw) = load_json_with_backup::<serde_json::Value>(path)? else {
+        return Ok(None);
+    };
+    if raw.get("schema_version").is_some() {
+        let document: VersionedDocument<T> = serde_json::from_value(raw)?;
+        if document.schema_version != PERSISTENCE_SCHEMA_VERSION {
+            return Err(crate::error::AppError::Config(format!(
+                "unsupported persistence schema version {} in {path:?}; expected {PERSISTENCE_SCHEMA_VERSION}",
+                document.schema_version
+            )));
+        }
+        Ok(Some((document.data, false)))
+    } else {
+        Ok(Some((serde_json::from_value(raw)?, true)))
+    }
+}
+
+fn save_versioned_json_atomically<T>(path: &Path, value: &T) -> AppResult<()>
+where
+    T: Serialize,
+{
+    save_json_atomically(
+        path,
+        &VersionedDocument {
+            schema_version: PERSISTENCE_SCHEMA_VERSION,
+            data: value,
+        },
+    )
 }
 
 fn load_json_with_backup<T>(path: &Path) -> AppResult<Option<T>>
@@ -415,5 +500,76 @@ mod tests {
         assert_eq!(preserved_backup, previous);
 
         fs::remove_dir_all(path.parent().expect("test directory")).expect("remove test directory");
+    }
+
+    #[test]
+    fn legacy_document_is_detected_and_rewritten_with_schema_version() {
+        let path = temporary_test_path("legacy.json");
+        let legacy = StoredValue {
+            value: "legacy".into(),
+        };
+        save_json_atomically(&path, &legacy).expect("write legacy document");
+
+        let (loaded, needs_migration) = load_versioned_json_with_backup::<StoredValue>(&path)
+            .expect("load legacy document")
+            .expect("legacy document exists");
+        assert_eq!(loaded, legacy);
+        assert!(needs_migration);
+
+        save_versioned_json_atomically(&path, &loaded).expect("write versioned document");
+        let raw: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).expect("read versioned document"))
+                .expect("parse versioned document");
+        assert_eq!(raw["schema_version"], PERSISTENCE_SCHEMA_VERSION);
+        assert_eq!(raw["data"]["value"], "legacy");
+
+        fs::remove_dir_all(path.parent().expect("test directory")).expect("remove test directory");
+    }
+
+    #[test]
+    fn future_schema_version_is_rejected() {
+        let path = temporary_test_path("future.json");
+        fs::write(&path, r#"{"schema_version":999,"data":{"value":"future"}}"#)
+            .expect("write future document");
+
+        let error = load_versioned_json_with_backup::<StoredValue>(&path).unwrap_err();
+        assert!(error.to_string().contains("unsupported persistence schema"));
+
+        fs::remove_dir_all(path.parent().expect("test directory")).expect("remove test directory");
+    }
+
+    #[test]
+    fn command_proposal_is_invalidated_when_settings_change() {
+        let state = AppState::new();
+        let proposal = crate::application::command_proposal::create(
+            &state,
+            7,
+            crate::operation::OperationSource::Hotkey,
+            "громче".into(),
+            None,
+        );
+        assert!(state.pending_command_proposal().is_some());
+
+        state.set_settings(Settings::default());
+        let error = state.take_pending_command_proposal().unwrap_err();
+        assert!(error.to_string().contains("invalidated"));
+        assert_eq!(proposal.operation_id, 7);
+    }
+
+    #[test]
+    fn expired_command_proposal_cannot_be_confirmed() {
+        let state = AppState::new();
+        let mut proposal = crate::application::command_proposal::create(
+            &state,
+            8,
+            crate::operation::OperationSource::Hotkey,
+            "тише".into(),
+            None,
+        );
+        proposal.expires_at = chrono::Utc::now() - chrono::Duration::seconds(1);
+        state.set_pending_command_proposal(Some(proposal));
+
+        assert!(state.pending_command_proposal().is_none());
+        assert!(state.take_pending_command_proposal().is_err());
     }
 }

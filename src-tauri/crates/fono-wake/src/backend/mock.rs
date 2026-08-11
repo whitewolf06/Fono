@@ -9,7 +9,7 @@ use crate::callback::CallbackSlot;
 use crate::config::WakeWordConfig;
 use crate::engine::WakeWordEngine;
 use crate::error::WakeWordResult;
-use crate::event::{WakeWordEvent, WakeWordStatus};
+use crate::event::{capabilities_for_backend, WakeWordCapabilities, WakeWordEvent, WakeWordStatus};
 use crate::WakeCallback;
 
 /// Simulated wake word for tests and UI demos.
@@ -95,6 +95,10 @@ impl WakeWordEngine for MockBackend {
 
     fn status(&self) -> WakeWordStatus {
         *self.status.lock()
+    }
+
+    fn capabilities(&self) -> WakeWordCapabilities {
+        capabilities_for_backend(self.config.backend)
     }
 }
 
