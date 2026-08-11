@@ -35,7 +35,7 @@ pub struct Pipeline {
     writer: Mutex<Option<RecordingWriter>>,
     /// Adapter for the physical CPAL subscription; production keeps stream
     /// ownership inside AudioRecordingOwner while tests can inject failures.
-    audio_owner: Box<dyn AudioRecorder>,
+    audio_owner: Box<dyn AudioRecorder<RecordingWriter, AppError>>,
     /// Set when the audio callback has filled the bounded recording buffer.
     recording_limit_reached: Arc<AtomicBool>,
     audio_level_bits: Arc<AtomicU32>,
@@ -54,7 +54,9 @@ impl Pipeline {
         Self::new_with_audio_owner(Box::new(AudioRecordingOwner::new(audio_hub)))
     }
 
-    fn new_with_audio_owner(audio_owner: Box<dyn AudioRecorder>) -> Self {
+    fn new_with_audio_owner(
+        audio_owner: Box<dyn AudioRecorder<RecordingWriter, AppError>>,
+    ) -> Self {
         Self {
             recording: Mutex::new(false),
             writer: Mutex::new(None),
@@ -396,7 +398,7 @@ mod tests {
 
     struct FailingAudioRecorder;
 
-    impl AudioRecorder for FailingAudioRecorder {
+    impl AudioRecorder<RecordingWriter, AppError> for FailingAudioRecorder {
         fn start(
             &self,
             _device_id: Option<&str>,

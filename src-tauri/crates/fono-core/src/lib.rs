@@ -3,9 +3,26 @@
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use thiserror::Error;
+
+/// Platform-neutral capture boundary. The application selects the buffer and
+/// error types; CPAL/Tauri stay in the adapter crate.
+pub trait AudioCapturePort<Writer, Error>: Send + Sync {
+    fn start(
+        &self,
+        device_id: Option<&str>,
+        writer: Writer,
+        limit_reached: Arc<AtomicBool>,
+        level_bits: Arc<AtomicU32>,
+        maximum_samples: usize,
+    ) -> Result<(), Error>;
+
+    fn stop(&self) -> Result<(), Error>;
+
+    fn shutdown(&self);
+}
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CoordinatorError {

@@ -14,23 +14,7 @@ use crate::error::{AppError, AppResult};
 use crate::types::DeviceInfo;
 
 pub type RecordingWriter = Arc<Mutex<Vec<i16>>>;
-
-/// Narrow port between Pipeline and the physical audio subscription. Keeping
-/// this boundary explicit permits lifecycle fault tests without a microphone.
-pub(crate) trait AudioRecorder: Send + Sync {
-    fn start(
-        &self,
-        device_id: Option<&str>,
-        writer: RecordingWriter,
-        limit_reached: Arc<AtomicBool>,
-        level_bits: Arc<AtomicU32>,
-        maximum_samples: usize,
-    ) -> AppResult<()>;
-
-    fn stop(&self) -> AppResult<()>;
-
-    fn shutdown(&self);
-}
+pub(crate) use fono_core::AudioCapturePort as AudioRecorder;
 
 pub struct AudioCapture;
 
@@ -124,7 +108,7 @@ impl Drop for AudioRecordingOwner {
     }
 }
 
-impl AudioRecorder for AudioRecordingOwner {
+impl AudioRecorder<RecordingWriter, AppError> for AudioRecordingOwner {
     fn start(
         &self,
         device_id: Option<&str>,
