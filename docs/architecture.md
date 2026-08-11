@@ -141,12 +141,13 @@ fault. Audio и overlay adapter boundaries имеют автоматически
 - Routing state удерживается только при выборе или замене backend-а; длительная
   транскрипция выполняется под отдельным lock выбранной embedded/worker session.
   `SttReadiness` отдельно публикует `unloaded/loading/ready/failed` через IPC.
-  `SttHealth` использует non-blocking `try_lock`: `busy` не ждёт inference, а
-  свободный worker подтверждается protocol-v2 `ping`. Cancellation прерывает
-  ожидание ответа worker и завершает его session; для embedded Whisper остаются
-  безопасные проверки до/после native inference и operation fencing. Это не
-  заменяет будущие actor/mailbox. После Tauri setup выбранная сохранённая модель
-  готовится в фоне; ошибка preload отражается в readiness, а не ломает startup.
+  Standalone worker session принадлежит owner thread и получает команды через
+  mailbox; `SttHealth` возвращает `busy`, не ожидая inference, а свободный
+  worker подтверждается protocol-v2 `ping`. Cancellation прерывает ожидание
+  ответа worker и завершает его session; для embedded Whisper остаются
+  безопасные проверки до/после native inference и operation fencing. После
+  Tauri setup выбранная сохранённая модель готовится в фоне; ошибка preload
+  отражается в readiness, а не ломает startup.
 
 ### `llm/` — AI-постобработка
 - HTTP-клиент (`reqwest`) к LM Studio: `POST http://localhost:1234/v1/chat/completions`.

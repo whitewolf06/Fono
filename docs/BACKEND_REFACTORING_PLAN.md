@@ -37,7 +37,7 @@
 | BR-023 | Выполнено | `AudioHub` владеет одним physical CPAL stream и выдаёт bounded RAII subscriptions. Wake и dictation используют одинаковый device/rate; lease передаётся без закрытия устройства при переходе wake → dictation |
 | BR-024 | Выполнена allocation-reuse версия | Audio callback переиспользует conversion/mix/resample buffers; level meter вычисляется в callback и читается через atomic |
 | BR-026 | Выполнена baseline-версия | Измерительный test сериализует реальные JSON/base64 requests на 5/30/120 секунд и проверяет maximum 5-minute recording. На текущей машине: 0.21/1.28/5.12 MiB JSON, 3/24/102 ms encode; binary PCM не вводился, так как payload остаётся ниже 16 MiB лимита |
-| BR-027 | Выполнена lock-scope/health/cancel версия | Routing state STT удерживается только при выборе/замене backend-а; длительная транскрипция сериализована отдельным lock выбранной embedded/worker session. Model/worker replacement готовится под отдельным load-gate вне routing lock, предыдущая session освобождается уже после swap. Typed health API использует `try_lock`: занятая транскрипция даёт `busy`, свободный worker получает versioned `ping`. Отмена прерывает ожидание ответа worker и завершает зависшую session; embedded Whisper сохраняет кооперативную отмену с result fencing, потому что native `full` не имеет безопасного interrupt API. Полноценный actor/mailbox ещё предстоит |
+| BR-027 | Выполнена actor/mailbox версия | Routing state STT удерживается только при выборе/замене backend-а; standalone worker session принадлежит owner thread и получает `transcribe/ping/shutdown` через mailbox. Health не ждёт inference: занятый mailbox даёт `busy`, свободный worker получает versioned `ping`. Model/worker replacement готовится под отдельным load-gate вне routing lock, предыдущая session освобождается уже после swap. Отмена прерывает ожидание ответа worker и завершает session; embedded Whisper сохраняет кооперативную отмену с result fencing, потому что native `full` не имеет безопасного interrupt API |
 | BR-028 | Выполнена background-preload/event версия | Backend публикует typed `unloaded/loading/ready/failed` readiness через IPC и versioned `backend-event-v1`/legacy channel; выбранная сохранённая модель прогревается в фоне после Tauri setup и не делает startup неуспешным. Model replacement по-прежнему готовится до swap. Визуальная индикация в UI остаётся отдельным срезом |
 | BR-029 | Выполнено | Clipboard injection сериализована bounded owner worker'ом, проверяет foreground HWND, восстанавливает text/image/file-list и явно завершается при shutdown |
 | BR-032 | Выполнено как gate | Весь workspace проходит strict Clippy с -D warnings |
@@ -55,7 +55,7 @@
 - f88aace — strict Clippy и wake lifecycle;
 - 8b84995 — worker deadlines и recovery.
 
-Это не означает полного Definition of Done: остаётся внешний fault-injection для resource acquisition, STT actor/mailbox и warm readiness, soak/leak и ручная release qualification.
+Это не означает полного Definition of Done: остаётся внешний fault-injection для resource acquisition, STT actor/mailbox, soak/leak и ручная release qualification. Warm readiness закрыт background preload и typed readiness events.
 
 ### Результат текущего среза на 2026-08-11
 

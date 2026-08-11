@@ -54,6 +54,9 @@ Worker fixture отдельно проверяет protocol-v2 health `ping → 
 Ещё один Windows fixture 100 раз запускает worker с malformed response и
 проверяет после каждого отказа kill/wait cleanup и возможность следующего
 handshake; это regression gate для restart path без GPU и реальной модели.
+Mailbox fixture проверяет owner-thread `ping` и отмену зависшей транскрипции:
+она возвращает `Cancelled`, завершает owner session и не удерживает health за
+длительным inference.
 
 Для воспроизводимого baseline STT transport:
 

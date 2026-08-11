@@ -22,7 +22,7 @@ use crate::types::{AccelerationMode, Transcript};
 
 mod worker;
 
-use worker::WorkerSession;
+use worker::{MailboxHealth, WorkerMailbox, WorkerSession};
 
 #[derive(Debug, Clone, Default)]
 pub struct WorkerPaths {
@@ -144,7 +144,7 @@ enum EngineState {
         device: &'static str,
     },
     Worker {
-        session: Arc<Mutex<WorkerSession>>,
+        session: Arc<WorkerMailbox>,
         device: &'static str,
     },
 }
@@ -176,7 +176,7 @@ type SttReadinessObserver = Arc<dyn Fn(SttReadiness) + Send + Sync>;
 #[derive(Clone)]
 enum ActiveEngine {
     Embedded(Arc<Mutex<EmbeddedEngine>>),
-    Worker(Arc<Mutex<WorkerSession>>),
+    Worker(Arc<WorkerMailbox>),
 }
 
 impl EngineState {
@@ -187,8 +187,7 @@ impl EngineState {
                 current.model_path == model_path && current.use_gpu == *use_gpu
             }
             (Self::Worker { session, .. }, EngineCandidate::Worker { backend, path }) => {
-                let mut current = session.lock();
-                current.compatible_with(model_path, *backend, path)
+                session.compatible_with(model_path, *backend, path)
             }
             _ => false,
         }
@@ -226,7 +225,7 @@ impl ActiveEngine {
     fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
         match self {
             Self::Embedded(engine) => engine.lock().transcribe(samples, language),
-            Self::Worker(session) => session.lock().transcribe(samples, language),
+            Self::Worker(session) => session.transcribe(samples, language),
         }
     }
 
@@ -247,9 +246,7 @@ impl ActiveEngine {
             // terminal operation, while worker inference is interrupted below.
             Self::Embedded(engine) => engine.lock().transcribe(samples, language),
             Self::Worker(session) => {
-                session
-                    .lock()
-                    .transcribe_cancellable(samples, language, cancellation)
+                session.transcribe_cancellable(samples, language, cancellation)
             }
         };
         if cancellation.is_cancelled() {
@@ -271,18 +268,14 @@ impl ActiveEngine {
                     SttHealth::Busy { device }
                 }
             }
-            Self::Worker(session) => {
-                let Some(mut session) = session.try_lock() else {
-                    return SttHealth::Busy { device };
-                };
-                match session.ping() {
-                    Ok(()) => SttHealth::Ready { device },
-                    Err(error) => SttHealth::Failed {
-                        device,
-                        message: error.to_string(),
-                    },
-                }
-            }
+            Self::Worker(session) => match session.health() {
+                MailboxHealth::Busy => SttHealth::Busy { device },
+                MailboxHealth::Ready => SttHealth::Ready { device },
+                MailboxHealth::Failed(error) => SttHealth::Failed {
+                    device,
+                    message: error.to_string(),
+                },
+            },
         }
     }
 }
@@ -457,7 +450,7 @@ impl SttEngine {
                     WorkerSession::start(path.clone(), *backend, model_path).map(|worker| {
                         let device = worker.device();
                         EngineState::Worker {
-                            session: Arc::new(Mutex::new(worker)),
+                            session: Arc::new(WorkerMailbox::start(worker)),
                             device,
                         }
                     })

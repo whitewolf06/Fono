@@ -8,6 +8,7 @@ use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -29,6 +30,7 @@ const LOAD_TIMEOUT: Duration = Duration::from_secs(120);
 const TRANSCRIBE_BASE_TIMEOUT: Duration = Duration::from_secs(30);
 const TRANSCRIBE_MAX_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(20);
+const MAILBOX_HEALTH_TIMEOUT: Duration = Duration::from_millis(100);
 const MAX_STDERR_LINE_BYTES: usize = 4 * 1024;
 const STDERR_TAIL_LINES: usize = 32;
 
@@ -92,6 +94,38 @@ enum WorkerOutput {
 struct WorkerWrite {
     line: String,
     result_tx: Sender<Result<(), String>>,
+}
+
+/// Serializes a standalone worker's mutable protocol session on one owner
+/// thread. Callers never lock the session while inference is in progress.
+pub(super) struct WorkerMailbox {
+    backend: BackendKind,
+    path: PathBuf,
+    model_path: String,
+    command_tx: Sender<WorkerCommand>,
+    owner_thread: Mutex<Option<JoinHandle<()>>>,
+    busy: Arc<AtomicBool>,
+    alive: Arc<AtomicBool>,
+    health_pending: AtomicBool,
+}
+
+enum WorkerCommand {
+    Transcribe {
+        samples: Vec<i16>,
+        language: String,
+        cancellation: OperationCancellation,
+        response_tx: Sender<AppResult<Transcript>>,
+    },
+    Ping {
+        response_tx: Sender<AppResult<()>>,
+    },
+    Shutdown,
+}
+
+pub(super) enum MailboxHealth {
+    Busy,
+    Ready,
+    Failed(AppError),
 }
 
 impl WorkerSession {
@@ -197,18 +231,6 @@ impl WorkerSession {
         Ok(worker)
     }
 
-    pub(super) fn compatible_with(
-        &mut self,
-        model_path: &str,
-        backend: BackendKind,
-        path: &Path,
-    ) -> bool {
-        self.model_path == model_path
-            && self.backend == backend
-            && self.path == path
-            && self.is_alive()
-    }
-
     pub(super) fn device(&self) -> &'static str {
         backend_name(self.backend)
     }
@@ -228,6 +250,7 @@ impl WorkerSession {
         }
     }
 
+    #[cfg(test)]
     pub(super) fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
         self.transcribe_with_cancellation(samples, language, None)
     }
@@ -397,6 +420,7 @@ impl WorkerSession {
         RequestMeta::new(format!("{kind}-{}", self.next_request_id), operation_id)
     }
 
+    #[cfg(test)]
     fn is_alive(&mut self) -> bool {
         matches!(self.child.try_wait(), Ok(None))
             && self
@@ -497,6 +521,152 @@ fn encode_samples_i16_base64(samples: &[i16]) -> String {
         pcm.extend_from_slice(&sample.to_le_bytes());
     }
     base64::engine::general_purpose::STANDARD.encode(pcm)
+}
+
+impl WorkerMailbox {
+    pub(super) fn start(session: WorkerSession) -> Self {
+        let backend = session.backend;
+        let path = session.path.clone();
+        let model_path = session.model_path.clone();
+        let (command_tx, command_rx) = crossbeam_channel::unbounded();
+        let busy = Arc::new(AtomicBool::new(false));
+        let alive = Arc::new(AtomicBool::new(true));
+        let thread_busy = Arc::clone(&busy);
+        let thread_alive = Arc::clone(&alive);
+        let owner_thread = thread::spawn(move || {
+            let mut session = session;
+            while let Ok(command) = command_rx.recv() {
+                let keep_running = match command {
+                    WorkerCommand::Transcribe {
+                        samples,
+                        language,
+                        cancellation,
+                        response_tx,
+                    } => {
+                        thread_busy.store(true, Ordering::Release);
+                        let result =
+                            session.transcribe_cancellable(&samples, &language, &cancellation);
+                        thread_busy.store(false, Ordering::Release);
+                        let keep_running = result.is_ok();
+                        let _ = response_tx.send(result);
+                        keep_running
+                    }
+                    WorkerCommand::Ping { response_tx } => {
+                        thread_busy.store(true, Ordering::Release);
+                        let result = session.ping();
+                        thread_busy.store(false, Ordering::Release);
+                        let keep_running = result.is_ok();
+                        let _ = response_tx.send(result);
+                        keep_running
+                    }
+                    WorkerCommand::Shutdown => false,
+                };
+                if !keep_running {
+                    break;
+                }
+            }
+            thread_busy.store(false, Ordering::Release);
+            thread_alive.store(false, Ordering::Release);
+        });
+        Self {
+            backend,
+            path,
+            model_path,
+            command_tx,
+            owner_thread: Mutex::new(Some(owner_thread)),
+            busy,
+            alive,
+            health_pending: AtomicBool::new(false),
+        }
+    }
+
+    pub(super) fn compatible_with(
+        &self,
+        model_path: &str,
+        backend: BackendKind,
+        path: &Path,
+    ) -> bool {
+        self.model_path == model_path
+            && self.backend == backend
+            && self.path == path
+            && self.alive.load(Ordering::Acquire)
+    }
+
+    pub(super) fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
+        self.transcribe_cancellable(samples, language, &OperationCancellation::default())
+    }
+
+    pub(super) fn transcribe_cancellable(
+        &self,
+        samples: &[i16],
+        language: &str,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<Transcript> {
+        if cancellation.is_cancelled() {
+            return Err(AppError::Cancelled(
+                "worker transcription cancelled before start".into(),
+            ));
+        }
+        let (response_tx, response_rx) = bounded(1);
+        self.command_tx
+            .send(WorkerCommand::Transcribe {
+                samples: samples.to_vec(),
+                language: language.into(),
+                cancellation: cancellation.clone(),
+                response_tx,
+            })
+            .map_err(|_| AppError::Stt("worker mailbox is unavailable".into()))?;
+        loop {
+            if cancellation.is_cancelled() {
+                return Err(AppError::Cancelled("worker transcription cancelled".into()));
+            }
+            match response_rx.recv_timeout(CANCELLATION_POLL_INTERVAL) {
+                Ok(result) => return result,
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(AppError::Stt(
+                        "worker mailbox stopped before responding".into(),
+                    ))
+                }
+            }
+        }
+    }
+
+    pub(super) fn health(&self) -> MailboxHealth {
+        if self.busy.load(Ordering::Acquire)
+            || self
+                .health_pending
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+        {
+            return MailboxHealth::Busy;
+        }
+        let (response_tx, response_rx) = bounded(1);
+        let send = self.command_tx.send(WorkerCommand::Ping { response_tx });
+        if send.is_err() {
+            self.health_pending.store(false, Ordering::Release);
+            return MailboxHealth::Failed(AppError::Stt("worker mailbox is unavailable".into()));
+        }
+        let health = match response_rx.recv_timeout(MAILBOX_HEALTH_TIMEOUT) {
+            Ok(Ok(())) => MailboxHealth::Ready,
+            Ok(Err(error)) => MailboxHealth::Failed(error),
+            Err(RecvTimeoutError::Timeout) => MailboxHealth::Busy,
+            Err(RecvTimeoutError::Disconnected) => MailboxHealth::Failed(AppError::Stt(
+                "worker mailbox stopped during health probe".into(),
+            )),
+        };
+        self.health_pending.store(false, Ordering::Release);
+        health
+    }
+}
+
+impl Drop for WorkerMailbox {
+    fn drop(&mut self) {
+        let _ = self.command_tx.send(WorkerCommand::Shutdown);
+        if let Some(thread) = self.owner_thread.lock().take() {
+            let _ = thread.join();
+        }
+    }
 }
 
 impl Drop for WorkerSession {
@@ -659,7 +829,9 @@ mod tests {
     use super::*;
     use crate::operation::{OperationCoordinator, OperationSource};
 
-    const TEST_TIMEOUT: Duration = Duration::from_millis(250);
+    // Parallel workspace tests can briefly delay Windows cmd fixture startup;
+    // keep this distinct from the production request deadlines.
+    const TEST_TIMEOUT: Duration = Duration::from_secs(1);
     const TEST_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
         ping: TEST_TIMEOUT,
         load: TEST_TIMEOUT,
@@ -858,6 +1030,47 @@ mod tests {
         assert!(matches!(error, AppError::Cancelled(_)));
         assert!(error.to_string().contains("worker request cancelled"));
         assert_session_is_terminated(&mut session);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn mailbox_health_uses_the_owner_thread_protocol_session() {
+        let fixture = WorkerFixture::create(
+            "echo {\"type\":\"pong\",\"protocol_version\":2,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
+        );
+        let mailbox = WorkerMailbox::start(fixture.start());
+
+        assert!(matches!(mailbox.health(), MailboxHealth::Ready));
+        assert!(mailbox.alive.load(Ordering::Acquire));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn mailbox_cancellation_stops_a_hung_owner_session() {
+        let fixture = WorkerFixture::create(":hang\r\ngoto hang");
+        let mailbox = WorkerMailbox::start(fixture.start());
+        let coordinator = Arc::new(OperationCoordinator::new());
+        let operation = coordinator.start(OperationSource::Ui).unwrap();
+        let cancellation = coordinator.cancellation(operation.id).unwrap();
+        let coordinator_for_cancel = Arc::clone(&coordinator);
+        let cancel = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(25));
+            coordinator_for_cancel.cancel(operation.id);
+        });
+
+        let error = mailbox
+            .transcribe_cancellable(&[0; 160], "auto", &cancellation)
+            .expect_err("cancelled mailbox request cannot wait for worker deadline");
+
+        cancel.join().unwrap();
+        assert!(matches!(error, AppError::Cancelled(_)));
+        for _ in 0..20 {
+            if !mailbox.alive.load(Ordering::Acquire) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert!(!mailbox.alive.load(Ordering::Acquire));
     }
 
     #[cfg(windows)]
