@@ -235,6 +235,13 @@ pub fn run() {
             // Восстанавливаем позицию overlay-окна из настроек.
             let settings = app.state::<AppState>().settings();
             crate::verbose::set_verbose(settings.verbose_logging);
+            let readiness_events = app.handle().clone();
+            app.state::<pipeline::Pipeline>()
+                .stt()
+                .set_readiness_observer(std::sync::Arc::new(move |readiness| {
+                    events::emit_stt_readiness(&readiness_events, readiness);
+                }));
+            crate::application::models::preload_configured_stt(app.handle().clone());
             if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
                 if let Some(overlay) = app.get_webview_window("overlay") {
                     let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));

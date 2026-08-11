@@ -4,6 +4,7 @@ use serde::Serialize;
 use tauri::{Emitter, Runtime};
 
 use crate::operation::OperationEvent;
+use crate::stt::SttReadiness;
 use crate::types::{PipelineState, Settings};
 
 pub const EVENT_CHANNEL_V1: &str = "backend-event-v1";
@@ -24,6 +25,7 @@ pub enum BackendEventV1 {
     PipelineMode(PipelineModeV1),
     Wake(WakeEventV1),
     Settings(Box<SettingsEventV1>),
+    SttReadiness(SttReadinessEventV1),
     ModelDownload(ModelDownloadEventV1),
     Error(ErrorEventV1),
 }
@@ -87,6 +89,11 @@ impl WakeStatusV1 {
 #[derive(Debug, Clone, Serialize)]
 pub struct SettingsEventV1 {
     pub settings: Settings,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SttReadinessEventV1 {
+    pub readiness: SttReadiness,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -190,6 +197,16 @@ pub fn emit_settings<R: Runtime>(handle: &tauri::AppHandle<R>, settings: &Settin
     let _ = handle.emit("settings-changed", settings.clone());
 }
 
+pub fn emit_stt_readiness<R: Runtime>(handle: &tauri::AppHandle<R>, readiness: SttReadiness) {
+    emit_v1(
+        handle,
+        BackendEventV1::SttReadiness(SttReadinessEventV1 {
+            readiness: readiness.clone(),
+        }),
+    );
+    let _ = handle.emit("stt-readiness", readiness);
+}
+
 pub fn emit_model_download<R: Runtime>(handle: &tauri::AppHandle<R>, event: ModelDownloadEventV1) {
     emit_v1(handle, BackendEventV1::ModelDownload(event.clone()));
     if event.phase == ModelDownloadPhaseV1::Completed {
@@ -244,5 +261,19 @@ mod tests {
             serde_json::to_string(&ModelDownloadPhaseV1::Verifying).unwrap(),
             "\"verifying\""
         );
+    }
+
+    #[test]
+    fn stt_readiness_event_is_versioned_and_typed() {
+        let encoded = serde_json::to_value(EventEnvelopeV1 {
+            schema_version: SCHEMA_VERSION,
+            event: BackendEventV1::SttReadiness(SttReadinessEventV1 {
+                readiness: SttReadiness::Loading,
+            }),
+        })
+        .unwrap();
+
+        assert_eq!(encoded["kind"], "stt_readiness");
+        assert_eq!(encoded["payload"]["readiness"]["state"], "loading");
     }
 }

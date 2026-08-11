@@ -862,6 +862,25 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
+    fn one_hundred_failed_worker_sessions_are_recoverable() {
+        let fixture = WorkerFixture::create("echo not-json\r\n:hang\r\ngoto hang");
+
+        for attempt in 1..=100 {
+            let mut session = fixture.start();
+            let error = session
+                .transcribe(&[0; 160], "auto")
+                .expect_err("malformed response must terminate every worker session");
+
+            assert!(
+                error.to_string().contains("invalid JSON"),
+                "attempt {attempt} returned a different error: {error}"
+            );
+            assert_session_is_terminated(&mut session);
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
     fn health_ping_uses_the_versioned_request_and_response() {
         let fixture = WorkerFixture::create(
             "echo {\"type\":\"pong\",\"protocol_version\":2,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",

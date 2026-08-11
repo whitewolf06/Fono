@@ -171,6 +171,8 @@ pub enum SttHealth {
     Failed { device: String, message: String },
 }
 
+type SttReadinessObserver = Arc<dyn Fn(SttReadiness) + Send + Sync>;
+
 #[derive(Clone)]
 enum ActiveEngine {
     Embedded(Arc<Mutex<EmbeddedEngine>>),
@@ -386,6 +388,7 @@ pub struct SttEngine {
     state: Mutex<EngineState>,
     load_gate: Mutex<()>,
     readiness: Mutex<SttReadiness>,
+    readiness_observer: Mutex<Option<SttReadinessObserver>>,
 }
 
 impl SttEngine {
@@ -394,6 +397,7 @@ impl SttEngine {
             state: Mutex::new(EngineState::Empty),
             load_gate: Mutex::new(()),
             readiness: Mutex::new(SttReadiness::Unloaded),
+            readiness_observer: Mutex::new(None),
         }
     }
 
@@ -543,6 +547,13 @@ impl SttEngine {
         self.readiness.lock().clone()
     }
 
+    /// Registers a process-local sink for readiness transitions. The current
+    /// value is delivered immediately so a late subscriber cannot miss it.
+    pub fn set_readiness_observer(&self, observer: SttReadinessObserver) {
+        *self.readiness_observer.lock() = Some(Arc::clone(&observer));
+        observer(self.readiness());
+    }
+
     pub fn health(&self) -> SttHealth {
         let (active, device) = {
             let state = self.state.lock();
@@ -566,7 +577,11 @@ impl SttEngine {
     }
 
     fn set_readiness(&self, readiness: SttReadiness) {
-        *self.readiness.lock() = readiness;
+        *self.readiness.lock() = readiness.clone();
+        let observer = self.readiness_observer.lock().clone();
+        if let Some(observer) = observer {
+            observer(readiness);
+        }
     }
 
     fn set_failed_readiness(&self, error: &AppError) {
@@ -618,6 +633,7 @@ fn lang_id_to_str(id: i32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use parking_lot::Mutex;
 
     #[test]
     fn auto_prefers_cuda_worker_before_vulkan_worker() {
@@ -670,6 +686,27 @@ mod tests {
         assert!(matches!(
             engine.readiness(),
             SttReadiness::Failed { message } if message.contains("model file not found")
+        ));
+    }
+
+    #[test]
+    fn readiness_observer_receives_current_and_failed_states() {
+        let engine = SttEngine::new();
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let observed_by_listener = Arc::clone(&observed);
+        engine.set_readiness_observer(Arc::new(move |readiness| {
+            observed_by_listener.lock().push(readiness);
+        }));
+
+        let _ = engine.ensure_loaded(
+            Path::new("missing-model-for-readiness-observer-test.bin"),
+            AccelerationMode::Cpu,
+            &WorkerPaths::default(),
+        );
+
+        assert!(matches!(
+            observed.lock().as_slice(),
+            [SttReadiness::Unloaded, SttReadiness::Failed { .. }]
         ));
     }
 

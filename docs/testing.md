@@ -43,11 +43,17 @@ Overlay adapter fault-injection проверяет, что отказ `show/hide
 
 `SttEngine` unit-тест проверяет начальное `unloaded` readiness и переход в
 `failed` при недоступной модели — без запуска Whisper, worker или микрофона.
+Фоновый preload использует тот же `ensure_loaded` и load-gate; его реальная
+проверка с выбранной моделью относится к desktop dev/manual уровню, потому что
+создание Tauri `AppHandle` и запуск native Whisper не являются unit-test средой.
 Worker fixture отдельно проверяет protocol-v2 health `ping → pong`; health API
 возвращает `busy`, а не ожидает активную транскрипцию.
 Отдельный fixture с зависшим worker подтверждает, что cancellation прерывает
 ожидание менее чем за две секунды, завершает process/session и возвращает
 `Cancelled`, а не ждёт штатного request deadline.
+Ещё один Windows fixture 100 раз запускает worker с malformed response и
+проверяет после каждого отказа kill/wait cleanup и возможность следующего
+handshake; это regression gate для restart path без GPU и реальной модели.
 
 Для воспроизводимого baseline STT transport:
 

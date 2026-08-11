@@ -145,7 +145,8 @@ fault. Audio и overlay adapter boundaries имеют автоматически
   свободный worker подтверждается protocol-v2 `ping`. Cancellation прерывает
   ожидание ответа worker и завершает его session; для embedded Whisper остаются
   безопасные проверки до/после native inference и operation fencing. Это не
-  заменяет будущие actor/mailbox и фоновую preload orchestration.
+  заменяет будущие actor/mailbox. После Tauri setup выбранная сохранённая модель
+  готовится в фоне; ошибка preload отражается в readiness, а не ломает startup.
 
 ### `llm/` — AI-постобработка
 - HTTP-клиент (`reqwest`) к LM Studio: `POST http://localhost:1234/v1/chat/completions`.

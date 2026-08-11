@@ -9,7 +9,7 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
 use crate::events::{ModelDownloadEventV1, ModelDownloadPhaseV1};
@@ -61,6 +61,40 @@ pub fn cancel_download(download_id: &str) -> bool {
     };
     cancellation.store(true, Ordering::Release);
     true
+}
+
+/// Starts a best-effort background preload of the model selected in persisted
+/// settings.  It deliberately does not make application startup fail: the
+/// typed STT readiness IPC remains the source of truth for a missing model or
+/// unavailable worker, and dictation still uses the same load gate.
+pub fn preload_configured_stt(app: AppHandle) {
+    let settings = app.state::<AppState>().settings();
+    let Some((model_path, acceleration)) = configured_stt_preload(&settings) else {
+        return;
+    };
+    let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
+    let worker_paths = crate::stt::worker_paths_for_app(&app);
+
+    tauri::async_runtime::spawn(async move {
+        let result = tauri::async_runtime::spawn_blocking(move || {
+            stt.ensure_loaded(Path::new(&model_path), acceleration, &worker_paths)
+        })
+        .await;
+        match result {
+            Ok(Ok(())) => tracing::info!("configured STT model is ready after background preload"),
+            Ok(Err(error)) => tracing::warn!(%error, "background STT preload failed"),
+            Err(error) => tracing::warn!(%error, "background STT preload task failed"),
+        }
+    });
+}
+
+fn configured_stt_preload(
+    settings: &crate::types::Settings,
+) -> Option<(std::path::PathBuf, crate::types::AccelerationMode)> {
+    settings
+        .whisper_model_path
+        .as_deref()
+        .map(|path| (std::path::PathBuf::from(path), settings.acceleration))
 }
 
 pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
@@ -495,5 +529,23 @@ mod tests {
             Err(AppError::Cancelled(_))
         ));
         assert!(output.is_empty());
+    }
+
+    #[test]
+    fn preload_request_uses_the_persisted_model_and_acceleration() {
+        let settings = crate::types::Settings {
+            whisper_model_path: Some("C:/models/ggml-small.bin".into()),
+            acceleration: crate::types::AccelerationMode::Vulkan,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            configured_stt_preload(&settings),
+            Some((
+                std::path::PathBuf::from("C:/models/ggml-small.bin"),
+                crate::types::AccelerationMode::Vulkan,
+            ))
+        );
+        assert_eq!(configured_stt_preload(&Default::default()), None);
     }
 }
