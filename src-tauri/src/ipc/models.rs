@@ -32,6 +32,10 @@ pub fn cancel_model_download(download_id: String) -> bool {
 }
 
 #[tauri::command]
-pub fn set_whisper_model(state: State<'_, AppState>, path: String) -> AppResult<()> {
-    crate::application::models::set_whisper_model(state.inner(), path)
+pub async fn set_whisper_model(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> AppResult<()> {
+    crate::application::models::set_whisper_model(&app, state.inner(), path).await
 }

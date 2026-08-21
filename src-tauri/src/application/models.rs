@@ -100,13 +100,7 @@ fn configured_stt_preload(
 pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
     let dir = state::models_dir()?;
     let mut out = Vec::new();
-    for size in [
-        WhisperModelSize::Tiny,
-        WhisperModelSize::Base,
-        WhisperModelSize::Small,
-        WhisperModelSize::Medium,
-        WhisperModelSize::Large,
-    ] {
+    for size in WhisperModelSize::ALL {
         let filename = size.filename();
         let path = dir.join(filename);
         let (local_path, bytes) = if path.exists() {
@@ -371,11 +365,38 @@ pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
     result
 }
 
-pub fn set_whisper_model(state: &AppState, path: String) -> AppResult<()> {
+/// Makes a downloaded model active only after the STT runtime has accepted it.
+/// This keeps persisted settings, the running engine and renderer events in
+/// sync, so a successful "Choose" action never leaves a draft-only selection.
+pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) -> AppResult<()> {
+    let model_path = std::path::PathBuf::from(&path);
+    if path.trim().is_empty() || !model_path.is_file() {
+        return Err(AppError::Config(format!(
+            "файл модели не найден: {}",
+            model_path.display()
+        )));
+    }
+
     let mut settings = state.settings();
+    if settings.whisper_model_path.as_deref() == Some(path.as_str()) {
+        return Ok(());
+    }
+
+    let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
+    let acceleration = settings.acceleration;
+    let worker_paths = crate::stt::worker_paths_for_app(app);
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        stt.ensure_loaded(&model_path, acceleration, &worker_paths)
+    })
+    .await
+    .map_err(|error| AppError::Stt(format!("model preparation join failed: {error}")))?;
+    prepared?;
+
     settings.whisper_model_path = Some(path);
     state::save_settings(&settings)?;
-    state.set_settings(settings);
+    state.set_settings(settings.clone());
+    crate::events::emit_settings(app, &settings);
+    tracing::info!(model = ?settings.whisper_model_path, "STT model selected and saved");
     Ok(())
 }
 

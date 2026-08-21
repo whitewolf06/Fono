@@ -3,41 +3,75 @@ import { ipc } from "@/lib/ipc";
 import type { WhisperModelInfo, WhisperModelSize } from "@/lib/types";
 
 const SIZE_LABEL: Record<WhisperModelSize, string> = {
-  tiny: "Tiny —最快",
+  tiny: "Tiny — самый быстрый",
   base: "Base — баланс (рекомендуется)",
   small: "Small — точнее",
   medium: "Medium — очень точно",
-  large: "Large — SOTA",
+  large: "Large v3 — максимальная точность",
+  large_turbo: "Large v3 Turbo — быстрее и компактнее",
 };
+
+const MODEL_ORDER: WhisperModelSize[] = [
+  "tiny",
+  "base",
+  "small",
+  "medium",
+  "large",
+  "large_turbo",
+];
 
 export function ModelManager({
   selectedPath,
   onSelect,
 }: {
   selectedPath: string | null;
-  onSelect: (path: string) => void;
+  onSelect: (path: string) => Promise<void>;
 }) {
   const [models, setModels] = useState<WhisperModelInfo[]>([]);
   const [downloading, setDownloading] = useState<WhisperModelSize | null>(null);
+  const [selectingPath, setSelectingPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = () => {
-    ipc
-      .listWhisperModels()
-      .then(setModels)
-      .catch((e) => setError(String(e)));
+  const refresh = async (): Promise<WhisperModelInfo[]> => {
+    try {
+      const nextModels = await ipc.listWhisperModels();
+      setModels(nextModels);
+      return nextModels;
+    } catch (e) {
+      setError(String(e));
+      return [];
+    }
   };
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, []);
+
+  const select = async (path: string) => {
+    setSelectingPath(path);
+    setError(null);
+    try {
+      await onSelect(path);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSelectingPath(null);
+    }
+  };
 
   const download = async (size: WhisperModelSize) => {
     setDownloading(size);
     setError(null);
     try {
       await ipc.downloadWhisperModel(size);
-      refresh();
+      const nextModels = await refresh();
+      const downloadedPath = nextModels.find(
+        (model) => model.size === size,
+      )?.local_path;
+      if (!downloadedPath) {
+        throw new Error("Скачанная модель не найдена в локальном списке");
+      }
+      await select(downloadedPath);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -53,69 +87,70 @@ export function ModelManager({
         </div>
       )}
 
-      {(["tiny", "base", "small", "medium", "large"] as WhisperModelSize[]).map(
-        (size) => {
-          const model = models.find((m) => m.size === size);
-          const isSelected =
-            model?.local_path != null && model.local_path === selectedPath;
-          const isDownloading = downloading === size;
+      {MODEL_ORDER.map((size) => {
+        const model = models.find((m) => m.size === size);
+        const isSelected =
+          model?.local_path != null && model.local_path === selectedPath;
+        const isDownloading = downloading === size;
+        const isSelecting = model?.local_path === selectingPath;
 
-          return (
-            <div
-              key={size}
-              className={`flex items-center justify-between rounded-lg border p-3 ${
-                isSelected
-                  ? "border-brand-500 bg-brand-500/10"
-                  : "border-neutral-700 bg-neutral-800/50"
-              }`}
-            >
-              <div className="flex-1">
-                <div className="text-sm font-medium text-neutral-100">
-                  {SIZE_LABEL[size]}
-                </div>
-                <div className="text-xs text-neutral-400">
-                  {model?.local_path
-                    ? `✓ Скачана (${formatBytes(model.bytes)})`
-                    : model?.bytes
-                      ? `${formatBytes(model.bytes)}`
-                      : "Не скачана"}
-                </div>
+        return (
+          <div
+            key={size}
+            className={`flex items-center justify-between rounded-lg border p-3 ${
+              isSelected
+                ? "border-brand-500 bg-brand-500/10"
+                : "border-neutral-700 bg-neutral-800/50"
+            }`}
+          >
+            <div className="flex-1">
+              <div className="text-sm font-medium text-neutral-100">
+                {SIZE_LABEL[size]}
               </div>
-              <div className="flex gap-2">
-                {model?.local_path ? (
-                  <>
-                    {!isSelected && (
-                      <button
-                        className="btn-ghost"
-                        onClick={() => onSelect(model.local_path!)}
-                      >
-                        Выбрать
-                      </button>
-                    )}
-                    {isSelected && (
-                      <span className="text-xs font-medium text-brand-300">
-                        ✓ выбрана
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <button
-                    className="btn-secondary"
-                    onClick={() => download(size)}
-                    disabled={isDownloading}
-                  >
-                    {isDownloading ? "Скачиваю…" : "Скачать"}
-                  </button>
-                )}
+              <div className="text-xs text-neutral-400">
+                {model?.local_path
+                  ? `✓ Скачана (${formatBytes(model.bytes)})`
+                  : model?.bytes
+                    ? `${formatBytes(model.bytes)}`
+                    : "Не скачана"}
               </div>
             </div>
-          );
-        },
-      )}
+            <div className="flex gap-2">
+              {model?.local_path ? (
+                <>
+                  {!isSelected && (
+                    <button
+                      className="btn-ghost"
+                      onClick={() => void select(model.local_path!)}
+                      disabled={isSelecting}
+                    >
+                      {isSelecting ? "Подключаю…" : "Выбрать"}
+                    </button>
+                  )}
+                  {isSelected && (
+                    <span className="text-xs font-medium text-brand-300">
+                      ✓ выбрана
+                    </span>
+                  )}
+                </>
+              ) : (
+                <button
+                  className="btn-secondary"
+                  onClick={() => download(size)}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? "Скачиваю…" : "Скачать"}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
 
       <p className="text-xs text-neutral-500">
-        Модели хранятся локально и не передаются никуда. Первая загрузка может
-        занять некоторое время в зависимости от модели.
+        Модели хранятся локально и не передаются никуда. Выбор сохраняется сразу
+        после успешной проверки модели; первая загрузка может занять некоторое
+        время.
       </p>
     </div>
   );

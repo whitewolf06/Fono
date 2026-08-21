@@ -392,7 +392,10 @@ export function SettingsView() {
           <h2 className="mb-4 text-lg font-medium">🧠 Модель распознавания</h2>
           <ModelManager
             selectedPath={settings.whisper_model_path}
-            onSelect={(p) => update("whisper_model_path", p)}
+            onSelect={async (path) => {
+              await ipc.setWhisperModel(path);
+              update("whisper_model_path", path);
+            }}
           />
           <div className="mt-4">
             <label className="label">Ускорение распознавания</label>

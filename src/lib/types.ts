@@ -13,7 +13,7 @@ export interface DeviceInfo {
 export interface WhisperModelInfo {
   /** Имя файла, напр. "ggml-base.bin" */
   filename: string;
-  /** Размер: tiny / base / small / medium / large */
+  /** Размер: tiny / base / small / medium / large / large_turbo */
   size: WhisperModelSize;
   /** Локальный путь, если модель уже скачана */
   local_path: string | null;
@@ -21,7 +21,8 @@ export interface WhisperModelInfo {
   bytes: number | null;
 }
 
-export type WhisperModelSize = "tiny" | "base" | "small" | "medium" | "large";
+export type WhisperModelSize =
+  "tiny" | "base" | "small" | "medium" | "large" | "large_turbo";
 
 export type AiMode = "off" | "clean" | "format" | "command";
 export type InjectionMode = "sendinput" | "clipboard";

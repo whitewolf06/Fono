@@ -27,16 +27,29 @@ pub struct DeviceInfo {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum WhisperModelSize {
     Tiny,
     Base,
     Small,
     Medium,
+    /// Full-size multilingual Whisper Large v3 model.
     Large,
+    /// Faster distilled variant of Large v3. It trades some accuracy for
+    /// noticeably lower memory use and latency.
+    LargeTurbo,
 }
 
 impl WhisperModelSize {
+    pub const ALL: [Self; 6] = [
+        Self::Tiny,
+        Self::Base,
+        Self::Small,
+        Self::Medium,
+        Self::Large,
+        Self::LargeTurbo,
+    ];
+
     pub fn filename(&self) -> &'static str {
         match self {
             WhisperModelSize::Tiny => "ggml-tiny.bin",
@@ -44,6 +57,7 @@ impl WhisperModelSize {
             WhisperModelSize::Small => "ggml-small.bin",
             WhisperModelSize::Medium => "ggml-medium.bin",
             WhisperModelSize::Large => "ggml-large-v3.bin",
+            WhisperModelSize::LargeTurbo => "ggml-large-v3-turbo.bin",
         }
     }
 
@@ -64,6 +78,9 @@ impl WhisperModelSize {
             WhisperModelSize::Large => {
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin"
             }
+            WhisperModelSize::LargeTurbo => {
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"
+            }
         }
     }
 
@@ -74,6 +91,7 @@ impl WhisperModelSize {
             WhisperModelSize::Small => 488,
             WhisperModelSize::Medium => 1530,
             WhisperModelSize::Large => 3010,
+            WhisperModelSize::LargeTurbo => 1549,
         }) * 1024
             * 1024
     }
@@ -97,7 +115,44 @@ impl WhisperModelSize {
             WhisperModelSize::Large => {
                 "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2"
             }
+            WhisperModelSize::LargeTurbo => {
+                "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod whisper_model_size_tests {
+    use super::WhisperModelSize;
+
+    #[test]
+    fn model_catalog_contains_the_two_large_v3_variants() {
+        assert_eq!(WhisperModelSize::ALL.len(), 6);
+        assert_eq!(WhisperModelSize::Large.filename(), "ggml-large-v3.bin");
+        assert_eq!(
+            WhisperModelSize::LargeTurbo.filename(),
+            "ggml-large-v3-turbo.bin"
+        );
+        assert!(
+            WhisperModelSize::Large.approx_bytes() > WhisperModelSize::LargeTurbo.approx_bytes()
+        );
+    }
+
+    #[test]
+    fn large_turbo_uses_a_stable_ipc_value_and_verification_hash() {
+        assert_eq!(
+            serde_json::to_string(&WhisperModelSize::LargeTurbo).unwrap(),
+            "\"large_turbo\""
+        );
+        assert_eq!(
+            serde_json::from_str::<WhisperModelSize>("\"large\"").unwrap(),
+            WhisperModelSize::Large
+        );
+        assert_eq!(
+            WhisperModelSize::LargeTurbo.sha256(),
+            "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
+        );
     }
 }
 
