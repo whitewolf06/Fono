@@ -18,7 +18,14 @@ const SHERPA_RUNTIME_DLLS: &[&str] = &[
 fn main() {
     // SIMD flags for whisper.cpp are configured in .cargo/config.toml because
     // this build script only applies to the application crate.
-    tauri_build::build();
+    // The release-resource preparation build runs before the Sherpa DLLs
+    // exist in `resources/sherpa-onnx`.  `tauri_build::build()` expands the
+    // bundle resource glob eagerly, so it must be skipped for that isolated
+    // pre-build; the subsequent Tauri bundle build runs it normally.
+    let preparing_release_resources = env::var_os("FONO_PREPARING_RELEASE_RESOURCES").is_some();
+    if !preparing_release_resources {
+        tauri_build::build();
+    }
 
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SHERPA_WAKE");
@@ -45,7 +52,7 @@ fn main() {
 
     if layout.is_release()
         && env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some()
-        && env::var_os("FONO_PREPARING_RELEASE_RESOURCES").is_none()
+        && !preparing_release_resources
     {
         validate_sherpa_runtime_manifest(&layout);
     }
