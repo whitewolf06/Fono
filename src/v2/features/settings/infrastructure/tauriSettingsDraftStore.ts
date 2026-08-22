@@ -1,5 +1,11 @@
 import { ipc } from "@/lib/ipc";
 import type { Settings } from "@/lib/types";
+import {
+  customWhisperModelSelectionLabel,
+  whisperModelSelectionLabel,
+  whisperModelSizeFromPath,
+  whisperModelSizeFromSelection,
+} from "@/v2/shared/domain/whisperModels";
 import type {
   SettingsDraft,
   SettingsDraftStore,
@@ -10,8 +16,7 @@ export function createTauriSettingsDraftStore(): SettingsDraftStore {
     load: loadDraft,
     save: saveDraft,
     testMicrophone: async () => ipc.testMicrophone(2000),
-    downloadWhisperModel: async (model) =>
-      ipc.downloadWhisperModel(model.replace("Whisper ", "").toLowerCase()),
+    downloadWhisperModel: downloadWhisperModel,
     testLmStudio: () => ipc.testLlmConnection(),
   };
 }
@@ -22,6 +27,14 @@ async function loadDraft(): Promise<SettingsDraft> {
     ipc.listAudioDevices(),
     ipc.listWhisperModels(),
   ]);
+  const recognitionModel = recognitionModelLabel(settings.whisper_model_path);
+  const recognitionModelOptions = models.map((model) =>
+    whisperModelSelectionLabel(model.size),
+  );
+
+  if (!recognitionModelOptions.includes(recognitionModel)) {
+    recognitionModelOptions.unshift(recognitionModel);
+  }
 
   return {
     language: settings.language,
@@ -33,10 +46,8 @@ async function loadDraft(): Promise<SettingsDraft> {
       "Default system device",
       ...devices.map((device) => device.name),
     ],
-    recognitionModel: recognitionModelLabel(settings.whisper_model_path),
-    recognitionModelOptions: models.map(
-      (model) => `Whisper ${capitalize(model.size)}`,
-    ),
+    recognitionModel,
+    recognitionModelOptions,
     acceleration: settings.acceleration,
     wakeWordEnabled: settings.wake_word_enabled,
     wakePhrase: settings.wake_word,
@@ -88,6 +99,15 @@ async function saveDraft(draft: SettingsDraft): Promise<void> {
   }
 }
 
+async function downloadWhisperModel(recognitionModel: string): Promise<void> {
+  const size = whisperModelSizeFromSelection(recognitionModel);
+  if (!size) {
+    throw new Error(`Модель ${recognitionModel} не поддерживается.`);
+  }
+
+  await ipc.downloadWhisperModel(size);
+}
+
 function microphoneLabel(
   settings: Settings,
   devices: Awaited<ReturnType<typeof ipc.listAudioDevices>>,
@@ -113,8 +133,10 @@ function resolveDeviceId(
 }
 
 function recognitionModelLabel(path: string | null) {
-  const size = path?.match(/ggml-(tiny|base|small|medium|large)\.bin$/i)?.[1];
-  return size ? `Whisper ${capitalize(size)}` : "Whisper Small";
+  const size = whisperModelSizeFromPath(path);
+  if (size) return whisperModelSelectionLabel(size);
+  if (path) return customWhisperModelSelectionLabel(path);
+  return whisperModelSelectionLabel("small");
 }
 
 async function resolveModelPath(
@@ -124,7 +146,11 @@ async function resolveModelPath(
   if (recognitionModel === recognitionModelLabel(currentPath))
     return currentPath;
 
-  const size = recognitionModel.replace("Whisper ", "").toLocaleLowerCase();
+  const size = whisperModelSizeFromSelection(recognitionModel);
+  if (!size) {
+    throw new Error(`Модель ${recognitionModel} не поддерживается.`);
+  }
+
   const models = await ipc.listWhisperModels();
   const model = models.find(
     (candidate) => candidate.size === size && candidate.local_path,
@@ -135,8 +161,4 @@ async function resolveModelPath(
   }
 
   return model.local_path;
-}
-
-function capitalize(value: string) {
-  return `${value[0].toUpperCase()}${value.slice(1)}`;
 }

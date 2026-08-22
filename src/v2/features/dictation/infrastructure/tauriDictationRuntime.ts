@@ -1,5 +1,14 @@
-import { ipc, onError, onPipelineStateChange } from "@/lib/ipc";
+import {
+  ipc,
+  onError,
+  onPipelineStateChange,
+  onSettingsChange,
+} from "@/lib/ipc";
 import type { Settings } from "@/lib/types";
+import {
+  whisperModelName,
+  whisperModelSizeFromPath,
+} from "@/v2/shared/domain/whisperModels";
 import type {
   DictationSettingsSummary,
   DictationSnapshot,
@@ -31,6 +40,22 @@ export function createTauriDictationRuntime(): DictationRuntime {
     getSnapshot: refreshSnapshot,
     getReadiness: () => getReadiness(),
     getSettingsSummary: async () => toSettingsSummary(await ipc.getSettings()),
+    subscribeSettings: (listener) => {
+      let active = true;
+      let unlisten: (() => void) | undefined;
+
+      void onSettingsChange((settings) => {
+        if (active) listener(toSettingsSummary(settings));
+      }).then((nextUnlisten) => {
+        if (active) unlisten = nextUnlisten;
+        else nextUnlisten();
+      });
+
+      return () => {
+        active = false;
+        unlisten?.();
+      };
+    },
     toggleWakeWord: async () => {
       const settings = await ipc.getSettings();
 
@@ -124,6 +149,9 @@ function toSettingsSummary(settings: Settings): DictationSettingsSummary {
 
 function modelLabel(path: string | null): string {
   if (!path) return "Модель не выбрана";
+
+  const size = whisperModelSizeFromPath(path);
+  if (size) return whisperModelName(size);
 
   return (
     path

@@ -8,6 +8,9 @@ export interface DictationRuntime {
   getSnapshot(): Promise<DictationSnapshot>;
   getReadiness(): Promise<ReadinessSnapshot>;
   getSettingsSummary(): Promise<DictationSettingsSummary>;
+  subscribeSettings?(
+    listener: (summary: DictationSettingsSummary) => void,
+  ): () => void;
   toggleWakeWord(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;

@@ -180,9 +180,9 @@ export function AudioSettingsCard({
             value={draft.recognitionModel}
             onChange={(event) => update("recognitionModel", event.target.value)}
           >
-            <option>Whisper Small</option>
-            <option>Whisper Base</option>
-            <option>Whisper Medium</option>
+            {draft.recognitionModelOptions.map((model) => (
+              <option key={model}>{model}</option>
+            ))}
           </select>
           <button
             className="v2-button"

@@ -34,7 +34,20 @@ export function useDictationDashboard(runtime: DictationRuntime) {
     runtime
       .getSettingsSummary()
       .then((next) => active && setSettingsSummary(next), showRuntimeError);
-    return runtime.subscribe((next) => active && setSnapshot(next));
+
+    const stopSnapshot = runtime.subscribe((next) => active && setSnapshot(next));
+    const stopSettings = runtime.subscribeSettings?.((next) => {
+      if (!active) return;
+      setSettingsSummary(next);
+      void runtime
+        .getReadiness()
+        .then((readiness) => active && setReadiness(readiness), showRuntimeError);
+    });
+
+    return () => {
+      stopSnapshot();
+      stopSettings?.();
+    };
   }, [runtime]);
 
   return {

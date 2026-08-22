@@ -97,8 +97,8 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
       message: "Микрофон доступен для записи.",
     });
   const [whisperStatus, setWhisperStatus] = useState<SettingsStatusDetail>({
-    state: "ready",
-    message: "Whisper Small загружена и готова к распознаванию.",
+    state: "idle",
+    message: "Модель распознавания ещё не синхронизирована с приложением.",
   });
   const [wakeWordStatus, setWakeWordStatus] = useState<SettingsStatusDetail>({
     state: "ready",
@@ -128,7 +128,13 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
     let active = true;
     void store.load().then(
       (nextDraft) => {
-        if (active) setDraft(nextDraft);
+        if (!active) return;
+        setDraft(nextDraft);
+        setEffectiveAcceleration(resolveEffectiveAcceleration(nextDraft.acceleration));
+        setWhisperStatus({
+          state: "ready",
+          message: `Выбрана ${nextDraft.recognitionModel}.`,
+        });
       },
       () => {
         if (active) setSaveState("error");
@@ -166,6 +172,15 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
     if (store) {
       try {
         await store.save(draft);
+        const savedDraft = await store.load();
+        setDraft(savedDraft);
+        setEffectiveAcceleration(
+          resolveEffectiveAcceleration(savedDraft.acceleration),
+        );
+        setWhisperStatus({
+          state: "ready",
+          message: `Сохранена ${savedDraft.recognitionModel}.`,
+        });
         setSaveState("saved");
       } catch {
         setSaveState("error");

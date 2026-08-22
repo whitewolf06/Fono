@@ -11,6 +11,7 @@
     "build:workers": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-stt-workers.ps1",
     "prepare:release-resources": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prepare-release-resources.ps1",
     "release": "npm run tauri -- build",
+    "test:ui": "node --test tests/ui/whisperModels.test.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
