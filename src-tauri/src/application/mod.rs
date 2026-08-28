@@ -1,5 +1,6 @@
 //! Application-level use cases behind the Tauri IPC facade.
 
+pub mod audio_ingest;
 pub mod command_proposal;
 pub mod diagnostics;
 pub mod dictation;

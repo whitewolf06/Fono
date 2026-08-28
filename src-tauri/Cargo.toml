@@ -51,6 +51,7 @@ cpal = "0.15"
 # Whisper STT — автоматически собирает whisper.cpp через build-script
 # Включаем feature для core (CPU); cuda добавим позже на этапе оптимизации
 whisper-rs = "0.16"
+symphonia = { version = "0.5.5", default-features = false, features = ["wav", "mp3", "flac", "ogg", "vorbis", "pcm"] }
 
 # Win32 API: SendInput для текст-инъекции
 [target.'cfg(windows)'.dependencies]
@@ -78,6 +79,7 @@ dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
 tar = "0.4"
 bzip2 = "0.4"
+symphonia = { version = "0.5.5", default-features = false, features = ["wav", "mp3", "flac", "ogg", "vorbis", "pcm"] }
 
 [features]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so
