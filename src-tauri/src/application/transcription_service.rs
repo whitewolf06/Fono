@@ -82,6 +82,11 @@ where
         Self { runtime }
     }
 
+    #[cfg(test)]
+    pub(crate) fn runtime(&self) -> &R {
+        &self.runtime
+    }
+
     pub fn transcribe(
         &self,
         request: TranscriptionRequest,

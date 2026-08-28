@@ -125,7 +125,9 @@ impl OperationCancellation {
         self.cancelled.load(Ordering::Acquire)
     }
 
-    fn cancel(&self) {
+    /// Allows a higher-level scheduler to propagate a user-requested cancel to
+    /// its active STT operation without owning the coordinator itself.
+    pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
     }
 }

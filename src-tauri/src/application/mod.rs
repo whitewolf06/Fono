@@ -6,5 +6,6 @@ pub mod diagnostics;
 pub mod dictation;
 pub mod models;
 pub mod transcription_contract;
+pub mod transcription_jobs;
 pub mod transcription_service;
 pub mod wake;
