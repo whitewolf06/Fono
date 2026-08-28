@@ -19,7 +19,6 @@ use fono_core::OperationCancellation;
 /// The only dependency the use case needs from the STT infrastructure.
 /// No Tauri, CPAL, filesystem or window APIs cross this boundary.
 pub trait TranscriptionRuntime: Send + Sync {
-    fn ensure_ready(&self) -> AppResult<()>;
     fn transcribe(
         &self,
         pcm_samples: &[i16],
@@ -54,17 +53,14 @@ impl SharedSttRuntime {
 }
 
 impl TranscriptionRuntime for SharedSttRuntime {
-    fn ensure_ready(&self) -> AppResult<()> {
-        self.engine
-            .ensure_loaded(&self.model_path, self.acceleration, &self.worker_paths)
-    }
-
     fn transcribe(
         &self,
         pcm_samples: &[i16],
         language: &str,
         cancellation: OperationCancellation,
     ) -> AppResult<Transcript> {
+        self.engine
+            .ensure_loaded(&self.model_path, self.acceleration, &self.worker_paths)?;
         self.engine
             .transcribe_cancellable(pcm_samples, language, cancellation)
     }
@@ -105,14 +101,6 @@ where
                 "transcription cancelled before readiness check".into(),
             ));
         }
-        self.runtime
-            .ensure_ready()
-            .map_err(TranscriptionServiceError::from)?;
-        if cancellation.is_cancelled() {
-            return Err(TranscriptionServiceError::Cancelled(
-                "transcription cancelled before inference".into(),
-            ));
-        }
         let transcript = self
             .runtime
             .transcribe(&request.pcm_samples, &request.language, cancellation)
@@ -133,7 +121,7 @@ mod tests {
     use crate::error::AppError;
 
     struct FakeRuntime {
-        ensure_calls: AtomicUsize,
+        transcribe_calls: AtomicUsize,
         transcript: Transcript,
         model_not_loaded: bool,
     }
@@ -141,7 +129,7 @@ mod tests {
     impl FakeRuntime {
         fn ready(transcript: Transcript) -> Self {
             Self {
-                ensure_calls: AtomicUsize::new(0),
+                transcribe_calls: AtomicUsize::new(0),
                 transcript,
                 model_not_loaded: false,
             }
@@ -149,20 +137,16 @@ mod tests {
     }
 
     impl TranscriptionRuntime for FakeRuntime {
-        fn ensure_ready(&self) -> AppResult<()> {
-            self.ensure_calls.fetch_add(1, Ordering::Relaxed);
-            if self.model_not_loaded {
-                return Err(AppError::ModelNotLoaded);
-            }
-            Ok(())
-        }
-
         fn transcribe(
             &self,
             _pcm_samples: &[i16],
             _language: &str,
             cancellation: OperationCancellation,
         ) -> AppResult<Transcript> {
+            self.transcribe_calls.fetch_add(1, Ordering::Relaxed);
+            if self.model_not_loaded {
+                return Err(AppError::ModelNotLoaded);
+            }
             if cancellation.is_cancelled() {
                 return Err(AppError::Cancelled("cancelled by test".into()));
             }
@@ -211,7 +195,7 @@ mod tests {
             service.transcribe(invalid),
             Err(TranscriptionServiceError::InvalidRequest(_))
         ));
-        assert_eq!(service.runtime.ensure_calls.load(Ordering::Relaxed), 0);
+        assert_eq!(service.runtime.transcribe_calls.load(Ordering::Relaxed), 0);
     }
 
     #[test]
@@ -229,13 +213,13 @@ mod tests {
             service.transcribe_cancellable(request(), cancellation),
             Err(TranscriptionServiceError::Cancelled(_))
         ));
-        assert_eq!(service.runtime.ensure_calls.load(Ordering::Relaxed), 0);
+        assert_eq!(service.runtime.transcribe_calls.load(Ordering::Relaxed), 0);
     }
 
     #[test]
     fn model_not_loaded_is_exposed_as_a_stable_error_code() {
         let runtime = FakeRuntime {
-            ensure_calls: AtomicUsize::new(0),
+            transcribe_calls: AtomicUsize::new(0),
             transcript: transcript(),
             model_not_loaded: true,
         };

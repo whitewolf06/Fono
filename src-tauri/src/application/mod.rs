@@ -2,6 +2,7 @@
 
 pub mod audio_ingest;
 pub mod command_proposal;
+pub mod desktop_transcription_runtime;
 pub mod diagnostics;
 pub mod dictation;
 pub mod models;

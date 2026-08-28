@@ -111,6 +111,28 @@ impl Pipeline {
         self.operations.cancellation(operation_id)
     }
 
+    /// Reserves the shared STT resource for a non-interactive service job.
+    /// Desktop dictation, wake-word and diagnostics use the same coordinator,
+    /// so they cannot start while this lease is active.
+    pub fn start_service_transcription(&self) -> AppResult<(u64, OperationCancellation)> {
+        let operation = self.operations.start(OperationSource::Service)?;
+        if let Err(error) = self
+            .operations
+            .acquire_resource(operation.id, OperationResource::Stt)
+        {
+            let _ = self.operations.finish(operation.id, TerminalReason::Failed);
+            return Err(error.into());
+        }
+        let _ = self
+            .operations
+            .transition(operation.id, OperationPhase::Transcribing);
+        let cancellation = self
+            .operations
+            .cancellation(operation.id)
+            .expect("new service operation must own cancellation");
+        Ok((operation.id, cancellation))
+    }
+
     /// Подтвердить текущую диктовку (закончить запись досрочно).
     pub fn confirm(&self) {
         if let Some(operation) = self.operations.current() {
@@ -391,7 +413,9 @@ mod tests {
 
     use crate::audio::{AudioRecorder, RecordingWriter};
     use crate::error::{AppError, AppResult};
-    use crate::operation::{OperationEvent, OperationPhase, OperationSource, TerminalReason};
+    use crate::operation::{
+        OperationEvent, OperationPhase, OperationResource, OperationSource, TerminalReason,
+    };
     use crate::types::PipelineState;
 
     use super::{append_bounded, sync_overlay_visibility, Pipeline};
@@ -501,6 +525,27 @@ mod tests {
         ));
         assert!(pipeline.shutdown().is_none());
         assert!(!pipeline.is_operation_active(operation.id));
+    }
+
+    #[test]
+    fn service_transcription_reserves_the_shared_stt_lease() {
+        let pipeline = Pipeline::new();
+
+        let (operation_id, cancellation) = pipeline.start_service_transcription().unwrap();
+
+        assert_eq!(pipeline.operation_id(), operation_id);
+        assert!(!cancellation.is_cancelled());
+        assert_eq!(
+            pipeline.operations.resources(operation_id),
+            Some(vec![OperationResource::Stt])
+        );
+        assert!(matches!(
+            pipeline.operations.start(OperationSource::Ui),
+            Err(crate::operation::CoordinatorError::Busy(_))
+        ));
+        pipeline
+            .finish_operation(operation_id, TerminalReason::Completed)
+            .unwrap();
     }
 
     #[test]

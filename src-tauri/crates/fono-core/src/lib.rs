@@ -118,17 +118,36 @@ struct ActiveOperation {
 #[derive(Clone, Default)]
 pub struct OperationCancellation {
     cancelled: Arc<AtomicBool>,
+    linked: Arc<[Arc<AtomicBool>]>,
 }
 
 impl OperationCancellation {
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
+            || self
+                .linked
+                .iter()
+                .any(|signal| signal.load(Ordering::Acquire))
     }
 
     /// Allows a higher-level scheduler to propagate a user-requested cancel to
     /// its active STT operation without owning the coordinator itself.
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
+    }
+
+    /// Creates a cancellation view that stops when either source is cancelled.
+    /// The returned signal may still be cancelled independently by its owner.
+    pub fn combined_with(&self, other: &Self) -> Self {
+        let mut linked = Vec::with_capacity(2 + self.linked.len() + other.linked.len());
+        linked.push(Arc::clone(&self.cancelled));
+        linked.extend(self.linked.iter().cloned());
+        linked.push(Arc::clone(&other.cancelled));
+        linked.extend(other.linked.iter().cloned());
+        Self {
+            cancelled: Arc::new(AtomicBool::new(false)),
+            linked: linked.into(),
+        }
     }
 }
 
@@ -345,6 +364,17 @@ mod tests {
         let cancellation = coordinator.cancellation(operation.id).unwrap();
         coordinator.cancel(operation.id).unwrap();
         assert!(cancellation.is_cancelled());
+    }
+
+    #[test]
+    fn combined_cancellation_observes_either_owner() {
+        let first = OperationCancellation::default();
+        let second = OperationCancellation::default();
+        let combined = first.combined_with(&second);
+
+        second.cancel();
+
+        assert!(combined.is_cancelled());
     }
 
     #[test]

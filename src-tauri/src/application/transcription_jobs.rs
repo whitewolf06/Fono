@@ -246,9 +246,6 @@ mod tests {
     }
 
     impl TranscriptionRuntime for Runtime {
-        fn ensure_ready(&self) -> AppResult<()> {
-            Ok(())
-        }
         fn transcribe(
             &self,
             _: &[i16],
