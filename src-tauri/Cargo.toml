@@ -36,7 +36,7 @@ base64 = "0.22"
 sha2 = "0.10"
 
 # Асинхронность / ошибки
-tokio = { version = "1.41", features = ["macros", "rt", "time"] }
+tokio = { version = "1.41", features = ["macros", "net", "rt", "sync", "time"] }
 anyhow = "1.0"
 thiserror = "2.0"
 
@@ -52,6 +52,8 @@ cpal = "0.15"
 # Включаем feature для core (CPU); cuda добавим позже на этапе оптимизации
 whisper-rs = "0.16"
 symphonia = { version = "0.5.5", default-features = false, features = ["wav", "mp3", "flac", "ogg", "vorbis", "pcm"] }
+axum = { version = "0.7", features = ["multipart"] }
+tower = { version = "0.5", features = ["util"] }
 
 # Win32 API: SendInput для текст-инъекции
 [target.'cfg(windows)'.dependencies]
@@ -79,7 +81,6 @@ dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
 tar = "0.4"
 bzip2 = "0.4"
-symphonia = { version = "0.5.5", default-features = false, features = ["wav", "mp3", "flac", "ogg", "vorbis", "pcm"] }
 
 [features]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so

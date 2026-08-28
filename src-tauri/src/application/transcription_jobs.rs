@@ -53,6 +53,16 @@ pub trait InteractiveActivity: Send + Sync {
     fn is_active(&self) -> bool;
 }
 
+/// Transport-neutral port implemented by the queue and consumed by HTTP.
+pub trait TranscriptionJobs: Send + Sync {
+    fn submit_job(
+        &self,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError>;
+    fn get_job(&self, id: &str) -> Option<TranscriptionJob>;
+    fn cancel_job(&self, id: &str) -> Option<TranscriptionJob>;
+}
+
 #[derive(Default)]
 pub struct NoInteractiveActivity;
 
@@ -201,6 +211,25 @@ where
         let completed = job.clone();
         state.work.remove(&id);
         Some(completed)
+    }
+}
+
+impl<R, G> TranscriptionJobs for TranscriptionJobQueue<R, G>
+where
+    R: TranscriptionRuntime,
+    G: InteractiveActivity,
+{
+    fn submit_job(
+        &self,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit(request)
+    }
+    fn get_job(&self, id: &str) -> Option<TranscriptionJob> {
+        self.get(id)
+    }
+    fn cancel_job(&self, id: &str) -> Option<TranscriptionJob> {
+        self.cancel(id)
     }
 }
 
