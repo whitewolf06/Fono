@@ -13,6 +13,7 @@ use axum::{
     Json, Router,
 };
 use serde::Serialize;
+use tokio::sync::oneshot;
 
 use crate::application::transcription_contract::TranscriptionServiceError;
 
@@ -21,6 +22,36 @@ pub struct RestApiState {
     token: Arc<str>,
     pub protocol_version: u16,
     jobs: Option<Arc<dyn TranscriptionJobs>>,
+}
+
+/// Running loopback server. The transport owns a shutdown channel so Tauri can
+/// stop accepting local requests before its STT runtime shuts down.
+pub struct RestApiServer {
+    address: SocketAddr,
+    shutdown: std::sync::Mutex<Option<oneshot::Sender<()>>>,
+}
+
+impl RestApiServer {
+    pub fn local_addr(&self) -> SocketAddr {
+        self.address
+    }
+
+    pub fn shutdown(&self) {
+        if let Some(sender) = self
+            .shutdown
+            .lock()
+            .expect("REST shutdown mutex poisoned")
+            .take()
+        {
+            let _ = sender.send(());
+        }
+    }
+}
+
+impl Drop for RestApiServer {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
 }
 
 impl RestApiState {
@@ -56,6 +87,30 @@ pub fn router(state: RestApiState) -> Router {
         .route("/v1/transcription-jobs/:id", get(job))
         .route("/v1/transcription-jobs/:id/cancel", post(cancel))
         .with_state(state)
+}
+
+/// Starts only on the IPv4 loopback interface. Passing port zero asks the OS
+/// for an available ephemeral port, which is useful for tests and diagnostics.
+pub async fn start(state: RestApiState, port: u16) -> std::io::Result<RestApiServer> {
+    let listener = tokio::net::TcpListener::bind(loopback_addr(port)).await?;
+    let address = listener.local_addr()?;
+    let (shutdown_sender, shutdown_receiver) = oneshot::channel();
+
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = axum::serve(listener, router(state))
+            .with_graceful_shutdown(async move {
+                let _ = shutdown_receiver.await;
+            })
+            .await
+        {
+            tracing::error!(%error, "local transcription REST server stopped unexpectedly");
+        }
+    });
+
+    Ok(RestApiServer {
+        address,
+        shutdown: std::sync::Mutex::new(Some(shutdown_sender)),
+    })
 }
 
 fn authorized(headers: &HeaderMap, state: &RestApiState) -> bool {
@@ -328,5 +383,24 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[tokio::test]
+    async fn started_server_is_loopback_only_and_stops_cleanly() {
+        let server = start(RestApiState::new("test-token", 1), 0)
+            .await
+            .expect("start loopback server");
+        assert_eq!(server.local_addr().ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
+
+        let response = reqwest::Client::new()
+            .get(format!("http://{}/v1/health", server.local_addr()))
+            .bearer_auth("test-token")
+            .send()
+            .await
+            .expect("call health endpoint");
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+        server.shutdown();
+        server.shutdown();
     }
 }
