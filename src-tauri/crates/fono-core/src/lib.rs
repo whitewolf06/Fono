@@ -53,6 +53,8 @@ pub enum OperationSource {
     Hotkey,
     WakeWord,
     Diagnostics,
+    /// A non-interactive request submitted through the local service layer.
+    Service,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -286,6 +288,22 @@ mod tests {
         ));
         coordinator.finish(first.id, TerminalReason::Completed);
         assert!(coordinator.start(OperationSource::Hotkey).unwrap().id > first.id);
+    }
+
+    #[test]
+    fn service_requests_share_the_same_operation_lease() {
+        let coordinator = OperationCoordinator::new();
+        let service = coordinator.start(OperationSource::Service).unwrap();
+
+        assert!(matches!(
+            coordinator.start(OperationSource::Ui),
+            Err(CoordinatorError::Busy(_))
+        ));
+
+        coordinator
+            .finish(service.id, TerminalReason::Completed)
+            .unwrap();
+        assert!(coordinator.start(OperationSource::Ui).is_ok());
     }
 
     #[test]
