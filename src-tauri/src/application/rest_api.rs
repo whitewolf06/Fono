@@ -276,6 +276,12 @@ mod tests {
             job.state = crate::application::transcription_jobs::JobState::Cancelled;
             Some(job.clone())
         }
+
+        fn run_next_job(&self) -> Option<TranscriptionJob> {
+            None
+        }
+
+        fn cancel_all_jobs(&self) {}
     }
 
     fn authorized_request(uri: &str) -> axum::http::request::Builder {

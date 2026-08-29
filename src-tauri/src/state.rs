@@ -161,6 +161,26 @@ pub fn history_path() -> AppResult<std::path::PathBuf> {
     Ok(app_data_dir()?.join("dictation-history.json"))
 }
 
+/// Bearer token for clients of the loopback transcription service. It is kept
+/// outside settings so renderer reads and settings exports never expose it.
+pub fn transcription_api_token() -> AppResult<String> {
+    let path = app_data_dir()?.join("api-token.txt");
+    match fs::read_to_string(&path) {
+        Ok(token) if !token.trim().is_empty() => Ok(token.trim().to_owned()),
+        Ok(_) => {
+            let token = uuid::Uuid::new_v4().simple().to_string();
+            write_atomically(&path, token.as_bytes(), true)?;
+            Ok(token)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let token = uuid::Uuid::new_v4().simple().to_string();
+            write_atomically(&path, token.as_bytes(), true)?;
+            Ok(token)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
 pub(crate) fn load_history_document<T>() -> AppResult<Vec<T>>
 where
     T: DeserializeOwned + Serialize,

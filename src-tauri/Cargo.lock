@@ -1156,6 +1156,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "uuid",
  "whisper-rs",
  "windows 0.58.0",
 ]

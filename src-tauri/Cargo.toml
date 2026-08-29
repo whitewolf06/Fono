@@ -81,6 +81,7 @@ dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
 tar = "0.4"
 bzip2 = "0.4"
+uuid = { version = "1", features = ["v4"] }
 
 [features]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so

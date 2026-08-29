@@ -242,6 +242,11 @@ pub fn run() {
                     events::emit_stt_readiness(&readiness_events, readiness);
                 }));
             crate::application::models::preload_configured_stt(app.handle().clone());
+            let local_service =
+                crate::application::local_transcription_service::LocalTranscriptionService::start(
+                    app.handle().clone(),
+                )?;
+            app.manage(local_service);
             if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
                 if let Some(overlay) = app.get_webview_window("overlay") {
                     let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
@@ -323,6 +328,8 @@ pub fn run() {
 
 fn shutdown_app(app: &tauri::AppHandle) {
     tracing::info!("Fono shutdown requested");
+    app.state::<crate::application::local_transcription_service::LocalTranscriptionService>()
+        .shutdown();
     let pipeline = app.state::<pipeline::Pipeline>();
     if let Some(event) = pipeline.shutdown() {
         events::emit_operation(app, event);

@@ -2,6 +2,7 @@
 
 use tauri::{AppHandle, Manager};
 
+use crate::application::transcription_jobs::InteractiveActivity;
 use crate::application::transcription_service::TranscriptionRuntime;
 use crate::error::{AppError, AppResult};
 use crate::operation::TerminalReason;
@@ -18,6 +19,12 @@ pub struct DesktopTranscriptionRuntime {
 impl DesktopTranscriptionRuntime {
     pub fn new(app: AppHandle) -> Self {
         Self { app }
+    }
+}
+
+impl InteractiveActivity for DesktopTranscriptionRuntime {
+    fn is_active(&self) -> bool {
+        self.app.state::<Pipeline>().current_operation().is_some()
     }
 }
 

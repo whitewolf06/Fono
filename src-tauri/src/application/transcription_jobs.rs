@@ -2,7 +2,8 @@
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use fono_core::OperationCancellation;
 use serde::Serialize;
@@ -61,6 +62,45 @@ pub trait TranscriptionJobs: Send + Sync {
     ) -> Result<TranscriptionJob, TranscriptionServiceError>;
     fn get_job(&self, id: &str) -> Option<TranscriptionJob>;
     fn cancel_job(&self, id: &str) -> Option<TranscriptionJob>;
+    fn run_next_job(&self) -> Option<TranscriptionJob>;
+    fn cancel_all_jobs(&self);
+}
+
+/// Background runner for one bounded queue. It owns no STT runtime: every
+/// execution still goes through the queue's shared-operation adapter.
+pub struct TranscriptionJobWorker {
+    stopped: Arc<std::sync::atomic::AtomicBool>,
+    jobs: Arc<dyn TranscriptionJobs>,
+}
+
+impl TranscriptionJobWorker {
+    pub fn start(jobs: Arc<dyn TranscriptionJobs>) -> Self {
+        let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stopped_for_thread = Arc::clone(&stopped);
+        let jobs_for_thread = Arc::clone(&jobs);
+        std::thread::Builder::new()
+            .name("fono-transcription-jobs".into())
+            .spawn(move || {
+                while !stopped_for_thread.load(Ordering::Acquire) {
+                    if jobs_for_thread.run_next_job().is_none() {
+                        std::thread::sleep(Duration::from_millis(25));
+                    }
+                }
+            })
+            .expect("start transcription job worker");
+        Self { stopped, jobs }
+    }
+
+    pub fn shutdown(&self) {
+        self.stopped.store(true, Ordering::Release);
+        self.jobs.cancel_all_jobs();
+    }
+}
+
+impl Drop for TranscriptionJobWorker {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
 }
 
 #[derive(Default)]
@@ -165,6 +205,25 @@ where
         Some(job.clone())
     }
 
+    pub fn cancel_all(&self) {
+        let mut state = self.state.lock().expect("job queue mutex poisoned");
+        state.pending.clear();
+        let active_ids: Vec<_> = state.work.keys().cloned().collect();
+        for id in active_ids {
+            if let Some(work) = state.work.get(&id) {
+                work.cancellation.cancel();
+            }
+            if let Some(job) = state.jobs.get_mut(&id) {
+                if !job.is_terminal() {
+                    job.state = JobState::Cancelled;
+                    job.error = Some(TranscriptionServiceError::Cancelled(
+                        "service shutdown".into(),
+                    ));
+                }
+            }
+        }
+    }
+
     /// Runs at most one queued job. The service host calls this from its worker
     /// loop; interactive dictation deliberately leaves the batch job queued.
     pub fn run_next(&self) -> Option<TranscriptionJob> {
@@ -194,6 +253,11 @@ where
         let outcome = self.service.transcribe_cancellable(request, cancellation);
         let mut state = self.state.lock().expect("job queue mutex poisoned");
         let job = state.jobs.get_mut(&id)?;
+        if job.state == JobState::Cancelled {
+            let cancelled = job.clone();
+            state.work.remove(&id);
+            return Some(cancelled);
+        }
         match outcome {
             Ok(result) => {
                 job.state = JobState::Completed;
@@ -230,6 +294,12 @@ where
     }
     fn cancel_job(&self, id: &str) -> Option<TranscriptionJob> {
         self.cancel(id)
+    }
+    fn run_next_job(&self) -> Option<TranscriptionJob> {
+        self.run_next()
+    }
+    fn cancel_all_jobs(&self) {
+        self.cancel_all();
     }
 }
 
