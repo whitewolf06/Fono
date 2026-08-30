@@ -13,12 +13,16 @@ use crate::application::transcription_contract::{
 };
 use crate::error::AppResult;
 use crate::stt::{SttEngine, WorkerPaths};
-use crate::types::{AccelerationMode, Transcript};
+use crate::types::{AccelerationMode, Transcript, WhisperModelSize};
 use fono_core::OperationCancellation;
 
 /// The only dependency the use case needs from the STT infrastructure.
 /// No Tauri, CPAL, filesystem or window APIs cross this boundary.
 pub trait TranscriptionRuntime: Send + Sync {
+    /// Identifier of the model this runtime will actually use. It is public
+    /// metadata, never a filesystem path.
+    fn configured_model(&self) -> AppResult<String>;
+
     fn transcribe(
         &self,
         pcm_samples: &[i16],
@@ -53,6 +57,10 @@ impl SharedSttRuntime {
 }
 
 impl TranscriptionRuntime for SharedSttRuntime {
+    fn configured_model(&self) -> AppResult<String> {
+        configured_model_identifier(&self.model_path)
+    }
+
     fn transcribe(
         &self,
         pcm_samples: &[i16],
@@ -101,15 +109,34 @@ where
                 "transcription cancelled before readiness check".into(),
             ));
         }
+        let configured_model = self
+            .runtime
+            .configured_model()
+            .map_err(TranscriptionServiceError::from)?;
+        if request.model != configured_model {
+            return Err(TranscriptionServiceError::InvalidRequest(format!(
+                "model must match the selected Fono model ({configured_model})"
+            )));
+        }
         let transcript = self
             .runtime
             .transcribe(&request.pcm_samples, &request.language, cancellation)
             .map_err(TranscriptionServiceError::from)?;
         Ok(TranscriptionResult::from_transcript(
             transcript,
-            request.model,
+            configured_model,
         ))
     }
+}
+
+pub fn configured_model_identifier(model_path: &std::path::Path) -> AppResult<String> {
+    let filename = model_path
+        .file_name()
+        .and_then(|filename| filename.to_str())
+        .ok_or_else(|| crate::error::AppError::ModelNotLoaded)?;
+    WhisperModelSize::from_filename(filename)
+        .map(|model| model.api_identifier().to_string())
+        .ok_or_else(|| crate::error::AppError::ModelNotLoaded)
 }
 
 #[cfg(test)]
@@ -137,6 +164,13 @@ mod tests {
     }
 
     impl TranscriptionRuntime for FakeRuntime {
+        fn configured_model(&self) -> AppResult<String> {
+            if self.model_not_loaded {
+                return Err(AppError::ModelNotLoaded);
+            }
+            Ok("large_turbo".into())
+        }
+
         fn transcribe(
             &self,
             _pcm_samples: &[i16],
@@ -144,9 +178,6 @@ mod tests {
             cancellation: OperationCancellation,
         ) -> AppResult<Transcript> {
             self.transcribe_calls.fetch_add(1, Ordering::Relaxed);
-            if self.model_not_loaded {
-                return Err(AppError::ModelNotLoaded);
-            }
             if cancellation.is_cancelled() {
                 return Err(AppError::Cancelled("cancelled by test".into()));
             }
@@ -158,7 +189,7 @@ mod tests {
         TranscriptionRequest {
             pcm_samples: vec![0, 4, -4],
             language: "ru".into(),
-            model: "large-v3-turbo".into(),
+            model: "large_turbo".into(),
         }
     }
 
@@ -180,7 +211,7 @@ mod tests {
 
         assert_eq!(result.protocol_version, TRANSCRIPTION_PROTOCOL_VERSION);
         assert_eq!(result.text, "проверка контракта");
-        assert_eq!(result.model, "large-v3-turbo");
+        assert_eq!(result.model, "large_turbo");
         assert_eq!(result.backend.as_deref(), Some("CUDA"));
     }
 
@@ -193,6 +224,20 @@ mod tests {
 
         assert!(matches!(
             service.transcribe(invalid),
+            Err(TranscriptionServiceError::InvalidRequest(_))
+        ));
+        assert_eq!(service.runtime.transcribe_calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn rejects_a_model_other_than_the_active_fono_model_before_inference() {
+        let runtime = FakeRuntime::ready(transcript());
+        let service = TranscriptionService::new(runtime);
+        let mut mismatched = request();
+        mismatched.model = "base".into();
+
+        assert!(matches!(
+            service.transcribe(mismatched),
             Err(TranscriptionServiceError::InvalidRequest(_))
         ));
         assert_eq!(service.runtime.transcribe_calls.load(Ordering::Relaxed), 0);

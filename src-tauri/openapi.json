@@ -35,7 +35,7 @@
                 "properties": {
                   "audio": { "type": "string", "format": "binary", "description": "WAV, MP3, FLAC or OGG/Vorbis; maximum 100 MiB." },
                   "language": { "type": "string", "default": "auto", "maxLength": 64 },
-                  "model": { "type": "string", "maxLength": 64, "description": "Public identifier of the selected Fono Whisper model." }
+                  "model": { "type": "string", "enum": ["tiny", "base", "small", "medium", "large", "large_turbo"], "description": "Required identifier of the model currently selected in Fono." }
                 }
               }
             }
@@ -100,7 +100,7 @@
     },
     "schemas": {
       "Health": { "type": "object", "required": ["protocol_version", "state"], "properties": { "protocol_version": { "type": "integer", "example": 1 }, "state": { "type": "string", "example": "ready" } } },
-      "TranscriptionRequest": { "type": "object", "required": ["pcm_samples", "language", "model"], "properties": { "pcm_samples": { "type": "array", "items": { "type": "integer", "format": "int16" }, "description": "Mono signed PCM at 16 kHz." }, "language": { "type": "string", "example": "auto" }, "model": { "type": "string", "example": "base" } } },
+      "TranscriptionRequest": { "type": "object", "required": ["pcm_samples", "language", "model"], "properties": { "pcm_samples": { "type": "array", "items": { "type": "integer", "format": "int16" }, "description": "Mono signed PCM at 16 kHz." }, "language": { "type": "string", "example": "auto" }, "model": { "type": "string", "enum": ["tiny", "base", "small", "medium", "large", "large_turbo"], "example": "base", "description": "Must match Fono's selected model." } } },
       "Result": { "type": "object", "required": ["protocol_version", "text", "model"], "properties": { "protocol_version": { "type": "integer" }, "text": { "type": "string" }, "detected_language": { "type": "string", "nullable": true }, "audio_seconds": { "type": "number", "nullable": true }, "transcribe_seconds": { "type": "number", "nullable": true }, "model": { "type": "string" }, "backend": { "type": "string", "nullable": true } } },
       "Job": { "type": "object", "required": ["id", "state"], "properties": { "id": { "type": "string", "example": "tr_0000000000000001" }, "state": { "type": "string", "enum": ["queued", "preparing", "transcribing", "completed", "failed", "cancelled"] }, "result": { "$ref": "#/components/schemas/Result", "nullable": true }, "error": { "nullable": true } } }
     }

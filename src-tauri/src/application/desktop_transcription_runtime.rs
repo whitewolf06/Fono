@@ -3,7 +3,9 @@
 use tauri::{AppHandle, Manager};
 
 use crate::application::transcription_jobs::InteractiveActivity;
-use crate::application::transcription_service::TranscriptionRuntime;
+use crate::application::transcription_service::{
+    configured_model_identifier, TranscriptionRuntime,
+};
 use crate::error::{AppError, AppResult};
 use crate::operation::TerminalReason;
 use crate::pipeline::Pipeline;
@@ -29,6 +31,14 @@ impl InteractiveActivity for DesktopTranscriptionRuntime {
 }
 
 impl TranscriptionRuntime for DesktopTranscriptionRuntime {
+    fn configured_model(&self) -> AppResult<String> {
+        let settings = self.app.state::<AppState>().settings();
+        let model_path = settings
+            .whisper_model_path
+            .ok_or(AppError::ModelNotLoaded)?;
+        configured_model_identifier(std::path::Path::new(&model_path))
+    }
+
     fn transcribe(
         &self,
         pcm_samples: &[i16],

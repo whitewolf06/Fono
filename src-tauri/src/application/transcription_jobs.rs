@@ -316,6 +316,10 @@ mod tests {
     }
 
     impl TranscriptionRuntime for Runtime {
+        fn configured_model(&self) -> AppResult<String> {
+            Ok("base".into())
+        }
+
         fn transcribe(
             &self,
             _: &[i16],

@@ -61,6 +61,24 @@ impl WhisperModelSize {
         }
     }
 
+    /// Stable public identifier used by the local transcription API.
+    pub fn api_identifier(&self) -> &'static str {
+        match self {
+            WhisperModelSize::Tiny => "tiny",
+            WhisperModelSize::Base => "base",
+            WhisperModelSize::Small => "small",
+            WhisperModelSize::Medium => "medium",
+            WhisperModelSize::Large => "large",
+            WhisperModelSize::LargeTurbo => "large_turbo",
+        }
+    }
+
+    pub fn from_filename(filename: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|model| model.filename() == filename)
+    }
+
     pub fn url(&self) -> &'static str {
         match self {
             WhisperModelSize::Tiny => {
@@ -153,6 +171,16 @@ mod whisper_model_size_tests {
             WhisperModelSize::LargeTurbo.sha256(),
             "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
         );
+    }
+
+    #[test]
+    fn public_api_identifiers_are_derived_from_known_model_filenames() {
+        assert_eq!(
+            WhisperModelSize::from_filename("ggml-large-v3-turbo.bin")
+                .map(|model| model.api_identifier()),
+            Some("large_turbo")
+        );
+        assert!(WhisperModelSize::from_filename("custom-model.bin").is_none());
     }
 }
 
