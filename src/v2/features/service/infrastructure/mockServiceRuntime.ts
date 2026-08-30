@@ -11,9 +11,6 @@ const mockSnapshot: ServiceSnapshot = {
     queued: 1,
     preparing: 0,
     transcribing: 1,
-    completed: 3,
-    failed: 0,
-    cancelled: 0,
     jobs: [
       {
         id: "tr_0000000000000005",
@@ -51,12 +48,39 @@ const mockSnapshot: ServiceSnapshot = {
       },
     ],
   },
+  history: {
+    completed: 3,
+    failed: 0,
+    cancelled: 0,
+    totalAudioSeconds: 75.6,
+    totalTranscribeSeconds: 3.2,
+    jobs: [
+      {
+        id: "tr_0000000000000003",
+        state: "completed",
+        createdAtMs: Date.now() - 90_000,
+        startedAtMs: Date.now() - 85_000,
+        finishedAtMs: Date.now() - 78_000,
+        result: {
+          text: "Проверяю локальный сервис распознавания и очередь задач.",
+          detectedLanguage: "ru",
+          audioSeconds: 12.4,
+          transcribeSeconds: 0.7,
+          model: "large_turbo",
+          backend: "CUDA",
+        },
+        error: null,
+      },
+    ],
+  },
 };
 
 export function createMockServiceRuntime(): ServiceRuntime {
   return {
     getSnapshot: async () => mockSnapshot,
     cancelJob: async () => undefined,
+    clearHistory: async () => undefined,
     copyText: async () => undefined,
+    subscribe: () => () => undefined,
   };
 }

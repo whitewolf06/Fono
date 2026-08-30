@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ServiceRuntime } from "../application/serviceRuntime";
 import { useServiceMonitor } from "../application/useServiceMonitor";
 import { isActiveServiceJob } from "../domain/serviceMonitor";
+import { ServiceApiPanel } from "./ServiceApiPanel";
 import { JobDetails, JobSummary, ServiceJobList } from "./ServiceJobViews";
 import { PageFrame } from "@/v2/shared/presentation/components/PageFrame";
 import { StatusChip } from "@/v2/shared/presentation/components/StatusChip";
@@ -11,16 +12,24 @@ interface ServicePageProps {
 }
 
 export function ServicePage({ runtime }: ServicePageProps) {
-  const { snapshot, error, isRefreshing, refresh, cancelJob, copyText } =
-    useServiceMonitor(runtime);
+  const {
+    snapshot,
+    error,
+    isRefreshing,
+    refresh,
+    cancelJob,
+    clearHistory,
+    copyText,
+  } = useServiceMonitor(runtime);
+  const [tab, setTab] = useState<"overview" | "api">("overview");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle",
   );
   const selectedJob = useMemo(
     () =>
-      snapshot?.queue.jobs.find((job) => job.id === selectedJobId) ??
-      snapshot?.queue.jobs[0] ??
+      snapshot?.history.jobs.find((job) => job.id === selectedJobId) ??
+      snapshot?.history.jobs[0] ??
       null,
     [selectedJobId, snapshot],
   );
@@ -96,112 +105,191 @@ export function ServicePage({ runtime }: ServicePageProps) {
               </button>
             </section>
 
-            <section
-              className="v2-service-metrics"
-              aria-label="Метрики очереди"
-            >
-              <Metric
-                label="В очереди"
-                value={`${snapshot.queue.queued} / ${snapshot.queue.capacity}`}
-              />
-              <Metric
-                label="В работе"
-                value={String(
-                  snapshot.queue.preparing + snapshot.queue.transcribing,
-                )}
-                detail={
-                  activeJob ? "Есть активная задача" : "Нет активной задачи"
-                }
-              />
-              <Metric label="Готово" value={String(snapshot.queue.completed)} />
-              <Metric
-                label="Ошибки"
-                value={String(snapshot.queue.failed)}
-                tone={snapshot.queue.failed ? "danger" : "default"}
-              />
-            </section>
+            <nav className="v2-service-tabs" aria-label="Раздел сервиса">
+              <button
+                className={tab === "overview" ? "is-active" : ""}
+                type="button"
+                onClick={() => setTab("overview")}
+              >
+                Обзор
+              </button>
+              <button
+                className={tab === "api" ? "is-active" : ""}
+                type="button"
+                onClick={() => setTab("api")}
+              >
+                API
+              </button>
+            </nav>
 
-            <section className="v2-service-panel">
-              <header>
-                <div>
-                  <p className="v2-kicker">Сейчас</p>
-                  <h2>Текущая работа</h2>
-                </div>
-                {activeJob && (
-                  <button
-                    className="v2-button v2-button--quiet"
-                    type="button"
-                    onClick={() => void cancelJob(activeJob.id)}
-                  >
-                    Отменить задачу
-                  </button>
-                )}
-              </header>
-              {activeJob ? (
-                <JobSummary job={activeJob} />
-              ) : (
-                <p className="v2-service-empty">
-                  Очередь свободна. Новые REST-запросы появятся здесь.
-                </p>
-              )}
-            </section>
+            {tab === "api" ? (
+              <ServiceApiPanel
+                address={snapshot.address}
+                onCopy={(text) => void copyText(text)}
+              />
+            ) : (
+              <>
+                <section
+                  className="v2-service-metrics"
+                  aria-label="Метрики очереди"
+                >
+                  <Metric
+                    label="В очереди"
+                    value={`${snapshot.queue.queued} / ${snapshot.queue.capacity}`}
+                  />
+                  <Metric
+                    label="В работе"
+                    value={String(
+                      snapshot.queue.preparing + snapshot.queue.transcribing,
+                    )}
+                    detail={
+                      activeJob ? "Есть активная задача" : "Нет активной задачи"
+                    }
+                  />
+                  <Metric
+                    label="Готово"
+                    value={
+                      snapshot.history.completed
+                        ? String(snapshot.history.completed)
+                        : "—"
+                    }
+                    detail={
+                      snapshot.history.completed
+                        ? "В локальной истории"
+                        : "Пока нет результатов"
+                    }
+                  />
+                  <Metric
+                    label="Скорость"
+                    value={formatSpeedValue(
+                      snapshot.history.totalAudioSeconds,
+                      snapshot.history.totalTranscribeSeconds,
+                    )}
+                    detail={formatSpeed(
+                      snapshot.history.totalAudioSeconds,
+                      snapshot.history.totalTranscribeSeconds,
+                    )}
+                  />
+                  <Metric
+                    label="Ошибки"
+                    value={
+                      snapshot.history.failed
+                        ? String(snapshot.history.failed)
+                        : "—"
+                    }
+                    detail={
+                      snapshot.history.failed
+                        ? "Требуют проверки"
+                        : "Ошибок нет"
+                    }
+                    tone={snapshot.history.failed ? "danger" : "default"}
+                  />
+                </section>
 
-            <div className="v2-service-content-grid">
-              <section className="v2-service-panel v2-service-panel--jobs">
-                <header>
-                  <div>
-                    <p className="v2-kicker">Текущий запуск</p>
-                    <h2>Последние задачи</h2>
-                  </div>
-                  <span>В памяти: {snapshot.queue.jobs.length}</span>
-                </header>
-                <ServiceJobList
-                  jobs={snapshot.queue.jobs}
-                  selectedJobId={selectedJob?.id ?? null}
-                  onSelect={(id) => {
-                    setSelectedJobId(id);
-                    setCopyState("idle");
-                  }}
-                />
-              </section>
-
-              <section className="v2-service-panel v2-service-panel--result">
-                <header>
-                  <div>
-                    <p className="v2-kicker">Результат</p>
-                    <h2>
-                      {selectedJob
-                        ? selectedJob.id.replace("tr_", "#").slice(0, 10)
-                        : "Выберите задачу"}
-                    </h2>
-                  </div>
-                  {selectedJob?.result?.text && (
-                    <button
-                      className="v2-button"
-                      type="button"
-                      onClick={() => void handleCopy()}
-                    >
-                      {copyState === "copied"
-                        ? "Скопировано"
-                        : copyState === "error"
-                          ? "Повторить"
-                          : "Копировать"}
-                    </button>
+                <section className="v2-service-panel">
+                  <header>
+                    <div>
+                      <p className="v2-kicker">Сейчас</p>
+                      <h2>Текущая работа</h2>
+                    </div>
+                    {activeJob && (
+                      <button
+                        className="v2-button v2-button--quiet"
+                        type="button"
+                        onClick={() => void cancelJob(activeJob.id)}
+                      >
+                        Отменить задачу
+                      </button>
+                    )}
+                  </header>
+                  {activeJob ? (
+                    <JobSummary job={activeJob} />
+                  ) : (
+                    <p className="v2-service-empty">
+                      Очередь свободна. Новые REST-запросы появятся здесь.
+                    </p>
                   )}
-                </header>
-                <JobDetails job={selectedJob} />
-              </section>
-            </div>
+                </section>
 
-            <p className="v2-service-privacy-note">
-              Последние 50 завершённых задач хранятся только в памяти до
-              закрытия Fono.
-            </p>
+                <div className="v2-service-content-grid">
+                  <section className="v2-service-panel v2-service-panel--jobs">
+                    <header>
+                      <div>
+                        <p className="v2-kicker">Локальная история</p>
+                        <h2>Последние результаты</h2>
+                      </div>
+                      {snapshot.history.jobs.length ? (
+                        <button
+                          className="v2-button v2-button--quiet"
+                          type="button"
+                          onClick={() => void clearHistory()}
+                        >
+                          Очистить
+                        </button>
+                      ) : (
+                        <span>Пока пусто</span>
+                      )}
+                    </header>
+                    <ServiceJobList
+                      jobs={snapshot.history.jobs}
+                      selectedJobId={selectedJob?.id ?? null}
+                      onSelect={(id) => {
+                        setSelectedJobId(id);
+                        setCopyState("idle");
+                      }}
+                    />
+                  </section>
+
+                  <section className="v2-service-panel v2-service-panel--result">
+                    <header>
+                      <div>
+                        <p className="v2-kicker">Результат</p>
+                        <h2>
+                          {selectedJob
+                            ? selectedJob.id.replace("tr_", "#").slice(0, 10)
+                            : "Выберите задачу"}
+                        </h2>
+                      </div>
+                      {selectedJob?.result?.text && (
+                        <button
+                          className="v2-button"
+                          type="button"
+                          onClick={() => void handleCopy()}
+                        >
+                          {copyState === "copied"
+                            ? "Скопировано"
+                            : copyState === "error"
+                              ? "Повторить"
+                              : "Копировать"}
+                        </button>
+                      )}
+                    </header>
+                    <JobDetails job={selectedJob} />
+                  </section>
+                </div>
+
+                <p className="v2-service-privacy-note">
+                  До 100 завершённых REST-задач хранятся локально в Fono,
+                  включая текст результата.
+                </p>
+              </>
+            )}
           </>
         )}
       </div>
     </PageFrame>
   );
+}
+
+function formatSpeed(audioSeconds: number, transcribeSeconds: number) {
+  if (!audioSeconds || !transcribeSeconds)
+    return "Скорость появится после результата";
+  return `${(audioSeconds / transcribeSeconds).toFixed(1)}× реального времени`;
+}
+
+function formatSpeedValue(audioSeconds: number, transcribeSeconds: number) {
+  if (!audioSeconds || !transcribeSeconds) return "—";
+  return `${(audioSeconds / transcribeSeconds).toFixed(1)}×`;
 }
 
 function Metric({

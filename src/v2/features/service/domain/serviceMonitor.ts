@@ -30,10 +30,16 @@ export interface ServiceQueueSnapshot {
   queued: number;
   preparing: number;
   transcribing: number;
+  jobs: ServiceJob[];
+}
+
+export interface ServiceHistorySnapshot {
+  jobs: ServiceJob[];
   completed: number;
   failed: number;
   cancelled: number;
-  jobs: ServiceJob[];
+  totalAudioSeconds: number;
+  totalTranscribeSeconds: number;
 }
 
 export interface ServiceSnapshot {
@@ -42,6 +48,7 @@ export interface ServiceSnapshot {
   model: string;
   acceleration: string;
   queue: ServiceQueueSnapshot;
+  history: ServiceHistorySnapshot;
 }
 
 export function isActiveServiceJob(job: ServiceJob): boolean {

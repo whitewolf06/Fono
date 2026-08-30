@@ -268,8 +268,18 @@ export interface LocalTranscriptionQueueSnapshot {
   jobs: LocalTranscriptionJob[];
 }
 
+export interface LocalTranscriptionHistorySnapshot {
+  jobs: LocalTranscriptionJob[];
+  completed: number;
+  failed: number;
+  cancelled: number;
+  total_audio_seconds: number;
+  total_transcribe_seconds: number;
+}
+
 export interface LocalTranscriptionServiceSnapshot {
   address: string;
   protocol_version: number;
   queue: LocalTranscriptionQueueSnapshot;
+  history: LocalTranscriptionHistorySnapshot;
 }

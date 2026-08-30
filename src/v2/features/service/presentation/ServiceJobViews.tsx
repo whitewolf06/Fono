@@ -32,6 +32,11 @@ export function ServiceJobList({
               <small>
                 {serviceJobLabel(job.state)} · {formatTime(job.createdAtMs)}
               </small>
+              {job.result && (
+                <small className="v2-service-job-meta">
+                  {job.result.model} · {job.result.backend ?? "CPU"}
+                </small>
+              )}
             </span>
             <em>{formatJobTiming(job)}</em>
           </button>
@@ -92,6 +97,10 @@ export function JobDetails({ job }: { job: ServiceJob | null }) {
         <div>
           <dt>Backend</dt>
           <dd>{job.result.backend ?? "—"}</dd>
+        </div>
+        <div>
+          <dt>Модель</dt>
+          <dd>{job.result.model}</dd>
         </div>
         <div>
           <dt>Язык</dt>

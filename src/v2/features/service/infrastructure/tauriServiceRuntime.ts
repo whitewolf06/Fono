@@ -1,4 +1,8 @@
-import { ipc } from "@/lib/ipc";
+import {
+  ipc,
+  onLocalTranscriptionServiceChanged,
+  onSettingsChange,
+} from "@/lib/ipc";
 import type {
   LocalTranscriptionJob,
   LocalTranscriptionServiceSnapshot,
@@ -23,7 +27,34 @@ export function createTauriServiceRuntime(): ServiceRuntime {
     async cancelJob(id) {
       await ipc.cancelLocalTranscriptionJob(id);
     },
+    clearHistory: () => ipc.clearLocalTranscriptionHistory(),
     copyText: (text) => ipc.copyDictationText(text),
+    subscribe(listener) {
+      let active = true;
+      let stopService: (() => void) | undefined;
+      let stopSettings: (() => void) | undefined;
+
+      const subscribe = async () => {
+        const [nextStopService, nextStopSettings] = await Promise.all([
+          onLocalTranscriptionServiceChanged(listener),
+          onSettingsChange(listener),
+        ]);
+        if (active) {
+          stopService = nextStopService;
+          stopSettings = nextStopSettings;
+        } else {
+          nextStopService();
+          nextStopSettings();
+        }
+      };
+      void subscribe();
+
+      return () => {
+        active = false;
+        stopService?.();
+        stopSettings?.();
+      };
+    },
   };
 }
 
@@ -42,6 +73,14 @@ function toServiceSnapshot(
     queue: {
       ...service.queue,
       jobs: service.queue.jobs.map(toServiceJob),
+    },
+    history: {
+      jobs: service.history.jobs.map(toServiceJob),
+      completed: service.history.completed,
+      failed: service.history.failed,
+      cancelled: service.history.cancelled,
+      totalAudioSeconds: service.history.total_audio_seconds,
+      totalTranscribeSeconds: service.history.total_transcribe_seconds,
     },
   };
 }

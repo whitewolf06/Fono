@@ -1,0 +1,129 @@
+.v2-service-tabs {
+  display: flex;
+  gap: 5px;
+  margin: 14px 0;
+  padding: 4px;
+  border: 1px solid rgba(160, 220, 255, 0.16);
+  border-radius: 11px;
+  background: rgba(5, 25, 44, 0.38);
+}
+
+.v2-service-tabs button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 7px;
+  color: #9ebed1;
+  cursor: pointer;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+
+.v2-service-tabs button.is-active {
+  color: #e9f8ff;
+  background: rgba(72, 183, 255, 0.2);
+  box-shadow: inset 0 1px rgba(232, 250, 255, 0.15);
+}
+
+.v2-service-api {
+  padding: 22px;
+  border: 1px solid rgba(160, 220, 255, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(76, 166, 221, 0.15),
+    rgba(3, 18, 35, 0.64)
+  );
+  box-shadow: inset 0 1px rgba(239, 253, 255, 0.12);
+}
+
+.v2-service-api h2,
+.v2-service-api p {
+  margin: 0;
+}
+
+.v2-service-api h2 {
+  margin-top: 5px;
+  color: #effaff;
+  font-size: 18px;
+}
+
+.v2-service-api__intro > p:last-child {
+  margin-top: 6px;
+  color: #a6c5d7;
+  font-size: 13px;
+}
+
+.v2-service-api__address {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 12px;
+  border: 1px solid rgba(127, 211, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(1, 13, 27, 0.52);
+}
+
+.v2-service-api__address code,
+.v2-service-api__routes code {
+  color: #a9e1fb;
+  font-size: 12px;
+}
+
+.v2-service-api__address code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-service-api__address .v2-button {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.v2-service-api__routes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v2-service-api__routes li {
+  display: grid;
+  grid-template-columns: 54px minmax(180px, 0.7fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  border-bottom: 1px solid rgba(169, 221, 255, 0.12);
+}
+
+.v2-service-api__routes b {
+  color: #89e8b1;
+  font-size: 11px;
+}
+
+.v2-service-api__routes b.is-post {
+  color: #8acfff;
+}
+
+.v2-service-api__routes span {
+  color: #9ebed1;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .v2-service-api__address,
+  .v2-service-api__routes li {
+    display: grid;
+  }
+
+  .v2-service-api__routes li {
+    grid-template-columns: 48px minmax(0, 1fr);
+    padding: 8px 0;
+  }
+
+  .v2-service-api__routes span {
+    grid-column: 2;
+  }
+}

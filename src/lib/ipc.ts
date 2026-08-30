@@ -30,6 +30,8 @@ export const ipc = {
     invoke<LocalTranscriptionJob | null>("cancel_local_transcription_job", {
       id,
     }),
+  clearLocalTranscriptionHistory: () =>
+    invoke<void>("clear_local_transcription_history"),
   // Состояние конвейера
   getPipelineState: () => invoke<PipelineState>("get_pipeline_state"),
   startDictation: () => invoke<void>("start_dictation"),
@@ -185,4 +187,10 @@ export function onKwsModelDownloaded(
   handler: (ok: boolean) => void,
 ): Promise<UnlistenFn> {
   return listen<boolean>("kws-model-downloaded", (e) => handler(e.payload));
+}
+
+export function onLocalTranscriptionServiceChanged(
+  handler: () => void,
+): Promise<UnlistenFn> {
+  return listen("local-transcription-service-changed", () => handler());
 }
