@@ -62,6 +62,16 @@ Invoke-RestMethod "http://127.0.0.1:17832/v1/transcription-jobs/$($job.id)/cance
 `cancelled`. Результат с текстом появляется в `result`, ошибка — в `error`.
 Для диагностики доступны `created_at_ms`, `started_at_ms` и `finished_at_ms` —
 Unix-время в миллисекундах.
+
+## Спецификация API
+
+Версионированная спецификация доступна локально по
+`GET /openapi.json`. Как и остальные маршруты, она требует bearer-токен:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:17832/openapi.json" `
+  -Headers @{ Authorization = "Bearer $token" }
+```
 Значение `result.model` всегда соответствует модели, действительно выбранной
 в Fono. Если `model` запроса с ней не совпадает, job завершается с
 `invalid_request` до запуска инференса.

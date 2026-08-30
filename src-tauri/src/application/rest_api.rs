@@ -19,6 +19,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::oneshot;
 
 const UPLOAD_BODY_LIMIT_BYTES: usize = 101 * 1024 * 1024;
+const OPENAPI_SPEC: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/openapi.json"));
 
 #[derive(Clone)]
 pub struct RestApiState {
@@ -92,6 +93,7 @@ struct ApiError {
 
 pub fn router(state: RestApiState) -> Router {
     Router::new()
+        .route("/openapi.json", get(openapi))
         .route("/v1/health", get(health))
         .route("/v1/transcription-jobs", post(submit))
         .route("/v1/transcriptions", post(upload))
@@ -389,6 +391,18 @@ async fn health(State(state): State<RestApiState>, headers: HeaderMap) -> impl I
         .into_response()
 }
 
+async fn openapi(State(state): State<RestApiState>, headers: HeaderMap) -> impl IntoResponse {
+    if !authorized(&headers, &state) {
+        return api_error(StatusCode::UNAUTHORIZED, "unauthorized");
+    }
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
+        OPENAPI_SPEC,
+    )
+        .into_response()
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
@@ -503,6 +517,36 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(authorized.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn openapi_is_available_to_authorized_local_clients() {
+        let app = router(RestApiState::new("test-token", 1));
+        let unauthorized = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/openapi.json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+
+        let response = app
+            .oneshot(
+                authorized_request("/openapi.json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_TYPE).unwrap(),
+            "application/json; charset=utf-8"
+        );
     }
 
     #[tokio::test]

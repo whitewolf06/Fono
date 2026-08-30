@@ -13,6 +13,15 @@
   ],
   "security": [{ "bearerAuth": [] }],
   "paths": {
+    "/openapi.json": {
+      "get": {
+        "summary": "Read this OpenAPI specification",
+        "responses": {
+          "200": { "description": "OpenAPI JSON document", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
     "/v1/health": {
       "get": {
         "summary": "Read local service health",
