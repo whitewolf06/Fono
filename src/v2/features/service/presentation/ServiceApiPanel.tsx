@@ -1,6 +1,9 @@
+import { useState } from "react";
+
 interface ServiceApiPanelProps {
   address: string;
   onCopy(text: string): void;
+  onCopyApiToken(): Promise<void>;
 }
 
 const endpoints = [
@@ -12,9 +15,25 @@ const endpoints = [
   ["POST", "/v1/transcription-jobs/{id}/cancel", "Отмена задачи"],
 ];
 
-export function ServiceApiPanel({ address, onCopy }: ServiceApiPanelProps) {
+export function ServiceApiPanel({
+  address,
+  onCopy,
+  onCopyApiToken,
+}: ServiceApiPanelProps) {
   const origin = `http://${address}`;
   const documentationUrl = `${origin}/docs`;
+  const [tokenCopyState, setTokenCopyState] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
+
+  const copyApiToken = async () => {
+    try {
+      await onCopyApiToken();
+      setTokenCopyState("copied");
+    } catch {
+      setTokenCopyState("error");
+    }
+  };
 
   return (
     <section className="v2-service-api">
@@ -31,6 +50,19 @@ export function ServiceApiPanel({ address, onCopy }: ServiceApiPanelProps) {
           onClick={() => onCopy(documentationUrl)}
         >
           Копировать URL
+        </button>
+      </div>
+      <div className="v2-service-api__token">
+        <div>
+          <strong>Bearer-токен</strong>
+          <span>Токен не показывается в приложении.</span>
+        </div>
+        <button className="v2-button" type="button" onClick={copyApiToken}>
+          {tokenCopyState === "copied"
+            ? "Скопировано"
+            : tokenCopyState === "error"
+              ? "Повторить"
+              : "Скопировать токен"}
         </button>
       </div>
       <ul className="v2-service-api__routes">

@@ -20,6 +20,7 @@ export function ServicePage({ runtime }: ServicePageProps) {
     cancelJob,
     clearHistory,
     copyText,
+    copyApiToken,
   } = useServiceMonitor(runtime);
   const [tab, setTab] = useState<"overview" | "api">("overview");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export function ServicePage({ runtime }: ServicePageProps) {
               <ServiceApiPanel
                 address={snapshot.address}
                 onCopy={(text) => void copyText(text)}
+                onCopyApiToken={copyApiToken}
               />
             ) : (
               <>

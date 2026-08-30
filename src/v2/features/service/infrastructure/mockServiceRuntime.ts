@@ -85,6 +85,7 @@ export function createMockServiceRuntime(): ServiceRuntime {
     cancelJob: async () => undefined,
     clearHistory: async () => undefined,
     copyText: async () => undefined,
+    copyApiToken: async () => undefined,
     subscribe: () => () => undefined,
   };
 }

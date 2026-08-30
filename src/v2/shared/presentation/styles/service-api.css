@@ -83,6 +83,34 @@
   white-space: nowrap;
 }
 
+.v2-service-api__token {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 12px;
+  border: 1px solid rgba(127, 211, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(1, 13, 27, 0.3);
+}
+
+.v2-service-api__token strong,
+.v2-service-api__token span {
+  display: block;
+}
+
+.v2-service-api__token strong {
+  color: #e9f8ff;
+  font-size: 13px;
+}
+
+.v2-service-api__token span {
+  margin-top: 3px;
+  color: #9ebed1;
+  font-size: 12px;
+}
+
 .v2-service-api__routes {
   margin: 0;
   padding: 0;
@@ -114,7 +142,8 @@
 
 @media (max-width: 720px) {
   .v2-service-api__address,
-  .v2-service-api__routes li {
+  .v2-service-api__routes li,
+  .v2-service-api__token {
     display: grid;
   }
 

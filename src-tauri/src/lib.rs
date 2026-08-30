@@ -280,6 +280,7 @@ pub fn run() {
             ipc::service::get_local_transcription_service_snapshot,
             ipc::service::cancel_local_transcription_job,
             ipc::service::clear_local_transcription_history,
+            ipc::service::copy_local_transcription_api_token,
             ipc::text::copy_dictation_text,
             ipc::text::reinsert_dictation,
             ipc::voice::get_pending_voice_command,

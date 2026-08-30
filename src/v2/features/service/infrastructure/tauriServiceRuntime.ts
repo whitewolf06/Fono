@@ -29,6 +29,7 @@ export function createTauriServiceRuntime(): ServiceRuntime {
     },
     clearHistory: () => ipc.clearLocalTranscriptionHistory(),
     copyText: (text) => ipc.copyDictationText(text),
+    copyApiToken: () => ipc.copyLocalTranscriptionApiToken(),
     subscribe(listener) {
       let active = true;
       let stopService: (() => void) | undefined;

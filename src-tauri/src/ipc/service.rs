@@ -24,3 +24,10 @@ pub fn cancel_local_transcription_job(app: AppHandle, id: String) -> Option<Tran
 pub fn clear_local_transcription_history(app: AppHandle) -> AppResult<()> {
     app.state::<LocalTranscriptionService>().clear_history()
 }
+
+/// Copies the local REST bearer token without exposing it to the webview.
+#[tauri::command]
+pub fn copy_local_transcription_api_token() -> AppResult<()> {
+    let token = crate::state::transcription_api_token()?;
+    crate::injection::copy_text(&token)
+}

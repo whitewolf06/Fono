@@ -5,5 +5,6 @@ export interface ServiceRuntime {
   cancelJob(id: string): Promise<void>;
   clearHistory(): Promise<void>;
   copyText(text: string): Promise<void>;
+  copyApiToken(): Promise<void>;
   subscribe(listener: () => void): () => void;
 }

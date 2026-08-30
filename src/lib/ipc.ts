@@ -32,6 +32,8 @@ export const ipc = {
     }),
   clearLocalTranscriptionHistory: () =>
     invoke<void>("clear_local_transcription_history"),
+  copyLocalTranscriptionApiToken: () =>
+    invoke<void>("copy_local_transcription_api_token"),
   // Состояние конвейера
   getPipelineState: () => invoke<PipelineState>("get_pipeline_state"),
   startDictation: () => invoke<void>("start_dictation"),

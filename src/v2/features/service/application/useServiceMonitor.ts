@@ -39,6 +39,7 @@ export function useServiceMonitor(runtime: ServiceRuntime) {
   };
 
   const copyText = (text: string) => runtime.copyText(text);
+  const copyApiToken = () => runtime.copyApiToken();
 
   return {
     snapshot,
@@ -48,5 +49,6 @@ export function useServiceMonitor(runtime: ServiceRuntime) {
     cancelJob,
     clearHistory,
     copyText,
+    copyApiToken,
   };
 }
