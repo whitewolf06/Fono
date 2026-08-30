@@ -117,6 +117,11 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
 
 ## Регрессии
 
+- Local REST: с выбранной Whisper-моделью выполнить health, отправить WAV через
+  `/v1/transcriptions`, дождаться `completed`, затем проверить stop приложения
+  и освобождение loopback-порта. Детальный сценарий —
+  [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md).
+
 - Wake → post-wake dictation использует один `AudioHub`: устройство не должно
   переоткрываться, а после возврата listener продолжает получать аудио.
 - Unit-test с инъецируемым audio adapter проверяет: отказ получения устройства

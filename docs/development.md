@@ -105,5 +105,17 @@ src-tauri\target\release\bundle\msi\
 
 Логи находятся в `%APPDATA%\Fono\logs`.
 
+## Локальный REST API
+
+Desktop runtime запускает API на `127.0.0.1:17832`. Для одновременной работы
+нескольких dev-копий до старта Fono задайте другой порт:
+
+```powershell
+$env:FONO_API_PORT = "17833"
+npm run tauri dev
+```
+
+Контракт и ручной smoke-test: [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md).
+
 API key LLM хранится в Windows Credential Manager под target
 `Fono/llm-api-key`; `settings.json`, IPC и диагностические логи его не содержат.

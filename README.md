@@ -50,6 +50,7 @@ npm run tauri dev
 - [Wake word](docs/WAKE_WORD_ARCHITECTURE.md)
 - [Разработка и release](docs/development.md)
 - [Ручное тестирование](docs/testing.md)
+- [Локальный REST API транскрибации](docs/LOCAL_TRANSCRIPTION_API.md)
 
 ## Приватность
 
