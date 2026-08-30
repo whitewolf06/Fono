@@ -11,6 +11,8 @@
 - Локальные команды: громкость, медиа, запуск allowlisted приложений, фокус окна.
 - Выбор STT acceleration: Auto/CUDA/Vulkan/CPU.
 - Отдельные CUDA/Vulkan worker'ы с preload модели и JSON Lines protocol.
+- Локальный loopback REST API: bearer-authenticated health, asynchronous jobs и
+  multipart-загрузка WAV/MP3/FLAC/OGG без доступа из сети.
 - Проверены CUDA и Vulkan на NVIDIA RTX 5070 Ti; Vulkan использует актуальный
   upstream `whisper.cpp`.
 
@@ -21,6 +23,13 @@
 2. Проверить Vulkan на AMD и Intel GPU.
 3. Проверить Auto fallback без NVIDIA/CUDA и без Vulkan driver.
 4. Прогнать first-run и hotkey/wake сценарии на чистой Windows VM.
+
+## Подтверждённый API smoke (desktop dev)
+
+В desktop debug runtime подтверждены: authenticated `GET /v1/health`,
+`POST /v1/transcriptions` с WAV возвращает job `202`, `cancel` возвращает
+`200`, а после штатной остановки Fono loopback-порт закрыт. Это не является
+installer acceptance; инструкция для клиентов — в `LOCAL_TRANSCRIPTION_API.md`.
 
 ## Ограничения
 
