@@ -31,9 +31,12 @@ impl LocalTranscriptionService {
         ));
         let worker = TranscriptionJobWorker::start(Arc::clone(&jobs));
         let token = crate::state::transcription_api_token()?;
+        let upload_dir = crate::state::app_data_dir()?.join("transcription-uploads");
         let port = configured_port(std::env::var("FONO_API_PORT").ok())?;
         let server = match tauri::async_runtime::block_on(rest_api::start(
-            RestApiState::new(token, TRANSCRIPTION_PROTOCOL_VERSION).with_jobs(jobs),
+            RestApiState::new(token, TRANSCRIPTION_PROTOCOL_VERSION)
+                .with_jobs(jobs)
+                .with_upload_dir(upload_dir),
             port,
         )) {
             Ok(server) => server,

@@ -1,27 +1,31 @@
 //! Loopback-only HTTP surface for the local transcription service.
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::application::transcription_contract::TranscriptionRequest;
+use crate::application::audio_ingest::{self, AudioIngestError, AudioIngestPolicy};
+use crate::application::transcription_contract::{TranscriptionRequest, TranscriptionServiceError};
 use crate::application::transcription_jobs::TranscriptionJobs;
 use axum::{
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Multipart, Path as AxumPath, State},
     http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use serde::Serialize;
+use tokio::io::AsyncWriteExt;
 use tokio::sync::oneshot;
 
-use crate::application::transcription_contract::TranscriptionServiceError;
+const UPLOAD_BODY_LIMIT_BYTES: usize = 101 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct RestApiState {
     token: Arc<str>,
     pub protocol_version: u16,
     jobs: Option<Arc<dyn TranscriptionJobs>>,
+    upload_dir: Arc<PathBuf>,
 }
 
 /// Running loopback server. The transport owns a shutdown channel so Tauri can
@@ -60,11 +64,17 @@ impl RestApiState {
             token: token.into(),
             protocol_version,
             jobs: None,
+            upload_dir: Arc::new(std::env::temp_dir().join("fono-transcription-uploads")),
         }
     }
 
     pub fn with_jobs(mut self, jobs: Arc<dyn TranscriptionJobs>) -> Self {
         self.jobs = Some(jobs);
+        self
+    }
+
+    pub fn with_upload_dir(mut self, upload_dir: PathBuf) -> Self {
+        self.upload_dir = Arc::new(upload_dir);
         self
     }
 }
@@ -84,8 +94,10 @@ pub fn router(state: RestApiState) -> Router {
     Router::new()
         .route("/v1/health", get(health))
         .route("/v1/transcription-jobs", post(submit))
+        .route("/v1/transcriptions", post(upload))
         .route("/v1/transcription-jobs/:id", get(job))
         .route("/v1/transcription-jobs/:id/cancel", post(cancel))
+        .layer(DefaultBodyLimit::max(UPLOAD_BODY_LIMIT_BYTES))
         .with_state(state)
 }
 
@@ -160,10 +172,31 @@ async fn submit(
     }
 }
 
+async fn upload(
+    State(state): State<RestApiState>,
+    headers: HeaderMap,
+    multipart: Multipart,
+) -> axum::response::Response {
+    if !authorized(&headers, &state) {
+        return api_error(StatusCode::UNAUTHORIZED, "unauthorized");
+    }
+    let request = match request_from_multipart(multipart, &state.upload_dir).await {
+        Ok(request) => request,
+        Err(error) => return upload_error(error),
+    };
+    let Some(jobs) = state.jobs.as_ref() else {
+        return api_error(StatusCode::SERVICE_UNAVAILABLE, "service_unavailable");
+    };
+    match jobs.submit_job(request) {
+        Ok(job) => (StatusCode::ACCEPTED, Json(job)).into_response(),
+        Err(error) => submission_error(error),
+    }
+}
+
 async fn job(
     State(state): State<RestApiState>,
     headers: HeaderMap,
-    Path(id): Path<String>,
+    AxumPath(id): AxumPath<String>,
 ) -> impl IntoResponse {
     if !authorized(&headers, &state) {
         return api_error(StatusCode::UNAUTHORIZED, "unauthorized");
@@ -180,7 +213,7 @@ async fn job(
 async fn cancel(
     State(state): State<RestApiState>,
     headers: HeaderMap,
-    Path(id): Path<String>,
+    AxumPath(id): AxumPath<String>,
 ) -> impl IntoResponse {
     if !authorized(&headers, &state) {
         return api_error(StatusCode::UNAUTHORIZED, "unauthorized");
@@ -192,6 +225,150 @@ async fn cancel(
         .map(Json)
         .map(IntoResponse::into_response)
         .unwrap_or_else(|| api_error(StatusCode::NOT_FOUND, "job_not_found"))
+}
+
+async fn request_from_multipart(
+    mut multipart: Multipart,
+    upload_dir: &Path,
+) -> Result<TranscriptionRequest, UploadError> {
+    let mut language = "auto".to_string();
+    let mut model = None;
+    let mut audio_path = None;
+    let result = async {
+        while let Some(mut field) = multipart
+            .next_field()
+            .await
+            .map_err(|error| UploadError::Invalid(error.to_string()))?
+        {
+            match field.name() {
+                Some("language") => language = bounded_text(field).await?,
+                Some("model") => model = Some(bounded_text(field).await?),
+                Some("audio") if audio_path.is_none() => {
+                    let extension = upload_extension(field.file_name())?;
+                    audio_path = Some(write_upload(&mut field, upload_dir, &extension).await?);
+                }
+                Some("audio") => {
+                    return Err(UploadError::Invalid(
+                        "only one audio file is allowed".into(),
+                    ))
+                }
+                _ => return Err(UploadError::Invalid("unsupported multipart field".into())),
+            }
+        }
+        let model = model.ok_or_else(|| UploadError::Invalid("model field is required".into()))?;
+        let audio_path = audio_path
+            .as_ref()
+            .ok_or_else(|| UploadError::Invalid("audio field is required".into()))?;
+        let decoded = tokio::task::spawn_blocking({
+            let audio_path = audio_path.clone();
+            move || audio_ingest::decode_file(&audio_path, AudioIngestPolicy::default())
+        })
+        .await
+        .map_err(|error| UploadError::Internal(format!("audio decoder join failed: {error}")))?;
+        let audio = decoded.map_err(UploadError::Audio)?;
+        Ok(audio.into_transcription_request(language, model))
+    }
+    .await;
+    if let Some(audio_path) = audio_path {
+        let _ = tokio::fs::remove_file(audio_path).await;
+    }
+    result
+}
+
+async fn bounded_text(field: axum::extract::multipart::Field<'_>) -> Result<String, UploadError> {
+    let text = field
+        .text()
+        .await
+        .map_err(|error| UploadError::Invalid(error.to_string()))?;
+    if text.len() > 64 || text.trim().is_empty() {
+        return Err(UploadError::Invalid(
+            "text fields must contain 1 through 64 characters".into(),
+        ));
+    }
+    Ok(text)
+}
+
+async fn write_upload(
+    field: &mut axum::extract::multipart::Field<'_>,
+    upload_dir: &Path,
+    extension: &str,
+) -> Result<PathBuf, UploadError> {
+    tokio::fs::create_dir_all(upload_dir)
+        .await
+        .map_err(|error| UploadError::Internal(error.to_string()))?;
+    let path = upload_dir.join(format!("{}.{}", uuid::Uuid::new_v4().simple(), extension));
+    let mut file = tokio::fs::File::create(&path)
+        .await
+        .map_err(|error| UploadError::Internal(error.to_string()))?;
+    let mut bytes_written = 0_u64;
+    while let Some(chunk) = field
+        .chunk()
+        .await
+        .map_err(|error| UploadError::Invalid(error.to_string()))?
+    {
+        bytes_written = bytes_written.saturating_add(chunk.len() as u64);
+        if bytes_written > AudioIngestPolicy::default().max_file_bytes {
+            let _ = tokio::fs::remove_file(&path).await;
+            return Err(UploadError::TooLarge);
+        }
+        if let Err(error) = file.write_all(&chunk).await {
+            let _ = tokio::fs::remove_file(&path).await;
+            return Err(UploadError::Internal(error.to_string()));
+        }
+    }
+    if let Err(error) = file.flush().await {
+        let _ = tokio::fs::remove_file(&path).await;
+        return Err(UploadError::Internal(error.to_string()));
+    }
+    drop(file);
+    Ok(path)
+}
+
+fn upload_extension(file_name: Option<&str>) -> Result<String, UploadError> {
+    let extension = file_name
+        .and_then(|name| Path::new(name).extension())
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| {
+            UploadError::Invalid("audio filename with an extension is required".into())
+        })?;
+    match extension.as_str() {
+        "wav" | "mp3" | "flac" | "ogg" => Ok(extension),
+        _ => Err(UploadError::Unsupported),
+    }
+}
+
+enum UploadError {
+    Invalid(String),
+    TooLarge,
+    Unsupported,
+    Audio(AudioIngestError),
+    Internal(String),
+}
+
+fn upload_error(error: UploadError) -> axum::response::Response {
+    match error {
+        UploadError::Invalid(message) => {
+            tracing::warn!(%message, "invalid local transcription upload");
+            api_error(StatusCode::BAD_REQUEST, "invalid_upload")
+        }
+        UploadError::TooLarge | UploadError::Audio(AudioIngestError::FileTooLarge(_)) => {
+            api_error(StatusCode::PAYLOAD_TOO_LARGE, "file_too_large")
+        }
+        UploadError::Unsupported | UploadError::Audio(AudioIngestError::UnsupportedAudio(_)) => {
+            api_error(StatusCode::UNSUPPORTED_MEDIA_TYPE, "unsupported_audio")
+        }
+        UploadError::Audio(AudioIngestError::DurationLimit(_)) => {
+            api_error(StatusCode::UNPROCESSABLE_ENTITY, "duration_limit")
+        }
+        UploadError::Audio(AudioIngestError::CorruptedAudio(_)) => {
+            api_error(StatusCode::UNPROCESSABLE_ENTITY, "corrupted_audio")
+        }
+        UploadError::Audio(AudioIngestError::Io(message)) | UploadError::Internal(message) => {
+            tracing::error!(%message, "local transcription upload failed");
+            api_error(StatusCode::INTERNAL_SERVER_ERROR, "upload_failed")
+        }
+    }
 }
 
 pub fn loopback_addr(port: u16) -> SocketAddr {
@@ -389,6 +566,60 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[tokio::test]
+    async fn multipart_wav_becomes_a_queued_job_and_cleans_up_upload() {
+        let upload_dir =
+            std::env::temp_dir().join(format!("fono-rest-test-{}", uuid::Uuid::new_v4()));
+        let jobs: Arc<dyn TranscriptionJobs> = Arc::new(StubJobs::ready());
+        let app = router(
+            RestApiState::new("test-token", 1)
+                .with_jobs(jobs)
+                .with_upload_dir(upload_dir.clone()),
+        );
+        let boundary = "fono-test-boundary";
+        let mut body = Vec::new();
+        multipart_text(&mut body, boundary, "language", "ru");
+        multipart_text(&mut body, boundary, "model", "base");
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"audio\"; filename=\"sample.wav\"\r\nContent-Type: audio/wav\r\n\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/vendor/whisper.cpp/bindings/go/samples/jfk.wav"
+        )));
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+
+        let response = app
+            .oneshot(
+                authorized_request("/v1/transcriptions")
+                    .method("POST")
+                    .header(
+                        header::CONTENT_TYPE,
+                        format!("multipart/form-data; boundary={boundary}"),
+                    )
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        assert!(std::fs::read_dir(&upload_dir).unwrap().next().is_none());
+        std::fs::remove_dir_all(upload_dir).unwrap();
+    }
+
+    fn multipart_text(body: &mut Vec<u8>, boundary: &str, name: &str, value: &str) {
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+            )
+            .as_bytes(),
+        );
     }
 
     #[tokio::test]

@@ -36,7 +36,7 @@ base64 = "0.22"
 sha2 = "0.10"
 
 # Асинхронность / ошибки
-tokio = { version = "1.41", features = ["macros", "net", "rt", "sync", "time"] }
+tokio = { version = "1.41", features = ["fs", "io-util", "macros", "net", "rt", "sync", "time"] }
 anyhow = "1.0"
 thiserror = "2.0"
 
