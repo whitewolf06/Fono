@@ -28,7 +28,8 @@ Invoke-RestMethod http://127.0.0.1:17832/v1/health `
 
 Основной маршрут — `POST /v1/transcriptions`, `multipart/form-data`.
 
-- `audio` — обязательный файл WAV, MP3, FLAC или OGG/Vorbis, до 100 MiB;
+- `audio` — обязательный файл WAV, MP3, FLAC, OGG/Vorbis или OGG/Opus (в том
+  числе Telegram voice messages), до 100 MiB;
 - `model` — обязательный публичный идентификатор модели, выбранной сейчас в Fono
   (`tiny`, `base`, `small`, `medium`, `large` или `large_turbo`);
 - `language` — необязательный ISO-код или `auto` (значение по умолчанию).

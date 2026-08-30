@@ -52,6 +52,7 @@ cpal = "0.15"
 # Включаем feature для core (CPU); cuda добавим позже на этапе оптимизации
 whisper-rs = "0.16"
 symphonia = { version = "0.5.5", default-features = false, features = ["wav", "mp3", "flac", "ogg", "vorbis", "pcm"] }
+audiopus = "0.2"
 axum = { version = "0.7", features = ["multipart"] }
 tower = { version = "0.5", features = ["util"] }
 

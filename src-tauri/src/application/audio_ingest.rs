@@ -7,11 +7,14 @@
 use std::fs::File;
 use std::path::Path;
 
+use audiopus::{
+    coder::Decoder as OpusDecoder, Channels as OpusChannels, SampleRate as OpusSampleRate,
+};
 use serde::Serialize;
 use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::DecoderOptions;
+use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_OPUS};
 use symphonia::core::errors::Error as SymphoniaError;
-use symphonia::core::formats::FormatOptions;
+use symphonia::core::formats::{FormatOptions, FormatReader};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
@@ -20,6 +23,8 @@ use symphonia::default::{get_codecs, get_probe};
 use crate::application::transcription_contract::TranscriptionRequest;
 
 pub const WHISPER_SAMPLE_RATE: u32 = 16_000;
+const OPUS_SAMPLE_RATE: u32 = 48_000;
+const MAX_OPUS_PACKET_SAMPLES: usize = 5_760;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AudioIngestPolicy {
@@ -105,10 +110,27 @@ pub fn decode_file(
         .default_track()
         .ok_or_else(|| AudioIngestError::UnsupportedAudio("audio track is missing".into()))?;
     let track_id = track.id;
+    let codec = track.codec_params.codec;
     let source_sample_rate = track
         .codec_params
         .sample_rate
         .ok_or_else(|| AudioIngestError::UnsupportedAudio("audio sample rate is missing".into()))?;
+    if codec == CODEC_TYPE_OPUS {
+        let source_channels = track
+            .codec_params
+            .channels
+            .map(|channels| channels.count())
+            .ok_or_else(|| {
+                AudioIngestError::UnsupportedAudio("audio channel layout is missing".into())
+            })?;
+        return decode_ogg_opus(
+            format,
+            track_id,
+            source_sample_rate,
+            source_channels,
+            policy,
+        );
+    }
     let mut decoder = get_codecs()
         .make(&track.codec_params, &DecoderOptions::default())
         .map_err(map_decode_error)?;
@@ -172,6 +194,102 @@ pub fn decode_file(
     })
 }
 
+fn decode_ogg_opus(
+    mut format: Box<dyn FormatReader>,
+    track_id: u32,
+    source_sample_rate: u32,
+    source_channels: usize,
+    policy: AudioIngestPolicy,
+) -> Result<NormalizedAudio, AudioIngestError> {
+    if source_sample_rate != OPUS_SAMPLE_RATE {
+        return Err(AudioIngestError::UnsupportedAudio(format!(
+            "Opus must use the {OPUS_SAMPLE_RATE} Hz decode rate"
+        )));
+    }
+    let channels = opus_channels(source_channels)?;
+    let mut decoder = OpusDecoder::new(OpusSampleRate::Hz48000, channels).map_err(|error| {
+        AudioIngestError::CorruptedAudio(format!("Opus decoder init failed: {error}"))
+    })?;
+    let max_samples = policy.max_duration_seconds as usize * WHISPER_SAMPLE_RATE as usize;
+    let mut pcm_samples = Vec::new();
+    let mut decoded = vec![0_i16; MAX_OPUS_PACKET_SAMPLES * source_channels];
+
+    loop {
+        let packet = match format.next_packet() {
+            Ok(packet) => packet,
+            Err(SymphoniaError::IoError(error))
+                if error.kind() == std::io::ErrorKind::UnexpectedEof =>
+            {
+                break
+            }
+            Err(SymphoniaError::ResetRequired) => {
+                return Err(AudioIngestError::CorruptedAudio(
+                    "audio decoder reset is required".into(),
+                ))
+            }
+            Err(error) => return Err(map_decode_error(error)),
+        };
+        if packet.track_id() != track_id {
+            continue;
+        }
+        let decoded_frames = decoder
+            .decode(Some(packet.buf()), &mut decoded, false)
+            .map_err(|error| {
+                AudioIngestError::CorruptedAudio(format!("Opus decode failed: {error}"))
+            })?;
+        let decoded_len = decoded_frames
+            .checked_mul(source_channels)
+            .ok_or_else(|| AudioIngestError::CorruptedAudio("Opus packet is too large".into()))?;
+        let decoded_packet = trim_opus_packet(
+            &decoded[..decoded_len],
+            source_channels,
+            packet.trim_start() as usize,
+            packet.trim_end() as usize,
+        )?;
+        let mono = downmix_i16_to_mono(decoded_packet, source_channels);
+        append_resampled(&mut pcm_samples, &mono, source_sample_rate, max_samples)?;
+    }
+
+    if pcm_samples.is_empty() {
+        return Err(AudioIngestError::CorruptedAudio(
+            "audio contains no decodable samples".into(),
+        ));
+    }
+    Ok(NormalizedAudio {
+        duration_seconds: pcm_samples.len() as f32 / WHISPER_SAMPLE_RATE as f32,
+        pcm_samples,
+        source_sample_rate,
+        source_channels: source_channels as u16,
+    })
+}
+
+fn opus_channels(channels: usize) -> Result<OpusChannels, AudioIngestError> {
+    match channels {
+        1 => Ok(OpusChannels::Mono),
+        2 => Ok(OpusChannels::Stereo),
+        _ => Err(AudioIngestError::UnsupportedAudio(
+            "OGG/Opus supports mono or stereo audio only".into(),
+        )),
+    }
+}
+
+fn trim_opus_packet(
+    packet: &[i16],
+    channels: usize,
+    trim_start: usize,
+    trim_end: usize,
+) -> Result<&[i16], AudioIngestError> {
+    let frames = packet.len() / channels;
+    let start = trim_start.min(frames);
+    let end = frames.saturating_sub(trim_end);
+    if start > end {
+        return Err(AudioIngestError::CorruptedAudio(
+            "OGG/Opus packet trim metadata is invalid".into(),
+        ));
+    }
+    Ok(&packet[start * channels..end * channels])
+}
+
 fn allowed_extension(path: &Path) -> Result<String, AudioIngestError> {
     let extension = path
         .extension()
@@ -183,7 +301,7 @@ fn allowed_extension(path: &Path) -> Result<String, AudioIngestError> {
     match extension.as_str() {
         "wav" | "mp3" | "flac" | "ogg" => Ok(extension),
         _ => Err(AudioIngestError::UnsupportedAudio(
-            "supported formats are WAV, MP3, FLAC and OGG/Vorbis".into(),
+            "supported formats are WAV, MP3, FLAC, OGG/Vorbis and OGG/Opus".into(),
         )),
     }
 }
@@ -192,6 +310,16 @@ fn downmix_to_mono(interleaved: &[f32], channels: usize) -> Vec<f32> {
     interleaved
         .chunks_exact(channels)
         .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+        .collect()
+}
+
+fn downmix_i16_to_mono(interleaved: &[i16], channels: usize) -> Vec<f32> {
+    interleaved
+        .chunks_exact(channels)
+        .map(|frame| {
+            frame.iter().map(|sample| *sample as f32).sum::<f32>()
+                / (channels as f32 * i16::MAX as f32)
+        })
         .collect()
 }
 
@@ -266,6 +394,17 @@ mod tests {
         assert_eq!(output.len(), 4);
         assert_eq!(output[0], 0);
         assert!(output.iter().any(|sample| *sample > 0));
+    }
+
+    #[test]
+    fn opus_packet_trimming_preserves_complete_interleaved_frames() {
+        let samples = [10_i16, 11, 20, 21, 30, 31];
+
+        assert_eq!(trim_opus_packet(&samples, 2, 1, 1).unwrap(), &[20_i16, 21]);
+        assert!(matches!(
+            opus_channels(3),
+            Err(AudioIngestError::UnsupportedAudio(_))
+        ));
     }
 
     #[test]

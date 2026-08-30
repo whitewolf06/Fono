@@ -33,7 +33,7 @@
                 "type": "object",
                 "required": ["audio", "model"],
                 "properties": {
-                  "audio": { "type": "string", "format": "binary", "description": "WAV, MP3, FLAC or OGG/Vorbis; maximum 100 MiB." },
+                  "audio": { "type": "string", "format": "binary", "description": "WAV, MP3, FLAC, OGG/Vorbis or OGG/Opus; maximum 100 MiB." },
                   "language": { "type": "string", "default": "auto", "maxLength": 64 },
                   "model": { "type": "string", "enum": ["tiny", "base", "small", "medium", "large", "large_turbo"], "description": "Required identifier of the model currently selected in Fono." }
                 }
@@ -93,7 +93,7 @@
       "Unauthorized": { "description": "Missing or invalid bearer token" },
       "InvalidUpload": { "description": "Malformed multipart request" },
       "FileTooLarge": { "description": "Audio exceeds the 100 MiB limit" },
-      "UnsupportedAudio": { "description": "Only WAV, MP3, FLAC and OGG/Vorbis are supported" },
+      "UnsupportedAudio": { "description": "Only WAV, MP3, FLAC, OGG/Vorbis and OGG/Opus are supported" },
       "InvalidAudio": { "description": "Corrupted audio or duration over the configured limit" },
       "QueueFull": { "description": "Retry after an active job finishes" },
       "JobNotFound": { "description": "No job with this id exists" }
