@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fono_core::OperationCancellation;
 use serde::Serialize;
@@ -28,6 +28,9 @@ pub enum JobState {
 pub struct TranscriptionJob {
     pub id: String,
     pub state: JobState,
+    pub created_at_ms: u64,
+    pub started_at_ms: Option<u64>,
+    pub finished_at_ms: Option<u64>,
     pub result: Option<TranscriptionResult>,
     pub error: Option<TranscriptionServiceError>,
 }
@@ -37,6 +40,9 @@ impl TranscriptionJob {
         Self {
             id,
             state: JobState::Queued,
+            created_at_ms: now_epoch_ms(),
+            started_at_ms: None,
+            finished_at_ms: None,
             result: None,
             error: None,
         }
@@ -48,6 +54,19 @@ impl TranscriptionJob {
             JobState::Completed | JobState::Failed | JobState::Cancelled
         )
     }
+}
+
+/// A non-persistent view of the in-memory job queue for the desktop UI.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct TranscriptionQueueSnapshot {
+    pub capacity: usize,
+    pub queued: usize,
+    pub preparing: usize,
+    pub transcribing: usize,
+    pub completed: usize,
+    pub failed: usize,
+    pub cancelled: usize,
+    pub jobs: Vec<TranscriptionJob>,
 }
 
 pub trait InteractiveActivity: Send + Sync {
@@ -64,6 +83,9 @@ pub trait TranscriptionJobs: Send + Sync {
     fn cancel_job(&self, id: &str) -> Option<TranscriptionJob>;
     fn run_next_job(&self) -> Option<TranscriptionJob>;
     fn cancel_all_jobs(&self);
+    fn snapshot(&self) -> TranscriptionQueueSnapshot {
+        TranscriptionQueueSnapshot::default()
+    }
 }
 
 /// Background runner for one bounded queue. It owns no STT runtime: every
@@ -141,6 +163,8 @@ pub struct TranscriptionJobQueue<R, G> {
     state: Mutex<QueueState>,
 }
 
+const MAX_RETAINED_TERMINAL_JOBS: usize = 50;
+
 impl<R, G> TranscriptionJobQueue<R, G>
 where
     R: TranscriptionRuntime,
@@ -200,9 +224,12 @@ where
         let job = state.jobs.get_mut(id)?;
         if !job.is_terminal() {
             job.state = JobState::Cancelled;
+            job.finished_at_ms = Some(now_epoch_ms());
             job.error = Some(TranscriptionServiceError::Cancelled("job cancelled".into()));
         }
-        Some(job.clone())
+        let cancelled = job.clone();
+        prune_terminal_jobs(&mut state);
+        Some(cancelled)
     }
 
     pub fn cancel_all(&self) {
@@ -216,6 +243,7 @@ where
             if let Some(job) = state.jobs.get_mut(&id) {
                 if !job.is_terminal() {
                     job.state = JobState::Cancelled;
+                    job.finished_at_ms = Some(now_epoch_ms());
                     job.error = Some(TranscriptionServiceError::Cancelled(
                         "service shutdown".into(),
                     ));
@@ -242,6 +270,7 @@ where
                 return Some(job.clone());
             }
             job.state = JobState::Preparing;
+            job.started_at_ms = Some(now_epoch_ms());
             (id, request, cancellation)
         };
         {
@@ -272,9 +301,31 @@ where
                 job.error = Some(error);
             }
         }
+        job.finished_at_ms = Some(now_epoch_ms());
         let completed = job.clone();
         state.work.remove(&id);
+        prune_terminal_jobs(&mut state);
         Some(completed)
+    }
+
+    pub fn snapshot(&self) -> TranscriptionQueueSnapshot {
+        let state = self.state.lock().expect("job queue mutex poisoned");
+        let mut snapshot = TranscriptionQueueSnapshot {
+            capacity: self.capacity,
+            jobs: state.jobs.values().rev().cloned().collect(),
+            ..TranscriptionQueueSnapshot::default()
+        };
+        for job in state.jobs.values() {
+            match job.state {
+                JobState::Queued => snapshot.queued += 1,
+                JobState::Preparing => snapshot.preparing += 1,
+                JobState::Transcribing => snapshot.transcribing += 1,
+                JobState::Completed => snapshot.completed += 1,
+                JobState::Failed => snapshot.failed += 1,
+                JobState::Cancelled => snapshot.cancelled += 1,
+            }
+        }
+        snapshot
     }
 }
 
@@ -300,6 +351,31 @@ where
     }
     fn cancel_all_jobs(&self) {
         self.cancel_all();
+    }
+    fn snapshot(&self) -> TranscriptionQueueSnapshot {
+        self.snapshot()
+    }
+}
+
+fn now_epoch_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn prune_terminal_jobs(state: &mut QueueState) {
+    let terminal_ids: Vec<_> = state
+        .jobs
+        .iter()
+        .filter_map(|(id, job)| job.is_terminal().then_some(id.clone()))
+        .collect();
+    let excess = terminal_ids
+        .len()
+        .saturating_sub(MAX_RETAINED_TERMINAL_JOBS);
+    for id in terminal_ids.into_iter().take(excess) {
+        state.jobs.remove(&id);
+        state.work.remove(&id);
     }
 }
 
@@ -401,5 +477,29 @@ mod tests {
             queue.submit(request()),
             Err(TranscriptionServiceError::Busy(_))
         ));
+    }
+
+    #[test]
+    fn snapshot_retains_recent_terminal_jobs_and_reports_counts() {
+        let queue = TranscriptionJobQueue::new(
+            TranscriptionService::new(Runtime {
+                calls: AtomicUsize::new(0),
+            }),
+            NoInteractiveActivity,
+            60,
+        );
+
+        for _ in 0..=MAX_RETAINED_TERMINAL_JOBS {
+            queue.submit(request()).unwrap();
+            queue.run_next().unwrap();
+        }
+
+        let snapshot = queue.snapshot();
+        assert_eq!(snapshot.capacity, 60);
+        assert_eq!(snapshot.completed, MAX_RETAINED_TERMINAL_JOBS);
+        assert_eq!(snapshot.jobs.len(), MAX_RETAINED_TERMINAL_JOBS);
+        assert!(snapshot.jobs[0].created_at_ms > 0);
+        assert!(snapshot.jobs[0].started_at_ms.is_some());
+        assert!(snapshot.jobs[0].finished_at_ms.is_some());
     }
 }

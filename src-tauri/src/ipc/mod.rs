@@ -3,6 +3,7 @@ pub mod diagnostics;
 pub mod dictation;
 pub mod llm;
 pub mod models;
+pub mod service;
 pub mod settings;
 pub mod system;
 pub mod text;

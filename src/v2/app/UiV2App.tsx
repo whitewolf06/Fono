@@ -9,6 +9,9 @@ import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStag
 import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
 import { createMockDictationRuntime } from "@/v2/features/dictation/infrastructure/mockDictationRuntime";
 import { createTauriDictationRuntime } from "@/v2/features/dictation/infrastructure/tauriDictationRuntime";
+import { createMockServiceRuntime } from "@/v2/features/service/infrastructure/mockServiceRuntime";
+import { createTauriServiceRuntime } from "@/v2/features/service/infrastructure/tauriServiceRuntime";
+import { ServicePage } from "@/v2/features/service/presentation/ServicePage";
 import { createTauriSettingsDraftStore } from "@/v2/features/settings/infrastructure/tauriSettingsDraftStore";
 import {
   completeOnboarding,
@@ -26,12 +29,13 @@ import { BuildInfoIndicator } from "@/v2/shared/presentation/components/BuildInf
 import { UiKitPage } from "@/v2/shared/presentation/UiKitPage";
 import "@/v2/shared/presentation/styles/index.css";
 
-type NavigationItem = "voice" | "commands" | "settings" | "kit";
+type NavigationItem = "voice" | "commands" | "service" | "settings" | "kit";
 
 const productNavigation: { id: NavigationItem; icon: string; label: string }[] =
   [
     { id: "voice", icon: "♩", label: "Голос" },
     { id: "commands", icon: "⌘", label: "Команды" },
+    { id: "service", icon: "⌁", label: "Сервис" },
     { id: "settings", icon: "⚙", label: "Настройки" },
   ];
 
@@ -62,6 +66,13 @@ export function UiV2App() {
   );
   const settingsStore = useMemo(
     () => (isNativeRuntime ? createTauriSettingsDraftStore() : undefined),
+    [],
+  );
+  const serviceRuntime = useMemo(
+    () =>
+      isNativeRuntime
+        ? createTauriServiceRuntime()
+        : createMockServiceRuntime(),
     [],
   );
   const commandsStore = useMemo(
@@ -160,6 +171,9 @@ export function UiV2App() {
                   focusSection={settingsSection}
                   store={settingsStore}
                 />
+              )}
+              {activePage === "service" && (
+                <ServicePage runtime={serviceRuntime} />
               )}
               {activePage === "kit" && <UiKitPage />}
             </div>

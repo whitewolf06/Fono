@@ -227,3 +227,49 @@ export interface BuildInfo {
   revision: string;
   profile: string;
 }
+
+/** Raw IPC contract for the non-persistent local REST-service monitor. */
+export type LocalTranscriptionJobState =
+  | "queued"
+  | "preparing"
+  | "transcribing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface LocalTranscriptionResult {
+  protocol_version: number;
+  text: string;
+  detected_language: string | null;
+  audio_seconds: number | null;
+  transcribe_seconds: number | null;
+  model: string;
+  backend: string | null;
+}
+
+export interface LocalTranscriptionJob {
+  id: string;
+  state: LocalTranscriptionJobState;
+  created_at_ms: number;
+  started_at_ms: number | null;
+  finished_at_ms: number | null;
+  result: LocalTranscriptionResult | null;
+  error: { code: string; message: string } | null;
+}
+
+export interface LocalTranscriptionQueueSnapshot {
+  capacity: number;
+  queued: number;
+  preparing: number;
+  transcribing: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  jobs: LocalTranscriptionJob[];
+}
+
+export interface LocalTranscriptionServiceSnapshot {
+  address: string;
+  protocol_version: number;
+  queue: LocalTranscriptionQueueSnapshot;
+}

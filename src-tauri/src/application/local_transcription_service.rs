@@ -8,10 +8,12 @@ use crate::application::desktop_transcription_runtime::DesktopTranscriptionRunti
 use crate::application::rest_api::{self, RestApiServer, RestApiState};
 use crate::application::transcription_contract::TRANSCRIPTION_PROTOCOL_VERSION;
 use crate::application::transcription_jobs::{
-    TranscriptionJobQueue, TranscriptionJobWorker, TranscriptionJobs,
+    TranscriptionJob, TranscriptionJobQueue, TranscriptionJobWorker, TranscriptionJobs,
+    TranscriptionQueueSnapshot,
 };
 use crate::application::transcription_service::TranscriptionService;
 use crate::error::{AppError, AppResult};
+use serde::Serialize;
 
 const DEFAULT_API_PORT: u16 = 17_832;
 const JOB_QUEUE_CAPACITY: usize = 4;
@@ -19,6 +21,14 @@ const JOB_QUEUE_CAPACITY: usize = 4;
 pub struct LocalTranscriptionService {
     server: RestApiServer,
     worker: TranscriptionJobWorker,
+    jobs: Arc<dyn TranscriptionJobs>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LocalTranscriptionServiceSnapshot {
+    pub address: String,
+    pub protocol_version: u16,
+    pub queue: TranscriptionQueueSnapshot,
 }
 
 impl LocalTranscriptionService {
@@ -35,7 +45,7 @@ impl LocalTranscriptionService {
         let port = configured_port(std::env::var("FONO_API_PORT").ok())?;
         let server = match tauri::async_runtime::block_on(rest_api::start(
             RestApiState::new(token, TRANSCRIPTION_PROTOCOL_VERSION)
-                .with_jobs(jobs)
+                .with_jobs(Arc::clone(&jobs))
                 .with_upload_dir(upload_dir),
             port,
         )) {
@@ -46,7 +56,23 @@ impl LocalTranscriptionService {
             }
         };
         tracing::info!(address = %server.local_addr(), "local transcription REST service started");
-        Ok(Self { server, worker })
+        Ok(Self {
+            server,
+            worker,
+            jobs,
+        })
+    }
+
+    pub fn snapshot(&self) -> LocalTranscriptionServiceSnapshot {
+        LocalTranscriptionServiceSnapshot {
+            address: self.server.local_addr().to_string(),
+            protocol_version: TRANSCRIPTION_PROTOCOL_VERSION,
+            queue: self.jobs.snapshot(),
+        }
+    }
+
+    pub fn cancel_job(&self, id: &str) -> Option<TranscriptionJob> {
+        self.jobs.cancel_job(id)
     }
 
     pub fn shutdown(&self) {

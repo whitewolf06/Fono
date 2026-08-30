@@ -276,6 +276,8 @@ pub fn run() {
             ipc::system::get_dictation_history,
             ipc::system::clear_dictation_history,
             ipc::system::delete_dictation_history_entry,
+            ipc::service::get_local_transcription_service_snapshot,
+            ipc::service::cancel_local_transcription_job,
             ipc::text::copy_dictation_text,
             ipc::text::reinsert_dictation,
             ipc::voice::get_pending_voice_command,

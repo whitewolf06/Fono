@@ -14,12 +14,22 @@ import type {
   WakeWordSampleReport,
   WakeWordTestReport,
   WhisperModelInfo,
+  LocalTranscriptionJob,
+  LocalTranscriptionServiceSnapshot,
 } from "./types";
 
 // ====== Синхронные команды ======
 
 export const ipc = {
   getBuildInfo: () => invoke<BuildInfo>("get_build_info"),
+  getLocalTranscriptionServiceSnapshot: () =>
+    invoke<LocalTranscriptionServiceSnapshot>(
+      "get_local_transcription_service_snapshot",
+    ),
+  cancelLocalTranscriptionJob: (id: string) =>
+    invoke<LocalTranscriptionJob | null>("cancel_local_transcription_job", {
+      id,
+    }),
   // Состояние конвейера
   getPipelineState: () => invoke<PipelineState>("get_pipeline_state"),
   startDictation: () => invoke<void>("start_dictation"),

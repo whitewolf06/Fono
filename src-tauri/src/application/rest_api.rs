@@ -409,6 +409,9 @@ mod tests {
                 job: Mutex::new(TranscriptionJob {
                     id: "tr_0000000000000001".into(),
                     state: crate::application::transcription_jobs::JobState::Queued,
+                    created_at_ms: 0,
+                    started_at_ms: None,
+                    finished_at_ms: None,
                     result: None,
                     error: None,
                 }),
@@ -421,6 +424,9 @@ mod tests {
                 job: Mutex::new(TranscriptionJob {
                     id: "unused".into(),
                     state: crate::application::transcription_jobs::JobState::Queued,
+                    created_at_ms: 0,
+                    started_at_ms: None,
+                    finished_at_ms: None,
                     result: None,
                     error: None,
                 }),
