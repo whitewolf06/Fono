@@ -19,6 +19,7 @@ const DEFAULT_API_PORT: u16 = 17_832;
 const JOB_QUEUE_CAPACITY: usize = 4;
 
 pub struct LocalTranscriptionService {
+    app: AppHandle,
     server: RestApiServer,
     worker: TranscriptionJobWorker,
     jobs: Arc<dyn TranscriptionJobs>,
@@ -29,16 +30,27 @@ pub struct LocalTranscriptionServiceSnapshot {
     pub address: String,
     pub protocol_version: u16,
     pub queue: TranscriptionQueueSnapshot,
+    pub history: crate::service_history::ServiceHistorySnapshot,
 }
 
 impl LocalTranscriptionService {
     pub fn start(app: AppHandle) -> AppResult<Self> {
-        let runtime = DesktopTranscriptionRuntime::new(app);
-        let jobs: Arc<dyn TranscriptionJobs> = Arc::new(TranscriptionJobQueue::new(
-            TranscriptionService::new(runtime.clone()),
-            runtime,
-            JOB_QUEUE_CAPACITY,
-        ));
+        let runtime = DesktopTranscriptionRuntime::new(app.clone());
+        let event_app = app.clone();
+        let queue = Arc::new(
+            TranscriptionJobQueue::new(
+                TranscriptionService::new(runtime.clone()),
+                runtime,
+                JOB_QUEUE_CAPACITY,
+            )
+            .with_observer(Arc::new(move |job| {
+                if let Err(error) = crate::service_history::upsert_terminal(job) {
+                    tracing::error!(%error, "could not persist local transcription history");
+                }
+                crate::events::emit_service_changed(&event_app);
+            })),
+        );
+        let jobs: Arc<dyn TranscriptionJobs> = queue;
         let worker = TranscriptionJobWorker::start(Arc::clone(&jobs));
         let token = crate::state::transcription_api_token()?;
         let upload_dir = crate::state::app_data_dir()?.join("transcription-uploads");
@@ -57,6 +69,7 @@ impl LocalTranscriptionService {
         };
         tracing::info!(address = %server.local_addr(), "local transcription REST service started");
         Ok(Self {
+            app,
             server,
             worker,
             jobs,
@@ -68,11 +81,21 @@ impl LocalTranscriptionService {
             address: self.server.local_addr().to_string(),
             protocol_version: TRANSCRIPTION_PROTOCOL_VERSION,
             queue: self.jobs.snapshot(),
+            history: crate::service_history::snapshot().unwrap_or_else(|error| {
+                tracing::error!(%error, "could not load local transcription history");
+                crate::service_history::ServiceHistorySnapshot::default()
+            }),
         }
     }
 
     pub fn cancel_job(&self, id: &str) -> Option<TranscriptionJob> {
         self.jobs.cancel_job(id)
+    }
+
+    pub fn clear_history(&self) -> AppResult<()> {
+        crate::service_history::clear()?;
+        crate::events::emit_service_changed(&self.app);
+        Ok(())
     }
 
     pub fn shutdown(&self) {

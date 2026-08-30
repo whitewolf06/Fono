@@ -161,6 +161,10 @@ pub fn history_path() -> AppResult<std::path::PathBuf> {
     Ok(app_data_dir()?.join("dictation-history.json"))
 }
 
+pub fn transcription_history_path() -> AppResult<std::path::PathBuf> {
+    Ok(app_data_dir()?.join("transcription-history.json"))
+}
+
 /// Bearer token for clients of the loopback transcription service. It is kept
 /// outside settings so renderer reads and settings exports never expose it.
 pub fn transcription_api_token() -> AppResult<String> {
@@ -200,6 +204,27 @@ where
     T: Serialize,
 {
     save_versioned_json_atomically(&history_path()?, &entries)
+}
+
+pub(crate) fn load_transcription_history_document<T>() -> AppResult<Vec<T>>
+where
+    T: DeserializeOwned + Serialize,
+{
+    let path = transcription_history_path()?;
+    let Some((entries, legacy)) = load_versioned_json_with_backup(&path)? else {
+        return Ok(Vec::new());
+    };
+    if legacy {
+        save_versioned_json_atomically(&path, &entries)?;
+    }
+    Ok(entries)
+}
+
+pub(crate) fn save_transcription_history_document<T>(entries: &[T]) -> AppResult<()>
+where
+    T: Serialize,
+{
+    save_versioned_json_atomically(&transcription_history_path()?, &entries)
 }
 
 /// Каталог для whisper-моделей.

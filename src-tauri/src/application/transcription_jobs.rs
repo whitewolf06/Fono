@@ -6,14 +6,14 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fono_core::OperationCancellation;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::application::transcription_contract::{
     TranscriptionRequest, TranscriptionResult, TranscriptionServiceError,
 };
 use crate::application::transcription_service::{TranscriptionRuntime, TranscriptionService};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JobState {
     Queued,
@@ -24,7 +24,7 @@ pub enum JobState {
     Cancelled,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranscriptionJob {
     pub id: String,
     pub state: JobState,
@@ -48,13 +48,15 @@ impl TranscriptionJob {
         }
     }
 
-    fn is_terminal(&self) -> bool {
+    pub(crate) fn is_terminal(&self) -> bool {
         matches!(
             self.state,
             JobState::Completed | JobState::Failed | JobState::Cancelled
         )
     }
 }
+
+type JobObserver = Arc<dyn Fn(TranscriptionJob) + Send + Sync>;
 
 /// A non-persistent view of the in-memory job queue for the desktop UI.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -161,6 +163,7 @@ pub struct TranscriptionJobQueue<R, G> {
     capacity: usize,
     next_id: AtomicU64,
     state: Mutex<QueueState>,
+    observer: Option<JobObserver>,
 }
 
 const MAX_RETAINED_TERMINAL_JOBS: usize = 50;
@@ -177,7 +180,13 @@ where
             capacity,
             next_id: AtomicU64::new(0),
             state: Mutex::new(QueueState::default()),
+            observer: None,
         }
+    }
+
+    pub fn with_observer(mut self, observer: JobObserver) -> Self {
+        self.observer = Some(observer);
+        self
     }
 
     pub fn submit(
@@ -204,6 +213,8 @@ where
             },
         );
         state.jobs.insert(id, job.clone());
+        drop(state);
+        self.notify(&job);
         Ok(job)
     }
 
@@ -229,6 +240,8 @@ where
         }
         let cancelled = job.clone();
         prune_terminal_jobs(&mut state);
+        drop(state);
+        self.notify(&cancelled);
         Some(cancelled)
     }
 
@@ -236,6 +249,7 @@ where
         let mut state = self.state.lock().expect("job queue mutex poisoned");
         state.pending.clear();
         let active_ids: Vec<_> = state.work.keys().cloned().collect();
+        let mut cancelled_jobs = Vec::new();
         for id in active_ids {
             if let Some(work) = state.work.get(&id) {
                 work.cancellation.cancel();
@@ -247,8 +261,13 @@ where
                     job.error = Some(TranscriptionServiceError::Cancelled(
                         "service shutdown".into(),
                     ));
+                    cancelled_jobs.push(job.clone());
                 }
             }
+        }
+        drop(state);
+        for job in cancelled_jobs {
+            self.notify(&job);
         }
     }
 
@@ -258,7 +277,7 @@ where
         if self.interactive.is_active() {
             return None;
         }
-        let (id, request, cancellation) = {
+        let (id, request, cancellation, preparing) = {
             let mut state = self.state.lock().expect("job queue mutex poisoned");
             let id = state.pending.pop_front()?;
             let (request, cancellation) = {
@@ -271,14 +290,16 @@ where
             }
             job.state = JobState::Preparing;
             job.started_at_ms = Some(now_epoch_ms());
-            (id, request, cancellation)
+            (id, request, cancellation, job.clone())
         };
-        {
+        self.notify(&preparing);
+        let transcribing = {
             let mut state = self.state.lock().expect("job queue mutex poisoned");
-            if let Some(job) = state.jobs.get_mut(&id) {
-                job.state = JobState::Transcribing;
-            }
-        }
+            let job = state.jobs.get_mut(&id)?;
+            job.state = JobState::Transcribing;
+            job.clone()
+        };
+        self.notify(&transcribing);
         let outcome = self.service.transcribe_cancellable(request, cancellation);
         let mut state = self.state.lock().expect("job queue mutex poisoned");
         let job = state.jobs.get_mut(&id)?;
@@ -305,6 +326,8 @@ where
         let completed = job.clone();
         state.work.remove(&id);
         prune_terminal_jobs(&mut state);
+        drop(state);
+        self.notify(&completed);
         Some(completed)
     }
 
@@ -326,6 +349,12 @@ where
             }
         }
         snapshot
+    }
+
+    fn notify(&self, job: &TranscriptionJob) {
+        if let Some(observer) = &self.observer {
+            observer(job.clone());
+        }
     }
 }
 

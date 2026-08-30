@@ -27,6 +27,7 @@ pub enum BackendEventV1 {
     Settings(Box<SettingsEventV1>),
     SttReadiness(SttReadinessEventV1),
     ModelDownload(ModelDownloadEventV1),
+    Service(ServiceEventV1),
     Error(ErrorEventV1),
 }
 
@@ -104,6 +105,9 @@ pub struct ModelDownloadEventV1 {
     pub downloaded_bytes: u64,
     pub total_bytes: Option<u64>,
 }
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct ServiceEventV1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -216,6 +220,11 @@ pub fn emit_model_download<R: Runtime>(handle: &tauri::AppHandle<R>, event: Mode
             let _ = handle.emit("model-downloaded", event.model);
         }
     }
+}
+
+pub fn emit_service_changed<R: Runtime>(handle: &tauri::AppHandle<R>) {
+    emit_v1(handle, BackendEventV1::Service(ServiceEventV1));
+    let _ = handle.emit("local-transcription-service-changed", ());
 }
 
 pub fn emit_error<R: Runtime>(

@@ -14,6 +14,7 @@ pub mod llm;
 pub mod operation;
 pub mod pipeline;
 pub mod secrets;
+pub mod service_history;
 pub mod state;
 pub mod stt;
 pub mod types;
@@ -278,6 +279,7 @@ pub fn run() {
             ipc::system::delete_dictation_history_entry,
             ipc::service::get_local_transcription_service_snapshot,
             ipc::service::cancel_local_transcription_job,
+            ipc::service::clear_local_transcription_history,
             ipc::text::copy_dictation_text,
             ipc::text::reinsert_dictation,
             ipc::voice::get_pending_voice_command,

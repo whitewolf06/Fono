@@ -17,7 +17,7 @@ pub struct TranscriptionRequest {
     pub model: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranscriptionResult {
     pub protocol_version: u16,
     pub text: String,
@@ -42,7 +42,7 @@ impl TranscriptionResult {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "code", content = "message", rename_all = "snake_case")]
 pub enum TranscriptionServiceError {
     InvalidRequest(String),
