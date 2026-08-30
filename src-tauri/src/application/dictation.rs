@@ -11,7 +11,10 @@ use crate::llm::LlmClient;
 use crate::operation::{OperationCancellation, OperationSource, TerminalReason};
 use crate::pipeline::{self, Pipeline};
 use crate::state::AppState;
-use crate::types::{AiMode, DictationHistoryEntry, PipelineState, Transcript};
+use crate::types::{
+    AiMode, DictationAnalysisStatus, DictationHistoryEntry, DictationProcessingMetadata,
+    PipelineState, Transcript,
+};
 
 fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
     pipeline::set_state(app, state, PipelineState::Idle);
@@ -400,12 +403,34 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
     );
 
     if !final_text.trim().is_empty() && settings.history_enabled {
-        if let Err(error) = crate::history::append(DictationHistoryEntry {
-            id: crate::history::next_id(),
-            text: final_text.clone(),
-            created_at: chrono::Utc::now(),
-            device: transcript.device.clone(),
-        }) {
+        let analytics_payload = settings.analytics_enabled.then(|| {
+            (
+                transcript.text.clone(),
+                DictationProcessingMetadata {
+                    ai_mode: settings.ai_mode,
+                    detected_language: transcript.detected_language.clone(),
+                    transcribe_secs: transcript.transcribe_secs,
+                    audio_secs: transcript.audio_secs,
+                },
+            )
+        });
+        if let Err(error) = crate::history::append(
+            DictationHistoryEntry {
+                id: crate::history::next_id(),
+                text: final_text.clone(),
+                created_at: chrono::Utc::now(),
+                device: transcript.device.clone(),
+                original_text: analytics_payload.as_ref().map(|(text, _)| text.clone()),
+                processing: analytics_payload.map(|(_, processing)| processing),
+                analysis_status: if settings.analytics_enabled {
+                    DictationAnalysisStatus::Pending
+                } else {
+                    DictationAnalysisStatus::Disabled
+                },
+            },
+            settings.analytics_enabled,
+            settings.analytics_retention_days,
+        ) {
             tracing::warn!(operation, "dictation history persistence failed: {error}");
             crate::events::emit_error(
                 &app,

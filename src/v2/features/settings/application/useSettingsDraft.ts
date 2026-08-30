@@ -5,7 +5,13 @@ import {
 } from "../infrastructure/settingsUiPreferences";
 
 export type SettingsSection =
-  "general" | "audio" | "activation" | "processing" | "overlay" | "advanced";
+  | "general"
+  | "audio"
+  | "activation"
+  | "processing"
+  | "privacy"
+  | "overlay"
+  | "advanced";
 
 export type SettingsStatus = "idle" | "checking" | "ready" | "error";
 
@@ -25,6 +31,9 @@ export interface SettingsDraft {
   silenceDelay: number;
   processingEnabled: boolean;
   processingMode: "clean" | "format";
+  historyEnabled: boolean;
+  analyticsEnabled: boolean;
+  analyticsRetentionDays: number;
   overlayVisible: boolean;
   overlayScale: number;
   overlayOpacity: number;
@@ -68,6 +77,9 @@ const initialDraft: SettingsDraft = {
   silenceDelay: 2,
   processingEnabled: true,
   processingMode: "clean",
+  historyEnabled: true,
+  analyticsEnabled: false,
+  analyticsRetentionDays: 30,
   overlayVisible: true,
   overlayScale: 100,
   overlayOpacity: 92,

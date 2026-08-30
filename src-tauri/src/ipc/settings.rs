@@ -142,6 +142,16 @@ pub async fn save_settings(
         )));
     }
 
+    if let Err(error) = crate::history::apply_analytics_privacy_policy(
+        persisted_settings.analytics_enabled && persisted_settings.history_enabled,
+        persisted_settings.analytics_retention_days,
+    ) {
+        tracing::error!(%error, "could not apply dictation analytics privacy policy");
+        return Err(AppError::Config(format!(
+            "Настройки сохранены, но не удалось применить правила хранения аналитики: {error}"
+        )));
+    }
+
     state.set_settings(persisted_settings.clone());
     crate::verbose::set_verbose(persisted_settings.verbose_logging);
     crate::events::emit_settings(&app, &persisted_settings);
@@ -221,6 +231,11 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
     {
         return Err(AppError::Config(
             "Параметры wake word должны быть конечными числами".into(),
+        ));
+    }
+    if !(1..=365).contains(&settings.analytics_retention_days) {
+        return Err(AppError::Config(
+            "Срок хранения аналитики должен быть от 1 до 365 дней".into(),
         ));
     }
     let wake_config = crate::settings_to_wake_config(settings)?;

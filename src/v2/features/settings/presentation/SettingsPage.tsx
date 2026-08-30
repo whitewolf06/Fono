@@ -11,6 +11,7 @@ import {
 import {
   DiagnosticsSettingsCard,
   OverlaySettingsCard,
+  PrivacySettingsCard,
   ProcessingSettingsCard,
 } from "./ServiceSettingsCards";
 import { SectionIcon } from "./SettingsPrimitives";
@@ -117,6 +118,7 @@ export function SettingsPage({ focusSection, store }: SettingsPageProps) {
             onRestoreOriginalTranscript={restoreOriginalTranscript}
             onTestLmStudio={testLmStudio}
           />
+          <PrivacySettingsCard {...sharedProps} {...cardState("privacy")} />
           <OverlaySettingsCard
             {...sharedProps}
             {...cardState("overlay")}

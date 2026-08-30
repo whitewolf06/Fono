@@ -227,6 +227,62 @@ export function OverlaySettingsCard({
   );
 }
 
+export function PrivacySettingsCard({
+  collapsed,
+  draft,
+  focusSection,
+  onToggleCollapsed,
+  update,
+}: SettingsCardBaseProps) {
+  return (
+    <SettingsCard
+      collapsed={collapsed}
+      icon="advanced"
+      title="Данные и приватность"
+      description="История остаётся на этом устройстве; аналитика включается только отдельно."
+      focused={focusSection === "privacy"}
+      onToggleCollapsed={onToggleCollapsed}
+    >
+      <SettingRow
+        title="Хранить историю диктовок"
+        description="Сохранять итоговый текст, который Fono вставил в приложение."
+      >
+        <Switch
+          checked={draft.historyEnabled}
+          onChange={(checked) => update("historyEnabled", checked)}
+        />
+      </SettingRow>
+      <SettingRow
+        title="Разрешить локальную аналитику речи"
+        description="Сохранять исходную расшифровку и технические метаданные только в локальной истории. При выключении эти данные удаляются сразу."
+      >
+        <Switch
+          checked={draft.analyticsEnabled}
+          onChange={(checked) => update("analyticsEnabled", checked)}
+        />
+      </SettingRow>
+      <SettingRow
+        disabled={!draft.analyticsEnabled}
+        title="Срок хранения аналитики"
+        description="После срока Fono удалит исходный текст и метаданные, оставив итог истории."
+      >
+        <select
+          aria-label="Срок хранения аналитики"
+          disabled={!draft.analyticsEnabled}
+          value={draft.analyticsRetentionDays}
+          onChange={(event) =>
+            update("analyticsRetentionDays", Number(event.target.value))
+          }
+        >
+          <option value={7}>7 дней</option>
+          <option value={30}>30 дней</option>
+          <option value={90}>90 дней</option>
+        </select>
+      </SettingRow>
+    </SettingsCard>
+  );
+}
+
 export function DiagnosticsSettingsCard({
   collapsed,
   draft,

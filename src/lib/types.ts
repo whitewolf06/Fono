@@ -104,6 +104,10 @@ export interface Settings {
   llm_api_key: string | null;
   has_llm_api_key: boolean;
   history_enabled: boolean;
+  /** Явное согласие на локальное хранение исходного текста для аналитики речи. */
+  analytics_enabled: boolean;
+  /** Срок хранения исходного текста и метаданных аналитики. */
+  analytics_retention_days: number;
   /** Модель whisper для wake word */
   wake_word_model: WhisperModelSize;
   /** Порог VAD для wake word (чувствительность) */
@@ -197,6 +201,8 @@ export const DEFAULT_SETTINGS: Settings = {
   llm_api_key: null,
   has_llm_api_key: false,
   history_enabled: true,
+  analytics_enabled: false,
+  analytics_retention_days: 30,
   wake_word_model: "base",
   wake_word_vad_threshold: 0.015,
   wake_dictation_silence_ms: 2000,
@@ -221,6 +227,16 @@ export interface DictationHistoryEntry {
   text: string;
   created_at: string;
   device: string | null;
+  original_text?: string | null;
+  processing?: DictationProcessingMetadata | null;
+  analysis_status: "disabled" | "pending" | "expired";
+}
+
+export interface DictationProcessingMetadata {
+  ai_mode: AiMode;
+  detected_language: string | null;
+  transcribe_secs: number | null;
+  audio_secs: number | null;
 }
 export interface BuildInfo {
   version: string;

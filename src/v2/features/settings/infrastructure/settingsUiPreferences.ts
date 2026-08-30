@@ -28,6 +28,7 @@ function isSettingsSection(value: unknown): value is SettingsSection {
     value === "audio" ||
     value === "activation" ||
     value === "processing" ||
+    value === "privacy" ||
     value === "overlay" ||
     value === "advanced"
   );

@@ -1,4 +1,7 @@
+use tauri::State;
+
 use crate::error::AppResult;
+use crate::state::AppState;
 use crate::types::DictationHistoryEntry;
 
 #[derive(serde::Serialize)]
@@ -19,8 +22,12 @@ pub fn get_build_info() -> BuildInfo {
 }
 
 #[tauri::command]
-pub fn get_dictation_history() -> AppResult<Vec<DictationHistoryEntry>> {
-    crate::history::list()
+pub fn get_dictation_history(state: State<'_, AppState>) -> AppResult<Vec<DictationHistoryEntry>> {
+    let settings = state.settings();
+    crate::history::list(
+        settings.analytics_enabled && settings.history_enabled,
+        settings.analytics_retention_days,
+    )
 }
 
 #[tauri::command]

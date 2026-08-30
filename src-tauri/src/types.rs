@@ -318,6 +318,14 @@ pub struct Settings {
     pub has_llm_api_key: bool,
     #[serde(default = "default_history_enabled")]
     pub history_enabled: bool,
+    /// Explicit consent for keeping the original transcript and processing
+    /// metadata locally for future speech analytics. Disabled by default.
+    #[serde(default)]
+    pub analytics_enabled: bool,
+    /// How long locally stored analytics payload may remain attached to a
+    /// history entry. The final inserted text keeps the normal history policy.
+    #[serde(default = "default_analytics_retention_days")]
+    pub analytics_retention_days: u16,
     #[serde(default = "default_wake_word_model")]
     pub wake_word_model: WhisperModelSize,
     #[serde(default = "default_wake_word_vad_threshold")]
@@ -404,6 +412,8 @@ impl Default for Settings {
             llm_api_key: None,
             has_llm_api_key: false,
             history_enabled: default_history_enabled(),
+            analytics_enabled: false,
+            analytics_retention_days: default_analytics_retention_days(),
             wake_word_model: default_wake_word_model(),
             wake_word_vad_threshold: default_wake_word_vad_threshold(),
             wake_dictation_silence_ms: default_wake_dictation_silence_ms(),
@@ -419,6 +429,10 @@ fn default_use_gpu() -> bool {
 
 fn default_history_enabled() -> bool {
     true
+}
+
+fn default_analytics_retention_days() -> u16 {
+    30
 }
 
 fn default_injection_mode() -> InjectionMode {
@@ -491,9 +505,79 @@ pub struct Transcript {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DictationHistoryEntry {
     pub id: String,
+    /// Final text that was inserted. This stays the stable field used by
+    /// existing history files and renderer clients.
     pub text: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub device: Option<String>,
+    /// Original Whisper output is personal data and is saved only after the
+    /// user explicitly enables local speech analytics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub processing: Option<DictationProcessingMetadata>,
+    #[serde(default)]
+    pub analysis_status: DictationAnalysisStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DictationProcessingMetadata {
+    pub ai_mode: AiMode,
+    pub detected_language: Option<String>,
+    pub transcribe_secs: Option<f32>,
+    pub audio_secs: Option<f32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DictationAnalysisStatus {
+    #[default]
+    Disabled,
+    Pending,
+    Expired,
+}
+
+impl DictationHistoryEntry {
+    pub fn clear_analytics_data(&mut self, status: DictationAnalysisStatus) -> bool {
+        let removed_original_text = self.original_text.take().is_some();
+        let removed_processing_metadata = self.processing.take().is_some();
+        let changed = removed_original_text || removed_processing_metadata;
+        if self.analysis_status != status {
+            self.analysis_status = status;
+            return true;
+        }
+        changed
+    }
+}
+
+#[cfg(test)]
+mod dictation_history_tests {
+    use super::{DictationAnalysisStatus, DictationHistoryEntry, Settings};
+
+    #[test]
+    fn legacy_history_entry_keeps_final_text_and_defaults_private_fields() {
+        let entry: DictationHistoryEntry = serde_json::from_value(serde_json::json!({
+            "id": "legacy-entry",
+            "text": "already inserted text",
+            "created_at": "2026-08-31T12:00:00Z",
+            "device": "CUDA"
+        }))
+        .expect("legacy history entry deserializes");
+
+        assert_eq!(entry.text, "already inserted text");
+        assert!(entry.original_text.is_none());
+        assert!(entry.processing.is_none());
+        assert_eq!(entry.analysis_status, DictationAnalysisStatus::Disabled);
+    }
+
+    #[test]
+    fn legacy_settings_default_to_disabled_analytics() {
+        let settings: Settings =
+            serde_json::from_value(serde_json::json!({})).expect("legacy settings deserialize");
+
+        assert!(!settings.analytics_enabled);
+        assert_eq!(settings.analytics_retention_days, 30);
+    }
 }
 
 fn default_language() -> String {
