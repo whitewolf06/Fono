@@ -4,6 +4,7 @@ interface ServiceApiPanelProps {
 }
 
 const endpoints = [
+  ["GET", "/docs", "Документация в браузере"],
   ["GET", "/openapi.json", "Спецификация OpenAPI"],
   ["GET", "/v1/health", "Проверка доступности"],
   ["POST", "/v1/transcriptions", "Файл на распознавание"],
@@ -13,7 +14,7 @@ const endpoints = [
 
 export function ServiceApiPanel({ address, onCopy }: ServiceApiPanelProps) {
   const origin = `http://${address}`;
-  const specificationUrl = `${origin}/openapi.json`;
+  const documentationUrl = `${origin}/docs`;
 
   return (
     <section className="v2-service-api">
@@ -23,11 +24,11 @@ export function ServiceApiPanel({ address, onCopy }: ServiceApiPanelProps) {
         <p>Доступен только на этом компьютере и требует bearer-токен.</p>
       </div>
       <div className="v2-service-api__address">
-        <code>{specificationUrl}</code>
+        <code>{documentationUrl}</code>
         <button
           className="v2-button"
           type="button"
-          onClick={() => onCopy(specificationUrl)}
+          onClick={() => onCopy(documentationUrl)}
         >
           Копировать URL
         </button>
@@ -42,8 +43,8 @@ export function ServiceApiPanel({ address, onCopy }: ServiceApiPanelProps) {
         ))}
       </ul>
       <p className="v2-service-privacy-note">
-        Спецификация доступна по этому URL с тем же токеном, что и REST-запросы.
-        Swagger не загружается из интернета.
+        Страница откроется в браузере без токена; вставьте его в её поле, чтобы
+        загрузить спецификацию. Токен не передаётся в URL и не сохраняется.
       </p>
     </section>
   );

@@ -103,9 +103,15 @@ export function JobDetails({ job }: { job: ServiceJob | null }) {
           <dd>{job.result.model}</dd>
         </div>
         <div>
-          <dt>Язык</dt>
-          <dd>{job.result.detectedLanguage ?? "auto"}</dd>
+          <dt>Язык запроса</dt>
+          <dd>{job.requestedLanguage}</dd>
         </div>
+        {job.result.detectedLanguage && (
+          <div>
+            <dt>Определён</dt>
+            <dd>{job.result.detectedLanguage}</dd>
+          </div>
+        )}
       </dl>
       <p>{job.result.text}</p>
     </div>
@@ -113,7 +119,8 @@ export function JobDetails({ job }: { job: ServiceJob | null }) {
 }
 
 function shortId(id: string) {
-  return id.replace("tr_", "#").slice(0, 10);
+  const suffix = id.replace(/^tr_/, "");
+  return suffix.length > 6 ? `#…${suffix.slice(-6)}` : `#${suffix}`;
 }
 
 function formatTime(timestamp: number) {

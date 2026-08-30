@@ -17,6 +17,7 @@ export interface ServiceJobResult {
 
 export interface ServiceJob {
   id: string;
+  requestedLanguage: string;
   state: ServiceJobState;
   createdAtMs: number;
   startedAtMs: number | null;

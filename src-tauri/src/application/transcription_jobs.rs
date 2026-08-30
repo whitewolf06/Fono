@@ -27,6 +27,8 @@ pub enum JobState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranscriptionJob {
     pub id: String,
+    #[serde(default = "default_requested_language")]
+    pub requested_language: String,
     pub state: JobState,
     pub created_at_ms: u64,
     pub started_at_ms: Option<u64>,
@@ -36,9 +38,10 @@ pub struct TranscriptionJob {
 }
 
 impl TranscriptionJob {
-    fn queued(id: String) -> Self {
+    fn queued(id: String, requested_language: String) -> Self {
         Self {
             id,
+            requested_language,
             state: JobState::Queued,
             created_at_ms: now_epoch_ms(),
             started_at_ms: None,
@@ -54,6 +57,10 @@ impl TranscriptionJob {
             JobState::Completed | JobState::Failed | JobState::Cancelled
         )
     }
+}
+
+fn default_requested_language() -> String {
+    "auto".into()
 }
 
 type JobObserver = Arc<dyn Fn(TranscriptionJob) + Send + Sync>;
@@ -203,7 +210,7 @@ where
             "tr_{:016x}",
             self.next_id.fetch_add(1, Ordering::Relaxed) + 1
         );
-        let job = TranscriptionJob::queued(id.clone());
+        let job = TranscriptionJob::queued(id.clone(), request.language.clone());
         state.pending.push_back(id.clone());
         state.work.insert(
             id.clone(),

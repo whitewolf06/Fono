@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fono Local API</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          Inter,
+          Segoe UI,
+          sans-serif;
+      }
+      body {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        color: #eaf6ff;
+        background: #04111e;
+      }
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+      p,
+      label {
+        color: #aac7d9;
+      }
+      .card {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #1d4964;
+        border-radius: 14px;
+        background: #082035;
+      }
+      .token {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      input {
+        min-width: 240px;
+        flex: 1;
+        padding: 11px 12px;
+        border: 1px solid #31627d;
+        border-radius: 8px;
+        color: inherit;
+        background: #03101c;
+      }
+      button {
+        padding: 11px 14px;
+        border: 0;
+        border-radius: 8px;
+        color: #02101c;
+        cursor: pointer;
+        background: #65ccff;
+        font: inherit;
+        font-weight: 600;
+      }
+      code {
+        color: #9de3ff;
+        font-family:
+          Cascadia Code,
+          Consolas,
+          monospace;
+      }
+      .status {
+        min-height: 24px;
+        margin: 12px 0 0;
+      }
+      .error {
+        color: #ffb4a8;
+      }
+      ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      li {
+        display: grid;
+        grid-template-columns: 64px minmax(190px, 1fr) minmax(180px, 1fr);
+        gap: 12px;
+        padding: 12px 0;
+        border-top: 1px solid #1d4964;
+      }
+      b {
+        color: #8af0ba;
+        font-size: 13px;
+      }
+      b.post {
+        color: #8acfff;
+      }
+      details {
+        margin-top: 16px;
+      }
+      pre {
+        max-height: 400px;
+        overflow: auto;
+        padding: 14px;
+        border-radius: 8px;
+        background: #03101c;
+        color: #b9d9ea;
+      }
+      @media (max-width: 620px) {
+        li {
+          grid-template-columns: 56px 1fr;
+        }
+        li span {
+          grid-column: 2;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Fono Local API</h1>
+    <p>
+      Документация локального REST-сервиса. Страница доступна только на этом
+      компьютере.
+    </p>
+
+    <section class="card" aria-labelledby="token-heading">
+      <h2 id="token-heading">Доступ к спецификации</h2>
+      <p>
+        Вставьте bearer-токен из <code>%APPDATA%\Fono\api-token.txt</code>. Он
+        остаётся только в памяти этой вкладки и передаётся в HTTP-заголовке, не
+        в URL.
+      </p>
+      <div class="token">
+        <input
+          id="token"
+          type="password"
+          autocomplete="off"
+          placeholder="Bearer token"
+          aria-label="Bearer token"
+        />
+        <button id="load" type="button">Загрузить API</button>
+      </div>
+      <p class="status" id="status" role="status">
+        Введите токен, чтобы посмотреть спецификацию.
+      </p>
+    </section>
+
+    <section class="card" aria-labelledby="routes-heading">
+      <h2 id="routes-heading">Маршруты</h2>
+      <ul id="routes">
+        <li>
+          <span>—</span><code>Ожидание спецификации</code
+          ><span>Авторизуйте доступ выше.</span>
+        </li>
+      </ul>
+      <details id="raw-spec" hidden>
+        <summary>Исходная OpenAPI-спецификация</summary>
+        <pre id="specification"></pre>
+      </details>
+    </section>
+
+    <script>
+      const tokenInput = document.getElementById("token");
+      const loadButton = document.getElementById("load");
+      const status = document.getElementById("status");
+      const routes = document.getElementById("routes");
+      const rawSpec = document.getElementById("raw-spec");
+      const specification = document.getElementById("specification");
+
+      function setStatus(message, failed) {
+        status.textContent = message;
+        status.className = failed ? "status error" : "status";
+      }
+
+      function renderRoutes(documentation) {
+        routes.replaceChildren();
+        for (const [path, methods] of Object.entries(
+          documentation.paths || {},
+        )) {
+          for (const [method, operation] of Object.entries(methods)) {
+            const item = document.createElement("li");
+            const methodNode = document.createElement("b");
+            methodNode.textContent = method.toUpperCase();
+            methodNode.className = method.toLowerCase();
+            const pathNode = document.createElement("code");
+            pathNode.textContent = path;
+            const summaryNode = document.createElement("span");
+            summaryNode.textContent = operation.summary || "Без описания";
+            item.append(methodNode, pathNode, summaryNode);
+            routes.append(item);
+          }
+        }
+      }
+
+      async function loadDocumentation() {
+        const token = tokenInput.value.trim();
+        if (!token) {
+          setStatus("Введите bearer-токен из файла Fono.", true);
+          return;
+        }
+        loadButton.disabled = true;
+        setStatus("Загружаю спецификацию…", false);
+        try {
+          const response = await fetch("/openapi.json", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!response.ok)
+            throw new Error(
+              response.status === 401
+                ? "Токен не принят."
+                : `HTTP ${response.status}`,
+            );
+          const documentation = await response.json();
+          renderRoutes(documentation);
+          specification.textContent = JSON.stringify(documentation, null, 2);
+          rawSpec.hidden = false;
+          setStatus(`OpenAPI ${documentation.openapi} загружена.`, false);
+        } catch (error) {
+          setStatus(`Не удалось загрузить API: ${error.message}`, true);
+        } finally {
+          loadButton.disabled = false;
+        }
+      }
+
+      loadButton.addEventListener("click", loadDocumentation);
+      tokenInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") loadDocumentation();
+      });
+    </script>
+  </body>
+</html>

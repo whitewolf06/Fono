@@ -88,6 +88,7 @@ function toServiceSnapshot(
 function toServiceJob(job: LocalTranscriptionJob): ServiceJob {
   return {
     id: job.id,
+    requestedLanguage: job.requested_language,
     state: job.state,
     createdAtMs: job.created_at_ms,
     startedAtMs: job.started_at_ms,

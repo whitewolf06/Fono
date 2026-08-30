@@ -135,7 +135,8 @@ export function ServicePage({ runtime }: ServicePageProps) {
                 >
                   <Metric
                     label="В очереди"
-                    value={`${snapshot.queue.queued} / ${snapshot.queue.capacity}`}
+                    value={String(snapshot.queue.queued)}
+                    detail={`Лимит очереди: ${snapshot.queue.capacity}`}
                   />
                   <Metric
                     label="В работе"
@@ -246,7 +247,7 @@ export function ServicePage({ runtime }: ServicePageProps) {
                         <p className="v2-kicker">Результат</p>
                         <h2>
                           {selectedJob
-                            ? selectedJob.id.replace("tr_", "#").slice(0, 10)
+                            ? formatJobId(selectedJob.id)
                             : "Выберите задачу"}
                         </h2>
                       </div>
@@ -290,6 +291,11 @@ function formatSpeed(audioSeconds: number, transcribeSeconds: number) {
 function formatSpeedValue(audioSeconds: number, transcribeSeconds: number) {
   if (!audioSeconds || !transcribeSeconds) return "—";
   return `${(audioSeconds / transcribeSeconds).toFixed(1)}×`;
+}
+
+function formatJobId(id: string) {
+  const suffix = id.replace(/^tr_/, "");
+  return suffix.length > 6 ? `#…${suffix.slice(-6)}` : `#${suffix}`;
 }
 
 function Metric({

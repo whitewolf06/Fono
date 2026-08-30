@@ -14,6 +14,7 @@ const mockSnapshot: ServiceSnapshot = {
     jobs: [
       {
         id: "tr_0000000000000005",
+        requestedLanguage: "ru",
         state: "transcribing",
         createdAtMs: Date.now() - 14_000,
         startedAtMs: Date.now() - 9_000,
@@ -23,6 +24,7 @@ const mockSnapshot: ServiceSnapshot = {
       },
       {
         id: "tr_0000000000000004",
+        requestedLanguage: "ru",
         state: "queued",
         createdAtMs: Date.now() - 6_000,
         startedAtMs: null,
@@ -32,6 +34,7 @@ const mockSnapshot: ServiceSnapshot = {
       },
       {
         id: "tr_0000000000000003",
+        requestedLanguage: "ru",
         state: "completed",
         createdAtMs: Date.now() - 90_000,
         startedAtMs: Date.now() - 85_000,
@@ -57,6 +60,7 @@ const mockSnapshot: ServiceSnapshot = {
     jobs: [
       {
         id: "tr_0000000000000003",
+        requestedLanguage: "ru",
         state: "completed",
         createdAtMs: Date.now() - 90_000,
         startedAtMs: Date.now() - 85_000,

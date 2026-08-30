@@ -249,6 +249,7 @@ export interface LocalTranscriptionResult {
 
 export interface LocalTranscriptionJob {
   id: string;
+  requested_language: string;
   state: LocalTranscriptionJobState;
   created_at_ms: number;
   started_at_ms: number | null;

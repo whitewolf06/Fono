@@ -20,6 +20,7 @@ use tokio::sync::oneshot;
 
 const UPLOAD_BODY_LIMIT_BYTES: usize = 101 * 1024 * 1024;
 const OPENAPI_SPEC: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/openapi.json"));
+const API_DOCUMENTATION: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/api-docs.html"));
 
 #[derive(Clone)]
 pub struct RestApiState {
@@ -93,6 +94,7 @@ struct ApiError {
 
 pub fn router(state: RestApiState) -> Router {
     Router::new()
+        .route("/docs", get(docs))
         .route("/openapi.json", get(openapi))
         .route("/v1/health", get(health))
         .route("/v1/transcription-jobs", post(submit))
@@ -101,6 +103,13 @@ pub fn router(state: RestApiState) -> Router {
         .route("/v1/transcription-jobs/:id/cancel", post(cancel))
         .layer(DefaultBodyLimit::max(UPLOAD_BODY_LIMIT_BYTES))
         .with_state(state)
+}
+
+async fn docs() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        API_DOCUMENTATION,
+    )
 }
 
 /// Starts only on the IPv4 loopback interface. Passing port zero asks the OS
@@ -422,6 +431,7 @@ mod tests {
             Self {
                 job: Mutex::new(TranscriptionJob {
                     id: "tr_0000000000000001".into(),
+                    requested_language: "auto".into(),
                     state: crate::application::transcription_jobs::JobState::Queued,
                     created_at_ms: 0,
                     started_at_ms: None,
@@ -437,6 +447,7 @@ mod tests {
             Self {
                 job: Mutex::new(TranscriptionJob {
                     id: "unused".into(),
+                    requested_language: "auto".into(),
                     state: crate::application::transcription_jobs::JobState::Queued,
                     created_at_ms: 0,
                     started_at_ms: None,
@@ -452,11 +463,15 @@ mod tests {
     impl TranscriptionJobs for StubJobs {
         fn submit_job(
             &self,
-            _: TranscriptionRequest,
+            request: TranscriptionRequest,
         ) -> Result<TranscriptionJob, TranscriptionServiceError> {
             match &self.submit_error {
                 Some(error) => Err(error.clone()),
-                None => Ok(self.job.lock().unwrap().clone()),
+                None => {
+                    let mut job = self.job.lock().unwrap();
+                    job.requested_language = request.language;
+                    Ok(job.clone())
+                }
             }
         }
 
@@ -550,6 +565,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn browser_documentation_is_public_but_does_not_embed_the_token() {
+        let app = router(RestApiState::new("test-token", 1));
+        let response = app
+            .oneshot(Request::builder().uri("/docs").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_TYPE).unwrap(),
+            "text/html; charset=utf-8"
+        );
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&body).contains("test-token"));
+    }
+
+    #[tokio::test]
     async fn jobs_support_submit_lookup_and_cancellation() {
         let jobs: Arc<dyn TranscriptionJobs> = Arc::new(StubJobs::ready());
         let app = router(RestApiState::new("test-token", 1).with_jobs(jobs));
@@ -570,6 +603,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(submitted.status(), StatusCode::ACCEPTED);
+        let submitted_body = axum::body::to_bytes(submitted.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&submitted_body).unwrap()
+                ["requested_language"],
+            "ru"
+        );
 
         let found = app
             .clone()
