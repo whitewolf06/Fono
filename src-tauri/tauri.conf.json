@@ -79,6 +79,12 @@
     "shortDescription": "Голосовой ввод для Windows",
     "longDescription": "Локальный голосовой ввод в любое окно Windows: транскрипция на whisper.cpp и AI-обработка через LM Studio. Полностью офлайн.",
     "windows": {
+      "wix": {
+        "template": "./windows/templates/fono.wxs"
+      },
+      "nsis": {
+        "installMode": "perMachine"
+      },
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
       }

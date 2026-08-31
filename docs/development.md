@@ -82,6 +82,12 @@ workers либо Sherpa runtime завершает release-сборку ошиб
 Release использует зафиксированные `Cargo.lock` и toolchain. Политика обновления
 зависимостей и лицензий находится в `docs/dependency-policy.md`.
 
+MSI и NSIS устанавливаются для всех пользователей в `Program Files\Fono`.
+Пользовательские данные (settings, модели, API token и история) остаются в
+`%APPDATA%\Fono` и не служат install directory. Custom WiX template намеренно
+не читает legacy HKCU `InstallDir` от прежних current-user пакетов, чтобы MSI
+не попытался записать программу в каталог данных.
+
 Готовые артефакты:
 
 ```text

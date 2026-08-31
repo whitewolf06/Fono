@@ -1,0 +1,114 @@
+<?if $(sys.BUILDARCH)="x86"?>
+  <?define Win64 = "no" ?>
+  <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?elseif $(sys.BUILDARCH)="x64"?>
+  <?define Win64 = "yes" ?>
+  <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?elseif $(sys.BUILDARCH)="arm64"?>
+  <?define Win64 = "yes" ?>
+  <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else?>
+  <?error Unsupported value of sys.BUILDARCH=$(sys.BUILDARCH)?>
+<?endif?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Id="*"
+    Name="{{product_name}}"
+    UpgradeCode="{{upgrade_code}}"
+    Language="1033"
+    Manufacturer="{{manufacturer}}"
+    Version="{{version}}">
+    <Package
+      Id="*"
+      Keywords="Installer"
+      InstallerVersion="450"
+      Languages="0"
+      Compressed="yes"
+      InstallScope="perMachine"
+      SummaryCodepage="1252"
+    />
+
+    <MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="yes" />
+    <Media Id="1" Cabinet="app.cab" EmbedCab="yes" />
+    <Icon Id="ProductIcon" SourceFile="{{icon_path}}" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+    <SetProperty Id="ARPNOMODIFY" Value="1" After="InstallValidate" Sequence="execute" />
+
+    <!--
+      Do not look up HKCU\Software\fono\Fono: older current-user packages
+      can store %LOCALAPPDATA%\Fono there. That is user data, not a machine
+      install directory. The Directory tree below is the sole installation
+      policy and resolves to Program Files\Fono on x64.
+    -->
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="CommonDesktopFolder" />
+      <Directory Id="$(var.PlatformProgramFilesFolder)" Name="PFiles">
+        <Directory Id="INSTALLDIR" Name="{{product_name}}" />
+      </Directory>
+      <Directory Id="CommonProgramsFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="{{product_name}}" />
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="Path" Guid="{{path_component_guid}}" Win64="$(var.Win64)">
+        <File Id="Path" Source="{{main_binary_path}}" KeyPath="yes" Checksum="yes" />
+      </Component>
+      {{#each binaries as |bin| ~}}
+      <Component Id="{{bin.id}}" Guid="{{bin.guid}}" Win64="$(var.Win64)">
+        <File Id="Bin_{{bin.id}}" Source="{{bin.path}}" KeyPath="yes" />
+      </Component>
+      {{/each~}}
+      {{resources}}
+    </DirectoryRef>
+
+    <DirectoryRef Id="CommonDesktopFolder">
+      <Component Id="ApplicationShortcutDesktop" Guid="*">
+        <Shortcut Id="ApplicationDesktopShortcut" Name="{{product_name}}" Description="Runs {{product_name}}" Target="[!Path]" WorkingDirectory="INSTALLDIR" />
+        <RegistryValue Root="HKLM" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="*">
+        <Shortcut
+          Id="ApplicationStartMenuShortcut"
+          Name="{{product_name}}"
+          Description="Runs {{product_name}}"
+          Target="[!Path]"
+          Icon="ProductIcon"
+          WorkingDirectory="INSTALLDIR">
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="{{bundle_id}}" />
+        </Shortcut>
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKLM" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="MainProgram" Title="Application" Description="Installs Fono." Level="1" ConfigurableDirectory="INSTALLDIR" AllowAdvertise="no" Display="expand" Absent="disallow">
+      <ComponentRef Id="Path" />
+      {{#each resource_file_ids as |resource_file_id| ~}}
+      <ComponentRef Id="{{resource_file_id}}" />
+      {{/each~}}
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ApplicationShortcutDesktop" />
+      {{#each binaries as |bin| ~}}
+      <ComponentRef Id="{{bin.id}}" />
+      {{/each~}}
+    </Feature>
+
+    <Property Id="INSTALLED_WEBVIEW2_VERSION">
+      <RegistrySearch Id="Webview2VersionSystemx64" Root="HKLM" Key="SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" />
+      <RegistrySearch Id="Webview2VersionSystemx86" Root="HKLM" Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" />
+      <RegistrySearch Id="Webview2VersionUser" Root="HKCU" Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" />
+    </Property>
+    <CustomAction Id="DownloadAndInvokeBootstrapper" Directory="INSTALLDIR" Execute="deferred" ExeCommand='powershell.exe -NoProfile -windowstyle hidden try [\{] [\[]Net.ServicePointManager[\]]::SecurityProtocol = [\[]Net.SecurityProtocolType[\]]::Tls12 [\}] catch [\{][\}]; Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:TEMP\MicrosoftEdgeWebview2Setup.exe" ; Start-Process -FilePath "$env:TEMP\MicrosoftEdgeWebview2Setup.exe" -ArgumentList (&apos;/silent&apos;, &apos;/install&apos;) -Wait' Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="DownloadAndInvokeBootstrapper" Before="InstallFinalize"><![CDATA[NOT(REMOVE OR INSTALLED_WEBVIEW2_VERSION)]]></Custom>
+    </InstallExecuteSequence>
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLDIR]" After="CostFinalize" />
+  </Product>
+</Wix>
