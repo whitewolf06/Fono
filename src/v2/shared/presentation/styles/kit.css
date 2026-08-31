@@ -149,42 +149,42 @@
 }
 .v2-button,
 .v2-icon-button {
-  border: 1px solid rgba(135, 201, 246, 0.24);
-  border-radius: 9px;
-  color: #c9dbe8;
-  background: rgba(5, 20, 35, 0.55);
+  border: 1px solid var(--v2-border-default);
+  border-radius: var(--v2-radius-sm);
+  color: var(--v2-text-control);
+  background: var(--v2-surface-control);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
-  transition: 0.18s ease;
+  transition: var(--v2-motion-fast) var(--v2-ease-standard);
 }
 .v2-button {
   padding: 9px 12px;
 }
 .v2-button:hover,
 .v2-icon-button:hover {
-  border-color: rgba(91, 201, 255, 0.62);
-  color: white;
-  background: rgba(24, 103, 167, 0.33);
+  border-color: var(--v2-border-strong);
+  color: var(--v2-text-primary);
+  background: var(--v2-surface-control-hover);
 }
 .v2-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
 }
 .v2-button--primary {
-  border-color: rgba(65, 181, 255, 0.72);
-  color: #e8f9ff;
+  border-color: var(--v2-border-strong);
+  color: var(--v2-text-on-accent);
   background: linear-gradient(
     135deg,
     rgba(30, 150, 235, 0.9),
     rgba(23, 86, 171, 0.88)
   );
-  box-shadow: 0 0 16px rgba(34, 154, 251, 0.22);
+  box-shadow: var(--v2-shadow-accent);
 }
 .v2-button--ghost {
   border-color: transparent;
   background: transparent;
-  color: #70c9ff;
+  color: var(--v2-text-link);
 }
 .v2-icon-button {
   display: grid;
@@ -333,7 +333,7 @@
 .v2-field {
   display: grid;
   gap: 6px;
-  color: #9eb5c8;
+  color: var(--v2-text-subtle);
   font-size: 11px;
 }
 .v2-field span {
@@ -341,7 +341,7 @@
   justify-content: space-between;
 }
 .v2-field span b {
-  color: #8fe4ff;
+  color: var(--v2-text-accent);
   font-weight: 600;
 }
 .v2-field input:not([type="range"]),
@@ -349,11 +349,11 @@
 .v2-field textarea {
   width: 100%;
   padding: 9px 10px;
-  border: 1px solid rgba(135, 201, 246, 0.2);
-  border-radius: 8px;
+  border: 1px solid var(--v2-border-control);
+  border-radius: var(--v2-radius-sm);
   outline: none;
-  color: #e4f2fc;
-  background: rgba(3, 15, 28, 0.68);
+  color: var(--v2-text-primary);
+  background: var(--v2-surface-input);
   font: inherit;
   font-size: 12px;
   resize: vertical;
@@ -375,8 +375,8 @@
 .v2-field input:focus,
 .v2-field select:focus,
 .v2-field textarea:focus {
-  border-color: #56c4ff;
-  box-shadow: 0 0 0 3px rgba(72, 183, 255, 0.14);
+  border-color: var(--v2-accent);
+  box-shadow: 0 0 0 3px var(--v2-focus-ring);
 }
 .v2-field select option {
   color: #09121e;
@@ -428,11 +428,11 @@
   height: 23px;
   flex: 0 0 auto;
   padding: 0;
-  border: 1px solid rgba(135, 201, 246, 0.25);
+  border: 1px solid var(--v2-border-default);
   border-radius: 999px;
-  background: rgba(6, 17, 28, 0.7);
+  background: var(--v2-surface-input);
   cursor: pointer;
-  transition: 0.2s;
+  transition: var(--v2-motion-fast) var(--v2-ease-standard);
 }
 .v2-switch i {
   display: block;
@@ -440,24 +440,24 @@
   height: 15px;
   margin-left: 3px;
   border-radius: 50%;
-  background: #bdccda;
-  transition: 0.2s;
+  background: var(--v2-text-secondary);
+  transition: var(--v2-motion-fast) var(--v2-ease-standard);
 }
 .v2-switch.is-on {
-  border-color: #42b9ff;
-  background: #228fdb;
+  border-color: var(--v2-accent);
+  background: var(--v2-surface-accent);
   box-shadow: inset 0 0 9px rgba(169, 239, 255, 0.48);
 }
 .v2-switch.is-on i {
   margin-left: 20px;
-  background: white;
+  background: var(--v2-text-primary);
 }
 .v2-check,
 .v2-radio {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #cbdce9;
+  color: var(--v2-text-control);
   font-size: 12px;
   cursor: pointer;
 }
@@ -473,22 +473,22 @@
   width: 17px;
   height: 17px;
   place-items: center;
-  border: 1px solid rgba(139, 205, 248, 0.34);
+  border: 1px solid var(--v2-border-default);
   border-radius: 5px;
   color: transparent;
-  background: rgba(5, 17, 29, 0.75);
+  background: var(--v2-surface-input);
   font-size: 11px;
   transition: 0.16s;
 }
 .v2-check input:checked + span {
-  border-color: #50c3ff;
-  color: #effcff;
-  background: #258ed9;
+  border-color: var(--v2-accent);
+  color: var(--v2-text-primary);
+  background: var(--v2-surface-accent);
   box-shadow: 0 0 9px rgba(63, 191, 255, 0.35);
 }
 .v2-check input:focus-visible + span,
 .v2-radio input:focus-visible + span {
-  outline: 2px solid #8de7ff;
+  outline: 2px solid var(--v2-accent-hover);
   outline-offset: 2px;
 }
 .v2-radio-group {
@@ -502,18 +502,18 @@
 .v2-radio-group legend {
   width: 100%;
   margin-bottom: 1px;
-  color: #9eb5c8;
+  color: var(--v2-text-subtle);
   font-size: 11px;
 }
 .v2-radio > span {
   width: 16px;
   height: 16px;
-  border: 1px solid rgba(139, 205, 248, 0.34);
+  border: 1px solid var(--v2-border-default);
   border-radius: 50%;
-  background: rgba(5, 17, 29, 0.75);
+  background: var(--v2-surface-input);
 }
 .v2-radio input:checked + span {
-  border: 4px solid #3fb9f8;
+  border: 4px solid var(--v2-accent);
   box-shadow: 0 0 8px rgba(63, 191, 255, 0.3);
 }
 .v2-kit-card-grid {
@@ -526,9 +526,9 @@
   align-items: center;
   gap: 10px;
   padding: 11px;
-  border: 1px solid rgba(149, 204, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(5, 16, 29, 0.44);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: var(--v2-radius-sm);
+  background: var(--v2-surface-panel-muted);
 }
 .v2-kit-info-card .v2-app-icon {
   width: 24px;
@@ -541,7 +541,7 @@
   display: block;
 }
 .v2-kit-info-card span {
-  color: #93aabe;
+  color: var(--v2-text-secondary);
   font-size: 10px;
 }
 .v2-kit-info-card strong {
@@ -549,7 +549,7 @@
   font-size: 12px;
 }
 .v2-kit-info-card small {
-  color: #7ee596;
+  color: var(--v2-status-success);
   font-size: 10px;
 }
 .v2-alert {
@@ -562,19 +562,19 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  border-color: rgba(102, 217, 132, 0.3);
-  color: #b7f1c4;
-  background: rgba(31, 122, 61, 0.14);
+  border-color: var(--v2-border-success);
+  color: var(--v2-text-success);
+  background: var(--v2-surface-success);
 }
 .v2-alert--warning {
-  border-color: rgba(255, 195, 95, 0.3);
-  color: #ffdaa0;
-  background: rgba(145, 96, 19, 0.14);
+  border-color: var(--v2-border-warning);
+  color: var(--v2-text-warning);
+  background: var(--v2-surface-warning);
 }
 .v2-alert--error {
-  border-color: rgba(255, 115, 115, 0.3);
-  color: #ffb2b2;
-  background: rgba(137, 38, 38, 0.16);
+  border-color: var(--v2-border-danger);
+  color: var(--v2-text-danger);
+  background: var(--v2-surface-danger);
 }
 .v2-feedback-layout {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -742,15 +742,15 @@
   transform: translate(-50%, 0);
 }
 .v2-field.has-error input {
-  border-color: #ff7474;
-  box-shadow: 0 0 0 3px rgba(255, 91, 91, 0.12);
+  border-color: var(--v2-status-danger);
+  box-shadow: 0 0 0 3px var(--v2-focus-ring);
 }
 .v2-field small {
   color: var(--v2-muted);
   font-size: 10px;
 }
 .v2-field.has-error small {
-  color: #ffb0b0;
+  color: var(--v2-text-danger);
 }
 .v2-shortcut-recorder {
   display: grid;
@@ -789,8 +789,8 @@
   line-height: 1.4;
 }
 .v2-button--danger {
-  border-color: rgba(255, 119, 119, 0.46);
-  color: #ffe4e4;
+  border-color: var(--v2-border-danger);
+  color: var(--v2-text-primary);
   background: linear-gradient(
     135deg,
     rgba(179, 52, 52, 0.77),
@@ -949,15 +949,15 @@
   display: flex;
   gap: 4px;
   padding: 4px;
-  border: 1px solid rgba(149, 204, 255, 0.13);
-  border-radius: 10px;
-  background: rgba(3, 14, 26, 0.44);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: var(--v2-radius-sm);
+  background: var(--v2-surface-panel-strong);
 }
 .v2-tabs button {
   flex: 1;
   padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--v2-radius-sm);
   color: var(--v2-muted);
   background: transparent;
   font: inherit;
@@ -965,9 +965,9 @@
   cursor: pointer;
 }
 .v2-tabs button.is-active {
-  border-color: rgba(85, 198, 255, 0.4);
-  color: #e3f8ff;
-  background: rgba(35, 139, 213, 0.26);
+  border-color: var(--v2-border-selected);
+  color: var(--v2-text-primary);
+  background: var(--v2-surface-selected);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
 }
 .v2-tab-card {

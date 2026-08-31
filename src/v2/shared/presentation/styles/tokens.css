@@ -53,28 +53,89 @@
   --v2-surface-canvas: var(--v2-color-navy-900);
   --v2-surface-panel: rgba(5, 17, 31, 0.66);
   --v2-surface-panel-strong: rgba(3, 12, 24, 0.82);
+  --v2-surface-panel-muted: rgba(5, 16, 29, 0.44);
   --v2-surface-control: rgba(5, 20, 35, 0.55);
   --v2-surface-control-hover: rgba(24, 103, 167, 0.33);
   --v2-surface-accent: rgba(30, 150, 235, 0.9);
+  --v2-surface-input: rgba(3, 15, 28, 0.68);
+  --v2-surface-selected: rgba(35, 139, 213, 0.26);
+  --v2-surface-success: rgba(31, 122, 61, 0.14);
+  --v2-surface-warning: rgba(145, 96, 19, 0.14);
+  --v2-surface-danger: rgba(137, 38, 38, 0.16);
 
   --v2-text-primary: var(--v2-color-cyan-100);
   --v2-text-secondary: var(--v2-color-slate-300);
   --v2-text-accent: var(--v2-color-cyan-400);
   --v2-text-on-accent: #e8f9ff;
+  --v2-text-subtle: #9eb5c8;
+  --v2-text-control: #c9dbe8;
+  --v2-text-link: #70c9ff;
+  --v2-text-success: #b7f1c4;
+  --v2-text-warning: #ffdaa0;
+  --v2-text-danger: var(--v2-color-red-300);
 
   --v2-border-subtle: rgba(140, 207, 255, 0.2);
   --v2-border-default: rgba(135, 201, 246, 0.24);
   --v2-border-strong: rgba(65, 181, 255, 0.72);
+  --v2-border-control: rgba(135, 201, 246, 0.2);
+  --v2-border-selected: rgba(85, 198, 255, 0.4);
+  --v2-border-success: rgba(102, 217, 132, 0.3);
+  --v2-border-warning: rgba(255, 195, 95, 0.3);
+  --v2-border-danger: rgba(255, 115, 115, 0.3);
 
   --v2-accent: var(--v2-color-cyan-400);
   --v2-accent-hover: #8de7ff;
   --v2-focus-ring: rgba(72, 183, 255, 0.14);
+  --v2-focus-outline: #a7efff;
   --v2-status-success: var(--v2-color-green-400);
   --v2-status-warning: var(--v2-color-amber-300);
   --v2-status-danger: var(--v2-color-red-300);
 
   --v2-shadow-panel: 0 28px 90px rgba(0, 0, 0, 0.48);
   --v2-shadow-floating: 0 25px 70px rgba(0, 3, 11, 0.52);
+  --v2-shadow-accent: 0 0 16px rgba(34, 154, 251, 0.22);
+
+  --v2-gradient-sidebar: linear-gradient(
+    145deg,
+    rgba(14, 47, 78, 0.45),
+    rgba(3, 13, 28, 0.58) 42%,
+    rgba(4, 22, 42, 0.36)
+  );
+  --v2-gradient-panel: linear-gradient(
+    145deg,
+    rgba(124, 210, 255, 0.13),
+    rgba(6, 27, 49, 0.31) 52%,
+    rgba(64, 166, 233, 0.12)
+  );
+  --v2-illustration-sidebar-overlay:
+    radial-gradient(
+      ellipse at 8% 5%,
+      rgba(135, 224, 255, 0.2),
+      transparent 34%
+    ),
+    radial-gradient(
+      ellipse at 92% 62%,
+      rgba(40, 123, 207, 0.18),
+      transparent 45%
+    ),
+    linear-gradient(
+      105deg,
+      rgba(255, 255, 255, 0.075),
+      transparent 22% 74%,
+      rgba(102, 202, 255, 0.07)
+    );
+  --v2-illustration-panel-overlay:
+    radial-gradient(
+      circle at 12% 0%,
+      rgba(226, 252, 255, 0.18),
+      transparent 30%
+    ),
+    linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.08),
+      transparent 22% 76%,
+      rgba(102, 203, 255, 0.08)
+    );
 
   /* Illustration tokens: reserved for voice stage and other art-directed UI. */
   --v2-illustration-glow: rgba(85, 198, 255, 0.44);
