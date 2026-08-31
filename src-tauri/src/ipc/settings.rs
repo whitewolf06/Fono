@@ -148,6 +148,13 @@ pub async fn save_settings(
         )));
     }
 
+    if let Err(error) = delete_removed_profile_secrets(&old_settings, &persisted_settings) {
+        tracing::error!(%error, "could not delete removed LLM profile credentials");
+        return Err(AppError::Config(format!(
+            "Настройки сохранены, но не удалось удалить ключ удалённого LLM-профиля: {error}"
+        )));
+    }
+
     if let Err(error) = crate::history::apply_analytics_privacy_policy(
         persisted_settings.analytics_enabled && persisted_settings.history_enabled,
         persisted_settings.analytics_retention_days,
@@ -276,6 +283,22 @@ fn profile_secret_snapshot(
         }
     }
     Ok(snapshot)
+}
+
+fn delete_removed_profile_secrets(
+    old_settings: &Settings,
+    persisted_settings: &Settings,
+) -> AppResult<()> {
+    for profile in &old_settings.llm_profiles {
+        let still_exists = persisted_settings
+            .llm_profiles
+            .iter()
+            .any(|candidate| candidate.id == profile.id);
+        if !still_exists {
+            crate::secrets::delete_llm_profile_api_key(&profile.id)?;
+        }
+    }
+    Ok(())
 }
 
 fn restore_profile_secrets(previous: &BTreeMap<String, Option<String>>) -> String {

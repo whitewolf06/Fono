@@ -79,6 +79,11 @@ export function LlmProfilesPage({ store }: { store: LlmProfilesStore }) {
             profile={selected}
             isSaving={manager.isSaving}
             onSave={manager.save}
+            onDelete={async (profileId) => {
+              const next = removeProfile(settings, profileId);
+              setSelectedId(next.llm_profiles[0]?.id ?? null);
+              await manager.save(next);
+            }}
           />
         )}
       </div>
@@ -91,11 +96,13 @@ function ProfileEditor({
   profile,
   isSaving,
   onSave,
+  onDelete,
 }: {
   settings: Settings;
   profile: LlmProfile;
   isSaving: boolean;
   onSave: (next: Settings) => Promise<void>;
+  onDelete: (profileId: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState(profile);
   const [apiKey, setApiKey] = useState("");
@@ -298,6 +305,16 @@ function ProfileEditor({
       <button type="submit" disabled={isSaving}>
         Сохранить профиль
       </button>
+      {settings.llm_profiles.length > 1 && (
+        <button
+          type="button"
+          className="v2-llm-delete"
+          disabled={isSaving}
+          onClick={() => void onDelete(profile.id)}
+        >
+          Удалить профиль
+        </button>
+      )}
     </form>
   );
 }
@@ -319,5 +336,32 @@ function addProfile(settings: Settings): Settings {
         has_api_key: false,
       },
     ],
+  };
+}
+
+function removeProfile(settings: Settings, profileId: string): Settings {
+  const profiles = settings.llm_profiles.filter(
+    (profile) => profile.id !== profileId,
+  );
+  if (!profiles.length) return settings;
+
+  const fallbackProfileId = profiles[0].id;
+  return {
+    ...settings,
+    llm_profiles: profiles,
+    text_correction_llm:
+      settings.text_correction_llm.profile_id === profileId
+        ? { profile_id: fallbackProfileId, model: null }
+        : settings.text_correction_llm,
+    speech_analysis_llm:
+      settings.speech_analysis_llm.profile_id === profileId
+        ? {
+            ...settings.speech_analysis_llm,
+            enabled: false,
+            profile_id: null,
+            model: null,
+            cloud_consent: false,
+          }
+        : settings.speech_analysis_llm,
   };
 }
