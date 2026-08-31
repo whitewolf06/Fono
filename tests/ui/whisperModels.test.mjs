@@ -9,7 +9,7 @@ before(async () => {
   server = await createServer({
     appType: "custom",
     configFile: "vite.config.ts",
-    server: { middlewareMode: true },
+    server: { hmr: false, middlewareMode: true },
   });
   whisperModels = await server.ssrLoadModule(
     "/src/v2/shared/domain/whisperModels.ts",

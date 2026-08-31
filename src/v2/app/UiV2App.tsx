@@ -9,6 +9,9 @@ import { VoiceStageLayout } from "@/v2/features/dictation/presentation/VoiceStag
 import type { VoiceSetupTarget } from "@/v2/features/dictation/presentation/VoiceSetupCards";
 import { createMockDictationRuntime } from "@/v2/features/dictation/infrastructure/mockDictationRuntime";
 import { createTauriDictationRuntime } from "@/v2/features/dictation/infrastructure/tauriDictationRuntime";
+import { createMockSpeechTrainerStore } from "@/v2/features/speech-trainer/infrastructure/mockSpeechTrainerStore";
+import { createTauriSpeechTrainerStore } from "@/v2/features/speech-trainer/infrastructure/tauriSpeechTrainerStore";
+import { SpeechTrainerPage } from "@/v2/features/speech-trainer/presentation/SpeechTrainerPage";
 import { createMockServiceRuntime } from "@/v2/features/service/infrastructure/mockServiceRuntime";
 import { createTauriServiceRuntime } from "@/v2/features/service/infrastructure/tauriServiceRuntime";
 import { ServicePage } from "@/v2/features/service/presentation/ServicePage";
@@ -29,11 +32,13 @@ import { BuildInfoIndicator } from "@/v2/shared/presentation/components/BuildInf
 import { UiKitPage } from "@/v2/shared/presentation/UiKitPage";
 import "@/v2/shared/presentation/styles/index.css";
 
-type NavigationItem = "voice" | "commands" | "service" | "settings" | "kit";
+type NavigationItem =
+  "voice" | "trainer" | "commands" | "service" | "settings" | "kit";
 
 const productNavigation: { id: NavigationItem; icon: string; label: string }[] =
   [
     { id: "voice", icon: "♩", label: "Голос" },
+    { id: "trainer", icon: "◌", label: "Речевой тренер" },
     { id: "commands", icon: "⌘", label: "Команды" },
     { id: "service", icon: "⌁", label: "Сервис" },
     { id: "settings", icon: "⚙", label: "Настройки" },
@@ -77,6 +82,13 @@ export function UiV2App() {
   );
   const commandsStore = useMemo(
     () => (isNativeRuntime ? createTauriCommandsDraftStore() : undefined),
+    [],
+  );
+  const speechTrainerStore = useMemo(
+    () =>
+      isNativeRuntime
+        ? createTauriSpeechTrainerStore()
+        : createMockSpeechTrainerStore(),
     [],
   );
   const isCleanVoicePage = activePage === "voice";
@@ -174,6 +186,15 @@ export function UiV2App() {
               )}
               {activePage === "service" && (
                 <ServicePage runtime={serviceRuntime} />
+              )}
+              {activePage === "trainer" && (
+                <SpeechTrainerPage
+                  store={speechTrainerStore}
+                  onOpenPrivacySettings={() => {
+                    setSettingsSection("privacy");
+                    setActivePage("settings");
+                  }}
+                />
               )}
               {activePage === "kit" && <UiKitPage />}
             </div>

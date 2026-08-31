@@ -206,3 +206,9 @@ export function onLocalTranscriptionServiceChanged(
 ): Promise<UnlistenFn> {
   return listen("local-transcription-service-changed", () => handler());
 }
+
+export function onSpeechAnalysisChanged(
+  handler: () => void,
+): Promise<UnlistenFn> {
+  return listen<string>("speech-analysis-changed", () => handler());
+}
