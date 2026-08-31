@@ -229,6 +229,41 @@
   text-align: center;
 }
 
+.v2-speech-trainer-recommendation {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--v2-line);
+}
+
+.v2-speech-trainer-recommendation > p {
+  margin: 0;
+}
+
+.v2-speech-trainer-recommendation ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v2-speech-trainer-recommendation li {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--v2-line);
+  border-radius: 12px;
+}
+
+.v2-speech-trainer-recommendation span,
+.v2-speech-trainer-recommendation em {
+  color: var(--v2-muted);
+  font-size: 0.9rem;
+  font-style: normal;
+}
+
 .v2-speech-trainer-insight,
 .v2-speech-trainer-empty,
 .v2-speech-trainer-alert {

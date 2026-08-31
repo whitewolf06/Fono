@@ -32,6 +32,28 @@ export interface AccelerationCapabilities {
   vulkan: boolean;
 }
 export type LlmProvider = "lmstudio" | "openai" | "custom";
+export type LlmConnectionKind = "local" | "cloud";
+export type SpeechLlmDataScope = "metrics_only" | "findings" | "original_text";
+export interface LlmProfile {
+  id: string;
+  name: string;
+  provider: LlmProvider;
+  connection: LlmConnectionKind;
+  base_url: string;
+  model: string | null;
+  /** Never returned after a saved setting. */
+  api_key: string | null;
+  has_api_key: boolean;
+}
+export interface LlmConsumerAssignment {
+  profile_id: string | null;
+  model: string | null;
+}
+export interface SpeechLlmAssignment extends LlmConsumerAssignment {
+  enabled: boolean;
+  data_scope: SpeechLlmDataScope;
+  cloud_consent: boolean;
+}
 export type PipelineMode = "dictation" | "command";
 
 /** Таймер тишины для диктовки, которая запущена ключевой фразой. */
@@ -103,6 +125,9 @@ export interface Settings {
   /** API-ключ для облачного LLM */
   llm_api_key: string | null;
   has_llm_api_key: boolean;
+  llm_profiles: LlmProfile[];
+  text_correction_llm: LlmConsumerAssignment;
+  speech_analysis_llm: SpeechLlmAssignment;
   history_enabled: boolean;
   /** Явное согласие на локальное хранение исходного текста для аналитики речи. */
   analytics_enabled: boolean;
@@ -200,6 +225,26 @@ export const DEFAULT_SETTINGS: Settings = {
   llm_provider: "lmstudio",
   llm_api_key: null,
   has_llm_api_key: false,
+  llm_profiles: [
+    {
+      id: "default",
+      name: "Основной LLM",
+      provider: "lmstudio",
+      connection: "local",
+      base_url: "http://localhost:1234/v1",
+      model: null,
+      api_key: null,
+      has_api_key: false,
+    },
+  ],
+  text_correction_llm: { profile_id: "default", model: null },
+  speech_analysis_llm: {
+    enabled: false,
+    profile_id: null,
+    model: null,
+    data_scope: "metrics_only",
+    cloud_consent: false,
+  },
   history_enabled: true,
   analytics_enabled: false,
   analytics_retention_days: 30,
@@ -232,6 +277,22 @@ export interface DictationHistoryEntry {
   analysis_status: "disabled" | "pending" | "ready" | "failed" | "expired";
   analysis?: SpeechSessionAnalysis | null;
   analysis_error?: string | null;
+  recommendation_status:
+    "disabled" | "pending" | "ready" | "failed" | "expired";
+  recommendation?: SpeechLlmRecommendation | null;
+  recommendation_error?: string | null;
+}
+
+export interface SpeechLlmRecommendation {
+  summary: string;
+  recommendations: SpeechLlmRecommendationItem[];
+}
+
+export interface SpeechLlmRecommendationItem {
+  title: string;
+  observation: string;
+  exercise: string;
+  finding_indexes: number[];
 }
 
 export interface DictationProcessingMetadata {

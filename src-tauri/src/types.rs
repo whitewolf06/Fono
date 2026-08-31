@@ -255,6 +255,113 @@ pub enum LlmProvider {
     Custom,
 }
 
+/// Where the selected OpenAI-compatible endpoint runs. This is deliberately
+/// separate from the protocol provider: a custom endpoint can still be local.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LlmConnectionKind {
+    #[default]
+    Local,
+    Cloud,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmProfile {
+    /// Stable, URL-safe identifier. It is also part of the OS credential name.
+    pub id: String,
+    pub name: String,
+    #[serde(default = "default_llm_provider")]
+    pub provider: LlmProvider,
+    #[serde(default)]
+    pub connection: LlmConnectionKind,
+    #[serde(default = "default_llm_url")]
+    pub base_url: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    /// Never serialized and never returned to the renderer after saving.
+    #[serde(default, skip_serializing)]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub has_api_key: bool,
+}
+
+impl LlmProfile {
+    pub const DEFAULT_ID: &'static str = "default";
+
+    pub fn legacy_default(settings: &Settings) -> Self {
+        Self {
+            id: Self::DEFAULT_ID.to_owned(),
+            name: "Основной LLM".to_owned(),
+            provider: settings.llm_provider,
+            connection: if matches!(settings.llm_provider, LlmProvider::OpenAi) {
+                LlmConnectionKind::Cloud
+            } else {
+                LlmConnectionKind::Local
+            },
+            base_url: settings.llm_base_url.clone(),
+            model: settings.llm_model.clone(),
+            api_key: settings.llm_api_key.clone(),
+            has_api_key: settings.has_llm_api_key,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmConsumerAssignment {
+    #[serde(default)]
+    pub profile_id: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+}
+
+impl Default for LlmConsumerAssignment {
+    fn default() -> Self {
+        Self {
+            profile_id: Some(LlmProfile::DEFAULT_ID.to_owned()),
+            model: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SpeechLlmDataScope {
+    /// Send only numeric local metrics; never include transcript fragments.
+    #[default]
+    MetricsOnly,
+    /// Send locally detected findings and their short fragments.
+    Findings,
+    /// Send the complete original transcript. This requires separate consent.
+    OriginalText,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechLlmAssignment {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub profile_id: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub data_scope: SpeechLlmDataScope,
+    /// Explicit permission to send the chosen scope to a cloud profile.
+    #[serde(default)]
+    pub cloud_consent: bool,
+}
+
+impl Default for SpeechLlmAssignment {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            profile_id: None,
+            model: None,
+            data_scope: SpeechLlmDataScope::MetricsOnly,
+            cloud_consent: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
@@ -316,6 +423,14 @@ pub struct Settings {
     pub llm_api_key: Option<String>,
     #[serde(default)]
     pub has_llm_api_key: bool,
+    /// Named LLM connections. The legacy fields above are kept only to read
+    /// existing settings and mirror the default profile for the old UI.
+    #[serde(default)]
+    pub llm_profiles: Vec<LlmProfile>,
+    #[serde(default)]
+    pub text_correction_llm: LlmConsumerAssignment,
+    #[serde(default)]
+    pub speech_analysis_llm: SpeechLlmAssignment,
     #[serde(default = "default_history_enabled")]
     pub history_enabled: bool,
     /// Explicit consent for keeping the original transcript and processing
@@ -411,6 +526,18 @@ impl Default for Settings {
             llm_provider: default_llm_provider(),
             llm_api_key: None,
             has_llm_api_key: false,
+            llm_profiles: vec![LlmProfile {
+                id: LlmProfile::DEFAULT_ID.to_owned(),
+                name: "Основной LLM".to_owned(),
+                provider: default_llm_provider(),
+                connection: LlmConnectionKind::Local,
+                base_url: default_llm_url(),
+                model: None,
+                api_key: None,
+                has_api_key: false,
+            }],
+            text_correction_llm: LlmConsumerAssignment::default(),
+            speech_analysis_llm: SpeechLlmAssignment::default(),
             history_enabled: default_history_enabled(),
             analytics_enabled: false,
             analytics_retention_days: default_analytics_retention_days(),
@@ -420,6 +547,33 @@ impl Default for Settings {
             wake_dictation_speech_threshold: default_wake_dictation_speech_threshold(),
             volume_step: default_volume_step(),
         }
+    }
+}
+
+impl Settings {
+    /// Returns true when an old single-connection configuration was migrated.
+    pub fn migrate_llm_profiles(&mut self) -> bool {
+        if !self.llm_profiles.is_empty() {
+            return false;
+        }
+        self.llm_profiles.push(LlmProfile::legacy_default(self));
+        if self.text_correction_llm.profile_id.is_none() {
+            self.text_correction_llm = LlmConsumerAssignment::default();
+        }
+        true
+    }
+
+    pub fn llm_profile(&self, id: Option<&str>) -> Option<&LlmProfile> {
+        let id = id?;
+        self.llm_profiles.iter().find(|profile| profile.id == id)
+    }
+
+    pub fn correction_profile(&self) -> Option<&LlmProfile> {
+        self.llm_profile(self.text_correction_llm.profile_id.as_deref())
+    }
+
+    pub fn speech_analysis_profile(&self) -> Option<&LlmProfile> {
+        self.llm_profile(self.speech_analysis_llm.profile_id.as_deref())
     }
 }
 
@@ -522,6 +676,13 @@ pub struct DictationHistoryEntry {
     pub analysis: Option<SpeechSessionAnalysis>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analysis_error: Option<String>,
+    /// Optional LLM coaching layer built only after local metrics are ready.
+    #[serde(default)]
+    pub recommendation_status: DictationAnalysisStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recommendation: Option<crate::llm::SpeechLlmRecommendation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recommendation_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -604,13 +765,21 @@ impl DictationHistoryEntry {
         let removed_processing_metadata = self.processing.take().is_some();
         let removed_analysis = self.analysis.take().is_some();
         let removed_analysis_error = self.analysis_error.take().is_some();
-        let changed = removed_original_text
+        let removed_recommendation = self.recommendation.take().is_some();
+        let removed_recommendation_error = self.recommendation_error.take().is_some();
+        let mut changed = removed_original_text
             || removed_processing_metadata
             || removed_analysis
-            || removed_analysis_error;
+            || removed_analysis_error
+            || removed_recommendation
+            || removed_recommendation_error;
         if self.analysis_status != status {
             self.analysis_status = status;
-            return true;
+            changed = true;
+        }
+        if self.recommendation_status != status {
+            self.recommendation_status = status;
+            changed = true;
         }
         changed
     }
@@ -643,6 +812,34 @@ mod dictation_history_tests {
 
         assert!(!settings.analytics_enabled);
         assert_eq!(settings.analytics_retention_days, 30);
+    }
+
+    #[test]
+    fn legacy_llm_settings_migrate_to_a_named_default_profile() {
+        let mut settings = Settings {
+            llm_base_url: "http://localhost:9999/v1".into(),
+            llm_model: Some("local-model".into()),
+            ..Settings::default()
+        };
+        settings.llm_profiles.clear();
+
+        assert!(settings.migrate_llm_profiles());
+        let profile = settings.correction_profile().expect("default profile");
+        assert_eq!(profile.id, "default");
+        assert_eq!(profile.base_url, "http://localhost:9999/v1");
+        assert_eq!(profile.model.as_deref(), Some("local-model"));
+    }
+
+    #[test]
+    fn api_keys_are_not_serialized_to_settings_json() {
+        let mut settings = Settings::default();
+        settings.llm_profiles[0].api_key = Some("secret".into());
+        settings.llm_api_key = Some("legacy-secret".into());
+        let json = serde_json::to_value(&settings).expect("serialize settings");
+
+        assert!(json.get("llm_api_key").is_none());
+        assert!(json["llm_profiles"][0].get("api_key").is_none());
+        assert!(!json.to_string().contains("secret"));
     }
 }
 

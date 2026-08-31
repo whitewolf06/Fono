@@ -63,6 +63,39 @@ export function SpeechSessionDetails({
           В этой сессии заметных паттернов нет.
         </p>
       )}
+      <Recommendation entry={entry} />
+    </section>
+  );
+}
+
+function Recommendation({ entry }: { entry: DictationHistoryEntry }) {
+  if (entry.recommendation_status === "pending") {
+    return (
+      <p className="v2-speech-trainer-panel__empty">Готовим рекомендации…</p>
+    );
+  }
+  if (entry.recommendation_status === "failed") {
+    return (
+      <p className="v2-speech-trainer-panel__empty">
+        Рекомендации сейчас недоступны.
+      </p>
+    );
+  }
+  if (!entry.recommendation) return null;
+
+  return (
+    <section className="v2-speech-trainer-recommendation">
+      <p className="v2-kicker">LLM-рекомендации</p>
+      <p>{entry.recommendation.summary}</p>
+      <ul>
+        {entry.recommendation.recommendations.map((item, index) => (
+          <li key={`${item.title}-${index}`}>
+            <strong>{item.title}</strong>
+            <span>{item.observation}</span>
+            <em>{item.exercise}</em>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

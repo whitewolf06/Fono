@@ -1,5 +1,7 @@
 //! IPC commands that atomically apply persisted settings and their runtime effects.
 
+use std::collections::BTreeMap;
+
 use tauri::{AppHandle, Manager, State};
 
 use crate::error::{AppError, AppResult};
@@ -11,6 +13,9 @@ use crate::types::{AccelerationCapabilities, Settings};
 pub fn get_settings(state: State<'_, AppState>) -> Settings {
     let mut settings = state.settings();
     settings.llm_api_key = None;
+    for profile in &mut settings.llm_profiles {
+        profile.api_key = None;
+    }
     settings
 }
 
@@ -34,9 +39,10 @@ pub fn get_stt_health(app: AppHandle) -> SttHealth {
 pub async fn save_settings(
     app: AppHandle,
     state: State<'_, AppState>,
-    settings: Settings,
+    mut settings: Settings,
 ) -> AppResult<()> {
     let old_settings = state.settings();
+    normalize_llm_profiles(&mut settings, &old_settings);
     validate_settings(&settings)?;
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
         || old_settings.command_hotkey != settings.command_hotkey;
@@ -60,8 +66,8 @@ pub async fn save_settings(
         }
     }
 
-    let previous_secret = crate::secrets::load_llm_api_key()?;
-    let persisted_settings = match prepare_secret_update(settings) {
+    let previous_secrets = profile_secret_snapshot(&old_settings, &settings)?;
+    let persisted_settings = match prepare_secret_update(settings, &old_settings) {
         Ok(settings) => settings,
         Err(error) => {
             if shortcuts_changed {
@@ -87,7 +93,7 @@ pub async fn save_settings(
                 ))),
             };
             if let Err(error) = prepared {
-                let _ = restore_secret(previous_secret.as_deref());
+                let _ = restore_profile_secrets(&previous_secrets);
                 if shortcuts_changed {
                     let _ = restore_shortcuts(&app, &old_settings);
                 }
@@ -101,7 +107,7 @@ pub async fn save_settings(
         let config = match crate::settings_to_wake_config(&persisted_settings) {
             Ok(config) => config,
             Err(error) => {
-                let _ = restore_secret(previous_secret.as_deref());
+                let _ = restore_profile_secrets(&previous_secrets);
                 if shortcuts_changed {
                     let _ = restore_shortcuts(&app, &old_settings);
                 }
@@ -112,7 +118,7 @@ pub async fn save_settings(
             .state::<fono_wake::WakeWordHandle>()
             .update_config(config)
         {
-            let _ = restore_secret(previous_secret.as_deref());
+            let _ = restore_profile_secrets(&previous_secrets);
             if shortcuts_changed {
                 let _ = restore_shortcuts(&app, &old_settings);
             }
@@ -123,7 +129,7 @@ pub async fn save_settings(
     }
 
     if let Err(error) = state::save_settings(&persisted_settings) {
-        let secret_rollback = restore_secret(previous_secret.as_deref());
+        let secret_rollback = restore_profile_secrets(&previous_secrets);
         if wake_reconfigured {
             if let Ok(config) = crate::settings_to_wake_config(&old_settings) {
                 let _ = app
@@ -164,38 +170,127 @@ pub async fn save_settings(
     Ok(())
 }
 
-fn prepare_secret_update(mut settings: Settings) -> AppResult<Settings> {
+fn prepare_secret_update(mut settings: Settings, old_settings: &Settings) -> AppResult<Settings> {
+    normalize_llm_profiles(&mut settings, old_settings);
+
     let submitted_secret = settings
         .llm_api_key
         .take()
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty());
-    match submitted_secret {
-        Some(value) => {
-            crate::secrets::store_llm_api_key(&value)?;
-            settings.has_llm_api_key = true;
-        }
-        None if settings.has_llm_api_key => {
-            settings.has_llm_api_key = crate::secrets::load_llm_api_key()?.is_some();
-        }
-        None => {
-            crate::secrets::delete_llm_api_key()?;
-            settings.has_llm_api_key = false;
+    if let Some(value) = submitted_secret {
+        if let Some(default) = settings
+            .llm_profiles
+            .iter_mut()
+            .find(|profile| profile.id == crate::types::LlmProfile::DEFAULT_ID)
+        {
+            default.api_key = Some(value);
+            default.has_api_key = true;
         }
     }
+
+    for profile in &mut settings.llm_profiles {
+        let submitted_secret = profile
+            .api_key
+            .take()
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty());
+        match submitted_secret {
+            Some(value) => {
+                crate::secrets::store_llm_profile_api_key(&profile.id, &value)?;
+                profile.has_api_key = true;
+            }
+            None if profile.has_api_key => {
+                profile.has_api_key =
+                    crate::secrets::load_llm_profile_api_key(&profile.id)?.is_some();
+            }
+            None => {
+                crate::secrets::delete_llm_profile_api_key(&profile.id)?;
+                profile.has_api_key = false;
+            }
+        }
+    }
+    mirror_default_profile_to_legacy(&mut settings);
     Ok(settings)
 }
 
-fn restore_secret(previous: Option<&str>) -> String {
-    let result = match previous {
-        Some(value) => crate::secrets::store_llm_api_key(value),
-        None => crate::secrets::delete_llm_api_key(),
+fn normalize_llm_profiles(settings: &mut Settings, old_settings: &Settings) {
+    // Existing UI clients send only the legacy fields. Keep all named profiles
+    // intact and mirror those fields into the default profile for compatibility.
+    if settings.llm_profiles.is_empty() {
+        settings.llm_profiles = old_settings.llm_profiles.clone();
+        settings.migrate_llm_profiles();
+        let provider = settings.llm_provider;
+        let base_url = settings.llm_base_url.clone();
+        let model = settings.llm_model.clone();
+        let has_api_key = settings.has_llm_api_key;
+        let connection = if matches!(provider, crate::types::LlmProvider::OpenAi) {
+            crate::types::LlmConnectionKind::Cloud
+        } else {
+            crate::types::LlmConnectionKind::Local
+        };
+        if let Some(default) = settings
+            .llm_profiles
+            .iter_mut()
+            .find(|profile| profile.id == crate::types::LlmProfile::DEFAULT_ID)
+        {
+            default.provider = provider;
+            default.base_url = base_url;
+            default.model = model;
+            default.connection = connection;
+            default.has_api_key = has_api_key;
+        }
+    } else {
+        settings.migrate_llm_profiles();
+    }
+}
+
+fn mirror_default_profile_to_legacy(settings: &mut Settings) {
+    let Some(profile) = settings
+        .llm_profiles
+        .iter()
+        .find(|profile| profile.id == crate::types::LlmProfile::DEFAULT_ID)
+    else {
+        return;
     };
-    match result {
-        Ok(()) => "Предыдущий API key восстановлен.".into(),
-        Err(error) => {
-            tracing::error!(%error, "failed to roll back LLM API key");
-            format!("Не удалось восстановить предыдущий API key: {error}")
+    settings.llm_provider = profile.provider;
+    settings.llm_base_url = profile.base_url.clone();
+    settings.llm_model = profile.model.clone();
+    settings.has_llm_api_key = profile.has_api_key;
+}
+
+fn profile_secret_snapshot(
+    old_settings: &Settings,
+    submitted_settings: &Settings,
+) -> AppResult<BTreeMap<String, Option<String>>> {
+    let ids = old_settings
+        .llm_profiles
+        .iter()
+        .chain(submitted_settings.llm_profiles.iter())
+        .map(|profile| profile.id.as_str())
+        .chain(std::iter::once(crate::types::LlmProfile::DEFAULT_ID));
+    let mut snapshot = BTreeMap::new();
+    for id in ids {
+        if !snapshot.contains_key(id) {
+            snapshot.insert(id.to_owned(), crate::secrets::load_llm_profile_api_key(id)?);
+        }
+    }
+    Ok(snapshot)
+}
+
+fn restore_profile_secrets(previous: &BTreeMap<String, Option<String>>) -> String {
+    let failed = previous.iter().find_map(|(id, value)| {
+        let result = match value {
+            Some(value) => crate::secrets::store_llm_profile_api_key(id, value),
+            None => crate::secrets::delete_llm_profile_api_key(id),
+        };
+        result.err().map(|error| (id, error))
+    });
+    match failed {
+        None => "Предыдущие API keys восстановлены.".into(),
+        Some((id, error)) => {
+            tracing::error!(%error, profile_id = id, "failed to roll back LLM API key");
+            format!("Не удалось восстановить API key профиля {id}: {error}")
         }
     }
 }
@@ -237,6 +332,52 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
         return Err(AppError::Config(
             "Срок хранения аналитики должен быть от 1 до 365 дней".into(),
         ));
+    }
+    let mut ids = std::collections::BTreeSet::new();
+    for profile in &settings.llm_profiles {
+        let valid_id = !profile.id.is_empty()
+            && profile.id.len() <= 64
+            && profile
+                .id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
+        if !valid_id || !ids.insert(profile.id.as_str()) || profile.name.trim().is_empty() {
+            return Err(AppError::Config(
+                "Каждому LLM-профилю нужны уникальный id и название".into(),
+            ));
+        }
+        if profile.base_url.trim().is_empty() {
+            return Err(AppError::Config(
+                "URL LLM-профиля не может быть пустым".into(),
+            ));
+        }
+    }
+    for assignment in [
+        settings.text_correction_llm.profile_id.as_deref(),
+        settings.speech_analysis_llm.profile_id.as_deref(),
+    ] {
+        if let Some(id) = assignment {
+            if !ids.contains(id) {
+                return Err(AppError::Config("Выбран неизвестный LLM-профиль".into()));
+            }
+        }
+    }
+    if settings.speech_analysis_llm.enabled && settings.speech_analysis_llm.profile_id.is_none() {
+        return Err(AppError::Config(
+            "Для LLM-анализа речи выберите профиль".into(),
+        ));
+    }
+    if let Some(profile) = settings.speech_analysis_profile() {
+        if profile.connection == crate::types::LlmConnectionKind::Cloud
+            && settings.speech_analysis_llm.enabled
+            && settings.speech_analysis_llm.data_scope
+                != crate::types::SpeechLlmDataScope::MetricsOnly
+            && !settings.speech_analysis_llm.cloud_consent
+        {
+            return Err(AppError::Config(
+                "Для отправки фрагментов или текста в облачный LLM требуется согласие".into(),
+            ));
+        }
     }
     let wake_config = crate::settings_to_wake_config(settings)?;
     fono_wake::validate_config(&wake_config)

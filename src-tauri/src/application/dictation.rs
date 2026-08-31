@@ -430,6 +430,15 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 },
                 analysis: None,
                 analysis_error: None,
+                recommendation_status: if settings.analytics_enabled
+                    && settings.speech_analysis_llm.enabled
+                {
+                    DictationAnalysisStatus::Pending
+                } else {
+                    DictationAnalysisStatus::Disabled
+                },
+                recommendation: None,
+                recommendation_error: None,
             },
             settings.analytics_enabled,
             settings.analytics_retention_days,

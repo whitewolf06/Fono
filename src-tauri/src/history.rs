@@ -153,6 +153,43 @@ impl HistoryRepository {
             .and_then(|entry| entry.analysis))
     }
 
+    pub fn complete_recommendation(
+        &self,
+        id: &str,
+        recommendation: crate::llm::SpeechLlmRecommendation,
+    ) -> AppResult<bool> {
+        let _guard = self.write_lock.lock();
+        let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
+            return Ok(false);
+        };
+        if entry.analysis_status != DictationAnalysisStatus::Ready
+            || entry.recommendation_status != DictationAnalysisStatus::Pending
+        {
+            return Ok(false);
+        }
+        entry.recommendation = Some(recommendation);
+        entry.recommendation_error = None;
+        entry.recommendation_status = DictationAnalysisStatus::Ready;
+        state::save_history_document(&entries)?;
+        Ok(true)
+    }
+
+    pub fn mark_recommendation_failed(&self, id: &str, reason: &str) -> AppResult<bool> {
+        let _guard = self.write_lock.lock();
+        let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
+            return Ok(false);
+        };
+        if entry.recommendation_status != DictationAnalysisStatus::Pending {
+            return Ok(false);
+        }
+        entry.recommendation_status = DictationAnalysisStatus::Failed;
+        entry.recommendation_error = Some(reason.to_owned());
+        state::save_history_document(&entries)?;
+        Ok(true)
+    }
+
     pub fn period_report(
         &self,
         from: chrono::DateTime<chrono::Utc>,
@@ -212,6 +249,17 @@ pub fn mark_analysis_failed(id: &str, reason: &str) -> AppResult<bool> {
 
 pub fn session_analysis(id: &str) -> AppResult<Option<SpeechSessionAnalysis>> {
     HISTORY.session_analysis(id)
+}
+
+pub fn complete_recommendation(
+    id: &str,
+    recommendation: crate::llm::SpeechLlmRecommendation,
+) -> AppResult<bool> {
+    HISTORY.complete_recommendation(id, recommendation)
+}
+
+pub fn mark_recommendation_failed(id: &str, reason: &str) -> AppResult<bool> {
+    HISTORY.mark_recommendation_failed(id, reason)
 }
 
 pub fn period_report(
@@ -473,6 +521,9 @@ mod tests {
             analysis_status: DictationAnalysisStatus::Pending,
             analysis: None,
             analysis_error: None,
+            recommendation_status: DictationAnalysisStatus::Disabled,
+            recommendation: None,
+            recommendation_error: None,
         }
     }
 }

@@ -1,0 +1,110 @@
+.v2-llm-page {
+  display: grid;
+  gap: 20px;
+}
+
+.v2-llm-page__error,
+.v2-llm-page__message {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--v2-line);
+  border-radius: 12px;
+}
+
+.v2-llm-page__error {
+  color: #ffc0bf;
+}
+
+.v2-llm-page__message {
+  color: var(--v2-green);
+}
+
+.v2-llm-layout {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(0, 1.5fr);
+  gap: 18px;
+}
+
+.v2-llm-profiles,
+.v2-llm-editor {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--v2-line);
+  border-radius: 16px;
+  background: var(--v2-panel);
+}
+
+.v2-llm-profiles button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  color: var(--v2-text);
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.v2-llm-profiles button.is-active {
+  border-color: var(--v2-blue);
+  background: rgba(85, 198, 255, 0.12);
+}
+
+.v2-llm-profiles span,
+.v2-llm-editor span,
+.v2-llm-editor p {
+  color: var(--v2-muted);
+  font-size: 0.85rem;
+}
+
+.v2-llm-add {
+  border-top: 1px solid var(--v2-line) !important;
+  border-radius: 0 !important;
+}
+
+.v2-llm-editor label,
+.v2-llm-editor fieldset {
+  display: grid;
+  gap: 6px;
+}
+
+.v2-llm-editor input,
+.v2-llm-editor select {
+  min-height: 38px;
+  padding: 8px 10px;
+  color: var(--v2-text);
+  border: 1px solid var(--v2-line);
+  border-radius: 8px;
+  background: var(--v2-panel-strong);
+}
+
+.v2-llm-editor fieldset {
+  padding: 12px;
+  border: 1px solid var(--v2-line);
+  border-radius: 10px;
+}
+
+.v2-llm-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+  color: var(--v2-text);
+}
+
+.v2-llm-checkbox input {
+  min-height: auto;
+}
+
+.v2-llm-editor__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 820px) {
+  .v2-llm-layout {
+    grid-template-columns: 1fr;
+  }
+}

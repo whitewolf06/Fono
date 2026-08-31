@@ -9,7 +9,9 @@ use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
-use crate::types::{AiMode, LlmProvider, Settings};
+use crate::types::{
+    AiMode, LlmProfile, LlmProvider, Settings, SpeechFinding, SpeechSessionAnalysis,
+};
 
 const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
@@ -102,6 +104,9 @@ impl LlmClient {
     }
 
     pub fn from_settings(settings: &Settings) -> Self {
+        if let Some(profile) = settings.correction_profile() {
+            return Self::from_profile(profile, settings.text_correction_llm.model.as_deref());
+        }
         let base_url = match settings.llm_provider {
             LlmProvider::OpenAi if settings.llm_base_url.trim().is_empty() => {
                 "https://api.openai.com/v1".to_string()
@@ -118,6 +123,30 @@ impl LlmClient {
         Self {
             base_url,
             model: settings.llm_model.clone(),
+            api_key,
+        }
+    }
+
+    pub fn from_profile(profile: &LlmProfile, model_override: Option<&str>) -> Self {
+        let base_url = match profile.provider {
+            LlmProvider::OpenAi if profile.base_url.trim().is_empty() => {
+                "https://api.openai.com/v1".to_string()
+            }
+            _ => profile.base_url.clone(),
+        };
+        let api_key = match crate::secrets::load_llm_profile_api_key(&profile.id) {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::warn!(%error, profile_id = profile.id, "could not load LLM API key from secure storage");
+                None
+            }
+        };
+        Self {
+            base_url,
+            model: model_override
+                .filter(|model| !model.trim().is_empty())
+                .map(ToOwned::to_owned)
+                .or_else(|| profile.model.clone()),
             api_key,
         }
     }
@@ -177,21 +206,54 @@ impl LlmClient {
         crate::vlog!("LLM request model={} mode={:?}", model, mode);
         crate::vlog!("LLM user prompt prepared ({} chars)", user.chars().count());
 
+        self.chat(model, &system, &user, MAX_TOKENS).await
+    }
+
+    pub async fn analyze_speech(
+        &self,
+        analysis: &SpeechSessionAnalysis,
+        findings: Option<&[SpeechFinding]>,
+        original_text: Option<&str>,
+    ) -> AppResult<SpeechLlmRecommendation> {
+        let Some(model) = self.model.as_deref() else {
+            return Err(AppError::Llm(
+                "для LLM-анализа речи не выбрана модель".into(),
+            ));
+        };
+        let user = serde_json::to_string(&SpeechAnalysisRequest {
+            metrics: analysis,
+            findings,
+            original_text,
+        })
+        .map_err(|error| AppError::Llm(format!("serialize speech analysis input: {error}")))?;
+        let content = self
+            .chat(model, SPEECH_ANALYSIS_SYSTEM_PROMPT, &user, 900)
+            .await?;
+        parse_speech_recommendation(&content, analysis.findings.len())
+    }
+
+    async fn chat(
+        &self,
+        model: &str,
+        system: &str,
+        user: &str,
+        max_tokens: u32,
+    ) -> AppResult<String> {
         let req = ChatRequest {
             model,
             messages: vec![
                 ChatMessage {
                     role: "system",
-                    content: &system,
+                    content: system,
                 },
                 ChatMessage {
                     role: "user",
-                    content: &user,
+                    content: user,
                 },
             ],
             temperature: 0.2,
             stream: false,
-            max_tokens: MAX_TOKENS,
+            max_tokens,
             tools: available_tools(),
         };
 
@@ -220,6 +282,72 @@ impl LlmClient {
         crate::vlog!("LLM response received ({} chars)", result.chars().count());
         Ok(result)
     }
+}
+
+#[derive(Debug, Serialize)]
+struct SpeechAnalysisRequest<'a> {
+    metrics: &'a SpeechSessionAnalysis,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    findings: Option<&'a [SpeechFinding]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    original_text: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechLlmRecommendation {
+    pub summary: String,
+    pub recommendations: Vec<SpeechLlmRecommendationItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechLlmRecommendationItem {
+    pub title: String,
+    pub observation: String,
+    pub exercise: String,
+    #[serde(default)]
+    pub finding_indexes: Vec<usize>,
+}
+
+const SPEECH_ANALYSIS_SYSTEM_PROMPT: &str = r#"Ты — бережный тренер речи. На входе уже есть детерминированные локальные метрики.
+Они являются фактом; не пересчитывай и не выдумывай проблемы. Дай короткое практичное резюме и не более трёх рекомендаций.
+Верни только JSON без Markdown: {"summary":"...","recommendations":[{"title":"...","observation":"...","exercise":"...","finding_indexes":[0]}]}.
+Индексы могут ссылаться только на переданные findings."#;
+
+fn parse_speech_recommendation(
+    content: &str,
+    finding_count: usize,
+) -> AppResult<SpeechLlmRecommendation> {
+    let content = content
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let mut recommendation: SpeechLlmRecommendation =
+        serde_json::from_str(content).map_err(|error| {
+            AppError::Llm(format!(
+                "LLM returned invalid speech recommendation JSON: {error}"
+            ))
+        })?;
+    recommendation.summary = recommendation.summary.trim().chars().take(500).collect();
+    recommendation.recommendations.truncate(3);
+    if recommendation.summary.is_empty() {
+        return Err(AppError::Llm(
+            "LLM returned an empty speech recommendation".into(),
+        ));
+    }
+    for item in &mut recommendation.recommendations {
+        item.title = item.title.trim().chars().take(120).collect();
+        item.observation = item.observation.trim().chars().take(500).collect();
+        item.exercise = item.exercise.trim().chars().take(500).collect();
+        if item.title.is_empty() || item.observation.is_empty() || item.exercise.is_empty() {
+            return Err(AppError::Llm(
+                "LLM returned an incomplete speech recommendation".into(),
+            ));
+        }
+        item.finding_indexes.retain(|index| *index < finding_count);
+    }
+    Ok(recommendation)
 }
 
 fn shared_http_client() -> AppResult<&'static reqwest::Client> {
@@ -425,5 +553,16 @@ mod tests {
 
         let error = run_async(client.list_models()).expect_err("oversized response must fail");
         assert!(error.to_string().contains("response exceeds"));
+    }
+
+    #[test]
+    fn speech_recommendation_keeps_only_known_finding_indexes() {
+        let recommendation = parse_speech_recommendation(
+            r#"{"summary":"Коротко","recommendations":[{"title":"Пауза","observation":"Есть вводные","exercise":"Сделайте паузу","finding_indexes":[0,4]}]}"#,
+            1,
+        )
+        .expect("valid response");
+
+        assert_eq!(recommendation.recommendations[0].finding_indexes, vec![0]);
     }
 }

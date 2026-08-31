@@ -241,13 +241,30 @@ pub fn load_settings() -> AppResult<Option<Settings>> {
         return Ok(None);
     };
 
-    if let Some(api_key) = settings.llm_api_key.take() {
+    let migrated_profiles = settings.migrate_llm_profiles();
+    let legacy_secret = if let Some(api_key) = settings.llm_api_key.take() {
         crate::secrets::store_llm_api_key(&api_key)?;
-        settings.has_llm_api_key = true;
+        Some(api_key)
     } else {
-        settings.has_llm_api_key = crate::secrets::load_llm_api_key()?.is_some();
+        crate::secrets::load_llm_api_key()?
+    };
+
+    if migrated_profiles {
+        if let Some(api_key) = legacy_secret.as_deref() {
+            crate::secrets::store_llm_profile_api_key(
+                crate::types::LlmProfile::DEFAULT_ID,
+                api_key,
+            )?;
+        }
     }
-    if legacy {
+    for profile in &mut settings.llm_profiles {
+        profile.api_key = None;
+        profile.has_api_key = crate::secrets::load_llm_profile_api_key(&profile.id)?.is_some();
+    }
+    settings.has_llm_api_key = settings
+        .llm_profile(Some(crate::types::LlmProfile::DEFAULT_ID))
+        .is_some_and(|profile| profile.has_api_key);
+    if legacy || migrated_profiles {
         save_versioned_json_atomically(&path, &settings)?;
     }
     {

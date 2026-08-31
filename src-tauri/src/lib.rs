@@ -314,6 +314,8 @@ pub fn run() {
             // llm
             ipc::llm::test_llm_connection,
             ipc::llm::list_llm_models,
+            ipc::llm::test_llm_profile,
+            ipc::llm::list_llm_profile_models,
             // settings
             ipc::settings::get_settings,
             ipc::settings::get_acceleration_capabilities,

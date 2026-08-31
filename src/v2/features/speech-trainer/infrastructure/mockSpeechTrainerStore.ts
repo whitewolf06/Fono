@@ -50,6 +50,19 @@ let entries: DictationHistoryEntry[] = [
       ],
     },
     analysis_error: null,
+    recommendation_status: "ready",
+    recommendation: {
+      summary: "Темп и структура хорошие; в начале заметны лишние вводные слова.",
+      recommendations: [
+        {
+          title: "Начинайте с сути",
+          observation: "Перед основной мыслью появилась вводная связка.",
+          exercise: "Перед записью сформулируйте первую фразу из пяти слов.",
+          finding_indexes: [0],
+        },
+      ],
+    },
+    recommendation_error: null,
   },
   {
     id: "speech-demo-2",
@@ -76,6 +89,9 @@ let entries: DictationHistoryEntry[] = [
       ],
     },
     analysis_error: null,
+    recommendation_status: "disabled",
+    recommendation: null,
+    recommendation_error: null,
   },
 ];
 

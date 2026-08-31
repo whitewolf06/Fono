@@ -3,9 +3,42 @@
 use crate::error::{AppError, AppResult};
 
 const LLM_API_KEY_TARGET: &str = "Fono/llm-api-key";
+const LLM_PROFILE_API_KEY_PREFIX: &str = "Fono/llm-profile/";
+
+pub fn load_llm_profile_api_key(profile_id: &str) -> AppResult<Option<String>> {
+    load_secret(&profile_secret_target(profile_id)?)
+}
+
+pub fn store_llm_profile_api_key(profile_id: &str, value: &str) -> AppResult<()> {
+    let target = profile_secret_target(profile_id)?;
+    store_secret(&target, value)
+}
+
+pub fn delete_llm_profile_api_key(profile_id: &str) -> AppResult<()> {
+    delete_secret(&profile_secret_target(profile_id)?)
+}
+
+fn profile_secret_target(profile_id: &str) -> AppResult<String> {
+    let is_valid = !profile_id.is_empty()
+        && profile_id.len() <= 64
+        && profile_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
+    if !is_valid {
+        return Err(AppError::Config(
+            "LLM profile id must contain only letters, digits, '-' or '_'".into(),
+        ));
+    }
+    Ok(format!("{LLM_PROFILE_API_KEY_PREFIX}{profile_id}"))
+}
 
 #[cfg(windows)]
 pub fn load_llm_api_key() -> AppResult<Option<String>> {
+    load_secret(LLM_API_KEY_TARGET)
+}
+
+#[cfg(windows)]
+fn load_secret(secret_target: &str) -> AppResult<Option<String>> {
     use std::ptr;
 
     use windows::{
@@ -16,7 +49,7 @@ pub fn load_llm_api_key() -> AppResult<Option<String>> {
         },
     };
 
-    let target = wide(LLM_API_KEY_TARGET);
+    let target = wide(secret_target);
     let mut credential: *mut CREDENTIALW = ptr::null_mut();
     let result = unsafe {
         CredReadW(
@@ -57,6 +90,11 @@ pub fn load_llm_api_key() -> AppResult<Option<String>> {
 
 #[cfg(windows)]
 pub fn store_llm_api_key(value: &str) -> AppResult<()> {
+    store_secret(LLM_API_KEY_TARGET, value)
+}
+
+#[cfg(windows)]
+fn store_secret(secret_target: &str, value: &str) -> AppResult<()> {
     use windows::{
         core::PWSTR,
         Win32::Security::Credentials::{
@@ -65,9 +103,9 @@ pub fn store_llm_api_key(value: &str) -> AppResult<()> {
     };
 
     if value.trim().is_empty() {
-        return delete_llm_api_key();
+        return delete_secret(secret_target);
     }
-    let mut target = wide(LLM_API_KEY_TARGET);
+    let mut target = wide(secret_target);
     let mut username = wide("Fono");
     let mut blob = value.as_bytes().to_vec();
     let credential = CREDENTIALW {
@@ -90,6 +128,11 @@ pub fn store_llm_api_key(value: &str) -> AppResult<()> {
 
 #[cfg(windows)]
 pub fn delete_llm_api_key() -> AppResult<()> {
+    delete_secret(LLM_API_KEY_TARGET)
+}
+
+#[cfg(windows)]
+fn delete_secret(secret_target: &str) -> AppResult<()> {
     use windows::{
         core::{HRESULT, PCWSTR},
         Win32::{
@@ -98,7 +141,7 @@ pub fn delete_llm_api_key() -> AppResult<()> {
         },
     };
 
-    let target = wide(LLM_API_KEY_TARGET);
+    let target = wide(secret_target);
     match unsafe { CredDeleteW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, 0) } {
         Ok(()) => Ok(()),
         Err(error) if error.code() == HRESULT::from_win32(ERROR_NOT_FOUND.0) => Ok(()),
@@ -119,6 +162,11 @@ pub fn load_llm_api_key() -> AppResult<Option<String>> {
 }
 
 #[cfg(not(windows))]
+fn load_secret(_secret_target: &str) -> AppResult<Option<String>> {
+    Ok(None)
+}
+
+#[cfg(not(windows))]
 pub fn store_llm_api_key(_value: &str) -> AppResult<()> {
     Err(AppError::Config(
         "secure LLM credential storage is supported only on Windows".into(),
@@ -126,6 +174,18 @@ pub fn store_llm_api_key(_value: &str) -> AppResult<()> {
 }
 
 #[cfg(not(windows))]
+fn store_secret(_secret_target: &str, _value: &str) -> AppResult<()> {
+    Err(AppError::Config(
+        "secure LLM credential storage is supported only on Windows".into(),
+    ))
+}
+
+#[cfg(not(windows))]
 pub fn delete_llm_api_key() -> AppResult<()> {
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn delete_secret(_secret_target: &str) -> AppResult<()> {
     Ok(())
 }

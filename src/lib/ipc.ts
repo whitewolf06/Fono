@@ -88,6 +88,10 @@ export const ipc = {
   // LLM
   testLlmConnection: () => invoke<string>("test_llm_connection"),
   listLlmModels: () => invoke<string[]>("list_llm_models"),
+  testLlmProfile: (profileId: string) =>
+    invoke<string>("test_llm_profile", { profileId }),
+  listLlmProfileModels: (profileId: string) =>
+    invoke<string[]>("list_llm_profile_models", { profileId }),
 
   // Настройки
   getSettings: () => invoke<Settings>("get_settings"),

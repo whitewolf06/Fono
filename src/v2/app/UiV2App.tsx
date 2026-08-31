@@ -16,6 +16,9 @@ import { createMockServiceRuntime } from "@/v2/features/service/infrastructure/m
 import { createTauriServiceRuntime } from "@/v2/features/service/infrastructure/tauriServiceRuntime";
 import { ServicePage } from "@/v2/features/service/presentation/ServicePage";
 import { createTauriSettingsDraftStore } from "@/v2/features/settings/infrastructure/tauriSettingsDraftStore";
+import { createMockLlmProfilesStore } from "@/v2/features/llm-settings/infrastructure/mockLlmProfilesStore";
+import { createTauriLlmProfilesStore } from "@/v2/features/llm-settings/infrastructure/tauriLlmProfilesStore";
+import { LlmProfilesPage } from "@/v2/features/llm-settings/presentation/LlmProfilesPage";
 import {
   completeOnboarding,
   shouldShowOnboarding,
@@ -33,7 +36,7 @@ import { UiKitPage } from "@/v2/shared/presentation/UiKitPage";
 import "@/v2/shared/presentation/styles/index.css";
 
 type NavigationItem =
-  "voice" | "trainer" | "commands" | "service" | "settings" | "kit";
+  "voice" | "trainer" | "commands" | "service" | "llm" | "settings" | "kit";
 
 const productNavigation: { id: NavigationItem; icon: string; label: string }[] =
   [
@@ -41,6 +44,7 @@ const productNavigation: { id: NavigationItem; icon: string; label: string }[] =
     { id: "trainer", icon: "◌", label: "Речевой тренер" },
     { id: "commands", icon: "⌘", label: "Команды" },
     { id: "service", icon: "⌁", label: "Сервис" },
+    { id: "llm", icon: "✦", label: "AI" },
     { id: "settings", icon: "⚙", label: "Настройки" },
   ];
 
@@ -89,6 +93,13 @@ export function UiV2App() {
       isNativeRuntime
         ? createTauriSpeechTrainerStore()
         : createMockSpeechTrainerStore(),
+    [],
+  );
+  const llmProfilesStore = useMemo(
+    () =>
+      isNativeRuntime
+        ? createTauriLlmProfilesStore()
+        : createMockLlmProfilesStore(),
     [],
   );
   const isCleanVoicePage = activePage === "voice";
@@ -195,6 +206,9 @@ export function UiV2App() {
                     setActivePage("settings");
                   }}
                 />
+              )}
+              {activePage === "llm" && (
+                <LlmProfilesPage store={llmProfilesStore} />
               )}
               {activePage === "kit" && <UiKitPage />}
             </div>
