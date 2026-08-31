@@ -15,6 +15,7 @@ pub mod operation;
 pub mod pipeline;
 pub mod secrets;
 pub mod service_history;
+pub mod speech_metrics;
 pub mod state;
 pub mod stt;
 pub mod types;
@@ -236,6 +237,12 @@ pub fn run() {
             // Восстанавливаем позицию overlay-окна из настроек.
             let settings = app.state::<AppState>().settings();
             crate::verbose::set_verbose(settings.verbose_logging);
+            if let Err(error) = crate::history::apply_analytics_privacy_policy(
+                settings.analytics_enabled && settings.history_enabled,
+                settings.analytics_retention_days,
+            ) {
+                tracing::warn!(%error, "could not apply analytics privacy policy at startup");
+            }
             let readiness_events = app.handle().clone();
             app.state::<pipeline::Pipeline>()
                 .stt()
@@ -248,6 +255,11 @@ pub fn run() {
                     app.handle().clone(),
                 )?;
             app.manage(local_service);
+            app.manage(
+                crate::application::speech_analysis_queue::SpeechAnalysisQueue::start(
+                    app.handle().clone(),
+                ),
+            );
             if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
                 if let Some(overlay) = app.get_webview_window("overlay") {
                     let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
@@ -277,6 +289,8 @@ pub fn run() {
             ipc::system::get_dictation_history,
             ipc::system::clear_dictation_history,
             ipc::system::delete_dictation_history_entry,
+            ipc::system::get_speech_session_analysis,
+            ipc::system::get_speech_period_report,
             ipc::service::get_local_transcription_service_snapshot,
             ipc::service::cancel_local_transcription_job,
             ipc::service::clear_local_transcription_history,

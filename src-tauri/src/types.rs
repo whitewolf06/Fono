@@ -518,6 +518,10 @@ pub struct DictationHistoryEntry {
     pub processing: Option<DictationProcessingMetadata>,
     #[serde(default)]
     pub analysis_status: DictationAnalysisStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<SpeechSessionAnalysis>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub analysis_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -528,12 +532,69 @@ pub struct DictationProcessingMetadata {
     pub audio_secs: Option<f32>,
 }
 
+/// Local, explainable results calculated only from a saved opt-in transcript.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechSessionAnalysis {
+    pub word_count: u32,
+    pub filler_count: u32,
+    pub filler_density_per_100_words: f32,
+    pub repetition_count: u32,
+    pub self_correction_count: u32,
+    pub unfinished_count: u32,
+    pub findings: Vec<SpeechFinding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechFinding {
+    pub kind: SpeechFindingKind,
+    pub label: String,
+    pub fragment: String,
+    pub start_word: u32,
+    pub end_word: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpeechFindingKind {
+    Filler,
+    Repetition,
+    SelfCorrection,
+    Unfinished,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechPeriodReport {
+    pub from: chrono::DateTime<chrono::Utc>,
+    pub to: chrono::DateTime<chrono::Utc>,
+    pub analyzed_sessions: u32,
+    pub total_words: u32,
+    pub filler_count: u32,
+    pub repetition_count: u32,
+    pub self_correction_count: u32,
+    pub unfinished_count: u32,
+    pub filler_density_per_100_words: f32,
+    pub daily: Vec<SpeechDailyTrend>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpeechDailyTrend {
+    pub date: chrono::NaiveDate,
+    pub sessions: u32,
+    pub words: u32,
+    pub filler_count: u32,
+    pub repetition_count: u32,
+    pub self_correction_count: u32,
+    pub unfinished_count: u32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum DictationAnalysisStatus {
     #[default]
     Disabled,
     Pending,
+    Ready,
+    Failed,
     Expired,
 }
 
@@ -541,7 +602,12 @@ impl DictationHistoryEntry {
     pub fn clear_analytics_data(&mut self, status: DictationAnalysisStatus) -> bool {
         let removed_original_text = self.original_text.take().is_some();
         let removed_processing_metadata = self.processing.take().is_some();
-        let changed = removed_original_text || removed_processing_metadata;
+        let removed_analysis = self.analysis.take().is_some();
+        let removed_analysis_error = self.analysis_error.take().is_some();
+        let changed = removed_original_text
+            || removed_processing_metadata
+            || removed_analysis
+            || removed_analysis_error;
         if self.analysis_status != status {
             self.analysis_status = status;
             return true;

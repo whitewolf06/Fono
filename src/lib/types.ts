@@ -229,7 +229,9 @@ export interface DictationHistoryEntry {
   device: string | null;
   original_text?: string | null;
   processing?: DictationProcessingMetadata | null;
-  analysis_status: "disabled" | "pending" | "expired";
+  analysis_status: "disabled" | "pending" | "ready" | "failed" | "expired";
+  analysis?: SpeechSessionAnalysis | null;
+  analysis_error?: string | null;
 }
 
 export interface DictationProcessingMetadata {
@@ -237,6 +239,47 @@ export interface DictationProcessingMetadata {
   detected_language: string | null;
   transcribe_secs: number | null;
   audio_secs: number | null;
+}
+
+export interface SpeechSessionAnalysis {
+  word_count: number;
+  filler_count: number;
+  filler_density_per_100_words: number;
+  repetition_count: number;
+  self_correction_count: number;
+  unfinished_count: number;
+  findings: SpeechFinding[];
+}
+
+export interface SpeechFinding {
+  kind: "filler" | "repetition" | "self_correction" | "unfinished";
+  label: string;
+  fragment: string;
+  start_word: number;
+  end_word: number;
+}
+
+export interface SpeechPeriodReport {
+  from: string;
+  to: string;
+  analyzed_sessions: number;
+  total_words: number;
+  filler_count: number;
+  repetition_count: number;
+  self_correction_count: number;
+  unfinished_count: number;
+  filler_density_per_100_words: number;
+  daily: SpeechDailyTrend[];
+}
+
+export interface SpeechDailyTrend {
+  date: string;
+  sessions: number;
+  words: number;
+  filler_count: number;
+  repetition_count: number;
+  self_correction_count: number;
+  unfinished_count: number;
 }
 export interface BuildInfo {
   version: string;

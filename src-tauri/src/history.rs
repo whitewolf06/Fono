@@ -1,6 +1,9 @@
 //! Serialized repository for dictation history and its retention policy.
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    collections::BTreeMap,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
@@ -8,7 +11,10 @@ use parking_lot::Mutex;
 use crate::{
     error::AppResult,
     state,
-    types::{DictationAnalysisStatus, DictationHistoryEntry},
+    types::{
+        DictationAnalysisStatus, DictationHistoryEntry, SpeechDailyTrend, SpeechPeriodReport,
+        SpeechSessionAnalysis,
+    },
 };
 
 const MAX_HISTORY_ENTRIES: usize = 200;
@@ -87,6 +93,75 @@ impl HistoryRepository {
         }
         Ok(())
     }
+
+    pub fn pending_analysis_ids(&self) -> AppResult<Vec<String>> {
+        let _guard = self.write_lock.lock();
+        let entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        Ok(entries
+            .into_iter()
+            .filter(|entry| {
+                entry.analysis_status == DictationAnalysisStatus::Pending
+                    && entry.original_text.is_some()
+            })
+            .map(|entry| entry.id)
+            .collect())
+    }
+
+    pub fn pending_analysis_input(&self, id: &str) -> AppResult<Option<String>> {
+        let _guard = self.write_lock.lock();
+        let entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        Ok(entries.into_iter().find_map(|entry| {
+            (entry.id == id && entry.analysis_status == DictationAnalysisStatus::Pending)
+                .then_some(entry.original_text)
+                .flatten()
+        }))
+    }
+
+    pub fn complete_analysis(&self, id: &str, analysis: SpeechSessionAnalysis) -> AppResult<bool> {
+        let _guard = self.write_lock.lock();
+        let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        let completed = complete_analysis_in_entries(&mut entries, id, analysis);
+        if !completed {
+            return Ok(false);
+        }
+        state::save_history_document(&entries)?;
+        Ok(true)
+    }
+
+    pub fn mark_analysis_failed(&self, id: &str, reason: &str) -> AppResult<bool> {
+        let _guard = self.write_lock.lock();
+        let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
+            return Ok(false);
+        };
+        if entry.analysis_status != DictationAnalysisStatus::Pending {
+            return Ok(false);
+        }
+
+        entry.analysis_status = DictationAnalysisStatus::Failed;
+        entry.analysis_error = Some(reason.to_owned());
+        state::save_history_document(&entries)?;
+        Ok(true)
+    }
+
+    pub fn session_analysis(&self, id: &str) -> AppResult<Option<SpeechSessionAnalysis>> {
+        let _guard = self.write_lock.lock();
+        let entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        Ok(entries
+            .into_iter()
+            .find(|entry| entry.id == id)
+            .and_then(|entry| entry.analysis))
+    }
+
+    pub fn period_report(
+        &self,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> AppResult<SpeechPeriodReport> {
+        let _guard = self.write_lock.lock();
+        let entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        Ok(build_period_report(entries, from, to))
+    }
 }
 
 pub fn list(
@@ -119,6 +194,33 @@ pub fn apply_analytics_privacy_policy(
     HISTORY.apply_analytics_privacy_policy(analytics_enabled, analytics_retention_days)
 }
 
+pub fn pending_analysis_ids() -> AppResult<Vec<String>> {
+    HISTORY.pending_analysis_ids()
+}
+
+pub fn pending_analysis_input(id: &str) -> AppResult<Option<String>> {
+    HISTORY.pending_analysis_input(id)
+}
+
+pub fn complete_analysis(id: &str, analysis: SpeechSessionAnalysis) -> AppResult<bool> {
+    HISTORY.complete_analysis(id, analysis)
+}
+
+pub fn mark_analysis_failed(id: &str, reason: &str) -> AppResult<bool> {
+    HISTORY.mark_analysis_failed(id, reason)
+}
+
+pub fn session_analysis(id: &str) -> AppResult<Option<SpeechSessionAnalysis>> {
+    HISTORY.session_analysis(id)
+}
+
+pub fn period_report(
+    from: chrono::DateTime<chrono::Utc>,
+    to: chrono::DateTime<chrono::Utc>,
+) -> AppResult<SpeechPeriodReport> {
+    HISTORY.period_report(from, to)
+}
+
 fn apply_analytics_privacy_policy_to_entries(
     entries: &mut [DictationHistoryEntry],
     analytics_enabled: bool,
@@ -148,6 +250,84 @@ fn remove_entry(entries: &mut Vec<DictationHistoryEntry>, id: &str) -> bool {
     entries.len() != previous_len
 }
 
+fn complete_analysis_in_entries(
+    entries: &mut [DictationHistoryEntry],
+    id: &str,
+    analysis: SpeechSessionAnalysis,
+) -> bool {
+    let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
+        return false;
+    };
+    if entry.analysis_status != DictationAnalysisStatus::Pending || entry.original_text.is_none() {
+        return false;
+    }
+
+    entry.analysis = Some(analysis);
+    entry.analysis_error = None;
+    entry.analysis_status = DictationAnalysisStatus::Ready;
+    true
+}
+
+fn build_period_report(
+    entries: Vec<DictationHistoryEntry>,
+    from: chrono::DateTime<chrono::Utc>,
+    to: chrono::DateTime<chrono::Utc>,
+) -> SpeechPeriodReport {
+    let mut report = SpeechPeriodReport {
+        from,
+        to,
+        analyzed_sessions: 0,
+        total_words: 0,
+        filler_count: 0,
+        repetition_count: 0,
+        self_correction_count: 0,
+        unfinished_count: 0,
+        filler_density_per_100_words: 0.0,
+        daily: Vec::new(),
+    };
+    let mut daily = BTreeMap::<chrono::NaiveDate, SpeechDailyTrend>::new();
+
+    for entry in entries
+        .into_iter()
+        .filter(|entry| entry.created_at >= from && entry.created_at <= to)
+    {
+        let Some(analysis) = entry.analysis else {
+            continue;
+        };
+        report.analyzed_sessions += 1;
+        report.total_words += analysis.word_count;
+        report.filler_count += analysis.filler_count;
+        report.repetition_count += analysis.repetition_count;
+        report.self_correction_count += analysis.self_correction_count;
+        report.unfinished_count += analysis.unfinished_count;
+
+        let trend = daily
+            .entry(entry.created_at.date_naive())
+            .or_insert(SpeechDailyTrend {
+                date: entry.created_at.date_naive(),
+                sessions: 0,
+                words: 0,
+                filler_count: 0,
+                repetition_count: 0,
+                self_correction_count: 0,
+                unfinished_count: 0,
+            });
+        trend.sessions += 1;
+        trend.words += analysis.word_count;
+        trend.filler_count += analysis.filler_count;
+        trend.repetition_count += analysis.repetition_count;
+        trend.self_correction_count += analysis.self_correction_count;
+        trend.unfinished_count += analysis.unfinished_count;
+    }
+
+    if report.total_words > 0 {
+        report.filler_density_per_100_words =
+            report.filler_count as f32 * 100.0 / report.total_words as f32;
+    }
+    report.daily = daily.into_values().collect();
+    report
+}
+
 pub fn next_id() -> String {
     let sequence = NEXT_HISTORY_ID.fetch_add(1, Ordering::Relaxed);
     format!(
@@ -165,9 +345,13 @@ mod tests {
 
     use crate::types::{
         AiMode, DictationAnalysisStatus, DictationHistoryEntry, DictationProcessingMetadata,
+        SpeechSessionAnalysis,
     };
 
-    use super::{apply_analytics_privacy_policy_to_entries, next_id, remove_entry};
+    use super::{
+        apply_analytics_privacy_policy_to_entries, build_period_report,
+        complete_analysis_in_entries, next_id, remove_entry,
+    };
 
     #[test]
     fn generated_ids_do_not_collide_within_a_process() {
@@ -218,6 +402,61 @@ mod tests {
         assert!(entries.is_empty());
     }
 
+    #[test]
+    fn period_report_aggregates_ready_sessions_by_day() {
+        let created_at = chrono::DateTime::parse_from_rfc3339("2026-08-31T10:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut entry = entry_with_analytics(created_at);
+        entry.analysis_status = DictationAnalysisStatus::Ready;
+        entry.analysis = Some(SpeechSessionAnalysis {
+            word_count: 20,
+            filler_count: 2,
+            filler_density_per_100_words: 10.0,
+            repetition_count: 1,
+            self_correction_count: 1,
+            unfinished_count: 0,
+            findings: Vec::new(),
+        });
+        let from = created_at - Duration::hours(1);
+        let to = created_at + Duration::hours(1);
+
+        let report = build_period_report(vec![entry], from, to);
+
+        assert_eq!(report.analyzed_sessions, 1);
+        assert_eq!(report.total_words, 20);
+        assert_eq!(report.filler_count, 2);
+        assert_eq!(report.daily.len(), 1);
+        assert_eq!(report.daily[0].date.to_string(), "2026-08-31");
+    }
+
+    #[test]
+    fn queue_completion_is_idempotent_for_one_pending_session() {
+        let mut entries = vec![entry_with_analytics(Utc::now())];
+        let analysis = SpeechSessionAnalysis {
+            word_count: 3,
+            filler_count: 0,
+            filler_density_per_100_words: 0.0,
+            repetition_count: 0,
+            self_correction_count: 0,
+            unfinished_count: 0,
+            findings: Vec::new(),
+        };
+
+        assert!(complete_analysis_in_entries(
+            &mut entries,
+            "entry",
+            analysis.clone()
+        ));
+        assert!(!complete_analysis_in_entries(
+            &mut entries,
+            "entry",
+            analysis
+        ));
+        assert_eq!(entries[0].analysis_status, DictationAnalysisStatus::Ready);
+        assert_eq!(entries[0].analysis.as_ref().unwrap().word_count, 3);
+    }
+
     fn entry_with_analytics(created_at: chrono::DateTime<chrono::Utc>) -> DictationHistoryEntry {
         DictationHistoryEntry {
             id: "entry".into(),
@@ -232,6 +471,8 @@ mod tests {
                 audio_secs: Some(2.0),
             }),
             analysis_status: DictationAnalysisStatus::Pending,
+            analysis: None,
+            analysis_error: None,
         }
     }
 }

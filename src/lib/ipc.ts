@@ -43,6 +43,16 @@ export const ipc = {
   clearDictationHistory: () => invoke<void>("clear_dictation_history"),
   deleteDictationHistoryEntry: (id: string) =>
     invoke<void>("delete_dictation_history_entry", { id }),
+  getSpeechSessionAnalysis: (id: string) =>
+    invoke<import("./types").SpeechSessionAnalysis | null>(
+      "get_speech_session_analysis",
+      { id },
+    ),
+  getSpeechPeriodReport: (from: string, to: string) =>
+    invoke<import("./types").SpeechPeriodReport>("get_speech_period_report", {
+      from,
+      to,
+    }),
   copyDictationText: (text: string) =>
     invoke<void>("copy_dictation_text", { text }),
   reinsertDictation: (text: string) =>

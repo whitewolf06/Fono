@@ -403,6 +403,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
     );
 
     if !final_text.trim().is_empty() && settings.history_enabled {
+        let history_id = crate::history::next_id();
         let analytics_payload = settings.analytics_enabled.then(|| {
             (
                 transcript.text.clone(),
@@ -416,7 +417,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         });
         if let Err(error) = crate::history::append(
             DictationHistoryEntry {
-                id: crate::history::next_id(),
+                id: history_id.clone(),
                 text: final_text.clone(),
                 created_at: chrono::Utc::now(),
                 device: transcript.device.clone(),
@@ -427,6 +428,8 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 } else {
                     DictationAnalysisStatus::Disabled
                 },
+                analysis: None,
+                analysis_error: None,
             },
             settings.analytics_enabled,
             settings.analytics_retention_days,
@@ -438,6 +441,9 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 format!("Не удалось сохранить историю диктовки: {error}"),
                 Some(operation),
             );
+        } else if settings.analytics_enabled {
+            app.state::<crate::application::speech_analysis_queue::SpeechAnalysisQueue>()
+                .enqueue(history_id);
         }
     }
 
