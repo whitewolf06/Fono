@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   DictationHistoryEntry,
   Settings,
@@ -26,11 +26,12 @@ export function useSpeechTrainer(store: SpeechTrainerStore) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const refresh = useCallback(
     async (manual = false) => {
       if (manual) setIsRefreshing(true);
-      if (!manual) setIsLoading(true);
+      if (!hasLoadedRef.current) setIsLoading(true);
       const { from, to } = getSpeechTrainerPeriodBounds(period);
 
       try {
@@ -50,6 +51,7 @@ export function useSpeechTrainer(store: SpeechTrainerStore) {
             : "Не удалось загрузить отчёт.",
         );
       } finally {
+        hasLoadedRef.current = true;
         setIsLoading(false);
         setIsRefreshing(false);
       }
