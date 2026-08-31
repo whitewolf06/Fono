@@ -3,16 +3,16 @@
   gap: 5px;
   margin: 14px 0;
   padding: 4px;
-  border: 1px solid rgba(160, 220, 255, 0.16);
+  border: 1px solid var(--v2-border-subtle);
   border-radius: 11px;
-  background: rgba(5, 25, 44, 0.38);
+  background: var(--v2-surface-panel);
 }
 
 .v2-service-tabs button {
   padding: 7px 12px;
   border: 0;
   border-radius: 7px;
-  color: #9ebed1;
+  color: var(--v2-text-secondary);
   cursor: pointer;
   background: transparent;
   font: inherit;
@@ -20,20 +20,16 @@
 }
 
 .v2-service-tabs button.is-active {
-  color: #e9f8ff;
-  background: rgba(72, 183, 255, 0.2);
+  color: var(--v2-text-primary);
+  background: var(--v2-surface-selected);
   box-shadow: inset 0 1px rgba(232, 250, 255, 0.15);
 }
 
 .v2-service-api {
   padding: 22px;
-  border: 1px solid rgba(160, 220, 255, 0.2);
+  border: 1px solid var(--v2-border-default);
   border-radius: 16px;
-  background: linear-gradient(
-    135deg,
-    rgba(76, 166, 221, 0.15),
-    rgba(3, 18, 35, 0.64)
-  );
+  background: var(--v2-gradient-panel);
   box-shadow: inset 0 1px rgba(239, 253, 255, 0.12);
 }
 
@@ -44,13 +40,13 @@
 
 .v2-service-api h2 {
   margin-top: 5px;
-  color: #effaff;
+  color: var(--v2-text-primary);
   font-size: 18px;
 }
 
 .v2-service-api__intro > p:last-child {
   margin-top: 6px;
-  color: #a6c5d7;
+  color: var(--v2-text-secondary);
   font-size: 13px;
 }
 
@@ -60,14 +56,14 @@
   gap: 12px;
   margin: 20px 0;
   padding: 12px;
-  border: 1px solid rgba(127, 211, 255, 0.2);
+  border: 1px solid var(--v2-border-control);
   border-radius: 10px;
-  background: rgba(1, 13, 27, 0.52);
+  background: var(--v2-surface-input);
 }
 
 .v2-service-api__address code,
 .v2-service-api__routes code {
-  color: #a9e1fb;
+  color: var(--v2-text-accent);
   font-size: 12px;
 }
 
@@ -90,9 +86,9 @@
   gap: 12px;
   margin: 0 0 20px;
   padding: 12px;
-  border: 1px solid rgba(127, 211, 255, 0.2);
+  border: 1px solid var(--v2-border-control);
   border-radius: 10px;
-  background: rgba(1, 13, 27, 0.3);
+  background: var(--v2-surface-panel-strong);
 }
 
 .v2-service-api__token strong,
@@ -101,13 +97,13 @@
 }
 
 .v2-service-api__token strong {
-  color: #e9f8ff;
+  color: var(--v2-text-primary);
   font-size: 13px;
 }
 
 .v2-service-api__token span {
   margin-top: 3px;
-  color: #9ebed1;
+  color: var(--v2-text-secondary);
   font-size: 12px;
 }
 
@@ -123,20 +119,20 @@
   align-items: center;
   gap: 12px;
   min-height: 44px;
-  border-bottom: 1px solid rgba(169, 221, 255, 0.12);
+  border-bottom: 1px solid var(--v2-border-subtle);
 }
 
 .v2-service-api__routes b {
-  color: #89e8b1;
+  color: var(--v2-status-success);
   font-size: 11px;
 }
 
 .v2-service-api__routes b.is-post {
-  color: #8acfff;
+  color: var(--v2-text-accent);
 }
 
 .v2-service-api__routes span {
-  color: #9ebed1;
+  color: var(--v2-text-secondary);
   font-size: 12px;
 }
 

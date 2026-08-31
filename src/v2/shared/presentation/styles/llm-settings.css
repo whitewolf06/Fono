@@ -34,7 +34,7 @@
 }
 
 .v2-llm-page__error {
-  color: #ffc0bf;
+  color: var(--v2-text-danger);
 }
 
 .v2-llm-page__message {
@@ -78,7 +78,7 @@
 
 .v2-llm-profiles button.is-active {
   border-color: var(--v2-blue);
-  background: rgba(85, 198, 255, 0.12);
+  background: var(--v2-surface-selected);
 }
 
 .v2-llm-profiles strong {
@@ -107,7 +107,7 @@
 }
 
 .v2-llm-delete {
-  color: #ffc0bf !important;
+  color: var(--v2-text-danger) !important;
   background: transparent !important;
 }
 

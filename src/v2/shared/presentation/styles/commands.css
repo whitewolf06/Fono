@@ -9,14 +9,9 @@
   position: relative;
   overflow: hidden;
   padding: 20px;
-  border: 1px solid rgba(160, 220, 255, 0.22);
+  border: 1px solid var(--v2-border-default);
   border-radius: 16px;
-  background: linear-gradient(
-    135deg,
-    rgba(76, 166, 221, 0.16),
-    rgba(3, 18, 35, 0.56) 62%,
-    rgba(23, 93, 143, 0.12)
-  );
+  background: var(--v2-gradient-panel);
   box-shadow:
     inset 0 1px rgba(239, 253, 255, 0.15),
     0 14px 34px rgba(0, 5, 16, 0.15);
@@ -51,14 +46,14 @@
 }
 
 .v2-command-card__heading h2 {
-  color: #edfaff;
+  color: var(--v2-text-primary);
   font-size: 17px;
   line-height: 1.2;
 }
 
 .v2-command-card__heading p {
   margin-top: 4px;
-  color: #acc9da;
+  color: var(--v2-text-secondary);
   font-size: 13px;
   line-height: 1.42;
 }
@@ -69,10 +64,10 @@
   height: 36px;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid rgba(128, 214, 255, 0.3);
+  border: 1px solid var(--v2-border-default);
   border-radius: 10px;
-  color: #8bdfff;
-  background: rgba(43, 145, 204, 0.16);
+  color: var(--v2-text-accent);
+  background: var(--v2-surface-control-hover);
   box-shadow: inset 0 1px rgba(234, 253, 255, 0.14);
   font-size: 18px;
 }
@@ -117,7 +112,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #c9e1ef;
+  color: var(--v2-text-control);
   font-size: 13px;
 }
 
@@ -126,20 +121,20 @@
   width: 20px;
   height: 20px;
   place-items: center;
-  border: 1px solid rgba(112, 211, 255, 0.4);
+  border: 1px solid var(--v2-border-selected);
   border-radius: 50%;
-  color: #9de8ff;
-  background: rgba(35, 143, 205, 0.16);
+  color: var(--v2-text-accent);
+  background: var(--v2-surface-selected);
   font-size: 11px;
 }
 
 .v2-command-note {
   margin: 16px 0 0;
   padding: 10px 12px;
-  border-left: 2px solid #73d0fb;
+  border-left: 2px solid var(--v2-accent);
   border-radius: 0 8px 8px 0;
-  color: #b6d9e9;
-  background: rgba(48, 140, 193, 0.11);
+  color: var(--v2-text-secondary);
+  background: var(--v2-surface-selected);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -155,9 +150,9 @@
   grid-template-columns: auto 1fr;
   gap: 8px 10px;
   padding: 14px;
-  border: 1px solid rgba(149, 204, 255, 0.16);
+  border: 1px solid var(--v2-border-subtle);
   border-radius: 11px;
-  background: rgba(4, 16, 29, 0.44);
+  background: var(--v2-surface-panel-muted);
 }
 
 .v2-command-group__icon {
@@ -166,8 +161,8 @@
   height: 28px;
   place-items: center;
   border-radius: 8px;
-  color: #8ae1ff;
-  background: rgba(45, 152, 222, 0.17);
+  color: var(--v2-text-accent);
+  background: var(--v2-surface-control-hover);
   font-size: 14px;
 }
 
@@ -177,13 +172,13 @@
 }
 
 .v2-command-group h3 {
-  color: #e1f2fa;
+  color: var(--v2-text-primary);
   font-size: 14px;
 }
 
 .v2-command-group p {
   margin-top: 3px;
-  color: #9ebdce;
+  color: var(--v2-text-secondary);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -205,16 +200,16 @@
 .v2-command-group kbd {
   width: fit-content;
   padding: 4px 6px;
-  border: 1px solid rgba(136, 205, 247, 0.17);
+  border: 1px solid var(--v2-border-subtle);
   border-radius: 6px;
-  color: #d9f2ff;
-  background: rgba(0, 12, 24, 0.52);
+  color: var(--v2-text-primary);
+  background: var(--v2-surface-input);
   font: inherit;
   font-size: 12px;
 }
 
 .v2-command-group li span {
-  color: #94b5c7;
+  color: var(--v2-text-secondary);
   font-size: 11px;
   line-height: 1.35;
 }
@@ -248,7 +243,7 @@
 }
 
 .v2-command-app .v2-icon-button {
-  color: #ffbfc0;
+  color: var(--v2-text-danger);
   font-size: 20px;
 }
 
@@ -259,9 +254,9 @@
   align-content: center;
   gap: 6px;
   padding: 18px;
-  border: 1px dashed rgba(142, 208, 248, 0.24);
+  border: 1px dashed var(--v2-border-default);
   border-radius: 11px;
-  color: #9ac4d9;
+  color: var(--v2-text-secondary);
   text-align: center;
 }
 
@@ -269,20 +264,20 @@
   width: 26px;
   height: 26px;
   fill: none;
-  stroke: #82d9ff;
+  stroke: var(--v2-text-accent);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.5;
 }
 
 .v2-command-empty-state strong {
-  color: #e2f4fb;
+  color: var(--v2-text-primary);
   font-size: 14px;
 }
 
 .v2-command-empty-state span {
   max-width: 520px;
-  color: #9bbacb;
+  color: var(--v2-text-secondary);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -293,9 +288,9 @@
   gap: 10px;
   margin-top: 16px;
   padding: 12px;
-  border: 1px solid rgba(161, 216, 255, 0.2);
+  border: 1px solid var(--v2-border-subtle);
   border-radius: 10px;
-  background: rgba(6, 28, 49, 0.38);
+  background: var(--v2-surface-panel);
 }
 
 .v2-command-preview > span {
@@ -316,13 +311,13 @@
 }
 
 .v2-command-preview strong {
-  color: #e4f5fc;
+  color: var(--v2-text-primary);
   font-size: 13px;
 }
 
 .v2-command-preview p {
   margin-top: 3px;
-  color: #9fbecf;
+  color: var(--v2-text-secondary);
   font-size: 12px;
   line-height: 1.42;
 }
@@ -333,23 +328,23 @@
 }
 
 .v2-command-preview--ready {
-  border-color: rgba(104, 220, 143, 0.3);
-  background: rgba(25, 111, 67, 0.16);
+  border-color: var(--v2-border-success);
+  background: var(--v2-surface-success);
 }
 
 .v2-command-preview--ready > span {
-  color: #083d21;
-  background: #7fe6a1;
+  color: var(--v2-surface-canvas);
+  background: var(--v2-status-success);
 }
 
 .v2-command-preview--attention {
-  border-color: rgba(255, 196, 99, 0.3);
-  background: rgba(135, 91, 16, 0.15);
+  border-color: var(--v2-border-warning);
+  background: var(--v2-surface-warning);
 }
 
 .v2-command-preview--attention > span {
-  color: #5f3b08;
-  background: #ffd077;
+  color: var(--v2-surface-canvas);
+  background: var(--v2-status-warning);
 }
 
 .v2-command-roadmap {
@@ -437,19 +432,19 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 14px;
-  border: 1px solid rgba(132, 207, 249, 0.18);
+  border: 1px solid var(--v2-border-subtle);
   border-radius: 10px;
-  color: #afcddd;
-  background: rgba(3, 20, 39, 0.5);
+  color: var(--v2-text-secondary);
+  background: var(--v2-surface-panel-strong);
   font-size: 13px;
 }
 
 .v2-commands-savebar.is-saved {
-  border-color: rgba(109, 219, 145, 0.34);
-  color: #98e4ae;
+  border-color: var(--v2-border-success);
+  color: var(--v2-status-success);
 }
 
 .v2-commands-savebar.is-error {
-  border-color: rgba(255, 145, 145, 0.36);
-  color: #ffb4b4;
+  border-color: var(--v2-border-danger);
+  color: var(--v2-text-danger);
 }

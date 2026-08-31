@@ -16,7 +16,7 @@
 }
 .v2-kicker {
   margin: 0;
-  color: #8fb7d4;
+  color: var(--v2-text-secondary);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -27,10 +27,10 @@
   align-items: center;
   gap: 7px;
   padding: 9px 13px;
-  border: 1px solid rgba(93, 229, 142, 0.25);
+  border: 1px solid var(--v2-border-success);
   border-radius: 999px;
-  color: #89e69e;
-  background: rgba(8, 41, 31, 0.25);
+  color: var(--v2-status-success);
+  background: var(--v2-surface-success);
   font-size: 12px;
   backdrop-filter: blur(8px);
 }
@@ -48,7 +48,7 @@
   box-shadow: 0 0 12px var(--v2-blue);
 }
 .v2-status-dot--muted {
-  background: #8492a0;
+  background: var(--v2-text-secondary);
   box-shadow: none;
 }
 .v2-voice-stage {

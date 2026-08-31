@@ -5,21 +5,17 @@
   display: grid;
   padding: 24px;
   place-items: center;
-  background: rgba(0, 8, 20, 0.68);
+  background: var(--v2-surface-overlay);
   backdrop-filter: blur(8px);
 }
 
 .v2-onboarding-dialog {
   width: min(470px, 100%);
   padding: 28px;
-  border: 1px solid rgba(139, 218, 255, 0.34);
+  border: 1px solid var(--v2-border-default);
   border-radius: 18px;
-  color: #e8f8ff;
-  background: linear-gradient(
-    145deg,
-    rgba(30, 100, 151, 0.95),
-    rgba(3, 17, 35, 0.98)
-  );
+  color: var(--v2-text-primary);
+  background: var(--v2-gradient-dialog);
   box-shadow:
     inset 0 1px rgba(244, 254, 255, 0.19),
     0 24px 70px rgba(0, 5, 17, 0.6),
@@ -35,14 +31,14 @@
   width: 100%;
   height: 4px;
   border-radius: 999px;
-  background: rgba(164, 218, 247, 0.18);
+  background: var(--v2-border-subtle);
 }
 .v2-onboarding-dialog__progress i.is-active {
-  background: linear-gradient(90deg, #55c9ff, #a8f3ff);
-  box-shadow: 0 0 10px rgba(84, 210, 255, 0.55);
+  background: linear-gradient(90deg, var(--v2-accent), var(--v2-accent-hover));
+  box-shadow: 0 0 10px var(--v2-illustration-glow);
 }
 .v2-onboarding-dialog > span {
-  color: #8edbff;
+  color: var(--v2-text-accent);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -55,7 +51,7 @@
 }
 .v2-onboarding-dialog p {
   margin: 0;
-  color: #c1dcea;
+  color: var(--v2-text-secondary);
   font-size: 15px;
   line-height: 1.55;
 }
@@ -75,13 +71,13 @@
 }
 .v2-onboarding-dialog__skip {
   border: 1px solid transparent;
-  color: #b4d0e0;
+  color: var(--v2-text-secondary);
   background: transparent;
 }
 .v2-onboarding-dialog__next {
-  border: 1px solid rgba(138, 224, 255, 0.7);
-  color: #f0fcff;
-  background: linear-gradient(135deg, #1689d9, #0755b3);
+  border: 1px solid var(--v2-border-strong);
+  color: var(--v2-text-primary);
+  background: var(--v2-gradient-accent);
   box-shadow:
     inset 0 1px rgba(238, 253, 255, 0.3),
     0 0 16px rgba(33, 159, 240, 0.26);

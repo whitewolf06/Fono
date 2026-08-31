@@ -62,6 +62,7 @@
   --v2-surface-success: rgba(31, 122, 61, 0.14);
   --v2-surface-warning: rgba(145, 96, 19, 0.14);
   --v2-surface-danger: rgba(137, 38, 38, 0.16);
+  --v2-surface-overlay: rgba(0, 8, 20, 0.68);
 
   --v2-text-primary: var(--v2-color-cyan-100);
   --v2-text-secondary: var(--v2-color-slate-300);
@@ -107,6 +108,13 @@
     rgba(6, 27, 49, 0.31) 52%,
     rgba(64, 166, 233, 0.12)
   );
+  --v2-gradient-dialog: linear-gradient(
+    145deg,
+    rgba(30, 100, 151, 0.95),
+    rgba(3, 17, 35, 0.98)
+  );
+  --v2-gradient-accent: linear-gradient(135deg, #1689d9, #0755b3);
+  --v2-gradient-signal: linear-gradient(#abf2ff, #35aeea);
   --v2-illustration-sidebar-overlay:
     radial-gradient(
       ellipse at 8% 5%,

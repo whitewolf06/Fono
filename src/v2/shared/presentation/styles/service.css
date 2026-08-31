@@ -7,13 +7,9 @@
 .v2-service-panel,
 .v2-service-metric,
 .v2-service-alert {
-  border: 1px solid rgba(160, 220, 255, 0.2);
+  border: 1px solid var(--v2-border-default);
   border-radius: 16px;
-  background: linear-gradient(
-    135deg,
-    rgba(76, 166, 221, 0.15),
-    rgba(3, 18, 35, 0.64)
-  );
+  background: var(--v2-gradient-panel);
   box-shadow: inset 0 1px rgba(239, 253, 255, 0.12);
   backdrop-filter: blur(18px) saturate(150%);
 }
@@ -32,7 +28,7 @@
 }
 
 .v2-service-connection strong {
-  color: #eefaff;
+  color: var(--v2-text-primary);
   font-size: 16px;
 }
 
@@ -40,7 +36,7 @@
 .v2-service-connection dt,
 .v2-service-connection dd,
 .v2-service-panel header > span {
-  color: #9dbed2;
+  color: var(--v2-text-secondary);
   font-size: 12px;
 }
 
@@ -66,7 +62,7 @@
 
 .v2-service-connection dd,
 .v2-service-result dd {
-  color: #e5f5ff;
+  color: var(--v2-text-primary);
 }
 
 .v2-service-connection > .v2-button {
@@ -89,18 +85,18 @@
 
 .v2-service-metric > span,
 .v2-service-metric small {
-  color: #a7c8db;
+  color: var(--v2-text-secondary);
   font-size: 12px;
 }
 
 .v2-service-metric strong {
-  color: #effaff;
+  color: var(--v2-text-primary);
   font-size: 25px;
   line-height: 1;
 }
 
 .v2-service-metric.is-danger strong {
-  color: #ffb1ad;
+  color: var(--v2-text-danger);
 }
 
 .v2-service-panel {
@@ -114,7 +110,7 @@
   gap: 16px;
   min-height: 72px;
   padding: 15px 18px;
-  border-bottom: 1px solid rgba(169, 221, 255, 0.14);
+  border-bottom: 1px solid var(--v2-border-subtle);
 }
 
 .v2-service-panel h2,
@@ -124,7 +120,7 @@
 
 .v2-service-panel h2 {
   margin-top: 4px;
-  color: #eaf7ff;
+  color: var(--v2-text-primary);
   font-size: 16px;
 }
 
@@ -149,12 +145,12 @@
 }
 
 .v2-service-job-summary strong {
-  color: #e8f8ff;
+  color: var(--v2-text-primary);
 }
 
 .v2-service-job-summary p,
 .v2-service-job-summary > span:last-child {
-  color: #a5c6d9;
+  color: var(--v2-text-secondary);
   font-size: 12px;
 }
 
@@ -191,8 +187,8 @@
 
 .v2-service-job-list button:hover,
 .v2-service-job-list button.is-selected {
-  border-color: rgba(115, 210, 255, 0.27);
-  background: rgba(66, 170, 230, 0.11);
+  border-color: var(--v2-border-selected);
+  background: var(--v2-surface-selected);
 }
 
 .v2-service-job-list button > span:nth-child(2) {
@@ -202,14 +198,14 @@
 }
 
 .v2-service-job-list strong {
-  color: #e5f5ff;
+  color: var(--v2-text-primary);
   font-size: 13px;
 }
 
 .v2-service-job-list small,
 .v2-service-job-list em {
   overflow: hidden;
-  color: #9ebed1;
+  color: var(--v2-text-secondary);
   font-size: 11px;
   font-style: normal;
   text-overflow: ellipsis;
@@ -220,25 +216,25 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #82a3b6;
+  background: var(--v2-text-secondary);
 }
 
 .v2-service-job-state.is-transcribing,
 .v2-service-job-state.is-preparing {
-  background: #68d5ff;
-  box-shadow: 0 0 12px #36b9f2;
+  background: var(--v2-accent);
+  box-shadow: 0 0 12px var(--v2-accent);
 }
 
 .v2-service-job-state.is-queued {
-  background: #ffd07c;
+  background: var(--v2-status-warning);
 }
 
 .v2-service-job-state.is-completed {
-  background: #82dfa0;
+  background: var(--v2-status-success);
 }
 
 .v2-service-job-state.is-failed {
-  background: #ff8f8a;
+  background: var(--v2-status-danger);
 }
 
 .v2-service-result {
@@ -254,7 +250,7 @@
 }
 
 .v2-service-result dt {
-  color: #99bbcf;
+  color: var(--v2-text-secondary);
   font-size: 11px;
 }
 
@@ -265,7 +261,7 @@
 .v2-service-result p {
   max-height: 228px;
   overflow: auto;
-  color: #e4f3fc;
+  color: var(--v2-text-primary);
   font-size: 14px;
   line-height: 1.55;
   white-space: pre-wrap;
@@ -274,23 +270,23 @@
 .v2-service-empty,
 .v2-service-error {
   padding: 18px;
-  color: #9ebed1;
+  color: var(--v2-text-secondary);
   font-size: 13px;
 }
 
 .v2-service-error {
-  color: #ffb8b3;
+  color: var(--v2-text-danger);
 }
 
 .v2-service-alert {
   display: grid;
   gap: 8px;
   padding: 18px;
-  color: #c8deeb;
+  color: var(--v2-text-control);
 }
 
 .v2-service-alert strong {
-  color: #ffb8b3;
+  color: var(--v2-text-danger);
 }
 
 .v2-service-alert .v2-button {
@@ -299,7 +295,7 @@
 
 .v2-service-privacy-note {
   margin: 14px 2px 0;
-  color: #8eafc2;
+  color: var(--v2-text-secondary);
   font-size: 11px;
 }
 
