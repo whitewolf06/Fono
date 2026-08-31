@@ -1,22 +1,100 @@
+/*
+ * Theme contract
+ *
+ * A theme owns palette primitives and maps them to semantic tokens. Component
+ * styles must consume semantic tokens; raw palette values belong here only.
+ * Illustration tokens are intentionally separate: they preserve the voice
+ * stage's character without leaking decorative gradients into feature styles.
+ */
 .v2-root {
-  --v2-bg: #020914;
-  --v2-panel: rgba(5, 17, 31, 0.66);
-  --v2-panel-strong: rgba(3, 12, 24, 0.82);
-  --v2-line: rgba(140, 207, 255, 0.2);
-  --v2-text: #eaf5ff;
-  --v2-muted: #9eb1c4;
-  --v2-blue: #55c6ff;
-  --v2-bright: #b9f4ff;
-  --v2-green: #77e58d;
-  --v2-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  color: var(--v2-text);
-  background: var(--v2-bg);
+  --v2-font-ui:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --v2-font-mono: "Cascadia Code", Consolas, monospace;
+
+  --v2-space-1: 4px;
+  --v2-space-2: 8px;
+  --v2-space-3: 12px;
+  --v2-space-4: 16px;
+  --v2-space-5: 20px;
+  --v2-space-6: 24px;
+  --v2-space-8: 32px;
+
+  --v2-radius-sm: 8px;
+  --v2-radius-md: 12px;
+  --v2-radius-lg: 16px;
+  --v2-radius-pill: 999px;
+
+  --v2-control-height-sm: 34px;
+  --v2-control-height-md: 42px;
+  --v2-motion-fast: 160ms;
+  --v2-motion-base: 240ms;
+  --v2-ease-standard: ease;
+
+  font-family: var(--v2-font-ui);
+}
+
+.v2-root[data-theme="fono-dark"] {
+  /* Palette primitives: do not reference these from component styles. */
+  --v2-color-navy-950: #020914;
+  --v2-color-navy-900: #030b16;
+  --v2-color-navy-850: #05111f;
+  --v2-color-cyan-100: #eaf5ff;
+  --v2-color-cyan-200: #b9f4ff;
+  --v2-color-cyan-400: #55c6ff;
+  --v2-color-cyan-500: #2aa6ef;
+  --v2-color-slate-300: #9eb1c4;
+  --v2-color-green-400: #77e58d;
+  --v2-color-amber-300: #ffd590;
+  --v2-color-red-300: #ffb2b2;
+
+  /* Semantic UI tokens: all standard component and feature styles use these. */
+  --v2-surface-app: var(--v2-color-navy-950);
+  --v2-surface-canvas: var(--v2-color-navy-900);
+  --v2-surface-panel: rgba(5, 17, 31, 0.66);
+  --v2-surface-panel-strong: rgba(3, 12, 24, 0.82);
+  --v2-surface-control: rgba(5, 20, 35, 0.55);
+  --v2-surface-control-hover: rgba(24, 103, 167, 0.33);
+  --v2-surface-accent: rgba(30, 150, 235, 0.9);
+
+  --v2-text-primary: var(--v2-color-cyan-100);
+  --v2-text-secondary: var(--v2-color-slate-300);
+  --v2-text-accent: var(--v2-color-cyan-400);
+  --v2-text-on-accent: #e8f9ff;
+
+  --v2-border-subtle: rgba(140, 207, 255, 0.2);
+  --v2-border-default: rgba(135, 201, 246, 0.24);
+  --v2-border-strong: rgba(65, 181, 255, 0.72);
+
+  --v2-accent: var(--v2-color-cyan-400);
+  --v2-accent-hover: #8de7ff;
+  --v2-focus-ring: rgba(72, 183, 255, 0.14);
+  --v2-status-success: var(--v2-color-green-400);
+  --v2-status-warning: var(--v2-color-amber-300);
+  --v2-status-danger: var(--v2-color-red-300);
+
+  --v2-shadow-panel: 0 28px 90px rgba(0, 0, 0, 0.48);
+  --v2-shadow-floating: 0 25px 70px rgba(0, 3, 11, 0.52);
+
+  /* Illustration tokens: reserved for voice stage and other art-directed UI. */
+  --v2-illustration-glow: rgba(85, 198, 255, 0.44);
+  --v2-illustration-highlight: rgba(185, 244, 255, 0.95);
+  --v2-illustration-wave: var(--v2-color-cyan-400);
+
+  /* Temporary compatibility aliases. Migrate consumers in FONO-21 through 23. */
+  --v2-bg: var(--v2-surface-app);
+  --v2-panel: var(--v2-surface-panel);
+  --v2-panel-strong: var(--v2-surface-panel-strong);
+  --v2-line: var(--v2-border-subtle);
+  --v2-text: var(--v2-text-primary);
+  --v2-muted: var(--v2-text-secondary);
+  --v2-blue: var(--v2-accent);
+  --v2-bright: var(--v2-color-cyan-200);
+  --v2-green: var(--v2-status-success);
+  --v2-shadow: var(--v2-shadow-panel);
+}
+
+.v2-root {
+  color: var(--v2-text-primary);
+  background: var(--v2-surface-app);
 }

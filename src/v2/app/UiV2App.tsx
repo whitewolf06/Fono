@@ -132,7 +132,7 @@ export function UiV2App() {
   };
 
   return (
-    <div className="v2-root">
+    <div className="v2-root" data-theme="fono-dark">
       <div
         className={`v2-app-shell ${isCleanVoicePage ? "v2-app-shell--voice" : ""}`}
       >

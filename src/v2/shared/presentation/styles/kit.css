@@ -115,6 +115,38 @@
 .v2-kit-swatches i:nth-child(5) {
   background: #f5c577;
 }
+.v2-theme-contract {
+  display: grid;
+  gap: var(--v2-space-3);
+  color: var(--v2-text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.v2-theme-contract p {
+  margin: 0;
+}
+.v2-theme-contract code {
+  color: var(--v2-text-accent);
+  font-family: var(--v2-font-mono);
+}
+.v2-theme-contract dl {
+  display: grid;
+  gap: var(--v2-space-2);
+  margin: 0;
+}
+.v2-theme-contract dl div {
+  padding: var(--v2-space-2);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: var(--v2-radius-sm);
+  background: var(--v2-surface-control);
+}
+.v2-theme-contract dt {
+  color: var(--v2-text-primary);
+  font-weight: 600;
+}
+.v2-theme-contract dd {
+  margin: var(--v2-space-1) 0 0;
+}
 .v2-button,
 .v2-icon-button {
   border: 1px solid rgba(135, 201, 246, 0.24);

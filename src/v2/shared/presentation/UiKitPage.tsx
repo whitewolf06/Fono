@@ -60,6 +60,30 @@ export function UiKitPage() {
           </div>
         </KitSection>
 
+        <KitSection title="Контракт тем">
+          <div className="v2-theme-contract">
+            <p>
+              Компоненты используют смысловые токены, а тема сопоставляет их с
+              палитрой. Текущая тема задаётся на <code>.v2-root</code> через
+              <code>data-theme</code>.
+            </p>
+            <dl>
+              <div>
+                <dt>Palette primitives</dt>
+                <dd>Только внутри темы: базовые цвета и прозрачности.</dd>
+              </div>
+              <div>
+                <dt>Semantic tokens</dt>
+                <dd>Surface, text, border, accent, status, focus и shadow.</dd>
+              </div>
+              <div>
+                <dt>Illustration tokens</dt>
+                <dd>Свечение и волна для художественных сцен записи.</dd>
+              </div>
+            </dl>
+          </div>
+        </KitSection>
+
         <KitSection title="Кнопки">
           <div className="v2-glow-button-demo">
             <button className="v2-glow-outline-button" type="button">
