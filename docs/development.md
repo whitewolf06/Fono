@@ -60,7 +60,9 @@ npm run release
 
 Если frontend и release resources уже подготовлены и проверены отдельно, повторную упаковку
 можно запустить через Tauri CLI с `src-tauri/tauri.prebuilt.conf.json`; этот
-override отключает только `beforeBuildCommand`, но не Rust build и bundling.
+override пропускает их повторную подготовку, но перед bundling удаляет только
+известные legacy-артефакты прежнего имени `WhisperClone` из `target\release`.
+Rust build и bundling при этом остаются обязательными.
 
 Он запускает frontend build, затем `scripts/prepare-release-resources.ps1` и
 Tauri bundle. Подготовительный скрипт очищает только generated `.exe`/`.dll` в

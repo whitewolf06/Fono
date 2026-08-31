@@ -65,3 +65,5 @@ if ($missing.Count -gt 0 -or $unexpected.Count -gt 0) {
 }
 
 Write-Host "Release resources prepared: STT workers and Sherpa runtime manifest."
+
+& (Join-Path $PSScriptRoot 'clean-legacy-release-artifacts.ps1')

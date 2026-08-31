@@ -1,5 +1,5 @@
 {
   "build": {
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-legacy-release-artifacts.ps1"
   }
 }
