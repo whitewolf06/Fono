@@ -289,6 +289,7 @@ pub fn run() {
             ipc::system::get_dictation_history,
             ipc::system::clear_dictation_history,
             ipc::system::delete_dictation_history_entry,
+            ipc::system::set_dictation_history_entry_analytics_included,
             ipc::system::get_speech_session_analysis,
             ipc::system::get_speech_period_report,
             ipc::service::get_local_transcription_service_snapshot,

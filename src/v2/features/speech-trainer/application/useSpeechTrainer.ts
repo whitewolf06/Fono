@@ -14,6 +14,7 @@ export interface SpeechTrainerStore {
   loadReport(from: string, to: string): Promise<SpeechPeriodReport>;
   loadSettings(): Promise<Settings>;
   clearHistory(): Promise<void>;
+  setSessionAnalyticsIncluded(id: string, included: boolean): Promise<void>;
   subscribe(handler: () => void): () => void;
 }
 
@@ -66,6 +67,11 @@ export function useSpeechTrainer(store: SpeechTrainerStore) {
     await refresh();
   };
 
+  const setSessionAnalyticsIncluded = async (id: string, included: boolean) => {
+    await store.setSessionAnalyticsIncluded(id, included);
+    await refresh();
+  };
+
   return {
     analyticsEnabled,
     entries,
@@ -76,6 +82,7 @@ export function useSpeechTrainer(store: SpeechTrainerStore) {
     report,
     setPeriod,
     clearHistory,
+    setSessionAnalyticsIncluded,
     refresh: () => refresh(true),
   };
 }

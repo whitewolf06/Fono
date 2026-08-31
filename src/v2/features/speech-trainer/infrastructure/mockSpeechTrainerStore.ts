@@ -15,6 +15,7 @@ let entries: DictationHistoryEntry[] = [
     id: "speech-demo-1",
     created_at: now.toISOString(),
     device: "CUDA",
+    analytics_included: true,
     text: "Давайте согласуем план и следующий шаг.",
     original_text: "Ну, давайте давайте согласуем план, то есть следующий шаг.",
     analysis_status: "ready",
@@ -52,7 +53,8 @@ let entries: DictationHistoryEntry[] = [
     analysis_error: null,
     recommendation_status: "ready",
     recommendation: {
-      summary: "Темп и структура хорошие; в начале заметны лишние вводные слова.",
+      summary:
+        "Темп и структура хорошие; в начале заметны лишние вводные слова.",
       recommendations: [
         {
           title: "Начинайте с сути",
@@ -68,6 +70,7 @@ let entries: DictationHistoryEntry[] = [
     id: "speech-demo-2",
     created_at: twoDaysAgo.toISOString(),
     device: "CUDA",
+    analytics_included: true,
     text: "Подготовлю отчёт к следующей встрече.",
     original_text: "Подготовлю отчёт к следующей встрече…",
     analysis_status: "ready",
@@ -96,16 +99,39 @@ let entries: DictationHistoryEntry[] = [
 ];
 
 function report(from: string, to: string): SpeechPeriodReport {
+  const includedEntries = entries.filter(
+    (entry) => entry.analytics_included && entry.analysis,
+  );
+  const totals = includedEntries.reduce(
+    (result, entry) => {
+      const analysis = entry.analysis!;
+      result.words += analysis.word_count;
+      result.fillers += analysis.filler_count;
+      result.repetitions += analysis.repetition_count;
+      result.selfCorrections += analysis.self_correction_count;
+      result.unfinished += analysis.unfinished_count;
+      return result;
+    },
+    {
+      words: 0,
+      fillers: 0,
+      repetitions: 0,
+      selfCorrections: 0,
+      unfinished: 0,
+    },
+  );
+
   return {
     from,
     to,
-    analyzed_sessions: entries.length,
-    total_words: 15,
-    filler_count: 1,
-    repetition_count: 1,
-    self_correction_count: 1,
-    unfinished_count: 1,
-    filler_density_per_100_words: 6.7,
+    analyzed_sessions: includedEntries.length,
+    total_words: totals.words,
+    filler_count: totals.fillers,
+    repetition_count: totals.repetitions,
+    self_correction_count: totals.selfCorrections,
+    unfinished_count: totals.unfinished,
+    filler_density_per_100_words:
+      totals.words > 0 ? (totals.fillers * 100) / totals.words : 0,
     daily: [
       {
         date: twoDaysAgo.toISOString().slice(0, 10),
@@ -137,6 +163,11 @@ export function createMockSpeechTrainerStore(): SpeechTrainerStore {
       ({ ...DEFAULT_SETTINGS, analytics_enabled: true }) as Settings,
     clearHistory: async () => {
       entries = [];
+    },
+    setSessionAnalyticsIncluded: async (id, included) => {
+      entries = entries.map((entry) =>
+        entry.id === id ? { ...entry, analytics_included: included } : entry,
+      );
     },
     subscribe: () => () => undefined,
   };

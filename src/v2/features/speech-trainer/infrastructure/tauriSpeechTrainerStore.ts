@@ -7,6 +7,9 @@ export function createTauriSpeechTrainerStore(): SpeechTrainerStore {
     loadReport: (from, to) => ipc.getSpeechPeriodReport(from, to),
     loadSettings: () => ipc.getSettings(),
     clearHistory: () => ipc.clearDictationHistory(),
+    setSessionAnalyticsIncluded: async (id, included) => {
+      await ipc.setDictationHistoryEntryAnalyticsIncluded(id, included);
+    },
     subscribe: (handler) => {
       let disposed = false;
       let unlisten: (() => void) | null = null;

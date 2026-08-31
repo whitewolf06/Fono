@@ -664,6 +664,10 @@ pub struct DictationHistoryEntry {
     pub text: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub device: Option<String>,
+    /// A user-controlled filter for speech trainer reports and background analysis.
+    /// Legacy history entries are included to preserve their existing behaviour.
+    #[serde(default = "default_history_analytics_included")]
+    pub analytics_included: bool,
     /// Original Whisper output is personal data and is saved only after the
     /// user explicitly enables local speech analytics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -803,6 +807,7 @@ mod dictation_history_tests {
         assert!(entry.original_text.is_none());
         assert!(entry.processing.is_none());
         assert_eq!(entry.analysis_status, DictationAnalysisStatus::Disabled);
+        assert!(entry.analytics_included);
     }
 
     #[test]
@@ -854,6 +859,9 @@ fn default_wake_word() -> String {
 }
 fn default_ai_mode() -> AiMode {
     AiMode::Clean
+}
+fn default_history_analytics_included() -> bool {
+    true
 }
 fn default_llm_url() -> String {
     "http://localhost:1234/v1".to_string()

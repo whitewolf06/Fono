@@ -146,8 +146,43 @@
   grid-column: 1 / -1;
 }
 
+.v2-speech-trainer-session-list small.is-excluded {
+  color: #ffd28f;
+}
+
 .v2-speech-trainer-panel--details {
   padding-bottom: 18px;
+}
+
+.v2-speech-trainer-inclusion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 18px;
+  padding: 12px;
+  border: 1px solid rgba(146, 210, 246, 0.14);
+  border-radius: 12px;
+  background: rgba(1, 13, 27, 0.3);
+}
+
+.v2-speech-trainer-inclusion div {
+  display: grid;
+  gap: 4px;
+}
+
+.v2-speech-trainer-inclusion strong {
+  font-size: 13px;
+}
+
+.v2-speech-trainer-inclusion span {
+  color: #9abed1;
+  font-size: 12px;
+}
+
+.v2-speech-trainer-inline-error {
+  margin: 0;
+  color: #ffb8b3;
 }
 
 .v2-speech-trainer-session-metrics {

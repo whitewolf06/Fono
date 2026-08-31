@@ -421,6 +421,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 text: final_text.clone(),
                 created_at: chrono::Utc::now(),
                 device: transcript.device.clone(),
+                analytics_included: true,
                 original_text: analytics_payload.as_ref().map(|(text, _)| text.clone()),
                 processing: analytics_payload.map(|(_, processing)| processing),
                 analysis_status: if settings.analytics_enabled {

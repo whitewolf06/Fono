@@ -24,10 +24,17 @@ export function SpeechTrainerPage({
   const trainer = useSpeechTrainer(store);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [clearError, setClearError] = useState<string | null>(null);
-  const analyzedEntries = useMemo(
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [updatingEntryId, setUpdatingEntryId] = useState<string | null>(null);
+  const analyzableEntries = useMemo(
     () =>
       trainer.entries
-        .filter((entry) => entry.analysis_status === "ready" && entry.analysis)
+        .filter(
+          (entry) =>
+            entry.original_text &&
+            entry.analysis_status !== "disabled" &&
+            entry.analysis_status !== "expired",
+        )
         .sort(
           (left, right) =>
             new Date(right.created_at).getTime() -
@@ -36,18 +43,18 @@ export function SpeechTrainerPage({
     [trainer.entries],
   );
   const selectedEntry =
-    analyzedEntries.find((entry) => entry.id === selectedId) ??
-    analyzedEntries[0] ??
+    analyzableEntries.find((entry) => entry.id === selectedId) ??
+    analyzableEntries[0] ??
     null;
 
   useEffect(() => {
     if (
       selectedId &&
-      !analyzedEntries.some((entry) => entry.id === selectedId)
+      !analyzableEntries.some((entry) => entry.id === selectedId)
     ) {
       setSelectedId(null);
     }
-  }, [analyzedEntries, selectedId]);
+  }, [analyzableEntries, selectedId]);
 
   const clearHistory = async () => {
     setClearError(null);
@@ -59,6 +66,23 @@ export function SpeechTrainerPage({
           ? reason.message
           : "Не удалось очистить данные.",
       );
+    }
+  };
+
+  const setAnalyticsIncluded = async (included: boolean) => {
+    if (!selectedEntry) return;
+    setAnalyticsError(null);
+    setUpdatingEntryId(selectedEntry.id);
+    try {
+      await trainer.setSessionAnalyticsIncluded(selectedEntry.id, included);
+    } catch (reason) {
+      setAnalyticsError(
+        reason instanceof Error
+          ? reason.message
+          : "Не удалось обновить участие записи в отчёте.",
+      );
+    } finally {
+      setUpdatingEntryId(null);
     }
   };
 
@@ -185,12 +209,12 @@ export function SpeechTrainerPage({
                 <header>
                   <div>
                     <p className="v2-kicker">Сессии</p>
-                    <h2>Последние разборы</h2>
+                    <h2>Последние записи</h2>
                   </div>
-                  <span>{analyzedEntries.length}</span>
+                  <span>{analyzableEntries.length}</span>
                 </header>
                 <div className="v2-speech-trainer-session-list">
-                  {analyzedEntries.map((entry) => (
+                  {analyzableEntries.map((entry) => (
                     <button
                       key={entry.id}
                       className={
@@ -201,14 +225,29 @@ export function SpeechTrainerPage({
                     >
                       <span>{new Date(entry.created_at).toLocaleString()}</span>
                       <strong>{entry.analysis?.word_count ?? 0} слов</strong>
-                      <small>{describeSpeechSession(entry)}</small>
+                      <small
+                        className={
+                          entry.analytics_included ? "" : "is-excluded"
+                        }
+                      >
+                        {describeSpeechSession(entry)}
+                      </small>
                     </button>
                   ))}
                 </div>
               </section>
 
-              <SpeechSessionDetails entry={selectedEntry} />
+              <SpeechSessionDetails
+                entry={selectedEntry}
+                isUpdating={updatingEntryId === selectedEntry?.id}
+                onSetAnalyticsIncluded={setAnalyticsIncluded}
+              />
             </div>
+            {analyticsError && (
+              <p className="v2-speech-trainer-inline-error" role="status">
+                {analyticsError}
+              </p>
+            )}
 
             <section className="v2-speech-trainer-insight">
               <div>

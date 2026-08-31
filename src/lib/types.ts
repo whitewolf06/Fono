@@ -272,6 +272,7 @@ export interface DictationHistoryEntry {
   text: string;
   created_at: string;
   device: string | null;
+  analytics_included: boolean;
   original_text?: string | null;
   processing?: DictationProcessingMetadata | null;
   analysis_status: "disabled" | "pending" | "ready" | "failed" | "expired";

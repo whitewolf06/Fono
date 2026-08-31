@@ -76,6 +76,21 @@ impl HistoryRepository {
         state::save_history_document(&entries)
     }
 
+    pub fn set_analytics_included(&self, id: &str, included: bool) -> AppResult<bool> {
+        let _guard = self.write_lock.lock();
+        let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
+            return Ok(false);
+        };
+        if entry.analytics_included == included {
+            return Ok(true);
+        }
+
+        entry.analytics_included = included;
+        state::save_history_document(&entries)?;
+        Ok(true)
+    }
+
     pub fn apply_analytics_privacy_policy(
         &self,
         analytics_enabled: bool,
@@ -101,6 +116,7 @@ impl HistoryRepository {
             .into_iter()
             .filter(|entry| {
                 entry.analysis_status == DictationAnalysisStatus::Pending
+                    && entry.analytics_included
                     && entry.original_text.is_some()
             })
             .map(|entry| entry.id)
@@ -111,7 +127,9 @@ impl HistoryRepository {
         let _guard = self.write_lock.lock();
         let entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
         Ok(entries.into_iter().find_map(|entry| {
-            (entry.id == id && entry.analysis_status == DictationAnalysisStatus::Pending)
+            (entry.id == id
+                && entry.analytics_included
+                && entry.analysis_status == DictationAnalysisStatus::Pending)
                 .then_some(entry.original_text)
                 .flatten()
         }))
@@ -224,6 +242,10 @@ pub fn delete(id: &str) -> AppResult<()> {
     HISTORY.delete(id)
 }
 
+pub fn set_analytics_included(id: &str, included: bool) -> AppResult<bool> {
+    HISTORY.set_analytics_included(id, included)
+}
+
 pub fn apply_analytics_privacy_policy(
     analytics_enabled: bool,
     analytics_retention_days: u16,
@@ -306,7 +328,10 @@ fn complete_analysis_in_entries(
     let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
         return false;
     };
-    if entry.analysis_status != DictationAnalysisStatus::Pending || entry.original_text.is_none() {
+    if !entry.analytics_included
+        || entry.analysis_status != DictationAnalysisStatus::Pending
+        || entry.original_text.is_none()
+    {
         return false;
     }
 
@@ -335,10 +360,9 @@ fn build_period_report(
     };
     let mut daily = BTreeMap::<chrono::NaiveDate, SpeechDailyTrend>::new();
 
-    for entry in entries
-        .into_iter()
-        .filter(|entry| entry.created_at >= from && entry.created_at <= to)
-    {
+    for entry in entries.into_iter().filter(|entry| {
+        entry.analytics_included && entry.created_at >= from && entry.created_at <= to
+    }) {
         let Some(analysis) = entry.analysis else {
             continue;
         };
@@ -479,6 +503,58 @@ mod tests {
     }
 
     #[test]
+    fn period_report_ignores_excluded_sessions() {
+        let created_at = Utc::now();
+        let mut included = entry_with_analytics(created_at);
+        included.analysis_status = DictationAnalysisStatus::Ready;
+        included.analysis = Some(SpeechSessionAnalysis {
+            word_count: 10,
+            filler_count: 1,
+            filler_density_per_100_words: 10.0,
+            repetition_count: 0,
+            self_correction_count: 0,
+            unfinished_count: 0,
+            findings: Vec::new(),
+        });
+        let mut excluded = included.clone();
+        excluded.id = "excluded".into();
+        excluded.analytics_included = false;
+        excluded.analysis.as_mut().unwrap().word_count = 100;
+        excluded.analysis.as_mut().unwrap().filler_count = 100;
+
+        let report = build_period_report(
+            vec![included, excluded],
+            created_at - Duration::hours(1),
+            created_at + Duration::hours(1),
+        );
+
+        assert_eq!(report.analyzed_sessions, 1);
+        assert_eq!(report.total_words, 10);
+        assert_eq!(report.filler_count, 1);
+    }
+
+    #[test]
+    fn excluded_pending_session_cannot_complete_analysis() {
+        let mut entries = vec![entry_with_analytics(Utc::now())];
+        entries[0].analytics_included = false;
+
+        assert!(!complete_analysis_in_entries(
+            &mut entries,
+            "entry",
+            SpeechSessionAnalysis {
+                word_count: 3,
+                filler_count: 0,
+                filler_density_per_100_words: 0.0,
+                repetition_count: 0,
+                self_correction_count: 0,
+                unfinished_count: 0,
+                findings: Vec::new(),
+            }
+        ));
+        assert_eq!(entries[0].analysis_status, DictationAnalysisStatus::Pending);
+    }
+
+    #[test]
     fn queue_completion_is_idempotent_for_one_pending_session() {
         let mut entries = vec![entry_with_analytics(Utc::now())];
         let analysis = SpeechSessionAnalysis {
@@ -511,6 +587,7 @@ mod tests {
             text: "final text".into(),
             created_at,
             device: Some("CUDA".into()),
+            analytics_included: true,
             original_text: Some("original text".into()),
             processing: Some(DictationProcessingMetadata {
                 ai_mode: AiMode::Clean,

@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -38,6 +38,27 @@ pub fn clear_dictation_history() -> AppResult<()> {
 #[tauri::command]
 pub fn delete_dictation_history_entry(id: String) -> AppResult<()> {
     crate::history::delete(&id)
+}
+
+#[tauri::command]
+pub fn set_dictation_history_entry_analytics_included(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    queue: State<'_, crate::application::speech_analysis_queue::SpeechAnalysisQueue>,
+    id: String,
+    included: bool,
+) -> AppResult<bool> {
+    let found = crate::history::set_analytics_included(&id, included)?;
+    if !found {
+        return Ok(false);
+    }
+
+    let settings = state.settings();
+    if included && settings.analytics_enabled && settings.history_enabled {
+        queue.enqueue(id.clone());
+    }
+    let _ = app.emit("speech-analysis-changed", id);
+    Ok(true)
 }
 
 #[tauri::command]
