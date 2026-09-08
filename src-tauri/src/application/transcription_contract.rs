@@ -13,8 +13,10 @@ pub struct TranscriptionRequest {
     pub pcm_samples: Vec<i16>,
     /// An ISO language code or `auto`.
     pub language: String,
-    /// Public identifier of the configured model, never its filesystem path.
-    pub model: String,
+    /// Optional public identifier of the configured model, never its
+    /// filesystem path. When omitted, the runtime selects its current model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -77,10 +79,12 @@ pub(crate) fn validate_request(request: &TranscriptionRequest) -> TranscriptionS
             "language must be an ISO code or auto".into(),
         ));
     }
-    if request.model.trim().is_empty() {
-        return Err(TranscriptionServiceError::InvalidRequest(
-            "model identifier must not be empty".into(),
-        ));
+    if let Some(model) = &request.model {
+        if model.trim().is_empty() {
+            return Err(TranscriptionServiceError::InvalidRequest(
+                "model identifier must not be empty".into(),
+            ));
+        }
     }
     Ok(())
 }

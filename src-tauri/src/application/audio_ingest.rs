@@ -54,7 +54,7 @@ impl NormalizedAudio {
     pub fn into_transcription_request(
         self,
         language: String,
-        model: String,
+        model: Option<String>,
     ) -> TranscriptionRequest {
         TranscriptionRequest {
             pcm_samples: self.pcm_samples,
@@ -451,10 +451,10 @@ mod tests {
             source_channels: 1,
         };
 
-        let request = audio.into_transcription_request("ru".into(), "large-v3-turbo".into());
+        let request = audio.into_transcription_request("ru".into(), Some("large-v3-turbo".into()));
 
         assert_eq!(request.pcm_samples, vec![1, -1]);
         assert_eq!(request.language, "ru");
-        assert_eq!(request.model, "large-v3-turbo");
+        assert_eq!(request.model.as_deref(), Some("large-v3-turbo"));
     }
 }

@@ -266,7 +266,6 @@ async fn request_from_multipart(
                 _ => return Err(UploadError::Invalid("unsupported multipart field".into())),
             }
         }
-        let model = model.ok_or_else(|| UploadError::Invalid("model field is required".into()))?;
         let audio_path = audio_path
             .as_ref()
             .ok_or_else(|| UploadError::Invalid("audio field is required".into()))?;
@@ -414,12 +413,44 @@ async fn openapi(State(state): State<RestApiState>, headers: HeaderMap) -> impl 
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::application::transcription_jobs::TranscriptionJob;
+    use crate::application::transcription_jobs::{
+        NoInteractiveActivity, TranscriptionJob, TranscriptionJobQueue,
+    };
+    use crate::application::transcription_service::{TranscriptionRuntime, TranscriptionService};
+    use crate::error::AppResult;
+    use crate::types::Transcript;
     use axum::{body::Body, http::Request};
+    use fono_core::OperationCancellation;
     use tower::ServiceExt;
+
+    struct CompletingRuntime {
+        requested_language: Arc<Mutex<Option<String>>>,
+    }
+
+    impl TranscriptionRuntime for CompletingRuntime {
+        fn configured_model(&self) -> AppResult<String> {
+            Ok("base".into())
+        }
+
+        fn transcribe(
+            &self,
+            _pcm_samples: &[i16],
+            language: &str,
+            _cancellation: OperationCancellation,
+        ) -> AppResult<Transcript> {
+            *self.requested_language.lock().unwrap() = Some(language.into());
+            Ok(Transcript {
+                text: "готово".into(),
+                detected_language: Some(language.into()),
+                audio_secs: Some(0.1),
+                transcribe_secs: Some(0.1),
+                device: Some("CPU".into()),
+            })
+        }
+    }
 
     struct StubJobs {
         job: Mutex<TranscriptionJob>,
@@ -589,7 +620,7 @@ mod tests {
         let request = TranscriptionRequest {
             pcm_samples: vec![1, -1],
             language: "ru".into(),
-            model: "base".into(),
+            model: None,
         };
         let submitted = app
             .clone()
@@ -642,7 +673,7 @@ mod tests {
         let request = TranscriptionRequest {
             pcm_samples: vec![1],
             language: "auto".into(),
-            model: "base".into(),
+            model: Some("base".into()),
         };
 
         let response = app
@@ -660,10 +691,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn multipart_wav_becomes_a_queued_job_and_cleans_up_upload() {
+    async fn multipart_wav_without_model_uses_the_selected_model_and_cleans_up_upload() {
         let upload_dir =
             std::env::temp_dir().join(format!("fono-rest-test-{}", uuid::Uuid::new_v4()));
-        let jobs: Arc<dyn TranscriptionJobs> = Arc::new(StubJobs::ready());
+        let requested_language = Arc::new(Mutex::new(None));
+        let queue = Arc::new(TranscriptionJobQueue::new(
+            TranscriptionService::new(CompletingRuntime {
+                requested_language: Arc::clone(&requested_language),
+            }),
+            NoInteractiveActivity,
+            1,
+        ));
+        let jobs: Arc<dyn TranscriptionJobs> = queue.clone();
         let app = router(
             RestApiState::new("test-token", 1)
                 .with_jobs(jobs)
@@ -672,7 +711,6 @@ mod tests {
         let boundary = "fono-test-boundary";
         let mut body = Vec::new();
         multipart_text(&mut body, boundary, "language", "ru");
-        multipart_text(&mut body, boundary, "model", "base");
         body.extend_from_slice(
             format!(
                 "--{boundary}\r\nContent-Disposition: form-data; name=\"audio\"; filename=\"sample.wav\"\r\nContent-Type: audio/wav\r\n\r\n"
@@ -700,6 +738,17 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let submitted: TranscriptionJob = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(submitted.requested_language, "ru");
+
+        let completed = queue.run_next().expect("queued upload completes");
+        assert_eq!(completed.result.expect("completed result").model, "base");
+        assert_eq!(requested_language.lock().unwrap().as_deref(), Some("ru"));
         assert!(std::fs::read_dir(&upload_dir).unwrap().next().is_none());
         std::fs::remove_dir_all(upload_dir).unwrap();
     }

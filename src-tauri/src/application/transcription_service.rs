@@ -113,10 +113,12 @@ where
             .runtime
             .configured_model()
             .map_err(TranscriptionServiceError::from)?;
-        if request.model != configured_model {
-            return Err(TranscriptionServiceError::InvalidRequest(format!(
-                "model must match the selected Fono model ({configured_model})"
-            )));
+        if let Some(requested_model) = request.model.as_deref() {
+            if requested_model != configured_model {
+                return Err(TranscriptionServiceError::InvalidRequest(format!(
+                    "model must match the selected Fono model ({configured_model})"
+                )));
+            }
         }
         let transcript = self
             .runtime
@@ -142,6 +144,7 @@ pub fn configured_model_identifier(model_path: &std::path::Path) -> AppResult<St
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
 
     use super::*;
     use crate::application::transcription_contract::TRANSCRIPTION_PROTOCOL_VERSION;
@@ -149,6 +152,7 @@ mod tests {
 
     struct FakeRuntime {
         transcribe_calls: AtomicUsize,
+        requested_language: Mutex<Option<String>>,
         transcript: Transcript,
         model_not_loaded: bool,
     }
@@ -157,6 +161,7 @@ mod tests {
         fn ready(transcript: Transcript) -> Self {
             Self {
                 transcribe_calls: AtomicUsize::new(0),
+                requested_language: Mutex::new(None),
                 transcript,
                 model_not_loaded: false,
             }
@@ -174,10 +179,11 @@ mod tests {
         fn transcribe(
             &self,
             _pcm_samples: &[i16],
-            _language: &str,
+            language: &str,
             cancellation: OperationCancellation,
         ) -> AppResult<Transcript> {
             self.transcribe_calls.fetch_add(1, Ordering::Relaxed);
+            *self.requested_language.lock().unwrap() = Some(language.into());
             if cancellation.is_cancelled() {
                 return Err(AppError::Cancelled("cancelled by test".into()));
             }
@@ -189,7 +195,7 @@ mod tests {
         TranscriptionRequest {
             pcm_samples: vec![0, 4, -4],
             language: "ru".into(),
-            model: "large_turbo".into(),
+            model: Some("large_turbo".into()),
         }
     }
 
@@ -234,7 +240,7 @@ mod tests {
         let runtime = FakeRuntime::ready(transcript());
         let service = TranscriptionService::new(runtime);
         let mut mismatched = request();
-        mismatched.model = "base".into();
+        mismatched.model = Some("base".into());
 
         assert!(matches!(
             service.transcribe(mismatched),
@@ -265,14 +271,55 @@ mod tests {
     fn model_not_loaded_is_exposed_as_a_stable_error_code() {
         let runtime = FakeRuntime {
             transcribe_calls: AtomicUsize::new(0),
+            requested_language: Mutex::new(None),
             transcript: transcript(),
             model_not_loaded: true,
         };
         let service = TranscriptionService::new(runtime);
 
         assert!(matches!(
-            service.transcribe(request()),
+            service.transcribe(TranscriptionRequest {
+                model: None,
+                ..request()
+            }),
             Err(TranscriptionServiceError::ModelNotReady(_))
+        ));
+    }
+
+    #[test]
+    fn omitted_model_uses_the_configured_model_and_preserves_language() {
+        let runtime = FakeRuntime::ready(transcript());
+        let service = TranscriptionService::new(runtime);
+        let request = TranscriptionRequest {
+            model: None,
+            ..request()
+        };
+
+        let result = service.transcribe(request).unwrap();
+
+        assert_eq!(result.model, "large_turbo");
+        assert_eq!(
+            service
+                .runtime
+                .requested_language
+                .lock()
+                .unwrap()
+                .as_deref(),
+            Some("ru")
+        );
+    }
+
+    #[test]
+    fn rejects_an_empty_explicit_model() {
+        let service = TranscriptionService::new(FakeRuntime::ready(transcript()));
+        let request = TranscriptionRequest {
+            model: Some("   ".into()),
+            ..request()
+        };
+
+        assert!(matches!(
+            service.transcribe(request),
+            Err(TranscriptionServiceError::InvalidRequest(_))
         ));
     }
 }

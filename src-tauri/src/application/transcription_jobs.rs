@@ -463,7 +463,7 @@ mod tests {
         TranscriptionRequest {
             pcm_samples: vec![1],
             language: "auto".into(),
-            model: "base".into(),
+            model: Some("base".into()),
         }
     }
 

@@ -40,11 +40,11 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": ["audio", "model"],
+                "required": ["audio"],
                 "properties": {
                   "audio": { "type": "string", "format": "binary", "description": "WAV, MP3, FLAC, OGG/Vorbis or OGG/Opus; maximum 100 MiB." },
                   "language": { "type": "string", "default": "auto", "maxLength": 64 },
-                  "model": { "type": "string", "enum": ["tiny", "base", "small", "medium", "large", "large_turbo"], "description": "Required identifier of the model currently selected in Fono." }
+                  "model": { "type": "string", "enum": ["tiny", "base", "small", "medium", "large", "large_turbo"], "description": "Optional. When omitted, Fono uses the model currently selected in the application. When supplied, it must match the selected model." }
                 }
               }
             }
@@ -109,7 +109,7 @@
     },
     "schemas": {
       "Health": { "type": "object", "required": ["protocol_version", "state"], "properties": { "protocol_version": { "type": "integer", "example": 1 }, "state": { "type": "string", "example": "ready" } } },
-      "TranscriptionRequest": { "type": "object", "required": ["pcm_samples", "language", "model"], "properties": { "pcm_samples": { "type": "array", "items": { "type": "integer", "format": "int16" }, "description": "Mono signed PCM at 16 kHz." }, "language": { "type": "string", "example": "auto" }, "model": { "type": "string", "enum": ["tiny", "base", "small", "medium", "large", "large_turbo"], "example": "base", "description": "Must match Fono's selected model." } } },
+      "TranscriptionRequest": { "type": "object", "required": ["pcm_samples", "language"], "properties": { "pcm_samples": { "type": "array", "items": { "type": "integer", "format": "int16" }, "description": "Mono signed PCM at 16 kHz." }, "language": { "type": "string", "example": "auto" }, "model": { "type": "string", "enum": ["tiny", "base", "small", "medium", "large", "large_turbo"], "example": "base", "description": "Optional. When omitted, Fono uses the model currently selected in the application. When supplied, it must match the selected model." } } },
       "Result": { "type": "object", "required": ["protocol_version", "text", "model"], "properties": { "protocol_version": { "type": "integer" }, "text": { "type": "string" }, "detected_language": { "type": "string", "nullable": true }, "audio_seconds": { "type": "number", "nullable": true }, "transcribe_seconds": { "type": "number", "nullable": true }, "model": { "type": "string" }, "backend": { "type": "string", "nullable": true } } },
       "Job": { "type": "object", "required": ["id", "requested_language", "state", "created_at_ms"], "properties": { "id": { "type": "string", "example": "tr_0000000000000001" }, "requested_language": { "type": "string", "example": "ru", "description": "Language requested by the API client, or auto." }, "state": { "type": "string", "enum": ["queued", "preparing", "transcribing", "completed", "failed", "cancelled"] }, "created_at_ms": { "type": "integer", "format": "int64", "description": "Unix epoch timestamp in milliseconds." }, "started_at_ms": { "type": "integer", "format": "int64", "nullable": true }, "finished_at_ms": { "type": "integer", "format": "int64", "nullable": true }, "result": { "$ref": "#/components/schemas/Result", "nullable": true }, "error": { "nullable": true } } }
     }
