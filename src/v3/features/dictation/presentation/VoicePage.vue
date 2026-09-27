@@ -6,6 +6,7 @@ import { phaseLabels } from "../domain/voice";
 import { useVoiceWorkspace } from "../application/useVoiceWorkspace";
 import { createVoiceRuntime } from "../infrastructure/voiceRuntime";
 import HistoryPanel from "./HistoryPanel.vue";
+import HomeServices from "./HomeServices.vue";
 import VoiceTools from "./VoiceTools.vue";
 import VoiceWave from "./VoiceWave.vue";
 
@@ -40,27 +41,29 @@ const heroDescription = computed(() => {
     <WlSpinner v-if="workspace.loading.value" class="v3-loading" />
 
     <template v-else-if="workspace.overview.value">
-      <section
-        v-if="props.section === 'home'"
-        class="v3-hero"
-        :class="'is-' + workspace.phase.value"
-        aria-label="Диктовка"
-      >
-        <span class="v3-hero-kicker"
-          ><i class="pi pi-bolt"></i> Голосовой ввод</span
+      <div v-if="props.section === 'home'" class="v3-home">
+        <section
+          class="v3-hero"
+          :class="'is-' + workspace.phase.value"
+          aria-label="Диктовка"
         >
-        <VoiceWave :phase="workspace.phase.value" :label="phaseLabel" />
-        <h1>
-          <FonoWordmark class="v3-hero-wordmark" />
-          <span class="v3-visually-hidden">Fono</span>
-        </h1>
-        <p class="v3-hero-description">{{ heroDescription }}</p>
-        <span class="v3-hotkey">
-          <kbd>{{ workspace.overview.value.hotkey }}</kbd>
-          <span>горячая клавиша</span>
-        </span>
-        <VoiceTools :tools="workspace.overview.value.tools" />
-      </section>
+          <span class="v3-hero-kicker"
+            ><i class="pi pi-bolt"></i> Голосовой ввод</span
+          >
+          <VoiceWave :phase="workspace.phase.value" :label="phaseLabel" />
+          <h1>
+            <FonoWordmark class="v3-hero-wordmark" />
+            <span class="v3-visually-hidden">Fono</span>
+          </h1>
+          <p class="v3-hero-description">{{ heroDescription }}</p>
+          <span class="v3-hotkey">
+            <kbd>{{ workspace.overview.value.hotkey }}</kbd>
+            <span>горячая клавиша</span>
+          </span>
+          <VoiceTools :tools="workspace.overview.value.tools" />
+        </section>
+        <HomeServices :services="workspace.overview.value.services" />
+      </div>
 
       <section v-else-if="props.section === 'history'" class="v3-detail">
         <div class="v3-detail-heading">

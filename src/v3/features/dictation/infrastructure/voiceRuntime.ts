@@ -63,6 +63,10 @@ function createMockRuntime(): VoiceRuntime {
         postProcessing: { enabled: true, value: "GPT-4o Mini" },
         recognition: { enabled: true, value: "Whisper Small" },
       },
+      services: {
+        api: { enabled: true, address: "127.0.0.1:17832", queued: 0 },
+        trainer: { enabled: false, dictationCount: history.length },
+      },
       history,
       version: __FONO_FRONTEND_BUILD__.version,
       error: null,
@@ -91,13 +95,15 @@ function createTauriRuntime(): VoiceRuntime {
   return {
     demo: false,
     load: async (): Promise<VoiceOverview> => {
-      const [phase, settings, history, build, devices] = await Promise.all([
-        ipc.getPipelineState(),
-        ipc.getSettings(),
-        ipc.getDictationHistory(),
-        ipc.getBuildInfo(),
-        ipc.listAudioDevices().catch(() => null),
-      ]);
+      const [phase, settings, history, build, devices, service] =
+        await Promise.all([
+          ipc.getPipelineState(),
+          ipc.getSettings(),
+          ipc.getDictationHistory(),
+          ipc.getBuildInfo(),
+          ipc.listAudioDevices().catch(() => null),
+          ipc.getLocalTranscriptionServiceSnapshot().catch(() => null),
+        ]);
 
       const model = recognitionModelLabel(settings.whisper_model_path);
 
@@ -112,6 +118,18 @@ function createTauriRuntime(): VoiceRuntime {
         wakeWordEnabled: settings.wake_word_enabled,
         wakeWord: settings.wake_word,
         tools: toVoiceTools(settings, devices, model),
+        services: {
+          api: {
+            enabled: service !== null,
+            address: service?.address ?? "Недоступен",
+            queued: service?.queue.queued ?? 0,
+          },
+          trainer: {
+            enabled:
+              settings.analytics_enabled && settings.speech_trainer_enabled,
+            dictationCount: history.length,
+          },
+        },
         history: history.slice(0, 12).map((entry) => ({
           id: entry.id,
           text: entry.text,

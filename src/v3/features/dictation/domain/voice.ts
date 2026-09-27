@@ -19,6 +19,18 @@ export interface VoiceTools {
   recognition: VoiceToolStatus;
 }
 
+export interface VoiceServices {
+  api: {
+    enabled: boolean;
+    address: string;
+    queued: number;
+  };
+  trainer: {
+    enabled: boolean;
+    dictationCount: number;
+  };
+}
+
 export interface VoiceOverview {
   phase: VoicePhase;
   hotkey: string;
@@ -27,6 +39,7 @@ export interface VoiceOverview {
   wakeWordEnabled: boolean;
   wakeWord: string;
   tools: VoiceTools;
+  services: VoiceServices;
   history: VoiceEntry[];
   version: string;
   error: string | null;
