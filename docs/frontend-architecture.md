@@ -8,6 +8,11 @@ the setup in WhiteLife: `createWlPt()`, `wlLocaleRu`, then explicit reset, base
 and theme CSS imports. `.npmrc` selects GitHub Packages for this scope; npm
 credentials remain outside the repository.
 
+`src/v3/styles/tokens.css` is the V3 customization layer. Fono semantic colors
+refer to the UI kit's `--wl-*` theme tokens; a 4px spacing scale, type sizes and
+major layout dimensions are defined there. Component CSS uses those variables
+so palette, density and layout can be adjusted centrally.
+
 The V3 dictation feature separates pure domain data, a runtime port,
 Tauri/mock infrastructure and Vue presentation. Native access goes through
 `src/lib/ipc.ts`. The browser at `http://127.0.0.1:1420/v3.html` shows demo

@@ -19,19 +19,22 @@
 
 @media (max-width: 800px) {
   .v3-shell {
-    grid-template-columns: 65px minmax(0, 1fr);
+    grid-template-columns: var(--fono-sidebar-compact-width) minmax(0, 1fr);
   }
 
   .v3-sidebar {
     align-items: center;
-    padding: 20px 8px;
+    padding: var(--fono-space-5) var(--fono-space-2);
   }
 
   .v3-brand {
-    padding: 0 0 39px;
+    padding: 0 0 var(--fono-space-10);
   }
 
-  .v3-brand > span:last-child,
+  .v3-brand > span:last-child {
+    display: none;
+  }
+
   .v3-sidebar-label,
   .v3-nav-item:not(.is-active),
   .v3-nav-item.is-active {
@@ -40,12 +43,12 @@
 
   .v3-nav-item {
     justify-content: center;
-    width: 43px;
+    width: var(--fono-sidebar-icon-width);
     padding: 0;
   }
 
   .v3-nav-item i {
-    font-size: 17px;
+    font-size: var(--fono-type-xl);
   }
 
   .v3-privacy-card,
@@ -54,15 +57,15 @@
   }
 
   .v3-workspace {
-    padding: 27px;
+    padding: var(--fono-space-7);
   }
 
   .v3-topbar {
-    padding: 0 27px;
+    padding: 0 var(--fono-space-7);
   }
 
   .v3-voice-art {
-    right: -70px;
+    right: calc(-2 * var(--fono-space-9));
     opacity: 0.38;
   }
 }
