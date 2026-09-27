@@ -1,13 +1,13 @@
 .v3-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 42%) minmax(0, 58%);
   min-height: var(--fono-hero-height);
   overflow: hidden;
   border: var(--fono-border-width) solid var(--fono-border);
   border-radius: var(--fono-hero-radius);
   background-image:
-    linear-gradient(90deg, var(--fono-hero-shade), transparent 82%),
+    linear-gradient(270deg, var(--fono-hero-shade), transparent 78%),
     url("../assets/night-mountains.png");
   background-position: center, center;
   background-size: cover;
@@ -27,7 +27,7 @@
   position: relative;
   z-index: 1;
   align-self: center;
-  padding: var(--fono-space-12);
+  padding: var(--fono-space-6) var(--fono-space-9);
 }
 
 .v3-hero-kicker {
@@ -46,13 +46,12 @@
 }
 
 .v3-hero h1 {
-  margin: var(--fono-space-5) 0 var(--fono-space-4);
-  color: var(--fono-hero-on);
-  font-size: var(--fono-type-hero-brand);
-  font-weight: 760;
-  letter-spacing: -0.065em;
-  line-height: 0.95;
-  text-shadow: 0 0 var(--fono-space-8) var(--fono-night);
+  margin: var(--fono-space-4) 0 var(--fono-space-3);
+}
+
+.v3-hero-wordmark {
+  width: min(100%, var(--fono-hero-wordmark-width));
+  height: auto;
 }
 
 .v3-hero-copy > p {
@@ -67,7 +66,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--fono-space-3);
-  margin-top: var(--fono-space-8);
+  margin-top: var(--fono-space-6);
   color: var(--fono-text-secondary);
   font-size: var(--fono-type-sm);
 }
@@ -88,7 +87,6 @@
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: var(--fono-space-2);
   min-width: 0;
   padding: var(--fono-space-6);
 }
@@ -200,37 +198,6 @@
   transform-origin: center;
   animation: v3-wave-dance var(--fono-wave-tempo) ease-in-out infinite alternate;
   animation-delay: var(--wave-delay);
-}
-
-.v3-status {
-  display: inline-flex;
-  min-width: var(--fono-status-min-width);
-  align-items: center;
-  justify-content: center;
-  gap: var(--fono-space-3);
-  padding: var(--fono-space-2) var(--fono-space-4);
-  border: var(--fono-border-width) solid var(--fono-success);
-  border-radius: var(--wl-radius-full);
-  background: var(--fono-night);
-  color: var(--fono-success);
-  font-size: var(--fono-type-sm);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.v3-status.is-listening {
-  border-color: var(--fono-accent);
-  color: var(--fono-electric-soft);
-}
-
-.v3-status.is-listening .v3-status-dot {
-  background: var(--fono-accent);
-  box-shadow: 0 0 var(--fono-space-3) var(--fono-accent);
-}
-
-.v3-status.is-error {
-  border-color: var(--wl-danger);
-  color: var(--wl-danger);
 }
 
 .v3-message {

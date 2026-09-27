@@ -8,13 +8,13 @@ const props = defineProps<{
   level?: number;
 }>();
 
-const bars = Array.from({ length: 51 }, (_, index) => {
-  const distance = Math.abs(index - 25) / 25;
+const bars = Array.from({ length: 31 }, (_, index) => {
+  const distance = Math.abs(index - 15) / 15;
   const envelope = Math.pow(Math.max(0, 1 - distance), 1.35);
-  const ripple = Math.sin(index * 1.45) * 11 + Math.sin(index * 0.58) * 8;
+  const ripple = Math.sin(index * 1.45) * 7 + Math.sin(index * 0.58) * 5;
 
   return {
-    height: Math.max(20, Math.round(30 + envelope * 125 + ripple)),
+    height: Math.max(12, Math.round(18 + envelope * 75 + ripple)),
     delay: -(index * 0.067),
   };
 });
@@ -56,8 +56,6 @@ const energy = computed(() => {
         ></span>
       </div>
     </div>
-    <span class="v3-status" :class="'is-' + phase" role="status">
-      <span class="v3-status-dot"></span>{{ label }}
-    </span>
+    <span class="v3-visually-hidden" role="status">{{ label }}</span>
   </div>
 </template>

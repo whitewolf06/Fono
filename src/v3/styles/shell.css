@@ -65,17 +65,20 @@ a {
   text-shadow: 0 0 var(--fono-space-5) var(--fono-accent);
 }
 
-.v3-brand-copy strong,
 .v3-brand-copy small {
   display: block;
 }
 
-.v3-brand-copy strong {
-  color: var(--fono-text);
-  font-size: var(--fono-type-brand);
-  font-weight: 720;
-  letter-spacing: -0.06em;
-  line-height: 1;
+.v3-wordmark {
+  display: block;
+  overflow: visible;
+  color: var(--fono-hero-on);
+  filter: drop-shadow(0 0 var(--fono-space-4) var(--fono-night));
+}
+
+.v3-brand-wordmark {
+  width: var(--fono-brand-wordmark-width);
+  height: auto;
 }
 
 .v3-brand-copy small {
@@ -195,4 +198,13 @@ a {
 
 .v3-detail .v3-history {
   margin-top: 0;
+}
+
+.v3-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }

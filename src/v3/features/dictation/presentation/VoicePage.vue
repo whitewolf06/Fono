@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { WlEmpty, WlSpinner } from "@whitelife-core/ui-kit";
+import FonoWordmark from "../../../shared/FonoWordmark.vue";
 import { phaseLabels } from "../domain/voice";
 import { useVoiceWorkspace } from "../application/useVoiceWorkspace";
 import { createVoiceRuntime } from "../infrastructure/voiceRuntime";
@@ -44,18 +45,21 @@ const heroDescription = computed(() => {
         :class="'is-' + workspace.phase.value"
         aria-label="Диктовка"
       >
+        <VoiceWave :phase="workspace.phase.value" :label="phaseLabel" />
         <div class="v3-hero-copy">
           <span class="v3-hero-kicker"
             ><i class="pi pi-bolt"></i> Голосовой ввод</span
           >
-          <h1>Fono</h1>
+          <h1>
+            <FonoWordmark class="v3-hero-wordmark" />
+            <span class="v3-visually-hidden">Fono</span>
+          </h1>
           <p>{{ heroDescription }}</p>
           <span class="v3-hotkey">
             <kbd>{{ workspace.overview.value.hotkey }}</kbd>
             <span>горячая клавиша</span>
           </span>
         </div>
-        <VoiceWave :phase="workspace.phase.value" :label="phaseLabel" />
       </section>
 
       <section v-else-if="props.section === 'history'" class="v3-detail">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import VoicePage from "../features/dictation/presentation/VoicePage.vue";
+import FonoWordmark from "../shared/FonoWordmark.vue";
 
 type Section = "home" | "history" | "wake" | "model";
 
@@ -19,7 +20,7 @@ const version = __FONO_FRONTEND_BUILD__.version;
       >
         <span class="v3-brand-mark"><i class="pi pi-wave-pulse"></i></span>
         <span class="v3-brand-copy">
-          <strong>fono</strong>
+          <FonoWordmark class="v3-brand-wordmark" />
           <small
             ><span class="v3-version-word">Версия </span>{{ version }}</small
           >

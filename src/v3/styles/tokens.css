@@ -57,7 +57,6 @@
   --fono-type-xl: 17px;
   --fono-type-brand: 27px;
   --fono-type-heading: clamp(28px, 2.5vw, 39px);
-  --fono-type-hero-brand: clamp(58px, 6vw, 92px);
 
   --fono-window-min-width: 720px;
   --fono-border-width: 1px;
@@ -69,20 +68,19 @@
   --fono-content-max-width: 1220px;
   --fono-detail-page-width: 760px;
   --fono-detail-card-width: 520px;
-  --fono-hero-height: clamp(440px, 58vh, 620px);
+  --fono-hero-height: clamp(300px, 34vh, 340px);
   --fono-hero-description-width: 445px;
-  --fono-status-min-width: 156px;
+  --fono-hero-wordmark-width: 260px;
+  --fono-brand-wordmark-width: 94px;
   --fono-feature-min-height: 228px;
   --fono-history-date-width: 130px;
   --fono-history-action-width: 60px;
   --fono-history-row-height: 40px;
-  --fono-wave-width: 440px;
-  --fono-wave-height: 280px;
-  --fono-wave-width-compact: 370px;
-  --fono-wave-height-stacked: 220px;
-  --fono-hero-height-stacked: 620px;
-  --fono-wave-bar-width: 4px;
-  --fono-wave-bar-gap: 4px;
+  --fono-wave-width: 220px;
+  --fono-wave-height: 168px;
+  --fono-wave-width-compact: 200px;
+  --fono-wave-bar-width: 3px;
+  --fono-wave-bar-gap: 3px;
   --fono-wave-blur: 20px;
   --fono-wave-tempo-idle: 2.1s;
   --fono-wave-tempo-listening: 0.8s;
