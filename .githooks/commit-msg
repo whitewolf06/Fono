@@ -1,0 +1,2 @@
+#!/bin/sh
+node scripts/version.mjs commit-check "$1"

@@ -1,6 +1,6 @@
 {
   "name": "fono",
-  "version": "0.1.1",
+  "version": "0.5.0",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
@@ -12,6 +12,10 @@
     "prepare:release-resources": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prepare-release-resources.ps1",
     "release": "npm run tauri -- build",
     "test:ui": "node --test --test-concurrency=1 tests/ui/whisperModels.test.mjs tests/ui/speechTrainer.test.mjs",
+    "version:check": "node scripts/version.mjs check",
+    "version:bump": "node scripts/version.mjs bump",
+    "version:set": "node scripts/version.mjs set",
+    "hooks:install": "git config --local core.hooksPath .githooks",
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",

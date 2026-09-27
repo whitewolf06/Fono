@@ -16,6 +16,8 @@ import { createMockServiceRuntime } from "@/v2/features/service/infrastructure/m
 import { createTauriServiceRuntime } from "@/v2/features/service/infrastructure/tauriServiceRuntime";
 import { ServicePage } from "@/v2/features/service/presentation/ServicePage";
 import { createTauriSettingsDraftStore } from "@/v2/features/settings/infrastructure/tauriSettingsDraftStore";
+import { createTauriWakeCalibrationStore } from "@/v2/features/settings/infrastructure/tauriWakeCalibrationStore";
+import { createTauriWakeProfileValidationStore } from "@/v2/features/settings/infrastructure/tauriWakeProfileValidationStore";
 import { createMockLlmProfilesStore } from "@/v2/features/llm-settings/infrastructure/mockLlmProfilesStore";
 import { createTauriLlmProfilesStore } from "@/v2/features/llm-settings/infrastructure/tauriLlmProfilesStore";
 import { LlmProfilesPage } from "@/v2/features/llm-settings/presentation/LlmProfilesPage";
@@ -75,6 +77,14 @@ export function UiV2App() {
   );
   const settingsStore = useMemo(
     () => (isNativeRuntime ? createTauriSettingsDraftStore() : undefined),
+    [],
+  );
+  const calibrationStore = useMemo(
+    () => (isNativeRuntime ? createTauriWakeCalibrationStore() : undefined),
+    [],
+  );
+  const validationStore = useMemo(
+    () => (isNativeRuntime ? createTauriWakeProfileValidationStore() : undefined),
     [],
   );
   const serviceRuntime = useMemo(
@@ -193,6 +203,8 @@ export function UiV2App() {
                 <SettingsPage
                   focusSection={settingsSection}
                   store={settingsStore}
+                  calibrationStore={calibrationStore}
+                  validationStore={validationStore}
                 />
               )}
               {activePage === "service" && (

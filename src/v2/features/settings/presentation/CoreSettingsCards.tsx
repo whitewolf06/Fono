@@ -2,15 +2,20 @@ import type {
   SettingsDraft,
   SettingsStatusDetail,
 } from "../application/useSettingsDraft";
+import type { WakeCalibrationController } from "../application/useWakeCalibration";
+import type { WakeProfileValidationController } from "../application/useWakeProfileValidation";
 import {
   RangeField,
   SettingRow,
   SettingsCard,
   SettingsStatus,
   SignalPreview,
-  Switch,
 } from "./SettingsPrimitives";
 import { ShortcutRecorder } from "@/v2/shared/presentation/components/ShortcutRecorder";
+import { Switch } from "@/v2/shared/presentation/components/Switch";
+import { WakePhraseInput } from "./WakePhraseInput";
+import { WakeCalibrationPanel } from "./WakeCalibrationPanel";
+import { WakeProfileValidationPanel } from "./WakeProfileValidationPanel";
 
 interface SettingsCardBaseProps {
   draft: SettingsDraft;
@@ -35,7 +40,10 @@ interface AudioSettingsCardProps extends SettingsCardBaseProps {
 
 interface ActivationSettingsCardProps extends SettingsCardBaseProps {
   advancedWakeOpen: boolean;
+  calibration: WakeCalibrationController;
+  validation: WakeProfileValidationController;
   wakeWordStatus: SettingsStatusDetail;
+  onActivateWakeWord: () => void;
   onTestWakeWord: () => void;
   onToggleAdvancedWake: () => void;
 }
@@ -224,16 +232,22 @@ export function AudioSettingsCard({
 
 export function ActivationSettingsCard({
   advancedWakeOpen,
+  calibration,
   collapsed,
   draft,
   focusSection,
   onTestWakeWord,
+  onActivateWakeWord,
   onToggleAdvancedWake,
   onToggleCollapsed,
   update,
+  validation,
   wakeWordStatus,
 }: ActivationSettingsCardProps) {
   const wakeWordDisabled = !draft.wakeWordEnabled;
+  const calibrationDisabled =
+    !draft.wakePhraseIsSupported ||
+    draft.wakePhrase.trim().toLocaleLowerCase() !== "рамзи";
 
   return (
     <SettingsCard
@@ -260,30 +274,29 @@ export function ActivationSettingsCard({
           onChange={(checked) => update("wakeWordEnabled", checked)}
         />
       </SettingRow>
-      <div
-        className={`v2-settings-dependent-group ${wakeWordDisabled ? "is-disabled" : ""}`}
-      >
+      <div className="v2-settings-dependent-group">
         <SettingRow
-          disabled={wakeWordDisabled}
           title="Ключевая фраза"
-          description="Изменение перезапустит detector при подключении runtime."
+          description={
+            draft.supportsCustomWakePhrase
+              ? "Whisper Experimental позволяет ввести произвольную фразу."
+              : "Sherpa-ONNX предлагает только проверенные ключевые фразы. Настройте их до включения прослушивания."
+          }
         >
-          <input
+          <WakePhraseInput
             aria-label="Ключевая фраза"
-            value={draft.wakePhrase}
-            disabled={wakeWordDisabled}
-            onChange={(event) => update("wakePhrase", event.target.value)}
+            disabled={false}
+            draft={draft}
+            onChange={(value) => update("wakePhrase", value)}
           />
         </SettingRow>
         <RangeField
-          disabled={wakeWordDisabled}
           label="Чувствительность"
           value={draft.wakeSensitivity}
           suffix="%"
           onChange={(value) => update("wakeSensitivity", value)}
         />
         <RangeField
-          disabled={wakeWordDisabled}
           label="Пауза перед распознаванием"
           value={draft.silenceDelay}
           min={1}
@@ -303,11 +316,20 @@ export function ActivationSettingsCard({
           </button>
         </div>
         <SettingsStatus status={wakeWordStatus} />
+        <WakeCalibrationPanel
+          calibration={calibration}
+          disabled={calibrationDisabled}
+        />
+        <WakeProfileValidationPanel
+          calibration={calibration}
+          validation={validation}
+          wakeWordEnabled={draft.wakeWordEnabled}
+          onActivateWakeWord={onActivateWakeWord}
+        />
         <div className="v2-accordion">
           <button
             className="v2-accordion__trigger"
             type="button"
-            disabled={wakeWordDisabled}
             aria-expanded={advancedWakeOpen}
             onClick={onToggleAdvancedWake}
           >

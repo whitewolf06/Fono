@@ -22,6 +22,9 @@ pub mod types;
 pub mod vad;
 pub mod verbose;
 
+use crate::application::dictation_tail_diagnostics::{
+    DictationStopReason, DictationTailDiagnostic,
+};
 use crate::operation::{OperationSource, TerminalReason};
 use crate::state::AppState;
 use crate::types::{PipelineState, Settings, WakeWordBackend};
@@ -215,6 +218,8 @@ pub fn run() {
         .manage(pipeline)
         .manage(wake_word)
         .manage(audio_hub)
+        .manage(crate::application::wake_calibration::WakeCalibrationService::default())
+        .manage(crate::application::wake_validation::WakeProfileValidationService::default())
         .setup(|app| {
             // Трей-иконка с меню
             setup_tray(app)?;
@@ -336,6 +341,13 @@ pub fn run() {
             ipc::wake::test_wake_word_model,
             ipc::wake::record_wake_word_sample,
             ipc::wake::recognize_wake_word_sample,
+            ipc::wake::get_wake_calibration_status,
+            ipc::wake::start_wake_calibration,
+            ipc::wake::record_wake_calibration_sample,
+            ipc::wake::cancel_wake_calibration,
+            ipc::wake::get_wake_profile_validation_status,
+            ipc::wake::start_wake_profile_validation,
+            ipc::wake::record_wake_profile_validation_sample,
             ipc::wake::enable_wake_word,
             ipc::wake::disable_wake_word,
         ])
@@ -765,6 +777,7 @@ async fn start_wake_word_if_enabled(
         tracing::info!("wake word: disabled in settings, skipping");
         return Ok(());
     }
+    crate::application::wake_validation::ensure_profile_can_activate(&settings)?;
 
     let wake_handle = handle.state::<WakeWordHandle>();
     let handle_clone = handle.clone();
@@ -957,6 +970,16 @@ pub async fn run_dictation_after_wake(
         was_speaking
     );
 
+    let stop_reason = if pipeline.is_operation_confirmed(operation) {
+        DictationStopReason::WakeConfirmed
+    } else if started.elapsed() >= max_wait {
+        DictationStopReason::WakeTimeout
+    } else {
+        DictationStopReason::WakeSilence
+    };
+    let mut tail_diagnostic =
+        DictationTailDiagnostic::new(operation, OperationSource::WakeWord, stop_reason);
+
     // Стоп + STT + вставка.
     let samples = match pipeline.stop_recording() {
         Ok(samples) => samples,
@@ -972,9 +995,15 @@ pub async fn run_dictation_after_wake(
             return Err(Box::new(error));
         }
     };
+    tail_diagnostic.record_capture(samples.len());
+    // Wake recording is already ended by its realtime silence rule. The
+    // offline VAD trim is intentionally skipped here; record that distinction
+    // rather than hiding it in a zero-length measurement.
+    tail_diagnostic.skip_vad(samples.len());
 
     // Если пользователь нажал Stop в оверлее — отбрасываем запись.
     if !pipeline.is_operation_active(operation) {
+        tail_diagnostic.stt_cancelled();
         tracing::info!("wake dictation: cancelled by user");
         return Ok(());
     }
@@ -997,11 +1026,18 @@ pub async fn run_dictation_after_wake(
                     _ = application::dictation::wait_for_cancellation(cancellation.clone()) => None,
                 };
                 let Some(load_result) = load_result else {
+                    tail_diagnostic.stt_cancelled();
                     return Ok(());
                 };
-                if let Err(error) =
-                    load_result.map_err(|error| format!("model load join: {error}"))?
-                {
+                let load_result = match load_result {
+                    Ok(result) => result,
+                    Err(error) => {
+                        tail_diagnostic.stt_failed();
+                        return Err(format!("model load join: {error}").into());
+                    }
+                };
+                if let Err(error) = load_result {
+                    tail_diagnostic.stt_failed();
                     let _ = pipeline::set_state_for_operation(
                         handle,
                         state.inner(),
@@ -1013,6 +1049,7 @@ pub async fn run_dictation_after_wake(
                     return Err(Box::new(error));
                 }
             } else {
+                tail_diagnostic.stt_failed();
                 let _ = pipeline::set_state_for_operation(
                     handle,
                     state.inner(),
@@ -1031,6 +1068,7 @@ pub async fn run_dictation_after_wake(
                 PipelineState::Transcribing,
                 TerminalReason::Completed,
             ) {
+                tail_diagnostic.stt_cancelled();
                 return Ok(());
             }
             let stt = pipeline.stt().clone();
@@ -1044,11 +1082,13 @@ pub async fn run_dictation_after_wake(
                 _ = application::dictation::wait_for_cancellation(cancellation.clone()) => None,
             };
             let Some(transcript) = transcript else {
+                tail_diagnostic.stt_cancelled();
                 return Ok(());
             };
             let transcript = match transcript {
                 Ok(Ok(transcript)) => transcript,
                 Ok(Err(error)) => {
+                    tail_diagnostic.stt_failed();
                     let _ = pipeline::set_state_for_operation(
                         handle,
                         state.inner(),
@@ -1060,6 +1100,7 @@ pub async fn run_dictation_after_wake(
                     return Err(Box::new(error));
                 }
                 Err(error) => {
+                    tail_diagnostic.stt_failed();
                     let _ = pipeline::set_state_for_operation(
                         handle,
                         state.inner(),
@@ -1078,6 +1119,7 @@ pub async fn run_dictation_after_wake(
             }
 
             let dictation_text = strip_leading_wake_phrase(&transcript.text, &settings.wake_word);
+            tail_diagnostic.stt_succeeded(!dictation_text.trim().is_empty());
             if dictation_text.len() != transcript.text.trim_start().len() {
                 tracing::info!("wake phrase removed from dictation transcript");
             }
@@ -1092,6 +1134,7 @@ pub async fn run_dictation_after_wake(
             // тот же preview → confirm flow, что и command hotkey.
             if let Some(command) = extract_wake_command(&dictation_text) {
                 if !pipeline.is_operation_active(operation) {
+                    tail_diagnostic.postprocessor_cancelled();
                     return Ok(());
                 }
                 if !pipeline::set_state_for_operation(
@@ -1102,8 +1145,10 @@ pub async fn run_dictation_after_wake(
                     PipelineState::Processing,
                     TerminalReason::Completed,
                 ) {
+                    tail_diagnostic.postprocessor_cancelled();
                     return Ok(());
                 }
+                tail_diagnostic.postprocessor_skipped();
                 let proposal = application::command_proposal::create(
                     state.inner(),
                     operation,
@@ -1136,7 +1181,10 @@ pub async fn run_dictation_after_wake(
 
             // Опциональная AI-обработка.
             let final_text = match settings.ai_mode {
-                crate::types::AiMode::Off => dictation_text.clone(),
+                crate::types::AiMode::Off => {
+                    tail_diagnostic.postprocessor_skipped();
+                    dictation_text.clone()
+                }
                 mode => {
                     if !pipeline::set_state_for_operation(
                         handle,
@@ -1146,6 +1194,7 @@ pub async fn run_dictation_after_wake(
                         PipelineState::Processing,
                         TerminalReason::Completed,
                     ) {
+                        tail_diagnostic.postprocessor_cancelled();
                         return Ok(());
                     }
                     let client = crate::llm::LlmClient::from_settings(&settings);
@@ -1156,11 +1205,16 @@ pub async fn run_dictation_after_wake(
                         _ = application::dictation::wait_for_cancellation(cancellation.clone()) => None,
                     };
                     let Some(result) = result else {
+                        tail_diagnostic.postprocessor_cancelled();
                         return Ok(());
                     };
                     match result {
-                        Ok(t) => t,
+                        Ok(t) => {
+                            tail_diagnostic.postprocessor_succeeded(t != dictation_text);
+                            t
+                        }
                         Err(e) => {
+                            tail_diagnostic.postprocessor_fallback();
                             tracing::warn!("LLM failed ({e}) — raw transcript");
                             dictation_text.clone()
                         }

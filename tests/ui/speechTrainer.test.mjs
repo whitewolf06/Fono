@@ -4,6 +4,7 @@ import { createServer } from "vite";
 
 let server;
 let speechTrainer;
+let speechTrainerSettings;
 
 before(async () => {
   server = await createServer({
@@ -13,6 +14,9 @@ before(async () => {
   });
   speechTrainer = await server.ssrLoadModule(
     "/src/v2/features/speech-trainer/domain/speechTrainer.ts",
+  );
+  speechTrainerSettings = await server.ssrLoadModule(
+    "/src/v2/features/speech-trainer/domain/speechTrainerSettings.ts",
   );
 });
 
@@ -42,4 +46,20 @@ test("speech findings and density remain presentational and neutral", () => {
     speechTrainer.hasSpeechFindings({ ...report, filler_count: 0, self_correction_count: 0 }),
     false,
   );
+});
+
+test("speech trainer toggle pauses only future trainer collection", () => {
+  const settings = {
+    analytics_enabled: true,
+    speech_trainer_enabled: true,
+    history_enabled: true,
+    wake_word_enabled: false,
+  };
+
+  const disabled = speechTrainerSettings.withSpeechTrainerEnabled(settings, false);
+
+  assert.equal(disabled.analytics_enabled, true);
+  assert.equal(disabled.speech_trainer_enabled, false);
+  assert.equal(disabled.history_enabled, true);
+  assert.equal(disabled.wake_word_enabled, false);
 });

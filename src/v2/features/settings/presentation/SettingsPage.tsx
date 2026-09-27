@@ -3,6 +3,10 @@ import type {
   SettingsSection,
 } from "../application/useSettingsDraft";
 import { useSettingsDraft } from "../application/useSettingsDraft";
+import type { WakeCalibrationStore } from "../application/useWakeCalibration";
+import { useWakeCalibration } from "../application/useWakeCalibration";
+import type { WakeProfileValidationStore } from "../application/useWakeProfileValidation";
+import { useWakeProfileValidation } from "../application/useWakeProfileValidation";
 import {
   ActivationSettingsCard,
   AudioSettingsCard,
@@ -20,11 +24,19 @@ import { PageFrame } from "@/v2/shared/presentation/components/PageFrame";
 interface SettingsPageProps {
   focusSection?: SettingsSection;
   store?: SettingsDraftStore;
+  calibrationStore?: WakeCalibrationStore;
+  validationStore?: WakeProfileValidationStore;
 }
 
-export function SettingsPage({ focusSection, store }: SettingsPageProps) {
+export function SettingsPage({
+  focusSection,
+  store,
+  calibrationStore,
+  validationStore,
+}: SettingsPageProps) {
   const {
     advancedWakeOpen,
+    activateWakeWord,
     collapsedSections,
     draft,
     effectiveAcceleration,
@@ -48,6 +60,8 @@ export function SettingsPage({ focusSection, store }: SettingsPageProps) {
     wakeWordStatus,
     whisperStatus,
   } = useSettingsDraft(store);
+  const calibration = useWakeCalibration(calibrationStore);
+  const validation = useWakeProfileValidation(validationStore);
 
   const sharedProps = { draft, focusSection, update };
   const cardState = (section: SettingsSection) => ({
@@ -106,7 +120,10 @@ export function SettingsPage({ focusSection, store }: SettingsPageProps) {
             {...sharedProps}
             {...cardState("activation")}
             advancedWakeOpen={advancedWakeOpen}
+            calibration={calibration}
+            validation={validation}
             wakeWordStatus={wakeWordStatus}
+            onActivateWakeWord={activateWakeWord}
             onTestWakeWord={testWakeWord}
             onToggleAdvancedWake={() => setAdvancedWakeOpen(!advancedWakeOpen)}
           />

@@ -27,6 +27,9 @@ export interface SettingsDraft {
   acceleration: "auto" | "cuda" | "vulkan" | "cpu";
   wakeWordEnabled: boolean;
   wakePhrase: string;
+  wakePhraseOptions: string[];
+  wakePhraseIsSupported: boolean;
+  supportsCustomWakePhrase: boolean;
   wakeSensitivity: number;
   silenceDelay: number;
   processingEnabled: boolean;
@@ -56,6 +59,7 @@ export interface ProcessingPreview {
 export interface SettingsDraftStore {
   load(): Promise<SettingsDraft>;
   save(draft: SettingsDraft): Promise<void>;
+  enableWakeWord?(): Promise<void>;
   testMicrophone?(): Promise<{ peak: number; rms: number }>;
   downloadWhisperModel?(model: string): Promise<void>;
   testLmStudio?(): Promise<string>;
@@ -72,7 +76,10 @@ const initialDraft: SettingsDraft = {
   recognitionModelOptions: ["Whisper Small"],
   acceleration: "auto",
   wakeWordEnabled: true,
-  wakePhrase: "okay fun",
+  wakePhrase: "рамзи",
+  wakePhraseOptions: ["hey fono", "okay fun", "рамзи"],
+  wakePhraseIsSupported: true,
+  supportsCustomWakePhrase: false,
   wakeSensitivity: 72,
   silenceDelay: 2,
   processingEnabled: true,
@@ -142,6 +149,7 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
       (nextDraft) => {
         if (!active) return;
         setDraft(nextDraft);
+        setWakeWordStatus(wakePhraseStatus(nextDraft));
         setEffectiveAcceleration(resolveEffectiveAcceleration(nextDraft.acceleration));
         setWhisperStatus({
           state: "ready",
@@ -162,7 +170,17 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
     key: Key,
     value: SettingsDraft[Key],
   ) => {
-    setDraft((current) => ({ ...current, [key]: value }));
+    setDraft((current) => {
+      const next = { ...current, [key]: value } as SettingsDraft;
+      if (key === "wakePhrase") {
+        next.wakePhraseIsSupported =
+          next.supportsCustomWakePhrase ||
+          next.wakePhraseOptions.some(
+            (phrase) => phrase.toLowerCase() === next.wakePhrase.toLowerCase(),
+          );
+      }
+      return next;
+    });
     setSaveState("idle");
 
     if (key === "acceleration") {
@@ -186,6 +204,7 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
         await store.save(draft);
         const savedDraft = await store.load();
         setDraft(savedDraft);
+        setWakeWordStatus(wakePhraseStatus(savedDraft));
         setEffectiveAcceleration(
           resolveEffectiveAcceleration(savedDraft.acceleration),
         );
@@ -194,8 +213,9 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
           message: `Сохранена ${savedDraft.recognitionModel}.`,
         });
         setSaveState("saved");
-      } catch {
+      } catch (error) {
         setSaveState("error");
+        setWakeWordStatus({ state: "error", message: errorMessage(error) });
       }
       return;
     }
@@ -280,6 +300,14 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
       return;
     }
 
+    if (!draft.wakePhraseIsSupported) {
+      setWakeWordStatus({
+        state: "error",
+        message: unsupportedWakePhraseMessage(draft),
+      });
+      return;
+    }
+
     setWakeWordStatus({
       state: "checking",
       message: "Проверяю ключевую фразу…",
@@ -290,6 +318,34 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
         message: `Фраза «${draft.wakePhrase}» передана в тест wake word.`,
       });
     }, 600);
+  };
+
+  const activateWakeWord = () => {
+    const enableWakeWord = store?.enableWakeWord;
+    if (!enableWakeWord) {
+      setWakeWordStatus({
+        state: "error",
+        message: "Активация wake word доступна в desktop-приложении Fono.",
+      });
+      return;
+    }
+    setWakeWordStatus({
+      state: "checking",
+      message: "Включаю проверенный wake word…",
+    });
+    void (async () => {
+      try {
+        await enableWakeWord();
+        const savedDraft = await store.load();
+        setDraft(savedDraft);
+        setWakeWordStatus({
+          state: "ready",
+          message: "Wake word включён и ожидает «рамзи».",
+        });
+      } catch (error) {
+        setWakeWordStatus({ state: "error", message: errorMessage(error) });
+      }
+    })();
   };
 
   const showOverlayTest = () => {
@@ -341,6 +397,7 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
 
   return {
     advancedWakeOpen,
+    activateWakeWord,
     collapsedSections,
     draft,
     effectiveAcceleration,
@@ -377,4 +434,29 @@ function resolveEffectiveAcceleration(
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Native check failed.";
+}
+
+function wakePhraseStatus(draft: SettingsDraft): SettingsStatusDetail {
+  if (draft.supportsCustomWakePhrase) {
+    return {
+      state: "ready",
+      message: "Whisper Experimental принимает произвольную ключевую фразу.",
+    };
+  }
+
+  if (!draft.wakePhraseIsSupported) {
+    return { state: "error", message: unsupportedWakePhraseMessage(draft) };
+  }
+
+  return {
+    state: "ready",
+    message: `Sherpa-ONNX поддерживает фразу «${draft.wakePhrase}». Доступны только проверенные варианты.`,
+  };
+}
+
+function unsupportedWakePhraseMessage(draft: SettingsDraft) {
+  const options = draft.wakePhraseOptions.join(", ");
+  return options
+    ? `Sherpa-ONNX не поддерживает «${draft.wakePhrase}». Выберите: ${options}.`
+    : `Выбранный backend не поддерживает «${draft.wakePhrase}».`;
 }

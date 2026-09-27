@@ -13,48 +13,56 @@ export function BuildInfoIndicator({
   backendError,
   isNativeRuntime,
 }: BuildInfoIndicatorProps) {
-  const isSynchronized =
+  const versionsDiffer =
+    backend !== null && backend.version !== frontend.version;
+  const revisionsDiffer =
     backend !== null &&
     frontend.revision !== "unknown" &&
     backend.revision !== "unknown" &&
-    frontend.revision === backend.revision;
-  const status = !isNativeRuntime
-    ? "UI mock"
-    : backendError
-      ? "Backend unavailable"
-      : isSynchronized
-        ? "Versions match"
-        : "Versions differ";
+    backend.revision !== frontend.revision;
+  const warning = backendError
+    ? "Не удалось проверить версию ядра"
+    : versionsDiffer
+      ? "Версии интерфейса и ядра различаются"
+      : revisionsDiffer
+        ? "Сборки интерфейса и ядра различаются"
+        : null;
 
   return (
-    <section className="v2-build-info" aria-label="Build versions">
-      <div className="v2-build-info__status">
-        <span
-          className={
-            !isNativeRuntime || backendError || !isSynchronized
-              ? "is-warning"
-              : "is-ready"
-          }
-        />
-        {status}
+    <section className="v2-build-info" aria-label="Версия приложения">
+      <div className="v2-build-info__version">
+        <span>Fono</span>
+        <strong>v{frontend.version}</strong>
       </div>
-      <div className="v2-build-info__row" title={`Frontend ${frontend.revision}`}>
-        <span>FE</span>
-        <code>v{frontend.version}+{frontend.revision}</code>
-      </div>
-      <div
-        className="v2-build-info__row"
-        title={backend ? `Backend ${backend.revision}` : undefined}
-      >
-        <span>BE</span>
-        <code>
-          {backend
-            ? `v${backend.version}+${backend.revision} (${backend.profile})`
-            : isNativeRuntime
-              ? "loading…"
-              : "not running"}
-        </code>
-      </div>
+      {warning && (
+        <p className="v2-build-info__warning" role="status">
+          {warning}
+        </p>
+      )}
+      <details className="v2-build-info__details">
+        <summary>Сведения о сборке</summary>
+        <div
+          className="v2-build-info__row"
+          title={`Frontend ${frontend.revision}`}
+        >
+          <span>Интерфейс</span>
+          <code>
+            v{frontend.version} · {frontend.revision}
+          </code>
+        </div>
+        <div className="v2-build-info__row" title={backend?.revision}>
+          <span>Ядро</span>
+          <code>
+            {backend
+              ? `v${backend.version} · ${backend.revision} (${backend.profile})`
+              : isNativeRuntime
+                ? backendError
+                  ? "недоступно"
+                  : "загрузка…"
+                : "UI mock"}
+          </code>
+        </div>
+      </details>
     </section>
   );
 }

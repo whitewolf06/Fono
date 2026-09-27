@@ -90,6 +90,8 @@ export interface Settings {
   wake_word_threshold: number;
   /** Чувствительность / boosting score wake word */
   wake_word_sensitivity: number;
+  /** Local aggregate-only wake-word calibration, if one has completed. */
+  wake_calibration_profile?: WakeCalibrationProfile | null;
   /** Режим AI-постобработки */
   ai_mode: AiMode;
   /** URL локального LLM-сервера (LM Studio) */
@@ -131,6 +133,8 @@ export interface Settings {
   history_enabled: boolean;
   /** Явное согласие на локальное хранение исходного текста для аналитики речи. */
   analytics_enabled: boolean;
+  /** Приостанавливает сбор и анализ новых сессий тренера, не затрагивая уже сохранённые данные. */
+  speech_trainer_enabled: boolean;
   /** Срок хранения исходного текста и метаданных аналитики. */
   analytics_retention_days: number;
   /** Модель whisper для wake word */
@@ -197,6 +201,82 @@ export interface WakeWordRecognitionReport {
   processing_ms: number;
 }
 
+/** Aggregate-only result of a completed local wake-word calibration. */
+export interface WakeCalibrationProfile {
+  backend: WakeWordBackend;
+  model_version: string;
+  phrase: string;
+  graph: string;
+  threshold: number;
+  sensitivity: number;
+  vad_threshold: number;
+  completed_at: string;
+  accepted_samples: number;
+  rejected_samples: number;
+  average_rms: number;
+  average_peak: number;
+  average_active_ms: number;
+  validation?: WakeCalibrationValidation | null;
+}
+
+/** Aggregate outcome of fresh post-registration Sherpa checks. */
+export interface WakeCalibrationValidation {
+  completed_at: string;
+  positive_passed: number;
+  positive_required: number;
+  negative_passed: number;
+  negative_required: number;
+  confirmed_threshold: number;
+}
+
+export type WakeCalibrationRejection = "silence" | "clipping" | "too_short";
+
+export interface WakeCalibrationSampleResult {
+  accepted: boolean;
+  reason: WakeCalibrationRejection | null;
+  rms: number;
+  peak: number;
+  active_ms: number;
+}
+
+export interface WakeCalibrationStatus {
+  active: boolean;
+  recording: boolean;
+  required_samples: number;
+  accepted_samples: number;
+  rejected_samples: number;
+  phrase: string;
+  latest_result: WakeCalibrationSampleResult | null;
+  profile: WakeCalibrationProfile | null;
+}
+
+export type WakeProfileValidationKind = "positive" | "silence" | "other_phrase";
+export type WakeProfileValidationInputIssue =
+  | "silence"
+  | "unexpected_speech"
+  | "clipping"
+  | "too_short";
+
+export interface WakeProfileValidationSampleResult {
+  kind: WakeProfileValidationKind;
+  detected: boolean;
+  accepted: boolean;
+  input_issue: WakeProfileValidationInputIssue | null;
+}
+
+export interface WakeProfileValidationStatus {
+  active: boolean;
+  recording: boolean;
+  failed: boolean;
+  completed: boolean;
+  positive_passed: number;
+  positive_required: number;
+  silence_passed: boolean;
+  other_phrase_passed: boolean;
+  negative_required: number;
+  latest_result: WakeProfileValidationSampleResult | null;
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   audio_device_id: null,
   whisper_model_path: null,
@@ -207,6 +287,7 @@ export const DEFAULT_SETTINGS: Settings = {
   wake_backend: "sherpa_onnx",
   wake_word_threshold: 0.25,
   wake_word_sensitivity: 0.5,
+  wake_calibration_profile: null,
   ai_mode: "clean",
   llm_base_url: "http://localhost:1234/v1",
   llm_model: null,
@@ -247,6 +328,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   history_enabled: true,
   analytics_enabled: false,
+  speech_trainer_enabled: true,
   analytics_retention_days: 30,
   wake_word_model: "base",
   wake_word_vad_threshold: 0.015,

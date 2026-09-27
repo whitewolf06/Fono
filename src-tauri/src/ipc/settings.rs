@@ -44,6 +44,9 @@ pub async fn save_settings(
     let old_settings = state.settings();
     normalize_llm_profiles(&mut settings, &old_settings);
     validate_settings(&settings)?;
+    if settings.wake_word_enabled {
+        crate::application::wake_validation::ensure_profile_can_activate(&settings)?;
+    }
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
         || old_settings.command_hotkey != settings.command_hotkey;
     let wake_settings_changed = old_settings.wake_word != settings.wake_word
@@ -439,6 +442,17 @@ mod tests {
         };
 
         assert!(validate_settings(&settings).is_err());
+    }
+
+    #[test]
+    fn settings_validation_accepts_ramzi_sherpa_phrase() {
+        let settings = Settings {
+            wake_backend: crate::types::WakeWordBackend::SherpaOnnx,
+            wake_word: "рамзи".into(),
+            ..Settings::default()
+        };
+
+        assert!(validate_settings(&settings).is_ok());
     }
 
     #[test]

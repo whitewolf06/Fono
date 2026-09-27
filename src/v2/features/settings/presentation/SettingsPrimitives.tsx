@@ -92,28 +92,6 @@ export function SettingRow({
   );
 }
 
-export function Switch({
-  checked,
-  onChange,
-  disabled = false,
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      className={`v2-switch ${checked ? "is-on" : ""}`}
-      type="button"
-      disabled={disabled}
-      aria-pressed={checked}
-      onClick={() => onChange(!checked)}
-    >
-      <i />
-    </button>
-  );
-}
-
 export function RangeField({
   label,
   value,

@@ -382,6 +382,10 @@ pub struct Settings {
     pub wake_word_threshold: f32,
     #[serde(default = "default_wake_word_sensitivity")]
     pub wake_word_sensitivity: f32,
+    /// The completed local calibration profile. It contains aggregate signal
+    /// metrics only; raw microphone samples never leave the calibration flow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wake_calibration_profile: Option<WakeCalibrationProfile>,
     #[serde(default = "default_ai_mode")]
     pub ai_mode: AiMode,
     #[serde(default = "default_llm_url")]
@@ -437,6 +441,10 @@ pub struct Settings {
     /// metadata locally for future speech analytics. Disabled by default.
     #[serde(default)]
     pub analytics_enabled: bool,
+    /// Pauses collection and analysis of new speech trainer sessions without
+    /// deleting locally retained data. Defaults to enabled for existing users.
+    #[serde(default = "default_speech_trainer_enabled")]
+    pub speech_trainer_enabled: bool,
     /// How long locally stored analytics payload may remain attached to a
     /// history entry. The final inserted text keeps the normal history policy.
     #[serde(default = "default_analytics_retention_days")]
@@ -453,6 +461,42 @@ pub struct Settings {
     pub wake_dictation_speech_threshold: f32,
     #[serde(default = "default_volume_step")]
     pub volume_step: u32,
+}
+
+/// Persisted result of a completed local wake-word calibration. This is
+/// descriptive metadata for FONO-45 to validate and activate later; FONO-44
+/// deliberately does not alter the current wake threshold automatically.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WakeCalibrationProfile {
+    pub backend: WakeWordBackend,
+    pub model_version: String,
+    pub phrase: String,
+    pub graph: String,
+    pub threshold: f32,
+    pub sensitivity: f32,
+    pub vad_threshold: f32,
+    pub completed_at: chrono::DateTime<chrono::Utc>,
+    pub accepted_samples: u8,
+    pub rejected_samples: u8,
+    pub average_rms: f32,
+    pub average_peak: f32,
+    pub average_active_ms: u64,
+    /// Present only after a separate, fresh validation session succeeds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation: Option<WakeCalibrationValidation>,
+}
+
+/// Aggregate outcome of the post-registration validation. It deliberately
+/// contains counts, not recordings, transcripts, keywords, or a made-up
+/// accuracy percentage.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WakeCalibrationValidation {
+    pub completed_at: chrono::DateTime<chrono::Utc>,
+    pub positive_passed: u8,
+    pub positive_required: u8,
+    pub negative_passed: u8,
+    pub negative_required: u8,
+    pub confirmed_threshold: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -507,6 +551,7 @@ impl Default for Settings {
             wake_backend: default_wake_backend(),
             wake_word_threshold: default_wake_word_threshold(),
             wake_word_sensitivity: default_wake_word_sensitivity(),
+            wake_calibration_profile: None,
             ai_mode: default_ai_mode(),
             llm_base_url: default_llm_url(),
             llm_model: None,
@@ -540,6 +585,7 @@ impl Default for Settings {
             speech_analysis_llm: SpeechLlmAssignment::default(),
             history_enabled: default_history_enabled(),
             analytics_enabled: false,
+            speech_trainer_enabled: default_speech_trainer_enabled(),
             analytics_retention_days: default_analytics_retention_days(),
             wake_word_model: default_wake_word_model(),
             wake_word_vad_threshold: default_wake_word_vad_threshold(),
@@ -577,11 +623,31 @@ impl Settings {
     }
 }
 
+#[cfg(test)]
+mod wake_calibration_settings_tests {
+    use super::Settings;
+
+    #[test]
+    fn legacy_settings_without_calibration_profile_remain_compatible() {
+        let settings: Settings = serde_json::from_value(serde_json::json!({
+            "wake_word": "рамзи",
+            "wake_backend": "sherpa_onnx"
+        }))
+        .expect("legacy settings deserialize");
+
+        assert!(settings.wake_calibration_profile.is_none());
+    }
+}
+
 fn default_use_gpu() -> bool {
     cfg!(any(feature = "cuda", feature = "vulkan"))
 }
 
 fn default_history_enabled() -> bool {
+    true
+}
+
+fn default_speech_trainer_enabled() -> bool {
     true
 }
 
@@ -816,6 +882,7 @@ mod dictation_history_tests {
             serde_json::from_value(serde_json::json!({})).expect("legacy settings deserialize");
 
         assert!(!settings.analytics_enabled);
+        assert!(settings.speech_trainer_enabled);
         assert_eq!(settings.analytics_retention_days, 30);
     }
 

@@ -15,6 +15,7 @@ export function createTauriSettingsDraftStore(): SettingsDraftStore {
   return {
     load: loadDraft,
     save: saveDraft,
+    enableWakeWord: () => ipc.enableWakeWord(),
     testMicrophone: async () => ipc.testMicrophone(2000),
     downloadWhisperModel: downloadWhisperModel,
     testLmStudio: () => ipc.testLlmConnection(),
@@ -22,10 +23,11 @@ export function createTauriSettingsDraftStore(): SettingsDraftStore {
 }
 
 async function loadDraft(): Promise<SettingsDraft> {
-  const [settings, devices, models] = await Promise.all([
+  const [settings, devices, models, wakeCapabilities] = await Promise.all([
     ipc.getSettings(),
     ipc.listAudioDevices(),
     ipc.listWhisperModels(),
+    ipc.getWakeWordCapabilities(),
   ]);
   const recognitionModel = recognitionModelLabel(settings.whisper_model_path);
   const recognitionModelOptions = models.map((model) =>
@@ -35,6 +37,15 @@ async function loadDraft(): Promise<SettingsDraft> {
   if (!recognitionModelOptions.includes(recognitionModel)) {
     recognitionModelOptions.unshift(recognitionModel);
   }
+
+  const supportsCustomWakePhrase =
+    wakeCapabilities.backend === "whisper_experimental" &&
+    wakeCapabilities.supports_custom_phrase;
+  const wakePhraseIsSupported =
+    supportsCustomWakePhrase ||
+    wakeCapabilities.supported_phrases.some(
+      (phrase) => phrase.toLowerCase() === settings.wake_word.toLowerCase(),
+    );
 
   return {
     language: settings.language,
@@ -51,6 +62,9 @@ async function loadDraft(): Promise<SettingsDraft> {
     acceleration: settings.acceleration,
     wakeWordEnabled: settings.wake_word_enabled,
     wakePhrase: settings.wake_word,
+    wakePhraseOptions: wakeCapabilities.supported_phrases,
+    wakePhraseIsSupported,
+    supportsCustomWakePhrase,
     wakeSensitivity: Math.round(settings.wake_word_sensitivity * 100),
     silenceDelay: settings.wake_dictation_silence_ms / 1000,
     processingEnabled: settings.ai_mode !== "off",
@@ -67,10 +81,20 @@ async function loadDraft(): Promise<SettingsDraft> {
 }
 
 async function saveDraft(draft: SettingsDraft): Promise<void> {
-  const [settings, devices] = await Promise.all([
+  const [currentSettings, devices] = await Promise.all([
     ipc.getSettings(),
     ipc.listAudioDevices(),
   ]);
+  // A personal phrase must be configured and validated while the live
+  // listener is off. Stop it before saving the new phrase so Rust validates
+  // the pending settings as disabled rather than rejecting the transition.
+  if (currentSettings.wake_word_enabled && !draft.wakeWordEnabled) {
+    await ipc.disableWakeWord();
+  }
+  const settings = {
+    ...currentSettings,
+    wake_word_enabled: currentSettings.wake_word_enabled && draft.wakeWordEnabled,
+  };
   const whisperModelPath = await resolveModelPath(
     draft.recognitionModel,
     settings.whisper_model_path,
@@ -99,9 +123,8 @@ async function saveDraft(draft: SettingsDraft): Promise<void> {
 
   await ipc.saveSettings(nextSettings);
 
-  if (draft.wakeWordEnabled !== settings.wake_word_enabled) {
-    if (draft.wakeWordEnabled) await ipc.enableWakeWord();
-    else await ipc.disableWakeWord();
+  if (draft.wakeWordEnabled && !currentSettings.wake_word_enabled) {
+    await ipc.enableWakeWord();
   }
 }
 

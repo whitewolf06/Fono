@@ -66,6 +66,7 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
     let wake_handle = app.state::<fono_wake::WakeWordHandle>();
     let settings = state.settings();
+    crate::application::wake_validation::ensure_profile_can_activate(&settings)?;
     let app_clone = app.clone();
     wake_handle.set_callback(move |event| match event {
         fono_wake::WakeWordEvent::Detected { phrase, pre_roll } => {
@@ -160,4 +161,54 @@ pub async fn recognize_wake_word_sample(
     app: AppHandle,
 ) -> AppResult<crate::application::wake::WakeWordRecognitionReport> {
     crate::application::wake::recognize_sample(app).await
+}
+
+#[tauri::command]
+pub fn get_wake_calibration_status(
+    app: AppHandle,
+) -> crate::application::wake_calibration::WakeCalibrationStatus {
+    crate::application::wake_calibration::status(&app)
+}
+
+#[tauri::command]
+pub fn start_wake_calibration(
+    app: AppHandle,
+) -> AppResult<crate::application::wake_calibration::WakeCalibrationStatus> {
+    crate::application::wake_calibration::start(&app)
+}
+
+#[tauri::command]
+pub async fn record_wake_calibration_sample(
+    app: AppHandle,
+) -> AppResult<crate::application::wake_calibration::WakeCalibrationStatus> {
+    crate::application::wake_calibration::record_next(app).await
+}
+
+#[tauri::command]
+pub fn cancel_wake_calibration(
+    app: AppHandle,
+) -> AppResult<crate::application::wake_calibration::WakeCalibrationStatus> {
+    crate::application::wake_calibration::cancel(&app)
+}
+
+#[tauri::command]
+pub fn get_wake_profile_validation_status(
+    app: AppHandle,
+) -> crate::application::wake_validation::WakeProfileValidationStatus {
+    crate::application::wake_validation::status(&app)
+}
+
+#[tauri::command]
+pub fn start_wake_profile_validation(
+    app: AppHandle,
+) -> AppResult<crate::application::wake_validation::WakeProfileValidationStatus> {
+    crate::application::wake_validation::start(&app)
+}
+
+#[tauri::command]
+pub async fn record_wake_profile_validation_sample(
+    app: AppHandle,
+    kind: crate::application::wake_validation::WakeProfileValidationKind,
+) -> AppResult<crate::application::wake_validation::WakeProfileValidationStatus> {
+    crate::application::wake_validation::record(app, kind).await
 }

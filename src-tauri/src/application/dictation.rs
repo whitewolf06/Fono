@@ -6,6 +6,9 @@
 
 use tauri::{AppHandle, Manager};
 
+use crate::application::dictation_tail_diagnostics::{
+    DictationStopReason, DictationTailDiagnostic,
+};
 use crate::error::{AppError, AppResult};
 use crate::llm::LlmClient;
 use crate::operation::{OperationCancellation, OperationSource, TerminalReason};
@@ -13,7 +16,7 @@ use crate::pipeline::{self, Pipeline};
 use crate::state::AppState;
 use crate::types::{
     AiMode, DictationAnalysisStatus, DictationHistoryEntry, DictationProcessingMetadata,
-    PipelineState, Transcript,
+    PipelineState, Settings, Transcript,
 };
 
 fn set_pipeline_idle(app: &AppHandle, state: &AppState) {
@@ -39,6 +42,10 @@ fn empty_transcript() -> Transcript {
         audio_secs: None,
         device: None,
     }
+}
+
+fn speech_trainer_collection_enabled(settings: &Settings) -> bool {
+    settings.analytics_enabled && settings.speech_trainer_enabled
 }
 
 /// A cancel cannot synchronously stop CPU Whisper or an HTTP request.  Instead,
@@ -135,6 +142,12 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
     let operation = pipeline.operation_id();
+    let source = pipeline
+        .current_operation()
+        .map(|snapshot| snapshot.source)
+        .unwrap_or(OperationSource::Ui);
+    let mut tail_diagnostic =
+        DictationTailDiagnostic::new(operation, source, DictationStopReason::Manual);
     let cancellation = pipeline
         .cancellation(operation)
         .ok_or_else(|| AppError::Internal("active dictation has no cancellation signal".into()))?;
@@ -143,6 +156,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
     let samples = match pipeline.stop_recording() {
         Ok(s) => s,
         Err(e) => {
+            tail_diagnostic.emit();
             emit_pipeline_error(&app, &e.to_string());
             tracing::error!("stop_dictation: stop_recording FAILED: {e}");
             let _ = set_pipeline_state_for_operation(
@@ -156,6 +170,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
             return Err(e);
         }
     };
+    tail_diagnostic.record_capture(samples.len());
     if pipeline.recording_limit_reached() {
         emit_pipeline_error(
             &app,
@@ -166,9 +181,12 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         );
     }
     if !operation_still_active(&pipeline, operation, "stop_dictation after recording") {
+        tail_diagnostic.stt_cancelled();
+        tail_diagnostic.emit();
         return Ok(empty_transcript());
     }
     if samples.is_empty() {
+        tail_diagnostic.emit();
         let _ = set_pipeline_state_for_operation(
             &app,
             state.inner(),
@@ -180,10 +198,20 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         return Ok(empty_transcript());
     }
 
-    // VAD: обрезаем тишину в начале/конце — whisper получит меньше аудио,
-    // значит отработает быстрее (ускорение 1.5-2x на типичной записи).
-    let samples = crate::vad::trim_silence(&samples);
+    // Offline VAD removes only leading silence here. Unlike a full trim, it
+    // preserves every captured sample after speech starts, so a quiet final
+    // word cannot be cut when the user releases the global hotkey.
+    let captured_samples = samples.len();
+    let (samples, vad) = crate::vad::trim_leading_silence_with_result(&samples);
+    let retained_trailing_samples = captured_samples.saturating_sub(vad.speech_end_sample);
+    tail_diagnostic.record_vad(
+        captured_samples,
+        samples.len(),
+        &vad,
+        retained_trailing_samples,
+    );
     if samples.is_empty() {
+        tail_diagnostic.emit();
         tracing::info!("VAD: речь не обнаружена вообще — пропускаем транскрипцию");
         let _ = set_pipeline_state_for_operation(
             &app,
@@ -204,6 +232,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         PipelineState::Transcribing,
         TerminalReason::Completed,
     ) {
+        tail_diagnostic.stt_cancelled();
         return Ok(empty_transcript());
     }
     if let Some(path) = settings.whisper_model_path.as_deref() {
@@ -219,15 +248,24 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
             _ = wait_for_cancellation(cancellation.clone()) => None,
         };
         let Some(load_result) = load_result else {
+            tail_diagnostic.stt_cancelled();
+            tail_diagnostic.emit();
             tracing::info!(
                 operation,
                 "model load detached after dictation cancellation"
             );
             return Ok(empty_transcript());
         };
-        let load_result =
-            load_result.map_err(|error| AppError::Internal(format!("model load join: {error}")))?;
+        let load_result = match load_result {
+            Ok(result) => result,
+            Err(error) => {
+                tail_diagnostic.stt_failed();
+                return Err(AppError::Internal(format!("model load join: {error}")));
+            }
+        };
         if let Err(error) = load_result {
+            tail_diagnostic.stt_failed();
+            tail_diagnostic.emit();
             emit_pipeline_error(&app, &error.to_string());
             let _ = set_pipeline_state_for_operation(
                 &app,
@@ -240,6 +278,8 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
             return Err(error);
         }
     } else {
+        tail_diagnostic.stt_failed();
+        tail_diagnostic.emit();
         let error_msg =
             "Whisper model is not selected. Download and choose a model in settings.".to_string();
         emit_pipeline_error(&app, &error_msg);
@@ -254,6 +294,8 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         return Err(AppError::Stt(error_msg));
     }
     if !operation_still_active(&pipeline, operation, "stop_dictation after model load") {
+        tail_diagnostic.stt_cancelled();
+        tail_diagnostic.emit();
         return Ok(empty_transcript());
     }
 
@@ -270,11 +312,15 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         _ = wait_for_cancellation(cancellation.clone()) => None,
     };
     let Some(transcript_result) = transcript_result else {
+        tail_diagnostic.stt_cancelled();
+        tail_diagnostic.emit();
         tracing::info!(operation, "STT wait interrupted by dictation cancellation");
         return Ok(empty_transcript());
     };
     let transcript = transcript_result
         .map_err(|e| {
+            tail_diagnostic.stt_failed();
+            tail_diagnostic.emit();
             crate::events::emit_error(
                 &app_for_err,
                 crate::events::ErrorCodeV1::Stt,
@@ -292,6 +338,8 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
             AppError::Internal(format!("transcribe join: {e}"))
         })?
         .map_err(|e| {
+            tail_diagnostic.stt_failed();
+            tail_diagnostic.emit();
             crate::events::emit_error(
                 &app,
                 crate::events::ErrorCodeV1::Stt,
@@ -308,8 +356,10 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
             );
             e
         })?;
+    tail_diagnostic.stt_succeeded(!transcript.text.trim().is_empty());
 
     if !operation_still_active(&pipeline, operation, "stop_dictation after transcription") {
+        tail_diagnostic.emit();
         return Ok(empty_transcript());
     }
 
@@ -320,7 +370,10 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
 
     // Опциональная AI-обработка.
     let final_text = match settings.ai_mode {
-        AiMode::Off => transcript.text.clone(),
+        AiMode::Off => {
+            tail_diagnostic.postprocessor_skipped();
+            transcript.text.clone()
+        }
         mode => {
             if !set_pipeline_state_for_operation(
                 &app,
@@ -330,6 +383,8 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 PipelineState::Processing,
                 TerminalReason::Completed,
             ) {
+                tail_diagnostic.postprocessor_cancelled();
+                tail_diagnostic.emit();
                 return Ok(empty_transcript());
             }
             let client = LlmClient::from_settings(&settings);
@@ -339,6 +394,8 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 _ = wait_for_cancellation(cancellation.clone()) => None,
             };
             let Some(result) = result else {
+                tail_diagnostic.postprocessor_cancelled();
+                tail_diagnostic.emit();
                 tracing::info!(
                     operation,
                     "LLM request interrupted by dictation cancellation"
@@ -346,8 +403,12 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 return Ok(empty_transcript());
             };
             match result {
-                Ok(t) => t,
+                Ok(t) => {
+                    tail_diagnostic.postprocessor_succeeded(t != transcript.text);
+                    t
+                }
                 Err(e) => {
+                    tail_diagnostic.postprocessor_fallback();
                     tracing::warn!("LLM failed ({e}) — returning raw transcript");
                     crate::events::emit_error(
                         &app,
@@ -362,6 +423,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
     };
 
     if !operation_still_active(&pipeline, operation, "stop_dictation before injection") {
+        tail_diagnostic.emit();
         return Ok(empty_transcript());
     }
 
@@ -379,6 +441,7 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         PipelineState::Injecting,
         TerminalReason::Completed,
     ) {
+        tail_diagnostic.emit();
         return Ok(empty_transcript());
     }
     if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
@@ -404,7 +467,8 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
 
     if !final_text.trim().is_empty() && settings.history_enabled {
         let history_id = crate::history::next_id();
-        let analytics_payload = settings.analytics_enabled.then(|| {
+        let trainer_collection_enabled = speech_trainer_collection_enabled(&settings);
+        let analytics_payload = trainer_collection_enabled.then(|| {
             (
                 transcript.text.clone(),
                 DictationProcessingMetadata {
@@ -421,17 +485,17 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 text: final_text.clone(),
                 created_at: chrono::Utc::now(),
                 device: transcript.device.clone(),
-                analytics_included: true,
+                analytics_included: trainer_collection_enabled,
                 original_text: analytics_payload.as_ref().map(|(text, _)| text.clone()),
                 processing: analytics_payload.map(|(_, processing)| processing),
-                analysis_status: if settings.analytics_enabled {
+                analysis_status: if trainer_collection_enabled {
                     DictationAnalysisStatus::Pending
                 } else {
                     DictationAnalysisStatus::Disabled
                 },
                 analysis: None,
                 analysis_error: None,
-                recommendation_status: if settings.analytics_enabled
+                recommendation_status: if trainer_collection_enabled
                     && settings.speech_analysis_llm.enabled
                 {
                     DictationAnalysisStatus::Pending
@@ -451,11 +515,13 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
                 format!("Не удалось сохранить историю диктовки: {error}"),
                 Some(operation),
             );
-        } else if settings.analytics_enabled {
+        } else if trainer_collection_enabled {
             app.state::<crate::application::speech_analysis_queue::SpeechAnalysisQueue>()
                 .enqueue(history_id);
         }
     }
+
+    tail_diagnostic.emit();
 
     Ok(Transcript {
         text: final_text,
@@ -464,6 +530,24 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         audio_secs: transcript.audio_secs,
         device: transcript.device,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::speech_trainer_collection_enabled;
+    use crate::types::Settings;
+
+    #[test]
+    fn speech_trainer_collection_requires_consent_and_the_trainer_switch() {
+        let mut settings = Settings::default();
+        assert!(!speech_trainer_collection_enabled(&settings));
+
+        settings.analytics_enabled = true;
+        assert!(speech_trainer_collection_enabled(&settings));
+
+        settings.speech_trainer_enabled = false;
+        assert!(!speech_trainer_collection_enabled(&settings));
+    }
 }
 
 /// Тестовая команда: записать `duration_ms` миллисекунд и распознать.

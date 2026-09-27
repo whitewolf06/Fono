@@ -47,7 +47,10 @@ pub fn capabilities_for_backend(backend: WakeWordBackend) -> WakeWordCapabilitie
         WakeWordBackend::SherpaOnnx => WakeWordCapabilities {
             backend,
             supports_custom_phrase: false,
-            supported_phrases: vec!["hey fono".into(), "okay fun".into()],
+            supported_phrases: crate::phrases::SHERPA_SUPPORTED_PHRASES
+                .iter()
+                .map(|phrase| (*phrase).to_string())
+                .collect(),
             includes_pre_roll: false,
         },
         WakeWordBackend::Mock => WakeWordCapabilities {
@@ -103,7 +106,10 @@ mod tests {
     fn sherpa_advertises_only_bundled_phrases() {
         let capabilities = capabilities_for_backend(WakeWordBackend::SherpaOnnx);
         assert!(!capabilities.supports_custom_phrase);
-        assert_eq!(capabilities.supported_phrases, ["hey fono", "okay fun"]);
+        assert_eq!(
+            capabilities.supported_phrases,
+            ["hey fono", "okay fun", "рамзи"]
+        );
         assert!(!capabilities.includes_pre_roll);
     }
 

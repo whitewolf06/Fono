@@ -70,7 +70,7 @@ fn process_session(app: &AppHandle, session_id: &str) {
 fn generate_llm_recommendation(app: &AppHandle, session_id: &str, original_text: &str) {
     let settings = app.state::<crate::state::AppState>().settings();
     let assignment = &settings.speech_analysis_llm;
-    if !settings.analytics_enabled || !assignment.enabled {
+    if !settings.analytics_enabled || !settings.speech_trainer_enabled || !assignment.enabled {
         return;
     }
     let Some(profile) = settings.speech_analysis_profile() else {

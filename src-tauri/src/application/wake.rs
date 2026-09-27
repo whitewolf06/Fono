@@ -35,9 +35,29 @@ pub struct WakeWordRecognitionReport {
     pub processing_ms: u64,
 }
 
+/// PCM captured by the shared diagnostic recorder. Callers must consume or
+/// drop `samples` within their use case; calibration never writes it to the
+/// legacy diagnostic buffer.
+pub(crate) struct RecordedWakeSample {
+    pub samples: Vec<i16>,
+    pub report: WakeWordSampleReport,
+}
+
 /// Records a user-controlled wake-word sample through the shared audio owner.
 /// The live detector is paused so the phrase cannot trigger a real command.
 pub async fn record_sample(app: AppHandle, duration_ms: u64) -> AppResult<WakeWordSampleReport> {
+    let recorded = record_transient_sample(app, duration_ms).await?;
+    *TEST_AUDIO.lock() = recorded.samples;
+    Ok(recorded.report)
+}
+
+/// Records a sample without retaining it in the legacy diagnostic buffer.
+/// The caller owns the returned audio and is responsible for dropping it after
+/// its immediate operation finishes.
+pub(crate) async fn record_transient_sample(
+    app: AppHandle,
+    duration_ms: u64,
+) -> AppResult<RecordedWakeSample> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let wake_handle = app.state::<fono_wake::WakeWordHandle>();
@@ -67,12 +87,14 @@ pub async fn record_sample(app: AppHandle, duration_ms: u64) -> AppResult<WakeWo
     }
 
     let (rms, peak) = normalized_levels(&samples);
-    *TEST_AUDIO.lock() = samples.clone();
-    Ok(WakeWordSampleReport {
-        samples: samples.len(),
-        duration_ms: samples.len() as u64 * 1_000 / 16_000,
-        rms,
-        peak,
+    Ok(RecordedWakeSample {
+        report: WakeWordSampleReport {
+            samples: samples.len(),
+            duration_ms: samples.len() as u64 * 1_000 / 16_000,
+            rms,
+            peak,
+        },
+        samples,
     })
 }
 
@@ -82,6 +104,16 @@ pub async fn recognize_sample(app: AppHandle) -> AppResult<WakeWordRecognitionRe
     if samples.is_empty() {
         return Err(AppError::Audio("сначала запишите тестовую фразу".into()));
     }
+    recognize_transient_samples(&app, samples).await
+}
+
+/// Runs an immediately-owned sample through the selected wake backend without
+/// retaining it in the diagnostic buffer. The calibration and validation flows
+/// use this path so their audio exists only for the active command.
+pub(crate) async fn recognize_transient_samples(
+    app: &AppHandle,
+    samples: Vec<i16>,
+) -> AppResult<WakeWordRecognitionReport> {
     let settings = app.state::<AppState>().settings();
     let config = crate::settings_to_wake_config(&settings)?;
     let backend = match settings.wake_backend {
@@ -130,7 +162,7 @@ pub async fn recognize_sample(app: AppHandle) -> AppResult<WakeWordRecognitionRe
     })
 }
 
-fn normalized_levels(samples: &[i16]) -> (f32, f32) {
+pub(crate) fn normalized_levels(samples: &[i16]) -> (f32, f32) {
     let mut sum = 0.0_f64;
     let mut peak = 0.0_f32;
     for &sample in samples {

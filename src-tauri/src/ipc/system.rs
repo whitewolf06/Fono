@@ -54,7 +54,11 @@ pub fn set_dictation_history_entry_analytics_included(
     }
 
     let settings = state.settings();
-    if included && settings.analytics_enabled && settings.history_enabled {
+    if included
+        && settings.analytics_enabled
+        && settings.speech_trainer_enabled
+        && settings.history_enabled
+    {
         queue.enqueue(id.clone());
     }
     let _ = app.emit("speech-analysis-changed", id);

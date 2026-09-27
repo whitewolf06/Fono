@@ -17,6 +17,7 @@ use crate::diag::{self, Diagnostics, DiagnosticsHandle};
 use crate::engine::WakeWordEngine;
 use crate::error::{WakeWordError, WakeWordResult};
 use crate::event::{capabilities_for_backend, WakeWordCapabilities, WakeWordEvent, WakeWordStatus};
+use crate::phrases::sherpa_phrase_to_tokens;
 use crate::WakeCallback;
 
 /// Fixed keyword model layout used by Fono.
@@ -231,7 +232,7 @@ fn run_spotter(
     spotter_config.model_config.provider = Some("cpu".into());
     spotter_config.keywords_threshold = config.threshold.clamp(0.0, 1.0);
     spotter_config.keywords_score = map_sensitivity(config.sensitivity);
-    let keywords = phrase_to_tokens(&config.phrase)?;
+    let keywords = sherpa_phrase_to_tokens(&config.phrase)?;
     tracing::info!(
         phrase = %config.phrase,
         keywords = %keywords.trim_end(),
@@ -380,46 +381,6 @@ pub(crate) fn map_sensitivity(s: f32) -> f32 {
     0.5 + s * 3.5
 }
 
-pub(crate) fn phrase_to_tokens(phrase: &str) -> WakeWordResult<String> {
-    let normalized = phrase.trim().to_ascii_uppercase();
-
-    // For the default English GigaSpeech KWS model the wake phrase is
-    // tokenized with the included BPE model. "Fono" is a product name that
-    // the acoustic model can interpret as FONO, PHONO, PHONE-O, or FUNO, so
-    // keep those pronunciations in one keyword graph. Any matched variant is
-    // still reported to the application as the configured wake phrase.
-    if normalized.is_empty() || normalized == "HEY FONO" {
-        return Ok([
-            "▁HE Y ▁F ON O",
-            "▁HE Y ▁PH ON O",
-            "▁HE Y ▁PH ONE ▁O",
-            "▁HE Y ▁F UN O",
-            // The Russian-accented pronunciation captured from the actual
-            // microphone is consistently decoded acoustically as "SHE PHONO".
-            "▁SHE ▁PH ON O",
-            "▁SHE ▁F ON O",
-            // Detecting the distinctive product-name tail makes a single
-            // spoken "hey fono" sufficient even when HEY is heard as SHE.
-            "▁PH ON O",
-            "▁F ON O",
-        ]
-        .join("\n")
-            + "\n");
-    }
-
-    // The GigaSpeech BPE vocabulary contains OKAY as a complete word piece
-    // and FUN as `▁F UN`. Splitting either word character-by-character makes
-    // the keyword graph impossible to reach, so the commonly used Fono phrase
-    // must be represented with its actual model tokens.
-    if normalized == "OKAY FUN" {
-        return Ok("▁OKAY ▁F UN\n".into());
-    }
-
-    Err(WakeWordError::Backend(format!(
-        "Sherpa-ONNX supports only the bundled phrases: hey fono, okay fun (requested: {phrase})"
-    )))
-}
-
 fn event_name(event: &WakeWordEvent) -> &'static str {
     match event {
         WakeWordEvent::Listening => "Listening",
@@ -440,34 +401,7 @@ fn notify(callback: &CallbackSlot, event: WakeWordEvent, diag: Option<&Diagnosti
 
 #[cfg(test)]
 mod tests {
-    use super::{map_sensitivity, phrase_to_tokens};
-
-    #[test]
-    fn default_phrase_uses_model_bpe_pronunciation_variants() {
-        let expected = concat!(
-            "▁HE Y ▁F ON O\n",
-            "▁HE Y ▁PH ON O\n",
-            "▁HE Y ▁PH ONE ▁O\n",
-            "▁HE Y ▁F UN O\n",
-            "▁SHE ▁PH ON O\n",
-            "▁SHE ▁F ON O\n",
-            "▁PH ON O\n",
-            "▁F ON O\n",
-        );
-        assert_eq!(phrase_to_tokens("hey fono").unwrap(), expected);
-        assert_eq!(phrase_to_tokens("  HEY FONO  ").unwrap(), expected);
-    }
-
-    #[test]
-    fn okay_fun_uses_the_model_bpe_tokens() {
-        assert_eq!(phrase_to_tokens("okay fun").unwrap(), "▁OKAY ▁F UN\n");
-    }
-
-    #[test]
-    fn unsupported_phrase_is_rejected_instead_of_using_naive_tokens() {
-        let error = phrase_to_tokens("привет фоно").unwrap_err();
-        assert!(error.to_string().contains("supports only"));
-    }
+    use super::map_sensitivity;
 
     #[test]
     fn sensitivity_is_clamped_before_mapping() {

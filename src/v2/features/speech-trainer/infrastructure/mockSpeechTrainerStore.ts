@@ -97,6 +97,7 @@ let entries: DictationHistoryEntry[] = [
     recommendation_error: null,
   },
 ];
+let speechTrainerEnabled = true;
 
 function report(from: string, to: string): SpeechPeriodReport {
   const includedEntries = entries.filter(
@@ -160,7 +161,14 @@ export function createMockSpeechTrainerStore(): SpeechTrainerStore {
     loadHistory: async () => entries,
     loadReport: async (from, to) => report(from, to),
     loadSettings: async () =>
-      ({ ...DEFAULT_SETTINGS, analytics_enabled: true }) as Settings,
+      ({
+        ...DEFAULT_SETTINGS,
+        analytics_enabled: true,
+        speech_trainer_enabled: speechTrainerEnabled,
+      }) as Settings,
+    saveTrainerEnabled: async (enabled) => {
+      speechTrainerEnabled = enabled;
+    },
     clearHistory: async () => {
       entries = [];
     },

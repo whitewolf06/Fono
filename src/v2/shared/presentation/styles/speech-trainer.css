@@ -50,6 +50,31 @@
   gap: 9px;
 }
 
+.v2-speech-trainer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 10px;
+  border-right: 1px solid var(--v2-border-subtle);
+}
+
+.v2-speech-trainer-toggle > div {
+  display: grid;
+  gap: 3px;
+}
+
+.v2-speech-trainer-toggle strong {
+  color: var(--v2-text-primary);
+  font-size: 13px;
+}
+
+.v2-speech-trainer-toggle span {
+  max-width: 190px;
+  color: var(--v2-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .v2-speech-trainer-metrics {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -388,6 +413,14 @@
   .v2-speech-trainer-toolbar__actions {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .v2-speech-trainer-toggle {
+    width: 100%;
+    padding-right: 0;
+    padding-bottom: 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--v2-border-subtle);
   }
 
   .v2-speech-trainer-metrics {

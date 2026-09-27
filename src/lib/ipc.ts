@@ -13,6 +13,9 @@ import type {
   WakeWordRecognitionReport,
   WakeWordSampleReport,
   WakeWordTestReport,
+  WakeCalibrationStatus,
+  WakeProfileValidationKind,
+  WakeProfileValidationStatus,
   WhisperModelInfo,
   LocalTranscriptionJob,
   LocalTranscriptionServiceSnapshot,
@@ -124,6 +127,22 @@ export const ipc = {
     invoke<WakeWordSampleReport>("record_wake_word_sample", { durationMs }),
   recognizeWakeWordSample: () =>
     invoke<WakeWordRecognitionReport>("recognize_wake_word_sample"),
+  getWakeCalibrationStatus: () =>
+    invoke<WakeCalibrationStatus>("get_wake_calibration_status"),
+  startWakeCalibration: () =>
+    invoke<WakeCalibrationStatus>("start_wake_calibration"),
+  recordWakeCalibrationSample: () =>
+    invoke<WakeCalibrationStatus>("record_wake_calibration_sample"),
+  cancelWakeCalibration: () =>
+    invoke<WakeCalibrationStatus>("cancel_wake_calibration"),
+  getWakeProfileValidationStatus: () =>
+    invoke<WakeProfileValidationStatus>("get_wake_profile_validation_status"),
+  startWakeProfileValidation: () =>
+    invoke<WakeProfileValidationStatus>("start_wake_profile_validation"),
+  recordWakeProfileValidationSample: (kind: WakeProfileValidationKind) =>
+    invoke<WakeProfileValidationStatus>("record_wake_profile_validation_sample", {
+      kind,
+    }),
   enableWakeWord: () => invoke<void>("enable_wake_word"),
   disableWakeWord: () => invoke<void>("disable_wake_word"),
   isKwsModelDownloaded: () => invoke<boolean>("is_kws_model_downloaded"),

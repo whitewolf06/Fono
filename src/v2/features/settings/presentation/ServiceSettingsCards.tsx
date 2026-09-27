@@ -9,8 +9,8 @@ import {
   SectionIcon,
   SettingsCard,
   SettingsStatus,
-  Switch,
 } from "./SettingsPrimitives";
+import { Switch } from "@/v2/shared/presentation/components/Switch";
 
 interface SettingsCardBaseProps {
   draft: SettingsDraft;

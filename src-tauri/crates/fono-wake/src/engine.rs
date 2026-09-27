@@ -278,6 +278,22 @@ mod tests {
     }
 
     #[test]
+    fn sherpa_accepts_all_bundled_phrases() {
+        for phrase in crate::phrases::SHERPA_SUPPORTED_PHRASES {
+            let config = WakeWordConfig {
+                backend: WakeWordBackend::SherpaOnnx,
+                phrase: phrase.into(),
+                ..WakeWordConfig::default()
+            };
+
+            assert!(
+                validate_config(&config).is_ok(),
+                "{phrase} must be accepted"
+            );
+        }
+    }
+
+    #[test]
     fn whisper_accepts_a_custom_phrase() {
         let config = WakeWordConfig {
             backend: WakeWordBackend::WhisperExperimental,

@@ -17,9 +17,10 @@ pub use sherpa_impl::test_with_wav;
 mod sherpa_impl {
     use std::path::Path;
 
-    use crate::backend::sherpa_onnx::{map_sensitivity, phrase_to_tokens};
+    use crate::backend::sherpa_onnx::map_sensitivity;
     use crate::config::WakeWordConfig;
     use crate::error::{WakeWordError, WakeWordResult};
+    use crate::phrases::sherpa_phrase_to_tokens;
     use crate::test::WakeWordTestResult;
 
     /// Run the KWS spotter on a mono WAV file.
@@ -73,7 +74,7 @@ mod sherpa_impl {
             spotter_config.keywords_buf = None;
         } else {
             spotter_config.keywords_file = None;
-            spotter_config.keywords_buf = Some(phrase_to_tokens(&config.phrase)?);
+            spotter_config.keywords_buf = Some(sherpa_phrase_to_tokens(&config.phrase)?);
         }
 
         let spotter = sherpa_onnx::KeywordSpotter::create(&spotter_config)
@@ -140,5 +141,28 @@ mod tests {
         .expect("bundled KWS test wav should run");
         assert!(result.detected, "expected LIGHT UP, got: {result:?}");
         assert_eq!(result.keyword, "LIGHT UP");
+    }
+
+    #[test]
+    #[ignore = "requires FONO_KWS_MODEL_DIR with the downloaded GigaSpeech KWS model"]
+    fn downloaded_model_accepts_ramzi_keyword_graph() {
+        let model_dir = PathBuf::from(
+            std::env::var("FONO_KWS_MODEL_DIR")
+                .expect("set FONO_KWS_MODEL_DIR to the downloaded KWS model directory"),
+        );
+        let config = WakeWordConfig {
+            model_dir: model_dir.clone(),
+            threshold: 0.05,
+            sensitivity: 0.95,
+            phrase: "рамзи".into(),
+            ..Default::default()
+        };
+
+        super::sherpa_impl::test_with_wav(
+            &config,
+            &model_dir.join("test_wavs").join("0.wav"),
+            false,
+        )
+        .expect("the bundled Sherpa model must accept the ramzi BPE graph");
     }
 }

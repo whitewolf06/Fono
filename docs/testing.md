@@ -92,11 +92,34 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
 Ожидание: Auto на NVIDIA выбирает CUDA; при явном CUDA/Vulkan приложение не
 должно тихо перейти на CPU.
 
+## Диагностика окончания диктовки
+
+Проверка выполняется в **Desktop dev** или собранном Tauri-приложении: браузерный
+`npm run dev:ui` не запускает реальный микрофон, hotkey и wake pipeline.
+
+1. Для global hotkey и wake word отдельно прогоните короткую обычную фразу:
+   с тихим окончанием, с короткой паузой и без паузы. Повторите с выключенной и
+   включённой AI-обработкой.
+2. После каждого прогона найдите в `%APPDATA%\Fono\logs` единственную строку
+   `event="dictation_tail_diagnostic"` с тем же `operation`.
+3. Сравните `source`, `stop_reason`, `captured_ms`, VAD-поля, `stt`,
+   `postprocessor` и `first_suspected_layer`. Значения `capture`, `vad`, `stt`
+   и `postprocessor` указывают первый технически подозрительный слой; `none`
+   означает, что по числовым измерениям причина не обнаружена.
+4. В wake-пути ожидается `vad_applied=false`: он намеренно не делает второй
+   offline trim после realtime-таймера тишины. В hotkey-пути VAD применяется
+   только к ведущей тишине: при найденной речи `vad_trailing_after_ms` должен
+   быть равен `vad_trailing_before_ms`. Это подтверждает, что хвост уже
+   записанной фразы полностью передан в STT.
+
+В записи нет аудиосэмплов, фрагментов транскрипта, пути к модели или текста
+ошибок. Логи содержат только длительности, счётчики и статусы этапов.
+
 ## Wake word
 
-- В Sherpa разрешены только `hey fono` и `okay fun`; сохранение другой фразы
-  должно вернуть validation error. В Whisper Experimental произвольная phrase
-  допускается, однако matching требует соседние слова в исходном порядке.
+- В Sherpa разрешены только `hey fono`, `okay fun` и `рамзи`; сохранение другой
+  фразы должно вернуть validation error. В Whisper Experimental произвольная
+  phrase допускается, однако matching требует соседние слова в исходном порядке.
 
 ### Whisper Experimental
 
@@ -108,7 +131,7 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
 
 1. Скачать KWS model в UI.
 2. Кнопка `Эталон Sherpa WAV` должна обнаружить `LIGHT UP`.
-3. Для ручного теста используйте `hey fono` или `okay fun`.
+3. Для ручного теста используйте `hey fono`, `okay fun` или `рамзи`.
 4. `Модель услышала: —` означает отсутствие keyword match, а не текстовую
    транскрипцию. Для произвольной фразы выберите Whisper Experimental.
 5. Для диагностической dev-сборки проверьте в `%APPDATA%\Fono\logs` строку

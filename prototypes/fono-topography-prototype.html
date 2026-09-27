@@ -1,0 +1,2390 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="Fono — интерактивный прототип акустической топографии. Один файл, без внешних ресурсов."
+    />
+    <title>Fono — Acoustic topography</title>
+    <!-- Standalone design prototype. Inline CSS/JS intentionally kept in one file.
+         All app states and session entries are demos; no Tauri or STT connection. -->
+    <style>
+      :root {
+        --bg: #101618;
+        --panel: #151c1e;
+        --line: rgba(190, 205, 198, 0.1);
+        --text: #e9e1d2;
+        --muted: #939e99;
+        --copper: #e8a365;
+        --teal: #80b9ae;
+        --serif: Georgia, "Times New Roman", serif;
+        font-family: "Segoe UI", Arial, sans-serif;
+        color: var(--text);
+        background: #10171b;
+        font-synthesis: none;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-width: 360px;
+        min-height: 100vh;
+        background:
+          radial-gradient(ellipse at 93% 12%, #3a474c 0, transparent 47%),
+          radial-gradient(ellipse at 90% 90%, #253c3e 0, transparent 44%),
+          #10171b;
+        font-size: 13px;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      select {
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button {
+        -webkit-tap-highlight-color: transparent;
+      }
+      button:disabled {
+        cursor: wait;
+        opacity: 0.55;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      [contenteditable]:focus-visible {
+        outline: 2px solid var(--teal);
+        outline-offset: 4px;
+      }
+      button {
+        transition:
+          background 180ms,
+          color 180ms,
+          border-color 180ms,
+          transform 180ms;
+      }
+      button:hover {
+        color: #fff3e2;
+      }
+      svg.icon {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex: 0 0 auto;
+      }
+      .icon-defs {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+      .desktop {
+        min-height: 100vh;
+        padding: 24px 250px 50px 24px;
+        display: flex;
+        align-items: center;
+      }
+      .app {
+        width: 100%;
+        max-width: 1500px;
+        min-height: 800px;
+        margin: auto;
+        display: grid;
+        grid-template-columns: 182px minmax(0, 1fr);
+        background: rgba(13, 19, 21, 0.96);
+        border: 1px solid #3a4241;
+        border-radius: 16px;
+        box-shadow:
+          0 30px 100px #0007,
+          inset 0 1px #ffffff05;
+        overflow: hidden;
+      }
+      .sidebar {
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        padding: 37px 16px 20px;
+        background: linear-gradient(145deg, #ffffff03, transparent);
+      }
+      .brand {
+        padding: 0 12px 37px;
+      }
+      #brandCanvas {
+        width: 66px;
+        height: 70px;
+        display: block;
+        margin: 0 0 12px 12px;
+      }
+      .brand-name {
+        font: 54px/1 var(--serif);
+        letter-spacing: -3px;
+      }
+      .brand p {
+        font-size: 12px;
+        color: var(--copper);
+        margin: 13px 0 0;
+        letter-spacing: 0.02em;
+      }
+      nav {
+        display: grid;
+        gap: 8px;
+      }
+      nav button {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding: 14px 12px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: none;
+        color: #b6bcb5;
+        text-align: left;
+      }
+      nav button:hover {
+        background: #ffffff04;
+      }
+      nav button.active {
+        color: #f2ba89;
+        background: #ffffff06;
+        border-color: #ffffff05;
+      }
+      .sidebar-bottom {
+        margin-top: auto;
+        padding-top: 40px;
+      }
+      .privacy {
+        border: 1px solid var(--line);
+        padding: 15px 12px;
+        border-radius: 12px;
+      }
+      .privacy b {
+        font-size: 10px;
+        letter-spacing: 0.09em;
+        font-weight: 500;
+      }
+      .privacy p {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+        margin-bottom: 0;
+      }
+      .dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--teal);
+        margin-right: 6px;
+        box-shadow: 0 0 12px #80b9ae25;
+      }
+      .version {
+        display: flex;
+        justify-content: space-between;
+        padding: 22px 10px 0;
+        color: #737e79;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+      }
+      .workspace {
+        padding: 0 16px 16px;
+        min-width: 0;
+      }
+      .titlebar {
+        height: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #737e79;
+        font-size: 9px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+      .titlebar span:last-child {
+        color: #8a938d;
+        letter-spacing: 0.1em;
+      }
+      .dashboard {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 234px;
+        gap: 12px;
+      }
+      .primary {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+      .panel {
+        background: linear-gradient(135deg, #ffffff03, #ffffff00), #131a1c;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+      }
+      .stage {
+        height: 418px;
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+      }
+      .stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+      }
+      .stage:after {
+        content: "";
+        pointer-events: none;
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(
+          #141b1de6,
+          transparent 35%,
+          transparent 73%,
+          #11191bd9
+        );
+      }
+      .stage-top {
+        padding: 21px 23px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .state-title {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        color: var(--copper);
+      }
+      .state-title h1 {
+        margin: 0;
+        font: 25px/1.1 var(--serif);
+        letter-spacing: 0.015em;
+      }
+      .stage-description {
+        color: #b3bbb4;
+        margin: 10px 0 0;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .eq {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        height: 22px;
+        color: var(--copper);
+      }
+      .eq i {
+        width: 2px;
+        height: 10px;
+        border-radius: 2px;
+        background: currentColor;
+        animation: meter 1s ease-in-out infinite alternate;
+      }
+      .eq i:nth-child(2) {
+        height: 18px;
+        animation-delay: -0.5s;
+      }
+      .eq i:nth-child(3) {
+        height: 24px;
+        animation-delay: -0.8s;
+      }
+      .eq i:nth-child(4) {
+        height: 14px;
+        animation-delay: -0.2s;
+      }
+      .eq i:nth-child(5) {
+        height: 7px;
+        animation-delay: -0.6s;
+      }
+      @keyframes meter {
+        to {
+          transform: scaleY(0.4);
+        }
+      }
+      body:not([data-state="listening"]) .eq i {
+        animation-play-state: paused;
+      }
+      .key {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid #b6c1b518;
+        border-radius: 20px;
+        padding: 8px 11px;
+        color: #b8bdb5;
+        background: #101719a6;
+        font-size: 10px;
+        white-space: nowrap;
+        height: 30px;
+      }
+      .key svg {
+        width: 12px;
+        height: 12px;
+      }
+      .mic-button {
+        position: absolute;
+        left: 50%;
+        top: 56%;
+        width: 78px;
+        height: 78px;
+        margin: -39px;
+        border-radius: 50%;
+        color: var(--copper);
+        background: radial-gradient(circle at 40% 20%, #3f382b, #101719 73%);
+        border: 1px solid #e8a365b3;
+        box-shadow:
+          0 0 0 7px #e8a36505,
+          0 0 45px #e8a36517,
+          0 8px 30px #0009;
+        display: grid;
+        place-items: center;
+      }
+      .mic-button:hover {
+        transform: scale(1.06);
+        box-shadow:
+          0 0 0 9px #e8a3650b,
+          0 0 60px #e8a36530;
+      }
+      .mic-button svg {
+        width: 31px;
+        height: 39px;
+        stroke-width: 1.35;
+      }
+      .mic-hint {
+        position: absolute;
+        top: calc(56% + 57px);
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #dbc4a4;
+        font-size: 9px;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+        pointer-events: none;
+      }
+      .stage-foot {
+        position: absolute;
+        bottom: 20px;
+        left: 23px;
+        right: 23px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .eyebrow {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+      .level-label {
+        color: #a4a89a;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .level-bars {
+        display: flex;
+        gap: 3px;
+        margin-top: 10px;
+      }
+      .level-bars i {
+        width: 11px;
+        height: 4px;
+        background: #4b4c42;
+        border-radius: 2px;
+      }
+      .level-bars i.on {
+        background: #ce905c;
+        box-shadow: 0 0 8px #e8a3651a;
+      }
+      .db {
+        color: var(--teal);
+        font-size: 11px;
+        min-width: 45px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .transcript {
+        padding: 18px 22px 20px;
+        min-height: 158px;
+      }
+      .panel-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      .panel-heading h2 {
+        margin: 0;
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .transcript h2 {
+        color: var(--teal);
+      }
+      .actions {
+        display: flex;
+        gap: 9px;
+      }
+      .icon-button {
+        display: inline-grid;
+        place-items: center;
+        border: none;
+        border-radius: 5px;
+        background: none;
+        color: #a5ada4;
+        padding: 3px;
+      }
+      .icon-button:hover {
+        background: #ffffff0c;
+        color: var(--copper);
+      }
+      .icon-button svg {
+        width: 17px;
+        height: 17px;
+      }
+      #transcript {
+        margin: 14px 0 0;
+        font: 21px/1.42 var(--serif);
+        min-height: 70px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        outline-offset: 6px;
+      }
+      #transcript.large {
+        font-size: 26px;
+      }
+      #transcript:empty:before {
+        content: "Здесь появятся ваши слова…";
+        color: #737e79;
+      }
+      body[data-state="listening"] #transcript:after {
+        content: "";
+        display: inline-block;
+        height: 20px;
+        width: 1px;
+        background: var(--copper);
+        margin-left: 5px;
+        vertical-align: -3px;
+        animation: blink 1s steps(2) infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      .session {
+        padding: 19px 22px 10px;
+        flex: 1;
+      }
+      .text-button {
+        padding: 0;
+        border: none;
+        background: none;
+        color: var(--teal);
+        font-size: 11px;
+      }
+      .text-button:hover {
+        color: #bbe5d8;
+      }
+      .session-list {
+        margin-top: 13px;
+      }
+      .session-row {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        border-top: 1px solid var(--line);
+        padding: 12px 0;
+        min-width: 0;
+      }
+      .session-row time {
+        color: #929c94;
+        width: 40px;
+        flex: 0 0 auto;
+        font-size: 10px;
+      }
+      .session-row p {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font: 13px var(--serif);
+      }
+      .session-row button {
+        flex: 0 0 auto;
+      }
+      .rail {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .commands {
+        padding: 21px 17px;
+      }
+      .commands .panel-heading {
+        margin-bottom: 22px;
+      }
+      .command {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+        background: none;
+        border: 0;
+        border-radius: 8px;
+        text-align: left;
+        padding: 9px 0;
+        margin: 5px 0;
+      }
+      .command:hover {
+        background: #ffffff04;
+      }
+      .tile-icon {
+        width: 32px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 7px;
+        background: #ffffff04;
+        color: #a5b9a5;
+        flex: 0 0 auto;
+      }
+      .command:first-of-type .tile-icon {
+        color: var(--copper);
+      }
+      .command b {
+        display: block;
+        margin: 0 0 5px;
+        font-size: 12px;
+        font-weight: 400;
+      }
+      .command small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.4;
+      }
+      .commands > .text-button {
+        margin-top: 22px;
+      }
+      .status {
+        padding: 21px 14px 14px;
+        flex: 1;
+      }
+      .status h2 {
+        margin: 0 5px 16px;
+        font-weight: 500;
+      }
+      .status-card {
+        width: 100%;
+        border: 1px solid #ffffff04;
+        border-radius: 9px;
+        background: #ffffff03;
+        padding: 12px 10px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        text-align: left;
+        margin-top: 8px;
+      }
+      .status-card b {
+        display: block;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.4;
+      }
+      .status-card small {
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.5;
+        display: block;
+        margin-top: 3px;
+      }
+      .status-card .tile-icon {
+        width: 29px;
+        height: 31px;
+        color: var(--teal);
+        background: #80b9ae09;
+      }
+      .status-card.amber .tile-icon {
+        color: #e4bc72;
+        background: #e4bc7209;
+      }
+      .status-card.interactive:hover {
+        border-color: #80b9ae40;
+      }
+      .overlay {
+        position: fixed;
+        right: 24px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 202px;
+        border: 1px solid #ffffff1b;
+        background: #12191cf2;
+        border-radius: 14px;
+        box-shadow: 0 20px 70px #0007;
+        overflow: hidden;
+        z-index: 5;
+      }
+      .overlay[hidden] {
+        display: none;
+      }
+      .overlay-header {
+        height: 43px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 13px;
+        border-bottom: 1px solid var(--line);
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+      }
+      .overlay-header:active {
+        cursor: grabbing;
+      }
+      .overlay-name {
+        font: 20px var(--serif);
+      }
+      .overlay-scene {
+        height: 220px;
+        position: relative;
+      }
+      .overlay-scene canvas {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
+      .overlay-state {
+        position: absolute;
+        left: 16px;
+        top: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--copper);
+        font: 14px var(--serif);
+      }
+      .overlay-state .eq {
+        transform: scale(0.65);
+        transform-origin: left;
+        width: 20px;
+      }
+      .overlay .mic-button {
+        width: 49px;
+        height: 49px;
+        margin: -24.5px;
+        top: 59%;
+      }
+      .overlay .mic-button svg {
+        width: 20px;
+        height: 24px;
+      }
+      .overlay-info {
+        text-align: center;
+        margin-top: -10px;
+        position: relative;
+      }
+      .timer-ring {
+        width: 63px;
+        height: 63px;
+        margin: 0 auto;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: conic-gradient(
+          var(--copper) var(--progress, 100%),
+          #303b3b 0
+        );
+        position: relative;
+      }
+      .timer-ring:before {
+        content: "";
+        position: absolute;
+        inset: 2px;
+        border-radius: 50%;
+        background: #131b1e;
+      }
+      #countdown {
+        z-index: 1;
+        font: 24px var(--serif);
+        color: var(--copper);
+        font-variant-numeric: tabular-nums;
+      }
+      #timerLabel {
+        font-size: 10px;
+        color: var(--muted);
+        margin: 9px 0 15px;
+      }
+      .overlay-text {
+        margin: 0 10px 9px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: #c3c8bb;
+        font: 12px/1.65 var(--serif);
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        max-height: 85px;
+      }
+      .overlay-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 4px;
+        align-items: center;
+        border-top: 1px solid var(--line);
+        padding: 9px;
+      }
+      .overlay-footer .key {
+        border: 0;
+        padding: 6px;
+        font-size: 9px;
+        border-radius: 5px;
+      }
+      .prototype-bar {
+        position: fixed;
+        bottom: 14px;
+        left: 24px;
+        right: 24px;
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        align-items: center;
+        color: #879591;
+        font-size: 10px;
+        letter-spacing: 0.02em;
+        z-index: 4;
+      }
+      .prototype-bar > span {
+        opacity: 0.8;
+      }
+      .prototype-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        border: 1px solid #ffffff12;
+        border-radius: 18px;
+        background: #172123;
+        padding: 8px 12px;
+        color: #bcc4b8;
+        font-size: 10px;
+      }
+      .pill:hover {
+        background: #233033;
+      }
+      .pill[aria-pressed="true"] {
+        color: var(--copper);
+        border-color: #e8a36550;
+      }
+      .pill svg {
+        width: 13px;
+        height: 13px;
+      }
+      .page {
+        min-height: 716px;
+        padding: 30px;
+      }
+      .page[hidden],
+      .dashboard[hidden] {
+        display: none;
+      }
+      .page h1 {
+        font: 34px var(--serif);
+        margin: 0 0 12px;
+      }
+      .page-intro {
+        color: var(--muted);
+        line-height: 1.7;
+        max-width: 600px;
+        margin: 0 0 28px;
+      }
+      .page .session-row p {
+        white-space: normal;
+        line-height: 1.5;
+      }
+      .command-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .command-grid .command {
+        border: 1px solid var(--line);
+        padding: 18px;
+        margin: 0;
+      }
+      .settings-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .setting-block {
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .setting-block h2 {
+        font: 19px var(--serif);
+        margin: 0 0 20px;
+      }
+      .setting-block label {
+        display: block;
+        color: #bcc6ba;
+        margin: 20px 0 10px;
+        font-size: 12px;
+      }
+      .setting-block label:first-of-type {
+        margin-top: 0;
+      }
+      .setting-block output {
+        float: right;
+        color: var(--copper);
+      }
+      .setting-block input[type="range"] {
+        width: 100%;
+        accent-color: var(--copper);
+      }
+      .setting-block p {
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.7;
+      }
+      .setting-block select {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: #11191b;
+        border-radius: 6px;
+        padding: 10px;
+      }
+      .check-label {
+        display: flex !important;
+        align-items: center;
+        gap: 9px;
+      }
+      .check-label input {
+        accent-color: var(--copper);
+      }
+      .setting-block .pill {
+        margin-top: 10px;
+      }
+      .empty-state {
+        padding: 45px 0;
+        color: var(--muted);
+      }
+      #toast {
+        position: fixed;
+        bottom: 66px;
+        left: 50%;
+        transform: translate(-50%, 12px);
+        background: #243332;
+        border: 1px solid #80b9ae40;
+        padding: 12px 18px;
+        border-radius: 9px;
+        color: #e0e8dc;
+        font-size: 12px;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 180ms,
+          transform 180ms;
+        z-index: 20;
+        max-width: calc(100% - 32px);
+      }
+      #toast.visible {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      @media (min-width: 1650px) {
+        .stage {
+          height: 480px;
+        }
+        .app {
+          min-height: 860px;
+        }
+        .dashboard {
+          grid-template-columns: minmax(0, 1fr) 270px;
+        }
+        .commands {
+          padding: 24px;
+        }
+        .command {
+          margin: 11px 0;
+        }
+      }
+      @media (max-width: 1320px) {
+        .desktop {
+          padding: 16px 222px 64px 16px;
+        }
+        .app {
+          grid-template-columns: 154px minmax(0, 1fr);
+        }
+        .sidebar {
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+        .dashboard {
+          grid-template-columns: minmax(0, 1fr) 200px;
+        }
+        .stage-top {
+          padding: 20px 17px;
+          flex-wrap: wrap;
+        }
+        .stage-top .key {
+          font-size: 9px;
+        }
+        .commands {
+          padding: 20px 12px;
+        }
+        .overlay {
+          right: 12px;
+          width: 194px;
+        }
+        .stage-description {
+          max-width: 250px;
+        }
+        .brand-name {
+          font-size: 48px;
+        }
+        .stage-foot {
+          left: 17px;
+          right: 17px;
+        }
+        .level-bars i {
+          width: 8px;
+        }
+      }
+      @media (max-width: 1100px) {
+        .desktop {
+          padding-right: 16px;
+        }
+        .overlay {
+          right: 26px;
+          top: auto;
+          bottom: 75px;
+          transform: none;
+          box-shadow: 0 20px 70px #000c;
+        }
+        .app {
+          min-height: 790px;
+        }
+        .workspace {
+          padding: 0 12px 12px;
+        }
+        .dashboard {
+          grid-template-columns: minmax(0, 1fr) 220px;
+        }
+        .prototype-bar > span {
+          max-width: 240px;
+          line-height: 1.5;
+        }
+      }
+      @media (max-width: 760px) {
+        .desktop {
+          padding: 10px 10px 100px;
+          align-items: flex-start;
+        }
+        .app {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+          padding: 15px;
+          flex-direction: row;
+          align-items: center;
+          gap: 20px;
+        }
+        .brand {
+          padding: 0;
+        }
+        #brandCanvas,
+        .brand p,
+        .sidebar-bottom {
+          display: none;
+        }
+        .brand-name {
+          font-size: 33px;
+          letter-spacing: -1px;
+        }
+        nav {
+          display: flex;
+          margin-left: auto;
+          gap: 3px;
+        }
+        nav button {
+          font-size: 0;
+          padding: 10px;
+        }
+        nav button svg {
+          width: 19px;
+          height: 19px;
+        }
+        .dashboard {
+          grid-template-columns: 1fr;
+        }
+        .rail {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+        .stage {
+          height: 390px;
+        }
+        .stage-description {
+          max-width: none;
+        }
+        .stage-top {
+          flex-wrap: nowrap;
+        }
+        .stage-top .key {
+          display: none;
+        }
+        .page {
+          padding: 20px;
+          min-height: 600px;
+        }
+        .page h1 {
+          font-size: 29px;
+        }
+        .settings-grid,
+        .command-grid {
+          grid-template-columns: 1fr;
+        }
+        .prototype-bar {
+          left: 12px;
+          right: 12px;
+          flex-wrap: wrap;
+          background: #10191bf0;
+          bottom: 0;
+          padding: 12px 0;
+        }
+        .prototype-bar > span {
+          max-width: none;
+          font-size: 9px;
+        }
+        .prototype-actions {
+          gap: 5px;
+          flex-wrap: wrap;
+        }
+        .pill {
+          padding: 8px 10px;
+        }
+        .overlay {
+          bottom: 100px;
+        }
+        #transcript {
+          font-size: 19px;
+        }
+        .session {
+          padding: 17px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *:before,
+        *:after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body data-state="listening">
+    <svg
+      class="icon-defs"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <symbol id="i-mic" viewBox="0 0 24 24">
+          <rect
+            x="8"
+            y="2"
+            width="8"
+            height="14"
+            rx="4"
+            fill="currentColor"
+            fill-opacity=".18"
+          />
+          <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" />
+        </symbol>
+        <symbol id="i-home" viewBox="0 0 24 24">
+          <path d="m3 11 9-8 9 8M5 10v11h5v-7h4v7h5V10" />
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 6v6l4 3" />
+        </symbol>
+        <symbol id="i-command" viewBox="0 0 24 24">
+          <path d="m4 5 7 7-7 7M13 19h8" />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <path
+            d="m9 3-1 3-3 1 1 3-2 2 2 2-1 3 3 1 1 3h6l1-3 3-1-1-3 2-2-2-2 1-3-3-1-1-3Z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24">
+          <rect x="7" y="3" width="12" height="15" rx="2" />
+          <path d="M15 21H5a1 1 0 0 1-1-1V8" />
+        </symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24">
+          <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" />
+        </symbol>
+        <symbol id="i-undo" viewBox="0 0 24 24">
+          <path d="M4 5v6h6M4 11a8 8 0 1 1 1 7" />
+        </symbol>
+        <symbol id="i-line" viewBox="0 0 24 24">
+          <path d="M19 5v8H5m5-5-5 5 5 5M4 21h16" />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="m7 12 3 3 7-7" />
+        </symbol>
+        <symbol id="i-waves" viewBox="0 0 24 24">
+          <path d="M3 10v4M7 6v12M12 3v18M17 7v10M21 10v4" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+          <path d="m5 5 14 14M19 5 5 19" />
+        </symbol>
+        <symbol id="i-pin" viewBox="0 0 24 24">
+          <path d="m15 3 6 6-4 1-4 5-1 4-7-7 4-1 5-4ZM9 15l-6 6" />
+        </symbol>
+        <symbol id="i-window" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M3 9h18M14 13h4v4h-4z" />
+        </symbol>
+        <symbol id="i-win" viewBox="0 0 24 24">
+          <path
+            d="m3 5 8-1v7H3zm10-1 8-1v8h-8zM3 13h8v7l-8-1zm10 0h8v8l-8-1z"
+            fill="currentColor"
+            stroke="none"
+          />
+        </symbol>
+        <symbol id="i-info" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v6M12 7v1" />
+        </symbol>
+        <symbol id="i-dot" viewBox="0 0 24 24">
+          <path d="M10 15c4 0 5-5 2-5a2 2 0 0 0 0 4c0 2-1 3-3 4" />
+          <path d="M7 3a9 9 0 1 1-3 14l-2 3 1-6A9 9 0 0 1 7 3" />
+        </symbol>
+      </defs>
+    </svg>
+    <div class="desktop">
+      <main class="app">
+        <aside class="sidebar">
+          <div class="brand">
+            <canvas id="brandCanvas" aria-hidden="true"></canvas>
+            <div class="brand-name">Fono</div>
+            <p>Голос. Локально. Для вас.</p>
+          </div>
+          <nav aria-label="Разделы прототипа">
+            <button
+              class="active"
+              data-view="voice"
+              aria-label="Голос"
+              aria-current="page"
+            >
+              <svg class="icon"><use href="#i-home" /></svg>Голос
+            </button>
+            <button data-view="session" aria-label="Сессия">
+              <svg class="icon"><use href="#i-clock" /></svg>Сессия
+            </button>
+            <button data-view="commands" aria-label="Команды">
+              <svg class="icon"><use href="#i-command" /></svg>Команды
+            </button>
+            <button data-view="settings" aria-label="Настройки">
+              <svg class="icon"><use href="#i-settings" /></svg>Настройки
+            </button>
+          </nav>
+          <div class="sidebar-bottom">
+            <div class="privacy">
+              <b><i class="dot"></i>НА ВАШЕМ УСТРОЙСТВЕ</b>
+              <p>Ваш голос остаётся<br />только вашим.</p>
+            </div>
+            <div class="version">
+              <span>FONO / CONCEPT 02</span><span>✧</span>
+            </div>
+          </div>
+        </aside>
+        <div class="workspace">
+          <div class="titlebar">
+            <span>Acoustic topography</span><span>Интерактивный прототип</span>
+          </div>
+          <div class="dashboard" id="view-voice">
+            <div class="primary">
+              <section class="stage panel" aria-label="Акустическая топография">
+                <canvas
+                  id="waveCanvas"
+                  aria-label="Анимированные контурные волны"
+                ></canvas>
+                <div class="stage-top">
+                  <div>
+                    <div class="state-title">
+                      <span class="eq" aria-hidden="true"
+                        ><i></i><i></i><i></i><i></i><i></i
+                      ></span>
+                      <h1 id="stateTitle">Слушаю</h1>
+                    </div>
+                    <p class="stage-description" id="stageDescription">
+                      Говорите естественно. Остальное — за Fono.
+                    </p>
+                  </div>
+                  <span
+                    class="key"
+                    title="Пробел работает, пока страница в фокусе"
+                    ><svg class="icon"><use href="#i-win" /></svg>Alt +
+                    Space</span
+                  >
+                </div>
+                <button
+                  class="mic-button"
+                  id="recordButton"
+                  aria-label="Завершить демозапись"
+                  title="Завершить демозапись · Пробел"
+                >
+                  <svg class="icon"><use href="#i-mic" /></svg>
+                </button>
+                <div class="mic-hint" id="micHint">
+                  Нажмите, чтобы завершить
+                </div>
+                <div class="stage-foot">
+                  <div>
+                    <div class="level-label">
+                      Уровень голоса <span id="sourceLabel">/ демо</span>
+                    </div>
+                    <div
+                      class="level-bars"
+                      id="levelBars"
+                      aria-hidden="true"
+                    ></div>
+                  </div>
+                  <span class="db" id="dbLevel">−18 dB</span>
+                </div>
+              </section>
+              <section class="panel transcript">
+                <div class="panel-heading">
+                  <h2 id="transcriptLabel">Ваши слова</h2>
+                  <div class="actions">
+                    <button
+                      class="icon-button"
+                      id="fontButton"
+                      aria-label="Увеличить текст"
+                      aria-pressed="false"
+                    >
+                      Aа</button
+                    ><button
+                      class="icon-button"
+                      id="copyButton"
+                      aria-label="Копировать текст"
+                    >
+                      <svg class="icon"><use href="#i-copy" /></svg></button
+                    ><button
+                      class="icon-button"
+                      id="clearButton"
+                      aria-label="Очистить текст"
+                    >
+                      <svg class="icon"><use href="#i-trash" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="transcript"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-label="Текст диктовки"
+                  aria-multiline="true"
+                  spellcheck="false"
+                >
+                  Мысли обретают форму, когда звучат вслух. Просто говорите —
+                  Fono сохранит самое важное.
+                </div>
+              </section>
+              <section class="panel session">
+                <div class="panel-heading">
+                  <h2>В этой сессии</h2>
+                  <button class="text-button" data-open="session">
+                    Все записи&nbsp; ›
+                  </button>
+                </div>
+                <div class="session-list" id="recentList"></div>
+              </section>
+            </div>
+            <aside class="rail">
+              <section class="panel commands">
+                <div class="panel-heading">
+                  <h2>Голосовые команды</h2>
+                  <svg class="icon" style="width: 15px; color: var(--muted)">
+                    <use href="#i-command" />
+                  </svg>
+                </div>
+                <div id="quickCommands"></div>
+                <button class="text-button" data-open="commands">
+                  Все команды&nbsp; ›
+                </button>
+              </section>
+              <section class="panel status">
+                <h2 class="eyebrow">Всё готово</h2>
+                <div class="status-card">
+                  <span class="tile-icon"
+                    ><svg class="icon"><use href="#i-check" /></svg
+                  ></span>
+                  <div>
+                    <b>Локальная обработка</b><small>Так устроен Fono</small>
+                  </div>
+                </div>
+                <button class="status-card interactive" data-open="settings">
+                  <span class="tile-icon"
+                    ><svg class="icon"><use href="#i-waves" /></svg
+                  ></span>
+                  <div>
+                    <b>Акустический рельеф</b
+                    ><small>Настроить движение волн</small>
+                  </div></button
+                ><button
+                  class="status-card amber interactive"
+                  id="autoInsertButton"
+                  aria-pressed="true"
+                >
+                  <span class="tile-icon"
+                    ><svg class="icon"><use href="#i-check" /></svg
+                  ></span>
+                  <div>
+                    <b id="insertLabel">Автовставка включена</b
+                    ><small>Демонстрация состояния</small>
+                  </div>
+                </button>
+                <div class="status-card">
+                  <span class="tile-icon"
+                    ><svg class="icon"><use href="#i-info" /></svg
+                  ></span>
+                  <div>
+                    <b>Режим демонстрации</b
+                    ><small
+                      >Без записи и распознавания<br />Можно подключить
+                      микрофон</small
+                    >
+                  </div>
+                </div>
+              </section>
+            </aside>
+          </div>
+          <section class="page panel" id="view-session" hidden>
+            <h1>Слова этого момента</h1>
+            <p class="page-intro">
+              Записи текущей демосессии. Можно скопировать текст или вернуть его
+              в редактор. После обновления страницы сессия начинается заново.
+            </p>
+            <div class="panel-heading">
+              <h2>Демонстрационные записи</h2>
+              <button class="text-button" id="clearSession">
+                Очистить сессию
+              </button>
+            </div>
+            <div class="session-list" id="allSessions"></div>
+          </section>
+          <section class="page panel" id="view-commands" hidden>
+            <h1>Скажите — и готово</h1>
+            <p class="page-intro">
+              Попробуйте команды нажатием на карточку. В этом концепте они
+              редактируют текст на экране; распознавание речи не подключено.
+            </p>
+            <div class="command-grid" id="allCommands"></div>
+          </section>
+          <section class="page panel" id="view-settings" hidden>
+            <h1>У каждого голоса свой рельеф</h1>
+            <p class="page-intro">
+              Настройте характер волн. Изменения сразу видны в компактном окне и
+              на главном экране.
+            </p>
+            <div class="settings-grid">
+              <div class="setting-block">
+                <h2>Движение</h2>
+                <label for="intensity"
+                  >Выразительность
+                  <output id="intensityValue">65%</output></label
+                ><input
+                  id="intensity"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="65"
+                /><label for="speed"
+                  >Скорость <output id="speedValue">45%</output></label
+                ><input
+                  id="speed"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="45"
+                /><label for="density"
+                  >Плотность контуров
+                  <output id="densityValue">60</output></label
+                ><input
+                  id="density"
+                  type="range"
+                  min="24"
+                  max="90"
+                  value="60"
+                /><label class="check-label"
+                  ><input type="checkbox" id="animate" checked />Анимировать
+                  волны</label
+                >
+                <p>
+                  Рельеф мягко тянется к курсору. Медные линии передают энергию
+                  голоса, бирюзовые — окружающую тишину.
+                </p>
+              </div>
+              <div class="setting-block">
+                <h2>Источник и цвет</h2>
+                <label for="palette">Палитра</label
+                ><select id="palette">
+                  <option value="copper">Медь и хвоя</option>
+                  <option value="moon">Лунный свет</option>
+                  <option value="ember">Тёплый янтарь</option></select
+                ><label for="audioSource">Источник уровня</label
+                ><select id="audioSource">
+                  <option value="demo">Демонстрационный голос</option>
+                  <option value="microphone">Мой микрофон</option>
+                </select>
+                <p id="sourceHelp">
+                  Волны реагируют на синтезированный ритм речи. Аудио не
+                  воспроизводится.
+                </p>
+                <button class="pill" id="silenceButton">
+                  Показать паузу в речи</button
+                ><button class="pill" id="resetSettings">
+                  Сбросить настройки волн
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+    <aside
+      class="overlay"
+      id="overlay"
+      aria-label="Предпросмотр компактного окна"
+    >
+      <div class="overlay-header" id="overlayHandle">
+        <span class="overlay-name">Fono</span>
+        <div class="actions">
+          <button
+            class="icon-button"
+            id="pinOverlay"
+            aria-label="Закрепить положение окна"
+            aria-pressed="false"
+          >
+            <svg class="icon"><use href="#i-pin" /></svg></button
+          ><button
+            class="icon-button"
+            id="closeOverlay"
+            aria-label="Скрыть компактное окно"
+          >
+            <svg class="icon"><use href="#i-close" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="overlay-scene">
+        <canvas id="overlayCanvas" aria-hidden="true"></canvas>
+        <div class="overlay-state">
+          <span class="eq" aria-hidden="true"
+            ><i></i><i></i><i></i><i></i><i></i></span
+          ><span id="overlayState">Слушаю</span>
+        </div>
+        <button
+          class="mic-button"
+          id="overlayRecord"
+          aria-label="Завершить демозапись"
+        >
+          <svg class="icon"><use href="#i-mic" /></svg>
+        </button>
+      </div>
+      <div class="overlay-info">
+        <div class="timer-ring" id="timerRing">
+          <span id="countdown">•••</span>
+        </div>
+        <p id="timerLabel">Голос превращается в текст</p>
+      </div>
+      <div class="overlay-text" id="overlayText">
+        Мысли обретают форму, когда звучат вслух.
+      </div>
+      <div class="overlay-footer">
+        <span class="key"
+          ><svg class="icon"><use href="#i-win" /></svg>Alt + Space</span
+        ><button
+          class="icon-button"
+          data-open="settings"
+          aria-label="Настройки волн"
+        >
+          <svg class="icon"><use href="#i-settings" /></svg>
+        </button>
+      </div>
+    </aside>
+    <footer class="prototype-bar">
+      <span>FONO EXPLORATIONS &nbsp; / &nbsp; 02 — ACOUSTIC TOPOGRAPHY</span>
+      <div class="prototype-actions">
+        <button class="pill" id="demoButton">
+          <svg class="icon"><use href="#i-waves" /></svg>Демо диктовки</button
+        ><button class="pill" id="motionButton" aria-pressed="true">
+          Пауза волн</button
+        ><button class="pill" id="overlayToggle" aria-pressed="true">
+          <svg class="icon"><use href="#i-window" /></svg>Мини-окно
+        </button>
+      </div>
+    </footer>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script>
+      (() => {
+        "use strict";
+        const $ = (id) => document.getElementById(id);
+        const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+        const state = {
+          phase: "listening",
+          view: "voice",
+          intensity: 0.65,
+          speed: 0.45,
+          density: 60,
+          palette: "copper",
+          animate: !reducedMotion.matches,
+          level: 0.4,
+          autoInsert: true,
+          pinned: false,
+          silence: null,
+          source: "demo",
+          stream: null,
+          audio: null,
+          analyser: null,
+          samples: null,
+          sourceRequest: 0,
+          undo: [],
+          demoTimer: null,
+          phaseTimer: null,
+          toastTimer: null,
+        };
+        const phrases = [
+          "Мысли обретают форму, когда звучат вслух.",
+          "Просто говорите — Fono сохранит самое важное.",
+          "А голос станет живым ландшафтом из света и тонких линий.",
+        ];
+        const sessions = [
+          { time: "10:42", text: "Обсудить новую идею на встрече с командой." },
+          {
+            time: "10:17",
+            text: "Меньше печатать. Больше оставаться в потоке.",
+          },
+          {
+            time: "09:58",
+            text: "Хорошие мысли начинаются с простого разговора.",
+          },
+        ];
+        const commands = [
+          {
+            icon: "dot",
+            title: "Поставить точку",
+            hint: "Скажите «точка»",
+            action: "period",
+          },
+          {
+            icon: "line",
+            title: "Новая строка",
+            hint: "Скажите «новая строка»",
+            action: "newline",
+          },
+          {
+            icon: "undo",
+            title: "Отменить последнее",
+            hint: "Скажите «отмени»",
+            action: "undo",
+          },
+          {
+            icon: "trash",
+            title: "Удалить слово",
+            hint: "Скажите «удали слово»",
+            action: "delete",
+          },
+          {
+            icon: "check",
+            title: "Автовставка",
+            hint: "Включить или выключить",
+            action: "insert",
+          },
+        ];
+        const icon = (name) =>
+          `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+        const transcript = $("transcript");
+        function toast(message) {
+          $("toast").textContent = message;
+          $("toast").classList.add("visible");
+          clearTimeout(state.toastTimer);
+          state.toastTimer = setTimeout(
+            () => $("toast").classList.remove("visible"),
+            3200,
+          );
+        }
+        function textValue() {
+          return transcript.innerText;
+        }
+        function syncText() {
+          $("overlayText").textContent =
+            textValue() || "Здесь появятся ваши слова…";
+        }
+        function setText(text, remember = true) {
+          if (remember) {
+            state.undo.push(textValue());
+            if (state.undo.length > 40) state.undo.shift();
+          }
+          transcript.textContent = text;
+          syncText();
+        }
+        function stopDemo() {
+          clearInterval(state.demoTimer);
+          state.demoTimer = null;
+        }
+        function showView(view) {
+          state.view = view;
+          ["voice", "session", "commands", "settings"].forEach((name) => {
+            $("view-" + name).hidden = name !== view;
+          });
+          document.querySelectorAll("nav [data-view]").forEach((button) => {
+            const active = button.dataset.view === view;
+            button.classList.toggle("active", active);
+            if (active) button.setAttribute("aria-current", "page");
+            else button.removeAttribute("aria-current");
+          });
+        }
+        function renderPhase() {
+          const labels = {
+            idle: "Готов слушать",
+            listening: "Слушаю",
+            processing: "Распознаю",
+            done: "Готово",
+          };
+          const descriptions = {
+            idle: "Нажмите на микрофон, чтобы начать.",
+            listening: "Говорите естественно. Остальное — за Fono.",
+            processing: "Собираю ваши слова в законченную мысль…",
+            done: "Мысль сохранена. Можно продолжать.",
+          };
+          document.body.dataset.state = state.phase;
+          $("stateTitle").textContent = labels[state.phase];
+          $("overlayState").textContent = labels[state.phase];
+          $("stageDescription").textContent = descriptions[state.phase];
+          $("micHint").textContent =
+            state.phase === "listening"
+              ? "Нажмите, чтобы завершить"
+              : state.phase === "processing"
+                ? "Ещё мгновение"
+                : "Нажмите, чтобы начать";
+          for (const id of ["recordButton", "overlayRecord"]) {
+            $(id).disabled = state.phase === "processing";
+            $(id).setAttribute(
+              "aria-label",
+              state.phase === "listening"
+                ? "Завершить демозапись"
+                : "Начать демозапись",
+            );
+            $(id).title = $(id).getAttribute("aria-label") + " · Пробел";
+          }
+          $("transcriptLabel").textContent =
+            state.phase === "processing"
+              ? "Распознавание · демо"
+              : state.phase === "done"
+                ? "Готовый текст"
+                : "Ваши слова";
+        }
+        function finish() {
+          if (state.phase !== "listening") return;
+          stopDemo();
+          state.silence = null;
+          state.phase = "processing";
+          renderPhase();
+          releaseMicrophone();
+          state.phaseTimer = setTimeout(() => {
+            state.phase = "done";
+            renderPhase();
+            const text = textValue().trim();
+            if (text) {
+              sessions.unshift({
+                time: new Date().toLocaleTimeString("ru-RU", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+                text,
+              });
+              renderSessions();
+            }
+            toast(
+              state.autoInsert
+                ? "Демо: текст готов к вставке"
+                : "Текст готов — можно скопировать",
+            );
+          }, 1100);
+        }
+        function start() {
+          clearTimeout(state.phaseTimer);
+          state.phase = "listening";
+          state.silence = null;
+          renderPhase();
+        }
+        function toggleRecording() {
+          if (state.phase === "processing") return;
+          if (state.phase === "listening") finish();
+          else start();
+        }
+        function runDemo() {
+          releaseMicrophone();
+          stopDemo();
+          start();
+          showView("voice");
+          setText("");
+          const words = phrases.join("\n").split(" ");
+          let index = 0;
+          state.demoTimer = setInterval(() => {
+            setText(words.slice(0, ++index).join(" "), false);
+            if (index >= words.length) {
+              stopDemo();
+              state.silence = performance.now();
+            }
+          }, 230);
+        }
+        async function copy(text) {
+          if (!text.trim()) {
+            toast("Пока нечего копировать");
+            return;
+          }
+          try {
+            await navigator.clipboard.writeText(text);
+            toast("Текст скопирован");
+          } catch {
+            toast("Не удалось скопировать. Выделите текст и нажмите Ctrl+C.");
+          }
+        }
+        function renderSessions() {
+          for (const [id, limit] of [
+            ["recentList", 3],
+            ["allSessions", 100],
+          ]) {
+            const root = $(id);
+            root.replaceChildren();
+            if (!sessions.length) {
+              const empty = document.createElement("p");
+              empty.className = "empty-state";
+              empty.textContent = "Пока пусто. Начните новую демодиктовку.";
+              root.append(empty);
+            }
+            sessions.slice(0, limit).forEach((entry) => {
+              const row = document.createElement("div");
+              row.className = "session-row";
+              const time = document.createElement("time");
+              time.textContent = entry.time;
+              const text = document.createElement("p");
+              text.textContent = entry.text;
+              text.title = entry.text;
+              const copyButton = document.createElement("button");
+              copyButton.className = "icon-button";
+              copyButton.innerHTML = icon("copy");
+              copyButton.setAttribute("aria-label", "Копировать запись");
+              copyButton.onclick = () => copy(entry.text);
+              const restore = document.createElement("button");
+              restore.className = "icon-button";
+              restore.innerHTML = icon("undo");
+              restore.setAttribute("aria-label", "Открыть запись");
+              restore.onclick = () => {
+                stopDemo();
+                clearTimeout(state.phaseTimer);
+                state.silence = null;
+                state.phase = "idle";
+                releaseMicrophone();
+                setText(entry.text);
+                renderPhase();
+                showView("voice");
+              };
+              row.append(time, text, copyButton, restore);
+              root.append(row);
+            });
+          }
+        }
+        function toggleInsert() {
+          state.autoInsert = !state.autoInsert;
+          $("insertLabel").textContent =
+            "Автовставка " + (state.autoInsert ? "включена" : "выключена");
+          $("autoInsertButton").setAttribute(
+            "aria-pressed",
+            String(state.autoInsert),
+          );
+          toast(
+            "Демо: автовставка " +
+              (state.autoInsert ? "включена" : "выключена"),
+          );
+        }
+        function executeCommand(action) {
+          if (action === "insert") {
+            toggleInsert();
+            return;
+          }
+          stopDemo();
+          state.silence = null;
+          const current = textValue();
+          if (action === "undo") {
+            if (!state.undo.length) {
+              toast("Нет изменений для отмены");
+              return;
+            }
+            setText(state.undo.pop(), false);
+          } else if (action === "period")
+            setText(current.trimEnd().replace(/[.!?]$/, "") + ".");
+          else if (action === "newline") setText(current + "\n");
+          else if (action === "delete")
+            setText(current.trimEnd().replace(/\S+\s*$/, ""));
+          toast("Команда применена к тексту");
+        }
+        for (const id of ["quickCommands", "allCommands"])
+          commands.forEach((command) => {
+            const button = document.createElement("button");
+            button.className = "command";
+            button.innerHTML = `<span class="tile-icon">${icon(command.icon)}</span><span><b>${command.title}</b><small>${command.hint}</small></span>`;
+            button.onclick = () => executeCommand(command.action);
+            $(id).append(button);
+          });
+        function setMotion(active) {
+          state.animate = active;
+          $("animate").checked = active;
+          $("motionButton").textContent = active
+            ? "Пауза волн"
+            : "Оживить волны";
+          $("motionButton").setAttribute("aria-pressed", String(active));
+        }
+        function toggleOverlay() {
+          $("overlay").hidden = !$("overlay").hidden;
+          $("overlayToggle").setAttribute(
+            "aria-pressed",
+            String(!$("overlay").hidden),
+          );
+        }
+        function releaseMicrophone() {
+          state.sourceRequest++;
+          state.stream?.getTracks().forEach((track) => track.stop());
+          state.stream = null;
+          state.audio?.close().catch(() => {});
+          state.audio = null;
+          state.analyser = null;
+          state.samples = null;
+          state.source = "demo";
+          $("audioSource").value = "demo";
+          $("sourceLabel").textContent = "/ демо";
+          $("sourceHelp").textContent =
+            "Волны реагируют на синтезированный ритм речи. Аудио не воспроизводится.";
+        }
+        async function connectMicrophone() {
+          releaseMicrophone();
+          const request = state.sourceRequest;
+          $("sourceHelp").textContent =
+            "Ожидаю разрешение на доступ к микрофону…";
+          try {
+            if (!navigator.mediaDevices?.getUserMedia)
+              throw new Error("unavailable");
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
+            if (request !== state.sourceRequest) {
+              stream.getTracks().forEach((track) => track.stop());
+              return;
+            }
+            state.stream = stream;
+            state.audio = new AudioContext();
+            await state.audio.resume();
+            if (request !== state.sourceRequest) return;
+            state.analyser = state.audio.createAnalyser();
+            state.analyser.fftSize = 512;
+            state.audio.createMediaStreamSource(stream).connect(state.analyser);
+            state.samples = new Uint8Array(512);
+            state.source = "microphone";
+            $("audioSource").value = "microphone";
+            $("sourceLabel").textContent = "/ микрофон";
+            $("sourceHelp").textContent =
+              "Микрофон управляет только волнами. Звук не записывается и никуда не отправляется. Завершение отключит микрофон.";
+            stopDemo();
+            start();
+            toast("Волны реагируют на ваш голос");
+          } catch (error) {
+            if (request !== state.sourceRequest) return;
+            releaseMicrophone();
+            $("sourceHelp").textContent =
+              error.name === "NotAllowedError"
+                ? "Доступ не разрешён. Продолжаем с деморитмом."
+                : "Микрофон недоступен. Для доступа откройте файл через localhost. Деморитм продолжает работать.";
+            toast("Микрофон не подключён — включён деморитм");
+          }
+        }
+        document
+          .querySelectorAll("[data-view]")
+          .forEach(
+            (button) => (button.onclick = () => showView(button.dataset.view)),
+          );
+        document
+          .querySelectorAll("[data-open]")
+          .forEach(
+            (button) => (button.onclick = () => showView(button.dataset.open)),
+          );
+        $("recordButton").onclick = $("overlayRecord").onclick =
+          toggleRecording;
+        $("demoButton").onclick = runDemo;
+        $("copyButton").onclick = () => copy(textValue());
+        $("clearButton").onclick = () => {
+          stopDemo();
+          state.silence = null;
+          setText("");
+          toast("Текст очищен. Команда «Отмени» вернёт его.");
+        };
+        $("fontButton").onclick = () => {
+          const large = transcript.classList.toggle("large");
+          $("fontButton").setAttribute("aria-pressed", String(large));
+          $("fontButton").setAttribute(
+            "aria-label",
+            large ? "Уменьшить текст" : "Увеличить текст",
+          );
+        };
+        transcript.addEventListener("beforeinput", () => {
+          stopDemo();
+          state.silence = null;
+          state.undo.push(textValue());
+          if (state.undo.length > 40) state.undo.shift();
+        });
+        transcript.addEventListener("input", syncText);
+        transcript.addEventListener("paste", (event) => {
+          event.preventDefault();
+          stopDemo();
+          state.silence = null;
+          const text = event.clipboardData.getData("text/plain");
+          const selection = window.getSelection();
+          if (
+            !selection.rangeCount ||
+            !transcript.contains(selection.anchorNode)
+          ) {
+            setText(textValue() + text);
+            return;
+          }
+          state.undo.push(textValue());
+          if (state.undo.length > 40) state.undo.shift();
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          const node = document.createTextNode(text);
+          range.insertNode(node);
+          range.setStartAfter(node);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          syncText();
+        });
+        $("autoInsertButton").onclick = toggleInsert;
+        $("clearSession").onclick = () => {
+          sessions.length = 0;
+          renderSessions();
+          toast("Демосессия очищена");
+        };
+        $("overlayToggle").onclick = $("closeOverlay").onclick = toggleOverlay;
+        $("pinOverlay").onclick = () => {
+          state.pinned = !state.pinned;
+          $("pinOverlay").setAttribute("aria-pressed", String(state.pinned));
+          $("pinOverlay").style.color = state.pinned ? "var(--copper)" : "";
+          toast(
+            state.pinned
+              ? "Положение мини-окна закреплено"
+              : "Мини-окно можно перетаскивать за заголовок",
+          );
+        };
+        $("motionButton").onclick = () => setMotion(!state.animate);
+        $("animate").onchange = (event) => setMotion(event.target.checked);
+        reducedMotion.addEventListener("change", (event) =>
+          setMotion(!event.matches),
+        );
+        for (const key of ["intensity", "speed", "density"])
+          $(key).oninput = (event) => {
+            const value = Number(event.target.value);
+            state[key] = key === "density" ? value : value / 100;
+            $(key + "Value").textContent =
+              value + (key === "density" ? "" : "%");
+          };
+        $("palette").onchange = (event) => {
+          state.palette = event.target.value;
+        };
+        $("audioSource").onchange = (event) => {
+          if (event.target.value === "microphone") connectMicrophone();
+          else releaseMicrophone();
+        };
+        $("silenceButton").onclick = () => {
+          if (state.phase !== "listening") start();
+          stopDemo();
+          state.silence = performance.now();
+          if ($("overlay").hidden) toggleOverlay();
+          toast("Пауза 2,8 секунды → распознавание → готовый текст");
+        };
+        $("resetSettings").onclick = () => {
+          for (const [key, value] of [
+            ["intensity", 65],
+            ["speed", 45],
+            ["density", 60],
+          ]) {
+            $(key).value = value;
+            $(key).dispatchEvent(new Event("input"));
+          }
+          state.palette = "copper";
+          $("palette").value = "copper";
+          setMotion(!reducedMotion.matches);
+          toast("Настройки волн восстановлены");
+        };
+        document.addEventListener("keydown", (event) => {
+          if (
+            event.code === "Space" &&
+            !event.repeat &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.target.closest("input, select, button, [contenteditable]")
+          ) {
+            event.preventDefault();
+            toggleRecording();
+          }
+          if (event.key === "Escape" && state.phase === "listening") {
+            stopDemo();
+            clearTimeout(state.phaseTimer);
+            state.silence = null;
+            state.phase = "idle";
+            releaseMicrophone();
+            renderPhase();
+            toast("Диктовка отменена");
+          }
+        });
+        let drag = null;
+        $("overlayHandle").addEventListener("pointerdown", (event) => {
+          if (event.target.closest("button") || state.pinned) return;
+          const rect = $("overlay").getBoundingClientRect();
+          drag = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+          $("overlayHandle").setPointerCapture(event.pointerId);
+        });
+        $("overlayHandle").addEventListener("pointermove", (event) => {
+          if (!drag) return;
+          const overlay = $("overlay");
+          overlay.style.left =
+            Math.max(
+              0,
+              Math.min(
+                innerWidth - overlay.offsetWidth,
+                event.clientX - drag.x,
+              ),
+            ) + "px";
+          overlay.style.top =
+            Math.max(
+              0,
+              Math.min(
+                innerHeight - overlay.offsetHeight,
+                event.clientY - drag.y,
+              ),
+            ) + "px";
+          overlay.style.right = "auto";
+          overlay.style.bottom = "auto";
+          overlay.style.transform = "none";
+        });
+        for (const event of [
+          "pointerup",
+          "pointercancel",
+          "lostpointercapture",
+        ])
+          $("overlayHandle").addEventListener(event, () => {
+            drag = null;
+          });
+        window.addEventListener("resize", () => {
+          const overlay = $("overlay");
+          if (overlay.style.left) {
+            overlay.style.left =
+              Math.min(
+                parseFloat(overlay.style.left),
+                Math.max(0, innerWidth - overlay.offsetWidth),
+              ) + "px";
+            overlay.style.top =
+              Math.min(
+                parseFloat(overlay.style.top),
+                Math.max(0, innerHeight - overlay.offsetHeight),
+              ) + "px";
+          }
+        });
+        window.addEventListener("pagehide", releaseMicrophone);
+
+        // Organic nested contours share a smooth polar field. A travelling radial
+        // disturbance makes the terrain breathe without rotating rigid rings.
+        const palettes = {
+          copper: [
+            [227, 151, 83],
+            [86, 151, 151],
+          ],
+          moon: [
+            [179, 204, 225],
+            [93, 131, 165],
+          ],
+          ember: [
+            [244, 180, 103],
+            [155, 89, 67],
+          ],
+        };
+        class Topography {
+          constructor(canvas, compact = false, logo = false) {
+            this.canvas = canvas;
+            this.ctx = canvas.getContext("2d", { alpha: true });
+            this.compact = compact;
+            this.logo = logo;
+            this.w = 0;
+            this.h = 0;
+            this.pointer = { x: 0, y: 0 };
+            this.target = { x: 0, y: 0 };
+            this.lastSignature = "";
+            new ResizeObserver(() => this.resize()).observe(canvas);
+            if (!compact && !logo) {
+              canvas.parentElement.addEventListener("pointermove", (event) => {
+                const rect = canvas.getBoundingClientRect();
+                this.target.x = (event.clientX - rect.left) / rect.width - 0.5;
+                this.target.y = (event.clientY - rect.top) / rect.height - 0.5;
+              });
+              canvas.parentElement.addEventListener("pointerleave", () => {
+                this.target = { x: 0, y: 0 };
+              });
+            }
+            this.resize();
+          }
+          resize() {
+            const rect = this.canvas.getBoundingClientRect();
+            this.w = rect.width;
+            this.h = rect.height;
+            const dpr = Math.min(devicePixelRatio || 1, 1.75);
+            this.canvas.width = Math.round(this.w * dpr);
+            this.canvas.height = Math.round(this.h * dpr);
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            this.lastSignature = "";
+          }
+          draw(time, level) {
+            const { ctx, w, h, compact, logo } = this;
+            if (!w || !h || (!logo && !this.canvas.checkVisibility())) return;
+            const signature = [
+              w,
+              h,
+              state.palette,
+              state.density,
+              state.intensity,
+              state.phase,
+            ].join();
+            if (!state.animate && signature === this.lastSignature) return;
+            this.lastSignature = signature;
+            if (!state.animate) {
+              time = 3;
+              level = 0.25;
+            }
+            this.pointer.x += (this.target.x - this.pointer.x) * 0.045;
+            this.pointer.y += (this.target.y - this.pointer.y) * 0.045;
+            ctx.clearRect(0, 0, w, h);
+            const cx = w * 0.5 + this.pointer.x * 24,
+              cy =
+                h * (logo ? 0.5 : compact ? 0.59 : 0.56) + this.pointer.y * 18;
+            const colors = palettes[state.palette],
+              warm = colors[0],
+              cool = colors[1];
+            if (!logo) {
+              const glow = ctx.createRadialGradient(
+                cx,
+                cy,
+                10,
+                cx,
+                cy,
+                Math.max(w, h) * 0.57,
+              );
+              glow.addColorStop(0, `rgba(${warm},${0.12 + level * 0.07})`);
+              glow.addColorStop(0.35, `rgba(${warm},0.04)`);
+              glow.addColorStop(0.78, `rgba(${cool},0.015)`);
+              glow.addColorStop(1, "rgba(0,0,0,0)");
+              ctx.fillStyle = glow;
+              ctx.fillRect(0, 0, w, h);
+            }
+            const count = logo
+              ? 9
+              : compact
+                ? Math.round(state.density * 0.45)
+                : state.density;
+            const base = logo ? 7 : compact ? 26 : 43;
+            const step = logo
+              ? 2.55
+              : compact
+                ? 4.6
+                : Math.max(w * 0.7, h * 0.85) / count;
+            const stretch = logo ? 0.85 : compact ? 1.07 : 1.32;
+            const detail = logo ? 90 : compact ? 150 : 230;
+            for (let ring = count - 1; ring >= 0; ring--) {
+              const f = ring / count;
+              const radius = base + ring * step;
+              const mix = logo ? 0 : Math.max(0, Math.min(1, (f - 0.18) * 2.4));
+              const color = warm.map((channel, index) =>
+                Math.round(channel * (1 - mix) + cool[index] * mix),
+              );
+              const fade = logo
+                ? 0.82
+                : (0.6 - f * 0.3) *
+                  (ring % 4 === 0 ? 1.3 : ring % 3 === 0 ? 0.48 : 0.8);
+              const motion = logo
+                ? 0.12
+                : state.intensity * (0.45 + level * 0.95);
+              ctx.beginPath();
+              for (let j = 0; j <= detail; j++) {
+                const a = (j / detail) * Math.PI * 2;
+                const terrain =
+                  Math.sin(a * 3 + f * 4 + time * 0.17) * 0.052 +
+                  Math.cos(a * 5 - f * 3 + time * 0.21) * 0.043 +
+                  Math.sin(a * 9 + f * 8 - time * 0.16) * 0.016 +
+                  Math.cos(a * 15 - f * 6 + time * 0.1) * 0.009;
+                const ripple =
+                  Math.sin(f * 20 - time * 1.7 + a * 2) *
+                  (2 + level * 6) *
+                  motion;
+                const grain =
+                  Math.sin(a * 23 + f * 40 + time * 0.13) *
+                  Math.sin(a * 7 - f * 11) *
+                  (logo ? 0.25 : 1.2);
+                const r =
+                  radius * (1 + terrain * (0.6 + motion)) + ripple + grain;
+                const x =
+                  cx +
+                  Math.cos(a) * r * stretch +
+                  Math.sin(a * 2 + f * 8 + time * 0.18) *
+                    f *
+                    (compact ? 3 : 11);
+                const y =
+                  cy +
+                  Math.sin(a) * r * (logo ? 1 : compact ? 0.88 : 0.72) +
+                  Math.cos(a * 3 - f * 6 + time * 0.16) *
+                    f *
+                    (compact ? 3 : 13);
+                if (j === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+              }
+              ctx.closePath();
+              ctx.lineWidth = logo ? 0.65 : ring % 4 === 0 ? 0.85 : 0.55;
+              ctx.strokeStyle = `rgba(${color},${fade})`;
+              ctx.stroke();
+            }
+          }
+        }
+        const landscapes = [
+          new Topography($("waveCanvas")),
+          new Topography($("overlayCanvas"), true),
+          new Topography($("brandCanvas"), true, true),
+        ];
+        for (let i = 0; i < 18; i++)
+          $("levelBars").append(document.createElement("i"));
+        const bars = [...$("levelBars").children];
+        let previous = 0,
+          waveTime = 0,
+          lastUi = 0;
+        function frame(now) {
+          requestAnimationFrame(frame);
+          if (document.hidden) {
+            previous = now;
+            return;
+          }
+          if (now - previous < 32) return;
+          const dt = Math.min((now - previous) / 1000, 0.05);
+          previous = now;
+          if (state.animate) waveTime += dt * (0.15 + state.speed * 1.7);
+          let target = 0.03;
+          if (state.phase === "listening" && state.silence === null) {
+            if (state.analyser) {
+              state.analyser.getByteTimeDomainData(state.samples);
+              let sum = 0;
+              for (const sample of state.samples)
+                sum += ((sample - 128) / 128) ** 2;
+              target = Math.min(1, Math.sqrt(sum / state.samples.length) * 4.5);
+            } else {
+              const t = now / 1000;
+              target =
+                0.22 +
+                0.42 *
+                  Math.pow(Math.sin(t * 1.7), 2) *
+                  (0.6 + 0.4 * Math.sin(t * 5.1)) +
+                0.12 * Math.sin(t * 9) ** 2;
+            }
+          } else if (state.phase === "processing") target = 0.2;
+          state.level += (target - state.level) * 0.14;
+          for (const landscape of landscapes)
+            landscape.draw(waveTime, state.level);
+          if (now - lastUi > 90) {
+            lastUi = now;
+            bars.forEach((bar, index) =>
+              bar.classList.toggle("on", index < Math.round(state.level * 24)),
+            );
+            $("dbLevel").textContent =
+              state.phase === "listening"
+                ? "−" + Math.round(48 - state.level * 45) + " dB"
+                : "— dB";
+            let timer = "•••",
+              label = "Голос превращается в текст",
+              progress = "100%";
+            if (state.silence !== null) {
+              const left = Math.max(0, 2.8 - (now - state.silence) / 1000);
+              timer = left.toFixed(1);
+              label = "Пауза до завершения";
+              progress = (left / 2.8) * 100 + "%";
+              if (!left) finish();
+            } else if (state.phase === "done") {
+              timer = "✓";
+              label = "Текст готов";
+            } else if (state.phase === "idle") {
+              timer = "—";
+              label = "Можно начинать";
+              progress = "0%";
+            } else if (state.phase === "processing") {
+              timer = "···";
+              label = "Распознаю · демо";
+              progress = "65%";
+            }
+            $("countdown").textContent = timer;
+            $("timerLabel").textContent = label;
+            $("timerRing").style.setProperty("--progress", progress);
+          }
+        }
+        if (innerWidth <= 1100) {
+          $("overlay").hidden = true;
+          $("overlayToggle").setAttribute("aria-pressed", "false");
+        }
+        setMotion(state.animate);
+        renderSessions();
+        setText(phrases.slice(0, 2).join("\n"), false);
+        renderPhase();
+        requestAnimationFrame(frame);
+      })();
+    </script>
+  </body>
+</html>

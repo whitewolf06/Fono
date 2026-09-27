@@ -11,6 +11,7 @@ import {
   speechTrainerPeriods,
 } from "../domain/speechTrainer";
 import { PageFrame } from "@/v2/shared/presentation/components/PageFrame";
+import { Switch } from "@/v2/shared/presentation/components/Switch";
 
 interface SpeechTrainerPageProps {
   store: SpeechTrainerStore;
@@ -113,6 +114,28 @@ export function SpeechTrainerPage({
             </label>
           </div>
           <div className="v2-speech-trainer-toolbar__actions">
+            <div className="v2-speech-trainer-toggle">
+              <div>
+                <strong>Речевой тренер</strong>
+                <span>
+                  {!trainer.analyticsEnabled
+                    ? "Для тренера нужно локальное согласие на аналитику."
+                    : trainer.trainerEnabled
+                      ? "Новые расшифровки отслеживаются локально для отчёта."
+                      : "Новые диктовки не добавляются в отчёт. Накопленные данные сохранены."}
+                </span>
+              </div>
+              <Switch
+                checked={trainer.trainerEnabled}
+                disabled={trainer.isUpdatingTrainer || !trainer.analyticsEnabled}
+                ariaLabel={
+                  trainer.trainerEnabled
+                    ? "Выключить речевой тренер"
+                    : "Включить речевой тренер"
+                }
+                onChange={(enabled) => void trainer.setTrainerEnabled(enabled)}
+              />
+            </div>
             <button
               className="v2-button v2-button--quiet"
               type="button"
@@ -130,6 +153,11 @@ export function SpeechTrainerPage({
             </button>
           </div>
         </section>
+        {trainer.trainerToggleError && (
+          <p className="v2-speech-trainer-inline-error" role="status">
+            {trainer.trainerToggleError}
+          </p>
+        )}
 
         {trainer.isLoading ? (
           <div className="v2-loading">Собираю локальный отчёт…</div>

@@ -2,7 +2,9 @@ import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useSettingsDraft } from "../application/useSettingsDraft";
 import type { SettingsDraftStore } from "../application/useSettingsDraft";
-import { RangeField, SettingsStatus, Switch } from "./SettingsPrimitives";
+import { RangeField, SettingsStatus } from "./SettingsPrimitives";
+import { WakePhraseInput } from "./WakePhraseInput";
+import { Switch } from "@/v2/shared/presentation/components/Switch";
 
 export type QuickSettingsTarget =
   "microphone" | "wake-word" | "recognition" | "post-processing";
@@ -148,10 +150,10 @@ export function QuickSettingsDialog({
                 />
               </DialogField>
               <DialogField label="Ключевая фраза" disabled={wakeWordDisabled}>
-                <input
-                  value={draft.wakePhrase}
+                <WakePhraseInput
                   disabled={wakeWordDisabled}
-                  onChange={(event) => update("wakePhrase", event.target.value)}
+                  draft={draft}
+                  onChange={(value) => update("wakePhrase", value)}
                 />
               </DialogField>
               <RangeField

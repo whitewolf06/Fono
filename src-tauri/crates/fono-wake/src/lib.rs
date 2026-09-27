@@ -11,6 +11,7 @@ pub mod diag;
 pub mod engine;
 pub mod error;
 pub mod event;
+mod phrases;
 pub mod test;
 
 pub use audio_source::{AudioHub, AudioSubscription};
