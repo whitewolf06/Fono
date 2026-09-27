@@ -1,9 +1,13 @@
 .v3-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+  grid-template-columns:
+    minmax(var(--fono-wave-column-min-width), 28%)
+    minmax(0, 1fr);
+  align-content: center;
   min-height: var(--fono-hero-height);
   overflow: hidden;
+  padding: var(--fono-space-6) var(--fono-space-9) var(--fono-space-6) 0;
   border: var(--fono-border-width) solid var(--fono-border);
   border-radius: var(--fono-hero-radius);
   background-image:
@@ -23,15 +27,18 @@
   pointer-events: none;
 }
 
-.v3-hero-copy {
+.v3-hero > .v3-hero-kicker,
+.v3-hero > h1,
+.v3-hero-description,
+.v3-hotkey {
   position: relative;
   z-index: 1;
-  align-self: center;
-  padding: var(--fono-space-6) var(--fono-space-9);
 }
 
 .v3-hero-kicker {
   display: inline-flex;
+  grid-column: 2;
+  grid-row: 1;
   align-items: center;
   gap: var(--fono-space-2);
   color: var(--fono-electric-soft);
@@ -46,7 +53,9 @@
 }
 
 .v3-hero h1 {
-  margin: var(--fono-space-4) 0 var(--fono-space-3);
+  grid-column: 2;
+  grid-row: 2;
+  margin: var(--fono-space-2) 0;
 }
 
 .v3-hero-wordmark {
@@ -54,7 +63,9 @@
   height: auto;
 }
 
-.v3-hero-copy > p {
+.v3-hero-description {
+  grid-column: 2;
+  grid-row: 3;
   max-width: var(--fono-hero-description-width);
   margin: 0;
   color: var(--fono-hero-on-soft);
@@ -64,9 +75,11 @@
 
 .v3-hotkey {
   display: inline-flex;
+  grid-column: 2;
+  grid-row: 4;
   align-items: center;
   gap: var(--fono-space-3);
-  margin-top: var(--fono-space-6);
+  margin-top: var(--fono-space-5);
   color: var(--fono-text-secondary);
   font-size: var(--fono-type-sm);
 }
@@ -84,11 +97,12 @@
 .v3-wave-stage {
   position: relative;
   z-index: 1;
-  display: grid;
-  align-content: center;
-  justify-items: center;
+  grid-column: 1;
+  grid-row: 2;
+  align-self: center;
   min-width: 0;
-  padding: var(--fono-space-6);
+  height: 0;
+  padding: 0 var(--fono-space-2) 0 var(--fono-space-6);
 }
 
 .v3-wave-visual {
@@ -98,6 +112,7 @@
   height: var(--fono-wave-height);
   place-items: center;
   isolation: isolate;
+  transform: translateY(-50%);
   --fono-wave-tempo: var(--fono-wave-tempo-idle);
 }
 

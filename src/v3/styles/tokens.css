@@ -72,6 +72,8 @@
   --fono-hero-description-width: 445px;
   --fono-hero-wordmark-width: 260px;
   --fono-brand-wordmark-width: 94px;
+  --fono-wave-column-min-width: 252px;
+  --fono-wave-column-min-width-compact: 244px;
   --fono-feature-min-height: 228px;
   --fono-history-date-width: 130px;
   --fono-history-action-width: 60px;

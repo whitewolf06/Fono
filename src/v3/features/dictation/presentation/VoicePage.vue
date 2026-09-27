@@ -45,21 +45,19 @@ const heroDescription = computed(() => {
         :class="'is-' + workspace.phase.value"
         aria-label="Диктовка"
       >
+        <span class="v3-hero-kicker"
+          ><i class="pi pi-bolt"></i> Голосовой ввод</span
+        >
         <VoiceWave :phase="workspace.phase.value" :label="phaseLabel" />
-        <div class="v3-hero-copy">
-          <span class="v3-hero-kicker"
-            ><i class="pi pi-bolt"></i> Голосовой ввод</span
-          >
-          <h1>
-            <FonoWordmark class="v3-hero-wordmark" />
-            <span class="v3-visually-hidden">Fono</span>
-          </h1>
-          <p>{{ heroDescription }}</p>
-          <span class="v3-hotkey">
-            <kbd>{{ workspace.overview.value.hotkey }}</kbd>
-            <span>горячая клавиша</span>
-          </span>
-        </div>
+        <h1>
+          <FonoWordmark class="v3-hero-wordmark" />
+          <span class="v3-visually-hidden">Fono</span>
+        </h1>
+        <p class="v3-hero-description">{{ heroDescription }}</p>
+        <span class="v3-hotkey">
+          <kbd>{{ workspace.overview.value.hotkey }}</kbd>
+          <span>горячая клавиша</span>
+        </span>
       </section>
 
       <section v-else-if="props.section === 'history'" class="v3-detail">
