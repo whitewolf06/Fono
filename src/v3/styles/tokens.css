@@ -38,15 +38,10 @@
   --fono-tool-surface: color-mix(in srgb, var(--fono-night) 76%, transparent);
   --fono-service-api-accent: var(--fono-electric-soft);
   --fono-service-trainer-accent: var(--wl-blue-300);
-  --fono-service-api-glow: color-mix(
+  --fono-service-dark-end: color-mix(
     in srgb,
-    var(--fono-electric) 23%,
-    transparent
-  );
-  --fono-service-trainer-glow: color-mix(
-    in srgb,
-    var(--wl-blue-500) 25%,
-    transparent
+    var(--fono-night) 34%,
+    var(--fono-surface)
   );
   --fono-service-icon-surface: color-mix(
     in srgb,
