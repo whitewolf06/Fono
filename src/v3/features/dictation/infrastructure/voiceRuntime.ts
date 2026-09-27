@@ -26,6 +26,26 @@ function createMockRuntime(): VoiceRuntime {
     phase = value;
     listeners.forEach((listener) => listener(value));
   };
+  const start = async () => emit("listening");
+  const stop = async () => {
+    emit("transcribing");
+    await new Promise((resolve) => window.setTimeout(resolve, 850));
+    history = [
+      {
+        id: `demo-${Date.now()}`,
+        text: demoText,
+        createdAt: new Date().toISOString(),
+      },
+      ...history,
+    ];
+    emit("idle");
+  };
+  const onHotkey = (event: KeyboardEvent) => {
+    if (!event.ctrlKey || event.code !== "Space" || event.repeat) return;
+    event.preventDefault();
+    if (phase === "idle") void start();
+    else if (phase === "listening") void stop();
+  };
 
   return {
     demo: true,
@@ -40,20 +60,8 @@ function createMockRuntime(): VoiceRuntime {
       version: __FONO_FRONTEND_BUILD__.version,
       error: null,
     }),
-    start: async () => emit("listening"),
-    stop: async () => {
-      emit("transcribing");
-      await new Promise((resolve) => window.setTimeout(resolve, 850));
-      history = [
-        {
-          id: `demo-${Date.now()}`,
-          text: demoText,
-          createdAt: new Date().toISOString(),
-        },
-        ...history,
-      ];
-      emit("idle");
-    },
+    start,
+    stop,
     toggleWakeWord: async () => {
       wakeWordEnabled = !wakeWordEnabled;
     },
@@ -62,7 +70,12 @@ function createMockRuntime(): VoiceRuntime {
     },
     subscribePhase: (listener) => {
       listeners.add(listener);
-      return () => listeners.delete(listener);
+      if (listeners.size === 1) document.addEventListener("keydown", onHotkey);
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0)
+          document.removeEventListener("keydown", onHotkey);
+      };
     },
   };
 }

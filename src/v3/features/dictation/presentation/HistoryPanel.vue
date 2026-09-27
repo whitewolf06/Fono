@@ -26,11 +26,7 @@ const emit = defineEmits<{ refresh: []; copy: [text: string] }>();
       <div class="v3-history-table-head">
         <span>Текст</span><span>Время</span><span>Действие</span>
       </div>
-      <div
-        v-for="entry in history.slice(0, 5)"
-        :key="entry.id"
-        class="v3-history-row"
-      >
+      <div v-for="entry in history" :key="entry.id" class="v3-history-row">
         <span class="v3-history-text"
           ><i class="pi pi-file-edit"></i
           ><span :title="entry.text">{{ entry.text }}</span></span

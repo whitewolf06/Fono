@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "fono"
-version = "0.5.3"
+version = "0.5.4"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
