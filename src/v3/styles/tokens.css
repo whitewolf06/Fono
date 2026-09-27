@@ -1,51 +1,46 @@
 :root {
-  /* WhiteLife owns the palette; Fono names the roles used by this screen. */
-  --fono-canvas: var(--wl-bg-soft);
-  --fono-surface: var(--wl-bg);
-  --fono-border: var(--wl-border);
+  /* WhiteLife graphite remains the component foundation; Fono adds a night-blue brand layer. */
+  --fono-night: #071321;
+  --fono-night-raised: #0e1b2e;
+  --fono-night-card: #132136;
+  --fono-electric: #2ab7ff;
+  --fono-electric-soft: #8bd4ff;
+  --fono-canvas: color-mix(in srgb, var(--wl-bg) 10%, var(--fono-night));
+  --fono-sidebar: color-mix(in srgb, var(--wl-bg) 8%, var(--fono-night));
+  --fono-surface: color-mix(
+    in srgb,
+    var(--wl-bg-soft) 12%,
+    var(--fono-night-raised)
+  );
+  --fono-surface-raised: color-mix(
+    in srgb,
+    var(--wl-bg-hover) 10%,
+    var(--fono-night-card)
+  );
+  --fono-border: color-mix(in srgb, var(--wl-border-2) 55%, var(--wl-blue-900));
+  --fono-border-soft: color-mix(in srgb, var(--fono-border) 62%, transparent);
   --fono-text: var(--wl-text);
-  --fono-text-secondary: var(--wl-text-2);
-  --fono-muted: var(--wl-text-3);
-  --fono-accent: var(--wl-accent);
-  --fono-accent-soft: var(--wl-accent-soft);
-  --fono-accent-border: var(--wl-accent-border);
+  --fono-text-secondary: color-mix(
+    in srgb,
+    var(--wl-text-2) 80%,
+    var(--wl-blue-200)
+  );
+  --fono-muted: color-mix(in srgb, var(--wl-text-3) 82%, var(--wl-blue-200));
+  --fono-accent: color-mix(
+    in srgb,
+    var(--wl-blue-400) 18%,
+    var(--fono-electric)
+  );
+  --fono-accent-soft: color-mix(in srgb, var(--fono-accent) 14%, transparent);
+  --fono-accent-border: color-mix(in srgb, var(--fono-accent) 31%, transparent);
   --fono-success: var(--wl-success);
-
-  /* Fono's voice stage keeps its own brand treatment. */
-  --fono-hero-start: var(--wl-blue-700);
-  --fono-hero-middle: var(--wl-blue-600);
-  --fono-hero-end: var(--wl-blue-400);
-  --fono-hero-border: var(--wl-blue-600);
-  --fono-hero-on: var(--wl-on-accent);
+  --fono-warning: var(--wl-warn);
+  --fono-hero-on: var(--wl-text);
   --fono-hero-on-soft: var(--wl-blue-100);
-  --fono-hero-on-emphasis: var(--wl-blue-200);
-  --fono-hero-action-text: var(--wl-blue-700);
-  --fono-hero-action-hover: var(--wl-blue-50);
-  --fono-hero-ready: var(--wl-green-400);
-  --fono-hero-listening: var(--wl-amber-100);
-  --fono-hero-overlay-6: color-mix(
-    in srgb,
-    var(--fono-hero-on) 6%,
-    transparent
-  );
-  --fono-hero-overlay-10: color-mix(
-    in srgb,
-    var(--fono-hero-on) 10%,
-    transparent
-  );
-  --fono-hero-overlay-22: color-mix(
-    in srgb,
-    var(--fono-hero-on) 22%,
-    transparent
-  );
-  --fono-hero-overlay-35: color-mix(
-    in srgb,
-    var(--fono-hero-on) 35%,
-    transparent
-  );
-  --fono-hero-wash: color-mix(in srgb, var(--wl-blue-300) 7%, transparent);
+  --fono-hero-on-emphasis: var(--fono-electric-soft);
+  --fono-orbit-glow: color-mix(in srgb, var(--fono-electric) 65%, transparent);
+  --fono-hero-shade: color-mix(in srgb, var(--fono-night) 62%, transparent);
 
-  /* A single 4px spacing scale is used for layout and component spacing. */
   --fono-space-1: 4px;
   --fono-space-2: 8px;
   --fono-space-3: 12px;
@@ -58,52 +53,45 @@
   --fono-space-10: 40px;
   --fono-space-12: 48px;
 
-  --fono-type-2xs: 9px;
-  --fono-type-xs: 10px;
-  --fono-type-sm: 11px;
-  --fono-type-md: 12px;
+  --fono-type-xs: 11px;
+  --fono-type-sm: 12px;
+  --fono-type-md: 13px;
   --fono-type-lg: 15px;
   --fono-type-xl: 17px;
-  --fono-type-brand: 21px;
-  --fono-type-art: 27px;
-  --fono-type-heading: clamp(22px, 2.7vw, 30px);
-  --fono-type-hero: clamp(24px, 3vw, 35px);
+  --fono-type-brand: 27px;
+  --fono-type-heading: clamp(28px, 2.5vw, 39px);
+  --fono-type-art: 58px;
 
   --fono-window-min-width: 720px;
   --fono-border-width: 1px;
-  --fono-sidebar-width: 204px;
-  --fono-sidebar-compact-width: 65px;
-  --fono-sidebar-icon-width: 44px;
-  --fono-topbar-height: 61px;
-  --fono-content-max-width: 1180px;
-  --fono-detail-width: 245px;
-  --fono-brand-mark-size: 36px;
-  --fono-nav-item-height: 40px;
-  --fono-tip-icon-size: 28px;
-  --fono-status-dot-size: 7px;
-  --fono-hero-height: 290px;
-  --fono-hero-copy-width: 460px;
-  --fono-hero-description-width: 350px;
-  --fono-orbital-size: 190px;
-  --fono-orbit-outer: 188px;
-  --fono-orbit-middle: 145px;
-  --fono-orbit-inner: 105px;
-  --fono-orbit-core: 68px;
-  --fono-orbit-wash-size: 410px;
-  --fono-orbit-wash-bottom: -130px;
-  --fono-hero-radius: 16px;
-
-  --fono-shadow-brand: 0 6px 15px
-    color-mix(in srgb, var(--fono-accent) 18%, transparent);
-  --fono-shadow-card: var(--wl-shadow-card);
-  --fono-shadow-hero: 0 14px 30px
-    color-mix(in srgb, var(--fono-hero-start) 14%, transparent);
-  --fono-shadow-hero-action: 0 5px 14px
-    color-mix(in srgb, var(--fono-hero-start) 29%, transparent);
-  --fono-shadow-orbit: 0 0 30px
-    color-mix(in srgb, var(--wl-blue-200) 45%, transparent);
-  --fono-shadow-listening: 0 0 0 var(--fono-space-1)
-    color-mix(in srgb, var(--fono-hero-listening) 20%, transparent);
-  --fono-shadow-listening-soft: 0 0 0 var(--fono-space-2)
-    color-mix(in srgb, var(--fono-hero-listening) 7%, transparent);
+  --fono-sidebar-width: 238px;
+  --fono-sidebar-compact-width: 68px;
+  --fono-rail-width: 280px;
+  --fono-topbar-height: 82px;
+  --fono-top-nav-item-width: 95px;
+  --fono-nav-item-height: 52px;
+  --fono-sidebar-art-height: 300px;
+  --fono-content-max-width: 1740px;
+  --fono-hero-height: 304px;
+  --fono-hero-description-width: 445px;
+  --fono-status-min-width: 156px;
+  --fono-feature-min-height: 228px;
+  --fono-history-date-width: 130px;
+  --fono-history-action-width: 60px;
+  --fono-history-row-height: 40px;
+  --fono-activity-min-height: 64px;
+  --fono-orbital-size: 238px;
+  --fono-orbit-outer: 238px;
+  --fono-orbit-middle: 210px;
+  --fono-orbit-inner: 170px;
+  --fono-orbit-core: 154px;
+  --fono-status-dot-size: 9px;
+  --fono-card-radius: var(--wl-radius-lg);
+  --fono-hero-radius: var(--wl-radius-lg);
+  --fono-nav-radius: var(--wl-radius);
+  --fono-shadow-card: 0 12px 32px
+    color-mix(in srgb, var(--fono-night) 55%, transparent);
+  --fono-shadow-orbit:
+    0 0 0 3px var(--fono-electric-soft), 0 0 16px 4px var(--fono-electric),
+    0 0 45px 10px var(--fono-orbit-glow);
 }

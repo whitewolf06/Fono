@@ -5,7 +5,7 @@ import App from "./app/App.vue";
 
 import "@whitelife-core/ui-kit/styles/reset.css";
 import "@whitelife-core/ui-kit/styles/base.css";
-import "@whitelife-core/ui-kit/themes/white.css";
+import "@whitelife-core/ui-kit/themes/graphite.css";
 import "primeicons/primeicons.css";
 import "./styles.css";
 
