@@ -34,6 +34,8 @@
   --fono-accent-soft: color-mix(in srgb, var(--fono-accent) 14%, transparent);
   --fono-accent-border: color-mix(in srgb, var(--fono-accent) 31%, transparent);
   --fono-success: var(--wl-success);
+  --fono-off: var(--wl-danger);
+  --fono-tool-surface: color-mix(in srgb, var(--fono-night) 76%, transparent);
   --fono-hero-on: var(--wl-text);
   --fono-hero-on-soft: var(--wl-blue-100);
   --fono-hero-shade: color-mix(in srgb, var(--fono-night) 62%, transparent);
@@ -68,7 +70,7 @@
   --fono-content-max-width: 1220px;
   --fono-detail-page-width: 760px;
   --fono-detail-card-width: 520px;
-  --fono-hero-height: clamp(300px, 34vh, 340px);
+  --fono-hero-height: clamp(340px, 38vh, 370px);
   --fono-hero-description-width: 445px;
   --fono-hero-wordmark-width: 260px;
   --fono-brand-wordmark-width: 94px;
@@ -83,6 +85,7 @@
   --fono-wave-width-compact: 200px;
   --fono-wave-bar-width: 3px;
   --fono-wave-bar-gap: 3px;
+  --fono-tool-min-height: 60px;
   --fono-wave-blur: 20px;
   --fono-wave-tempo-idle: 2.1s;
   --fono-wave-tempo-listening: 0.8s;

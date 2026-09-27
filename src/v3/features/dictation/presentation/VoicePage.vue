@@ -6,6 +6,7 @@ import { phaseLabels } from "../domain/voice";
 import { useVoiceWorkspace } from "../application/useVoiceWorkspace";
 import { createVoiceRuntime } from "../infrastructure/voiceRuntime";
 import HistoryPanel from "./HistoryPanel.vue";
+import VoiceTools from "./VoiceTools.vue";
 import VoiceWave from "./VoiceWave.vue";
 
 const props = defineProps<{
@@ -58,6 +59,7 @@ const heroDescription = computed(() => {
           <kbd>{{ workspace.overview.value.hotkey }}</kbd>
           <span>горячая клавиша</span>
         </span>
+        <VoiceTools :tools="workspace.overview.value.tools" />
       </section>
 
       <section v-else-if="props.section === 'history'" class="v3-detail">

@@ -7,6 +7,18 @@ export interface VoiceEntry {
   createdAt: string;
 }
 
+export interface VoiceToolStatus {
+  enabled: boolean;
+  value: string;
+}
+
+export interface VoiceTools {
+  microphone: VoiceToolStatus;
+  wakeWord: VoiceToolStatus;
+  postProcessing: VoiceToolStatus;
+  recognition: VoiceToolStatus;
+}
+
 export interface VoiceOverview {
   phase: VoicePhase;
   hotkey: string;
@@ -14,6 +26,7 @@ export interface VoiceOverview {
   model: string;
   wakeWordEnabled: boolean;
   wakeWord: string;
+  tools: VoiceTools;
   history: VoiceEntry[];
   version: string;
   error: string | null;

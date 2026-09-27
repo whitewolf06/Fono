@@ -30,6 +30,8 @@ const version = __FONO_FRONTEND_BUILD__.version;
       <nav class="v3-side-nav" aria-label="Основная навигация">
         <button
           class="v3-nav-item"
+          aria-label="Главная"
+          title="Главная"
           :class="{ 'is-active': section === 'home' }"
           :aria-current="section === 'home' ? 'page' : undefined"
           type="button"
@@ -39,6 +41,8 @@ const version = __FONO_FRONTEND_BUILD__.version;
         </button>
         <button
           class="v3-nav-item"
+          aria-label="История"
+          title="История"
           :class="{ 'is-active': section === 'history' }"
           :aria-current="section === 'history' ? 'page' : undefined"
           type="button"
@@ -48,6 +52,8 @@ const version = __FONO_FRONTEND_BUILD__.version;
         </button>
         <button
           class="v3-nav-item"
+          aria-label="Пробуждение"
+          title="Пробуждение"
           :class="{ 'is-active': section === 'wake' }"
           :aria-current="section === 'wake' ? 'page' : undefined"
           type="button"
@@ -57,6 +63,8 @@ const version = __FONO_FRONTEND_BUILD__.version;
         </button>
         <button
           class="v3-nav-item"
+          aria-label="Модель"
+          title="Модель"
           :class="{ 'is-active': section === 'model' }"
           :aria-current="section === 'model' ? 'page' : undefined"
           type="button"
@@ -64,7 +72,12 @@ const version = __FONO_FRONTEND_BUILD__.version;
         >
           <i class="pi pi-sliders-h"></i><span>Модель</span>
         </button>
-        <a class="v3-nav-item" href="index.html?ui=v2">
+        <a
+          class="v3-nav-item"
+          href="index.html?ui=v2"
+          aria-label="Настройки"
+          title="Настройки"
+        >
           <i class="pi pi-cog"></i><span>Настройки</span>
         </a>
       </nav>

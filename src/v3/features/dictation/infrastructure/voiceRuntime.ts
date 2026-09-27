@@ -1,6 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { ipc, onPipelineStateChange } from "@/lib/ipc";
-import type { VoiceOverview, VoicePhase } from "../domain/voice";
+import type { DeviceInfo, Settings } from "@/lib/types";
+import type { VoiceOverview, VoicePhase, VoiceTools } from "../domain/voice";
 import type { VoiceRuntime } from "../application/voiceRuntime";
 
 const demoText =
@@ -56,6 +57,12 @@ function createMockRuntime(): VoiceRuntime {
       model: "Whisper Small",
       wakeWordEnabled,
       wakeWord: "Эй, Fono",
+      tools: {
+        microphone: { enabled: true, value: "Системный микрофон" },
+        wakeWord: { enabled: wakeWordEnabled, value: "Эй, Fono" },
+        postProcessing: { enabled: true, value: "GPT-4o Mini" },
+        recognition: { enabled: true, value: "Whisper Small" },
+      },
       history,
       version: __FONO_FRONTEND_BUILD__.version,
       error: null,
@@ -84,12 +91,15 @@ function createTauriRuntime(): VoiceRuntime {
   return {
     demo: false,
     load: async (): Promise<VoiceOverview> => {
-      const [phase, settings, history, build] = await Promise.all([
+      const [phase, settings, history, build, devices] = await Promise.all([
         ipc.getPipelineState(),
         ipc.getSettings(),
         ipc.getDictationHistory(),
         ipc.getBuildInfo(),
+        ipc.listAudioDevices().catch(() => null),
       ]);
+
+      const model = recognitionModelLabel(settings.whisper_model_path);
 
       return {
         phase,
@@ -98,11 +108,10 @@ function createTauriRuntime(): VoiceRuntime {
           settings.language === "auto"
             ? "Авто"
             : settings.language.toUpperCase(),
-        model: settings.whisper_model_path
-          ? (settings.whisper_model_path.split(/[\\/]/).at(-1) ?? "Whisper")
-          : "Модель не выбрана",
+        model,
         wakeWordEnabled: settings.wake_word_enabled,
         wakeWord: settings.wake_word,
+        tools: toVoiceTools(settings, devices, model),
         history: history.slice(0, 12).map((entry) => ({
           id: entry.id,
           text: entry.text,
@@ -137,6 +146,64 @@ function createTauriRuntime(): VoiceRuntime {
       };
     },
   };
+}
+
+function toVoiceTools(
+  settings: Settings,
+  devices: DeviceInfo[] | null,
+  recognitionModel: string,
+): VoiceTools {
+  const microphone = settings.audio_device_id
+    ? devices?.find((device) => device.id === settings.audio_device_id)
+    : devices?.find((device) => device.is_default);
+  const profile = settings.llm_profiles.find(
+    (candidate) => candidate.id === settings.text_correction_llm.profile_id,
+  );
+  const postProcessingModel = profile
+    ? settings.text_correction_llm.model?.trim() ||
+      profile.model?.trim() ||
+      "Автовыбор модели"
+    : settings.llm_model?.trim() || "Автовыбор модели";
+
+  return {
+    microphone: {
+      enabled: Boolean(microphone),
+      value:
+        microphone?.name ??
+        (devices === null
+          ? "Не удалось проверить"
+          : settings.audio_device_id
+            ? "Устройство недоступно"
+            : "Системный микрофон недоступен"),
+    },
+    wakeWord: {
+      enabled: settings.wake_word_enabled,
+      value: settings.wake_word.trim() || "Фраза не задана",
+    },
+    postProcessing: {
+      enabled: settings.ai_mode !== "off",
+      value: postProcessingModel,
+    },
+    recognition: {
+      enabled: Boolean(settings.whisper_model_path),
+      value: recognitionModel,
+    },
+  };
+}
+
+function recognitionModelLabel(path: string | null): string {
+  const filename = path?.split(/[\\/]/).at(-1);
+  if (!filename) return "Модель не выбрана";
+
+  const known: Record<string, string> = {
+    "ggml-tiny.bin": "Whisper Tiny",
+    "ggml-base.bin": "Whisper Base",
+    "ggml-small.bin": "Whisper Small",
+    "ggml-medium.bin": "Whisper Medium",
+    "ggml-large-v3.bin": "Whisper Large v3",
+    "ggml-large-v3-turbo.bin": "Whisper Large v3 Turbo",
+  };
+  return known[filename.toLowerCase()] ?? filename;
 }
 
 export function createVoiceRuntime(): VoiceRuntime {
