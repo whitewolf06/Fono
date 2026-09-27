@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import vue from "@vitejs/plugin-vue";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -17,15 +18,12 @@ function gitRevision() {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    const isDirty = execFileSync(
-      "git",
-      ["status", "--porcelain", "--untracked-files=no"],
-      {
+    const isDirty =
+      execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], {
         cwd: __dirname,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
-      },
-    ).trim().length > 0;
+      }).trim().length > 0;
 
     return isDirty ? `${revision}-dirty` : revision;
   } catch {
@@ -35,7 +33,7 @@ function gitRevision() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), vue()],
   define: {
     __FONO_FRONTEND_BUILD__: JSON.stringify({
       version: packageVersion,
@@ -66,6 +64,12 @@ export default defineConfig({
 
   // Produce sourcemaps for debug builds
   build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        v3: path.resolve(__dirname, "v3.html"),
+      },
+    },
     target: "es2022",
     sourcemap: !!process.env.TAURI_DEBUG,
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,

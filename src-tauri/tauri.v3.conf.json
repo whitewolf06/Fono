@@ -1,0 +1,41 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "settings",
+        "title": "Fono — V3 Preview",
+        "url": "v3.html",
+        "width": 900,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 560,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "theme": "Light",
+        "backgroundColor": "#f7f8fa",
+        "visible": true,
+        "center": true
+      },
+      {
+        "label": "overlay",
+        "title": "Fono Overlay",
+        "url": "index.html?view=overlay&ui=v2",
+        "width": 286,
+        "height": 88,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "center": false,
+        "x": 560,
+        "y": 40,
+        "shadow": false
+      }
+    ]
+  }
+}

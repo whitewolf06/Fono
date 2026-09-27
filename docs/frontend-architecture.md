@@ -1,4 +1,23 @@
-# Frontend architecture: Fono UI v2
+# Frontend architecture: Fono UI v2 and v3
+
+## V3 preview (Vue)
+
+V3 lives in `src/v3/` and starts from `v3.html`. It uses Vue 3, TypeScript,
+PrimeVue unstyled and the private `@whitelife-core/ui-kit` package, following
+the setup in WhiteLife: `createWlPt()`, `wlLocaleRu`, then explicit reset, base
+and theme CSS imports. `.npmrc` selects GitHub Packages for this scope; npm
+credentials remain outside the repository.
+
+The V3 dictation feature separates pure domain data, a runtime port,
+Tauri/mock infrastructure and Vue presentation. Native access goes through
+`src/lib/ipc.ts`. The browser at `http://127.0.0.1:1420/v3.html` shows demo
+data. `npm run dev:desktop:v3` starts a Tauri development build with V3 in the
+settings window and the existing V2 overlay. The regular app config and
+installer continue to open V2 until the new UI is accepted.
+
+V3 is an initial voice workspace, not a replacement for the full settings,
+commands, service and trainer pages. Its “All settings” link opens the existing
+V2 interface. Keep these pages available while V3 grows feature by feature.
 
 ## Status and goal
 

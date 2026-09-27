@@ -1,0 +1,182 @@
+.v3-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 245px;
+  gap: 21px;
+  margin-top: 28px;
+}
+
+.v3-section-heading {
+  align-items: center;
+  margin-bottom: 13px;
+}
+
+.v3-section-heading h2 {
+  margin: 5px 0 0;
+  color: #23334b;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+}
+
+.v3-section-heading .wl-btn {
+  font-size: 10px;
+}
+
+.v3-section-heading .wl-btn i,
+.v3-history-item .wl-btn i {
+  margin-right: 5px;
+}
+
+.v3-history-list {
+  display: grid;
+  gap: 9px;
+}
+
+.v3-history-item {
+  border: 1px solid #e9edf3;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 2px 8px #233a5d08;
+}
+
+.v3-history-item .wl-card__content {
+  padding: 15px 17px;
+}
+
+.v3-history-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #94a0af;
+  font-size: 10px;
+}
+
+.v3-history-meta span {
+  color: #3b70c2;
+  font-weight: 700;
+}
+
+.v3-history-item p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 11px 0 9px;
+  color: #35445a;
+  font-size: 12px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.v3-history-item .wl-btn {
+  padding: 0;
+  color: #5278b1;
+  font-size: 10px;
+}
+
+.v3-side-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.v3-config-card {
+  border: 1px solid #e9edf3;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.v3-config-card .wl-card__content {
+  padding: 17px;
+}
+
+.v3-config-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #2e3c50;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.v3-config-top i {
+  color: #3572d7;
+}
+
+.v3-config-card dl {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.v3-config-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 9px;
+  font-size: 10px;
+}
+
+.v3-config-card dt {
+  color: #8793a2;
+}
+
+.v3-config-card dd {
+  overflow: hidden;
+  margin: 0;
+  color: #354359;
+  font-weight: 650;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v3-config-card .wl-btn {
+  width: 100%;
+  font-size: 10px;
+}
+
+.v3-tip {
+  display: flex;
+  gap: 11px;
+  padding: 15px;
+  border: 1px solid #dceaf5;
+  border-radius: 11px;
+  background: #eff7fc;
+}
+
+.v3-tip-icon {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex: none;
+  place-items: center;
+  border-radius: 8px;
+  background: #deedfb;
+  color: #3977c1;
+  font-size: 13px;
+}
+
+.v3-tip strong {
+  color: #326198;
+  font-size: 10px;
+}
+
+.v3-tip p {
+  margin: 5px 0 0;
+  color: #6f8bab;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.v3-privacy-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  color: #a0aab6;
+  font-size: 10px;
+}
+
+.v3-version {
+  color: #a5aeba;
+  font-size: 10px;
+  text-align: center;
+}
