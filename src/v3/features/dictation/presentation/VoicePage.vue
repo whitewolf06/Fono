@@ -2,20 +2,17 @@
 import { computed } from "vue";
 import { WlEmpty, WlSpinner } from "@whitelife-core/ui-kit";
 import FonoWordmark from "../../../shared/FonoWordmark.vue";
-import { phaseLabels } from "../domain/voice";
 import { useVoiceWorkspace } from "../application/useVoiceWorkspace";
 import { createVoiceRuntime } from "../infrastructure/voiceRuntime";
 import HistoryPanel from "./HistoryPanel.vue";
 import HomeServices from "./HomeServices.vue";
 import VoiceTools from "./VoiceTools.vue";
-import VoiceWave from "./VoiceWave.vue";
 
 const props = defineProps<{
   section: "home" | "history" | "wake" | "model";
 }>();
 
 const workspace = useVoiceWorkspace(createVoiceRuntime());
-const phaseLabel = computed(() => phaseLabels[workspace.phase.value]);
 const heroDescription = computed(() => {
   const hotkey = workspace.overview.value?.hotkey ?? "Ctrl + Space";
 
@@ -50,7 +47,6 @@ const heroDescription = computed(() => {
           <span class="v3-hero-kicker"
             ><i class="pi pi-bolt"></i> Голосовой ввод</span
           >
-          <VoiceWave :phase="workspace.phase.value" :label="phaseLabel" />
           <h1>
             <FonoWordmark class="v3-hero-wordmark" />
             <span class="v3-visually-hidden">Fono</span>

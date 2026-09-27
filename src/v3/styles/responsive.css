@@ -33,22 +33,12 @@
   }
 }
 
-@media (max-width: 900px) {
-  .v3-tool-strip {
-    grid-column: 1 / -1;
-    margin-left: var(--fono-space-6);
-  }
-}
-
 @media (max-width: 800px) {
   .v3-workspace {
     padding: var(--fono-space-4);
   }
 
   .v3-hero {
-    grid-template-columns:
-      minmax(var(--fono-wave-column-min-width-compact), 28%)
-      minmax(0, 1fr);
     padding-right: var(--fono-space-5);
   }
 
