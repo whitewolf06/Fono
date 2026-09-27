@@ -1,13 +1,12 @@
 .v3-home {
   display: grid;
   width: 100%;
-  gap: var(--fono-space-4);
 }
 
 .v3-services {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--fono-space-4);
+  border-bottom: var(--fono-border-width) solid var(--fono-border);
 }
 
 .v3-service-card {
@@ -16,14 +15,15 @@
   min-height: var(--fono-service-min-height);
   gap: var(--fono-space-4);
   padding: var(--fono-space-5);
-  border: var(--fono-border-width) solid var(--fono-border);
-  border-radius: var(--fono-card-radius);
   background: linear-gradient(
     145deg,
     var(--fono-surface),
     var(--fono-service-dark-end)
   );
-  box-shadow: var(--fono-shadow-card);
+}
+
+.v3-service-card + .v3-service-card {
+  border-left: var(--fono-border-width) solid var(--fono-border);
 }
 
 .v3-service-card--api {
@@ -154,5 +154,10 @@
 @media (max-width: 800px) {
   .v3-services {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v3-service-card + .v3-service-card {
+    border-top: var(--fono-border-width) solid var(--fono-border);
+    border-left: 0;
   }
 }

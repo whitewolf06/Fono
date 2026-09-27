@@ -76,6 +76,7 @@
   --fono-border-width: 1px;
   --fono-sidebar-width: 238px;
   --fono-sidebar-compact-width: 68px;
+  --fono-shell-max-width: 1440px;
   --fono-sidebar-min-height: 560px;
   --fono-brand-height: 100px;
   --fono-nav-item-height: 52px;

@@ -34,7 +34,7 @@
 }
 
 @media (max-width: 800px) {
-  .v3-workspace {
+  .v3-workspace:not(.v3-workspace--home) {
     padding: var(--fono-space-4);
   }
 

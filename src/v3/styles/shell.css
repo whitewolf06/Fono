@@ -26,7 +26,10 @@ a {
 .v3-shell {
   display: grid;
   grid-template-columns: var(--fono-sidebar-width) minmax(0, 1fr);
+  width: min(100%, var(--fono-shell-max-width));
   min-height: 100vh;
+  margin-inline: auto;
+  border-inline: var(--fono-border-width) solid var(--fono-border);
   background: var(--fono-canvas);
 }
 
@@ -161,8 +164,11 @@ a {
 
 .v3-workspace--home {
   display: flex;
+  max-width: none;
   flex-direction: column;
   justify-content: flex-start;
+  margin: 0;
+  padding: 0;
 }
 
 .v3-loading {
