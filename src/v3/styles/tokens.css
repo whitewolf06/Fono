@@ -48,6 +48,26 @@
     var(--fono-night) 48%,
     transparent
   );
+  --fono-preview-surface: color-mix(
+    in srgb,
+    var(--fono-electric) 8%,
+    var(--fono-canvas)
+  );
+  --fono-preview-field: color-mix(
+    in srgb,
+    var(--fono-night-card) 72%,
+    var(--fono-night)
+  );
+  --fono-preview-field-border: color-mix(
+    in srgb,
+    var(--fono-electric) 35%,
+    var(--fono-border)
+  );
+  --fono-preview-button: color-mix(
+    in srgb,
+    var(--fono-electric) 12%,
+    var(--fono-night-raised)
+  );
   --fono-hero-on: var(--wl-text);
   --fono-hero-on-soft: var(--wl-blue-100);
   --fono-hero-shade: color-mix(in srgb, var(--fono-night) 62%, transparent);
@@ -101,7 +121,8 @@
   --fono-tool-min-height: 60px;
   --fono-service-min-height: 174px;
   --fono-service-icon-size: 64px;
-  --fono-preview-text-height: 64px;
+  --fono-preview-text-height: 84px;
+  --fono-preview-icon-size: 40px;
   --fono-wave-blur: 20px;
   --fono-wave-tempo-idle: 2.1s;
   --fono-wave-tempo-listening: 0.8s;

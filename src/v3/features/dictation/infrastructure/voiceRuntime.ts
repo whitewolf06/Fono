@@ -133,6 +133,7 @@ function createTauriRuntime(): VoiceRuntime {
         history: history.slice(0, 12).map((entry) => ({
           id: entry.id,
           text: entry.text,
+          originalText: entry.original_text,
           createdAt: entry.created_at,
         })),
         version: build.version,

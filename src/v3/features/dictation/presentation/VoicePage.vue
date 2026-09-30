@@ -63,7 +63,11 @@ const heroDescription = computed(() => {
         <HomeServices :services="workspace.overview.value.services" />
         <HomeTextPreview
           :entry="workspace.overview.value.history[0] ?? null"
+          :post-processing-enabled="
+            workspace.overview.value.tools.postProcessing.enabled
+          "
           @open-history="emit('open-history')"
+          @copy="workspace.copyText"
         />
       </div>
 

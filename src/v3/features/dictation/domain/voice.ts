@@ -4,6 +4,7 @@ export type VoicePhase =
 export interface VoiceEntry {
   id: string;
   text: string;
+  originalText?: string | null;
   createdAt: string;
 }
 

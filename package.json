@@ -1,6 +1,6 @@
 {
   "name": "fono",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
