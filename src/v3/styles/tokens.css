@@ -101,6 +101,7 @@
   --fono-tool-min-height: 60px;
   --fono-service-min-height: 174px;
   --fono-service-icon-size: 64px;
+  --fono-preview-text-height: 64px;
   --fono-wave-blur: 20px;
   --fono-wave-tempo-idle: 2.1s;
   --fono-wave-tempo-listening: 0.8s;

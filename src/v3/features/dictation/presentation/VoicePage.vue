@@ -6,11 +6,13 @@ import { useVoiceWorkspace } from "../application/useVoiceWorkspace";
 import { createVoiceRuntime } from "../infrastructure/voiceRuntime";
 import HistoryPanel from "./HistoryPanel.vue";
 import HomeServices from "./HomeServices.vue";
+import HomeTextPreview from "./HomeTextPreview.vue";
 import VoiceTools from "./VoiceTools.vue";
 
 const props = defineProps<{
   section: "home" | "history" | "wake" | "model";
 }>();
+const emit = defineEmits<{ "open-history": [] }>();
 
 const workspace = useVoiceWorkspace(createVoiceRuntime());
 const heroDescription = computed(() => {
@@ -59,6 +61,10 @@ const heroDescription = computed(() => {
           <VoiceTools :tools="workspace.overview.value.tools" />
         </section>
         <HomeServices :services="workspace.overview.value.services" />
+        <HomeTextPreview
+          :entry="workspace.overview.value.history[0] ?? null"
+          @open-history="emit('open-history')"
+        />
       </div>
 
       <section v-else-if="props.section === 'history'" class="v3-detail">

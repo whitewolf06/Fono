@@ -84,7 +84,9 @@ const version = __FONO_FRONTEND_BUILD__.version;
     </aside>
 
     <div class="v3-main-column">
-      <main><VoicePage :section="section" /></main>
+      <main>
+        <VoicePage :section="section" @open-history="section = 'history'" />
+      </main>
     </div>
   </div>
 </template>
