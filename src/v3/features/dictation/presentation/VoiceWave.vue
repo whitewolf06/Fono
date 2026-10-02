@@ -1,61 +1,54 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import type { VoicePhase } from "../domain/voice";
-
-const props = defineProps<{
-  phase: VoicePhase;
-  label: string;
-  level?: number;
-}>();
-
-const bars = Array.from({ length: 31 }, (_, index) => {
-  const distance = Math.abs(index - 15) / 15;
-  const envelope = Math.pow(Math.max(0, 1 - distance), 1.35);
-  const ripple = Math.sin(index * 1.45) * 7 + Math.sin(index * 0.58) * 5;
-
-  return {
-    height: Math.max(12, Math.round(18 + envelope * 75 + ripple)),
-    delay: -(index * 0.067),
-  };
+import { computed, useId } from "vue";
+import type { Phase } from "../../../shared/domain/contracts";
+const props = withDefaults(defineProps<{ level?: number; phase?: Phase }>(), {
+  level: 0,
+  phase: "idle",
 });
-
-const energy = computed(() => {
-  if (props.level !== undefined) {
-    return 0.45 + Math.min(1, Math.max(0, props.level)) * 1.45;
-  }
-
-  if (props.phase === "listening") return 1.55;
-  if (props.phase === "transcribing" || props.phase === "processing")
-    return 1.05;
-  if (props.phase === "error") return 0.35;
-  return 1.08;
-});
+const id = useId().replace(/:/g, "");
+const amplitude = computed(() =>
+  ["listening", "silence"].includes(props.phase)
+    ? 0.3 + Math.max(0, Math.min(1, props.level)) * 1.05
+    : props.phase === "processing" || props.phase === "transcribing"
+      ? 0.7
+      : 0.32,
+);
 </script>
-
 <template>
-  <div class="v3-wave-stage">
-    <div
-      class="v3-wave-visual"
-      :class="'is-' + phase"
-      :style="{ '--fono-wave-energy': energy }"
-      aria-hidden="true"
-    >
-      <span class="v3-wave-aura"></span>
-      <span class="v3-wave-contour v3-wave-contour--outer"></span>
-      <span class="v3-wave-contour v3-wave-contour--inner"></span>
-      <span class="v3-wave-axis"></span>
-      <div class="v3-wave-bars">
-        <span
-          v-for="(bar, index) in bars"
-          :key="index"
-          class="v3-wave-bar"
-          :style="{
-            '--wave-bar-height': bar.height + 'px',
-            '--wave-delay': bar.delay + 's',
-          }"
-        ></span>
-      </div>
-    </div>
-    <span class="v3-visually-hidden" role="status">{{ label }}</span>
+  <div
+    class="voice-wave"
+    :data-phase="phase"
+    :style="{ '--wave-amplitude': amplitude }"
+    aria-hidden="true"
+  >
+    <svg viewBox="0 0 680 100" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient :id="id + '-fade'">
+          <stop offset="0" stop-color="white" stop-opacity="0" />
+          <stop offset=".2" stop-color="white" />
+          <stop offset=".8" stop-color="white" />
+          <stop offset="1" stop-color="white" stop-opacity="0" />
+        </linearGradient>
+        <mask :id="id + '-mask'">
+          <rect width="680" height="100" :fill="'url(#' + id + '-fade)'" />
+        </mask>
+      </defs>
+      <g :mask="'url(#' + id + '-mask)'">
+        <g class="ribbon-amplitude">
+          <path
+            class="ribbon ribbon-one"
+            d="M-200 50 Q-130 4 -60 50 T80 50 T220 50 T360 50 T500 50 T640 50 T780 50 T920 50"
+          />
+          <path
+            class="ribbon ribbon-two"
+            d="M-180 50 Q-100 92 -20 50 T140 50 T300 50 T460 50 T620 50 T780 50 T940 50"
+          />
+          <path
+            class="ribbon ribbon-three"
+            d="M-180 50 Q-80 12 20 50 T220 50 T420 50 T620 50 T820 50"
+          />
+        </g>
+      </g>
+    </svg>
   </div>
 </template>

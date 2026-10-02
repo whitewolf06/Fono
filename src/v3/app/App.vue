@@ -1,92 +1,143 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import VoicePage from "../features/dictation/presentation/VoicePage.vue";
+import { onMounted, onUnmounted } from "vue";
+import { RouterLink, RouterView, useRouter } from "vue-router";
+import {
+  WlButton,
+  WlDialog,
+  WlToast,
+  type WlIconName,
+} from "@whitelife-core/ui-kit";
+import { useWorkspace } from "../shared/application/workspace";
+import { useInteraction } from "../shared/application/interaction";
+import { bindShortcut } from "../shared/infrastructure/browser";
+import AppIcon from "../shared/presentation/AppIcon.vue";
 import FonoWordmark from "../shared/FonoWordmark.vue";
-
-type Section = "home" | "history" | "wake" | "model";
-
-const section = ref<Section>("home");
+import PageLoadState from "../shared/presentation/PageLoadState.vue";
+import QuickSettings from "../features/preferences/presentation/QuickSettings.vue";
+const workspace = useWorkspace();
+const router = useRouter();
+const ui = useInteraction();
 const version = __FONO_FRONTEND_BUILD__.version;
+const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
+  { to: "/", title: "Главная", icon: "home" },
+  { to: "/history", title: "История", icon: "clock" },
+  { to: "/trainer", title: "Речевой тренер", icon: "activity" },
+  { to: "/commands", title: "Голосовые команды", icon: "microphone" },
+  { to: "/api/tasks", title: "API-сервис", icon: "server" },
+  { to: "/settings/general", title: "Настройки", icon: "settings" },
+];
+let releaseShortcut = () => {};
+let releaseCommandsShortcut = () => {};
+onMounted(() => {
+  releaseCommandsShortcut = bindShortcut(
+    () => workspace.state.preferences.commandHotkey,
+    () => {
+      if (!ui.state.quick && !ui.state.confirmation)
+        void router.push("/commands");
+    },
+  );
+  releaseShortcut = bindShortcut(
+    () => workspace.state.preferences.hotkey,
+    () => {
+      if (ui.state.quick || ui.state.confirmation) return;
+      if (["listening", "silence"].includes(workspace.state.phase))
+        void workspace.dictation.finish();
+      else workspace.dictation.start();
+    },
+  );
+});
+onUnmounted(() => {
+  releaseShortcut();
+  releaseCommandsShortcut();
+  workspace.dispose();
+});
 </script>
-
 <template>
-  <div class="v3-shell" data-wl-theme="graphite">
+  <div class="v3-shell">
     <aside class="v3-sidebar">
-      <button
-        class="v3-brand"
-        type="button"
-        aria-label="Fono — главная"
-        @click="section = 'home'"
-      >
-        <span class="v3-brand-mark"><i class="pi pi-wave-pulse"></i></span>
-        <span class="v3-brand-copy">
-          <FonoWordmark class="v3-brand-wordmark" />
-          <small
-            ><span class="v3-version-word">Версия </span>{{ version }}</small
-          >
-        </span>
-      </button>
-
+      <RouterLink class="v3-brand" to="/" aria-label="Fono — главная">
+        <AppIcon name="activity" :size="30" /><span
+          ><FonoWordmark class="brand-wordmark" /><small
+            >Версия {{ version }}</small
+          ></span
+        >
+      </RouterLink>
       <nav class="v3-side-nav" aria-label="Основная навигация">
-        <button
-          class="v3-nav-item"
-          aria-label="Главная"
-          title="Главная"
-          :class="{ 'is-active': section === 'home' }"
-          :aria-current="section === 'home' ? 'page' : undefined"
-          type="button"
-          @click="section = 'home'"
+        <RouterLink
+          v-for="item in menu"
+          :key="item.to"
+          :to="item.to"
+          class="nav-item"
+          :class="{
+            active:
+              item.to === '/'
+                ? $route.path === '/'
+                : $route.path.startsWith(
+                    item.to.split('/').slice(0, 2).join('/'),
+                  ),
+          }"
+          :title="item.title"
+          :aria-label="item.title"
+          :aria-current="
+            (
+              item.to === '/'
+                ? $route.path === '/'
+                : $route.path.startsWith(
+                    item.to.split('/').slice(0, 2).join('/'),
+                  )
+            )
+              ? 'page'
+              : undefined
+          "
+          ><AppIcon :name="item.icon" /><span>{{
+            item.title
+          }}</span></RouterLink
         >
-          <i class="pi pi-home"></i><span>Главная</span>
-        </button>
-        <button
-          class="v3-nav-item"
-          aria-label="История"
-          title="История"
-          :class="{ 'is-active': section === 'history' }"
-          :aria-current="section === 'history' ? 'page' : undefined"
-          type="button"
-          @click="section = 'history'"
-        >
-          <i class="pi pi-history"></i><span>История</span>
-        </button>
-        <button
-          class="v3-nav-item"
-          aria-label="Пробуждение"
-          title="Пробуждение"
-          :class="{ 'is-active': section === 'wake' }"
-          :aria-current="section === 'wake' ? 'page' : undefined"
-          type="button"
-          @click="section = 'wake'"
-        >
-          <i class="pi pi-microphone"></i><span>Пробуждение</span>
-        </button>
-        <button
-          class="v3-nav-item"
-          aria-label="Модель"
-          title="Модель"
-          :class="{ 'is-active': section === 'model' }"
-          :aria-current="section === 'model' ? 'page' : undefined"
-          type="button"
-          @click="section = 'model'"
-        >
-          <i class="pi pi-sliders-h"></i><span>Модель</span>
-        </button>
-        <a
-          class="v3-nav-item"
-          href="index.html?ui=v2"
-          aria-label="Настройки"
-          title="Настройки"
-        >
-          <i class="pi pi-cog"></i><span>Настройки</span>
-        </a>
       </nav>
+      <div class="sidebar-bottom">
+        <span class="demo-label"><span />Демо интерфейса</span
+        ><RouterLink
+          to="/scenarios"
+          class="nav-item"
+          title="Проверка интерфейса"
+          aria-label="Проверка интерфейса"
+          ><AppIcon name="grid" /><span>Сценарии проверки</span></RouterLink
+        >
+      </div>
     </aside>
-
-    <div class="v3-main-column">
-      <main>
-        <VoicePage :section="section" @open-history="section = 'history'" />
-      </main>
-    </div>
+    <main id="main-content" class="v3-main">
+      <PageLoadState
+        v-if="
+          ['loading', 'load-error'].includes(workspace.state.scenario) &&
+          $route.path !== '/scenarios'
+        "
+      /><RouterView v-else />
+    </main>
   </div>
+  <QuickSettings
+    v-if="ui.state.quick"
+    :key="ui.state.quick"
+    :panel="ui.state.quick"
+  />
+  <WlDialog
+    v-if="ui.state.confirmation"
+    :visible="true"
+    :pt="{ mask: { class: 'confirmation-mask' } }"
+    :header="ui.state.confirmation?.title"
+    width="440px"
+    @update:visible="ui.answer(false)"
+  >
+    <p class="dialog-description">{{ ui.state.confirmation?.text }}</p>
+    <template #footer
+      ><WlButton @click="ui.answer(false)">{{
+        ui.state.confirmation?.cancel || "Отмена"
+      }}</WlButton
+      ><WlButton
+        :variant="ui.state.confirmation?.danger ? 'danger' : 'primary'"
+        @click="ui.answer(true)"
+        >{{ ui.state.confirmation?.accept }}</WlButton
+      ></template
+    >
+  </WlDialog>
+  <WlToast />
 </template>

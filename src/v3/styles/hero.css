@@ -1,309 +1,161 @@
-.v3-hero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: center;
+.home-hero {
   min-height: var(--fono-hero-height);
-  overflow: hidden;
-  padding: var(--fono-space-4) var(--fono-space-9);
-  border-bottom: var(--fono-border-width) solid var(--fono-border);
-  background-image:
-    linear-gradient(270deg, var(--fono-hero-shade), transparent 78%),
-    url("../assets/night-mountains.png");
-  background-position: center, center;
-  background-size: cover;
-  color: var(--fono-hero-on);
-}
-
-.v3-hero::after {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, var(--fono-hero-shade), transparent 35%);
-  content: "";
-  pointer-events: none;
-}
-
-.v3-hero > .v3-hero-kicker,
-.v3-hero > h1,
-.v3-hero-description,
-.v3-hotkey,
-.v3-tool-strip {
+  padding: var(--fono-space-5) var(--fono-space-7);
   position: relative;
-  z-index: 1;
+  background:
+    linear-gradient(90deg, var(--fono-scrim), transparent 75%),
+    url("../assets/night-mountains.png") center 44% / cover;
+  border-bottom: 1px solid var(--fono-border);
 }
-
-.v3-hero-kicker {
-  display: inline-flex;
-  grid-column: 1;
-  grid-row: 1;
-  align-items: center;
-  gap: var(--fono-space-2);
-  color: var(--fono-electric-soft);
-  font-size: var(--fono-type-xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.hero-copy {
+  position: relative;
 }
-
-.v3-hero-kicker i {
-  color: var(--fono-accent);
+.hero-title {
+  line-height: 1;
+  margin: var(--fono-space-2) 0 var(--fono-space-1);
 }
-
-.v3-hero h1 {
-  grid-column: 1;
-  grid-row: 2;
-  margin: var(--fono-space-2) 0;
-}
-
-.v3-hero-wordmark {
-  width: min(100%, var(--fono-hero-wordmark-width));
+.hero-title svg {
+  display: block;
+  width: var(--fono-hero-wordmark);
   height: auto;
 }
-
-.v3-hero-description {
-  grid-column: 1;
-  grid-row: 3;
-  max-width: var(--fono-hero-description-width);
-  margin: 0;
-  color: var(--fono-hero-on-soft);
-  font-size: var(--fono-type-lg);
-  line-height: 1.55;
+.hero-copy p {
+  font-size: var(--fono-type-md);
+  margin-bottom: var(--fono-space-3);
+  color: var(--fono-secondary);
 }
-
-.v3-hotkey {
-  display: inline-flex;
-  grid-column: 1;
-  grid-row: 4;
-  align-items: center;
-  gap: var(--fono-space-3);
-  margin-top: var(--fono-space-3);
-  color: var(--fono-text-secondary);
-  font-size: var(--fono-type-sm);
+.hero-hint {
+  color: var(--fono-secondary);
+  margin-left: var(--fono-space-3);
 }
-
-.v3-hotkey kbd {
-  padding: var(--fono-space-2) var(--fono-space-3);
-  border: var(--fono-border-width) solid var(--fono-accent-border);
-  border-radius: var(--wl-radius-sm);
-  background: var(--fono-surface);
-  color: var(--fono-electric-soft);
-  font: inherit;
-  font-weight: 700;
-}
-
-.v3-tool-strip {
+.voice-tools {
   display: grid;
-  grid-column: 1;
-  grid-row: 5;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--fono-space-2);
-  min-width: 0;
-  margin-top: var(--fono-space-3);
+  border-bottom: 1px solid var(--fono-border);
+  background: var(--fono-surface);
 }
-
-.v3-tool {
-  display: flex;
+.tool-card {
   min-width: 0;
-  min-height: var(--fono-tool-min-height);
-  flex-direction: column;
-  gap: var(--fono-space-1);
-  padding: var(--fono-space-2) var(--fono-space-3);
-  border: var(--fono-border-width) solid var(--fono-border-soft);
-  border-radius: var(--wl-radius-sm);
-  background: var(--fono-tool-surface);
+  padding: var(--fono-space-3) var(--fono-space-4);
+  border-right: 1px solid var(--fono-border-soft);
 }
-
-.v3-tool-heading {
+.tool-card:last-child {
+  border-right: 0;
+}
+.tool-title {
   display: flex;
-  min-width: 0;
   align-items: center;
+  justify-content: space-between;
   gap: var(--fono-space-2);
-  overflow: hidden;
-  color: var(--fono-hero-on);
+  min-height: 22px;
+}
+.tool-title strong {
   font-size: var(--fono-type-sm);
-  font-weight: 700;
+  font-weight: 600;
+}
+.tool-value {
+  color: var(--fono-secondary);
+  font-size: var(--fono-type-xs);
+  margin: 3px 0 5px;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
-
-.v3-tool-dot {
-  width: var(--fono-status-dot-size);
-  height: var(--fono-status-dot-size);
-  flex: none;
-  border-radius: 50%;
-  background: var(--fono-success);
-  box-shadow: 0 0 var(--fono-space-3) var(--fono-success);
-}
-
-.v3-tool.is-off .v3-tool-dot {
-  background: var(--fono-off);
-  box-shadow: 0 0 var(--fono-space-3) var(--fono-off);
-}
-
-.v3-tool-value {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--fono-hero-on-soft);
-  font-size: var(--fono-type-sm);
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.v3-wave-stage {
-  position: relative;
-  z-index: 1;
-  grid-column: 1;
-  grid-row: 2;
-  align-self: center;
-  min-width: 0;
-  height: 0;
-  padding: 0 var(--fono-space-2) 0 var(--fono-space-6);
-}
-
-.v3-wave-visual {
-  position: relative;
-  display: grid;
-  width: min(100%, var(--fono-wave-width));
-  height: var(--fono-wave-height);
-  place-items: center;
-  isolation: isolate;
-  transform: translateY(-50%);
-  --fono-wave-tempo: var(--fono-wave-tempo-idle);
-}
-
-.v3-wave-visual.is-listening {
-  --fono-wave-tempo: var(--fono-wave-tempo-listening);
-}
-
-.v3-wave-visual.is-transcribing,
-.v3-wave-visual.is-processing,
-.v3-wave-visual.is-injecting {
-  --fono-wave-tempo: var(--fono-wave-tempo-processing);
-}
-
-.v3-wave-aura {
-  position: absolute;
-  inset: 12% 2%;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse,
-    color-mix(in srgb, var(--fono-electric) 28%, transparent),
-    color-mix(in srgb, var(--fono-electric) 6%, transparent) 45%,
-    transparent 72%
-  );
-  filter: blur(var(--fono-wave-blur));
-  animation: v3-wave-glow var(--fono-wave-glow-speed) ease-in-out infinite
-    alternate;
-}
-
-.v3-wave-contour {
-  position: absolute;
-  border: var(--fono-border-width) solid var(--fono-accent-border);
-  border-radius: 50%;
-  opacity: 0.65;
-  pointer-events: none;
-}
-
-.v3-wave-contour--outer {
-  width: 98%;
-  height: 78%;
-  transform: rotate(-8deg);
-  animation: v3-wave-contour var(--fono-wave-ring-speed) ease-in-out infinite
-    alternate;
-}
-
-.v3-wave-contour--inner {
-  width: 80%;
-  height: 62%;
-  border-color: color-mix(in srgb, var(--fono-electric-soft) 36%, transparent);
-  transform: rotate(8deg);
-  animation: v3-wave-contour var(--fono-wave-ring-speed) ease-in-out infinite
-    alternate-reverse;
-}
-
-.v3-wave-axis {
-  position: absolute;
-  z-index: 1;
-  right: 3%;
-  left: 3%;
-  height: var(--fono-border-width);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--fono-accent-border) 20%,
-    var(--fono-electric-soft) 50%,
-    var(--fono-accent-border) 80%,
-    transparent
-  );
-  box-shadow: 0 0 var(--fono-space-3) var(--fono-accent);
-}
-
-.v3-wave-bars {
-  position: relative;
-  z-index: 2;
+.tool-bottom {
   display: flex;
-  width: calc(100% - var(--fono-space-6));
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--fono-space-1);
+}
+.tool-bottom .wl-btn {
+  padding-inline: var(--fono-space-1);
+  font-size: var(--fono-type-xs);
+  gap: 3px;
+}
+.tool-bottom .status {
+  font-size: 10px;
+}
+.record-area {
+  position: relative;
+  padding: var(--fono-space-1) var(--fono-space-5) var(--fono-space-3);
+  min-height: 105px;
+}
+.voice-wave {
+  margin: auto;
+  width: min(100%, 590px);
+  height: var(--fono-wave-height);
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--fono-electric);
+}
+.voice-wave svg {
+  width: 100%;
   height: 100%;
+  overflow: visible;
+}
+.ribbon-amplitude {
+  transform-origin: 340px 50px;
+  transform: scaleY(var(--wave-amplitude));
+  transition: transform 350ms ease;
+}
+.ribbon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 4px var(--fono-glow));
+  transform-origin: center;
+  animation: ribbon-flow var(--fono-wave-idle) linear infinite;
+}
+.ribbon-two {
+  color: var(--fono-electric-soft);
+  opacity: 0.58;
+  stroke-width: 1;
+  animation-direction: reverse;
+  animation-duration: calc(var(--fono-wave-idle) * 1.25);
+}
+.ribbon-three {
+  opacity: 0.3;
+  stroke-width: 2;
+  animation-delay: -2s;
+}
+.voice-wave[data-phase="listening"] .ribbon {
+  animation-duration: var(--fono-wave-recording);
+}
+.voice-wave[data-phase="processing"] .ribbon,
+.voice-wave[data-phase="transcribing"] .ribbon {
+  animation-duration: var(--fono-wave-processing);
+  animation-direction: alternate;
+}
+.voice-wave[data-phase="error"] {
+  color: var(--fono-error);
+  opacity: 0.6;
+}
+@keyframes ribbon-flow {
+  from {
+    transform: translateX(-60px);
+  }
+  to {
+    transform: translateX(80px);
+  }
+}
+.record-controls {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--fono-wave-bar-gap);
+  gap: var(--fono-space-3);
+  margin-top: -3px;
+  flex-wrap: wrap;
 }
-
-.v3-wave-bar {
-  display: block;
-  width: var(--fono-wave-bar-width);
-  height: var(--wave-bar-height);
-  min-width: 0;
-  flex: 1 1 var(--fono-wave-bar-width);
-  border-radius: var(--wl-radius-full);
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    var(--fono-electric) 22%,
-    var(--fono-electric-soft) 50%,
-    var(--fono-electric) 78%,
-    transparent
-  );
-  box-shadow: 0 0 var(--fono-space-3) var(--fono-accent);
-  transform-origin: center;
-  animation: v3-wave-dance var(--fono-wave-tempo) ease-in-out infinite alternate;
-  animation-delay: var(--wave-delay);
-}
-
-.v3-message {
-  margin: var(--fono-space-3) 0 0;
-  color: var(--fono-electric-soft);
+.record-status {
+  color: var(--fono-muted);
   font-size: var(--fono-type-sm);
+  display: flex;
+  gap: var(--fono-space-2);
 }
-
-@keyframes v3-wave-dance {
-  0% {
-    transform: scaleY(0.2);
-    opacity: 0.58;
-  }
-
-  50% {
-    transform: scaleY(var(--fono-wave-energy));
-    opacity: 1;
-  }
-
-  100% {
-    transform: scaleY(0.42);
-    opacity: 0.82;
-  }
-}
-
-@keyframes v3-wave-glow {
-  to {
-    opacity: 0.55;
-    transform: scale(1.12);
-  }
-}
-
-@keyframes v3-wave-contour {
-  to {
-    opacity: 0.3;
-    transform: rotate(4deg) scale(1.08);
-  }
+.record-error {
+  max-width: 640px;
+  margin: var(--fono-space-2) auto 0;
+  color: var(--fono-error);
+  font-size: var(--fono-type-xs);
+  text-align: center;
 }

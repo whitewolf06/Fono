@@ -2,27 +2,33 @@
 
 ## V3 preview (Vue)
 
-V3 lives in `src/v3/` and starts from `v3.html`. It uses Vue 3, TypeScript,
-PrimeVue unstyled and the private `@whitelife-core/ui-kit` package, following
-the setup in WhiteLife: `createWlPt()`, `wlLocaleRu`, then explicit reset, base
-and theme CSS imports. `.npmrc` selects GitHub Packages for this scope; npm
-credentials remain outside the repository.
+V3 lives in `src/v3/`, starts from `v3.html`, and uses Vue 3, TypeScript,
+Vue Router 4 hash routes and `@whitelife-core/ui-kit` 0.6.0.
+WhiteUI supplies its own components, SVG icons, `WlConfig` and toast service.
+PrimeVue and PrimeIcons are removed. Import reset, base, theme and Fono CSS
+in that order; set the theme on html so teleported dialogs and menus inherit it.
+Npm credentials stay outside the repository.
 
-`src/v3/styles/tokens.css` is the V3 customization layer. Fono semantic colors
-refer to the UI kit's `--wl-*` theme tokens; a 4px spacing scale, type sizes and
-major layout dimensions are defined there. Component CSS uses those variables
-so palette, density and layout can be adjusted centrally.
+`src/v3/styles/tokens.css` defines the palette, density, layout and motion tokens.
+Features separate domain, application, infrastructure and presentation.
+Other features consume explicit public entry points; shared typed ports are
+in `shared/domain/contracts.ts`. The composition root injects one workspace for
+the lifetime of the Vue application.
 
-The V3 dictation feature separates pure domain data, a runtime port,
-Tauri/mock infrastructure and Vue presentation. Native access goes through
-`src/lib/ipc.ts`. The browser at `http://127.0.0.1:1420/v3.html` shows demo
-data. `npm run dev:desktop:v3` starts a Tauri development build with V3 in the
-settings window and the existing V2 overlay. The regular app config and
-installer continue to open V2 until the new UI is accepted.
+The complete V3 frontend includes home, settings, history, trainer, commands,
+API, onboarding and the browser overlay preview. All routes stay inside V3.
+During visual acceptance V3 always uses demonstration data, including when
+opened through the optional desktop preview configuration. There is no live
+IPC adapter in this stage. Only whitelisted demo preferences persist in browser
+storage; transcripts, instructions and keys do not.
 
-V3 is an initial voice workspace, not a replacement for the full settings,
-commands, service and trainer pages. Its “All settings” link opens the existing
-V2 interface. Keep these pages available while V3 grows feature by feature.
+Start with `npm run dev:ui` and open http://127.0.0.1:1420/v3.html#/.
+Use `#/scenarios` for reproducible empty, loading, disabled and error states.
+The regular desktop configuration continues to use V2. Native integration and
+main/overlay desktop checks follow a separate approval.
+
+Details: [V3 scope and integration](fono-v3-frontend.md),
+[acceptance evidence](fono-v3-qa.md). The remaining sections describe V2.
 
 ## Status and goal
 

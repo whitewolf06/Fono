@@ -4,4 +4,8 @@
 @import "./styles/services.css";
 @import "./styles/home-preview.css";
 @import "./styles/cards.css";
+@import "./styles/feature-pages.css";
+@import "./styles/forms.css";
+@import "./styles/settings.css";
+@import "./styles/overlay.css";
 @import "./styles/responsive.css";

@@ -1,34 +1,99 @@
 <script setup lang="ts">
-import type { VoiceTools } from "../domain/voice";
-
-defineProps<{ tools: VoiceTools }>();
-
-const items: { key: keyof VoiceTools; title: string }[] = [
-  { key: "microphone", title: "Микрофон" },
-  { key: "wakeWord", title: "WakeWord" },
-  { key: "postProcessing", title: "Постобработка" },
-  { key: "recognition", title: "Распознавание" },
-];
+import { computed } from "vue";
+import { WlButton } from "@whitelife-core/ui-kit";
+import { useWorkspace } from "../../../shared/application/workspace";
+import { useInteraction } from "../../../shared/application/interaction";
+import { microphones, PreferenceToggle } from "../../preferences";
+import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import StatusDot from "../../../shared/presentation/StatusDot.vue";
+import type {
+  Health,
+  QuickPanel,
+  ToggleKey,
+} from "../../../shared/domain/contracts";
+const workspace = useWorkspace();
+const ui = useInteraction();
+const tools = computed<
+  {
+    title: string;
+    panel: QuickPanel;
+    value: string;
+    health: Health;
+    toggle?: ToggleKey;
+  }[]
+>(() => {
+  const p = workspace.state.preferences;
+  const model = workspace.state.models.find((m) => m.id === p.model);
+  return [
+    {
+      title: "Микрофон",
+      panel: "microphone",
+      value: workspace.state.microphoneAvailable
+        ? microphones.find((m) => m.value === p.microphone)?.label ||
+          p.microphone
+        : "Подключите устройство",
+      health: workspace.state.microphoneAvailable ? "ready" : "missing",
+    },
+    {
+      title: "Пробуждение",
+      panel: "wake",
+      value: p.wakePhrase,
+      health: p.wakeEnabled ? "ready" : "off",
+      toggle: "wakeEnabled",
+    },
+    {
+      title: "Распознавание",
+      panel: "recognition",
+      value:
+        model?.status === "installed"
+          ? model.name
+          : model?.status === "downloading"
+            ? "Загрузка · " + model.progress + "%"
+            : "Установите модель",
+      health:
+        model?.status === "installed"
+          ? "ready"
+          : model?.status === "downloading"
+            ? "loading"
+            : "missing",
+    },
+    {
+      title: "Обработка текста",
+      panel: "processing",
+      value: p.processingModel,
+      health: !p.processingEnabled
+        ? "off"
+        : workspace.state.aiAvailable
+          ? "ready"
+          : "error",
+      toggle: "processingEnabled",
+    },
+  ];
+});
 </script>
-
 <template>
-  <div class="v3-tool-strip" aria-label="Основные инструменты">
-    <div
-      v-for="item in items"
-      :key="item.key"
-      class="v3-tool"
-      :class="{ 'is-off': !tools[item.key].enabled }"
-    >
-      <span class="v3-tool-heading">
-        <span class="v3-tool-dot" aria-hidden="true"></span>
-        {{ item.title }}
-      </span>
-      <span class="v3-tool-value" :title="tools[item.key].value">
-        {{ tools[item.key].value }}
-      </span>
-      <span class="v3-visually-hidden">
-        {{ tools[item.key].enabled ? "Включено" : "Выключено" }}
-      </span>
-    </div>
-  </div>
+  <section class="voice-tools" aria-label="Основные инструменты">
+    <article v-for="tool in tools" :key="tool.panel" class="tool-card">
+      <div class="tool-title">
+        <strong>{{ tool.title }}</strong
+        ><PreferenceToggle
+          v-if="tool.toggle"
+          :name="tool.toggle"
+          :label="tool.title"
+          compact
+        />
+      </div>
+      <div class="tool-value" :title="tool.value">{{ tool.value }}</div>
+      <div class="tool-bottom">
+        <StatusDot :health="tool.health" /><WlButton
+          size="xs"
+          variant="ghost"
+          :aria-label="'Настроить: ' + tool.title"
+          @click="ui.openQuick(tool.panel)"
+          ><template #icon><AppIcon name="settings" :size="14" /></template
+          >Настроить</WlButton
+        >
+      </div>
+    </article>
+  </section>
 </template>

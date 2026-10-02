@@ -1,76 +1,48 @@
 :root {
-  /* WhiteLife graphite remains the component foundation; Fono adds a night-blue brand layer. */
+  color-scheme: dark;
   --fono-night: #071321;
-  --fono-night-raised: #0e1b2e;
-  --fono-night-card: #132136;
+  --fono-night-raised: #0d1b2b;
+  --fono-night-card: #122336;
   --fono-electric: #2ab7ff;
   --fono-electric-soft: #8bd4ff;
-  --fono-canvas: color-mix(in srgb, var(--wl-bg) 10%, var(--fono-night));
-  --fono-sidebar: color-mix(in srgb, var(--wl-bg) 8%, var(--fono-night));
-  --fono-surface: color-mix(
+  --fono-canvas: var(--fono-night);
+  --fono-surface: var(--fono-night-raised);
+  --fono-surface-raised: var(--fono-night-card);
+  --fono-text: var(--wl-gray-200);
+  --fono-secondary: var(--wl-blue-100);
+  --fono-muted: #92a6bd;
+  --fono-border: #223348;
+  --fono-border-soft: color-mix(in srgb, var(--fono-border) 60%, transparent);
+  --fono-accent: var(--fono-electric);
+  --fono-accent-soft: color-mix(in srgb, var(--fono-electric) 11%, transparent);
+  --fono-success: var(--wl-green-400);
+  --fono-error: var(--wl-red-400);
+  --fono-warning: var(--wl-amber-400);
+  --fono-scrim: color-mix(in srgb, var(--fono-night) 74%, transparent);
+  --fono-glow: color-mix(in srgb, var(--fono-electric) 30%, transparent);
+  --fono-service-end: color-mix(
     in srgb,
-    var(--wl-bg-soft) 12%,
-    var(--fono-night-raised)
-  );
-  --fono-surface-raised: color-mix(
-    in srgb,
-    var(--wl-bg-hover) 10%,
-    var(--fono-night-card)
-  );
-  --fono-border: color-mix(in srgb, var(--wl-border-2) 55%, var(--wl-blue-900));
-  --fono-border-soft: color-mix(in srgb, var(--fono-border) 62%, transparent);
-  --fono-text: var(--wl-text);
-  --fono-text-secondary: color-mix(
-    in srgb,
-    var(--wl-text-2) 80%,
-    var(--wl-blue-200)
-  );
-  --fono-muted: color-mix(in srgb, var(--wl-text-3) 82%, var(--wl-blue-200));
-  --fono-accent: color-mix(
-    in srgb,
-    var(--wl-blue-400) 18%,
+    var(--fono-surface) 97%,
     var(--fono-electric)
   );
-  --fono-accent-soft: color-mix(in srgb, var(--fono-accent) 14%, transparent);
-  --fono-accent-border: color-mix(in srgb, var(--fono-accent) 31%, transparent);
-  --fono-success: var(--wl-success);
-  --fono-off: var(--wl-danger);
-  --fono-tool-surface: color-mix(in srgb, var(--fono-night) 76%, transparent);
-  --fono-service-api-accent: var(--fono-electric-soft);
-  --fono-service-trainer-accent: var(--wl-blue-300);
-  --fono-service-dark-end: color-mix(
-    in srgb,
-    var(--fono-night) 34%,
-    var(--fono-surface)
-  );
-  --fono-service-icon-surface: color-mix(
-    in srgb,
-    var(--fono-night) 48%,
-    transparent
-  );
-  --fono-preview-surface: color-mix(
-    in srgb,
-    var(--fono-electric) 8%,
-    var(--fono-canvas)
-  );
-  --fono-preview-field: color-mix(
-    in srgb,
-    var(--fono-night-card) 72%,
-    var(--fono-night)
-  );
-  --fono-preview-field-border: color-mix(
-    in srgb,
-    var(--fono-electric) 35%,
-    var(--fono-border)
-  );
-  --fono-preview-button: color-mix(
-    in srgb,
-    var(--fono-electric) 12%,
-    var(--fono-night-raised)
-  );
-  --fono-hero-on: var(--wl-text);
-  --fono-hero-on-soft: var(--wl-blue-100);
-  --fono-hero-shade: color-mix(in srgb, var(--fono-night) 62%, transparent);
+
+  --wl-bg: var(--fono-canvas);
+  --wl-bg-soft: var(--fono-surface);
+  --wl-bg-hover: var(--fono-surface-raised);
+  --wl-border: var(--fono-border);
+  --wl-border-2: var(--fono-border);
+  --wl-text: var(--fono-text);
+  --wl-text-2: var(--fono-secondary);
+  --wl-text-muted: var(--fono-muted);
+  --wl-accent: var(--fono-accent);
+  --wl-accent-hover: var(--fono-electric-soft);
+  --wl-accent-soft: var(--fono-accent-soft);
+  --wl-accent-border: color-mix(in srgb, var(--fono-accent) 28%, transparent);
+  --wl-action-primary-bg: var(--fono-accent);
+  --wl-action-primary-hover: var(--fono-electric-soft);
+  --wl-action-primary-text: var(--fono-night);
+  --wl-focus-ring: 0 0 0 3px var(--fono-glow);
+  --wl-font: "Segoe UI", "Inter", system-ui, sans-serif;
 
   --fono-space-1: 4px;
   --fono-space-2: 8px;
@@ -80,59 +52,35 @@
   --fono-space-6: 24px;
   --fono-space-7: 28px;
   --fono-space-8: 32px;
-  --fono-space-9: 36px;
   --fono-space-10: 40px;
   --fono-space-12: 48px;
-
   --fono-type-xs: 11px;
   --fono-type-sm: 12px;
   --fono-type-md: 13px;
   --fono-type-lg: 15px;
-  --fono-type-xl: 17px;
-  --fono-type-brand: 27px;
-  --fono-type-heading: clamp(28px, 2.5vw, 39px);
+  --fono-type-xl: 18px;
+  --fono-type-heading: 27px;
+  --fono-radius: 8px;
+  --fono-radius-sm: 5px;
+  --fono-sidebar-width: 210px;
+  --fono-sidebar-compact: 64px;
+  --fono-shell-width: 1400px;
+  --fono-hero-height: 185px;
+  --fono-hero-wordmark: 180px;
+  --fono-brand-wordmark: 88px;
+  --fono-nav-height: 46px;
+  --fono-service-icon: 42px;
+  --fono-wave-height: 62px;
+  --fono-text-max-height: 260px;
+  --fono-control-height: 34px;
+  --fono-motion-fast: 160ms;
+  --fono-wave-idle: 8s;
+  --fono-wave-recording: 3s;
+  --fono-wave-processing: 1.7s;
+  --fono-shadow: 0 16px 50px
+    color-mix(in srgb, var(--fono-night) 80%, transparent);
+}
 
-  --fono-window-min-width: 720px;
-  --fono-border-width: 1px;
-  --fono-sidebar-width: 238px;
-  --fono-sidebar-compact-width: 68px;
-  --fono-shell-max-width: 1440px;
-  --fono-sidebar-min-height: 560px;
-  --fono-brand-height: 100px;
-  --fono-nav-item-height: 52px;
-  --fono-content-max-width: 1220px;
-  --fono-detail-page-width: 760px;
-  --fono-detail-card-width: 520px;
-  --fono-hero-height: clamp(340px, 38vh, 370px);
-  --fono-hero-description-width: 445px;
-  --fono-hero-wordmark-width: 260px;
-  --fono-brand-wordmark-width: 94px;
-  --fono-wave-column-min-width: 252px;
-  --fono-wave-column-min-width-compact: 244px;
-  --fono-feature-min-height: 228px;
-  --fono-history-date-width: 130px;
-  --fono-history-action-width: 60px;
-  --fono-history-row-height: 40px;
-  --fono-wave-width: 220px;
-  --fono-wave-height: 168px;
-  --fono-wave-width-compact: 200px;
-  --fono-wave-bar-width: 3px;
-  --fono-wave-bar-gap: 3px;
-  --fono-tool-min-height: 60px;
-  --fono-service-min-height: 174px;
-  --fono-service-icon-size: 64px;
-  --fono-preview-text-height: 84px;
-  --fono-preview-icon-size: 40px;
-  --fono-wave-blur: 20px;
-  --fono-wave-tempo-idle: 2.1s;
-  --fono-wave-tempo-listening: 0.8s;
-  --fono-wave-tempo-processing: 1.2s;
-  --fono-wave-glow-speed: 3.6s;
-  --fono-wave-ring-speed: 4.2s;
-  --fono-status-dot-size: 9px;
-  --fono-card-radius: var(--wl-radius-lg);
-  --fono-hero-radius: var(--wl-radius-lg);
-  --fono-nav-radius: var(--wl-radius);
-  --fono-shadow-card: 0 12px 32px
-    color-mix(in srgb, var(--fono-night) 55%, transparent);
+:root {
+  --fono-confirm-layer: 90;
 }
