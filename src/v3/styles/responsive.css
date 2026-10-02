@@ -165,15 +165,13 @@
 @media (max-width: 600px) {
   :root {
     --fono-sidebar-width: 52px;
+    --fono-brand-icon: 24px;
   }
   .page {
     padding: var(--fono-space-3);
   }
   .v3-sidebar {
     padding-inline: var(--fono-space-1);
-  }
-  .v3-brand > svg {
-    width: 24px;
   }
   .hero-hint {
     display: block;

@@ -115,6 +115,13 @@ pre {
   gap: var(--fono-space-1);
   color: var(--fono-text);
 }
+.brand-icon {
+  display: block;
+  width: var(--fono-brand-icon);
+  height: var(--fono-brand-icon);
+  flex-shrink: 0;
+  object-fit: contain;
+}
 .brand-wordmark {
   width: var(--fono-brand-wordmark);
   height: auto;

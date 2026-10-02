@@ -65,20 +65,15 @@
   font-size: 11px;
 }
 .v2-app-icon {
-  display: grid;
+  display: block;
   width: 34px;
-  height: 42px;
-  place-items: center;
-  color: var(--v2-text-accent);
-  font-size: 31px;
-  filter: drop-shadow(0 0 9px var(--v2-accent));
-  transform: rotate(22deg);
+  height: 34px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .v2-brand .v2-app-icon {
   width: 48px;
-  height: 58px;
-  font-size: 44px;
-  filter: drop-shadow(0 0 13px var(--v2-accent));
+  height: 48px;
 }
 .v2-navigation {
   display: grid;

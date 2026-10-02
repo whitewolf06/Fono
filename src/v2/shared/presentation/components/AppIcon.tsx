@@ -1,3 +1,13 @@
 export function AppIcon() {
-  return <span className="v2-app-icon" aria-hidden="true">♨</span>;
+  return (
+    <img
+      className="v2-app-icon"
+      src={import.meta.env.BASE_URL + "fono-icon.png"}
+      width={34}
+      height={34}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+    />
+  );
 }

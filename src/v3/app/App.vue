@@ -27,6 +27,7 @@ const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
   { to: "/api/tasks", title: "API-сервис", icon: "server" },
   { to: "/settings/general", title: "Настройки", icon: "settings" },
 ];
+const appIconUrl = import.meta.env.BASE_URL + "fono-icon.png";
 let releaseShortcut = () => {};
 let releaseCommandsShortcut = () => {};
 onMounted(() => {
@@ -58,7 +59,15 @@ onUnmounted(() => {
   <div class="v3-shell">
     <aside class="v3-sidebar">
       <RouterLink class="v3-brand" to="/" aria-label="Fono — главная">
-        <AppIcon name="activity" :size="30" /><span
+        <img
+          class="brand-icon"
+          :src="appIconUrl"
+          width="32"
+          height="32"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        /><span
           ><FonoWordmark class="brand-wordmark" /><small
             >Версия {{ version }}</small
           ></span
