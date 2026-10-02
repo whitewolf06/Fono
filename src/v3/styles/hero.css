@@ -1,3 +1,8 @@
+.home-page {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(min-content, 1fr) auto auto;
+  min-height: 100dvh;
+}
 .home-hero {
   min-height: var(--fono-hero-height);
   padding: var(--fono-space-5) var(--fono-space-7);
@@ -77,8 +82,15 @@
 }
 .record-area {
   position: relative;
-  padding: var(--fono-space-1) var(--fono-space-5) var(--fono-space-3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--fono-space-3) var(--fono-space-5);
   min-height: 105px;
+}
+.record-area > .voice-wave {
+  margin: 0 auto;
+  flex-shrink: 0;
 }
 .voice-wave {
   margin: auto;
