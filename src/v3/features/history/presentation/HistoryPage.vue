@@ -45,7 +45,7 @@ async function remove() {
       danger: true,
     }))
   )
-    workspace.history.remove(selected.value.id);
+    await run(() => workspace.history.remove(selected.value!.id));
 }
 async function clear() {
   if (
@@ -56,7 +56,7 @@ async function clear() {
       danger: true,
     })
   )
-    workspace.history.clear();
+    await run(() => workspace.history.clear());
 }
 </script>
 <template>

@@ -5,6 +5,7 @@
 pub mod app_commands;
 pub mod application;
 pub mod audio;
+mod autostart;
 pub mod error;
 pub mod events;
 pub mod history;
@@ -12,6 +13,8 @@ pub mod injection;
 pub mod ipc;
 pub mod llm;
 pub mod operation;
+pub mod overlay;
+mod overlay_geometry;
 pub mod pipeline;
 pub mod secrets;
 pub mod service_history;
@@ -218,6 +221,8 @@ pub fn run() {
         .manage(pipeline)
         .manage(wake_word)
         .manage(audio_hub)
+        .manage(crate::overlay::OverlayRuntime::default())
+        .manage(ipc::desktop_v3::DesktopSession::default())
         .manage(crate::application::wake_calibration::WakeCalibrationService::default())
         .manage(crate::application::wake_validation::WakeProfileValidationService::default())
         .setup(|app| {
@@ -256,19 +261,15 @@ pub fn run() {
                 }));
             crate::application::models::preload_configured_stt(app.handle().clone());
             let local_service =
-                crate::application::local_transcription_service::LocalTranscriptionService::start(
-                    app.handle().clone(),
-                )?;
+                crate::application::service_control::ServiceControl::start(app.handle().clone());
             app.manage(local_service);
             app.manage(
                 crate::application::speech_analysis_queue::SpeechAnalysisQueue::start(
                     app.handle().clone(),
                 ),
             );
-            if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
-                if let Some(overlay) = app.get_webview_window("overlay") {
-                    let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
-                }
+            if let Err(error) = crate::overlay::restore_position(app.handle(), &settings) {
+                tracing::warn!(%error, "could not restore overlay position");
             }
 
             // Wake word: запускаем, если включён в настройках.
@@ -284,6 +285,14 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // state
+            ipc::desktop_v3::get_desktop_snapshot,
+            ipc::desktop_v3::improve_text,
+            ipc::desktop_v3::clear_speech_analytics,
+            ipc::desktop_v3::recommend_speech,
+            ipc::desktop_v3::get_microphone_sample,
+            ipc::desktop_v3::test_microphone_device,
+            ipc::desktop_v3::remove_whisper_model,
+            ipc::desktop_v3::get_selected_model_metadata,
             ipc::system::get_build_info,
             ipc::dictation::get_pipeline_state,
             ipc::dictation::start_dictation,
@@ -298,6 +307,7 @@ pub fn run() {
             ipc::system::get_speech_session_analysis,
             ipc::system::get_speech_period_report,
             ipc::service::get_local_transcription_service_snapshot,
+            ipc::service::set_local_transcription_service_enabled,
             ipc::service::cancel_local_transcription_job,
             ipc::service::clear_local_transcription_history,
             ipc::service::copy_local_transcription_api_token,
@@ -330,6 +340,11 @@ pub fn run() {
             ipc::settings::save_settings,
             // overlay
             ipc::settings::save_overlay_position,
+            overlay::get_overlay_preview,
+            overlay::show_overlay_preview,
+            overlay::reset_overlay_position,
+            overlay::position_overlay,
+            overlay::hide_overlay_preview,
             // диагностика
             ipc::diagnostics::get_recent_logs,
             ipc::diagnostics::clear_logs,
@@ -362,7 +377,7 @@ pub fn run() {
 
 fn shutdown_app(app: &tauri::AppHandle) {
     tracing::info!("Fono shutdown requested");
-    app.state::<crate::application::local_transcription_service::LocalTranscriptionService>()
+    app.state::<crate::application::service_control::ServiceControl>()
         .shutdown();
     let pipeline = app.state::<pipeline::Pipeline>();
     if let Some(event) = pipeline.shutdown() {

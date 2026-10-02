@@ -1,12 +1,12 @@
 export const supportedCommands = [
   {
     phrase: "пауза",
-    description: "Приостановить воспроизведение",
+    description: "Воспроизведение / пауза",
     group: "Медиа",
   },
   {
-    phrase: "продолжить",
-    description: "Продолжить воспроизведение",
+    phrase: "воспроизведение",
+    description: "Воспроизведение / пауза",
     group: "Медиа",
   },
   {
@@ -16,19 +16,23 @@ export const supportedCommands = [
   },
   {
     phrase: "громче",
-    description: "Увеличить громкость на 10%",
+    description: "Увеличить громкость",
     group: "Звук",
   },
-  { phrase: "тише", description: "Уменьшить громкость на 10%", group: "Звук" },
-  { phrase: "выключи звук", description: "Отключить звук", group: "Звук" },
+  { phrase: "тише", description: "Уменьшить громкость", group: "Звук" },
   {
-    phrase: "сверни окно",
-    description: "Свернуть активное окно",
-    group: "Окна",
+    phrase: "выключи звук",
+    description: "Включить / выключить звук",
+    group: "Звук",
   },
   {
-    phrase: "переключи окно",
-    description: "Перейти к следующему окну",
+    phrase: "предыдущий трек",
+    description: "Вернуться к предыдущей композиции",
+    group: "Медиа",
+  },
+  {
+    phrase: "переключись на [название окна]",
+    description: "Найти уже открытое окно по названию",
     group: "Окна",
   },
 ];

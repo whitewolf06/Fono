@@ -6,6 +6,7 @@ export interface Finding {
   advice: string;
 }
 export function analyze(entry: Dictation): Finding[] {
+  if (entry.findings) return entry.findings;
   const text = entry.original ?? "";
   const fillers =
     text.match(/(?:^|[\s,])(ну|то есть|в общем)(?=[\s,.!?]|$)/gi) ?? [];

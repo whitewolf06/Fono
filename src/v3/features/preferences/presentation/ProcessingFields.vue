@@ -7,6 +7,7 @@ import { useFeedback } from "../../../shared/application/feedback";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import ProfileManager from "./ProfileManager.vue";
+import LlmModelField from "./LlmModelField.vue";
 defineProps<{ advanced?: boolean }>();
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
@@ -20,27 +21,6 @@ const selectedProfile = computed(() =>
 );
 const trainerProfile = computed(() =>
   workspace.state.profiles.find((p) => p.id === draft.value.trainerProfile),
-);
-const models = computed(() =>
-  [
-    ...new Set([
-      selectedProfile.value?.model || "Qwen 3 · 8B",
-      "Qwen 3 · 8B",
-      "GPT-4o Mini",
-      "Llama 3.1 · 8B",
-      draft.value.processingModel,
-    ]),
-  ].map((value) => ({ value, label: value })),
-);
-const trainerModels = computed(() =>
-  [
-    ...new Set([
-      trainerProfile.value?.model || "Qwen 3 · 8B",
-      "Qwen 3 · 8B",
-      "GPT-4o Mini",
-      draft.value.trainerModel,
-    ]),
-  ].map((value) => ({ value, label: value })),
 );
 </script>
 <template>
@@ -70,13 +50,15 @@ const trainerModels = computed(() =>
       ><small>{{
         selectedProfile?.location === "local"
           ? "На вашем компьютере"
-          : "Облачный профиль · ключ заменён демозначением"
+          : workspace.native
+            ? "Облачный профиль"
+            : "Облачный профиль · ключ заменён демозначением"
       }}</small>
     </div>
-    <SelectField
+    <LlmModelField
       v-model="draft.processingModel"
       label="Модель для обработки"
-      :options="models"
+      :profile="draft.profile"
     />
     <WlButton
       size="sm"
@@ -105,11 +87,11 @@ const trainerModels = computed(() =>
         label="Подключение тренера"
         :options="profiles"
       />
-      <SelectField
+      <LlmModelField
         id="trainerModel"
         v-model="draft.trainerModel"
         label="Модель для рекомендаций"
-        :options="trainerModels"
+        :profile="draft.trainerProfile"
       />
       <SelectField
         v-model="draft.trainerScope"
@@ -131,7 +113,11 @@ const trainerModels = computed(() =>
         <WlField
           v-slot="field"
           label="Инструкция модели"
-          hint="Не сохраняется в браузере. Не добавляйте личные данные."
+          :hint="
+            workspace.native
+              ? 'Сохраняется локально и отправляется выбранной модели вместе с текстом.'
+              : 'Не сохраняется в браузере. Не добавляйте личные данные.'
+          "
           ><WlTextarea
             v-bind="field"
             v-model="draft.instruction"

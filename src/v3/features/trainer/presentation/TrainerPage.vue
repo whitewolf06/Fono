@@ -17,6 +17,7 @@ const entries = computed(() =>
   workspace.state.history.filter(
     (e) =>
       e.original &&
+      (!workspace.native || e.analysisReady) &&
       Date.now() - Date.parse(e.createdAt) <= period.value * 86400000,
   ),
 );
@@ -52,6 +53,12 @@ watch([selectedId, period], () => {
 });
 async function recommend() {
   await run(async () => {
+    if (workspace.trainer.recommend && selected.value) {
+      recommendation.value = await workspace.trainer.recommend(
+        selected.value.id,
+      );
+      return;
+    }
     if (
       workspace.state.profiles.find(
         (p) => p.id === workspace.state.preferences.trainerProfile,
@@ -88,7 +95,9 @@ async function recommend() {
         name="trainerEnabled"
         label="Включить речевого тренера"
         description="Потребуется разрешение сохранять исходные расшифровки."
-      /><small>Предпросмотр использует демонстрационные записи.</small>
+      /><small v-if="!workspace.native"
+        >Предпросмотр использует демонстрационные записи.</small
+      >
     </div>
     <template v-else>
       <div class="section-header">
@@ -147,9 +156,7 @@ async function recommend() {
                 :cy="point.y"
                 r="4"
               /></svg
-            ><small class="muted"
-              >От ранних записей к последним · демонстрационный анализ</small
-            >
+            ><small class="muted">От ранних записей к последним</small>
           </div>
         </div>
         <div class="master-detail">
@@ -211,8 +218,10 @@ async function recommend() {
             <p v-if="recommendation" class="notice" role="status">
               {{ recommendation }}
               <small
-                >Демонстрационный ответ ·
-                {{ workspace.state.preferences.trainerModel }}</small
+                >{{
+                  workspace.native ? "Ответ ИИ" : "Демонстрационный ответ"
+                }}
+                · {{ workspace.state.preferences.trainerModel }}</small
               >
             </p>
             <p v-if="error" role="alert" class="error-text">{{ error }}</p>

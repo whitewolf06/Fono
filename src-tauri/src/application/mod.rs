@@ -9,6 +9,7 @@ pub mod dictation_tail_diagnostics;
 pub mod local_transcription_service;
 pub mod models;
 pub mod rest_api;
+pub mod service_control;
 pub mod speech_analysis_queue;
 pub mod transcription_contract;
 pub mod transcription_jobs;

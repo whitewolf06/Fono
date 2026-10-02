@@ -378,15 +378,23 @@ pub fn set_state_for_operation(
     true
 }
 
-fn sync_overlay_window(handle: &AppHandle, state: PipelineState) {
+pub(crate) fn sync_overlay_window(handle: &AppHandle, state: PipelineState) {
     let Some(overlay) = handle.get_webview_window("overlay") else {
         return;
     };
-    sync_overlay_visibility(state, |visible| {
+    let visible = (handle.state::<AppState>().settings().overlay_enabled
+        && state != PipelineState::Idle)
+        || crate::overlay::has_preview(handle);
+    let visibility_state = if visible {
+        PipelineState::Listening
+    } else {
+        PipelineState::Idle
+    };
+    sync_overlay_visibility(visibility_state, |visible| {
         if visible {
-            overlay.show()
+            crate::overlay::show_window(handle)
         } else {
-            overlay.hide()
+            overlay.hide().map_err(crate::error::AppError::from)
         }
     });
 }

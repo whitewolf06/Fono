@@ -51,10 +51,13 @@ const labels = {
               ? 'Сервис включён'
               : 'Сервис выключен'
           "
-        /><code>127.0.0.1:17832</code>
+        /><code>{{ workspace.state.serviceAddress || "127.0.0.1:17832" }}</code>
       </div>
       <span>{{ queue.length }} / 4 в очереди</span>
     </div>
+    <p v-if="workspace.state.serviceError" class="notice error" role="alert">
+      {{ workspace.state.serviceError }}
+    </p>
     <nav class="page-tabs" aria-label="Раздел API">
       <RouterLink
         to="/api/tasks"
@@ -72,6 +75,7 @@ const labels = {
         <h2>Задачи распознавания</h2>
         <WlButton
           size="sm"
+          v-if="!workspace.native"
           :disabled="!workspace.state.preferences.serviceEnabled"
           @click="
             run(
@@ -125,7 +129,7 @@ const labels = {
             v-if="job.state === 'queued' || job.state === 'running'"
             size="sm"
             variant="ghost"
-            @click="workspace.service.cancel(job.id)"
+            @click="run(() => workspace.service.cancel(job.id))"
             >Отменить</WlButton
           ><WlButton
             v-else-if="job.text"
@@ -137,11 +141,11 @@ const labels = {
             "
             ><template #icon><AppIcon name="copy" /></template></WlButton
           ><WlButton
-            v-else-if="job.state === 'error'"
+            v-else-if="!workspace.native && job.state === 'error'"
             size="sm"
             variant="ghost"
             :disabled="!workspace.state.preferences.serviceEnabled"
-            @click="workspace.service.retry(job.id)"
+            @click="run(() => workspace.service.retry(job.id))"
             >Повторить</WlButton
           >
         </article>
@@ -149,7 +153,11 @@ const labels = {
       <EmptyState
         v-else
         title="Очередь свободна"
-        text="Задачи от приложений появятся здесь. Для проверки можно добавить демонстрационную."
+        :text="
+          workspace.native
+            ? 'Задачи от приложений появятся здесь. Инструкция — на вкладке «Подключение».'
+            : 'Для проверки можно добавить демонстрационную задачу.'
+        "
       />
     </template>
     <WlDialog v-model:visible="visible" :header="selected?.name" width="560px"

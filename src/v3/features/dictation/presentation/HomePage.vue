@@ -8,7 +8,8 @@ import VoiceTools from "./VoiceTools.vue";
 import HomeServices from "./HomeServices.vue";
 import RecordControl from "./RecordControl.vue";
 import HomeTextPreview from "./HomeTextPreview.vue";
-const { state } = useWorkspace();
+const workspace = useWorkspace();
+const { state } = workspace;
 const ui = useInteraction();
 </script>
 <template>
@@ -28,11 +29,15 @@ const ui = useInteraction();
           >{{ state.preferences.hotkey
           }}<template #icon
             ><AppIcon name="edit" :size="12" /></template></WlButton
-        ><small class="hero-hint">начать и завершить диктовку</small>
+        ><small class="hero-hint">{{
+          workspace.native
+            ? "удерживайте во время речи"
+            : "начать и завершить диктовку"
+        }}</small>
       </div>
     </header>
     <VoiceTools /><HomeServices /><RecordControl /><HomeTextPreview />
-    <footer class="home-footnote">
+    <footer v-if="!workspace.native" class="home-footnote">
       Демонстрационные данные · настройки интерфейса сохраняются в этом браузере
     </footer>
   </div>

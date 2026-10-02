@@ -29,8 +29,9 @@ const tools = computed<
       title: "Микрофон",
       panel: "microphone",
       value: workspace.state.microphoneAvailable
-        ? microphones.find((m) => m.value === p.microphone)?.label ||
-          p.microphone
+        ? (workspace.state.devices || microphones).find(
+            (m) => m.value === p.microphone,
+          )?.label || p.microphone
         : "Подключите устройство",
       health: workspace.state.microphoneAvailable ? "ready" : "missing",
     },
@@ -38,7 +39,13 @@ const tools = computed<
       title: "Пробуждение",
       panel: "wake",
       value: p.wakePhrase,
-      health: p.wakeEnabled ? "ready" : "off",
+      health: !p.wakeEnabled
+        ? "off"
+        : workspace.state.wakeStatus === "loading"
+          ? "loading"
+          : workspace.state.wakeStatus === "missing_model"
+            ? "missing"
+            : "ready",
       toggle: "wakeEnabled",
     },
     {
@@ -60,12 +67,16 @@ const tools = computed<
     {
       title: "Обработка текста",
       panel: "processing",
-      value: p.processingModel,
+      value: p.processingModel || "Выберите модель",
       health: !p.processingEnabled
         ? "off"
-        : workspace.state.aiAvailable
-          ? "ready"
-          : "error",
+        : workspace.native && !workspace.state.aiChecked
+          ? p.profile && p.processingModel
+            ? "ready"
+            : "missing"
+          : workspace.state.aiAvailable
+            ? "ready"
+            : "error",
       toggle: "processingEnabled",
     },
   ];

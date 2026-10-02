@@ -1,6 +1,6 @@
 {
   "name": "fono",
-  "version": "0.5.15",
+  "version": "0.5.16",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
@@ -24,7 +24,7 @@
     "typecheck:v3": "vue-tsc --noEmit -p tsconfig.v3.json",
     "format:v3": "prettier --write \"src/v3/**/*.{ts,vue,css}\"",
     "format:check": "prettier --check \"src/v3/**/*.{ts,vue,css}\" eslint.config.js docs/fono-v3-frontend.md docs/fono-v3-qa.md AGENTS.md",
-    "test:v3": "node --test --test-concurrency=1 tests/ui/fonoV3.test.mjs"
+    "test:v3": "node --test --test-concurrency=1 tests/ui/fonoV3.test.mjs tests/ui/fonoV3Native.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",

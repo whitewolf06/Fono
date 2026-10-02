@@ -44,7 +44,10 @@ const visible = computed({
       ><WlField v-slot="field" label="Путь или команда запуска"
         ><WlInput v-bind="field" v-model="form.path" placeholder="notepad.exe"
       /></WlField>
-      <p class="muted">В демонстрации приложения не запускаются.</p>
+      <p class="muted">
+        Укажите одно или несколько названий через запятую. Команда: «открой» и
+        название приложения.
+      </p>
       <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     </div>
     <template #footer

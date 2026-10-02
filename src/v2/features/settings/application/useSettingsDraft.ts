@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useOverlaySettings } from "./useOverlaySettings";
 import {
   loadCollapsedSettingsSections,
   saveCollapsedSettingsSections,
@@ -63,6 +64,8 @@ export interface SettingsDraftStore {
   testMicrophone?(): Promise<{ peak: number; rms: number }>;
   downloadWhisperModel?(model: string): Promise<void>;
   testLmStudio?(): Promise<string>;
+  showOverlayTest?(draft: SettingsDraft): Promise<void>;
+  resetOverlayPosition?(): Promise<void>;
 }
 
 const initialDraft: SettingsDraft = {
@@ -123,10 +126,8 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
     state: "ready",
     message: "Sherpa-ONNX ожидает ключевую фразу.",
   });
-  const [overlayStatus, setOverlayStatus] = useState<SettingsStatusDetail>({
-    state: "idle",
-    message: "Тестовый показ ещё не запускался.",
-  });
+  const { overlayStatus, showOverlayTest, resetOverlayPosition } =
+    useOverlaySettings(draft, store);
   const [lmStudioStatus, setLmStudioStatus] = useState<SettingsStatusDetail>({
     state: "idle",
     message: "Подключение ещё не проверялось.",
@@ -150,7 +151,9 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
         if (!active) return;
         setDraft(nextDraft);
         setWakeWordStatus(wakePhraseStatus(nextDraft));
-        setEffectiveAcceleration(resolveEffectiveAcceleration(nextDraft.acceleration));
+        setEffectiveAcceleration(
+          resolveEffectiveAcceleration(nextDraft.acceleration),
+        );
         setWhisperStatus({
           state: "ready",
           message: `Выбрана ${nextDraft.recognitionModel}.`,
@@ -348,21 +351,6 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
     })();
   };
 
-  const showOverlayTest = () => {
-    if (!draft.overlayVisible) {
-      setOverlayStatus({
-        state: "error",
-        message: "Включите overlay, чтобы показать тестовое окно.",
-      });
-      return;
-    }
-
-    setOverlayStatus({
-      state: "ready",
-      message: "Тестовый сценарий подготовлен для отдельного overlay-окна.",
-    });
-  };
-
   const testLmStudio = () => {
     if (store?.testLmStudio) {
       setLmStudioStatus({ state: "checking", message: "Checking LM Studio…" });
@@ -405,6 +393,7 @@ export function useSettingsDraft(store?: SettingsDraftStore) {
     lmStudioStatus,
     microphoneStatus,
     overlayStatus,
+    resetOverlayPosition,
     playMicrophoneSample,
     processingPreview,
     reloadWhisperModel,

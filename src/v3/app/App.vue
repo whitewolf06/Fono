@@ -12,6 +12,7 @@ import { useInteraction } from "../shared/application/interaction";
 import { bindShortcut } from "../shared/infrastructure/browser";
 import AppIcon from "../shared/presentation/AppIcon.vue";
 import FonoWordmark from "../shared/FonoWordmark.vue";
+import CommandConfirmation from "../features/commands/presentation/CommandConfirmation.vue";
 import PageLoadState from "../shared/presentation/PageLoadState.vue";
 import QuickSettings from "../features/preferences/presentation/QuickSettings.vue";
 const workspace = useWorkspace();
@@ -29,6 +30,7 @@ const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
 let releaseShortcut = () => {};
 let releaseCommandsShortcut = () => {};
 onMounted(() => {
+  if (workspace.native) return;
   releaseCommandsShortcut = bindShortcut(
     () => workspace.state.preferences.commandHotkey,
     () => {
@@ -94,7 +96,7 @@ onUnmounted(() => {
           }}</span></RouterLink
         >
       </nav>
-      <div class="sidebar-bottom">
+      <div v-if="!workspace.native" class="sidebar-bottom">
         <span class="demo-label"><span />Демо интерфейса</span
         ><RouterLink
           to="/scenarios"
@@ -106,6 +108,16 @@ onUnmounted(() => {
       </div>
     </aside>
     <main id="main-content" class="v3-main">
+      <div
+        v-if="workspace.native && workspace.state.error"
+        class="notice error"
+        role="alert"
+      >
+        {{ workspace.state.error }}
+        <WlButton size="xs" @click="workspace.state.error = ''"
+          >Закрыть</WlButton
+        >
+      </div>
       <PageLoadState
         v-if="
           ['loading', 'load-error'].includes(workspace.state.scenario) &&
@@ -139,5 +151,8 @@ onUnmounted(() => {
       ></template
     >
   </WlDialog>
+  <CommandConfirmation
+    v-if="workspace.native && workspace.state.commandProposal"
+  />
   <WlToast />
 </template>

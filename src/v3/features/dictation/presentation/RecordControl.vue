@@ -7,6 +7,8 @@ import {
 } from "../../../shared/application/workspace";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import VoiceWave from "./VoiceWave.vue";
+import { useFeedback } from "../../../shared/application/feedback";
+const { run } = useFeedback();
 const workspace = useWorkspace();
 const recording = computed(() =>
   ["listening", "silence"].includes(workspace.state.phase),
@@ -39,21 +41,32 @@ const working = computed(() =>
         size="sm"
         :variant="recording ? 'soft-danger' : 'soft'"
         :loading="working"
+        :disabled="recording && workspace.state.recordingSource === 'hotkey'"
         @click="
-          recording ? workspace.dictation.finish() : workspace.dictation.start()
+          run(() =>
+            recording
+              ? workspace.dictation.finish()
+              : workspace.dictation.start(),
+          )
         "
         ><template #icon
           ><AppIcon
             :name="recording ? 'stop' : 'microphone'"
             :size="16" /></template
         >{{
-          recording ? "Завершить" : working ? "Обработка" : "Начать запись"
+          recording
+            ? workspace.state.recordingSource === "hotkey"
+              ? "Отпустите клавишу"
+              : "Завершить"
+            : working
+              ? "Обработка"
+              : "Начать запись"
         }}</WlButton
       ><WlButton
         v-if="recording || working"
         size="sm"
         variant="ghost"
-        @click="workspace.dictation.cancel()"
+        @click="run(() => workspace.dictation.cancel())"
         >Отмена</WlButton
       >
     </div>

@@ -29,7 +29,9 @@ const queue = computed(
             :label="state.preferences.serviceEnabled ? 'Включён' : 'Выключен'"
           /><span>{{
             state.preferences.serviceEnabled
-              ? "127.0.0.1:17832 · в очереди: " + queue
+              ? (state.serviceAddress || "127.0.0.1:17832") +
+                " · в очереди: " +
+                queue
               : "Включите для подключения"
           }}</span>
         </div>

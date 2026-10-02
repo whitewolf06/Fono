@@ -10,6 +10,10 @@ const { run, busy } = useFeedback();
 const checks = computed(() => workspace.diagnostics());
 const build = __FONO_FRONTEND_BUILD__;
 async function checkAll() {
+  if (workspace.refresh) {
+    await workspace.refresh();
+    return;
+  }
   await new Promise<void>((resolve) => setTimeout(resolve, 500));
   workspace.state.logs.unshift(
     "Проверены демонстрационные состояния компонентов",
@@ -67,7 +71,9 @@ async function checkAll() {
     <div class="technical-info">
       <span>Fono {{ build.version }}</span
       ><span>Vue 3 · WhiteUI 0.6.0</span><code>{{ build.revision }}</code
-      ><span>Browser mock runtime</span>
+      ><span>{{
+        workspace.native ? "Tauri · Rust" : "Browser mock runtime"
+      }}</span>
     </div>
   </div>
 </template>

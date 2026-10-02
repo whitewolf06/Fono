@@ -14,11 +14,11 @@ import {
 } from "./CoreSettingsCards";
 import {
   DiagnosticsSettingsCard,
-  OverlaySettingsCard,
   PrivacySettingsCard,
   ProcessingSettingsCard,
 } from "./ServiceSettingsCards";
 import { SectionIcon } from "./SettingsPrimitives";
+import { OverlaySettingsCard } from "./OverlaySettingsCard";
 import { PageFrame } from "@/v2/shared/presentation/components/PageFrame";
 
 interface SettingsPageProps {
@@ -44,6 +44,7 @@ export function SettingsPage({
     lmStudioStatus,
     microphoneStatus,
     overlayStatus,
+    resetOverlayPosition,
     playMicrophoneSample,
     processingPreview,
     reloadWhisperModel,
@@ -141,6 +142,7 @@ export function SettingsPage({
             {...cardState("overlay")}
             overlayStatus={overlayStatus}
             onShowOverlayTest={showOverlayTest}
+            onResetOverlayPosition={resetOverlayPosition}
           />
           <DiagnosticsSettingsCard
             {...sharedProps}

@@ -69,7 +69,22 @@ const visible = computed({
           v-model="form.model"
           placeholder="Название модели"
       /></WlField>
-      <p class="notice">
+      <WlField
+        v-if="workspace.native"
+        v-slot="field"
+        label="API-ключ"
+        :hint="
+          form.hasApiKey
+            ? 'Ключ сохранён. Оставьте пустым, чтобы сохранить его.'
+            : 'Для локального сервера обычно не нужен.'
+        "
+        ><WlInput
+          v-bind="field"
+          v-model="form.apiKey"
+          type="password"
+          autocomplete="new-password"
+      /></WlField>
+      <p v-if="!workspace.native" class="notice">
         Это настройка демонстрационного подключения. Запросы не отправляются,
         ключ заменён заглушкой. Изменённые профили действуют до перезагрузки
         страницы.
@@ -84,7 +99,7 @@ const visible = computed({
         @click="
           run(
             () => workspace.settings.saveProfile(form),
-            'Демо-профиль сохранён',
+            'Профиль сохранён',
           ).then((ok) => {
             if (ok) emit('close');
           })

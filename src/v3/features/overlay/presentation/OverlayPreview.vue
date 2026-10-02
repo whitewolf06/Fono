@@ -10,8 +10,10 @@ withDefaults(
     level?: number;
     seconds?: number;
     interactive?: boolean;
+    canFinish?: boolean;
+    elapsed?: number;
   }>(),
-  { phase: "listening", level: 0.6, seconds: 3 },
+  { phase: "listening", level: 0.6, seconds: 3, elapsed: 12, canFinish: true },
 );
 defineEmits<{ finish: []; cancel: [] }>();
 </script>
@@ -48,12 +50,22 @@ defineEmits<{ finish: []; cancel: [] }>();
           phase === "error"
             ? "Проверьте микрофон"
             : phase === "listening"
-              ? "00:12 · " + preferences.hotkey
+              ? Math.floor(elapsed / 60)
+                  .toString()
+                  .padStart(2, "0") +
+                ":" +
+                (elapsed % 60).toString().padStart(2, "0") +
+                " · " +
+                preferences.hotkey
               : "Fono"
         }}</small>
       </div>
       <button
-        v-if="interactive && (phase === 'listening' || phase === 'silence')"
+        v-if="
+          interactive &&
+          canFinish &&
+          (phase === 'listening' || phase === 'silence')
+        "
         class="overlay-control"
         aria-label="Завершить диктовку"
         @click="$emit('finish')"

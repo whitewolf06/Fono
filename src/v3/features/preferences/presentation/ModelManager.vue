@@ -11,18 +11,28 @@ async function remove(id: string) {
   if (
     await ui.confirm({
       title: "Удалить модель?",
-      text: "Чтобы снова использовать модель, потребуется загрузить её. В демо файлы не меняются.",
+      text:
+        "Чтобы снова использовать модель, потребуется загрузить её." +
+        (workspace.native
+          ? " Файл модели будет удалён с компьютера."
+          : " В демо файлы не меняются."),
       accept: "Удалить модель",
       danger: true,
     })
   )
-    workspace.settings.removeModel(id);
+    await run(() => workspace.settings.removeModel(id));
 }
 </script>
 <template>
   <section class="model-manager">
     <h3>Модели на компьютере</h3>
-    <p class="muted">Загрузка и объём показаны для демонстрации.</p>
+    <p class="muted">
+      {{
+        workspace.native
+          ? "Модели хранятся локально. Для удаления активной модели сначала выберите другую."
+          : "Загрузка и объём показаны для демонстрации."
+      }}
+    </p>
     <div
       v-for="model in workspace.state.models"
       :key="model.id"
@@ -50,11 +60,11 @@ async function remove(id: string) {
         v-else-if="model.status === 'downloading'"
         size="sm"
         variant="ghost"
-        @click="workspace.settings.removeModel(model.id)"
+        @click="run(() => workspace.settings.removeModel(model.id))"
         >Отменить {{ model.progress }}%</WlButton
       >
       <WlButton
-        v-else
+        v-else-if="!model.custom"
         size="sm"
         variant="ghost"
         :aria-label="'Удалить ' + model.name"

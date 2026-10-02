@@ -2,6 +2,10 @@
 
 use crate::error::{AppError, AppResult};
 
+fn isolated_test_profile() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("FONO_TEST_DATA_DIR").is_some()
+}
+
 const LLM_API_KEY_TARGET: &str = "Fono/llm-api-key";
 const LLM_PROFILE_API_KEY_PREFIX: &str = "Fono/llm-profile/";
 
@@ -49,6 +53,9 @@ fn load_secret(secret_target: &str) -> AppResult<Option<String>> {
         },
     };
 
+    if isolated_test_profile() {
+        return Ok(None);
+    }
     let target = wide(secret_target);
     let mut credential: *mut CREDENTIALW = ptr::null_mut();
     let result = unsafe {
@@ -102,6 +109,11 @@ fn store_secret(secret_target: &str, value: &str) -> AppResult<()> {
         },
     };
 
+    if isolated_test_profile() {
+        return Err(AppError::Config(
+            "Сохранение ключей отключено в изолированном тестовом профиле".into(),
+        ));
+    }
     if value.trim().is_empty() {
         return delete_secret(secret_target);
     }
@@ -141,6 +153,9 @@ fn delete_secret(secret_target: &str) -> AppResult<()> {
         },
     };
 
+    if isolated_test_profile() {
+        return Ok(());
+    }
     let target = wide(secret_target);
     match unsafe { CredDeleteW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, 0) } {
         Ok(()) => Ok(()),

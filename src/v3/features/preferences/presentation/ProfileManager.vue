@@ -15,7 +15,12 @@ async function remove(profile: ConnectionProfile) {
   if (
     await ui.confirm({
       title: "Удалить профиль?",
-      text: "Профиль «" + profile.name + "» будет удалён из демосессии.",
+      text:
+        "Профиль «" +
+        profile.name +
+        (workspace.native
+          ? "» будет удалён. Сохранённый ключ также удалится."
+          : "» будет удалён из демосессии."),
       accept: "Удалить",
       danger: true,
     })

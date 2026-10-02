@@ -394,6 +394,8 @@ pub struct Settings {
     pub llm_model: Option<String>,
     #[serde(default)]
     pub autostart: bool,
+    #[serde(default = "default_overlay_enabled")]
+    pub service_enabled: bool,
     #[serde(default)]
     pub overlay_x: Option<i32>,
     #[serde(default)]
@@ -412,6 +414,8 @@ pub struct Settings {
     pub command_hotkey: String,
     #[serde(default)]
     pub launch_apps: Vec<LaunchApp>,
+    #[serde(default = "default_overlay_enabled")]
+    pub overlay_enabled: bool,
     #[serde(default = "default_overlay_scale")]
     pub overlay_scale: f32,
     #[serde(default = "default_overlay_opacity")]
@@ -556,6 +560,7 @@ impl Default for Settings {
             llm_base_url: default_llm_url(),
             llm_model: None,
             autostart: false,
+            service_enabled: true,
             overlay_x: None,
             overlay_y: None,
             clean_prompt: None,
@@ -564,6 +569,7 @@ impl Default for Settings {
             injection_mode: default_injection_mode(),
             command_hotkey: default_command_hotkey(),
             launch_apps: Vec::new(),
+            overlay_enabled: true,
             overlay_scale: default_overlay_scale(),
             overlay_opacity: default_overlay_opacity(),
             overlay_mini_mode: false,
@@ -665,6 +671,10 @@ fn default_command_hotkey() -> String {
 
 fn default_overlay_scale() -> f32 {
     1.0
+}
+
+fn default_overlay_enabled() -> bool {
+    true
 }
 
 fn default_overlay_opacity() -> f32 {

@@ -432,29 +432,45 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
         final_text.chars().count()
     );
 
-    // Вставка текста.
-    if !set_pipeline_state_for_operation(
+    let history_id = crate::history::next_id();
+    // Publish the current session independently from archive persistence and insertion.
+    crate::ipc::desktop_v3::publish_result(
         &app,
-        state.inner(),
-        &pipeline,
-        operation,
-        PipelineState::Injecting,
-        TerminalReason::Completed,
-    ) {
-        tail_diagnostic.emit();
-        return Ok(empty_transcript());
-    }
-    if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
-        emit_pipeline_error(&app, &e.to_string());
-        let _ = set_pipeline_state_for_operation(
+        crate::ipc::desktop_v3::LastDictation {
+            id: history_id.clone(),
+            text: final_text.clone(),
+            original_text: transcript.text.clone(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            audio_secs: f64::from(transcript.audio_secs.unwrap_or(0.0)),
+        },
+    );
+
+    // A recording started in the main window returns text to its editor.
+    // Hotkey and wake dictation retain insertion into the foreground application.
+    if source != OperationSource::Ui {
+        if !set_pipeline_state_for_operation(
             &app,
             state.inner(),
             &pipeline,
             operation,
-            PipelineState::Idle,
-            TerminalReason::Failed,
-        );
-        return Err(e);
+            PipelineState::Injecting,
+            TerminalReason::Completed,
+        ) {
+            tail_diagnostic.emit();
+            return Ok(empty_transcript());
+        }
+        if let Err(e) = crate::injection::inject_text(&final_text, settings.injection_mode) {
+            emit_pipeline_error(&app, &e.to_string());
+            let _ = set_pipeline_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Idle,
+                TerminalReason::Failed,
+            );
+            return Err(e);
+        }
     }
     let _ = set_pipeline_state_for_operation(
         &app,
@@ -466,7 +482,6 @@ pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
     );
 
     if !final_text.trim().is_empty() && settings.history_enabled {
-        let history_id = crate::history::next_id();
         let trainer_collection_enabled = speech_trainer_collection_enabled(&settings);
         let analytics_payload = trainer_collection_enabled.then(|| {
             (

@@ -24,6 +24,8 @@ import ProcessingFields from "./ProcessingFields.vue";
 import OverlayFields from "./OverlayFields.vue";
 import PrivacyFields from "./PrivacyFields.vue";
 import DiagnosticsPanel from "./DiagnosticsPanel.vue";
+import { useWorkspace } from "../../../shared/application/workspace";
+const workspace = useWorkspace();
 const route = useRoute();
 const router = useRouter();
 const query = ref("");
@@ -130,7 +132,10 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
           <section id="about" class="about-fono">
             <h3>Fono {{ version }}</h3>
             <p>Голосовой ввод и управление компьютером.</p>
-            <small>Интерфейс V3 · WhiteUI 0.6.0 · демонстрационный режим</small
+            <small
+              >Интерфейс V3 · WhiteUI 0.6.0{{
+                workspace.native ? "" : " · демонстрационный режим"
+              }}</small
             ><RouterLink class="text-link" to="/onboarding"
               >Пройти первоначальную настройку</RouterLink
             >

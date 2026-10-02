@@ -109,6 +109,14 @@ export const ipc = {
     invoke<void>("save_settings", { settings }),
 
   // Overlay
+  getOverlayPreview: () => invoke<OverlayPreview | null>("get_overlay_preview"),
+  showOverlayPreview: (appearance: OverlayAppearance) =>
+    invoke<void>("show_overlay_preview", {
+      overlayScale: appearance.overlay_scale,
+      overlayOpacity: appearance.overlay_opacity,
+      overlayMiniMode: appearance.overlay_mini_mode,
+    }),
+  resetOverlayPosition: () => invoke<void>("reset_overlay_position"),
   saveOverlayPosition: (x: number, y: number) =>
     invoke<void>("save_overlay_position", { x, y }),
 
@@ -140,9 +148,12 @@ export const ipc = {
   startWakeProfileValidation: () =>
     invoke<WakeProfileValidationStatus>("start_wake_profile_validation"),
   recordWakeProfileValidationSample: (kind: WakeProfileValidationKind) =>
-    invoke<WakeProfileValidationStatus>("record_wake_profile_validation_sample", {
-      kind,
-    }),
+    invoke<WakeProfileValidationStatus>(
+      "record_wake_profile_validation_sample",
+      {
+        kind,
+      },
+    ),
   enableWakeWord: () => invoke<void>("enable_wake_word"),
   disableWakeWord: () => invoke<void>("disable_wake_word"),
   isKwsModelDownloaded: () => invoke<boolean>("is_kws_model_downloaded"),
@@ -165,6 +176,23 @@ export interface MicTestResult {
   peak: number;
   /** RMS уровень 0..1. */
   rms: number;
+}
+
+export type OverlayAppearance = Pick<
+  Settings,
+  "overlay_scale" | "overlay_opacity" | "overlay_mini_mode"
+>;
+
+export interface OverlayPreview extends OverlayAppearance {
+  id: number;
+}
+
+export function onOverlayPreview(
+  handler: (preview: OverlayPreview | null) => void,
+): Promise<UnlistenFn> {
+  return listen<OverlayPreview | null>("overlay-preview", (event) =>
+    handler(event.payload),
+  );
 }
 
 // ====== События (односторонние, из Rust -> JS) ======

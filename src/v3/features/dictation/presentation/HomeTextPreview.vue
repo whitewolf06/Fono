@@ -152,7 +152,9 @@ function beginEdit() {
             @click="
               run(
                 () => workspace.dictation.improve(),
-                'Черновик обновлён · демонстрация',
+                workspace.native
+                  ? 'Черновик обновлён'
+                  : 'Черновик обновлён · демонстрация',
               )
             "
             ><template #icon><AppIcon name="sparkle" :size="16" /></template

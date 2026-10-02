@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useFeedback } from "../../../shared/application/feedback";
 import { WlButton, WlInput, WlField } from "@whitelife-core/ui-kit";
 import type { LaunchApp } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -9,6 +10,7 @@ import AppEditor from "./AppEditor.vue";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 const workspace = useWorkspace();
+const { run } = useFeedback();
 const ui = useInteraction();
 const phrase = ref("");
 const result = ref("");
@@ -22,7 +24,7 @@ async function remove(app: LaunchApp) {
       danger: true,
     })
   )
-    workspace.commands.removeApp(app.id);
+    await run(() => workspace.commands.removeApp(app.id));
 }
 </script>
 <template>

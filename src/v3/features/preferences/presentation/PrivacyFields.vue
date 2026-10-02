@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useFeedback } from "../../../shared/application/feedback";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import PreferenceToggle from "./PreferenceToggle.vue";
@@ -7,6 +8,7 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
+const { run } = useFeedback();
 const ui = useInteraction();
 async function clear(kind: "history" | "trainer") {
   if (
@@ -21,8 +23,11 @@ async function clear(kind: "history" | "trainer") {
       danger: true,
     })
   ) {
-    if (kind === "history") workspace.history.clear();
-    else workspace.trainer.clear();
+    await run(() =>
+      kind === "history"
+        ? workspace.history.clear()
+        : workspace.trainer.clear(),
+    );
   }
 }
 </script>
@@ -43,15 +48,26 @@ async function clear(kind: "history" | "trainer") {
     /><SelectField
       id="retentionDays"
       v-model="draft.retentionDays"
-      label="Срок хранения"
+      :label="
+        workspace.native
+          ? 'Срок хранения исходных расшифровок и анализа'
+          : 'Срок хранения'
+      "
       :options="[
         { value: 7, label: '7 дней' },
         { value: 30, label: '30 дней' },
         { value: 90, label: '90 дней' },
-        { value: 0, label: 'До ручного удаления' },
+        ...(workspace.native
+          ? [{ value: 365, label: '365 дней' }]
+          : [{ value: 0, label: 'До ручного удаления' }]),
       ]"
     />
-    <div class="notice">
+    <div v-if="workspace.native" class="notice">
+      История хранится локально на компьютере. Итоговые тексты остаются до
+      ручного удаления. Исходные расшифровки и анализ удаляются по выбранному
+      сроку. Ключи подключений защищены хранилищем Windows.
+    </div>
+    <div v-else class="notice">
       В этом браузерном макете сохраняются только демонстрационные настройки.
       Тексты, ключи и пользовательские инструкции не записываются в хранилище
       браузера.

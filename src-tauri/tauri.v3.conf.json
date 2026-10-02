@@ -3,10 +3,10 @@
     "windows": [
       {
         "label": "settings",
-        "title": "Fono — V3 Preview",
+        "title": "Fono",
         "url": "v3.html",
-        "width": 1440,
-        "height": 900,
+        "width": 900,
+        "height": 720,
         "minWidth": 720,
         "minHeight": 560,
         "resizable": true,
@@ -15,14 +15,14 @@
         "transparent": false,
         "alwaysOnTop": false,
         "theme": "Dark",
-        "backgroundColor": "#071321",
+        "backgroundColor": "#020914",
         "visible": true,
         "center": true
       },
       {
         "label": "overlay",
         "title": "Fono Overlay",
-        "url": "index.html?view=overlay&ui=v2",
+        "url": "v3.html?view=overlay",
         "width": 286,
         "height": 88,
         "decorations": false,

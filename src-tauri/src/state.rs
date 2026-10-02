@@ -145,6 +145,18 @@ impl AppState {
 
 /// Каталог данных приложения (для настроек, моделей и т.д.).
 pub fn app_data_dir() -> AppResult<std::path::PathBuf> {
+    if cfg!(debug_assertions) {
+        if let Some(path) = std::env::var_os("FONO_TEST_DATA_DIR") {
+            let dir = PathBuf::from(path);
+            if !dir.is_absolute() {
+                return Err(AppError::Config(
+                    "FONO_TEST_DATA_DIR must be absolute".into(),
+                ));
+            }
+            std::fs::create_dir_all(&dir)?;
+            return Ok(dir);
+        }
+    }
     let dir = dirs::data_dir()
         .ok_or_else(|| crate::error::AppError::Config("не найден data_dir".into()))?
         .join("Fono");

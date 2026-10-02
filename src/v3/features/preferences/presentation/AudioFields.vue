@@ -24,7 +24,7 @@ const installed = computed(() =>
         id="microphone"
         v-model="draft.microphone"
         label="Устройство ввода"
-        :options="microphones"
+        :options="workspace.state.devices || microphones"
         hint="Системное устройство следует выбору в Windows."
       />
       <div
@@ -35,7 +35,10 @@ const installed = computed(() =>
         Микрофон не найден. Подключите устройство и повторите проверку.
       </div>
       <div class="signal-test">
-        <span>Уровень сигнала <small>демонстрация</small></span>
+        <span
+          >Уровень сигнала
+          <small v-if="!workspace.native">демонстрация</small></span
+        >
         <div
           class="signal-meter"
           role="meter"
@@ -53,8 +56,10 @@ const installed = computed(() =>
           :loading="busy"
           @click="
             run(
-              () => workspace.settings.testMicrophone(),
-              'Сигнал в норме · демонстрация',
+              () => workspace.settings.testMicrophone(draft.microphone),
+              workspace.native
+                ? 'Проверка микрофона завершена'
+                : 'Сигнал в норме · демонстрация',
             )
           "
           ><template #icon><AppIcon name="microphone" /></template>Проверить
@@ -68,7 +73,7 @@ const installed = computed(() =>
           образец</WlButton
         >
       </div>
-      <small class="muted"
+      <small v-if="!workspace.native" class="muted"
         >В браузерном макете тест и образец синтетические. Доступ к микрофону не
         запрашивается.</small
       >
@@ -93,7 +98,7 @@ const installed = computed(() =>
         /><SelectField
           v-model="draft.acceleration"
           label="Ускорение"
-          :options="accelerations"
+          :options="workspace.state.accelerations || accelerations"
         />
       </div>
     </template>

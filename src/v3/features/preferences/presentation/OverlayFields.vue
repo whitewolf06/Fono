@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useWorkspace } from "../../../shared/application/workspace";
+import { useFeedback } from "../../../shared/application/feedback";
+const workspace = useWorkspace();
+const { run } = useFeedback();
 import { WlSlider, WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import PreferenceToggle from "./PreferenceToggle.vue";
@@ -35,6 +39,7 @@ const draft = defineModel<Preferences>({ required: true });
       v-model="draft.overlayPosition"
       label="Положение"
       :options="[
+        { value: 'custom', label: 'Текущее положение' },
         { value: 'bottom', label: 'Внизу по центру' },
         { value: 'top', label: 'Вверху по центру' },
       ]"
@@ -46,7 +51,19 @@ const draft = defineModel<Preferences>({ required: true });
       >
     </div>
     <div class="actions">
-      <WlButton size="sm" @click="draft.overlayPosition = 'bottom'"
+      <WlButton
+        v-if="workspace.settings.previewOverlay"
+        size="sm"
+        @click="run(() => workspace.settings.previewOverlay!(draft))"
+        >Показать поверх окон</WlButton
+      >
+      <WlButton
+        size="sm"
+        @click="
+          workspace.settings.resetOverlay
+            ? run(() => workspace.settings.resetOverlay!())
+            : (draft.overlayPosition = 'bottom')
+        "
         >Сбросить положение</WlButton
       ><RouterLink class="text-link" to="/overlay"
         >Все состояния индикатора</RouterLink

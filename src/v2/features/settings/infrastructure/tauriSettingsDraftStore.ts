@@ -19,6 +19,13 @@ export function createTauriSettingsDraftStore(): SettingsDraftStore {
     testMicrophone: async () => ipc.testMicrophone(2000),
     downloadWhisperModel: downloadWhisperModel,
     testLmStudio: () => ipc.testLlmConnection(),
+    showOverlayTest: (draft) =>
+      ipc.showOverlayPreview({
+        overlay_scale: draft.overlayScale / 100,
+        overlay_opacity: draft.overlayOpacity / 100,
+        overlay_mini_mode: draft.overlayMiniMode,
+      }),
+    resetOverlayPosition: () => ipc.resetOverlayPosition(),
   };
 }
 
@@ -72,7 +79,7 @@ async function loadDraft(): Promise<SettingsDraft> {
     historyEnabled: settings.history_enabled,
     analyticsEnabled: settings.analytics_enabled,
     analyticsRetentionDays: settings.analytics_retention_days,
-    overlayVisible: true,
+    overlayVisible: settings.overlay_enabled,
     overlayScale: Math.round(settings.overlay_scale * 100),
     overlayOpacity: Math.round(settings.overlay_opacity * 100),
     overlayMiniMode: settings.overlay_mini_mode,
@@ -93,7 +100,8 @@ async function saveDraft(draft: SettingsDraft): Promise<void> {
   }
   const settings = {
     ...currentSettings,
-    wake_word_enabled: currentSettings.wake_word_enabled && draft.wakeWordEnabled,
+    wake_word_enabled:
+      currentSettings.wake_word_enabled && draft.wakeWordEnabled,
   };
   const whisperModelPath = await resolveModelPath(
     draft.recognitionModel,
@@ -116,6 +124,7 @@ async function saveDraft(draft: SettingsDraft): Promise<void> {
     acceleration: draft.acceleration,
     injection_mode: draft.insertionMode,
     overlay_scale: draft.overlayScale / 100,
+    overlay_enabled: draft.overlayVisible,
     overlay_opacity: draft.overlayOpacity / 100,
     overlay_mini_mode: draft.overlayMiniMode,
     verbose_logging: draft.verboseLogging,

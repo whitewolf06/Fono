@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
@@ -8,8 +8,11 @@ const workspace = useWorkspace();
 const { run } = useFeedback();
 const revealed = ref(false);
 const token = "fono-demo-token-not-a-real-secret";
+const address = computed(
+  () => "http://" + (workspace.state.serviceAddress || "127.0.0.1:17832"),
+);
 const example =
-  'curl -X POST http://127.0.0.1:17832/v1/transcriptions\n  -H "Authorization: Bearer YOUR_TOKEN"\n  -F "file=@recording.wav"';
+  'curl -X POST http://127.0.0.1:17832/v1/transcriptions\n  -H "Authorization: Bearer YOUR_TOKEN"\n  -F "audio=@recording.wav"';
 const endpoints = [
   ["GET", "/v1/health", "Доступность и текущая модель"],
   ["POST", "/v1/transcriptions", "Создать задачу распознавания"],
@@ -22,38 +25,51 @@ const endpoints = [
   <div class="form-stack">
     <section class="surface-panel">
       <h2>Локальное подключение</h2>
-      <p>
+      <p v-if="workspace.native">
+        API принимает аудиофайлы на этом компьютере. Для запросов нужен
+        Bearer-токен.
+      </p>
+      <p v-else>
         Приложение обращается к Fono на этом компьютере. В браузерном макете
         запросы не отправляются.
       </p>
       <div class="copy-row">
-        <code>http://127.0.0.1:17832</code
+        <code>{{ address }}</code
         ><WlButton
           size="sm"
-          @click="
-            run(
-              () => workspace.copy('http://127.0.0.1:17832'),
-              'Адрес скопирован',
-            )
-          "
+          @click="run(() => workspace.copy(address), 'Адрес скопирован')"
           >Копировать адрес</WlButton
         >
       </div>
       <div class="section-divider" />
       <h3>Bearer-токен</h3>
-      <small class="muted"
+      <small v-if="!workspace.native" class="muted"
         >Это демонстрационный токен. Настоящие ключи в макет вводить не
         нужно.</small
       >
       <div class="copy-row">
-        <code>{{ revealed ? token : "••••••••••••••••••••••••" }}</code
-        ><WlButton size="sm" variant="ghost" @click="revealed = !revealed"
+        <code>{{
+          !workspace.native && revealed ? token : "••••••••••••••••••••••••"
+        }}</code
+        ><WlButton
+          v-if="!workspace.native"
+          size="sm"
+          variant="ghost"
+          @click="revealed = !revealed"
           ><template #icon
             ><AppIcon :name="revealed ? 'eye-off' : 'eye'" /></template
           >{{ revealed ? "Скрыть" : "Показать" }}</WlButton
         ><WlButton
           size="sm"
-          @click="run(() => workspace.copy(token), 'Демо-токен скопирован')"
+          @click="
+            run(
+              () =>
+                workspace.service.copyToken
+                  ? workspace.service.copyToken()
+                  : workspace.copy(token),
+              'Токен скопирован',
+            )
+          "
           >Копировать</WlButton
         >
       </div>
@@ -64,12 +80,20 @@ const endpoints = [
         <WlButton
           size="sm"
           variant="ghost"
-          @click="run(() => workspace.copy(example), 'Пример скопирован')"
+          @click="
+            run(
+              () =>
+                workspace.copy(
+                  example.replace('http://127.0.0.1:17832', address),
+                ),
+              'Пример скопирован',
+            )
+          "
           ><template #icon><AppIcon name="copy" /></template
           >Копировать</WlButton
         >
       </div>
-      <pre>{{ example }}</pre>
+      <pre>{{ example.replace("http://127.0.0.1:17832", address) }}</pre>
       <p class="muted">
         Ответ содержит идентификатор задачи. Запрашивайте её состояние, пока не
         появится результат.
@@ -96,7 +120,7 @@ const endpoints = [
           size="sm"
           @click="
             run(
-              () => workspace.copy('http://127.0.0.1:17832/docs'),
+              () => workspace.copy(address + '/docs'),
               'Ссылка на документацию скопирована',
             )
           "

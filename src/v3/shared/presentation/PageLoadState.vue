@@ -21,20 +21,21 @@ const workspace = useWorkspace();
         height="100px"
       />
       <p class="muted">Подготавливаем раздел…</p>
-      <RouterLink class="text-link" to="/scenarios"
+      <RouterLink v-if="!workspace.native" class="text-link" to="/scenarios"
         >К сценариям проверки</RouterLink
       >
     </div>
     <div v-else class="empty-state" role="alert">
       <AppIcon name="warn" :size="30" />
       <h2>Не удалось загрузить данные</h2>
-      <p>
+      <p v-if="workspace.native">{{ workspace.state.error }}</p>
+      <p v-else>
         Демонстрационная ошибка соединения. Настройки и текущий текст сохранены
         в памяти сессии.
       </p>
       <WlButton @click="workspace.scenario('normal')"
         >Попробовать снова</WlButton
-      ><RouterLink class="text-link" to="/scenarios"
+      ><RouterLink v-if="!workspace.native" class="text-link" to="/scenarios"
         >К сценариям проверки</RouterLink
       >
     </div>

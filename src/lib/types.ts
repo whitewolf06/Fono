@@ -100,6 +100,7 @@ export interface Settings {
   llm_model: string | null;
   /** Автозапуск с Windows */
   autostart: boolean;
+  service_enabled: boolean;
   /** X-координата overlay-окна */
   overlay_x: number | null;
   /** Y-координата overlay-окна */
@@ -114,6 +115,8 @@ export interface Settings {
   command_hotkey: string;
   /** Список приложений для запуска по голосовой команде */
   launch_apps: LaunchApp[];
+  /** Показывать overlay во время диктовки */
+  overlay_enabled: boolean;
   /** Масштаб overlay-окна */
   overlay_scale: number;
   /** Прозрачность overlay-окна (0..1) */
@@ -252,10 +255,7 @@ export interface WakeCalibrationStatus {
 
 export type WakeProfileValidationKind = "positive" | "silence" | "other_phrase";
 export type WakeProfileValidationInputIssue =
-  | "silence"
-  | "unexpected_speech"
-  | "clipping"
-  | "too_short";
+  "silence" | "unexpected_speech" | "clipping" | "too_short";
 
 export interface WakeProfileValidationSampleResult {
   kind: WakeProfileValidationKind;
@@ -292,6 +292,7 @@ export const DEFAULT_SETTINGS: Settings = {
   llm_base_url: "http://localhost:1234/v1",
   llm_model: null,
   autostart: false,
+  service_enabled: true,
   overlay_x: null,
   overlay_y: null,
   clean_prompt: null,
@@ -300,6 +301,7 @@ export const DEFAULT_SETTINGS: Settings = {
   command_hotkey: "Ctrl+Shift+Space",
   launch_apps: [],
   overlay_scale: 1.0,
+  overlay_enabled: true,
   overlay_opacity: 1.0,
   overlay_mini_mode: false,
   verbose_logging: false,

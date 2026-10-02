@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
+import { useWorkspace } from "../../../shared/application/workspace";
+import NativeWakeSetup from "./NativeWakeSetup.vue";
+const workspace = useWorkspace();
 import { WlField, WlInput, WlButton, WlSlider } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import PreferenceToggle from "./PreferenceToggle.vue";
@@ -11,8 +14,14 @@ defineProps<{
 const draft = defineModel<Preferences>({ required: true });
 const phrase = ref("");
 const result = ref("");
-const phrases = ["Эй, Fono", "Привет, компьютер", "Начни запись"].map(
-  (value) => ({ label: value, value }),
+const phrases = computed(() =>
+  (
+    workspace.state.wakePhrases || [
+      "Эй, Fono",
+      "Привет, компьютер",
+      "Начни запись",
+    ]
+  ).map((value) => ({ label: value, value })),
 );
 function test() {
   result.value =
@@ -29,7 +38,11 @@ function test() {
         v-slot="field"
         id="hotkey"
         label="Горячая клавиша"
-        hint="Например Ctrl + Space или Alt + F9. В демо работает, пока открыта вкладка."
+        :hint="
+          workspace.native
+            ? 'Удерживайте сочетание во время речи. Отпустите для распознавания.'
+            : 'Например Ctrl + Space или Alt + F9. В демо работает, пока открыта вкладка.'
+        "
         ><WlInput v-bind="field" v-model="draft.hotkey"
       /></WlField>
     </template>
@@ -38,7 +51,11 @@ function test() {
       v-slot="field"
       id="commandHotkey"
       label="Горячая клавиша команд"
-      hint="Отдельное сочетание для голосовых команд. В демо открывает проверку фразы."
+      :hint="
+        workspace.native
+          ? 'Удерживайте для записи голосовой команды.'
+          : 'В демо открывает проверку фразы.'
+      "
       ><WlInput v-bind="field" v-model="draft.commandHotkey"
     /></WlField>
     <template v-if="scope !== 'hotkey' && scope !== 'command-hotkey'">
@@ -59,7 +76,12 @@ function test() {
         label="Завершать после паузы"
         :options="[
           { value: 800, label: '0,8 секунды' },
-          { value: 1600, label: '1,6 секунды · рекомендуется' },
+          { value: 1600, label: '1,6 секунды' },
+          { value: 2000, label: '2 секунды' },
+          {
+            value: draft.silenceMs,
+            label: draft.silenceMs / 1000 + ' сек · текущее',
+          },
           { value: 2500, label: '2,5 секунды' },
           { value: 4000, label: '4 секунды' },
         ]"
@@ -80,6 +102,7 @@ function test() {
         </div></WlField
       >
       <p v-if="result" class="notice" role="status">{{ result }}</p>
+      <NativeWakeSetup v-if="workspace.native" />
       <details v-if="advanced" id="advanced" class="advanced">
         <summary>Дополнительно · калибровка и пороги</summary>
         <div class="form-stack">
@@ -96,12 +119,13 @@ function test() {
             >Порог речи ·
             {{ Math.round(draft.speechThreshold * 100) }}%<WlSlider
               v-model="draft.speechThreshold"
-              :min="0.1"
-              :max="0.9"
-              :step="0.05"
+              :min="workspace.native ? 0.001 : 0.1"
+              :max="workspace.native ? 0.05 : 0.9"
+              :step="workspace.native ? 0.001 : 0.05"
               aria-label="Порог речи"
           /></label>
           <WlButton
+            v-if="!workspace.native"
             size="sm"
             @click="
               draft.wakeThreshold = 0.55;

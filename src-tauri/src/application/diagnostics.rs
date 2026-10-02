@@ -74,13 +74,20 @@ pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
 
 pub async fn test_microphone(app: AppHandle, duration_ms: u64) -> AppResult<MicTestResult> {
     let state = app.state::<AppState>();
-    let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
+    test_microphone_device(app, duration_ms, settings.audio_device_id).await
+}
 
-    if let Err(error) = pipeline.start_recording_from(
-        settings.audio_device_id.as_deref(),
-        OperationSource::Diagnostics,
-    ) {
+pub async fn test_microphone_device(
+    app: AppHandle,
+    duration_ms: u64,
+    device_id: Option<String>,
+) -> AppResult<MicTestResult> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
+    if let Err(error) =
+        pipeline.start_recording_from(device_id.as_deref(), OperationSource::Diagnostics)
+    {
         emit_pipeline_error(&app, &error.to_string());
         tracing::error!("test_microphone: start_recording FAILED: {error}");
         return Err(error);
@@ -132,6 +139,9 @@ pub async fn test_microphone(app: AppHandle, duration_ms: u64) -> AppResult<MicT
         ));
     }
 
+    *app.state::<crate::ipc::desktop_v3::DesktopSession>()
+        .microphone_sample
+        .lock() = samples.clone();
     let mut peak: i32 = 0;
     let mut sum_sq: i64 = 0;
     for &sample in &samples {

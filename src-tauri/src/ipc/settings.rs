@@ -49,7 +49,8 @@ pub async fn save_settings(
     }
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
         || old_settings.command_hotkey != settings.command_hotkey;
-    let wake_settings_changed = old_settings.wake_word != settings.wake_word
+    let wake_settings_changed = old_settings.audio_device_id != settings.audio_device_id
+        || old_settings.wake_word != settings.wake_word
         || old_settings.wake_word_model != settings.wake_word_model
         || old_settings.wake_backend != settings.wake_backend
         || (old_settings.wake_word_threshold - settings.wake_word_threshold).abs() > f32::EPSILON
@@ -131,7 +132,17 @@ pub async fn save_settings(
         }
     }
 
-    if let Err(error) = state::save_settings(&persisted_settings) {
+    let autostart_changed = old_settings.autostart != persisted_settings.autostart;
+    let persist_result = if autostart_changed {
+        crate::autostart::set_enabled(persisted_settings.autostart)
+    } else {
+        Ok(())
+    }
+    .and_then(|_| state::save_settings(&persisted_settings));
+    if let Err(error) = persist_result {
+        if autostart_changed {
+            let _ = crate::autostart::set_enabled(old_settings.autostart);
+        }
         let secret_rollback = restore_profile_secrets(&previous_secrets);
         if wake_reconfigured {
             if let Ok(config) = crate::settings_to_wake_config(&old_settings) {
@@ -171,6 +182,7 @@ pub async fn save_settings(
     state.set_settings(persisted_settings.clone());
     crate::verbose::set_verbose(persisted_settings.verbose_logging);
     crate::events::emit_settings(&app, &persisted_settings);
+    crate::pipeline::sync_overlay_window(&app, state.pipeline_state());
     tracing::info!(
         "settings saved: model={:?}, lang={}",
         persisted_settings.whisper_model_path,
@@ -322,16 +334,12 @@ fn restore_profile_secrets(previous: &BTreeMap<String, Option<String>>) -> Strin
 }
 
 #[tauri::command]
-pub fn save_overlay_position(state: State<'_, AppState>, x: i32, y: i32) -> AppResult<()> {
-    let mut settings = state.settings();
-    settings.overlay_x = Some(x);
-    settings.overlay_y = Some(y);
-    state::save_settings(&settings)?;
-    state.set_settings(settings);
-    Ok(())
+pub fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<()> {
+    crate::overlay::save_position(&app, x, y)
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
+    crate::overlay::validate_appearance(settings.overlay_scale, settings.overlay_opacity)?;
     if settings.hotkey.trim().is_empty() || settings.command_hotkey.trim().is_empty() {
         return Err(AppError::Config(
             "Горячие клавиши не могут быть пустыми".into(),

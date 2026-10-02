@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod desktop_v3;
 pub mod diagnostics;
 pub mod dictation;
 pub mod llm;

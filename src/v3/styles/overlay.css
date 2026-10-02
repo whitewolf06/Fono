@@ -174,3 +174,31 @@
   padding-top: 0;
   padding-bottom: var(--fono-space-6);
 }
+
+.native-overlay-document,
+.native-overlay-document body,
+.native-overlay-document #app {
+  background: transparent !important;
+  height: 100%;
+  overflow: hidden;
+}
+.native-overlay {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+.native-overlay .overlay-preview-wrap {
+  padding: 0;
+}
+.native-overlay .overlay-preview {
+  width: 266px;
+  min-width: 0;
+  height: 72px;
+  padding: var(--fono-space-2) var(--fono-space-3);
+  box-shadow: none;
+}
+.native-overlay .overlay-preview.compact {
+  height: 44px;
+}

@@ -63,6 +63,13 @@ export type ToggleKey = {
   [K in keyof Preferences]: Preferences[K] extends boolean ? K : never;
 }[keyof Preferences];
 export interface Dictation {
+  findings?: {
+    title: string;
+    count: number;
+    example: string;
+    advice: string;
+  }[];
+  analysisReady?: boolean;
   id: string;
   createdAt: string;
   text: string;
@@ -78,6 +85,8 @@ export interface LastSession {
   undo: string | null;
 }
 export interface ConnectionProfile {
+  apiKey?: string;
+  hasApiKey?: boolean;
   id: string;
   name: string;
   provider: string;
@@ -86,6 +95,7 @@ export interface ConnectionProfile {
   model: string;
 }
 export interface SpeechModel {
+  custom?: boolean;
   id: string;
   name: string;
   size: string;
@@ -128,6 +138,16 @@ export type Scenario =
   | "loading"
   | "load-error";
 export interface WorkspaceState {
+  commandProposal?: string;
+  recordingSource?: string;
+  accelerations?: { value: string; label: string }[];
+  aiChecked?: boolean;
+  devices?: { value: string; label: string }[];
+  wakePhrases?: string[];
+  wakeStatus?: string;
+  serviceAddress?: string;
+  serviceError?: string;
+  countdown?: { remaining_ms: number; timeout_ms: number; speaking: boolean };
   preferences: Preferences;
   history: Dictation[];
   last: LastSession;
@@ -152,8 +172,11 @@ export interface SettingsPort {
   toggle(key: ToggleKey, value: boolean): Promise<void>;
   downloadModel(id: string): Promise<void>;
   removeModel(id: string): void;
-  testMicrophone(): Promise<void>;
+  testMicrophone(device?: string): Promise<void>;
+  resetOverlay?(): Promise<void>;
+  previewOverlay?(preferences: Preferences): Promise<void>;
   playSample(): Promise<void>;
+  listModels?(profileId: string): Promise<string[]>;
   testConnection(profileId?: string): Promise<string>;
   saveProfile(profile: ConnectionProfile): Promise<void>;
   removeProfile(id: string): void;
@@ -172,19 +195,26 @@ export interface HistoryPort {
   clear(): void;
 }
 export interface TrainerPort {
+  recommend?(id: string): Promise<string>;
   clear(): void;
 }
 export interface CommandsPort {
+  confirm?(): Promise<void>;
+  dismiss?(): Promise<void>;
   saveApp(app: LaunchApp): void;
   removeApp(id: string): void;
   test(phrase: string): string;
 }
 export interface ServicePort {
+  copyToken?(): Promise<void>;
   cancel(id: string): void;
   enqueue(): void;
   retry(id: string): void;
 }
 export interface Workspace {
+  native?: boolean;
+  wake?: { action(action: string): Promise<string> };
+  refresh?(): Promise<void>;
   state: WorkspaceState;
   settings: SettingsPort;
   dictation: DictationPort;
