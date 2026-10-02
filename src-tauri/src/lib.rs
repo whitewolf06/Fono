@@ -223,6 +223,7 @@ pub fn run() {
         .manage(audio_hub)
         .manage(crate::overlay::OverlayRuntime::default())
         .manage(ipc::desktop_v3::DesktopSession::default())
+        .manage(crate::application::service_control::ServiceControl::default())
         .manage(crate::application::wake_calibration::WakeCalibrationService::default())
         .manage(crate::application::wake_validation::WakeProfileValidationService::default())
         .setup(|app| {
@@ -260,9 +261,8 @@ pub fn run() {
                     events::emit_stt_readiness(&readiness_events, readiness);
                 }));
             crate::application::models::preload_configured_stt(app.handle().clone());
-            let local_service =
-                crate::application::service_control::ServiceControl::start(app.handle().clone());
-            app.manage(local_service);
+            app.state::<crate::application::service_control::ServiceControl>()
+                .initialize(app.handle().clone());
             app.manage(
                 crate::application::speech_analysis_queue::SpeechAnalysisQueue::start(
                     app.handle().clone(),
@@ -377,8 +377,11 @@ pub fn run() {
 
 fn shutdown_app(app: &tauri::AppHandle) {
     tracing::info!("Fono shutdown requested");
-    app.state::<crate::application::service_control::ServiceControl>()
-        .shutdown();
+    // Exit can be requested while Tauri is still constructing its windows.
+    // Cleanup must also tolerate an incomplete application setup.
+    if let Some(service) = app.try_state::<crate::application::service_control::ServiceControl>() {
+        service.shutdown();
+    }
     let pipeline = app.state::<pipeline::Pipeline>();
     if let Some(event) = pipeline.shutdown() {
         events::emit_operation(app, event);

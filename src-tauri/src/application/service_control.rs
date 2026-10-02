@@ -22,15 +22,16 @@ pub struct ServiceStatus {
     pub error: Option<String>,
 }
 impl ServiceControl {
-    pub fn start(app: AppHandle) -> Self {
-        let result = Self::default();
-        if app.state::<AppState>().settings().service_enabled {
-            match LocalTranscriptionService::start(app) {
-                Ok(service) => *result.service.lock() = Some(service),
-                Err(error) => *result.error.lock() = Some(error.to_string()),
+    pub fn initialize(&self, app: AppHandle) {
+        let mut service = self.service.lock();
+        if app.state::<AppState>().settings().service_enabled && service.is_none() {
+            match LocalTranscriptionService::start(app.clone()) {
+                Ok(started) => *service = Some(started),
+                Err(error) => *self.error.lock() = Some(error.to_string()),
             }
         }
-        result
+        drop(service);
+        crate::events::emit_service_changed(&app);
     }
     pub fn snapshot(&self) -> ServiceStatus {
         let service = self.service.lock();
