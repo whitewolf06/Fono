@@ -67,6 +67,7 @@ async fn run_once(
     app: &tauri::AppHandle,
     operation: u64,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let activity = crate::application::updates::activity::lease()?;
     let state = app.state::<crate::state::AppState>();
     let pipeline = app.state::<pipeline::Pipeline>();
     let settings = pipeline
@@ -144,7 +145,9 @@ async fn run_once(
         let worker_paths = stt::worker_paths_for_app(app);
         let scheduler = pipeline.scheduler();
         let load_cancel = cancellation.clone();
+        let background_activity = activity.clone();
         let load = tauri::async_runtime::spawn_blocking(move || {
+            let _activity = background_activity;
             let _permit = scheduler.acquire(true, &load_cancel)?;
             stt.ensure_loaded(&path, acceleration, &worker_paths)
         });
@@ -192,7 +195,9 @@ async fn run_once(
     let language = settings.language.clone();
     let stt_cancellation = cancellation.clone();
     let scheduler = pipeline.scheduler();
+    let background_activity = activity.clone();
     let transcribe = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = background_activity;
         let permit = scheduler.acquire(true, &stt_cancellation)?;
         stt.transcribe_cancellable(&samples, &language, permit.cancellation.clone())
     });

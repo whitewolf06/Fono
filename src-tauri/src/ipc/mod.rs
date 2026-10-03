@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod desktop_v3;
+pub mod diagnostic_report;
 pub mod diagnostics;
 pub mod dictation;
 pub mod llm;
@@ -8,5 +9,6 @@ pub mod service;
 pub mod settings;
 pub mod system;
 pub mod text;
+pub mod updates;
 pub mod voice;
 pub mod wake;

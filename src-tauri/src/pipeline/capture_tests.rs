@@ -166,8 +166,10 @@ fn stale_settings_cannot_replace_the_new_session_snapshot() {
     let old = pipeline
         .start_recording_from(None, OperationSource::Ui)
         .unwrap();
-    let mut old_settings = crate::types::Settings::default();
-    old_settings.language = "ru".into();
+    let old_settings = crate::types::Settings {
+        language: "ru".into(),
+        ..crate::types::Settings::default()
+    };
     assert!(pipeline.set_session_settings_for(old, old_settings.clone()));
     pipeline.cancel_for(old).unwrap();
     pipeline.stop_recording_for(old).unwrap();

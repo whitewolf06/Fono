@@ -135,10 +135,10 @@ pub fn configured_model_identifier(model_path: &std::path::Path) -> AppResult<St
     let filename = model_path
         .file_name()
         .and_then(|filename| filename.to_str())
-        .ok_or_else(|| crate::error::AppError::ModelNotLoaded)?;
+        .ok_or(crate::error::AppError::ModelNotLoaded)?;
     WhisperModelSize::from_filename(filename)
         .map(|model| model.api_identifier().to_string())
-        .ok_or_else(|| crate::error::AppError::ModelNotLoaded)
+        .ok_or(crate::error::AppError::ModelNotLoaded)
 }
 
 #[cfg(test)]

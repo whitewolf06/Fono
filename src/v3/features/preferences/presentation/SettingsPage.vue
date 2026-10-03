@@ -24,6 +24,8 @@ import ProcessingFields from "./ProcessingFields.vue";
 import OverlayFields from "./OverlayFields.vue";
 import PrivacyFields from "./PrivacyFields.vue";
 import DiagnosticsPanel from "./DiagnosticsPanel.vue";
+import DictionaryFields from "./DictionaryFields.vue";
+import { UpdatesPanel } from "../../updates";
 import { useWorkspace } from "../../../shared/application/workspace";
 const workspace = useWorkspace();
 const route = useRoute();
@@ -140,9 +142,11 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
               >Пройти первоначальную настройку</RouterLink
             >
           </section>
+          <UpdatesPanel :unsaved="dirty" />
         </div>
         <template v-else-if="section === 'audio'"
-          ><AudioFields v-model="draft" /><ModelManager
+          ><AudioFields v-model="draft" /><DictionaryFields
+            v-model="draft" /><ModelManager
         /></template>
         <ActivationFields
           v-else-if="section === 'activation'"

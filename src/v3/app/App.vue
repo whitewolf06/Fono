@@ -125,6 +125,16 @@ onUnmounted(() => {
     </aside>
     <main id="main-content" class="v3-main">
       <div
+        v-if="workspace.native && workspace.updates.state.phase === 'available'"
+        class="notice"
+        role="status"
+      >
+        Доступна Fono {{ workspace.updates.state.nextVersion }}
+        <RouterLink class="text-link" to="/settings/general?field=updates"
+          >Обновить</RouterLink
+        >
+      </div>
+      <div
         v-if="workspace.native && workspace.state.error"
         class="notice error"
         role="alert"

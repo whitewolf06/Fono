@@ -98,7 +98,9 @@ pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
         let unpack_spec = spec.clone();
         let unpack_staging = staging.clone();
         let cancellation = registration.cancellation.clone();
+        let activity = registration.blocking_lease();
         tauri::async_runtime::spawn_blocking(move || {
+            let _activity = activity;
             archive::extract(&archive_path, &unpack_staging, &unpack_spec, &cancellation)
         })
         .await

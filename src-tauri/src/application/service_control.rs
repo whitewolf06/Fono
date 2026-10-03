@@ -4,7 +4,7 @@ use super::local_transcription_service::{
 };
 use crate::{
     error::{AppError, AppResult},
-    state::{self, AppState},
+    state::AppState,
 };
 use parking_lot::Mutex;
 use tauri::{AppHandle, Manager};
@@ -55,6 +55,7 @@ impl ServiceControl {
         }
     }
     pub fn set_enabled(&self, app: &AppHandle, enabled: bool) -> AppResult<()> {
+        let _activity = crate::application::updates::activity::lease()?;
         let mut service = self.service.lock();
         if !enabled {
             if let Some(current) = service.as_ref() {
@@ -66,21 +67,23 @@ impl ServiceControl {
                 }
             }
         }
-        let mut settings = app.state::<AppState>().settings();
-        if enabled && service.is_none() {
+        let state = app.state::<AppState>();
+        let base = state.settings();
+        let mut candidate = base.clone();
+        candidate.service_enabled = enabled;
+        let settings = if enabled && service.is_none() {
             let next = LocalTranscriptionService::start(app.clone())?;
-            settings.service_enabled = true;
-            state::save_settings(&settings)?;
+            let settings = state.persist_settings_delta(&base, &candidate)?;
             *service = Some(next);
+            settings
         } else {
-            settings.service_enabled = enabled;
-            state::save_settings(&settings)?;
+            let settings = state.persist_settings_delta(&base, &candidate)?;
             if !enabled {
                 service.take();
             }
-        }
+            settings
+        };
         *self.error.lock() = None;
-        app.state::<AppState>().set_settings(settings.clone());
         crate::events::emit_settings(app, &settings);
         crate::events::emit_service_changed(app);
         Ok(())

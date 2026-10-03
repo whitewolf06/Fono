@@ -4,6 +4,8 @@
 //! Содержит текущие настройки, состояние конвейера и закэшированные
 //! ресурсы (загруженная whisper-модель, активный аудио-поток).
 
+mod settings_delta;
+
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

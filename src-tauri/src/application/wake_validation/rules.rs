@@ -146,8 +146,10 @@ mod tests {
 
     #[test]
     fn profile_matching_rejects_changed_sensitivity() {
-        let mut settings = Settings::default();
-        settings.wake_word = "рамзи".into();
+        let mut settings = Settings {
+            wake_word: "рамзи".into(),
+            ..Settings::default()
+        };
         let profile = WakeCalibrationProfile {
             backend: WakeWordBackend::SherpaOnnx,
             model_version: SHERPA_MODEL_VERSION.into(),

@@ -39,7 +39,9 @@ async fn load(session: &Session) -> AppResult<bool> {
     let acceleration = session.settings.acceleration;
     let workers = crate::stt::worker_paths_for_app(&session.app);
     let cancellation = session.cancellation.clone();
+    let activity = crate::application::updates::activity::lease()?;
     let task = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
         let _permit = scheduler.acquire(true, &cancellation)?;
         stt.ensure_loaded(&path, acceleration, &workers)
     });
@@ -49,15 +51,31 @@ async fn load(session: &Session) -> AppResult<bool> {
 }
 
 pub(super) async fn run(session: &Session, samples: Vec<i16>) -> AppResult<Option<Transcript>> {
-    if !load(session).await? || !session.active("after model load") {
+    run_measured(session, samples, None).await
+}
+
+pub(super) async fn run_measured(
+    session: &Session,
+    samples: Vec<i16>,
+    report: Option<&crate::application::diagnostic_report::telemetry::ReportTrace>,
+) -> AppResult<Option<Transcript>> {
+    use crate::application::diagnostic_report::telemetry::ReportStage;
+    let loaded = {
+        let _timer = report.map(|trace| trace.stage(ReportStage::ModelLoad));
+        load(session).await?
+    };
+    if !loaded || !session.active("after model load") {
         return Ok(None);
     }
+    let _timer = report.map(|trace| trace.stage(ReportStage::Recognition));
     let pipeline = session.app.state::<Pipeline>();
     let stt = pipeline.stt().clone();
     let scheduler = pipeline.scheduler();
     let language = session.settings.language.clone();
     let cancellation = session.cancellation.clone();
+    let activity = crate::application::updates::activity::lease()?;
     let task = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
         let permit = scheduler.acquire(true, &cancellation)?;
         stt.transcribe_cancellable(&samples, &language, permit.cancellation.clone())
     });

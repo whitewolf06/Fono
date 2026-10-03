@@ -13,6 +13,7 @@ import type {
 } from "../../domain/contracts";
 import { defaults } from "../../../features/preferences/domain/preferences";
 import { availableDictationMode } from "../../domain/dictationMode";
+import { historyMetadataFromNative } from "./historyMetadata";
 import {
   validateWakePhrase,
   wakePhraseLanguage,
@@ -31,6 +32,11 @@ export function preferencesFromNative(
       "",
     language: s.language,
     acceleration: s.acceleration,
+    dictionaryEnabled: s.personal_dictionary_enabled ?? false,
+    dictionaryEntries: (s.personal_dictionary_entries ?? []).map((entry) => ({
+      written: entry.written,
+      spoken: [...entry.spoken],
+    })),
     hotkey: s.hotkey
       .split("+")
       .map((x) => x.trim())
@@ -92,6 +98,7 @@ export function applyPreferences(
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",
+    dictionaryEnabled: "personal_dictionary_enabled",
     wakeEnabled: "wake_word_enabled",
     wakePhrase: "wake_word",
     silenceMs: "wake_dictation_silence_ms",
@@ -112,6 +119,11 @@ export function applyPreferences(
       Object.assign(next, { [nativeKey]: p[key as keyof Preferences] });
   if (has("microphone"))
     next.audio_device_id = p.microphone === "system" ? null : p.microphone;
+  if (has("dictionaryEntries"))
+    next.personal_dictionary_entries = p.dictionaryEntries.map((entry) => ({
+      written: entry.written,
+      spoken: [...entry.spoken],
+    }));
   if (has("model")) {
     const model = models.find((m) => m.size === p.model && m.local_path);
     if (!model && p.model !== s.whisper_model_path)
@@ -181,12 +193,17 @@ export function modelsFromNative(models: WhisperModelInfo[]): SpeechModel[] {
 }
 export function historyFromNative(e: DictationHistoryEntry): Dictation {
   const kinds = ["filler", "repetition", "self_correction"] as const;
+  const metadata = historyMetadataFromNative(e);
   return {
     id: e.id,
     text: e.text,
     original: e.original_text || undefined,
     createdAt: e.created_at,
-    duration: e.processing?.audio_secs || 0,
+    duration:
+      metadata?.recordingDurationMs != null
+        ? metadata.recordingDurationMs / 1000
+        : 0,
+    metadata,
     title: e.text.slice(0, 64),
     findings: kinds.map((kind, i) => ({
       title: ["Слова-паразиты", "Повторы", "Самоисправления"][i],

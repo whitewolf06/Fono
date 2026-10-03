@@ -29,8 +29,10 @@ mod tests {
     use super::*;
     #[test]
     fn microphone_change_disables_the_old_detector() {
-        let mut old = Settings::default();
-        old.wake_word_enabled = true;
+        let old = Settings {
+            wake_word_enabled: true,
+            ..Settings::default()
+        };
         let mut changed = old.clone();
         changed.audio_device_id = Some("new mic".into());
         assert!(invalidate_changed(&mut changed, &old));
@@ -39,8 +41,10 @@ mod tests {
     }
     #[test]
     fn nonwake_setting_preserves_activation() {
-        let mut old = Settings::default();
-        old.wake_word_enabled = true;
+        let old = Settings {
+            wake_word_enabled: true,
+            ..Settings::default()
+        };
         let mut changed = old.clone();
         changed.autostart = !old.autostart;
         assert!(!invalidate_changed(&mut changed, &old));

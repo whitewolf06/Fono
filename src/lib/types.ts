@@ -87,6 +87,10 @@ export interface Settings {
   whisper_model_path: string | null;
   /** Язык распознавания ("auto", "ru", "en", ...) */
   language: string;
+  /** Optional local final-text replacements, never applied to raw transcripts. */
+  personal_dictionary_enabled: boolean;
+  personal_dictionary_entries: { written: string; spoken: string[] }[];
+  update_checks_enabled: boolean;
   /** Глобальная горячая клавиша push-to-talk, напр. "Ctrl+Space" */
   hotkey: string;
   /** Включена ли активация по ключевой фразе */
@@ -294,6 +298,9 @@ export const DEFAULT_SETTINGS: Settings = {
   audio_device_id: null,
   whisper_model_path: null,
   language: "auto",
+  personal_dictionary_enabled: false,
+  personal_dictionary_entries: [],
+  update_checks_enabled: false,
   hotkey: "Ctrl+Space",
   wake_word_enabled: false,
   wake_word: "hey fono",
@@ -369,6 +376,7 @@ export interface DictationHistoryEntry {
   text: string;
   created_at: string;
   device: string | null;
+  metadata?: DictationHistoryMetadata | null;
   analytics_included: boolean;
   original_text?: string | null;
   processing?: DictationProcessingMetadata | null;
@@ -379,6 +387,23 @@ export interface DictationHistoryEntry {
     "disabled" | "pending" | "ready" | "failed" | "expired";
   recommendation?: SpeechLlmRecommendation | null;
   recommendation_error?: string | null;
+}
+
+export interface DictationHistoryMetadata {
+  schema_version: number;
+  recording_duration_ms: number | null;
+  generation_duration_ms: number | null;
+  recognition_duration_ms: number | null;
+  model_load_duration_ms: number | null;
+  processing_duration_ms: number | null;
+  backend: "cpu" | "cuda" | "vulkan" | null;
+  model: string | null;
+  requested_acceleration: AccelerationMode;
+  language: string;
+  detected_language: string | null;
+  dictation_mode: "standard" | "live";
+  processing_mode: AiMode;
+  dictionary_enabled: boolean;
 }
 
 export interface SpeechLlmRecommendation {

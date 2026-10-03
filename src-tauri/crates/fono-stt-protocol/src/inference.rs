@@ -43,6 +43,8 @@ impl InferenceState {
         })
     }
 
+    // Keep the protocol's inference inputs explicit at this shared worker boundary.
+    #[allow(clippy::too_many_arguments)]
     pub fn transcribe(
         &mut self,
         samples: &[i16],

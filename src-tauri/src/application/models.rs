@@ -7,7 +7,7 @@ use crate::{
     state::{self, AppState},
     types::{WhisperModelInfo, WhisperModelSize},
 };
-pub use download::cancel_download;
+pub use download::{cancel_download, has_active_downloads};
 use std::path::Path;
 use tauri::{AppHandle, Manager};
 pub use wake_download::{download_kws_model, is_kws_model_downloaded};
@@ -17,6 +17,9 @@ pub use whisper_download::download_whisper_model;
 /// typed STT readiness IPC remains the source of truth for a missing model or
 /// unavailable worker, and dictation still uses the same load gate.
 pub fn preload_configured_stt(app: AppHandle) {
+    let Ok(activity) = crate::application::updates::activity::lease() else {
+        return;
+    };
     let settings = app.state::<AppState>().settings();
     let Some((model_path, acceleration)) = configured_stt_preload(&settings) else {
         return;
@@ -26,6 +29,7 @@ pub fn preload_configured_stt(app: AppHandle) {
 
     tauri::async_runtime::spawn(async move {
         let result = tauri::async_runtime::spawn_blocking(move || {
+            let _activity = activity;
             stt.ensure_loaded(Path::new(&model_path), acceleration, &worker_paths)
         })
         .await;
@@ -75,6 +79,8 @@ pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
 /// This keeps persisted settings, the running engine and renderer events in
 /// sync, so a successful "Choose" action never leaves a draft-only selection.
 pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) -> AppResult<()> {
+    let _activity = crate::application::updates::activity::lease()?;
+    let _settings_transaction = crate::application::updates::settings_transaction(app).await;
     let model_path = std::path::PathBuf::from(&path);
     if path.trim().is_empty() || !model_path.is_file() {
         return Err(AppError::Config(format!(
@@ -83,7 +89,8 @@ pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) 
         )));
     }
 
-    let mut settings = state.settings();
+    let base = state.settings();
+    let mut settings = base.clone();
     if settings.whisper_model_path.as_deref() == Some(path.as_str()) {
         return Ok(());
     }
@@ -91,7 +98,9 @@ pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) 
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
     let acceleration = settings.acceleration;
     let worker_paths = crate::stt::worker_paths_for_app(app);
+    let background_activity = _activity.clone();
     let prepared = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = background_activity;
         stt.ensure_loaded(&model_path, acceleration, &worker_paths)
     })
     .await
@@ -99,8 +108,7 @@ pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) 
     prepared?;
 
     settings.whisper_model_path = Some(path);
-    state::save_settings(&settings)?;
-    state.set_settings(settings.clone());
+    let settings = state.persist_settings_delta(&base, &settings)?;
     crate::events::emit_settings(app, &settings);
     tracing::info!(model = ?settings.whisper_model_path, "STT model selected and saved");
     Ok(())

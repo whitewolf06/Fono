@@ -138,6 +138,9 @@ impl DictationTailDiagnostic {
     pub(crate) fn record_capture(&mut self, samples: usize) {
         self.captured_samples = Some(samples);
     }
+    pub(crate) fn captured_samples(&self) -> Option<usize> {
+        self.captured_samples
+    }
 
     pub(crate) fn record_vad(
         &mut self,

@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
 pub(super) async fn load(app: &AppHandle, session: &Arc<LiveSession>) -> AppResult<()> {
+    let activity = crate::application::updates::activity::lease()?;
     let path = session
         .settings
         .whisper_model_path
@@ -19,6 +20,7 @@ pub(super) async fn load(app: &AppHandle, session: &Arc<LiveSession>) -> AppResu
     let cancellation = session.cancellation.clone();
     let workers = crate::stt::worker_paths_for_app(app);
     let task = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
         let _permit = scheduler.acquire(true, &cancellation)?;
         stt.ensure_loaded(std::path::Path::new(&path), acceleration, &workers)
     });
@@ -34,12 +36,14 @@ pub(super) async fn window(
     samples: Vec<i16>,
     from: u64,
 ) -> AppResult<WindowTranscript> {
+    let activity = crate::application::updates::activity::lease()?;
     let stt = app.state::<Pipeline>().stt().clone();
     let scheduler = app.state::<Pipeline>().scheduler();
     let language = session.settings.language.clone();
     let operation = session.operation;
     let cancellation = session.cancellation.clone();
     let task = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
         let permit = scheduler.acquire(true, &cancellation)?;
         stt.transcribe_window(
             &samples,

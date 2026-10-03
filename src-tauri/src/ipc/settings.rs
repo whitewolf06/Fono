@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 mod wake;
 
 use crate::error::{AppError, AppResult};
-use crate::state::{self, AppState};
+use crate::state::AppState;
 use crate::stt::{SttHealth, SttReadiness};
 use crate::types::{AccelerationCapabilities, Settings};
 mod active;
@@ -43,8 +43,13 @@ pub async fn save_settings(
     state: State<'_, AppState>,
     mut settings: Settings,
 ) -> AppResult<()> {
+    let _activity = crate::application::updates::activity::lease()?;
+    let _transaction = crate::application::updates::settings_transaction(&app).await;
     settings.enforce_classic_dictation();
     let old_settings = state.settings();
+    // Update checks are owned by their explicit opt-in command. A stale full
+    // settings form, including an older renderer, cannot silently change it.
+    settings.update_checks_enabled = old_settings.update_checks_enabled;
     active::validate(
         app.state::<crate::pipeline::Pipeline>()
             .current_operation()
@@ -88,7 +93,9 @@ pub async fn save_settings(
             let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
             let acceleration = persisted_settings.acceleration;
             let worker_paths = crate::stt::worker_paths_for_app(&app);
+            let background_activity = _activity.clone();
             let prepared = match tauri::async_runtime::spawn_blocking(move || {
+                let _activity = background_activity;
                 stt.ensure_loaded(std::path::Path::new(&path), acceleration, &worker_paths)
             })
             .await
@@ -141,29 +148,32 @@ pub async fn save_settings(
     } else {
         Ok(())
     }
-    .and_then(|_| state::save_settings(&persisted_settings));
-    if let Err(error) = persist_result {
-        if autostart_changed {
-            let _ = crate::autostart::set_enabled(old_settings.autostart);
-        }
-        let secret_rollback = restore_profile_secrets(&previous_secrets);
-        if wake_reconfigured {
-            if let Ok(config) = crate::settings_to_wake_config(&old_settings) {
-                let _ = app
-                    .state::<fono_wake::WakeWordHandle>()
-                    .update_config(config);
+    .and_then(|_| state.persist_settings_delta(&old_settings, &persisted_settings));
+    let persisted_settings = match persist_result {
+        Ok(settings) => settings,
+        Err(error) => {
+            if autostart_changed {
+                let _ = crate::autostart::set_enabled(old_settings.autostart);
             }
-        }
-        if shortcuts_changed {
-            let rollback = restore_shortcuts(&app, &old_settings);
+            let secret_rollback = restore_profile_secrets(&previous_secrets);
+            if wake_reconfigured {
+                if let Ok(config) = crate::settings_to_wake_config(&old_settings) {
+                    let _ = app
+                        .state::<fono_wake::WakeWordHandle>()
+                        .update_config(config);
+                }
+            }
+            if shortcuts_changed {
+                let rollback = restore_shortcuts(&app, &old_settings);
+                return Err(AppError::Config(format!(
+                    "Не удалось сохранить новые настройки: {error}. {rollback} {secret_rollback}"
+                )));
+            }
             return Err(AppError::Config(format!(
-                "Не удалось сохранить новые настройки: {error}. {rollback} {secret_rollback}"
+                "Не удалось сохранить новые настройки: {error}. {secret_rollback}"
             )));
         }
-        return Err(AppError::Config(format!(
-            "Не удалось сохранить новые настройки: {error}. {secret_rollback}"
-        )));
-    }
+    };
 
     if let Err(error) = delete_removed_profile_secrets(&old_settings, &persisted_settings) {
         tracing::error!(%error, "could not delete removed LLM profile credentials");
@@ -182,7 +192,6 @@ pub async fn save_settings(
         )));
     }
 
-    state.set_settings(persisted_settings.clone());
     crate::verbose::set_verbose(persisted_settings.verbose_logging);
     crate::events::emit_settings(&app, &persisted_settings);
     if wake_settings_changed {
@@ -349,6 +358,7 @@ pub fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<()> {
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
+    crate::application::personal_dictionary::validate(&settings.personal_dictionary_entries)?;
     crate::overlay::validate_appearance(settings.overlay_scale, settings.overlay_opacity)?;
     if settings.hotkey.trim().is_empty() || settings.command_hotkey.trim().is_empty() {
         return Err(AppError::Config(
@@ -396,14 +406,15 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
             ));
         }
     }
-    for assignment in [
+    for id in [
         settings.text_correction_llm.profile_id.as_deref(),
         settings.speech_analysis_llm.profile_id.as_deref(),
-    ] {
-        if let Some(id) = assignment {
-            if !ids.contains(id) {
-                return Err(AppError::Config("Выбран неизвестный LLM-профиль".into()));
-            }
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !ids.contains(id) {
+            return Err(AppError::Config("Выбран неизвестный LLM-профиль".into()));
         }
     }
     if settings.speech_analysis_llm.enabled && settings.speech_analysis_llm.profile_id.is_none() {

@@ -4,6 +4,10 @@
 //! При изменении не забудьте синхронизировать обе стороны.
 
 pub use fono_wake::WakeWordBackend;
+mod history_metadata;
+pub use history_metadata::{
+    DictationBackend, DictationHistoryMetadata, DictationTimingMeasurements,
+};
 use serde::{Deserialize, Serialize};
 
 /// Состояние голосового конвейера (FSM).
@@ -371,6 +375,12 @@ pub enum DictationMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonalDictionaryEntry {
+    pub written: String,
+    pub spoken: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
     pub dictation_mode: DictationMode,
@@ -380,6 +390,14 @@ pub struct Settings {
     pub whisper_model_path: Option<String>,
     #[serde(default = "default_language")]
     pub language: String,
+    /// Exact local canonical spellings; disabled by default, entries retained.
+    #[serde(default)]
+    pub personal_dictionary_enabled: bool,
+    #[serde(default)]
+    pub personal_dictionary_entries: Vec<PersonalDictionaryEntry>,
+    /// Automatic network checks are optional; explicit checks remain available.
+    #[serde(default)]
+    pub update_checks_enabled: bool,
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
     #[serde(default)]
@@ -560,6 +578,9 @@ impl Default for Settings {
             audio_device_id: None,
             whisper_model_path: None,
             language: default_language(),
+            personal_dictionary_enabled: false,
+            personal_dictionary_entries: Vec::new(),
+            update_checks_enabled: false,
             hotkey: default_hotkey(),
             wake_word_enabled: false,
             wake_word: default_wake_word(),
@@ -780,6 +801,10 @@ pub struct DictationHistoryEntry {
     pub text: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub device: Option<String>,
+    /// Content-free session facts survive independently of opt-in trainer data.
+    /// Older archives have no measurements and remain readable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<DictationHistoryMetadata>,
     /// A user-controlled filter for speech trainer reports and background analysis.
     /// Legacy history entries are included to preserve their existing behaviour.
     #[serde(default = "default_history_analytics_included")]

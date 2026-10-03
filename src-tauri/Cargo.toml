@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "fono"
-version = "0.5.21"
+version = "0.5.22"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -39,6 +39,7 @@ base64 = "0.22"
 sha2 = "0.10"
 
 # Асинхронность / ошибки
+regex = "1"
 tokio = { version = "1.41", features = ["fs", "io-util", "macros", "net", "rt", "sync", "time"] }
 anyhow = "1.0"
 thiserror = "2.0"
@@ -89,6 +90,7 @@ chrono = { version = "0.4", features = ["serde"] }
 tar = "0.4"
 bzip2 = "0.4"
 uuid = { version = "1", features = ["v4"] }
+tauri-plugin-updater = "=2.12.0"
 
 [features]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so

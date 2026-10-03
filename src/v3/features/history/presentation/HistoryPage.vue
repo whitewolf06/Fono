@@ -5,6 +5,8 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
 import { useFeedback } from "../../../shared/application/feedback";
 import { filterHistory, groupHistory, timeLabel } from "../application/history";
+import { exactDateLabel, recordingLabel } from "../application/statistics";
+import HistoryStatistics from "./HistoryStatistics.vue";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import EmptyState from "../../../shared/presentation/EmptyState.vue";
@@ -113,16 +115,19 @@ async function clear() {
             <p>{{ entry.text }}</p>
             <small
               >{{ timeLabel(entry.createdAt) }} ·
-              {{ entry.duration }} сек</small
+              {{ recordingLabel(entry) }}</small
             >
           </button>
         </section>
       </div>
       <article v-if="selected" class="detail-pane">
-        <div class="section-header">
+        <div class="section-header history-detail-heading">
           <h2>{{ selected.title }}</h2>
-          <small>{{ timeLabel(selected.createdAt) }}</small>
+          <time :datetime="selected.createdAt" :title="selected.createdAt">{{
+            exactDateLabel(selected.createdAt)
+          }}</time>
         </div>
+        <HistoryStatistics :entry="selected" />
         <div class="segmented small">
           <button
             v-if="selected.original"
@@ -177,3 +182,19 @@ async function clear() {
     >
   </div>
 </template>
+
+<style scoped>
+.history-detail-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.history-detail-heading h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.history-detail-heading time {
+  color: var(--fono-muted);
+  font-size: var(--fono-type-xs);
+  font-variant-numeric: tabular-nums;
+}
+</style>

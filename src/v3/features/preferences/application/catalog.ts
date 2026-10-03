@@ -63,6 +63,12 @@ export const searchIndex: {
     keywords: "звук вход устройство гарнитура сигнал",
   },
   {
+    label: "Личный словарь",
+    section: "audio",
+    field: "dictionary",
+    keywords: "словарь написание имена названия термины замены",
+  },
+  {
     label: "Модель распознавания",
     section: "audio",
     field: "model",
@@ -151,6 +157,12 @@ export const searchIndex: {
     section: "general",
     field: "about",
     keywords: "версия мастер обучение настройка",
+  },
+  {
+    label: "Обновления Fono",
+    section: "general",
+    field: "updates",
+    keywords: "обновить скачать установить версия github релиз",
   },
   {
     label: "Журнал диагностики",

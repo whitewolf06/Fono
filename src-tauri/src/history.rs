@@ -587,6 +587,7 @@ mod tests {
             text: "final text".into(),
             created_at,
             device: Some("CUDA".into()),
+            metadata: None,
             analytics_included: true,
             original_text: Some("original text".into()),
             processing: Some(DictationProcessingMetadata {

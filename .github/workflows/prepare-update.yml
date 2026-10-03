@@ -1,0 +1,112 @@
+name: Prepare signed Windows update (artifacts only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      download_base:
+        description: "Future HTTPS directory for this version's installer; does not upload files"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fono-signed-update-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Build and verify signed NSIS update
+    if: github.ref == 'refs/heads/main'
+    environment: fono-update-preparation
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      LIBCLANG_PATH: C:\Program Files\LLVM\bin
+      FONO_BUILD_REVISION: ${{ github.sha }}
+      FONO_UPDATER_PUBLIC_KEY: ${{ vars.FONO_UPDATER_PUBLIC_KEY }}
+      FONO_UPDATER_ENDPOINT: ${{ vars.FONO_UPDATER_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.23.3"
+          registry-url: https://npm.pkg.github.com
+          scope: "@whitelife-core"
+      - name: Install locked frontend dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.WHITEUI_NPM_TOKEN }}
+        shell: pwsh
+        run: |
+          if (!$env:NODE_AUTH_TOKEN) { throw 'Set WHITEUI_NPM_TOKEN with read:packages access.' }
+          npm ci
+          exit $LASTEXITCODE
+      - name: Validate channel configuration
+        shell: pwsh
+        run: |
+          node scripts/update-release-config.mjs --output build/update-release.conf.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run version:check
+          exit $LASTEXITCODE
+      - name: Frontend gates
+        shell: pwsh
+        run: |
+          foreach ($command in @('typecheck:v3', 'lint', 'test:ui', 'test:v3', 'format:check', 'build')) {
+            npm run $command
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          npm run test:release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx prettier --check '.github/workflows/*.yml' 'scripts/*release*.mjs' scripts/update-manifest.mjs scripts/ci-native-dependencies.json src-tauri/update-channel.json tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs docs/fono-ci-updates.md docs/fono-quality-enhancements.md
+          exit $LASTEXITCODE
+      - name: Install pinned Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.96.1 --profile minimal --component rustfmt --component clippy
+      - name: Bootstrap pinned native runtime and GPU build SDKs
+        shell: pwsh
+        run: ./scripts/bootstrap-ci-resources.ps1 -InstallGpuSdks
+      - name: Native gates
+        working-directory: src-tauri
+        shell: pwsh
+        run: |
+          cargo fmt --all --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --workspace --all-targets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          exit $LASTEXITCODE
+      - name: Build signed updater artifact
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        shell: pwsh
+        run: |
+          if (!$env:TAURI_SIGNING_PRIVATE_KEY) { throw 'Set TAURI_SIGNING_PRIVATE_KEY in the protected environment.' }
+          npm run tauri -- build --ci --bundles nsis --config build/update-release.conf.json -- --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --exit-code -- src-tauri/Cargo.lock package-lock.json
+          exit $LASTEXITCODE
+      - name: Verify workers and create update manifest
+        env:
+          FONO_UPDATE_DOWNLOAD_BASE: ${{ inputs.download_base }}
+        shell: pwsh
+        run: |
+          ./scripts/verify-stt-workers.ps1
+          $installers = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe')
+          if ($installers.Count -ne 1) { throw 'Expected exactly one fresh NSIS installer.' }
+          node scripts/update-manifest.mjs --installer $installers[0].FullName --download-base $env:FONO_UPDATE_DOWNLOAD_BASE --output build/update-artifacts/latest.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -LiteralPath $installers[0].FullName -Destination build/update-artifacts/
+          Copy-Item -LiteralPath ($installers[0].FullName + '.sig') -Destination build/update-artifacts/
+          git rev-parse HEAD | Set-Content -LiteralPath build/update-artifacts/revision.txt
+          'Artifacts prepared only. No release or channel published.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Save reviewable signed files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fono-windows-x64-signed-update-${{ github.sha }}
+          path: build/update-artifacts/
+          if-no-files-found: error
+          retention-days: 1

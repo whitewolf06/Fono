@@ -3,7 +3,7 @@ mod rules;
 mod state;
 use crate::{
     error::{AppError, AppResult},
-    state::{self as app_state, AppState},
+    state::AppState,
     types::WakeCalibrationProfile,
 };
 pub use rules::{
@@ -14,6 +14,7 @@ pub use state::{WakeCalibrationService, WakeCalibrationStatus};
 use tauri::{AppHandle, Manager};
 
 pub fn start(app: &AppHandle) -> AppResult<WakeCalibrationStatus> {
+    let _update_admission = crate::application::updates::activity::begin()?;
     if crate::application::wake_validation::status(app).active {
         return Err(AppError::Config("Сначала завершите проверку фразы".into()));
     }
@@ -28,6 +29,7 @@ pub fn start(app: &AppHandle) -> AppResult<WakeCalibrationStatus> {
     Ok(status(app))
 }
 pub async fn record_next(app: AppHandle) -> AppResult<WakeCalibrationStatus> {
+    let _activity = crate::application::updates::activity::lease()?;
     let service = app.state::<WakeCalibrationService>();
     let (id, settings) = service.begin_recording()?;
     let recorded =
@@ -51,7 +53,9 @@ pub async fn record_next(app: AppHandle) -> AppResult<WakeCalibrationStatus> {
             }
         };
         let samples = recorded.samples;
+        let background_activity = _activity.clone();
         let tuned = tauri::async_runtime::spawn_blocking(move || {
+            let _activity = background_activity;
             #[cfg(feature = "sherpa-wake")]
             {
                 let mut hits = [false; 5];
@@ -122,7 +126,8 @@ pub fn status(app: &AppHandle) -> WakeCalibrationStatus {
 }
 fn persist_profile(app: &AppHandle, profile: WakeCalibrationProfile) -> AppResult<()> {
     let state = app.state::<AppState>();
-    let mut settings = state.settings();
+    let base = state.settings();
+    let mut settings = base.clone();
     if profile.graph != profile_graph(&settings)
         || (profile.sensitivity - settings.wake_word_sensitivity).abs() >= f32::EPSILON
         || (profile.vad_threshold - settings.wake_word_vad_threshold).abs() >= f32::EPSILON
@@ -134,8 +139,7 @@ fn persist_profile(app: &AppHandle, profile: WakeCalibrationProfile) -> AppResul
     }
     settings.wake_word_threshold = profile.threshold;
     settings.wake_calibration_profile = Some(profile);
-    app_state::save_settings(&settings)?;
-    state.set_settings(settings.clone());
+    let settings = state.persist_settings_delta(&base, &settings)?;
     crate::events::emit_settings(app, &settings);
     Ok(())
 }

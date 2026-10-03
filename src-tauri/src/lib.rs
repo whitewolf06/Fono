@@ -208,6 +208,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(app_state)
+        .manage(crate::application::updates::UpdateService::default())
         .manage(pipeline)
         .manage(crate::application::live_dictation::LiveController::default())
         .manage(wake_word)
@@ -218,6 +219,9 @@ pub fn run() {
         .manage(crate::application::wake_calibration::WakeCalibrationService::default())
         .manage(crate::application::wake_validation::WakeProfileValidationService::default())
         .setup(|app| {
+            #[cfg(windows)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             // Трей-иконка с меню
             setup_tray(app)?;
             // Push-to-talk: Ctrl+Space (Pressed) → запись, (Released) → стоп + STT + вставка.
@@ -271,6 +275,8 @@ pub fn run() {
                     tracing::error!("wake word start failed: {e:?}");
                 }
             });
+
+            crate::application::updates::check_on_startup(app.handle().clone());
 
             Ok(())
         })
@@ -340,6 +346,12 @@ pub fn run() {
             overlay::hide_overlay_preview,
             // диагностика
             ipc::diagnostics::get_recent_logs,
+            ipc::diagnostic_report::get_diagnostic_report,
+            ipc::updates::get_update_status,
+            ipc::updates::check_for_updates,
+            ipc::updates::install_update,
+            ipc::updates::cancel_update_download,
+            ipc::updates::set_update_checks_enabled,
             ipc::diagnostics::clear_logs,
             ipc::diagnostics::test_microphone,
             // wake word
@@ -655,6 +667,7 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
 async fn start_wake_word_if_enabled(
     handle: &tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let activity = crate::application::updates::activity::lease()?;
     use tauri::Manager;
     let state = handle.state::<state::AppState>();
     let settings = state.settings();
@@ -717,7 +730,9 @@ async fn start_wake_word_if_enabled(
         let acceleration = settings.acceleration;
         let worker_paths = stt::worker_paths_for_app(handle);
         events::emit_wake_status(handle, events::WakeStatusV1::Loading);
+        let background_activity = activity.clone();
         tauri::async_runtime::spawn_blocking(move || {
+            let _activity = background_activity;
             stt.ensure_loaded(std::path::Path::new(&path), acceleration, &worker_paths)
         })
         .await

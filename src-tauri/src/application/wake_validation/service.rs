@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
-use crate::state::{self, AppState};
+use crate::state::AppState;
 use crate::types::{Settings, WakeCalibrationProfile, WakeCalibrationValidation};
 
 use super::rules::{
@@ -12,8 +12,10 @@ use super::rules::{
 use super::state::WakeProfileValidationService;
 
 pub fn start(app: &AppHandle) -> AppResult<WakeProfileValidationStatus> {
+    let _update_admission = crate::application::updates::activity::begin()?;
     let state = app.state::<AppState>();
-    let mut settings = state.settings();
+    let base = state.settings();
+    let mut settings = base.clone();
     if settings.wake_word_enabled {
         return Err(AppError::Config(
             "Выключите wake word перед проверкой профиля: это исключает конкурирующую запись"
@@ -31,8 +33,7 @@ pub fn start(app: &AppHandle) -> AppResult<WakeProfileValidationStatus> {
         .as_mut()
         .expect("validated profile exists")
         .validation = None;
-    state::save_settings(&settings)?;
-    state.set_settings(settings.clone());
+    let settings = state.persist_settings_delta(&base, &settings)?;
     crate::events::emit_settings(app, &settings);
     let service = app.state::<WakeProfileValidationService>();
     service.begin(threshold);
@@ -49,6 +50,7 @@ pub async fn record(
     app: AppHandle,
     kind: WakeProfileValidationKind,
 ) -> AppResult<WakeProfileValidationStatus> {
+    let _activity = crate::application::updates::activity::lease()?;
     let service = app.state::<WakeProfileValidationService>();
     let settings = app.state::<AppState>().settings();
     let profile = profile_for_validation(&settings)?;
@@ -144,13 +146,13 @@ pub fn ensure_profile_can_activate(settings: &Settings) -> AppResult<()> {
 
 fn persist_validation(app: &AppHandle, validation: WakeCalibrationValidation) -> AppResult<()> {
     let state = app.state::<AppState>();
-    let mut settings = state.settings();
+    let base = state.settings();
+    let mut settings = base.clone();
     let profile = settings.wake_calibration_profile.as_mut().ok_or_else(|| {
         AppError::Config("Профиль калибровки был удалён во время проверки".into())
     })?;
     profile.validation = Some(validation);
-    state::save_settings(&settings)?;
-    state.set_settings(settings.clone());
+    let settings = state.persist_settings_delta(&base, &settings)?;
     crate::events::emit_settings(app, &settings);
     Ok(())
 }
@@ -202,8 +204,10 @@ mod tests {
 
     #[test]
     fn ramzi_listener_requires_a_current_successful_validation() {
-        let mut settings = Settings::default();
-        settings.wake_word = "рамзи".into();
+        let mut settings = Settings {
+            wake_word: "рамзи".into(),
+            ..Settings::default()
+        };
         assert!(ensure_profile_can_activate(&settings).is_err());
 
         let validation = WakeCalibrationValidation {

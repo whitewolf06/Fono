@@ -148,20 +148,11 @@ struct QueuedJob {
     cancellation: OperationCancellation,
 }
 
+#[derive(Default)]
 struct QueueState {
     jobs: BTreeMap<String, TranscriptionJob>,
     pending: VecDeque<String>,
     work: BTreeMap<String, QueuedJob>,
-}
-
-impl Default for QueueState {
-    fn default() -> Self {
-        Self {
-            jobs: BTreeMap::new(),
-            pending: VecDeque::new(),
-            work: BTreeMap::new(),
-        }
-    }
 }
 
 pub struct TranscriptionJobQueue<R, G> {
@@ -200,6 +191,9 @@ where
         &self,
         request: TranscriptionRequest,
     ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        let _update_admission = crate::application::updates::activity::begin().map_err(|_| {
+            TranscriptionServiceError::Busy("application update is installing".into())
+        })?;
         let mut state = self.state.lock().expect("job queue mutex poisoned");
         if state.pending.len() >= self.capacity {
             return Err(TranscriptionServiceError::Busy(
@@ -281,6 +275,7 @@ where
     /// Runs at most one queued job. The service host calls this from its worker
     /// loop; interactive dictation deliberately leaves the batch job queued.
     pub fn run_next(&self) -> Option<TranscriptionJob> {
+        let _activity = crate::application::updates::activity::lease().ok()?;
         if self.interactive.is_active() {
             return None;
         }

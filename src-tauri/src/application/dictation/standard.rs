@@ -6,6 +6,7 @@ use super::{
 };
 use crate::{
     application::{
+        diagnostic_report::telemetry::{ReportOutcome, ReportStage, ReportTrace},
         dictation_result,
         dictation_tail_diagnostics::{DictationStopReason, DictationTailDiagnostic},
     },
@@ -59,8 +60,24 @@ async fn stop_operation(
     match pipeline.completion.claim(operation)? {
         FinishClaim::Waiting(receiver) => wait(receiver).await,
         FinishClaim::Owner(ticket) => {
+            let _activity = crate::application::updates::activity::lease()?;
             let mut scope = OperationScope::new(app.clone(), operation, false);
-            let result = stop_once(&app, operation, reason).await;
+            let source = pipeline
+                .current_operation()
+                .map(|item| item.source)
+                .unwrap_or(OperationSource::Ui);
+            let report = ReportTrace::begin(operation, source);
+            let result = stop_once(&app, operation, reason, &report).await;
+            report.outcome(match &result {
+                Ok(transcript)
+                    if transcript.text.is_empty() && pipeline.is_operation_active(operation) =>
+                {
+                    ReportOutcome::Empty
+                }
+                Ok(transcript) if transcript.text.is_empty() => ReportOutcome::Cancelled,
+                Ok(_) => ReportOutcome::Completed,
+                Err(error) => ReportOutcome::from_error(error),
+            });
             scope.complete(&result);
             drop(scope);
             ticket.complete(&result);
@@ -73,13 +90,19 @@ async fn stop_once(
     app: &AppHandle,
     operation: u64,
     reason: DictationStopReason,
+    report: &ReportTrace,
 ) -> AppResult<Transcript> {
     let session = Session::current(app, operation)?;
     let mut diagnostic = DictationTailDiagnostic::new(operation, session.source, reason);
-    let Some(samples) = capture::finish_samples(&session, &mut diagnostic)? else {
+    let samples = {
+        let _timer = report.stage(ReportStage::CaptureFinish);
+        capture::finish_samples(&session, &mut diagnostic)?
+    };
+    let Some(samples) = samples else {
         return Ok(empty_transcript());
     };
-    let mut transcript = match recognition::run(&session, samples).await {
+    report.captured(diagnostic.captured_samples().unwrap_or(samples.len()));
+    let mut transcript = match recognition::run_measured(&session, samples, Some(report)).await {
         Ok(Some(transcript)) => transcript,
         Ok(None) => {
             diagnostic.stt_cancelled();
@@ -114,10 +137,18 @@ async fn stop_once(
     {
         return Ok(empty_transcript());
     }
-    let Some(final_text) = postprocess::process(&session, &transcript, Some(&mut diagnostic)).await
-    else {
+    let processed = {
+        let _timer = report.stage(ReportStage::Processing);
+        postprocess::process(&session, &transcript, Some(&mut diagnostic)).await
+    };
+    let Some(final_text) = processed else {
         return Ok(empty_transcript());
     };
+    let final_text = crate::application::personal_dictionary::canonicalize_dictation(
+        &session.settings,
+        &final_text,
+    );
+    let history_timings = report.history_timings();
     if !session.active("before injection") {
         return Ok(empty_transcript());
     }
@@ -144,19 +175,21 @@ async fn stop_once(
         {
             return Ok(empty_transcript());
         }
+        let _timer = report.stage(ReportStage::Insertion);
         crate::injection::inject_text(&final_text, session.settings.injection_mode)
     } else {
         Ok(())
     };
     if pipeline
         .while_operation(operation, || {
-            dictation_result::archive(
+            dictation_result::archive_with_metadata(
                 app,
                 &session.settings,
                 history_id,
                 &transcript,
                 &final_text,
                 operation,
+                history_timings,
             );
         })
         .is_none()

@@ -191,6 +191,10 @@ async fn upload(
     if !authorized(&headers, &state) {
         return api_error(StatusCode::UNAUTHORIZED, "unauthorized");
     }
+    let _activity = match crate::application::updates::activity::lease() {
+        Ok(activity) => activity,
+        Err(_) => return api_error(StatusCode::SERVICE_UNAVAILABLE, "update_installing"),
+    };
     let request = match request_from_multipart(multipart, &state.upload_dir).await {
         Ok(request) => request,
         Err(error) => return upload_error(error),
@@ -271,7 +275,12 @@ async fn request_from_multipart(
             .ok_or_else(|| UploadError::Invalid("audio field is required".into()))?;
         let decoded = tokio::task::spawn_blocking({
             let audio_path = audio_path.clone();
-            move || audio_ingest::decode_file(&audio_path, AudioIngestPolicy::default())
+            let activity = crate::application::updates::activity::lease()
+                .map_err(|_| UploadError::Internal("application update is installing".into()))?;
+            move || {
+                let _activity = activity;
+                audio_ingest::decode_file(&audio_path, AudioIngestPolicy::default())
+            }
         })
         .await
         .map_err(|error| UploadError::Internal(format!("audio decoder join failed: {error}")))?;

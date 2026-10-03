@@ -36,6 +36,35 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SHERPA_WAKE");
     println!("cargo:rerun-if-env-changed=FONO_PREPARING_RELEASE_RESOURCES");
     println!("cargo:rerun-if-env-changed=FONO_BUILD_REVISION");
+    let channel_path =
+        Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("update-channel.json");
+    println!("cargo:rerun-if-changed={}", channel_path.display());
+    let channel: serde_json::Value = fs::read_to_string(&channel_path)
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default();
+    for (name, field) in [
+        ("FONO_UPDATER_ENDPOINT", "endpoint"),
+        ("FONO_UPDATER_PUBLIC_KEY", "publicKey"),
+    ] {
+        println!("cargo:rerun-if-env-changed={name}");
+        let value = env::var(name)
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                channel
+                    .get(field)
+                    .and_then(|value| value.as_str())
+                    .map(str::to_owned)
+            });
+        if let Some(value) = value {
+            assert!(
+                !value.contains(['\n', '\r']),
+                "{name} must be a single line"
+            );
+            println!("cargo:rustc-env={name}={value}");
+        }
+    }
     println!("cargo:rerun-if-changed=../.git/HEAD");
 
     let revision = env::var("FONO_BUILD_REVISION").unwrap_or_else(|_| git_revision());

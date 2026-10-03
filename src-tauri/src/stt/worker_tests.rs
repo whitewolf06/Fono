@@ -143,14 +143,55 @@ fn malformed_worker_response_terminates_the_session() {
 #[cfg(windows)]
 #[test]
 fn worker_exit_before_response_terminates_the_session() {
-    let fixture = WorkerFixture::create("exit /b 17");
+    // cmd's set /p can return before the writer's separate newline syscall.
+    // Keep stdin open until a FIFO writer barrier acknowledges the complete
+    // frame; otherwise this fixture can exercise broken pipe instead of EOF.
+    let fixture = WorkerFixture::create(
+        ">\"%~dp0request-observed\" echo ready\r\n:await_exit\r\nif not exist \"%~dp0allow-exit\" goto await_exit\r\nexit /b 17",
+    );
     let mut session = fixture.start();
+    let writer = session
+        .stdin_tx
+        .as_ref()
+        .expect("open worker stdin")
+        .clone();
+    let observed = fixture.directory.join("request-observed");
+    let release = fixture.directory.join("allow-exit");
+    let release_worker = thread::spawn(move || {
+        let deadline = Instant::now() + TEST_TIMEOUT;
+        while !observed.exists() {
+            assert!(
+                Instant::now() < deadline,
+                "fixture observes transcription request"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+        let (result_tx, result_rx) = bounded(1);
+        writer
+            .send_timeout(
+                WorkerWrite {
+                    line: String::new(),
+                    result_tx,
+                },
+                TEST_TIMEOUT,
+            )
+            .expect("enqueue barrier after transcription frame");
+        result_rx
+            .recv_timeout(TEST_TIMEOUT)
+            .expect("writer acknowledges FIFO barrier")
+            .expect("complete request reached open worker stdin");
+        fs::write(release, b"exit").expect("release worker only after completed write");
+    });
 
     let error = session.transcribe(&[0; 160], "auto").unwrap_err();
+    release_worker.join().expect("release controller completes");
 
-    assert!(error
-        .to_string()
-        .contains("exited before returning a response"));
+    assert!(
+        error
+            .to_string()
+            .contains("exited before returning a response"),
+        "expected response EOF after worker exit, got: {error}"
+    );
     assert_session_is_terminated(&mut session);
 }
 

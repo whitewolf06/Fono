@@ -12,6 +12,8 @@ import {
 import { call, subscribe } from "../shared/infrastructure/native/ipc";
 import { nativeWake } from "../shared/infrastructure/native/wake";
 import { nativeCommands } from "../features/commands/infrastructure/nativeCommands";
+import { createNativeDiagnosticReport } from "../features/diagnostic-report";
+import { createNativeUpdates } from "../features/updates";
 export function createNativeWorkspace(): Workspace {
   const state = reactive<WorkspaceState>({
     preferences: {
@@ -45,6 +47,15 @@ export function createNativeWorkspace(): Workspace {
     testSignal: 0,
   });
   const ctx = createNativeContext(state);
+  const updates = createNativeUpdates(
+    __FONO_FRONTEND_BUILD__.version,
+    call,
+    (action) =>
+      ctx.serialize(async () => {
+        await action();
+        await ctx.readSettings();
+      }),
+  );
   const dictation = nativeDictation(ctx);
   const wake = nativeWake(ctx);
   let disposed = false;
@@ -151,6 +162,8 @@ export function createNativeWorkspace(): Workspace {
   }, 3000);
   return {
     native: true,
+    report: createNativeDiagnosticReport(),
+    updates,
     state,
     refresh,
     wake,
@@ -256,6 +269,7 @@ export function createNativeWorkspace(): Workspace {
     dispose() {
       disposed = true;
       clearInterval(timer);
+      updates.dispose();
       clearInterval(dataTimer);
       releases.forEach((release) => release());
     },

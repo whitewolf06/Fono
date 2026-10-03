@@ -90,6 +90,7 @@ pub(crate) async fn recognize_transient_samples(
     app: &AppHandle,
     samples: Vec<i16>,
 ) -> AppResult<WakeWordRecognitionReport> {
+    let _activity = crate::application::updates::activity::lease()?;
     super::dictation::ensure_capture_allowed(app)?;
     let settings = app.state::<AppState>().settings();
     let config = crate::settings_to_wake_config(&settings)?;
@@ -160,7 +161,9 @@ async fn recognize_whisper_sample(
     config: fono_wake::WakeWordConfig,
     samples: Vec<i16>,
 ) -> AppResult<fono_wake::WakeWordTestResult> {
+    let activity = crate::application::updates::activity::lease()?;
     Ok(tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
         fono_wake::test_whisper_with_samples(&config, &samples)
     })
     .await
@@ -181,7 +184,9 @@ async fn recognize_sherpa_sample(
     config: fono_wake::WakeWordConfig,
     samples: Vec<i16>,
 ) -> AppResult<fono_wake::WakeWordTestResult> {
+    let activity = crate::application::updates::activity::lease()?;
     Ok(tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
         let report = fono_wake::replay::replay_samples(&config, &samples)?;
         Ok::<_, fono_wake::WakeWordError>(fono_wake::WakeWordTestResult {
             detected: report.detections > 0,

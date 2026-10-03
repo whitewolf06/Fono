@@ -115,9 +115,13 @@ fn overlap_anchor(seen: &[TimedSegment], words: &[TimedSegment]) -> Option<usize
             continue;
         }
         let distance = start_distance + word.end_sample.abs_diff(last.end_sample);
-        if best.is_none_or(|(old_length, old_distance, _)| {
-            length > old_length || (length == old_length && distance < old_distance)
-        }) {
+        let improves = match best {
+            Some((old_length, old_distance, _)) => {
+                length > old_length || (length == old_length && distance < old_distance)
+            }
+            None => true,
+        };
+        if improves {
             best = Some((length, distance, index + 1));
         }
     }

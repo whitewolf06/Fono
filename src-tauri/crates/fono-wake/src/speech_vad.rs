@@ -11,52 +11,6 @@ pub struct SpeechVadDecision {
     pub processed_samples: u64,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[ignore = "requires FONO_VAD_MODEL and FONO_VAD_SPEECH_WAV (external speech fixture)"]
-    fn a_packet_ending_in_silence_preserves_its_earlier_speech() {
-        let model = std::env::var("FONO_VAD_MODEL").expect("set Silero model path");
-        let speech = std::env::var("FONO_VAD_SPEECH_WAV").expect("set 16 kHz speech WAV path");
-        let wav = sherpa_onnx::Wave::read(&speech).expect("read speech WAV");
-        assert_eq!(wav.sample_rate(), 16_000);
-        let mut samples: Vec<i16> = wav
-            .samples()
-            .iter()
-            .map(|sample| (sample.clamp(-1.0, 1.0) * 32767.0) as i16)
-            .collect();
-        samples.extend(std::iter::repeat(0).take(32_000));
-        let mut vad = StreamingSpeechVad::new(Path::new(&model)).unwrap();
-        let whole = vad.accept(&samples);
-        assert!(
-            whole.has_speech,
-            "must inspect speech before trailing silence"
-        );
-        assert!(
-            !whole.current_speech,
-            "two seconds of silence must finish speech"
-        );
-        assert!(whole.last_speech_sample.is_some());
-        assert!(whole.last_speech_sample.unwrap() < whole.processed_samples - 16_000);
-
-        vad.reset();
-        let mut split = vad.accept(&[]);
-        for chunk in samples.chunks(137) {
-            split = vad.accept(chunk);
-        }
-        assert_eq!(whole.has_speech, split.has_speech);
-        assert_eq!(whole.current_speech, split.current_speech);
-        assert_eq!(whole.last_speech_sample, split.last_speech_sample);
-        assert_eq!(whole.processed_samples, split.processed_samples);
-        vad.reset();
-        let silence = vad.accept(&[0; 32_000]);
-        assert!(!silence.has_speech);
-        assert_eq!(silence.last_speech_sample, None);
-    }
-}
-
 pub struct StreamingSpeechVad {
     detector: sherpa_onnx::VoiceActivityDetector,
     pending: VecDeque<f32>,
@@ -129,5 +83,51 @@ impl StreamingSpeechVad {
         self.processed = 0;
         self.last_speech = None;
         self.has_speech = false;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "requires FONO_VAD_MODEL and FONO_VAD_SPEECH_WAV (external speech fixture)"]
+    fn a_packet_ending_in_silence_preserves_its_earlier_speech() {
+        let model = std::env::var("FONO_VAD_MODEL").expect("set Silero model path");
+        let speech = std::env::var("FONO_VAD_SPEECH_WAV").expect("set 16 kHz speech WAV path");
+        let wav = sherpa_onnx::Wave::read(&speech).expect("read speech WAV");
+        assert_eq!(wav.sample_rate(), 16_000);
+        let mut samples: Vec<i16> = wav
+            .samples()
+            .iter()
+            .map(|sample| (sample.clamp(-1.0, 1.0) * 32767.0) as i16)
+            .collect();
+        samples.extend(std::iter::repeat(0).take(32_000));
+        let mut vad = StreamingSpeechVad::new(Path::new(&model)).unwrap();
+        let whole = vad.accept(&samples);
+        assert!(
+            whole.has_speech,
+            "must inspect speech before trailing silence"
+        );
+        assert!(
+            !whole.current_speech,
+            "two seconds of silence must finish speech"
+        );
+        assert!(whole.last_speech_sample.is_some());
+        assert!(whole.last_speech_sample.unwrap() < whole.processed_samples - 16_000);
+
+        vad.reset();
+        let mut split = vad.accept(&[]);
+        for chunk in samples.chunks(137) {
+            split = vad.accept(chunk);
+        }
+        assert_eq!(whole.has_speech, split.has_speech);
+        assert_eq!(whole.current_speech, split.current_speech);
+        assert_eq!(whole.last_speech_sample, split.last_speech_sample);
+        assert_eq!(whole.processed_samples, split.processed_samples);
+        vad.reset();
+        let silence = vad.accept(&[0; 32_000]);
+        assert!(!silence.has_speech);
+        assert_eq!(silence.last_speech_sample, None);
     }
 }

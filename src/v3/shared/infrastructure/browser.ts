@@ -9,6 +9,7 @@ const persistedKeys: (keyof Preferences)[] = [
   "model",
   "language",
   "acceleration",
+  "dictionaryEnabled",
   "wakeEnabled",
   "wakePhrase",
   "wakeLanguage",
@@ -59,7 +60,7 @@ export function readPreferences(): Preferences {
     );
     if (!["ru", "en"].includes(String(safe.wakeLanguage)))
       safe.wakeLanguage = defaults.wakeLanguage;
-    return { ...defaults, ...safe };
+    return { ...defaults, ...safe, dictionaryEntries: [] };
   } catch {
     return { ...defaults };
   }
@@ -69,6 +70,7 @@ export function persistPreferences(prefs: Preferences): void {
     persistedKeys.map((key) => [key, prefs[key]]),
   );
   safe.dictationMode = availableDictationMode(prefs.dictationMode);
+  // Dictionary terms remain in memory; only the optional switch is persisted.
   try {
     localStorage.setItem(storageKey, JSON.stringify(safe));
   } catch {

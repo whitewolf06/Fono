@@ -101,6 +101,8 @@ pub(crate) fn handle(
     (response, false)
 }
 
+// This boundary receives the validated fields of one worker protocol request.
+#[allow(clippy::too_many_arguments)]
 fn transcribe(
     meta: RequestMeta,
     model_path: &str,
@@ -171,7 +173,7 @@ fn transcribe(
 fn load<'a>(path: &str, loaded: &'a mut Loaded) -> Result<&'a mut InferenceState, String> {
     if loaded
         .as_ref()
-        .map_or(true, |(loaded_path, _)| loaded_path != path)
+        .is_none_or(|(loaded_path, _)| loaded_path != path)
     {
         if !Path::new(path).exists() {
             return Err(format!("model not found: {path}"));

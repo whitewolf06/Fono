@@ -8,7 +8,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewWindow}
 
 use crate::error::{AppError, AppResult};
 use crate::overlay_geometry::{center, fits_screen, ScreenRect};
-use crate::state::{self, AppState};
+use crate::state::AppState;
 use crate::types::Settings;
 
 #[derive(Clone, Copy, Serialize)]
@@ -201,14 +201,14 @@ fn move_to_center(app: &AppHandle, window: &WebviewWindow) -> AppResult<()> {
 
 fn persist_position(app: &AppHandle, x: i32, y: i32) -> AppResult<()> {
     let state = app.state::<AppState>();
-    let mut settings = state.settings();
-    if settings.overlay_x == Some(x) && settings.overlay_y == Some(y) {
+    let base = state.settings();
+    if base.overlay_x == Some(x) && base.overlay_y == Some(y) {
         return Ok(());
     }
+    let mut settings = base.clone();
     settings.overlay_x = Some(x);
     settings.overlay_y = Some(y);
-    state::save_settings(&settings)?;
-    state.set_settings(settings);
+    state.persist_settings_delta(&base, &settings)?;
     Ok(())
 }
 

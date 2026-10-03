@@ -1,7 +1,7 @@
 //! Final results are independent of the archive and shared by every source.
 use crate::types::{
-    DictationAnalysisStatus, DictationHistoryEntry, DictationProcessingMetadata, Settings,
-    Transcript,
+    DictationAnalysisStatus, DictationHistoryEntry, DictationHistoryMetadata,
+    DictationProcessingMetadata, DictationTimingMeasurements, Settings, Transcript,
 };
 use tauri::{AppHandle, Manager};
 
@@ -26,6 +26,26 @@ pub fn archive(
     final_text: &str,
     operation: u64,
 ) {
+    archive_with_metadata(
+        app,
+        settings,
+        id,
+        transcript,
+        final_text,
+        operation,
+        DictationTimingMeasurements::default(),
+    );
+}
+
+pub fn archive_with_metadata(
+    app: &AppHandle,
+    settings: &Settings,
+    id: String,
+    transcript: &Transcript,
+    final_text: &str,
+    operation: u64,
+    timings: DictationTimingMeasurements,
+) {
     if final_text.trim().is_empty() || !settings.history_enabled {
         return;
     }
@@ -40,6 +60,9 @@ pub fn archive(
         text: final_text.into(),
         created_at: chrono::Utc::now(),
         device: transcript.device.clone(),
+        metadata: Some(DictationHistoryMetadata::from_result(
+            settings, transcript, timings,
+        )),
         analytics_included: analytics,
         original_text: analytics.then(|| transcript.text.clone()),
         processing: analytics.then(|| DictationProcessingMetadata {

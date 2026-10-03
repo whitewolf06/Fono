@@ -1,4 +1,6 @@
 import { reactive } from "vue";
+import { createMockDiagnosticReport } from "../features/diagnostic-report";
+import { createMockUpdates } from "../features/updates";
 import { LIVE_DICTATION_ENABLED } from "../shared/domain/dictationMode";
 import type {
   Workspace,
@@ -83,6 +85,7 @@ export function createMockWorkspace(): Workspace {
   }
   selectLatest(state, state.history[0]);
   const dictation = createDictationPort(state);
+  const updates = createMockUpdates(__FONO_FRONTEND_BUILD__.version);
   const wake = createMockWake(state);
   let disposed = false;
   let jobTicks = 0;
@@ -173,6 +176,8 @@ export function createMockWorkspace(): Workspace {
     }
   }
   return {
+    report: createMockDiagnosticReport(state),
+    updates,
     state,
     wake,
     dictation,
@@ -251,6 +256,7 @@ export function createMockWorkspace(): Workspace {
     },
     dispose() {
       disposed = true;
+      updates.dispose();
       clearInterval(jobsTimer);
       dictation.dispose();
     },

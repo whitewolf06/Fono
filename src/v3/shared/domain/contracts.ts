@@ -1,4 +1,7 @@
 import type { WakePort, WakeSetupState, WakeCapabilities } from "./wake";
+import type { DictationMetadata } from "./historyMetadata";
+import type { DiagnosticReportPort } from "./diagnosticReport";
+import type { UpdatesPort } from "./updates";
 export type Phase =
   | "idle"
   | "listening"
@@ -42,6 +45,8 @@ export interface Preferences {
   model: string;
   language: string;
   acceleration: string;
+  dictionaryEnabled: boolean;
+  dictionaryEntries: PersonalDictionaryEntry[];
   wakeEnabled: boolean;
   wakePhrase: string;
   wakeLanguage: "ru" | "en";
@@ -74,10 +79,15 @@ export interface Preferences {
   serviceEnabled: boolean;
   verboseLogging: boolean;
 }
+export interface PersonalDictionaryEntry {
+  written: string;
+  spoken: string[];
+}
 export type ToggleKey = {
   [K in keyof Preferences]: Preferences[K] extends boolean ? K : never;
 }[keyof Preferences];
 export interface Dictation {
+  metadata?: DictationMetadata;
   findings?: {
     title: string;
     count: number;
@@ -244,6 +254,8 @@ export interface Workspace {
   trainer: TrainerPort;
   commands: CommandsPort;
   service: ServicePort;
+  report: DiagnosticReportPort;
+  updates: UpdatesPort;
   copy(text: string): Promise<void>;
   scenario(value: Scenario): void;
   diagnostics(): Diagnostic[];

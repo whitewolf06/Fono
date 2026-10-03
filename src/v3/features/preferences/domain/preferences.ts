@@ -4,12 +4,15 @@ import type {
   QuickPanel,
 } from "../../../shared/domain/contracts";
 import { validateWakePhrase } from "./wakePhrase";
+import { validateDictionary } from "../../../shared/domain/personalDictionary";
 export const defaults: Preferences = {
   dictationMode: "standard",
   microphone: "system",
   model: "small",
   language: "ru",
   acceleration: "auto",
+  dictionaryEnabled: false,
+  dictionaryEntries: [],
   wakeEnabled: true,
   wakePhrase: "Эй, фоно",
   wakeLanguage: "ru",
@@ -44,7 +47,13 @@ export const defaults: Preferences = {
 };
 export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
   general: ["autostart", "insertion"],
-  audio: ["microphone", "model", "language", "acceleration"],
+  audio: [
+    "microphone",
+    "model",
+    "language",
+    "acceleration",
+    "dictionaryEntries",
+  ],
   activation: [
     "dictationMode",
     "wakeEnabled",
@@ -120,6 +129,8 @@ export const profiles = [
   { value: "cloud", label: "В облаке · OpenAI (демо)" },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  const dictionaryError = validateDictionary(p.dictionaryEntries);
+  if (dictionaryError) return dictionaryError;
   if (
     !/^(Ctrl|Alt|Shift)(\s\+\s(Ctrl|Alt|Shift))*\s\+\s([A-Z0-9]|Space|F[1-9]|F1[0-2])$/.test(
       p.hotkey,

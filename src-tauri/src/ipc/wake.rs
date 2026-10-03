@@ -35,6 +35,7 @@ pub struct WakeWordTestReport {
 #[cfg(feature = "sherpa-wake")]
 #[tauri::command]
 pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestReport> {
+    let activity = crate::application::updates::activity::lease()?;
     crate::application::dictation::ensure_capture_allowed(&app)?;
     let settings = app.state::<AppState>().settings();
     let mut config = crate::settings_to_wake_config(&settings)?;
@@ -63,6 +64,7 @@ pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestRepor
         )));
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
         fono_wake::test_with_wav(&config, &wav_path, builtin)
     })
     .await
@@ -85,6 +87,8 @@ pub async fn test_wake_word_model(_app: AppHandle) -> AppResult<WakeWordTestRepo
 
 #[tauri::command]
 pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
+    let _activity = crate::application::updates::activity::lease()?;
+    let _settings_transaction = crate::application::updates::settings_transaction(&app).await;
     let state = app.state::<AppState>();
     let wake_handle = app.state::<fono_wake::WakeWordHandle>();
     let settings = state.settings();
@@ -152,17 +156,17 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     config.enabled = true;
     wake_handle.update_config(config)?;
 
-    let mut updated = settings;
+    let mut updated = settings.clone();
     updated.wake_word_enabled = true;
-    if let Err(error) = crate::state::save_settings(&updated) {
-        let mut rollback = updated.clone();
-        rollback.wake_word_enabled = false;
-        if let Ok(config) = crate::settings_to_wake_config(&rollback) {
-            let _ = wake_handle.update_config(config);
+    let updated = match state.persist_settings_delta(&settings, &updated) {
+        Ok(updated) => updated,
+        Err(error) => {
+            if let Ok(config) = crate::settings_to_wake_config(&state.settings()) {
+                let _ = wake_handle.update_config(config);
+            }
+            return Err(error);
         }
-        return Err(error);
-    }
-    state.set_settings(updated.clone());
+    };
     crate::events::emit_settings(&app, &updated);
     tracing::info!("wake word enabled");
     Ok(())
@@ -170,6 +174,8 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
+    let _activity = crate::application::updates::activity::lease()?;
+    let _settings_transaction = crate::application::updates::settings_transaction(&app).await;
     let state = app.state::<AppState>();
     let wake_handle = app.state::<fono_wake::WakeWordHandle>();
     let previous = state.settings();
@@ -177,13 +183,15 @@ pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
 
     let mut updated = previous.clone();
     updated.wake_word_enabled = false;
-    if let Err(error) = crate::state::save_settings(&updated) {
-        if let Ok(config) = crate::settings_to_wake_config(&previous) {
-            let _ = wake_handle.update_config(config);
+    let updated = match state.persist_settings_delta(&previous, &updated) {
+        Ok(updated) => updated,
+        Err(error) => {
+            if let Ok(config) = crate::settings_to_wake_config(&state.settings()) {
+                let _ = wake_handle.update_config(config);
+            }
+            return Err(error);
         }
-        return Err(error);
-    }
-    state.set_settings(updated.clone());
+    };
     crate::events::emit_settings(&app, &updated);
     tracing::info!("wake word disabled");
     Ok(())

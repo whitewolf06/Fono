@@ -125,6 +125,9 @@ impl Pipeline {
     pub fn current_operation(&self) -> Option<OperationSnapshot> {
         self.operations.current()
     }
+    pub fn has_active_service_operation(&self) -> bool {
+        self.service_operations.current().is_some()
+    }
 
     pub fn is_operation_active(&self, operation_id: u64) -> bool {
         self.operations.is_active(operation_id)
@@ -161,6 +164,7 @@ impl Pipeline {
     /// Service lifecycle is independent from interactive dictation. The STT
     /// scheduler pauses a service at a bounded window when dictation starts.
     pub fn start_service_transcription(&self) -> AppResult<(u64, OperationCancellation)> {
+        let _update_admission = crate::application::updates::activity::begin()?;
         let operation = self.service_operations.start(OperationSource::Service)?;
         if let Err(error) = self
             .service_operations
@@ -350,6 +354,7 @@ impl Pipeline {
         cursor: Option<(u64, u64)>,
         live: bool,
     ) -> AppResult<u64> {
+        let _update_admission = crate::application::updates::activity::begin()?;
         let mut recording = self.recording.lock();
         if *recording {
             tracing::warn!("start_recording called while already recording");

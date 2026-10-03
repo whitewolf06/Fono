@@ -23,10 +23,19 @@ static ACTIVE_DOWNLOADS: Lazy<Mutex<HashMap<String, Arc<AtomicBool>>>> =
 pub(super) struct DownloadRegistration {
     id: String,
     pub(super) cancellation: Arc<AtomicBool>,
+    _activity: crate::application::updates::activity::ActivityLease<'static>,
 }
 
 impl DownloadRegistration {
+    /// Blocking verification/extraction may outlive the owning IPC future.
+    pub(super) fn blocking_lease(
+        &self,
+    ) -> crate::application::updates::activity::ActivityLease<'static> {
+        self._activity.clone()
+    }
+
     pub(super) fn begin(id: String) -> AppResult<Self> {
+        let activity = crate::application::updates::activity::lease()?;
         let mut active = ACTIVE_DOWNLOADS.lock();
         if active.contains_key(&id) {
             return Err(AppError::Busy(format!(
@@ -35,7 +44,11 @@ impl DownloadRegistration {
         }
         let cancellation = Arc::new(AtomicBool::new(false));
         active.insert(id.clone(), Arc::clone(&cancellation));
-        Ok(Self { id, cancellation })
+        Ok(Self {
+            id,
+            cancellation,
+            _activity: activity,
+        })
     }
 }
 
@@ -56,6 +69,9 @@ pub fn cancel_download(download_id: &str) -> bool {
     };
     cancellation.store(true, Ordering::Release);
     true
+}
+pub fn has_active_downloads() -> bool {
+    !ACTIVE_DOWNLOADS.lock().is_empty()
 }
 
 pub(super) fn download_client() -> AppResult<reqwest::blocking::Client> {

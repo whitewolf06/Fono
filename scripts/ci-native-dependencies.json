@@ -1,0 +1,23 @@
+{
+  "sherpa": {
+    "version": "1.13.4",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.4/sherpa-onnx-v1.13.4-win-x64-shared-MT-Release-lib.tar.bz2",
+    "sha256": "f923e5eacb6bca83914d89cb31afa579e11eeaff9af39f8ead82ad19f44b2c9f",
+    "directory": "sherpa-onnx-v1.13.4-win-x64-shared-MT-Release-lib"
+  },
+  "cuda": {
+    "version": "13.3.1",
+    "url": "https://developer.download.nvidia.com/compute/cuda/13.3.1/local_installers/cuda_13.3.1_windows.exe",
+    "sha256": "d68839fcce644576f0a1c6b066e0c5bc146a62db2fcac9fc6b4e6418e7ec533f",
+    "directory": "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v13.3"
+  },
+  "vulkan": {
+    "version": "1.4.350.0",
+    "url": "https://sdk.lunarg.com/sdk/download/1.4.350.0/windows/vulkansdk-windows-X64-1.4.350.0.exe",
+    "sha256": "855b27ba05d2d8119c5114c5d4ff870ca38f2c632b11e1bb9923b9b7e6ecfe7b"
+  },
+  "vad": {
+    "path": "src-tauri/resources/vad/silero_vad.onnx",
+    "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+  }
+}
