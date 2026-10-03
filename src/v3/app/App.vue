@@ -43,9 +43,16 @@ onMounted(() => {
     () => workspace.state.preferences.hotkey,
     () => {
       if (ui.state.quick || ui.state.confirmation) return;
-      if (["listening", "silence"].includes(workspace.state.phase))
+      if (
+        workspace.state.preferences.dictationMode === "live" &&
+        ["listening", "silence"].includes(workspace.state.phase)
+      )
         void workspace.dictation.finish();
       else workspace.dictation.start();
+    },
+    () => {
+      if (workspace.state.preferences.dictationMode === "standard")
+        void workspace.dictation.finish();
     },
   );
 });

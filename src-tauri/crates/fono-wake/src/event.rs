@@ -7,6 +7,8 @@ pub enum WakeWordBackend {
     WhisperExperimental,
     #[default]
     SherpaOnnx,
+    SherpaStreamingRu,
+    SherpaStreamingEn,
     Mock,
 }
 
@@ -19,6 +21,7 @@ pub enum WakeWordStatus {
     Processing,
     Paused,
     MissingModel,
+    Error,
 }
 
 /// Declares what a selected wake backend can reliably recognise.
@@ -28,6 +31,8 @@ pub struct WakeWordCapabilities {
     pub supports_custom_phrase: bool,
     pub supported_phrases: Vec<String>,
     pub includes_pre_roll: bool,
+    pub supported_languages: Vec<String>,
+    pub available_languages: Vec<String>,
 }
 
 pub fn capabilities_for_backend(backend: WakeWordBackend) -> WakeWordCapabilities {
@@ -37,12 +42,16 @@ pub fn capabilities_for_backend(backend: WakeWordBackend) -> WakeWordCapabilitie
             supports_custom_phrase: false,
             supported_phrases: Vec::new(),
             includes_pre_roll: false,
+            available_languages: vec!["ru".into(), "en".into()],
+            supported_languages: Vec::new(),
         },
         WakeWordBackend::WhisperExperimental => WakeWordCapabilities {
             backend,
             supports_custom_phrase: true,
             supported_phrases: Vec::new(),
             includes_pre_roll: true,
+            available_languages: vec!["ru".into(), "en".into()],
+            supported_languages: vec!["ru".into(), "en".into()],
         },
         WakeWordBackend::SherpaOnnx => WakeWordCapabilities {
             backend,
@@ -51,13 +60,35 @@ pub fn capabilities_for_backend(backend: WakeWordBackend) -> WakeWordCapabilitie
                 .iter()
                 .map(|phrase| (*phrase).to_string())
                 .collect(),
-            includes_pre_roll: false,
+            includes_pre_roll: true,
+            available_languages: vec!["ru".into(), "en".into()],
+            supported_languages: vec!["en".into()],
         },
+        WakeWordBackend::SherpaStreamingRu | WakeWordBackend::SherpaStreamingEn => {
+            WakeWordCapabilities {
+                backend,
+                supports_custom_phrase: true,
+                includes_pre_roll: true,
+                supported_phrases: if backend == WakeWordBackend::SherpaStreamingRu {
+                    vec!["эй фоно".into(), "привет компьютер".into()]
+                } else {
+                    vec!["hey fono".into(), "hello computer".into()]
+                },
+                available_languages: vec!["ru".into(), "en".into()],
+                supported_languages: vec![if backend == WakeWordBackend::SherpaStreamingRu {
+                    "ru".into()
+                } else {
+                    "en".into()
+                }],
+            }
+        }
         WakeWordBackend::Mock => WakeWordCapabilities {
             backend,
             supports_custom_phrase: true,
             supported_phrases: Vec::new(),
             includes_pre_roll: false,
+            available_languages: vec!["ru".into(), "en".into()],
+            supported_languages: vec!["ru".into(), "en".into()],
         },
     }
 }
@@ -71,6 +102,7 @@ impl std::fmt::Display for WakeWordStatus {
             WakeWordStatus::Processing => "processing",
             WakeWordStatus::Paused => "paused",
             WakeWordStatus::MissingModel => "missing_model",
+            WakeWordStatus::Error => "error",
         };
         write!(f, "{s}")
     }
@@ -89,6 +121,8 @@ pub enum WakeWordEvent {
         /// Последние сэмплы до момента детекции. Используются основным
         /// конвейером как pre-roll, чтобы не терять слова сразу после wake word.
         pre_roll: Vec<i16>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        audio_cursor: Option<crate::audio_source::AudioCursor>,
     },
     /// Non-fatal backend error.
     Error { message: String },
@@ -110,7 +144,7 @@ mod tests {
             capabilities.supported_phrases,
             ["hey fono", "okay fun", "рамзи"]
         );
-        assert!(!capabilities.includes_pre_roll);
+        assert!(capabilities.includes_pre_roll);
     }
 
     #[test]

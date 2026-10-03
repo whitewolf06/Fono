@@ -9,5 +9,5 @@ pub use rules::{
     WakeProfileValidationInputIssue, WakeProfileValidationKind, WakeProfileValidationSampleResult,
     WakeProfileValidationStatus,
 };
-pub use service::{ensure_profile_can_activate, record, start, status};
+pub use service::{cancel, ensure_profile_can_activate, record, start, status};
 pub use state::WakeProfileValidationService;

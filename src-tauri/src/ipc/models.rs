@@ -17,8 +17,8 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
 }
 
 #[tauri::command]
-pub fn is_kws_model_downloaded() -> AppResult<bool> {
-    crate::application::models::is_kws_model_downloaded()
+pub fn is_kws_model_downloaded(app: AppHandle) -> AppResult<bool> {
+    crate::application::models::is_kws_model_downloaded(&app)
 }
 
 #[tauri::command]

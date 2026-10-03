@@ -56,6 +56,12 @@ export const searchIndex: {
   keywords: string;
 }[] = [
   {
+    label: "Режим диктовки",
+    section: "activation",
+    field: "dictationMode",
+    keywords: "живая потоковая live streaming текст поэтапно",
+  },
+  {
     label: "Микрофон",
     section: "audio",
     field: "microphone",

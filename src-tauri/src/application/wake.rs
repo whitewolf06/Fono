@@ -1,19 +1,11 @@
 //! Application use case for recording and recognizing diagnostic wake samples.
 
-#[cfg(feature = "sherpa-wake")]
-use std::io::Write;
-
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
-use crate::operation::OperationSource;
-use crate::pipeline::{self, Pipeline};
-#[cfg(feature = "sherpa-wake")]
-use crate::state;
 use crate::state::AppState;
-use crate::types::PipelineState;
 
 static TEST_AUDIO: Lazy<Mutex<Vec<i16>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
@@ -58,30 +50,13 @@ pub(crate) async fn record_transient_sample(
     app: AppHandle,
     duration_ms: u64,
 ) -> AppResult<RecordedWakeSample> {
-    let state = app.state::<AppState>();
-    let pipeline = app.state::<Pipeline>();
-    let wake_handle = app.state::<fono_wake::WakeWordHandle>();
-    if pipeline.is_recording() {
-        return Err(AppError::Audio("уже идёт другая запись".into()));
-    }
-
-    let settings = state.settings();
-    wake_handle.pause();
-    if let Err(error) = pipeline.start_recording_from(
+    let settings = app.state::<AppState>().settings();
+    let samples = super::dictation::record_diagnostic_sample(
+        &app,
         settings.audio_device_id.as_deref(),
-        OperationSource::Diagnostics,
-    ) {
-        wake_handle.resume();
-        return Err(error);
-    }
-    pipeline::set_state(&app, state.inner(), PipelineState::Listening);
-
-    let duration = std::time::Duration::from_millis(duration_ms.clamp(1_000, 10_000));
-    tokio::time::sleep(duration).await;
-    let samples = pipeline.stop_recording();
-    pipeline::set_state(&app, state.inner(), PipelineState::Idle);
-    wake_handle.resume();
-    let samples = samples?;
+        std::time::Duration::from_millis(duration_ms.clamp(1_000, 10_000)),
+    )
+    .await?;
     if samples.is_empty() {
         return Err(AppError::Audio("тестовая запись пуста".into()));
     }
@@ -100,6 +75,7 @@ pub(crate) async fn record_transient_sample(
 
 /// Runs the saved microphone sample through the selected wake-word backend.
 pub async fn recognize_sample(app: AppHandle) -> AppResult<WakeWordRecognitionReport> {
+    super::dictation::ensure_capture_allowed(&app)?;
     let samples = std::mem::take(&mut *TEST_AUDIO.lock());
     if samples.is_empty() {
         return Err(AppError::Audio("сначала запишите тестовую фразу".into()));
@@ -114,11 +90,14 @@ pub(crate) async fn recognize_transient_samples(
     app: &AppHandle,
     samples: Vec<i16>,
 ) -> AppResult<WakeWordRecognitionReport> {
+    super::dictation::ensure_capture_allowed(app)?;
     let settings = app.state::<AppState>().settings();
     let config = crate::settings_to_wake_config(&settings)?;
     let backend = match settings.wake_backend {
         fono_wake::WakeWordBackend::WhisperExperimental => "Whisper Small",
         fono_wake::WakeWordBackend::SherpaOnnx => "Sherpa-ONNX",
+        fono_wake::WakeWordBackend::SherpaStreamingRu => "Sherpa T-one (RU)",
+        fono_wake::WakeWordBackend::SherpaStreamingEn => "Sherpa Zipformer (EN)",
         fono_wake::WakeWordBackend::Mock => "Mock",
         fono_wake::WakeWordBackend::Disabled => "Disabled",
     }
@@ -137,7 +116,11 @@ pub(crate) async fn recognize_transient_samples(
         fono_wake::WakeWordBackend::WhisperExperimental => {
             recognize_whisper_sample(config, samples).await?
         }
-        fono_wake::WakeWordBackend::SherpaOnnx => recognize_sherpa_sample(config, samples).await?,
+        fono_wake::WakeWordBackend::SherpaOnnx
+        | fono_wake::WakeWordBackend::SherpaStreamingRu
+        | fono_wake::WakeWordBackend::SherpaStreamingEn => {
+            recognize_sherpa_sample(config, samples).await?
+        }
         _ => {
             return Err(AppError::Internal(
                 "тест записи поддерживается для Whisper и Sherpa-ONNX".into(),
@@ -172,29 +155,6 @@ pub(crate) fn normalized_levels(samples: &[i16]) -> (f32, f32) {
     }
     (((sum / samples.len().max(1) as f64) as f32).sqrt(), peak)
 }
-
-#[cfg(feature = "sherpa-wake")]
-fn write_pcm16_wav(path: &std::path::Path, samples: &[i16], sample_rate: u32) -> AppResult<()> {
-    let data_len = std::mem::size_of_val(samples) as u32;
-    let mut file = std::fs::File::create(path)?;
-    file.write_all(b"RIFF")?;
-    file.write_all(&(36 + data_len).to_le_bytes())?;
-    file.write_all(b"WAVEfmt ")?;
-    file.write_all(&16_u32.to_le_bytes())?;
-    file.write_all(&1_u16.to_le_bytes())?;
-    file.write_all(&1_u16.to_le_bytes())?;
-    file.write_all(&sample_rate.to_le_bytes())?;
-    file.write_all(&(sample_rate * 2).to_le_bytes())?;
-    file.write_all(&2_u16.to_le_bytes())?;
-    file.write_all(&16_u16.to_le_bytes())?;
-    file.write_all(b"data")?;
-    file.write_all(&data_len.to_le_bytes())?;
-    for sample in samples {
-        file.write_all(&sample.to_le_bytes())?;
-    }
-    Ok(())
-}
-
 #[cfg(feature = "whisper-wake")]
 async fn recognize_whisper_sample(
     config: fono_wake::WakeWordConfig,
@@ -216,49 +176,28 @@ async fn recognize_whisper_sample(
         "whisper-wake backend не собран в эту сборку".into(),
     ))
 }
-
 #[cfg(feature = "sherpa-wake")]
 async fn recognize_sherpa_sample(
     config: fono_wake::WakeWordConfig,
     samples: Vec<i16>,
 ) -> AppResult<fono_wake::WakeWordTestResult> {
-    let wav_path = state::app_data_dir()?.join(format!(
-        ".wake-word-test-{}-{}.wav",
-        std::process::id(),
-        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
-    ));
-    let _cleanup = TemporaryFile::new(wav_path.clone());
-    write_pcm16_wav(&wav_path, &samples, 16_000)?;
     Ok(tauri::async_runtime::spawn_blocking(move || {
-        fono_wake::test_with_wav(&config, &wav_path, false)
+        let report = fono_wake::replay::replay_samples(&config, &samples)?;
+        Ok::<_, fono_wake::WakeWordError>(fono_wake::WakeWordTestResult {
+            detected: report.detections > 0,
+            keyword: if report.detections > 0 {
+                config.phrase
+            } else {
+                String::new()
+            },
+            json: serde_json::to_string(&report).unwrap_or_default(),
+            samples: report.audio_samples,
+            duration_ms: report.audio_duration_ms,
+        })
     })
     .await
     .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??)
 }
-
-#[cfg(feature = "sherpa-wake")]
-struct TemporaryFile {
-    path: std::path::PathBuf,
-}
-
-#[cfg(feature = "sherpa-wake")]
-impl TemporaryFile {
-    fn new(path: std::path::PathBuf) -> Self {
-        Self { path }
-    }
-}
-
-#[cfg(feature = "sherpa-wake")]
-impl Drop for TemporaryFile {
-    fn drop(&mut self) {
-        if let Err(error) = std::fs::remove_file(&self.path) {
-            if error.kind() != std::io::ErrorKind::NotFound {
-                tracing::warn!(path = ?self.path, %error, "could not remove wake diagnostic WAV");
-            }
-        }
-    }
-}
-
 #[cfg(not(feature = "sherpa-wake"))]
 async fn recognize_sherpa_sample(
     _config: fono_wake::WakeWordConfig,

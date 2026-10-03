@@ -7,6 +7,7 @@ import {
   nativeDictation,
   type NativeSnapshot,
   type NativeResult,
+  type NativeLiveSnapshot,
 } from "../shared/infrastructure/native/dictation";
 import { call, subscribe } from "../shared/infrastructure/native/ipc";
 import { nativeWake } from "../shared/infrastructure/native/wake";
@@ -45,6 +46,7 @@ export function createNativeWorkspace(): Workspace {
   });
   const ctx = createNativeContext(state);
   const dictation = nativeDictation(ctx);
+  const wake = nativeWake(ctx);
   let disposed = false;
   let polling = false;
   const releases: (() => void)[] = [];
@@ -54,10 +56,18 @@ export function createNativeWorkspace(): Workspace {
       .catch(ctx.report);
   }
   bind<NativeResult>("dictation-result", dictation.accept);
+  bind<NativeLiveSnapshot>("dictation-live", dictation.live);
   bind<string>("command-proposal", (proposal) => {
     state.commandProposal = proposal;
   });
   bind("settings-changed", () => void ctx.readSettings().catch(ctx.report));
+  bind<{ reason: string; message: string }>(
+    "wake-word-configuration-invalidated",
+    (event) => {
+      state.logs.unshift(event.message);
+      void wake.load().catch(ctx.report);
+    },
+  );
   bind(
     "speech-analysis-changed",
     () => void ctx.readHistory().catch(ctx.report),
@@ -109,6 +119,7 @@ export function createNativeWorkspace(): Workspace {
   async function refresh() {
     try {
       await ctx.refresh();
+      await wake.load();
       state.scenario = "normal";
     } catch (error) {
       ctx.report(error);
@@ -120,7 +131,12 @@ export function createNativeWorkspace(): Workspace {
     if (disposed || polling || state.scenario !== "normal") return;
     polling = true;
     try {
-      dictation.snapshot(await call<NativeSnapshot>("get_desktop_snapshot"));
+      const [snapshot, live] = await Promise.all([
+        call<NativeSnapshot>("get_desktop_snapshot"),
+        call<NativeLiveSnapshot | null>("get_live_dictation"),
+      ]);
+      dictation.live(live);
+      dictation.snapshot(snapshot);
     } catch (error) {
       ctx.report(error);
     } finally {
@@ -137,7 +153,7 @@ export function createNativeWorkspace(): Workspace {
     native: true,
     state,
     refresh,
-    wake: nativeWake(ctx),
+    wake,
     settings: nativeSettings(ctx),
     dictation: dictation.port,
     history: {

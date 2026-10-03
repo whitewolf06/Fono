@@ -1,50 +1,59 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
+import { WlField, WlInput, WlSlider } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
-import NativeWakeSetup from "./NativeWakeSetup.vue";
-const workspace = useWorkspace();
-import { WlField, WlInput, WlButton, WlSlider } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
+import NativeWakeSetup from "./NativeWakeSetup.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 defineProps<{
   scope?: "wake" | "hotkey" | "command-hotkey";
   advanced?: boolean;
 }>();
+const workspace = useWorkspace();
 const draft = defineModel<Preferences>({ required: true });
-const phrase = ref("");
-const result = ref("");
-const phrases = computed(() =>
-  (
-    workspace.state.wakePhrases || [
-      "Эй, Fono",
-      "Привет, компьютер",
-      "Начни запись",
-    ]
-  ).map((value) => ({ label: value, value })),
+const active = computed(() =>
+  ["listening", "silence", "transcribing", "processing"].includes(
+    workspace.state.phase,
+  ),
 );
-function test() {
-  result.value =
-    phrase.value.trim().toLocaleLowerCase("ru") ===
-    draft.value.wakePhrase.toLocaleLowerCase("ru")
-      ? "Фраза совпала. Fono начнёт диктовку."
-      : "Фраза не совпала. Произнесите: «" + draft.value.wakePhrase + "».";
-}
+const wakeLanguages = computed(
+  () =>
+    workspace.state.wakeCapabilities?.languages || [
+      { value: "ru", label: "Русский" },
+      { value: "en", label: "Английский" },
+    ],
+);
 </script>
 <template>
   <div class="form-stack">
     <template v-if="scope !== 'wake' && scope !== 'command-hotkey'">
+      <SelectField
+        id="dictationMode"
+        v-model="draft.dictationMode"
+        label="Режим диктовки"
+        :disabled="active"
+        :options="[
+          { value: 'standard', label: 'Обычная · результат после завершения' },
+          {
+            value: 'live',
+            label: 'Живая · устойчивые фрагменты в выбранное поле',
+          },
+        ]"
+        hint="Живая диктовка работает без ИИ. Паузы разделяют фразы, запись завершается явно."
+      />
       <WlField
         v-slot="field"
         id="hotkey"
         label="Горячая клавиша"
         :hint="
-          workspace.native
-            ? 'Удерживайте сочетание во время речи. Отпустите для распознавания.'
-            : 'Например Ctrl + Space или Alt + F9. В демо работает, пока открыта вкладка.'
+          draft.dictationMode === 'live'
+            ? 'Нажмите, чтобы начать в выбранном поле. Нажмите снова, чтобы завершить.'
+            : 'Удерживайте сочетание во время речи. Отпустите для распознавания.'
         "
-        ><WlInput v-bind="field" v-model="draft.hotkey"
-      /></WlField>
+      >
+        <WlInput v-bind="field" v-model="draft.hotkey" />
+      </WlField>
     </template>
     <WlField
       v-if="!scope || scope === 'command-hotkey'"
@@ -56,21 +65,36 @@ function test() {
           ? 'Удерживайте для записи голосовой команды.'
           : 'В демо открывает проверку фразы.'
       "
-      ><WlInput v-bind="field" v-model="draft.commandHotkey"
-    /></WlField>
+    >
+      <WlInput v-bind="field" v-model="draft.commandHotkey" />
+    </WlField>
     <template v-if="scope !== 'hotkey' && scope !== 'command-hotkey'">
       <PreferenceToggle
         name="wakeEnabled"
         label="Пробуждение голосом"
-        description="Начинайте диктовку поддерживаемой фразой."
+        description="Локальная активация выбранной фразой. Сначала настройте и проверьте профиль."
       />
       <SelectField
+        id="wakeLanguage"
+        v-model="draft.wakeLanguage"
+        label="Язык фразы пробуждения"
+        :options="wakeLanguages"
+        hint="Выберите язык своей фразы. Одновременно работает один профиль."
+      />
+      <WlField
+        v-slot="field"
         id="wakePhrase"
-        v-model="draft.wakePhrase"
-        label="Фраза пробуждения"
-        :options="phrases"
-      />
+        label="Своя фраза пробуждения"
+        :hint="
+          draft.wakeLanguage === 'ru'
+            ? 'Например «эй фоно» или «привет компьютер». Более различимая фраза уменьшает случайные включения.'
+            : 'Например «hey fono» или «hello computer». Фраза проверяется на реальных записях.'
+        "
+      >
+        <WlInput v-bind="field" v-model="draft.wakePhrase" :maxlength="80" />
+      </WlField>
       <SelectField
+        v-if="draft.dictationMode === 'standard'"
         id="silenceMs"
         v-model="draft.silenceMs"
         label="Завершать после паузы"
@@ -86,55 +110,43 @@ function test() {
           { value: 4000, label: '4 секунды' },
         ]"
       />
-      <WlField
-        v-slot="field"
-        label="Проверка фразы"
-        hint="Введите фразу, чтобы проверить совпадение."
-        ><div class="inline-input">
-          <WlInput
-            v-bind="field"
-            v-model="phrase"
-            :placeholder="draft.wakePhrase"
-            @keydown.enter.prevent="test"
-          /><WlButton :disabled="!phrase.trim()" @click="test"
-            >Проверить</WlButton
-          >
-        </div></WlField
-      >
-      <p v-if="result" class="notice" role="status">{{ result }}</p>
-      <NativeWakeSetup v-if="workspace.native" />
+      <p v-else class="notice">
+        В живом режиме пауза завершает фрагмент. Вся диктовка продолжается до
+        кнопки «Завершить» или повторного нажатия горячей клавиши.
+      </p>
+      <NativeWakeSetup
+        v-if="workspace.wake"
+        :phrase="draft.wakePhrase"
+        :language="draft.wakeLanguage"
+      />
       <details v-if="advanced" id="advanced" class="advanced">
-        <summary>Дополнительно · калибровка и пороги</summary>
+        <summary>Дополнительно · чувствительность</summary>
         <div class="form-stack">
+          <p class="muted">
+            Мастер подбирает чувствительность по пяти повторам и отдельной
+            проверке. Изменение порога требует повторной проверки.
+          </p>
           <label
             >Чувствительность пробуждения ·
-            {{ Math.round(draft.wakeThreshold * 100) }}%<WlSlider
+            {{ Math.round(draft.wakeThreshold * 100) }}%
+            <WlSlider
               v-model="draft.wakeThreshold"
               :min="0.1"
               :max="0.9"
               :step="0.05"
               aria-label="Чувствительность пробуждения"
-          /></label>
+            />
+          </label>
           <label
-            >Порог речи ·
-            {{ Math.round(draft.speechThreshold * 100) }}%<WlSlider
+            >Порог речи · {{ Math.round(draft.speechThreshold * 100) }}%
+            <WlSlider
               v-model="draft.speechThreshold"
               :min="workspace.native ? 0.001 : 0.1"
               :max="workspace.native ? 0.05 : 0.9"
               :step="workspace.native ? 0.001 : 0.05"
               aria-label="Порог речи"
-          /></label>
-          <WlButton
-            v-if="!workspace.native"
-            size="sm"
-            @click="
-              draft.wakeThreshold = 0.55;
-              draft.speechThreshold = 0.4;
-              result =
-                'Калибровка выполнена на демонстрационном образце. Сохраните новые пороги.';
-            "
-            >Калибровать</WlButton
-          >
+            />
+          </label>
         </div>
       </details>
     </template>

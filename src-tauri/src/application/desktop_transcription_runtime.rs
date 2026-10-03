@@ -1,4 +1,7 @@
-//! Desktop adapter that gives local REST jobs the same STT lease as dictation.
+//! API jobs share inference capacity while capture remains independent.
+
+#[path = "service_windows.rs"]
+mod service_windows;
 
 use tauri::{AppHandle, Manager};
 
@@ -47,6 +50,9 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
     ) -> AppResult<Transcript> {
         let pipeline = self.app.state::<Pipeline>();
         let (operation_id, operation_cancellation) = pipeline.start_service_transcription()?;
+        // Worker request IDs already isolate cancellation. A separate namespace
+        // also makes diagnostic operation IDs unambiguous across coordinators.
+        let worker_operation_id = operation_id | (1_u64 << 63);
         let cancellation = job_cancellation.combined_with(&operation_cancellation);
         let result = (|| {
             if cancellation.is_cancelled() {
@@ -58,25 +64,45 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
             let model_path = settings
                 .whisper_model_path
                 .ok_or(AppError::ModelNotLoaded)?;
+            let scheduler = pipeline.scheduler();
             let stt = pipeline.stt();
-            stt.ensure_loaded(
-                std::path::Path::new(&model_path),
-                settings.acceleration,
-                &crate::stt::worker_paths_for_app(&self.app),
-            )?;
-            if cancellation.is_cancelled() {
-                return Err(AppError::Cancelled(
-                    "service job cancelled before inference".into(),
-                ));
-            }
-            stt.transcribe_cancellable(pcm_samples, language, cancellation)
+            let worker_paths = crate::stt::worker_paths_for_app(&self.app);
+            service_windows::transcribe_windows(
+                pcm_samples,
+                &cancellation,
+                |window, start, context| {
+                    let permit = match scheduler.acquire(false, &cancellation) {
+                        Ok(permit) => permit,
+                        Err(error) => return (Err(error), false),
+                    };
+                    let result = (|| {
+                        stt.ensure_loaded(
+                            std::path::Path::new(&model_path),
+                            settings.acceleration,
+                            &worker_paths,
+                        )?;
+                        stt.transcribe_window(
+                            window,
+                            language,
+                            context,
+                            worker_operation_id,
+                            &permit.cancellation,
+                            start,
+                        )
+                    })();
+                    let preempted =
+                        permit.cancellation.is_cancelled() && !cancellation.is_cancelled();
+                    drop(permit);
+                    (result, preempted)
+                },
+            )
         })();
         let reason = match &result {
             Ok(_) => TerminalReason::Completed,
             Err(AppError::Cancelled(_)) => TerminalReason::Cancelled,
             Err(_) => TerminalReason::Failed,
         };
-        let _ = pipeline.finish_operation(operation_id, reason);
+        pipeline.finish_service_operation(operation_id, reason);
         result
     }
 }

@@ -2,12 +2,14 @@
 
 use std::collections::BTreeMap;
 
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+mod wake;
 
 use crate::error::{AppError, AppResult};
 use crate::state::{self, AppState};
 use crate::stt::{SttHealth, SttReadiness};
 use crate::types::{AccelerationCapabilities, Settings};
+mod active;
 
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Settings {
@@ -42,6 +44,14 @@ pub async fn save_settings(
     mut settings: Settings,
 ) -> AppResult<()> {
     let old_settings = state.settings();
+    active::validate(
+        app.state::<crate::pipeline::Pipeline>()
+            .current_operation()
+            .is_some(),
+        &old_settings,
+        &settings,
+    )?;
+    let wake_settings_changed = wake::invalidate_changed(&mut settings, &old_settings);
     normalize_llm_profiles(&mut settings, &old_settings);
     validate_settings(&settings)?;
     if settings.wake_word_enabled {
@@ -49,15 +59,6 @@ pub async fn save_settings(
     }
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
         || old_settings.command_hotkey != settings.command_hotkey;
-    let wake_settings_changed = old_settings.audio_device_id != settings.audio_device_id
-        || old_settings.wake_word != settings.wake_word
-        || old_settings.wake_word_model != settings.wake_word_model
-        || old_settings.wake_backend != settings.wake_backend
-        || (old_settings.wake_word_threshold - settings.wake_word_threshold).abs() > f32::EPSILON
-        || (old_settings.wake_word_sensitivity - settings.wake_word_sensitivity).abs()
-            > f32::EPSILON
-        || (old_settings.wake_word_vad_threshold - settings.wake_word_vad_threshold).abs()
-            > f32::EPSILON;
     let model_changed = old_settings.whisper_model_path != settings.whisper_model_path
         || old_settings.acceleration != settings.acceleration;
 
@@ -106,7 +107,8 @@ pub async fn save_settings(
         }
     }
 
-    let wake_reconfigured = persisted_settings.wake_word_enabled && wake_settings_changed;
+    let wake_reconfigured = old_settings.wake_word_enabled != persisted_settings.wake_word_enabled
+        || (persisted_settings.wake_word_enabled && wake_settings_changed);
     if wake_reconfigured {
         let config = match crate::settings_to_wake_config(&persisted_settings) {
             Ok(config) => config,
@@ -182,6 +184,13 @@ pub async fn save_settings(
     state.set_settings(persisted_settings.clone());
     crate::verbose::set_verbose(persisted_settings.verbose_logging);
     crate::events::emit_settings(&app, &persisted_settings);
+    if wake_settings_changed {
+        crate::events::emit_wake_status(&app, crate::events::WakeStatusV1::Paused);
+        let _=app.emit("wake-word-configuration-invalidated",wake::WakeConfigurationInvalidated{
+            reason:"configuration_changed",
+            message:"Настройки пробуждения изменились. Фраза выключена: настройте и проверьте её заново.",
+        });
+    }
     crate::pipeline::sync_overlay_window(&app, state.pipeline_state());
     tracing::info!(
         "settings saved: model={:?}, lang={}",

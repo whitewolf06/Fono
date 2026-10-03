@@ -23,7 +23,14 @@ const names = ["Микрофон", "Распознавание", "Активац
 const fields: (keyof Preferences)[][] = [
   ["microphone"],
   ["model", "language", "acceleration"],
-  ["hotkey", "commandHotkey", "wakePhrase", "silenceMs"],
+  [
+    "hotkey",
+    "commandHotkey",
+    "dictationMode",
+    "wakePhrase",
+    "wakeLanguage",
+    "silenceMs",
+  ],
   ["processingMode", "profile", "processingModel"],
   [],
 ];

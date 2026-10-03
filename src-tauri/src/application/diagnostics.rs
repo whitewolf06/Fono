@@ -5,10 +5,8 @@ use tauri::{AppHandle, Manager};
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::error::{AppError, AppResult};
-use crate::operation::{OperationSource, TerminalReason};
-use crate::pipeline::{self, Pipeline};
+use crate::pipeline::Pipeline;
 use crate::state::{self, AppState};
-use crate::types::PipelineState;
 
 pub fn clear_logs() -> AppResult<()> {
     let log_dir = state::app_data_dir()?.join("logs");
@@ -83,54 +81,12 @@ pub async fn test_microphone_device(
     duration_ms: u64,
     device_id: Option<String>,
 ) -> AppResult<MicTestResult> {
-    let state = app.state::<AppState>();
-    let pipeline = app.state::<Pipeline>();
-    if let Err(error) =
-        pipeline.start_recording_from(device_id.as_deref(), OperationSource::Diagnostics)
-    {
-        emit_pipeline_error(&app, &error.to_string());
-        tracing::error!("test_microphone: start_recording FAILED: {error}");
-        return Err(error);
-    }
-    pipeline::set_state(&app, state.inner(), PipelineState::Listening);
-    let operation = pipeline.operation_id();
-    let cancellation = pipeline.cancellation(operation).ok_or_else(|| {
-        AppError::Internal("active microphone test has no cancellation signal".into())
-    })?;
-
-    tokio::select! {
-        _ = tokio::time::sleep(std::time::Duration::from_millis(
-            duration_ms.clamp(500, 5_000),
-        )) => {}
-        _ = crate::application::dictation::wait_for_cancellation(cancellation) => {
-            return Err(AppError::Cancelled("microphone test cancelled".into()));
-        }
-    }
-
-    let samples = match pipeline.stop_recording() {
-        Ok(samples) => samples,
-        Err(error) => {
-            emit_pipeline_error(&app, &error.to_string());
-            tracing::error!("test_microphone: stop_recording FAILED: {error}");
-            let _ = pipeline::set_state_for_operation(
-                &app,
-                state.inner(),
-                &pipeline,
-                operation,
-                PipelineState::Idle,
-                TerminalReason::Failed,
-            );
-            return Err(error);
-        }
-    };
-    let _ = pipeline::set_state_for_operation(
+    let samples = crate::application::dictation::record_diagnostic_sample(
         &app,
-        state.inner(),
-        &pipeline,
-        operation,
-        PipelineState::Idle,
-        TerminalReason::Completed,
-    );
+        device_id.as_deref(),
+        std::time::Duration::from_millis(duration_ms.clamp(500, 5_000)),
+    )
+    .await?;
 
     if samples.is_empty() {
         emit_pipeline_error(&app, "No input captured. Check microphone and permissions.");

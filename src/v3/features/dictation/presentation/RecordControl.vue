@@ -7,9 +7,24 @@ import {
 } from "../../../shared/application/workspace";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import VoiceWave from "./VoiceWave.vue";
+import { liveStatus } from "../domain/live";
 import { useFeedback } from "../../../shared/application/feedback";
 const { run } = useFeedback();
 const workspace = useWorkspace();
+const live = computed(() => workspace.state.live);
+const liveMode = computed(
+  () => workspace.state.preferences.dictationMode === "live",
+);
+const status = computed(() =>
+  liveMode.value && live.value
+    ? liveStatus(live.value)
+    : phaseLabels[workspace.state.phase],
+);
+const canResume = computed(
+  () =>
+    live.value?.phase === "listening" &&
+    ["paused_focus", "none"].includes(live.value.insertionState),
+);
 const recording = computed(() =>
   ["listening", "silence"].includes(workspace.state.phase),
 );
@@ -25,7 +40,7 @@ const working = computed(() =>
     />
     <div class="record-controls">
       <span class="record-status" role="status"
-        >{{ phaseLabels[workspace.state.phase]
+        >{{ status
         }}<span v-if="recording" class="mono"
           >{{
             Math.floor(workspace.state.elapsed / 60)
@@ -41,7 +56,9 @@ const working = computed(() =>
         size="sm"
         :variant="recording ? 'soft-danger' : 'soft'"
         :loading="working"
-        :disabled="recording && workspace.state.recordingSource === 'hotkey'"
+        :disabled="
+          recording && workspace.state.recordingSource === 'hotkey' && !liveMode
+        "
         @click="
           run(() =>
             recording
@@ -55,7 +72,7 @@ const working = computed(() =>
             :size="16" /></template
         >{{
           recording
-            ? workspace.state.recordingSource === "hotkey"
+            ? workspace.state.recordingSource === "hotkey" && !liveMode
               ? "Отпустите клавишу"
               : "Завершить"
             : working
@@ -70,6 +87,40 @@ const working = computed(() =>
         >Отмена</WlButton
       >
     </div>
+    <p v-if="liveMode && !recording && !working" class="live-notice">
+      Выберите поле в приложении и нажмите
+      {{ workspace.state.preferences.hotkey }}. Кнопка записи здесь выводит
+      текст в Fono.
+    </p>
+    <p
+      v-if="live && recording"
+      class="live-notice"
+      :class="{
+        warning: live.insertionState === 'failed' || live.lagMs > 4000,
+      }"
+      role="status"
+    >
+      {{
+        live.warning ||
+        (live.insertionState === "paused_focus"
+          ? "Поле изменилось. Распознавание продолжается, текст ждёт вставки."
+          : live.insertionState === "none"
+            ? "Выберите поле и нажмите «Продолжить вставку» в индикаторе. Или завершите и скопируйте текст."
+            : live.insertionState === "failed"
+              ? "Остаток текста сохранён. Проверьте последний фрагмент в поле перед ручным копированием. Автоматическая вставка остановлена."
+              : live.lagMs > 4000
+                ? "Аудио сохраняется, подтверждённые фрагменты появятся по порядку."
+                : "Паузы разделяют фразы. Завершите запись кнопкой или горячей клавишей.")
+      }}
+    </p>
+    <p v-if="canResume && !workspace.native" class="live-notice">
+      <WlButton
+        size="xs"
+        variant="ghost"
+        @click="run(() => workspace.dictation.resumeInsertion())"
+        >Продолжить вставку · демо</WlButton
+      >
+    </p>
     <p v-if="workspace.state.error" class="record-error" role="alert">
       {{ workspace.state.error }}
       <RouterLink

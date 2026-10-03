@@ -63,15 +63,24 @@ export interface WakeDictationCountdown {
   speaking: boolean;
 }
 export type WakeWordBackend =
-  "disabled" | "whisper_experimental" | "sherpa_onnx" | "mock";
+  | "disabled"
+  | "whisper_experimental"
+  | "sherpa_onnx"
+  | "sherpa_streaming_ru"
+  | "sherpa_streaming_en"
+  | "mock";
 export interface WakeWordCapabilities {
   backend: WakeWordBackend;
   supports_custom_phrase: boolean;
   supported_phrases: string[];
   includes_pre_roll: boolean;
+  supported_languages?: ("ru" | "en")[];
+  available_languages?: ("ru" | "en")[];
 }
 
 export interface Settings {
+  /** Обычная диктовка или последовательная вставка устойчивых фрагментов. */
+  dictation_mode: "standard" | "live";
   /** device_id микрофона или null = системный default */
   audio_device_id: string | null;
   /** Путь к Whisper-модели (.bin) */
@@ -232,7 +241,8 @@ export interface WakeCalibrationValidation {
   confirmed_threshold: number;
 }
 
-export type WakeCalibrationRejection = "silence" | "clipping" | "too_short";
+export type WakeCalibrationRejection =
+  "silence" | "clipping" | "too_short" | "phrase_not_detected";
 
 export interface WakeCalibrationSampleResult {
   accepted: boolean;
@@ -240,6 +250,8 @@ export interface WakeCalibrationSampleResult {
   rms: number;
   peak: number;
   active_ms: number;
+  detected?: boolean;
+  matched_candidates?: number;
 }
 
 export interface WakeCalibrationStatus {
@@ -278,6 +290,7 @@ export interface WakeProfileValidationStatus {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  dictation_mode: "standard",
   audio_device_id: null,
   whisper_model_path: null,
   language: "auto",

@@ -6,6 +6,10 @@ publish = false
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+whisper-rs = { version = "0.16", optional = true }
+
+[features]
+inference = ["dep:whisper-rs"]
 
 [dev-dependencies]
 serde_json = "1.0"

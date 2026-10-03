@@ -33,6 +33,39 @@
   color: var(--fono-secondary);
   margin-left: var(--fono-space-3);
 }
+.dictation-mode-control {
+  display: flex;
+  align-items: center;
+  gap: var(--fono-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--fono-space-3);
+}
+.dictation-mode-control > small {
+  color: var(--fono-secondary);
+  font-size: var(--fono-type-xs);
+}
+.hero-copy > .dictation-mode-control {
+  position: absolute;
+  top: var(--fono-space-4);
+  right: 0;
+  max-width: var(--fono-mode-control-width);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--fono-space-2);
+  margin-top: 0;
+  text-align: right;
+}
+.live-notice {
+  max-width: var(--fono-live-notice-width);
+  margin: var(--fono-space-2) auto 0;
+  color: var(--fono-muted);
+  font-size: var(--fono-type-xs);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.live-notice.warning {
+  color: var(--fono-warning);
+}
 .voice-tools {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

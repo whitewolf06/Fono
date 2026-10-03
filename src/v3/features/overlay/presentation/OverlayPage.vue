@@ -9,7 +9,18 @@ import { useOverlayDemo } from "../application/useOverlayDemo";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import OverlayPreview from "./OverlayPreview.vue";
 const { state } = useWorkspace();
-const { phase, seconds, level, select, play } = useOverlayDemo();
+const {
+  phase,
+  seconds,
+  level,
+  live,
+  select,
+  selectLive,
+  resumeLive,
+  finish,
+  cancel,
+  play,
+} = useOverlayDemo();
 const phases: Phase[] = [
   "idle",
   "listening",
@@ -40,6 +51,12 @@ const phases: Phase[] = [
         {{ phaseLabels[value] }}
       </button>
     </div>
+    <div class="phase-picker" aria-label="Состояние живой диктовки">
+      <button @click="selectLive('recording')">Живая · запись</button>
+      <button @click="selectLive('paused')">Поле изменилось</button>
+      <button @click="selectLive('backlog')">Распознавание отстаёт</button>
+      <button @click="selectLive('error')">Ошибка вставки</button>
+    </div>
     <div
       class="overlay-desktop"
       :data-position="state.preferences.overlayPosition"
@@ -59,9 +76,11 @@ const phases: Phase[] = [
             :phase="phase"
             :level="level"
             :seconds="seconds"
+            :live="live"
             interactive
-            @finish="select('transcribing')"
-            @cancel="select('cancelled')"
+            @finish="finish"
+            @cancel="cancel"
+            @resume="resumeLive"
           />
         </section>
         <section>
@@ -71,9 +90,11 @@ const phases: Phase[] = [
             :phase="phase"
             :level="level"
             :seconds="seconds"
+            :live="live"
             interactive
-            @finish="select('transcribing')"
-            @cancel="select('cancelled')"
+            @finish="finish"
+            @cancel="cancel"
+            @resume="resumeLive"
           />
         </section>
       </div>

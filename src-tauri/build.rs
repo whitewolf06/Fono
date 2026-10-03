@@ -4,6 +4,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[path = "build_support/vad.rs"]
+mod speech_vad_resource;
+#[path = "build_support/stt_workers.rs"]
+mod stt_worker_check;
+
 const REQUIRED_STT_WORKERS: &[&str] = &["fono-stt-cuda-worker.exe", "fono-stt-vulkan-worker.exe"];
 
 const REQUIRED_CUDA_RUNTIME_PREFIXES: &[&str] = &["cublas64_", "cublasLt64_", "cudart64_"];
@@ -49,6 +54,9 @@ fn main() {
     });
 
     stage_stt_workers(&layout);
+    if env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some() {
+        speech_vad_resource::stage(&layout.manifest_dir, &layout.profile_dir);
+    }
 
     if layout.is_release()
         && env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some()
@@ -182,6 +190,9 @@ fn stage_stt_workers(layout: &BuildLayout) {
 
     if layout.is_release() {
         validate_release_worker_manifest(&source_dir, &files);
+        stt_worker_check::validate(&layout.manifest_dir, &source_dir).unwrap_or_else(|error| {
+            panic!("incompatible release STT workers: {error}; run npm run build:workers");
+        });
     }
 
     if files.is_empty() {

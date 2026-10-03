@@ -8,6 +8,7 @@ import VoiceTools from "./VoiceTools.vue";
 import HomeServices from "./HomeServices.vue";
 import RecordControl from "./RecordControl.vue";
 import HomeTextPreview from "./HomeTextPreview.vue";
+import DictationModeControl from "./DictationModeControl.vue";
 const workspace = useWorkspace();
 const { state } = workspace;
 const ui = useInteraction();
@@ -30,10 +31,11 @@ const ui = useInteraction();
           }}<template #icon
             ><AppIcon name="edit" :size="12" /></template></WlButton
         ><small class="hero-hint">{{
-          workspace.native
-            ? "удерживайте во время речи"
-            : "начать и завершить диктовку"
+          state.preferences.dictationMode === "live"
+            ? "нажмите для начала и завершения"
+            : "удерживайте во время речи"
         }}</small>
+        <DictationModeControl />
       </div>
     </header>
     <VoiceTools /><HomeServices /><RecordControl /><HomeTextPreview />

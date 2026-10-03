@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Fono",
-  "version": "0.5.18",
+  "version": "0.5.19",
   "identifier": "com.fono.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -75,7 +75,8 @@
     "resources": {
       "resources/whisper/*": "resources/whisper/",
       "resources/stt-workers/*": "resources/stt-workers/",
-      "resources/sherpa-onnx/*.dll": ""
+      "resources/sherpa-onnx/*.dll": "",
+      "resources/vad/*.onnx": "resources/vad/"
     },
     "copyright": "© 2026 Fono",
     "category": "Productivity",

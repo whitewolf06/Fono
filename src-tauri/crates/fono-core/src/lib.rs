@@ -10,6 +10,26 @@ use thiserror::Error;
 /// Platform-neutral capture boundary. The application selects the buffer and
 /// error types; CPAL/Tauri stay in the adapter crate.
 pub trait AudioCapturePort<Writer, Error>: Send + Sync {
+    /// Optional sample-clock handoff. Adapters that have no continuous audio
+    /// source use the ordinary start implementation.
+    fn start_after(
+        &self,
+        device_id: Option<&str>,
+        writer: Writer,
+        limit_reached: Arc<AtomicBool>,
+        level_bits: Arc<AtomicU32>,
+        maximum_samples: usize,
+        _cursor: Option<(u64, u64)>,
+    ) -> Result<(), Error> {
+        self.start(
+            device_id,
+            writer,
+            limit_reached,
+            level_bits,
+            maximum_samples,
+        )
+    }
+
     fn start(
         &self,
         device_id: Option<&str>,

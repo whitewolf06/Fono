@@ -16,6 +16,7 @@ use parking_lot::Mutex;
 
 use crate::error::{AppError, AppResult};
 use crate::types::InjectionMode;
+pub mod target;
 
 #[cfg(windows)]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -152,13 +153,33 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
 /// Кладёт текст в буфер обмена, эмулирует Ctrl+V, затем восстанавливает предыдущее содержимое.
 #[cfg(windows)]
 pub fn inject_via_clipboard(text: &str) -> AppResult<()> {
-    CLIPBOARD_WORKER.inject(text.to_owned())
+    CLIPBOARD_WORKER.inject(text.to_owned(), None)
+}
+
+#[cfg(windows)]
+pub fn inject_via_clipboard_checked(
+    text: &str,
+    target: target::TextTarget,
+    cancel: crate::operation::OperationCancellation,
+) -> AppResult<()> {
+    CLIPBOARD_WORKER.inject(text.to_owned(), Some((target, cancel)))
+}
+#[cfg(not(windows))]
+pub fn inject_via_clipboard_checked(
+    _: &str,
+    _: target::TextTarget,
+    _: crate::operation::OperationCancellation,
+) -> AppResult<()> {
+    Err(AppError::Injection(
+        "Вставка поддерживается только в Windows".into(),
+    ))
 }
 
 #[cfg(windows)]
 enum ClipboardCommand {
     Inject {
         text: String,
+        guard: Option<(target::TextTarget, crate::operation::OperationCancellation)>,
         response: Sender<AppResult<()>>,
     },
     Shutdown {
@@ -179,8 +200,13 @@ impl ClipboardInjectionWorker {
         let thread = std::thread::spawn(move || {
             while let Ok(command) = receiver.recv() {
                 match command {
-                    ClipboardCommand::Inject { text, response } => {
-                        let _ = response.send(inject_clipboard_on_owner_thread(&text));
+                    ClipboardCommand::Inject {
+                        text,
+                        guard,
+                        response,
+                    } => {
+                        let _ =
+                            response.send(inject_clipboard_on_owner_thread(&text, guard.as_ref()));
                     }
                     ClipboardCommand::Shutdown { response } => {
                         let _ = response.send(());
@@ -195,11 +221,16 @@ impl ClipboardInjectionWorker {
         }
     }
 
-    fn inject(&self, text: String) -> AppResult<()> {
+    fn inject(
+        &self,
+        text: String,
+        guard: Option<(target::TextTarget, crate::operation::OperationCancellation)>,
+    ) -> AppResult<()> {
         let (response_tx, response_rx) = bounded(1);
         self.commands
             .send(ClipboardCommand::Inject {
                 text,
+                guard,
                 response: response_tx,
             })
             .map_err(|_| AppError::Injection("clipboard injection worker stopped".into()))?;
@@ -224,7 +255,15 @@ impl ClipboardInjectionWorker {
 static CLIPBOARD_WORKER: Lazy<ClipboardInjectionWorker> = Lazy::new(ClipboardInjectionWorker::new);
 
 #[cfg(windows)]
-fn inject_clipboard_on_owner_thread(text: &str) -> AppResult<()> {
+fn inject_clipboard_on_owner_thread(
+    text: &str,
+    guard: Option<&(target::TextTarget, crate::operation::OperationCancellation)>,
+) -> AppResult<()> {
+    if guard.is_some_and(|(field, cancel)| cancel.is_cancelled() || !self::target::matches(field)) {
+        return Err(AppError::Injection(
+            "Поле ввода изменилось перед подготовкой буфера обмена".into(),
+        ));
+    }
     let target = unsafe { GetForegroundWindow() };
     if target.0.is_null() {
         return Err(AppError::Injection("нет активного окна для ввода".into()));
@@ -249,7 +288,10 @@ fn inject_clipboard_on_owner_thread(text: &str) -> AppResult<()> {
         .map_err(|e| AppError::Injection(format!("буфер обмена: {e}")))?;
 
     // Эмулируем Ctrl+V.
-    if unsafe { GetForegroundWindow() } != target {
+    if unsafe { GetForegroundWindow() } != target
+        || guard
+            .is_some_and(|(field, cancel)| cancel.is_cancelled() || !self::target::matches(field))
+    {
         restore_clipboard(&mut clipboard, previous)?;
         return Err(AppError::Injection(
             "активное окно изменилось перед вставкой".into(),

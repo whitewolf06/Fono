@@ -33,12 +33,35 @@ Fono UI + DictationCoordinator
 Каждый worker содержит один скомпилированный backend. UI выбирает worker,
 перезапускает его при смене режима и получает фактический runtime status.
 
-## Минимальный worker contract
+## Worker contract (protocol 3, 2026-10-03)
+
+Transport — ограниченные JSON Lines, PCM i16 little-endian в base64.
+`hello` сообщает protocol version, поддержку окон, отмены, token timestamps
+и пределы кадров. Release и `prepare:release-resources` проверяют handshake;
+старые несовместимые EXE не принимаются.
+
+`transcribe_window` возвращает слова с абсолютными sample timestamps.
+`cancel_request` адресует уникальный request id и читается независимо от
+inference. Мягкая отмена сохраняет процесс и модель; зависший worker
+завершается supervisor-ом. Окна live/API ограничены, рабочие буферы
+переиспользуются. Интерактивный STT вытесняет окно API; оно повторяется
+с checkpoint после освобождения ресурса.
+
+Полная схема и проверенные cold/warm замеры:
+[fono-voice-reliability.md](fono-voice-reliability.md).
+
+### Исторический минимальный contract
 
 Вход (`stdin`, JSON Lines):
 
 ```json
-{"type":"transcribe","id":"uuid","model_path":"...","language":"auto","samples_i16_base64":"..."}
+{
+  "type": "transcribe",
+  "id": "uuid",
+  "model_path": "...",
+  "language": "auto",
+  "samples_i16_base64": "..."
+}
 ```
 
 Выход (`stdout`, JSON Lines):
@@ -61,7 +84,7 @@ Fono UI + DictationCoordinator
 3. Если CUDA не подходит, попробовать Vulkan worker.
 4. Затем встроенный GPU backend, если он собран в оболочке Fono.
 5. В последнюю очередь — встроенный CPU backend.
-5. Сохранить фактический backend для UI и диагностического лога.
+6. Сохранить фактический backend для UI и диагностического лога.
 
 Ручной выбор CUDA/Vulkan не делает fallback без согласия пользователя: он
 возвращает понятную ошибку и предлагает `Авто` или доступный режим.
@@ -75,7 +98,7 @@ Fono UI + DictationCoordinator
 - Installer содержит только нужные DLL каждого worker-а.
 - Переключение режима не требует переустановки и не оставляет зависшие процессы.
 
-## Текущая реализация (2026-07-10)
+## Основа реализации (2026-07-10)
 
 - `crates/fono-stt-protocol` задаёт JSON Lines contract, включая `ping`, `load` и
   `transcribe`.

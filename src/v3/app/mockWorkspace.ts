@@ -3,9 +3,11 @@ import type {
   Workspace,
   WorkspaceState,
   Scenario,
+  LiveDictation,
 } from "../shared/domain/contracts";
 import { defaults } from "../features/preferences/domain/preferences";
 import { createSettingsPort } from "../features/preferences/infrastructure/mockSettings";
+import { createMockWake } from "../features/preferences/infrastructure/mockWake";
 import {
   createDictationPort,
   selectLatest,
@@ -80,6 +82,7 @@ export function createMockWorkspace(): Workspace {
   }
   selectLatest(state, state.history[0]);
   const dictation = createDictationPort(state);
+  const wake = createMockWake(state);
   let disposed = false;
   let jobTicks = 0;
   const jobsTimer = setInterval(() => {
@@ -113,8 +116,10 @@ export function createMockWorkspace(): Workspace {
     state.microphoneAvailable = true;
     state.aiAvailable = true;
     state.phase = "idle";
+    state.live = null;
     state.error = "";
     state.scenario = value;
+    wake.resetDemo();
     state.pending = {};
     if (value === "empty") {
       state.history = [];
@@ -149,9 +154,26 @@ export function createMockWorkspace(): Workspace {
         "Локальная модель с очень длинным названием для проверки компоновки и переносов";
     }
     selectLatest(state, state.history[0] ?? null);
+    if (value.startsWith("live-")) {
+      state.preferences.dictationMode = "live";
+      dictation.start();
+      const live = state.live as LiveDictation | null;
+      if (live) {
+        live.committedText = "Да, да, это уже подтверждённый текст.";
+        live.draftText = "Следующая мысль ещё уточняется";
+        if (value === "live-paused") live.insertionState = "paused_focus";
+        if (value === "live-backlog") live.lagMs = 8500;
+        if (value === "live-insertion-error") {
+          live.insertionState = "failed";
+          live.warning =
+            "Вставка не подтверждена. Текст сохранён; проверьте выбранное поле перед продолжением.";
+        }
+      }
+    }
   }
   return {
     state,
+    wake,
     dictation,
     settings: createSettingsPort(state),
     commands: createCommandsPort(state),

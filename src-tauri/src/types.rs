@@ -362,8 +362,18 @@ impl Default for SpeechLlmAssignment {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DictationMode {
+    #[default]
+    Standard,
+    Live,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
+    #[serde(default)]
+    pub dictation_mode: DictationMode,
     #[serde(default)]
     pub audio_device_id: Option<String>,
     #[serde(default)]
@@ -546,6 +556,7 @@ impl CommandProposal {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            dictation_mode: DictationMode::Standard,
             audio_device_id: None,
             whisper_model_path: None,
             language: default_language(),

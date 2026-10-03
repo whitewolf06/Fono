@@ -3,6 +3,7 @@ import type {
   WorkspaceState,
   Dictation,
 } from "../../../shared/domain/contracts";
+import { assertDraftAvailable } from "../domain/live";
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 export function selectLatest(state: WorkspaceState, entry: Dictation | null) {
@@ -19,6 +20,10 @@ export function createDictationPort(
 ): DictationPort & { dispose(): void } {
   let generation = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
+  const liveWords =
+    "Сегодня мы проверим живую диктовку. Да, да, естественные повторы останутся. Подтверждённый текст появляется последовательно и больше не переписывается.".split(
+      " ",
+    );
   function stopTimer() {
     if (timer) clearInterval(timer);
     timer = undefined;
@@ -56,13 +61,40 @@ export function createDictationPort(
       state.error = "";
       state.phase = "listening";
       state.elapsed = 0;
+      state.recordingSource = "ui";
+      state.live =
+        state.preferences.dictationMode === "live"
+          ? {
+              sessionId: "live-demo-" + Date.now(),
+              revision: 1,
+              committedText: "",
+              draftText: "",
+              pendingText: "",
+              insertionState: "none",
+              phase: "listening",
+              lagMs: 2200,
+            }
+          : null;
       timer = setInterval(() => {
         state.elapsed += 0.1;
         state.audioLevel = Math.max(
           0.08,
           (Math.sin(state.elapsed * 4) + Math.cos(state.elapsed * 2.4) + 2) / 4,
         );
-        if (state.elapsed >= 10 && state.preferences.wakeEnabled) {
+        if (state.live) {
+          const count = Math.min(
+            liveWords.length,
+            Math.floor(state.elapsed * 1.5),
+          );
+          const stable = Math.max(0, count - 3);
+          state.live.revision++;
+          state.live.committedText = liveWords.slice(0, stable).join(" ");
+          state.live.draftText = liveWords.slice(stable, count).join(" ");
+          state.live.pendingText =
+            state.live.insertionState === "active"
+              ? ""
+              : state.live.committedText;
+        } else if (state.elapsed >= 10 && state.preferences.wakeEnabled) {
           state.phase = "silence";
           state.audioLevel = 0.03;
           if (state.elapsed >= 10 + state.preferences.silenceMs / 1000)
@@ -75,12 +107,22 @@ export function createDictationPort(
       stopTimer();
       const ticket = ++generation;
       state.phase = "transcribing";
+      if (state.live) {
+        state.live.phase = "draining";
+        state.live.revision++;
+      }
       await wait(800);
       if (ticket !== generation) return;
-      const original =
-        "Так, давайте, ну, оставим главное под рукой. Завтра проверим новый интерфейс и соберём обратную связь от команды.";
+      const original = state.live
+        ? [state.live.committedText, state.live.draftText]
+            .filter(Boolean)
+            .join(" ") || liveWords.slice(0, 6).join(" ")
+        : "Так, давайте, ну, оставим главное под рукой. Завтра проверим новый интерфейс и соберём обратную связь от команды.";
       let text = original;
-      if (state.preferences.processingEnabled) {
+      if (
+        state.preferences.processingEnabled &&
+        state.preferences.dictationMode !== "live"
+      ) {
         state.phase = "processing";
         await wait(800);
         if (ticket !== generation) return;
@@ -110,13 +152,49 @@ export function createDictationPort(
         state.history.unshift(archived);
       }
       state.phase = state.error ? "error" : "done";
+      if (state.live) {
+        state.live.phase = "done";
+        state.live.committedText = text;
+        state.live.draftText = "";
+        state.live.revision++;
+      }
     },
     cancel() {
       reset();
+      if (state.live) {
+        state.live.phase = "cancelled";
+        const available = [state.live.committedText, state.live.draftText]
+          .filter(Boolean)
+          .join(" ");
+        state.live.draftText = "";
+        state.live.revision++;
+        if (available)
+          selectLatest(state, {
+            id: state.live.sessionId,
+            createdAt: new Date().toISOString(),
+            text: available,
+            original: available,
+            duration: state.elapsed,
+            title: "Отменённая живая диктовка",
+          });
+      }
       state.phase = "cancelled";
       state.error = "";
     },
+    async resumeInsertion() {
+      if (!state.live || state.live.phase !== "listening")
+        throw new Error("Живая диктовка уже завершена.");
+      if (state.live.insertionState === "failed")
+        throw new Error(
+          "Вставка остановлена. Проверьте поле и скопируйте остаток вручную.",
+        );
+      state.live.insertionState = "active";
+      state.live.pendingText = "";
+      state.live.warning = undefined;
+      state.live.revision++;
+    },
     chooseVariant(variant) {
+      assertDraftAvailable(state.live);
       const entry = state.last.entry;
       if (!entry) return;
       state.last.variant = variant;
@@ -126,11 +204,15 @@ export function createDictationPort(
       state.last.undo = null;
     },
     edit(text) {
+      assertDraftAvailable(state.live);
       state.last.draft = text;
       state.last.edited = true;
       state.last.undo = null;
     },
     async improve() {
+      assertDraftAvailable(state.live);
+      if (state.preferences.dictationMode === "live")
+        throw new Error("В живом режиме обработка через ИИ отключена.");
       if (!state.preferences.processingEnabled || !state.last.draft.trim())
         throw new Error(
           "Включите обработку текста, чтобы использовать улучшение.",

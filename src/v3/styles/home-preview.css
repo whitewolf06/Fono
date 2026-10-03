@@ -55,6 +55,12 @@
   font-size: var(--fono-type-md);
   background: color-mix(in srgb, var(--fono-surface-raised) 40%, transparent);
 }
+.live-draft {
+  color: var(--fono-muted);
+}
+.live-transcript > span + span::before {
+  content: " ";
+}
 .latest-empty {
   color: var(--fono-muted);
   min-height: 90px;

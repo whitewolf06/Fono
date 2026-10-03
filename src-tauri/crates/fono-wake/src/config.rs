@@ -24,6 +24,10 @@ pub struct WakeWordConfig {
     pub cooldown_ms: u64,
     /// Optional CPAL input device id.
     pub audio_device_id: Option<String>,
+    /// Minimum sample-clock duration for an unchanged complete phrase.
+    pub phrase_stability_ms: u64,
+    /// Distinct decoder updates required before confirmation.
+    pub phrase_confirmations: u8,
 }
 
 impl Default for WakeWordConfig {
@@ -40,6 +44,8 @@ impl Default for WakeWordConfig {
             sample_rate: 16_000,
             cooldown_ms: 2_000,
             audio_device_id: None,
+            phrase_stability_ms: 250,
+            phrase_confirmations: 2,
         }
     }
 }

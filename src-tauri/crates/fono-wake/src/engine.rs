@@ -1,3 +1,4 @@
+pub use crate::config_validation::validate_config;
 use parking_lot::Mutex;
 
 use crate::audio_source::AudioHub;
@@ -5,7 +6,6 @@ use crate::backend;
 use crate::callback::CallbackSlot;
 use crate::config::{WakeWordBackend, WakeWordConfig};
 use crate::diag::Diagnostics;
-use crate::error::WakeWordError;
 use crate::error::WakeWordResult;
 use crate::event::{capabilities_for_backend, WakeWordCapabilities, WakeWordEvent, WakeWordStatus};
 use crate::WakeCallback;
@@ -27,28 +27,6 @@ pub trait WakeWordEngine: Send {
     fn diagnostics(&self) -> Option<Diagnostics> {
         None
     }
-}
-
-pub fn validate_config(config: &WakeWordConfig) -> WakeWordResult<()> {
-    if config.backend == WakeWordBackend::Disabled {
-        return Ok(());
-    }
-    let capabilities = capabilities_for_backend(config.backend);
-    if capabilities.supports_custom_phrase {
-        return Ok(());
-    }
-    let requested = config.phrase.trim();
-    if capabilities
-        .supported_phrases
-        .iter()
-        .any(|phrase| phrase.eq_ignore_ascii_case(requested))
-    {
-        return Ok(());
-    }
-    Err(WakeWordError::Backend(format!(
-        "backend {:?} does not support the wake phrase {:?}",
-        config.backend, config.phrase
-    )))
 }
 
 /// Thread-safe handle used by the main application.
@@ -150,8 +128,15 @@ impl WakeWordHandle {
 
     pub fn start(&self) -> WakeWordResult<()> {
         let mut inner = self.inner.lock();
-        if inner.engine.is_some() {
-            return Ok(());
+        if let Some(engine) = inner.engine.as_mut() {
+            if !matches!(
+                engine.status(),
+                WakeWordStatus::Off | WakeWordStatus::Error | WakeWordStatus::MissingModel
+            ) {
+                return Ok(());
+            }
+            let _ = engine.stop();
+            inner.engine = None;
         }
         let config = inner.config.clone();
         let mut engine = match build_engine(&config, self.audio_hub.clone())? {
@@ -233,9 +218,11 @@ fn build_engine(
                 ))))
             }
             #[cfg(not(feature = "whisper-wake"))]
-            Err(WakeWordError::BackendNotCompiled(config.backend))
+            Err(crate::WakeWordError::BackendNotCompiled(config.backend))
         }
-        WakeWordBackend::SherpaOnnx => {
+        WakeWordBackend::SherpaOnnx
+        | WakeWordBackend::SherpaStreamingRu
+        | WakeWordBackend::SherpaStreamingEn => {
             #[cfg(feature = "sherpa-wake")]
             {
                 Ok(Some(Box::new(backend::SherpaOnnxBackend::new(
@@ -244,7 +231,7 @@ fn build_engine(
                 ))))
             }
             #[cfg(not(feature = "sherpa-wake"))]
-            Err(WakeWordError::BackendNotCompiled(config.backend))
+            Err(crate::WakeWordError::BackendNotCompiled(config.backend))
         }
     }
 }
@@ -257,49 +244,5 @@ fn make_event_callback(callback: &CallbackSlot) -> WakeCallback {
 impl Default for WakeWordHandle {
     fn default() -> Self {
         Self::new(WakeWordConfig::default())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::config::WakeWordConfig;
-    use crate::event::WakeWordBackend;
-
-    use super::validate_config;
-
-    #[test]
-    fn sherpa_rejects_a_phrase_outside_its_bundled_vocabulary() {
-        let config = WakeWordConfig {
-            backend: WakeWordBackend::SherpaOnnx,
-            phrase: "привет фоно".into(),
-            ..WakeWordConfig::default()
-        };
-        assert!(validate_config(&config).is_err());
-    }
-
-    #[test]
-    fn sherpa_accepts_all_bundled_phrases() {
-        for phrase in crate::phrases::SHERPA_SUPPORTED_PHRASES {
-            let config = WakeWordConfig {
-                backend: WakeWordBackend::SherpaOnnx,
-                phrase: phrase.into(),
-                ..WakeWordConfig::default()
-            };
-
-            assert!(
-                validate_config(&config).is_ok(),
-                "{phrase} must be accepted"
-            );
-        }
-    }
-
-    #[test]
-    fn whisper_accepts_a_custom_phrase() {
-        let config = WakeWordConfig {
-            backend: WakeWordBackend::WhisperExperimental,
-            phrase: "привет фоно".into(),
-            ..WakeWordConfig::default()
-        };
-        assert!(validate_config(&config).is_ok());
     }
 }

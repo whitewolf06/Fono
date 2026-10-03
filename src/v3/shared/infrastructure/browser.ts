@@ -3,12 +3,14 @@ import { defaults } from "../../features/preferences/domain/preferences";
 const storageKey = "fono-v3-demo-preferences-v1";
 // Persist demo preferences only. Transcripts, tokens and instructions never enter browser storage.
 const persistedKeys: (keyof Preferences)[] = [
+  "dictationMode",
   "microphone",
   "model",
   "language",
   "acceleration",
   "wakeEnabled",
   "wakePhrase",
+  "wakeLanguage",
   "silenceMs",
   "hotkey",
   "commandHotkey",
@@ -51,6 +53,10 @@ export function readPreferences(): Preferences {
       safe.profile = defaults.profile;
     if (!["local", "cloud"].includes(String(safe.trainerProfile)))
       safe.trainerProfile = defaults.trainerProfile;
+    if (!["standard", "live"].includes(String(safe.dictationMode)))
+      safe.dictationMode = defaults.dictationMode;
+    if (!["ru", "en"].includes(String(safe.wakeLanguage)))
+      safe.wakeLanguage = defaults.wakeLanguage;
     return { ...defaults, ...safe };
   } catch {
     return { ...defaults };
@@ -94,7 +100,9 @@ export function playDemoSample(): Promise<void> {
 export function bindShortcut(
   getHotkey: () => string,
   action: () => void,
+  onRelease?: () => void,
 ): () => void {
+  let heldKey: string | null = null;
   const listener = (event: KeyboardEvent) => {
     if (
       event.repeat ||
@@ -115,11 +123,25 @@ export function bindShortcut(
         : event.key.toUpperCase() === key?.toUpperCase())
     ) {
       event.preventDefault();
+      heldKey = event.code || event.key;
       action();
     }
   };
+  const release = (event?: KeyboardEvent) => {
+    if (heldKey && (!event || (event.code || event.key) === heldKey)) {
+      heldKey = null;
+      onRelease?.();
+    }
+  };
   window.addEventListener("keydown", listener);
-  return () => window.removeEventListener("keydown", listener);
+  window.addEventListener("keyup", release);
+  const blur = () => release();
+  window.addEventListener("blur", blur);
+  return () => {
+    window.removeEventListener("keydown", listener);
+    window.removeEventListener("keyup", release);
+    window.removeEventListener("blur", blur);
+  };
 }
 export function protectUnload(isDirty: () => boolean): () => void {
   const handler = (e: BeforeUnloadEvent) => {

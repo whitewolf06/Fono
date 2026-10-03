@@ -1,5 +1,11 @@
 # Ручное тестирование Fono
 
+Для обновления голосового ядра 2026-10-03 использовать актуальные сценарии
+[fono-voice-reliability.md](fono-voice-reliability.md): обычная/живая диктовка,
+custom RU/EN WakeWord, focus pause/resume, API preemption и cold/warm replay.
+Ниже сохранены общие и исторические проверки; старые замеры transport не
+характеризуют живой режим с ограниченными окнами.
+
 ## Автоматический gate перед ручной проверкой
 
 Из `src-tauri`:
@@ -46,7 +52,7 @@ Overlay adapter fault-injection проверяет, что отказ `show/hide
 Фоновый preload использует тот же `ensure_loaded` и load-gate; его реальная
 проверка с выбранной моделью относится к desktop dev/manual уровню, потому что
 создание Tauri `AppHandle` и запуск native Whisper не являются unit-test средой.
-Worker fixture отдельно проверяет protocol-v2 health `ping → pong`; health API
+Worker fixture отдельно проверяет protocol-v3 health `ping → pong`; health API
 возвращает `busy`, а не ожидает активную транскрипцию.
 Отдельный fixture с зависшим worker подтверждает, что cancellation прерывает
 ожидание менее чем за две секунды, завершает process/session и возвращает

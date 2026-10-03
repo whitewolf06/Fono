@@ -218,3 +218,154 @@ test("saved forms stop being dirty and external toggles stay in sync", async () 
     delete globalThis.window;
   }
 });
+
+test("live dictation skips AI and publishes one result even when history is disabled", async () => {
+  await workspace.settings.save({
+    dictationMode: "live",
+    historyEnabled: false,
+  });
+  workspace.state.aiAvailable = false;
+  workspace.history.clear();
+  workspace.dictation.start();
+  assert.equal(workspace.state.live.phase, "listening");
+  assert.equal(workspace.state.live.insertionState, "none");
+  workspace.state.live.committedText = "Да, да, оставим повторы.";
+  workspace.state.live.draftText = "Следующая мысль.";
+  await workspace.dictation.finish();
+  assert.equal(workspace.state.phase, "done");
+  assert.equal(
+    workspace.state.last.draft,
+    "Да, да, оставим повторы. Следующая мысль.",
+  );
+  assert.equal(workspace.state.history.length, 0);
+  assert.equal(workspace.state.error, "");
+  await assert.rejects(workspace.dictation.improve(), /ИИ отключена/);
+  workspace.dictation.edit("Правка после завершения");
+  assert.equal(workspace.state.last.draft, "Правка после завершения");
+});
+
+test("focus pause keeps capture alive and resume is explicit; cancel keeps the confirmed draft", async () => {
+  workspace.scenario("live-paused");
+  assert.equal(workspace.state.phase, "listening");
+  assert.equal(workspace.state.live.insertionState, "paused_focus");
+  assert.throws(() => workspace.dictation.edit("Правка"), /завершите/);
+  await assert.rejects(
+    workspace.settings.save({ dictationMode: "standard" }),
+    /завершите/,
+  );
+  await workspace.dictation.resumeInsertion();
+  assert.equal(workspace.state.live.insertionState, "active");
+  const before = workspace.state.history.length;
+  workspace.state.live.committedText = "Подтверждённый текст.";
+  const available = [
+    workspace.state.live.committedText,
+    workspace.state.live.draftText,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  workspace.dictation.cancel();
+  assert.equal(workspace.state.last.draft, available);
+  assert.equal(workspace.state.history.length, before);
+  assert.equal(workspace.state.live.phase, "cancelled");
+});
+
+test("custom wake setup requires five examples, three fresh examples and both negative checks", async () => {
+  await workspace.settings.save({
+    wakePhrase: "мой помощник фоно",
+    wakeLanguage: "ru",
+  });
+  await workspace.wake.load();
+  assert.equal(workspace.state.wakeSetup.verified, false);
+  await workspace.wake.begin();
+  for (let i = 0; i < 5; i++) await workspace.wake.record();
+  assert.equal(workspace.state.wakeSetup.profileReady, true);
+  assert.equal(workspace.state.wakeSetup.verified, false);
+  await workspace.wake.beginValidation();
+  for (let i = 0; i < 3; i++) await workspace.wake.validate("positive");
+  await workspace.wake.validate("silence");
+  assert.equal(workspace.state.wakeSetup.verified, false);
+  await workspace.wake.validate("other_phrase");
+  assert.equal(workspace.state.wakeSetup.verified, true);
+  assert.equal(workspace.state.wakeSetup.validation.completed, true);
+});
+
+test("wake phrase validation matches native word limits and language alphabets", async () => {
+  const { defaults, validatePreferences } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/domain/preferences.ts",
+  );
+  const { normalizeWakePhrase } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/domain/wakePhrase.ts",
+  );
+  assert.equal(defaults.wakePhrase, "Эй, фоно");
+  assert.equal(validatePreferences({ ...defaults }), null);
+  for (const phrase of [
+    "Пожалуйста, активируй помощника",
+    "Алё, фоно 2",
+    "Компьютер",
+    "123",
+  ]) {
+    assert.equal(
+      validatePreferences({ ...defaults, wakePhrase: phrase }),
+      null,
+      phrase,
+    );
+  }
+  assert.equal(normalizeWakePhrase("  АЛЁ, фоно! 2  "), "але фоно 2");
+  assert.match(
+    validatePreferences({ ...defaults, wakePhrase: "Эй, Fono" }),
+    /кириллицу/,
+  );
+  assert.match(
+    validatePreferences({
+      ...defaults,
+      wakeLanguage: "en",
+      wakePhrase: "hey фоно",
+    }),
+    /латиницу/,
+  );
+  assert.equal(
+    validatePreferences({
+      ...defaults,
+      wakeLanguage: "en",
+      wakePhrase: "Wake up computer 2",
+    }),
+    null,
+  );
+  assert.match(
+    validatePreferences({
+      ...defaults,
+      wakePhrase: "пожалуйста включи запись моего голоса",
+    }),
+    /от 1 до 4 слов/,
+  );
+  assert.match(
+    validatePreferences({ ...defaults, wakePhrase: "!!!" }),
+    /от 1 до 4 слов/,
+  );
+});
+
+test("invalid mixed-script wake phrase does not change saved demo preferences", async () => {
+  await assert.rejects(
+    workspace.settings.save({ wakePhrase: "Эй, Fono" }),
+    /кириллицу/,
+  );
+  assert.equal(workspace.state.preferences.wakePhrase, "Эй, фоно");
+});
+
+test("live mode persists as a demo setting without saving partial text", async () => {
+  await workspace.settings.save({
+    dictationMode: "live",
+    wakePhrase: "my helper fono",
+    wakeLanguage: "en",
+  });
+  workspace.dictation.start();
+  workspace.state.live.draftText = "PRIVATE LIVE TRANSCRIPT";
+  await workspace.settings.save({ overlayScale: 110 });
+  const saved = [...storage.values()].join();
+  assert.ok(!saved.includes("PRIVATE LIVE TRANSCRIPT"));
+  const reload = createWorkspace();
+  assert.equal(reload.state.preferences.dictationMode, "live");
+  assert.equal(reload.state.preferences.wakeLanguage, "en");
+  assert.equal(reload.state.live, undefined);
+  reload.dispose();
+});

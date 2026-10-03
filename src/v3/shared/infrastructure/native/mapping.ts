@@ -12,12 +12,17 @@ import type {
   ServiceJob,
 } from "../../domain/contracts";
 import { defaults } from "../../../features/preferences/domain/preferences";
+import {
+  validateWakePhrase,
+  wakePhraseLanguage,
+} from "../../../features/preferences/domain/wakePhrase";
 export function preferencesFromNative(
   s: Settings,
   models: WhisperModelInfo[],
 ): Preferences {
   return {
     ...defaults,
+    dictationMode: s.dictation_mode || "standard",
     microphone: s.audio_device_id || "system",
     model:
       models.find((m) => m.local_path === s.whisper_model_path)?.size ||
@@ -35,6 +40,12 @@ export function preferencesFromNative(
       .join(" + "),
     wakeEnabled: s.wake_word_enabled,
     wakePhrase: s.wake_word,
+    wakeLanguage:
+      s.wake_backend === "sherpa_streaming_ru"
+        ? "ru"
+        : s.wake_backend === "sherpa_streaming_en"
+          ? "en"
+          : wakePhraseLanguage(s.wake_word),
     silenceMs: s.wake_dictation_silence_ms,
     wakeThreshold: s.wake_word_threshold,
     speechThreshold: s.wake_dictation_speech_threshold,
@@ -76,6 +87,7 @@ export function applyPreferences(
   const p = { ...preferencesFromNative(s, models), ...patch };
   const has = (key: keyof Preferences) => key in patch;
   const pairs = {
+    dictationMode: "dictation_mode",
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",
@@ -106,6 +118,12 @@ export function applyPreferences(
     next.whisper_model_path = model?.local_path || s.whisper_model_path;
   }
   if (has("hotkey")) next.hotkey = p.hotkey.replaceAll(" ", "");
+  if (has("wakeLanguage") || has("wakePhrase")) {
+    const error = validateWakePhrase(p.wakePhrase, p.wakeLanguage);
+    if (error) throw new Error(error);
+    next.wake_backend =
+      p.wakeLanguage === "ru" ? "sherpa_streaming_ru" : "sherpa_streaming_en";
+  }
   if (has("commandHotkey"))
     next.command_hotkey = p.commandHotkey.replaceAll(" ", "");
   if (has("processingEnabled") || has("processingMode"))

@@ -11,12 +11,8 @@ $tauriRoot = Join-Path $repoRoot 'src-tauri'
 $workersDir = Join-Path $tauriRoot 'resources\stt-workers'
 New-Item -ItemType Directory -Path $workersDir -Force | Out-Null
 
-# Generated worker artifacts are a closed manifest. Remove only generated
-# executables/DLLs in the explicit staging directory before rebuilding so a
-# previous CUDA Toolkit or worker build cannot leak into the next installer.
-Get-ChildItem -LiteralPath $workersDir -File |
-    Where-Object { $_.Extension -in '.exe', '.dll' } |
-    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
+# Replace only the backend built in this invocation, after its build succeeds.
+# SkipCuda/SkipVulkan preserve the other already prepared backend.
 
 function Invoke-Native([string]$File, [string[]]$Arguments) {
     & $File @Arguments
@@ -48,7 +44,10 @@ function Find-CudaBin {
 Push-Location $tauriRoot
 try {
     if (!$SkipCuda) {
-        Invoke-Native 'cargo' @('build', '-p', 'fono-stt-worker', '--release', '--features', 'cuda', '--target-dir', 'target-worker-cuda')
+        Invoke-Native 'cargo' @('build', '-p', 'fono-stt-worker', '--bin', 'fono-stt-worker', '--release', '--features', 'cuda', '--target-dir', 'target-worker-cuda')
+        Get-ChildItem -LiteralPath $workersDir -File |
+            Where-Object { $_.Name -eq 'fono-stt-cuda-worker.exe' -or $_.Name -match '^(cublas64_|cublasLt64_|cudart64_).*\.dll$' } |
+            ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
         Copy-Item 'target-worker-cuda\release\fono-stt-worker.exe' (Join-Path $workersDir 'fono-stt-cuda-worker.exe') -Force
 
         # whisper.cpp CUDA imports cuBLAS dynamically. These redistributable DLLs
@@ -73,3 +72,4 @@ try {
 }
 
 Write-Host "STT workers prepared in $workersDir"
+& (Join-Path $PSScriptRoot 'verify-stt-workers.ps1') -WorkersDirectory $workersDir

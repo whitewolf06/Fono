@@ -1,67 +1,91 @@
 import { call } from "./ipc";
 import type { NativeContext } from "./context";
+import type { WakePort } from "../../domain/wake";
 import type {
   WakeCalibrationStatus,
   WakeProfileValidationStatus,
+  WakeWordRecognitionReport,
+  WakeWordCapabilities,
 } from "../../../../lib/types";
-export function nativeWake(ctx: NativeContext) {
+
+export function nativeWake(ctx: NativeContext): WakePort {
+  async function load() {
+    const [setup, validation, modelReady, caps] = await Promise.all([
+      call<WakeCalibrationStatus>("get_wake_calibration_status"),
+      call<WakeProfileValidationStatus>("get_wake_profile_validation_status"),
+      call<boolean>("is_kws_model_downloaded"),
+      call<WakeWordCapabilities>("get_wake_word_capabilities"),
+    ]);
+    const current = await ctx.readSettings();
+    const profileReady =
+      !!setup.profile &&
+      setup.profile.backend === current.wake_backend &&
+      setup.profile.phrase.toLocaleLowerCase().trim() ===
+        current.wake_word.toLocaleLowerCase().trim();
+    ctx.state.wakeCapabilities = {
+      backend: caps.backend,
+      customPhrase: caps.supports_custom_phrase,
+      languages: (caps.available_languages || ["ru", "en"]).map((value) => ({
+        value,
+        label: value === "ru" ? "Русский" : "Английский",
+      })),
+    };
+    ctx.state.wakeSetup = {
+      modelReady,
+      profileReady,
+      verified: profileReady && !!setup.profile?.validation,
+      active: setup.active,
+      required: setup.required_samples,
+      accepted: setup.accepted_samples,
+      rejected: setup.rejected_samples,
+      phrase: setup.phrase,
+      latest: setup.latest_result
+        ? {
+            accepted: setup.latest_result.accepted,
+            reason: setup.latest_result.reason || undefined,
+            detected: setup.latest_result.detected,
+          }
+        : undefined,
+      validation: {
+        active: validation.active,
+        completed: validation.completed,
+        failed: validation.failed,
+        positivePassed: validation.positive_passed,
+        positiveRequired: validation.positive_required,
+        silencePassed: validation.silence_passed,
+        otherPhrasePassed: validation.other_phrase_passed,
+      },
+    };
+  }
+  async function execute(command: string, args?: Record<string, unknown>) {
+    await call(command, args);
+    await load();
+  }
   return {
-    async action(action: string) {
-      if (action === "download") {
-        if (!(await call<boolean>("is_kws_model_downloaded")))
-          await call("download_kws_model");
-        return "Модель пробуждения готова.";
-      }
-      if (action === "test") {
-        await call("record_wake_word_sample", { durationMs: 4000 });
-        const result = await call<{ detected: boolean; recognized: string }>(
-          "recognize_wake_word_sample",
-        );
-        return result.detected
-          ? "Фраза обнаружена: " + result.recognized
-          : "Фраза не обнаружена. Проверьте микрофон и повторите.";
-      }
-      if (["start", "record", "cancel"].includes(action)) {
-        const command = {
-          start: "start_wake_calibration",
-          record: "record_wake_calibration_sample",
-          cancel: "cancel_wake_calibration",
-        }[action]!;
-        const result = await call<WakeCalibrationStatus>(command);
-        await ctx.readSettings();
-        return result.active
-          ? "Принято " +
-              result.accepted_samples +
-              " из " +
-              result.required_samples +
-              ". " +
-              (result.latest_result?.accepted === false
-                ? "Образец отклонён: " + result.latest_result.reason
-                : "Запишите следующий образец.")
-          : action === "cancel"
-            ? "Калибровка отменена."
-            : "Калибровка завершена. Перейдите к проверке профиля.";
-      }
-      const result = await call<WakeProfileValidationStatus>(
-        action === "validate"
-          ? "start_wake_profile_validation"
-          : "record_wake_profile_validation_sample",
-        action === "validate" ? undefined : { kind: action },
-      );
-      await ctx.readSettings();
-      return result.completed
-        ? "Проверка завершена. Можно включить пробуждение."
-        : result.failed
-          ? "Профиль не прошёл проверку. Повторите калибровку."
-          : "Фраза: " +
-            result.positive_passed +
-            "/" +
-            result.positive_required +
-            ". Тишина: " +
-            (result.silence_passed ? "пройдена" : "ожидается") +
-            ". Другая фраза: " +
-            (result.other_phrase_passed ? "пройдена" : "ожидается") +
-            ".";
+    load,
+    async download() {
+      if (!(await call<boolean>("is_kws_model_downloaded")))
+        await call("download_kws_model");
+      await load();
     },
+    async test() {
+      await call("record_wake_word_sample", { durationMs: 4000 });
+      const result = await call<WakeWordRecognitionReport>(
+        "recognize_wake_word_sample",
+      );
+      return result.detected
+        ? "Фраза обнаружена: «" +
+            result.recognized +
+            "». Проверка заняла " +
+            result.processing_ms +
+            " мс."
+        : "Фраза не обнаружена. Проверьте микрофон или настройте профиль заново.";
+    },
+    begin: () => execute("start_wake_calibration"),
+    record: () => execute("record_wake_calibration_sample"),
+    beginValidation: () => execute("start_wake_profile_validation"),
+    validate: (kind) =>
+      execute("record_wake_profile_validation_sample", { kind }),
+    cancel: () => execute("cancel_wake_calibration"),
   };
 }

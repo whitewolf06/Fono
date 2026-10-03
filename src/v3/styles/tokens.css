@@ -73,6 +73,9 @@
   --fono-service-icon: 42px;
   --fono-wave-height: 62px;
   --fono-text-max-height: 260px;
+  --fono-live-notice-width: 640px;
+  --fono-mode-control-width: 300px;
+  --fono-overlay-text-lines: 2;
   --fono-control-height: 34px;
   --fono-motion-fast: 160ms;
   --fono-wave-idle: 8s;

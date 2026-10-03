@@ -34,6 +34,20 @@ mod sherpa_impl {
         wav_path: &Path,
         use_builtin_keywords: bool,
     ) -> WakeWordResult<WakeWordTestResult> {
+        if !use_builtin_keywords {
+            let report = crate::replay::replay_wav(config, wav_path)?;
+            return Ok(WakeWordTestResult {
+                detected: report.detections > 0,
+                keyword: if report.detections > 0 {
+                    config.phrase.clone()
+                } else {
+                    String::new()
+                },
+                json: serde_json::to_string(&report).unwrap_or_default(),
+                samples: report.audio_samples,
+                duration_ms: report.audio_duration_ms,
+            });
+        }
         let wave = sherpa_onnx::Wave::read(&wav_path.to_string_lossy()).ok_or_else(|| {
             WakeWordError::ModelLoad(format!("failed to read wav: {}", wav_path.display()))
         })?;

@@ -7,6 +7,21 @@ import AppIcon from "../../../shared/presentation/AppIcon.vue";
 const workspace = useWorkspace();
 const scenarios: { id: Scenario; title: string; detail: string }[] = [
   {
+    id: "live-paused",
+    title: "Живая диктовка · поле изменилось",
+    detail: "Запись продолжается, вставка ждёт явного продолжения.",
+  },
+  {
+    id: "live-backlog",
+    title: "Живая диктовка · отставание",
+    detail: "Аудио сохраняется, распознавание догоняет речь.",
+  },
+  {
+    id: "live-insertion-error",
+    title: "Живая диктовка · ошибка вставки",
+    detail: "Остаток доступен для копирования; автоматического повтора нет.",
+  },
+  {
     id: "loading",
     title: "Загрузка данных",
     detail:

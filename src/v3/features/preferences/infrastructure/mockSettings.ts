@@ -11,12 +11,23 @@ const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 export function createSettingsPort(state: WorkspaceState): SettingsPort {
   async function save(patch: Partial<WorkspaceState["preferences"]>) {
+    if (
+      patch.dictationMode &&
+      ["listening", "silence", "transcribing", "processing"].includes(
+        state.phase,
+      )
+    )
+      throw new Error("Сначала завершите текущую диктовку.");
     await wait(420);
     if (state.scenario === "save-error")
       throw new Error(
         "Не удалось сохранить. Изменения остались в форме — попробуйте ещё раз после восстановления соединения.",
       );
     const next = { ...state.preferences, ...patch };
+    const phraseChanged =
+      next.wakePhrase !== state.preferences.wakePhrase ||
+      next.wakeLanguage !== state.preferences.wakeLanguage;
+    if (phraseChanged) next.wakeEnabled = false;
     const trainerProfile = state.profiles.find(
       (p) => p.id === next.trainerProfile,
     );
@@ -32,12 +43,20 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     if (error) throw new Error(error);
     persistPreferences(next);
     Object.assign(state.preferences, next);
+    if (phraseChanged && state.wakeSetup) {
+      state.wakeSetup.profileReady = false;
+      state.wakeSetup.verified = false;
+    }
     state.logs.unshift("Настройки обновлены");
   }
   return {
     save,
     async toggle(key, value) {
       if (state.pending[key]) return;
+      if (key === "wakeEnabled" && value && state.wakeSetup?.verified === false)
+        throw new Error(
+          "Сначала настройте свою фразу и пройдите контрольную проверку.",
+        );
       const previous = state.preferences[key];
       state.pending[key] = true;
       state.preferences[key] = value;

@@ -5,7 +5,7 @@ import globals from "globals";
 import vue from "eslint-plugin-vue";
 import vueParser from "vue-eslint-parser";
 export default [
-  { ignores: ["dist/**", "node_modules/**", "src-tauri/**"] },
+  { ignores: ["dist/**", "build/**", "node_modules/**", "src-tauri/**"] },
   js.configs.recommended,
   ...vue.configs["flat/essential"],
   {

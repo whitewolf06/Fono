@@ -8,12 +8,15 @@ import { useInteraction } from "../../../shared/application/interaction";
 import { protectUnload } from "../../../shared/infrastructure/browser";
 import type { LastSession } from "../../../shared/domain/contracts";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import { liveIsActive } from "../domain/live";
 const workspace = useWorkspace();
 const { run, busy, error } = useFeedback();
 const ui = useInteraction();
 const editing = ref(false);
 const editor = ref("");
 const last = computed(() => workspace.state.last);
+const live = computed(() => workspace.state.live);
+const active = computed(() => liveIsActive(live.value));
 const editorDirty = computed(
   () => editing.value && editor.value !== last.value.draft,
 );
@@ -53,6 +56,7 @@ async function cancelEdit() {
   if (await leave()) editing.value = false;
 }
 function beginEdit() {
+  if (active.value) return;
   editor.value = last.value.draft;
   editing.value = true;
 }
@@ -65,11 +69,13 @@ function beginEdit() {
         <div>
           <h2 id="latest-heading">Последний текст</h2>
           <small>{{
-            last.entry
-              ? last.edited
-                ? "Ваш черновик · архив не изменён"
-                : "Последняя диктовка этой сессии"
-              : "Здесь появится ваша следующая мысль"
+            active
+              ? "Подтверждённый текст и текущая фраза"
+              : last.entry
+                ? last.edited
+                  ? "Ваш черновик · архив не изменён"
+                  : "Последняя диктовка этой сессии"
+                : "Здесь появится ваша следующая мысль"
           }}</small>
         </div>
       </div>
@@ -77,7 +83,57 @@ function beginEdit() {
         ><AppIcon name="clock" :size="16" />История</RouterLink
       >
     </header>
-    <template v-if="last.entry">
+    <template v-if="active && live">
+      <div
+        class="latest-text live-transcript"
+        tabindex="0"
+        aria-label="Живая расшифровка"
+      >
+        <span>{{ live.committedText }}</span
+        ><span class="live-draft">{{ live.draftText }}</span>
+        <small v-if="!live.committedText && !live.draftText" class="muted"
+          >Говорите — первые фрагменты появятся через несколько секунд.</small
+        >
+      </div>
+      <footer class="text-actions">
+        <small class="muted"
+          >{{
+            live.draftText
+              ? "Приглушённый текст ещё уточняется."
+              : "Устойчивые фрагменты больше не переписываются."
+          }}
+          Редактирование — после завершения.</small
+        >
+        <WlButton
+          v-if="live.pendingText && live.insertionState === 'failed'"
+          size="sm"
+          variant="ghost"
+          title="Проверьте последний фрагмент в поле: часть текста могла уже вставиться"
+          @click="
+            run(
+              () => workspace.copy(live!.pendingText),
+              'Остаток скопирован. Проверьте последний фрагмент перед вставкой',
+            )
+          "
+          >Копировать остаток</WlButton
+        >
+        <WlButton
+          size="sm"
+          class="push-right"
+          :disabled="!live.committedText"
+          @click="
+            run(
+              () => workspace.copy(live!.committedText),
+              'Подтверждённый текст скопирован',
+            )
+          "
+        >
+          <template #icon><AppIcon name="copy" :size="16" /></template
+          >Копировать
+        </WlButton>
+      </footer>
+    </template>
+    <template v-else-if="last.entry">
       <div class="text-meta">
         <div class="segmented small" aria-label="Версия текста">
           <button
@@ -142,12 +198,15 @@ function beginEdit() {
             :loading="busy"
             :disabled="
               !workspace.state.preferences.processingEnabled ||
+              workspace.state.preferences.dictationMode === 'live' ||
               !last.draft.trim()
             "
             :title="
-              workspace.state.preferences.processingEnabled
-                ? 'Улучшить текущий черновик'
-                : 'Включите обработку текста'
+              workspace.state.preferences.dictationMode === 'live'
+                ? 'В живом режиме обработка через ИИ отключена'
+                : workspace.state.preferences.processingEnabled
+                  ? 'Улучшить текущий черновик'
+                  : 'Включите обработку текста'
             "
             @click="
               run(
@@ -182,6 +241,23 @@ function beginEdit() {
     <div v-else class="latest-empty">
       Нажмите «Начать запись» или используйте
       {{ workspace.state.preferences.hotkey }}.
+    </div>
+    <div
+      v-if="!active && live?.pendingText && live.insertionState === 'failed'"
+      class="text-actions"
+    >
+      <small class="muted"
+        >Часть последнего фрагмента могла уже вставиться. Проверьте поле перед
+        вставкой остатка.</small
+      >
+      <WlButton
+        size="sm"
+        variant="ghost"
+        @click="
+          run(() => workspace.copy(live!.pendingText), 'Остаток скопирован')
+        "
+        >Копировать остаток</WlButton
+      >
     </div>
     <p v-if="error" role="alert" class="error-text">{{ error }}</p>
   </section>

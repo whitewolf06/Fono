@@ -3,13 +3,16 @@ import type {
   Section,
   QuickPanel,
 } from "../../../shared/domain/contracts";
+import { validateWakePhrase } from "./wakePhrase";
 export const defaults: Preferences = {
+  dictationMode: "standard",
   microphone: "system",
   model: "small",
   language: "ru",
   acceleration: "auto",
   wakeEnabled: true,
-  wakePhrase: "Эй, Fono",
+  wakePhrase: "Эй, фоно",
+  wakeLanguage: "ru",
   silenceMs: 1600,
   hotkey: "Ctrl + Space",
   commandHotkey: "Ctrl + Shift + Space",
@@ -43,8 +46,10 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
   general: ["autostart", "insertion"],
   audio: ["microphone", "model", "language", "acceleration"],
   activation: [
+    "dictationMode",
     "wakeEnabled",
     "wakePhrase",
+    "wakeLanguage",
     "silenceMs",
     "hotkey",
     "commandHotkey",
@@ -80,10 +85,10 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
 };
 export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
   microphone: ["microphone"],
-  wake: ["wakePhrase", "silenceMs"],
+  wake: ["wakePhrase", "wakeLanguage", "silenceMs"],
   recognition: ["model", "language", "acceleration"],
   processing: ["processingMode", "profile", "processingModel"],
-  hotkey: ["hotkey"],
+  hotkey: ["hotkey", "dictationMode"],
   "command-hotkey": ["commandHotkey"],
 };
 export const quickSections: Record<QuickPanel, Section> = {
@@ -129,8 +134,10 @@ export function validatePreferences(p: Preferences): string | null {
     )
   )
     return "Укажите корректное сочетание для голосовых команд.";
-  if (!["Эй, Fono", "Привет, компьютер", "Начни запись"].includes(p.wakePhrase))
-    return "Выберите поддерживаемую фразу пробуждения.";
+  const wakeError = validateWakePhrase(p.wakePhrase, p.wakeLanguage);
+  if (wakeError) return wakeError;
+  if (!["standard", "live"].includes(p.dictationMode))
+    return "Выберите обычную или живую диктовку.";
   if (p.silenceMs < 600 || p.silenceMs > 5000)
     return "Пауза должна быть от 600 до 5000 мс.";
   if (p.trainerEnabled && !p.analyticsConsent)

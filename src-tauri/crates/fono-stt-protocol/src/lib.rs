@@ -2,9 +2,14 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u16 = 2;
+pub const PROTOCOL_VERSION: u16 = 3;
 pub const MAX_REQUEST_FRAME_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_RESPONSE_FRAME_BYTES: usize = 1024 * 1024;
+
+mod timestamps;
+pub use timestamps::{words_from_pieces, TimedPiece, TimedSegment, WindowTranscript};
+#[cfg(feature = "inference")]
+pub mod inference;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -37,6 +42,12 @@ pub struct WorkerCapabilities {
     pub protocol_version: u16,
     pub supports_health: bool,
     pub supports_shutdown: bool,
+    #[serde(default)]
+    pub supports_window: bool,
+    #[serde(default)]
+    pub supports_cancel: bool,
+    #[serde(default)]
+    pub supports_token_timestamps: bool,
     pub maximum_request_bytes: usize,
     pub maximum_response_bytes: usize,
 }
@@ -47,6 +58,9 @@ impl Default for WorkerCapabilities {
             protocol_version: PROTOCOL_VERSION,
             supports_health: true,
             supports_shutdown: true,
+            supports_window: true,
+            supports_cancel: true,
+            supports_token_timestamps: true,
             maximum_request_bytes: MAX_REQUEST_FRAME_BYTES,
             maximum_response_bytes: MAX_RESPONSE_FRAME_BYTES,
         }
@@ -77,6 +91,22 @@ pub enum WorkerRequest {
         /// PCM i16 little-endian encoded as base64.
         samples_i16_base64: String,
     },
+    TranscribeWindow {
+        #[serde(flatten)]
+        meta: RequestMeta,
+        model_path: String,
+        language: String,
+        context: Option<String>,
+        audio_start_sample: u64,
+        samples_i16_base64: String,
+    },
+    /// Sent independently while inference is active. The cancelled target returns
+    /// an Error with code `cancelled`; this control frame has no separate reply.
+    CancelRequest {
+        #[serde(flatten)]
+        meta: RequestMeta,
+        target_request_id: String,
+    },
     Shutdown {
         #[serde(flatten)]
         meta: RequestMeta,
@@ -90,6 +120,8 @@ impl WorkerRequest {
             | Self::Ping { meta }
             | Self::Load { meta, .. }
             | Self::Transcribe { meta, .. }
+            | Self::TranscribeWindow { meta, .. }
+            | Self::CancelRequest { meta, .. }
             | Self::Shutdown { meta } => meta,
         }
     }
@@ -123,6 +155,12 @@ pub enum WorkerResponse {
         transcribe_secs: f32,
         backend: BackendKind,
     },
+    WindowResult {
+        protocol_version: u16,
+        request_id: String,
+        operation_id: String,
+        transcript: WindowTranscript,
+    },
     ShuttingDown {
         protocol_version: u16,
         request_id: String,
@@ -143,6 +181,7 @@ impl WorkerResponse {
             | Self::Pong { request_id, .. }
             | Self::ModelLoaded { request_id, .. }
             | Self::Result { request_id, .. }
+            | Self::WindowResult { request_id, .. }
             | Self::ShuttingDown { request_id, .. }
             | Self::Error { request_id, .. } => request_id,
         }
@@ -160,6 +199,9 @@ impl WorkerResponse {
                 protocol_version, ..
             }
             | Self::Result {
+                protocol_version, ..
+            }
+            | Self::WindowResult {
                 protocol_version, ..
             }
             | Self::ShuttingDown {
@@ -215,5 +257,41 @@ mod tests {
         );
         assert!(capabilities.supports_health);
         assert!(capabilities.supports_shutdown);
+        assert!(capabilities.supports_cancel);
+        assert!(capabilities.supports_window);
+        assert!(capabilities.supports_token_timestamps);
+    }
+
+    #[test]
+    fn window_and_cancel_round_trip_without_separate_cancel_response() {
+        let request = WorkerRequest::TranscribeWindow {
+            meta: RequestMeta::new("window-1", Some("7".into())),
+            model_path: "модель.bin".into(),
+            language: "ru".into(),
+            context: Some("Fono".into()),
+            audio_start_sample: 16000,
+            samples_i16_base64: "AAA=".into(),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        let decoded: WorkerRequest = serde_json::from_str(&json).unwrap();
+        assert!(matches!(
+            decoded,
+            WorkerRequest::TranscribeWindow {
+                audio_start_sample: 16000,
+                ..
+            }
+        ));
+        let cancel = WorkerRequest::CancelRequest {
+            meta: RequestMeta::new("cancel-2", Some("7".into())),
+            target_request_id: "window-1".into(),
+        };
+        let json = serde_json::to_string(&cancel).unwrap();
+        assert_eq!(
+            serde_json::from_str::<WorkerRequest>(&json)
+                .unwrap()
+                .meta()
+                .request_id,
+            "cancel-2"
+        );
     }
 }

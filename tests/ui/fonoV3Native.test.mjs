@@ -6,6 +6,7 @@ let server,
   createContext,
   nativeSettings,
   nativeDictation,
+  nativeWake,
   rawDefaults,
   defaults;
 let calls, invoke;
@@ -29,6 +30,9 @@ before(async () => {
   ));
   ({ nativeDictation } = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/native/dictation.ts",
+  ));
+  ({ nativeWake } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/wake.ts",
   ));
   ({ DEFAULT_SETTINGS: rawDefaults } =
     await server.ssrLoadModule("/src/lib/types.ts"));
@@ -54,6 +58,40 @@ beforeEach(() => {
     )
       return [];
     if (command === "get_wake_word_status") return "listening";
+    if (command === "is_kws_model_downloaded") return true;
+    if (command === "get_wake_word_capabilities")
+      return {
+        backend: "sherpa_onnx",
+        supports_custom_phrase: false,
+        supported_phrases: ["hey fono"],
+        includes_pre_roll: true,
+        supported_languages: ["en"],
+        available_languages: ["ru", "en"],
+      };
+    if (command === "get_wake_calibration_status")
+      return {
+        active: false,
+        recording: false,
+        required_samples: 5,
+        accepted_samples: 0,
+        rejected_samples: 0,
+        phrase: "hey fono",
+        latest_result: null,
+        profile: null,
+      };
+    if (command === "get_wake_profile_validation_status")
+      return {
+        active: false,
+        recording: false,
+        completed: false,
+        failed: false,
+        positive_passed: 0,
+        positive_required: 3,
+        silence_passed: false,
+        other_phrase_passed: false,
+        negative_required: 2,
+        latest_result: null,
+      };
   };
 });
 function state() {
@@ -127,6 +165,64 @@ test("native trainer consent revocation disables both trainer and cloud analysis
   const next = mapping.applyPreferences(raw, { analyticsConsent: false }, []);
   assert.equal(next.speech_trainer_enabled, false);
   assert.equal(next.speech_analysis_llm.enabled, false);
+});
+
+test("legacy wake language follows the phrase alphabet; explicit streaming language wins", () => {
+  const raw = structuredClone(rawDefaults);
+  for (const backend of [
+    "whisper_experimental",
+    "sherpa_onnx",
+    "disabled",
+    "mock",
+  ]) {
+    raw.wake_backend = backend;
+    raw.wake_word = "Привет, компьютер";
+    assert.equal(
+      mapping.preferencesFromNative(raw, []).wakeLanguage,
+      "ru",
+      backend,
+    );
+    raw.wake_word = "Hello, computer";
+    assert.equal(
+      mapping.preferencesFromNative(raw, []).wakeLanguage,
+      "en",
+      backend,
+    );
+  }
+  raw.wake_backend = "sherpa_streaming_ru";
+  raw.wake_word = "hello computer";
+  assert.equal(mapping.preferencesFromNative(raw, []).wakeLanguage, "ru");
+  raw.wake_backend = "sherpa_streaming_en";
+  raw.wake_word = "привет компьютер";
+  assert.equal(mapping.preferencesFromNative(raw, []).wakeLanguage, "en");
+});
+
+test("editing a legacy Russian phrase selects RU streaming and rejects mixed scripts before IPC", () => {
+  const raw = structuredClone(rawDefaults);
+  raw.wake_backend = "whisper_experimental";
+  raw.wake_word = "Привет, компьютер";
+  const next = mapping.applyPreferences(
+    raw,
+    { wakePhrase: "Алё, мой помощник" },
+    [],
+  );
+  assert.equal(next.wake_backend, "sherpa_streaming_ru");
+  assert.equal(next.wake_word, "Алё, мой помощник");
+  assert.throws(
+    () => mapping.applyPreferences(raw, { wakePhrase: "Эй, Fono" }, []),
+    /кириллицу/,
+  );
+  assert.throws(
+    () =>
+      mapping.applyPreferences(
+        raw,
+        { wakePhrase: "пожалуйста включи запись моего голоса" },
+        [],
+      ),
+    /от 1 до 4 слов/,
+  );
+  assert.equal(raw.wake_backend, "whisper_experimental");
+  assert.equal(raw.wake_word, "Привет, компьютер");
 });
 test("wake toggle invokes detector lifecycle and rolls back on error", async () => {
   const s = state();
@@ -216,6 +312,62 @@ test("a slow improvement cannot replace a newer dictation; undo restores only th
   assert.equal(s.last.draft, "Новая диктовка");
   assert.equal(s.last.entry.text, "Новая диктовка");
 });
+
+test("native idle operation zero completes ordinary dictation and ignores old results", () => {
+  const s = state(),
+    d = nativeDictation(createContext(s));
+  const result = {
+    id: "ordinary-1",
+    text: "Первый текст",
+    original_text: "Первый текст",
+    audio_secs: 2,
+    created_at: new Date().toISOString(),
+  };
+  const snapshot = {
+    state: "listening",
+    level: 0.1,
+    last: null,
+    operation_id: 1,
+    source: "ui",
+  };
+  d.snapshot(snapshot);
+  assert.equal(s.phase, "listening");
+  d.accept(result);
+  d.snapshot({
+    ...snapshot,
+    state: "idle",
+    operation_id: 0,
+    last: result,
+    source: null,
+  });
+  assert.equal(s.phase, "done");
+  d.snapshot({ ...snapshot, operation_id: 2 });
+  d.accept({ ...result, id: "ordinary-2", text: "Новый текст" });
+  d.snapshot({ ...snapshot, state: "idle", operation_id: 0, last: result });
+  assert.equal(s.phase, "done");
+  assert.equal(s.last.draft, "Новый текст");
+});
+
+test("final processed payload updates the same result id without replacing manual edits", () => {
+  const s = state(),
+    d = nativeDictation(createContext(s));
+  const original = {
+    id: "ordinary",
+    text: "ну текст",
+    original_text: "ну текст",
+    audio_secs: 2,
+    created_at: new Date().toISOString(),
+  };
+  d.accept(original);
+  d.accept({ ...original, text: "Текст." });
+  d.accept(original);
+  assert.equal(s.last.draft, "Текст.");
+  assert.equal(s.last.entry.original, "ну текст");
+  d.port.edit("Ручная правка");
+  d.accept({ ...original, text: "Обработанный текст." });
+  assert.equal(s.last.entry.text, "Обработанный текст.");
+  assert.equal(s.last.draft, "Ручная правка");
+});
 test("wake recording is confirmed without racing its auto-stop; hotkey must be released", async () => {
   const s = state(),
     dictation = nativeDictation(createContext(s));
@@ -236,4 +388,137 @@ test("model deletion cannot cancel a similarly named download", async () => {
     "cancel_model_download",
     { downloadId: "whisper:large_v3_turbo" },
   ]);
+});
+
+function liveSnapshot(session = "1", revision = 1, patch = {}) {
+  return {
+    session_id: session,
+    revision,
+    committed_text: "Да, да, оставим повторы.",
+    draft_text: "Следующая мысль",
+    pending_text: "Да, да, оставим повторы.",
+    insertion_state: "paused_focus",
+    lag_ms: 2400,
+    phase: "listening",
+    source: "hotkey",
+    elapsed_ms: 6000,
+    audio_level: 0.5,
+    ...patch,
+  };
+}
+
+test("live snapshots preserve repetitions, reject stale revisions and retired sessions", () => {
+  const s = state(),
+    d = nativeDictation(createContext(s));
+  s.preferences.dictationMode = "live";
+  d.live(liveSnapshot("1", 2));
+  d.live(liveSnapshot("1", 1, { committed_text: "Старый текст" }));
+  assert.equal(s.live.committedText, "Да, да, оставим повторы.");
+  assert.equal(s.live.insertionState, "paused_focus");
+  assert.equal(s.phase, "listening");
+  d.live(liveSnapshot("2", 1, { committed_text: "Новая запись" }));
+  d.live(
+    liveSnapshot("1", 10, {
+      phase: "done",
+      committed_text: "Поздний результат",
+    }),
+  );
+  assert.equal(s.live.committedText, "Новая запись");
+  assert.ok(!calls.some(([name]) => /inject|improve_text/.test(name)));
+});
+
+test("live hotkey finishes explicitly; editing and AI cannot run during capture", async () => {
+  const s = state(),
+    d = nativeDictation(createContext(s));
+  s.preferences.dictationMode = "live";
+  d.live(liveSnapshot());
+  assert.throws(() => d.port.edit("Изменение"), /завершите/);
+  await assert.rejects(d.port.improve(), /завершите/);
+  await d.port.finish();
+  assert.equal(calls.at(-1)[0], "stop_dictation");
+  await d.port.resumeInsertion();
+  assert.equal(calls.at(-1)[0], "resume_live_insertion");
+  d.live(liveSnapshot("1", 2, { phase: "done" }));
+  await assert.rejects(d.port.improve(), /ИИ отключена/);
+  assert.ok(!calls.some(([name]) => name === "improve_text"));
+});
+
+test("an old desktop snapshot cannot reset live phase or elapsed time", () => {
+  const s = state(),
+    d = nativeDictation(createContext(s));
+  s.preferences.dictationMode = "live";
+  d.live(liveSnapshot("2", 3));
+  d.snapshot({
+    state: "idle",
+    level: 0,
+    last: null,
+    operation_id: 1,
+    source: null,
+  });
+  assert.equal(s.phase, "listening");
+  assert.equal(s.elapsed, 6);
+  assert.equal(s.recordingSource, "hotkey");
+  d.live(liveSnapshot("2", 3, { elapsed_ms: 6800, audio_level: 0.7 }));
+  assert.equal(s.elapsed, 6.8);
+  assert.equal(s.audioLevel, 0.7);
+});
+
+test("uncertain native insertion is never retried automatically", async () => {
+  const s = state(),
+    d = nativeDictation(createContext(s));
+  s.preferences.dictationMode = "live";
+  d.live(liveSnapshot("1", 1, { insertion_state: "failed" }));
+  await assert.rejects(d.port.resumeInsertion(), /вручную/);
+  assert.ok(!calls.some(([name]) => name === "resume_live_insertion"));
+});
+
+test("live mode and wake language map to native settings without changing saved AI preferences", () => {
+  const raw = structuredClone(rawDefaults);
+  const next = mapping.applyPreferences(
+    raw,
+    { dictationMode: "live", wakeLanguage: "ru", wakePhrase: "привет фоно" },
+    [],
+  );
+  assert.equal(next.dictation_mode, "live");
+  assert.equal(next.wake_backend, "sherpa_streaming_ru");
+  assert.equal(next.wake_word, "привет фоно");
+  assert.equal(next.ai_mode, raw.ai_mode);
+  const mapped = mapping.preferencesFromNative(next, []);
+  assert.equal(mapped.wakeLanguage, "ru");
+  assert.equal(mapped.dictationMode, "live");
+});
+
+test("wake test records audio and invokes the detector, and language options include both engines", async () => {
+  const s = state(),
+    port = nativeWake(createContext(s));
+  const originalInvoke = invoke;
+  invoke = async (command, args) => {
+    if (command === "recognize_wake_word_sample") {
+      calls.push([command, args]);
+      return { detected: true, recognized: "hey fono", processing_ms: 42 };
+    }
+    return originalInvoke(command, args);
+  };
+  await port.load();
+  assert.equal(s.wakeSetup.required, 5);
+  assert.equal(s.wakeSetup.validation.positiveRequired, 3);
+  assert.deepEqual(
+    s.wakeCapabilities.languages.map((l) => l.value),
+    ["ru", "en"],
+  );
+  const result = await port.test();
+  assert.match(result, /42 мс/);
+  const names = calls.map(([name]) => name);
+  assert.ok(
+    names.indexOf("record_wake_word_sample") <
+      names.indexOf("recognize_wake_word_sample"),
+  );
+  await port.validate("silence");
+  assert.ok(
+    calls.some(
+      ([name, args]) =>
+        name === "record_wake_profile_validation_sample" &&
+        args.kind === "silence",
+    ),
+  );
 });

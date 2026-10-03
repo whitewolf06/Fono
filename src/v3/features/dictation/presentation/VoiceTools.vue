@@ -41,11 +41,14 @@ const tools = computed<
       value: p.wakePhrase,
       health: !p.wakeEnabled
         ? "off"
-        : workspace.state.wakeStatus === "loading"
+        : ["loading", "initializing"].includes(workspace.state.wakeStatus || "")
           ? "loading"
-          : workspace.state.wakeStatus === "missing_model"
+          : workspace.state.wakeStatus === "missing_model" ||
+              workspace.state.wakeSetup?.verified === false
             ? "missing"
-            : "ready",
+            : workspace.state.wakeStatus?.startsWith("error")
+              ? "error"
+              : "ready",
       toggle: "wakeEnabled",
     },
     {
@@ -67,17 +70,21 @@ const tools = computed<
     {
       title: "Обработка текста",
       panel: "processing",
-      value: p.processingModel || "Выберите модель",
-      health: !p.processingEnabled
-        ? "off"
-        : workspace.native && !workspace.state.aiChecked
-          ? p.profile && p.processingModel
-            ? "ready"
-            : "missing"
-          : workspace.state.aiAvailable
-            ? "ready"
-            : "error",
-      toggle: "processingEnabled",
+      value:
+        p.dictationMode === "live"
+          ? "Без ИИ в живом режиме"
+          : p.processingModel || "Выберите модель",
+      health:
+        p.dictationMode === "live" || !p.processingEnabled
+          ? "off"
+          : workspace.native && !workspace.state.aiChecked
+            ? p.profile && p.processingModel
+              ? "ready"
+              : "missing"
+            : workspace.state.aiAvailable
+              ? "ready"
+              : "error",
+      toggle: p.dictationMode === "live" ? undefined : "processingEnabled",
     },
   ];
 });

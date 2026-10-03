@@ -23,9 +23,21 @@ pub(super) struct ValidationSession {
     pub(super) silence_passed: bool,
     pub(super) other_phrase_passed: bool,
     pub(super) latest_result: Option<WakeProfileValidationSampleResult>,
+    profile_completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    profile_graph: Option<String>,
 }
 
 impl WakeProfileValidationService {
+    pub(super) fn cancel(&self) -> AppResult<()> {
+        let mut sessions = self.session.lock();
+        if sessions.as_ref().is_some_and(|s| s.recording) {
+            return Err(AppError::Audio(
+                "Дождитесь завершения проверочной записи".into(),
+            ));
+        }
+        *sessions = None;
+        Ok(())
+    }
     pub(super) fn begin(&self, threshold: f32) {
         let mut next_session_id = self.next_session_id.lock();
         *next_session_id = next_session_id.wrapping_add(1).max(1);
@@ -38,7 +50,23 @@ impl WakeProfileValidationService {
             silence_passed: false,
             other_phrase_passed: false,
             latest_result: None,
+            profile_completed_at: None,
+            profile_graph: None,
         });
+    }
+
+    pub(super) fn bind_profile(&self, profile: &crate::types::WakeCalibrationProfile) {
+        if let Some(s) = self.session.lock().as_mut() {
+            s.profile_completed_at = Some(profile.completed_at);
+            s.profile_graph = Some(profile.graph.clone());
+        }
+    }
+    pub(super) fn matches_profile(&self, profile: &crate::types::WakeCalibrationProfile) -> bool {
+        self.session.lock().as_ref().is_some_and(|s| {
+            s.profile_completed_at == Some(profile.completed_at)
+                && s.profile_graph.as_deref() == Some(profile.graph.as_str())
+                && (s.threshold - profile.threshold).abs() < f32::EPSILON
+        })
     }
 
     pub(super) fn begin_recording(&self, kind: WakeProfileValidationKind) -> AppResult<u64> {

@@ -1,3 +1,4 @@
+import type { WakePort, WakeSetupState, WakeCapabilities } from "./wake";
 export type Phase =
   | "idle"
   | "listening"
@@ -8,6 +9,18 @@ export type Phase =
   | "cancelled"
   | "error";
 export type Health = "ready" | "off" | "missing" | "loading" | "error";
+export type DictationMode = "standard" | "live";
+export interface LiveDictation {
+  sessionId: string;
+  revision: number;
+  committedText: string;
+  draftText: string;
+  pendingText: string;
+  insertionState: "active" | "paused_focus" | "failed" | "none";
+  phase: "listening" | "draining" | "done" | "cancelled" | "error";
+  lagMs: number;
+  warning?: string;
+}
 export type Section =
   | "general"
   | "audio"
@@ -24,12 +37,14 @@ export type QuickPanel =
   | "hotkey"
   | "command-hotkey";
 export interface Preferences {
+  dictationMode: DictationMode;
   microphone: string;
   model: string;
   language: string;
   acceleration: string;
   wakeEnabled: boolean;
   wakePhrase: string;
+  wakeLanguage: "ru" | "en";
   silenceMs: number;
   hotkey: string;
   commandHotkey: string;
@@ -136,8 +151,14 @@ export type Scenario =
   | "queue"
   | "long-content"
   | "loading"
-  | "load-error";
+  | "load-error"
+  | "live-paused"
+  | "live-backlog"
+  | "live-insertion-error";
 export interface WorkspaceState {
+  wakeSetup?: WakeSetupState;
+  wakeCapabilities?: WakeCapabilities;
+  live?: LiveDictation | null;
   commandProposal?: string;
   recordingSource?: string;
   accelerations?: { value: string; label: string }[];
@@ -185,6 +206,7 @@ export interface DictationPort {
   start(): void;
   finish(): Promise<void>;
   cancel(): void;
+  resumeInsertion(): Promise<void>;
   chooseVariant(variant: LastSession["variant"]): void;
   edit(text: string): void;
   improve(): Promise<void>;
@@ -213,7 +235,7 @@ export interface ServicePort {
 }
 export interface Workspace {
   native?: boolean;
-  wake?: { action(action: string): Promise<string> };
+  wake?: WakePort;
   refresh?(): Promise<void>;
   state: WorkspaceState;
   settings: SettingsPort;

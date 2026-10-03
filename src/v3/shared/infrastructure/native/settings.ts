@@ -2,10 +2,26 @@ import type { SettingsPort, Preferences } from "../../domain/contracts";
 import type { NativeContext } from "./context";
 import type { LlmProfile } from "../../../../lib/types";
 import { call, playMicrophoneSample } from "./ipc";
+import { nativeWake } from "./wake";
 export function nativeSettings(ctx: NativeContext): SettingsPort {
   const { state } = ctx;
   return {
-    save: ctx.save,
+    async save(patch) {
+      if (
+        patch.dictationMode &&
+        ["listening", "silence", "transcribing", "processing"].includes(
+          state.phase,
+        )
+      )
+        throw new Error("Сначала завершите текущую диктовку.");
+      await ctx.save(patch);
+      if (
+        ["wakePhrase", "wakeLanguage", "wakeThreshold", "speechThreshold"].some(
+          (key) => key in patch,
+        )
+      )
+        await nativeWake(ctx).load();
+    },
     async toggle(key, value) {
       if (state.pending[key]) return;
       const previous = state.preferences[key];
@@ -25,6 +41,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
             await call(value ? "enable_wake_word" : "disable_wake_word");
             await ctx.readSettings();
             state.wakeStatus = await call<string>("get_wake_word_status");
+            await nativeWake(ctx).load();
           });
         } else await ctx.save({ [key]: value } as Partial<Preferences>);
       } catch (error) {

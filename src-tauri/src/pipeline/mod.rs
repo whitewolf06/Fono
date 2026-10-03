@@ -7,7 +7,7 @@
 //! и возможность вручную триггернуть транскрипцию.
 //! Push-to-talk и VAD добавляются на Этапе 3, wake word — на Этапе 4.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -22,6 +22,11 @@ use crate::operation::{
 use crate::state::AppState;
 use crate::stt::SttEngine;
 use crate::types::PipelineState;
+#[cfg(test)]
+mod capture_tests;
+pub mod completion;
+pub mod scheduler;
+use crate::audio::RecordingBuffer;
 
 const RECORDING_SAMPLE_RATE: usize = 16_000;
 pub const MAX_RECORDING_SECONDS: usize = 5 * 60;
@@ -31,6 +36,7 @@ const INITIAL_RECORDING_CAPACITY: usize = RECORDING_SAMPLE_RATE * 30;
 /// Разделяемое состояние конвейера.
 pub struct Pipeline {
     recording: Mutex<bool>,
+    capture_operation: AtomicU64,
     /// Arc-буфер накопленных сэмплов, разделяемый с аудио-callback'ом cpal.
     writer: Mutex<Option<RecordingWriter>>,
     /// Adapter for the physical CPAL subscription; production keeps stream
@@ -43,6 +49,10 @@ pub struct Pipeline {
     stt: Arc<SttEngine>,
     /// Единственный владелец пользовательской операции и её lifecycle.
     operations: OperationCoordinator,
+    service_operations: OperationCoordinator,
+    pub completion: completion::CompletionGate,
+    scheduler: Arc<scheduler::SttScheduler>,
+    session_settings: Mutex<Option<(u64, crate::types::Settings)>>,
 }
 
 impl Pipeline {
@@ -59,21 +69,33 @@ impl Pipeline {
     ) -> Self {
         Self {
             recording: Mutex::new(false),
+            capture_operation: AtomicU64::new(0),
             writer: Mutex::new(None),
             audio_owner,
             recording_limit_reached: Arc::new(AtomicBool::new(false)),
             audio_level_bits: Arc::new(AtomicU32::new(0.0f32.to_bits())),
             stt: Arc::new(SttEngine::new()),
             operations: OperationCoordinator::new(),
+            service_operations: OperationCoordinator::new(),
+            completion: completion::CompletionGate::default(),
+            scheduler: Arc::new(scheduler::SttScheduler::default()),
+            session_settings: Mutex::new(None),
         }
     }
 
     /// Запросить отмену текущей диктовки.
     pub fn cancel(&self) -> Option<OperationEvent> {
         let operation = self.operations.current()?;
-        let event = self.operations.cancel(operation.id);
+        self.cancel_for(operation.id)
+    }
+
+    /// Delayed callbacks can cancel only the operation they captured earlier.
+    pub fn cancel_for(&self, operation: u64) -> Option<OperationEvent> {
+        let _capture = self.recording.lock();
+        let event = self.operations.cancel(operation);
         if event.is_some() {
-            tracing::debug!(operation = operation.id, "pipeline: cancellation requested");
+            self.scheduler.release_reservation(operation);
+            tracing::debug!(operation, "pipeline: cancellation requested");
         }
         event
     }
@@ -90,6 +112,7 @@ impl Pipeline {
         operation_id: u64,
         reason: TerminalReason,
     ) -> Option<OperationEvent> {
+        self.scheduler.release_reservation(operation_id);
         self.operations.finish(operation_id, reason)
     }
 
@@ -107,27 +130,52 @@ impl Pipeline {
         self.operations.is_active(operation_id)
     }
 
+    /// Commit an in-process side effect before cancellation or replacement.
+    /// The closure must not reacquire this lock, run inference or send native input.
+    pub(crate) fn while_operation<T>(
+        &self,
+        operation: u64,
+        action: impl FnOnce() -> T,
+    ) -> Option<T> {
+        let _capture = self.recording.lock();
+        if !self.is_operation_active(operation) {
+            return None;
+        }
+        Some(action())
+    }
+
+    /// Idle cleanup and wake resumption complete before a new capture can attach.
+    pub(crate) fn while_idle(&self, action: impl FnOnce()) -> bool {
+        let _capture = self.recording.lock();
+        if self.current_operation().is_some() {
+            return false;
+        }
+        action();
+        true
+    }
+
     pub fn cancellation(&self, operation_id: u64) -> Option<OperationCancellation> {
         self.operations.cancellation(operation_id)
     }
 
-    /// Reserves the shared STT resource for a non-interactive service job.
-    /// Desktop dictation, wake-word and diagnostics use the same coordinator,
-    /// so they cannot start while this lease is active.
+    /// Service lifecycle is independent from interactive dictation. The STT
+    /// scheduler pauses a service at a bounded window when dictation starts.
     pub fn start_service_transcription(&self) -> AppResult<(u64, OperationCancellation)> {
-        let operation = self.operations.start(OperationSource::Service)?;
+        let operation = self.service_operations.start(OperationSource::Service)?;
         if let Err(error) = self
-            .operations
+            .service_operations
             .acquire_resource(operation.id, OperationResource::Stt)
         {
-            let _ = self.operations.finish(operation.id, TerminalReason::Failed);
+            let _ = self
+                .service_operations
+                .finish(operation.id, TerminalReason::Failed);
             return Err(error.into());
         }
         let _ = self
-            .operations
+            .service_operations
             .transition(operation.id, OperationPhase::Transcribing);
         let cancellation = self
-            .operations
+            .service_operations
             .cancellation(operation.id)
             .expect("new service operation must own cancellation");
         Ok((operation.id, cancellation))
@@ -176,6 +224,9 @@ impl Pipeline {
         };
 
         if event.is_some() {
+            if matches!(state, PipelineState::Idle | PipelineState::Error) {
+                self.scheduler.release_reservation(operation_id);
+            }
             match state {
                 PipelineState::Transcribing => {
                     self.operations
@@ -205,6 +256,57 @@ impl Pipeline {
         &self.stt
     }
 
+    pub fn scheduler(&self) -> Arc<scheduler::SttScheduler> {
+        self.scheduler.clone()
+    }
+    pub fn set_session_settings(&self, settings: crate::types::Settings) {
+        self.set_session_settings_for(self.operation_id(), settings);
+    }
+    pub fn set_session_settings_for(
+        &self,
+        operation: u64,
+        settings: crate::types::Settings,
+    ) -> bool {
+        let _capture = self.recording.lock();
+        if !self.is_operation_active(operation) {
+            return false;
+        }
+        *self.session_settings.lock() = Some((operation, settings));
+        true
+    }
+    pub fn session_settings(&self) -> Option<crate::types::Settings> {
+        self.session_settings_for(self.operation_id())
+    }
+    pub fn session_settings_for(&self, operation: u64) -> Option<crate::types::Settings> {
+        self.session_settings
+            .lock()
+            .as_ref()
+            .filter(|(id, _)| *id == operation)
+            .map(|(_, settings)| settings.clone())
+    }
+
+    pub fn recording_window(&self, from: u64, maximum: usize) -> (u64, Vec<i16>) {
+        self.writer
+            .lock()
+            .as_ref()
+            .map(|w| w.lock().window(from, maximum))
+            .unwrap_or((from, Vec::new()))
+    }
+    pub fn recording_end(&self) -> u64 {
+        self.writer.lock().as_ref().map_or(0, |w| w.lock().end())
+    }
+    pub fn recording_start(&self) -> u64 {
+        self.writer.lock().as_ref().map_or(0, |w| w.lock().start())
+    }
+    pub fn finish_service_operation(&self, operation: u64, reason: TerminalReason) {
+        let _ = self.service_operations.finish(operation, reason);
+    }
+    pub fn discard_audio_before(&self, offset: u64) {
+        if let Some(writer) = self.writer.lock().as_ref() {
+            writer.lock().discard_before(offset);
+        }
+    }
+
     pub fn is_recording(&self) -> bool {
         *self.recording.lock()
     }
@@ -214,8 +316,7 @@ impl Pipeline {
     }
 
     /// Нормированный RMS уровень звука последних ~100 мс записи (0.0..1.0).
-    /// Используется wake-диктовкой для определения тишины (стоп по VAD),
-    /// когда основной writer-буфер уже пишется аудио-потоком.
+    /// Уровень для визуального индикатора; решения о речи принимает neural VAD.
     /// Возвращает 0.0, если запись не идёт или буфер пока пуст.
     pub fn current_level(&self) -> f32 {
         f32::from_bits(self.audio_level_bits.load(Ordering::Relaxed))
@@ -225,7 +326,7 @@ impl Pipeline {
         &self,
         device_id: Option<&str>,
         source: OperationSource,
-    ) -> AppResult<()> {
+    ) -> AppResult<u64> {
         self.start_recording_with_pre_roll_from(device_id, &[], source)
     }
 
@@ -237,7 +338,18 @@ impl Pipeline {
         device_id: Option<&str>,
         pre_roll: &[i16],
         source: OperationSource,
-    ) -> AppResult<()> {
+    ) -> AppResult<u64> {
+        self.start_capture(device_id, pre_roll, source, None, false)
+    }
+
+    pub fn start_capture(
+        &self,
+        device_id: Option<&str>,
+        pre_roll: &[i16],
+        source: OperationSource,
+        cursor: Option<(u64, u64)>,
+        live: bool,
+    ) -> AppResult<u64> {
         let mut recording = self.recording.lock();
         if *recording {
             tracing::warn!("start_recording called while already recording");
@@ -254,25 +366,32 @@ impl Pipeline {
         }
 
         self.recording_limit_reached.store(false, Ordering::SeqCst);
-        let mut samples = Vec::with_capacity(
-            INITIAL_RECORDING_CAPACITY
-                .max(pre_roll.len())
-                .min(MAX_RECORDING_SAMPLES),
-        );
-        samples.extend_from_slice(pre_roll);
-        let writer = Arc::new(Mutex::new(samples));
-        if let Err(error) = self.audio_owner.start(
+        let maximum = if live {
+            RECORDING_SAMPLE_RATE * 120
+        } else {
+            MAX_RECORDING_SAMPLES
+        };
+        let writer = Arc::new(Mutex::new(RecordingBuffer::new(
+            pre_roll,
+            INITIAL_RECORDING_CAPACITY,
+        )));
+        self.scheduler.reserve(operation.id);
+        if let Err(error) = self.audio_owner.start_after(
             device_id,
             Arc::clone(&writer),
             Arc::clone(&self.recording_limit_reached),
             Arc::clone(&self.audio_level_bits),
-            MAX_RECORDING_SAMPLES,
+            maximum,
+            cursor,
         ) {
+            self.scheduler.release_reservation(operation.id);
             let _ = self.operations.finish(operation.id, TerminalReason::Failed);
             return Err(error);
         }
 
         *self.writer.lock() = Some(writer);
+        self.capture_operation
+            .store(operation.id, Ordering::Release);
         *recording = true;
         tracing::info!(
             operation = operation.id,
@@ -281,47 +400,61 @@ impl Pipeline {
             pre_roll.len() as f32 / RECORDING_SAMPLE_RATE as f32,
             MAX_RECORDING_SECONDS
         );
-        Ok(())
+        Ok(operation.id)
     }
 
-    /// Останавливает запись и возвращает накопленные сэмплы.
-    pub fn stop_recording(&self) -> AppResult<Vec<i16>> {
+    /// Collect only the writer owned by this operation, under the capture lock.
+    pub fn stop_recording_for(&self, operation: u64) -> AppResult<Option<Vec<i16>>> {
         let mut recording = self.recording.lock();
-        if !*recording {
-            tracing::warn!("stop_recording called but was not recording");
-            return Ok(Vec::new());
+        if operation == 0 || self.capture_operation.load(Ordering::Acquire) != operation {
+            return Ok(None);
         }
-
-        // Keep the lifecycle lock until the owner confirms that the old stream
-        // was dropped. A concurrent start cannot install a new recording while
-        // this call is releasing the previous one.
-        let stopped = self.audio_owner.stop();
+        self.stop_capture_locked(&mut recording)?;
         let writer = self.writer.lock().take();
+        self.capture_operation.store(0, Ordering::Release);
+        Ok(writer.map(|writer| writer.lock().take()))
+    }
+
+    pub fn stop_recording(&self) -> AppResult<Vec<i16>> {
+        let operation = self.capture_operation.load(Ordering::Acquire);
+        Ok(self.stop_recording_for(operation)?.unwrap_or_default())
+    }
+
+    /// Physical capture stops immediately; its queued packets drain before the
+    /// lock is released. The live decoder retains its writer for final windows.
+    pub fn stop_capture_for(&self, operation: u64) -> AppResult<bool> {
+        let mut recording = self.recording.lock();
+        if operation == 0 || self.capture_operation.load(Ordering::Acquire) != operation {
+            return Ok(false);
+        }
+        self.stop_capture_locked(&mut recording)?;
+        Ok(true)
+    }
+
+    pub fn stop_capture(&self) -> AppResult<()> {
+        self.stop_capture_for(self.capture_operation.load(Ordering::Acquire))
+            .map(|_| ())
+    }
+
+    fn stop_capture_locked(&self, recording: &mut bool) -> AppResult<()> {
+        if !*recording {
+            return Ok(());
+        }
+        let stopped = self.audio_owner.stop();
         *recording = false;
         self.audio_level_bits
             .store(0.0f32.to_bits(), Ordering::Relaxed);
-        drop(recording);
-
+        self.operations.release_resource(
+            self.capture_operation.load(Ordering::Acquire),
+            OperationResource::Audio,
+        );
         stopped?;
-        if let Some(operation) = self.operations.current() {
-            self.operations
-                .release_resource(operation.id, OperationResource::Audio);
-        }
-
-        let writer = writer.ok_or_else(|| AppError::Audio("запись не была запущена".into()))?;
-        let samples = std::mem::take(&mut *writer.lock());
         if self.recording_limit_reached() {
             tracing::warn!(
-                max_seconds = MAX_RECORDING_SECONDS,
-                "recording buffer limit reached; additional audio was discarded"
+                "recording buffer reached its limit; input stopped with an explicit warning"
             );
         }
-        tracing::info!(
-            "recording stopped, captured {} samples (~{:.2}s @ 16kHz)",
-            samples.len(),
-            samples.len() as f32 / RECORDING_SAMPLE_RATE as f32
-        );
-        Ok(samples)
+        Ok(())
     }
 }
 
@@ -362,6 +495,7 @@ pub fn set_state_for_operation(
     new: PipelineState,
     terminal_reason: TerminalReason,
 ) -> bool {
+    let _capture = pipeline.recording.lock();
     let Some(event) = pipeline.sync_operation_state_for(operation_id, new, terminal_reason) else {
         tracing::debug!(
             operation = operation_id,
@@ -376,6 +510,19 @@ pub fn set_state_for_operation(
     crate::events::emit_pipeline_state(handle, new);
     sync_overlay_window(handle, new);
     true
+}
+
+/// Cancellation already emitted its terminal event; publish Idle only while vacant.
+pub(crate) fn set_idle_if_no_operation(
+    handle: &AppHandle,
+    state: &AppState,
+    pipeline: &Pipeline,
+) -> bool {
+    pipeline.while_idle(|| {
+        state.set_pipeline_state(PipelineState::Idle);
+        crate::events::emit_pipeline_state(handle, PipelineState::Idle);
+        sync_overlay_window(handle, PipelineState::Idle);
+    })
 }
 
 pub(crate) fn sync_overlay_window(handle: &AppHandle, state: PipelineState) {
@@ -536,24 +683,21 @@ mod tests {
     }
 
     #[test]
-    fn service_transcription_reserves_the_shared_stt_lease() {
+    fn service_lifecycle_does_not_block_interactive_recording() {
         let pipeline = Pipeline::new();
 
         let (operation_id, cancellation) = pipeline.start_service_transcription().unwrap();
 
-        assert_eq!(pipeline.operation_id(), operation_id);
+        assert_eq!(pipeline.operation_id(), 0);
         assert!(!cancellation.is_cancelled());
         assert_eq!(
-            pipeline.operations.resources(operation_id),
+            pipeline.service_operations.resources(operation_id),
             Some(vec![OperationResource::Stt])
         );
-        assert!(matches!(
-            pipeline.operations.start(OperationSource::Ui),
-            Err(crate::operation::CoordinatorError::Busy(_))
-        ));
-        pipeline
-            .finish_operation(operation_id, TerminalReason::Completed)
-            .unwrap();
+        let interactive = pipeline.operations.start(OperationSource::Ui).unwrap();
+        pipeline.finish_service_operation(operation_id, TerminalReason::Completed);
+        assert!(pipeline.is_operation_active(interactive.id));
+        assert!(pipeline.service_operations.current().is_none());
     }
 
     #[test]

@@ -35,16 +35,38 @@ pub struct WakeWordTestReport {
 #[cfg(feature = "sherpa-wake")]
 #[tauri::command]
 pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestReport> {
+    crate::application::dictation::ensure_capture_allowed(&app)?;
     let settings = app.state::<AppState>().settings();
-    let config = crate::settings_to_wake_config(&settings)?;
-    let wav_path = config.model_dir.join("test_wavs").join("0.wav");
+    let mut config = crate::settings_to_wake_config(&settings)?;
+    let (wav_path, builtin) = match config.backend {
+        fono_wake::WakeWordBackend::SherpaStreamingRu => {
+            config.phrase = "приедет бригада".into();
+            (config.model_dir.join("0.wav"), false)
+        }
+        fono_wake::WakeWordBackend::SherpaStreamingEn => {
+            config.phrase = "light up".into();
+            (config.model_dir.join("test_wavs").join("0.wav"), false)
+        }
+        fono_wake::WakeWordBackend::SherpaOnnx => {
+            (config.model_dir.join("test_wavs").join("0.wav"), true)
+        }
+        _ => {
+            return Err(AppError::Config(
+                "WAV-проверка доступна для Sherpa-движков".into(),
+            ))
+        }
+    };
     if !wav_path.is_file() {
         return Err(AppError::Internal(format!(
             "тестовый WAV не найден: {}",
             wav_path.display()
         )));
     }
-    let result = fono_wake::test_with_wav(&config, &wav_path, true)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        fono_wake::test_with_wav(&config, &wav_path, builtin)
+    })
+    .await
+    .map_err(|error| AppError::Internal(format!("wake model test failed: {error}")))??;
     Ok(WakeWordTestReport {
         detected: result.detected,
         keyword: result.keyword,
@@ -67,14 +89,31 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     let wake_handle = app.state::<fono_wake::WakeWordHandle>();
     let settings = state.settings();
     crate::application::wake_validation::ensure_profile_can_activate(&settings)?;
+    if settings.wake_word_enabled
+        && !matches!(
+            wake_handle.status(),
+            fono_wake::WakeWordStatus::Off
+                | fono_wake::WakeWordStatus::Error
+                | fono_wake::WakeWordStatus::MissingModel
+        )
+    {
+        return Ok(());
+    }
     let app_clone = app.clone();
     wake_handle.set_callback(move |event| match event {
-        fono_wake::WakeWordEvent::Detected { phrase, pre_roll } => {
+        fono_wake::WakeWordEvent::Detected {
+            phrase,
+            pre_roll,
+            audio_cursor,
+        } => {
             tracing::info!("wake word triggered: {phrase}");
             crate::events::emit_wake_detected(&app_clone, &phrase);
             let handle = app_clone.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = crate::run_dictation_after_wake(&handle, pre_roll).await {
+                if let Err(error) =
+                    crate::application::wake_dictation::run(&handle, pre_roll, audio_cursor).await
+                {
+                    crate::application::dictation::resume_wake_if_idle(&handle);
                     tracing::error!("dictation after wake failed: {error}");
                     crate::events::emit_error(
                         &handle,
@@ -123,7 +162,8 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
         }
         return Err(error);
     }
-    state.set_settings(updated);
+    state.set_settings(updated.clone());
+    crate::events::emit_settings(&app, &updated);
     tracing::info!("wake word enabled");
     Ok(())
 }
@@ -143,7 +183,8 @@ pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
         }
         return Err(error);
     }
-    state.set_settings(updated);
+    state.set_settings(updated.clone());
+    crate::events::emit_settings(&app, &updated);
     tracing::info!("wake word disabled");
     Ok(())
 }

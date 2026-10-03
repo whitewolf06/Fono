@@ -25,10 +25,16 @@ const trainerProfile = computed(() =>
 </script>
 <template>
   <div class="form-stack">
+    <p v-if="draft.dictationMode === 'live'" class="notice">
+      В живой диктовке обработка через ИИ выключена. Эти параметры применяются к
+      обычной диктовке.
+    </p>
     <PreferenceToggle
       name="processingEnabled"
       label="Обработка текста"
       description="Убирать речевой мусор или оформлять результат."
+      :disabled="draft.dictationMode === 'live'"
+      :effective-value="draft.dictationMode === 'live' ? false : undefined"
     />
     <SelectField
       id="processingMode"

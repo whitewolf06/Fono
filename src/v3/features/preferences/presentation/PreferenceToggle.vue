@@ -9,11 +9,27 @@ const props = defineProps<{
   label: string;
   description?: string;
   compact?: boolean;
+  disabled?: boolean;
+  effectiveValue?: boolean;
 }>();
 const workspace = useWorkspace();
 const ui = useInteraction();
 const { run } = useFeedback();
 async function change(value: boolean) {
+  if (props.disabled) return;
+  if (
+    props.name === "wakeEnabled" &&
+    value &&
+    workspace.state.wakeSetup &&
+    !workspace.state.wakeSetup.verified
+  ) {
+    await run(() => {
+      throw new Error(
+        "Сначала настройте свою фразу и пройдите контрольную проверку.",
+      );
+    });
+    return;
+  }
   if (
     props.name === "trainerEnabled" &&
     value &&
@@ -72,8 +88,8 @@ async function change(value: boolean) {
       <p v-if="description">{{ description }}</p>
     </div>
     <WlSwitch
-      :model-value="workspace.state.preferences[name]"
-      :disabled="workspace.state.pending[name]"
+      :model-value="effectiveValue ?? workspace.state.preferences[name]"
+      :disabled="disabled || workspace.state.pending[name]"
       :aria-label="label"
       @update:model-value="change"
     />

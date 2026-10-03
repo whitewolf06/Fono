@@ -10,6 +10,7 @@ const SILENCE_RMS: f32 = 0.007;
 const CLIPPING_PEAK: f32 = 0.985;
 const ACTIVE_SIGNAL: f32 = 0.02;
 const MIN_ACTIVE_MS: u64 = 300;
+#[cfg(test)]
 pub(super) const SHERPA_MODEL_VERSION: &str =
     "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01";
 
@@ -90,24 +91,20 @@ pub(super) fn input_issue(
     (active_ms < MIN_ACTIVE_MS).then_some(WakeProfileValidationInputIssue::TooShort)
 }
 
-pub(super) fn is_ramzi_sherpa(settings: &Settings) -> bool {
-    settings.wake_backend == WakeWordBackend::SherpaOnnx
-        && settings.wake_word.trim().eq_ignore_ascii_case("рамзи")
+pub(super) fn requires_profile(settings: &Settings) -> bool {
+    matches!(
+        settings.wake_backend,
+        WakeWordBackend::SherpaStreamingRu | WakeWordBackend::SherpaStreamingEn
+    ) || (settings.wake_backend == WakeWordBackend::SherpaOnnx
+        && settings.wake_word.trim().eq_ignore_ascii_case("рамзи"))
 }
 
 pub(super) fn profile_matches_settings(
     profile: &WakeCalibrationProfile,
     settings: &Settings,
 ) -> bool {
-    profile.backend == WakeWordBackend::SherpaOnnx
-        && profile.model_version == SHERPA_MODEL_VERSION
-        && profile.phrase.eq_ignore_ascii_case("рамзи")
-        && profile.graph == "sherpa-bpe-v1:ramzi"
-        && (profile.threshold - settings.wake_word_threshold).abs() < f32::EPSILON
-        && (profile.sensitivity - settings.wake_word_sensitivity).abs() < f32::EPSILON
-        && (profile.vad_threshold - settings.wake_word_vad_threshold).abs() < f32::EPSILON
+    crate::application::wake_calibration::profile_matches(profile, settings)
 }
-
 pub(super) fn has_current_validation(settings: &Settings) -> bool {
     let Some(profile) = settings.wake_calibration_profile.as_ref() else {
         return false;
@@ -116,6 +113,8 @@ pub(super) fn has_current_validation(settings: &Settings) -> bool {
         return false;
     };
     profile_matches_settings(profile, settings)
+        && validation.positive_passed >= POSITIVE_REQUIRED
+        && validation.negative_passed >= NEGATIVE_REQUIRED
         && (validation.confirmed_threshold - settings.wake_word_threshold).abs() < f32::EPSILON
 }
 
@@ -153,12 +152,12 @@ mod tests {
             backend: WakeWordBackend::SherpaOnnx,
             model_version: SHERPA_MODEL_VERSION.into(),
             phrase: "рамзи".into(),
-            graph: "sherpa-bpe-v1:ramzi".into(),
+            graph: crate::application::wake_calibration::profile_graph(&settings),
             threshold: settings.wake_word_threshold,
             sensitivity: settings.wake_word_sensitivity,
             vad_threshold: settings.wake_word_vad_threshold,
             completed_at: chrono::Utc::now(),
-            accepted_samples: 10,
+            accepted_samples: 5,
             rejected_samples: 0,
             average_rms: 0.1,
             average_peak: 0.4,

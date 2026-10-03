@@ -22,13 +22,16 @@ onUnmounted(overlay.dispose);
       :level="overlay.state.level"
       :seconds="overlay.state.seconds"
       :elapsed="overlay.state.elapsed"
+      :live="overlay.state.live"
       interactive
       :can-finish="
         !overlay.state.source ||
+        overlay.state.preferences.dictationMode === 'live' ||
         ['ui', 'wake_word'].includes(overlay.state.source)
       "
       @finish="overlay.finish"
       @cancel="overlay.cancel"
+      @resume="overlay.resume"
     />
     <span v-if="overlay.state.error" class="sr-only" role="alert">{{
       overlay.state.error

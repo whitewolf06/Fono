@@ -163,6 +163,12 @@
   }
 }
 @media (max-width: 600px) {
+  .hero-copy > .dictation-mode-control {
+    position: static;
+    align-items: flex-start;
+    text-align: left;
+    margin-top: var(--fono-space-3);
+  }
   :root {
     --fono-sidebar-width: 52px;
     --fono-brand-icon: 24px;

@@ -3,10 +3,11 @@ name = "fono-stt-worker"
 version = "0.1.0"
 edition = "2021"
 publish = false
+default-run = "fono-stt-worker"
 
 [dependencies]
 base64 = "0.22"
-fono-stt-protocol = { path = "../fono-stt-protocol" }
+fono-stt-protocol = { path = "../fono-stt-protocol", features = ["inference"] }
 serde_json = "1.0"
 whisper-rs = "0.16"
 
@@ -14,4 +15,3 @@ whisper-rs = "0.16"
 default = []
 cuda = ["whisper-rs/cuda"]
 vulkan = ["whisper-rs/vulkan"]
-

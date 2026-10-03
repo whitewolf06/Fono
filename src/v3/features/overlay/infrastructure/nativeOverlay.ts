@@ -1,11 +1,15 @@
 import { reactive } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Settings } from "../../../../lib/types";
-import type { Phase } from "../../../shared/domain/contracts";
+import type { Phase, LiveDictation } from "../../../shared/domain/contracts";
 import { defaults } from "../../preferences/domain/preferences";
 import { preferencesFromNative } from "../../../shared/infrastructure/native/mapping";
 import { call, subscribe } from "../../../shared/infrastructure/native/ipc";
-import type { NativeSnapshot } from "../../../shared/infrastructure/native/dictation";
+import type {
+  NativeSnapshot,
+  NativeLiveSnapshot,
+} from "../../../shared/infrastructure/native/dictation";
+import { livePhase } from "../../dictation";
 interface Preview {
   overlay_scale: number;
   overlay_opacity: number;
@@ -21,6 +25,7 @@ export function createNativeOverlay() {
     elapsed: 0,
     error: "",
     source: null as string | null,
+    live: null as LiveDictation | null,
     preview: null as Preview | null,
   });
   let settings: Settings | null = null,
@@ -35,6 +40,7 @@ export function createNativeOverlay() {
   };
   function applySettings() {
     if (settings) state.preferences = preferencesFromNative(settings, []);
+    if (state.preferences.dictationMode !== "live") state.live = null;
     if (state.preview && state.phase === "idle")
       Object.assign(state.preferences, {
         overlayEnabled: true,
@@ -52,6 +58,37 @@ export function createNativeOverlay() {
     settings = s;
     applySettings();
   });
+  function applyLive(v: NativeLiveSnapshot | null) {
+    if (!v || (settings && settings.dictation_mode !== "live")) return;
+    if (state.live && Number(v.session_id) < Number(state.live.sessionId))
+      return;
+    if (
+      state.live?.sessionId === v.session_id &&
+      state.live.revision >= v.revision
+    ) {
+      if (state.live.revision === v.revision) {
+        state.elapsed = Math.floor(v.elapsed_ms / 1000);
+        state.level = Math.min(1, Math.max(0, v.audio_level));
+      }
+      return;
+    }
+    state.live = {
+      sessionId: v.session_id,
+      revision: v.revision,
+      committedText: v.committed_text,
+      draftText: v.draft_text,
+      pendingText: v.pending_text,
+      insertionState: v.insertion_state,
+      phase: v.phase,
+      lagMs: v.lag_ms,
+      warning: v.warning || undefined,
+    };
+    state.phase = livePhase(state.live);
+    state.elapsed = Math.floor(v.elapsed_ms / 1000);
+    state.level = Math.min(1, Math.max(0, v.audio_level));
+    state.source = v.source;
+  }
+  bind<NativeLiveSnapshot>("dictation-live", applyLive);
   bind<Preview | null>("overlay-preview", (p) => {
     state.preview = p;
     applySettings();
@@ -86,7 +123,15 @@ export function createNativeOverlay() {
     if (disposed || polling) return;
     polling = true;
     try {
-      const v = await call<NativeSnapshot>("get_desktop_snapshot");
+      const [v, live] = await Promise.all([
+        call<NativeSnapshot>("get_desktop_snapshot"),
+        call<NativeLiveSnapshot | null>("get_live_dictation"),
+      ]);
+      applyLive(live);
+      if (state.live && state.preferences.dictationMode === "live") {
+        applySettings();
+        return;
+      }
       if (operation !== v.operation_id) {
         operation = v.operation_id;
         started = Date.now();
@@ -111,6 +156,7 @@ export function createNativeOverlay() {
   return {
     state,
     drag: () => window.startDragging().catch(fail),
+    resume: () => call("resume_live_insertion").catch(fail),
     finish: () =>
       (state.preview && state.phase === "idle"
         ? call("hide_overlay_preview")
