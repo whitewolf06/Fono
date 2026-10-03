@@ -8,6 +8,7 @@ import {
 import { useOverlayDemo } from "../application/useOverlayDemo";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import OverlayPreview from "./OverlayPreview.vue";
+import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 const { state } = useWorkspace();
 const {
   phase,
@@ -51,7 +52,11 @@ const phases: Phase[] = [
         {{ phaseLabels[value] }}
       </button>
     </div>
-    <div class="phase-picker" aria-label="Состояние живой диктовки">
+    <div
+      v-if="LIVE_DICTATION_ENABLED"
+      class="phase-picker"
+      aria-label="Состояние живой диктовки"
+    >
       <button @click="selectLive('recording')">Живая · запись</button>
       <button @click="selectLive('paused')">Поле изменилось</button>
       <button @click="selectLive('backlog')">Распознавание отстаёт</button>

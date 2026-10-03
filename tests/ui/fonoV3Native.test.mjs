@@ -472,20 +472,30 @@ test("uncertain native insertion is never retried automatically", async () => {
   assert.ok(!calls.some(([name]) => name === "resume_live_insertion"));
 });
 
-test("live mode and wake language map to native settings without changing saved AI preferences", () => {
+test("legacy and submitted live mode normalize to classic without changing saved AI preferences", () => {
   const raw = structuredClone(rawDefaults);
+  raw.dictation_mode = "live";
+  raw.ai_mode = "format";
+  assert.equal(
+    mapping.preferencesFromNative(raw, []).dictationMode,
+    "standard",
+  );
+  assert.equal(
+    mapping.applyPreferences(raw, { overlayScale: 120 }, []).dictation_mode,
+    "standard",
+  );
   const next = mapping.applyPreferences(
     raw,
     { dictationMode: "live", wakeLanguage: "ru", wakePhrase: "привет фоно" },
     [],
   );
-  assert.equal(next.dictation_mode, "live");
+  assert.equal(next.dictation_mode, "standard");
   assert.equal(next.wake_backend, "sherpa_streaming_ru");
   assert.equal(next.wake_word, "привет фоно");
   assert.equal(next.ai_mode, raw.ai_mode);
   const mapped = mapping.preferencesFromNative(next, []);
   assert.equal(mapped.wakeLanguage, "ru");
-  assert.equal(mapped.dictationMode, "live");
+  assert.equal(mapped.dictationMode, "standard");
 });
 
 test("wake test records audio and invokes the detector, and language options include both engines", async () => {

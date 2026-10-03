@@ -4,6 +4,7 @@ import type { Scenario } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 const workspace = useWorkspace();
 const scenarios: { id: Scenario; title: string; detail: string }[] = [
   {
@@ -101,7 +102,9 @@ const scenarios: { id: Scenario; title: string; detail: string }[] = [
     </p>
     <div class="scenario-grid">
       <button
-        v-for="scenario in scenarios"
+        v-for="scenario in scenarios.filter(
+          (item) => LIVE_DICTATION_ENABLED || !item.id.startsWith('live-'),
+        )"
         :key="scenario.id"
         class="scenario-card"
         :class="{ selected: workspace.state.scenario === scenario.id }"

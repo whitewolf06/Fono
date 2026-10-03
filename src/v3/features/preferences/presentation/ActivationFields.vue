@@ -6,6 +6,7 @@ import type { Preferences } from "../../../shared/domain/contracts";
 import NativeWakeSetup from "./NativeWakeSetup.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
+import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 defineProps<{
   scope?: "wake" | "hotkey" | "command-hotkey";
   advanced?: boolean;
@@ -29,6 +30,7 @@ const wakeLanguages = computed(
   <div class="form-stack">
     <template v-if="scope !== 'wake' && scope !== 'command-hotkey'">
       <SelectField
+        v-if="LIVE_DICTATION_ENABLED"
         id="dictationMode"
         v-model="draft.dictationMode"
         label="Режим диктовки"

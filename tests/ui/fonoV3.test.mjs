@@ -219,11 +219,12 @@ test("saved forms stop being dirty and external toggles stay in sync", async () 
   }
 });
 
-test("live dictation skips AI and publishes one result even when history is disabled", async () => {
+test("hidden live pipeline skips AI and publishes one result even when history is disabled", async () => {
   await workspace.settings.save({
-    dictationMode: "live",
     historyEnabled: false,
   });
+  // Exercise the retained experimental pipeline without making it user-selectable.
+  workspace.state.preferences.dictationMode = "live";
   workspace.state.aiAvailable = false;
   workspace.history.clear();
   workspace.dictation.start();
@@ -245,7 +246,9 @@ test("live dictation skips AI and publishes one result even when history is disa
 });
 
 test("focus pause keeps capture alive and resume is explicit; cancel keeps the confirmed draft", async () => {
-  workspace.scenario("live-paused");
+  workspace.state.preferences.dictationMode = "live";
+  workspace.dictation.start();
+  workspace.state.live.insertionState = "paused_focus";
   assert.equal(workspace.state.phase, "listening");
   assert.equal(workspace.state.live.insertionState, "paused_focus");
   assert.throws(() => workspace.dictation.edit("Правка"), /завершите/);
@@ -352,20 +355,35 @@ test("invalid mixed-script wake phrase does not change saved demo preferences", 
   assert.equal(workspace.state.preferences.wakePhrase, "Эй, фоно");
 });
 
-test("live mode persists as a demo setting without saving partial text", async () => {
-  await workspace.settings.save({
-    dictationMode: "live",
-    wakePhrase: "my helper fono",
-    wakeLanguage: "en",
-  });
-  workspace.dictation.start();
-  workspace.state.live.draftText = "PRIVATE LIVE TRANSCRIPT";
-  await workspace.settings.save({ overlayScale: 110 });
-  const saved = [...storage.values()].join();
-  assert.ok(!saved.includes("PRIVATE LIVE TRANSCRIPT"));
+test("previous live demo preferences reload and save as classic without losing other preferences", async () => {
+  storage.set(
+    "fono-v3-demo-preferences-v1",
+    JSON.stringify({
+      dictationMode: "live",
+      wakePhrase: "my helper fono",
+      wakeLanguage: "en",
+      processingEnabled: true,
+      processingMode: "format",
+      transcript: "PRIVATE LIVE TRANSCRIPT",
+    }),
+  );
   const reload = createWorkspace();
-  assert.equal(reload.state.preferences.dictationMode, "live");
-  assert.equal(reload.state.preferences.wakeLanguage, "en");
-  assert.equal(reload.state.live, undefined);
-  reload.dispose();
+  try {
+    assert.equal(reload.state.preferences.dictationMode, "standard");
+    assert.equal(reload.state.preferences.wakeLanguage, "en");
+    assert.equal(reload.state.preferences.processingEnabled, true);
+    assert.equal(reload.state.preferences.processingMode, "format");
+    assert.equal(reload.state.live, undefined);
+    await reload.settings.save({ dictationMode: "live", overlayScale: 110 });
+    assert.equal(reload.state.preferences.dictationMode, "standard");
+    const saved = storage.get("fono-v3-demo-preferences-v1");
+    assert.equal(JSON.parse(saved).dictationMode, "standard");
+    assert.ok(!saved.includes("PRIVATE LIVE TRANSCRIPT"));
+    reload.scenario("live-paused");
+    assert.equal(reload.state.preferences.dictationMode, "standard");
+    assert.equal(reload.state.live, null);
+    assert.equal(reload.state.phase, "idle");
+  } finally {
+    reload.dispose();
+  }
 });

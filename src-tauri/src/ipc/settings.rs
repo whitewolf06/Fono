@@ -43,6 +43,7 @@ pub async fn save_settings(
     state: State<'_, AppState>,
     mut settings: Settings,
 ) -> AppResult<()> {
+    settings.enforce_classic_dictation();
     let old_settings = state.settings();
     active::validate(
         app.state::<crate::pipeline::Pipeline>()

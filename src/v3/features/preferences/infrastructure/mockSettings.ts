@@ -3,6 +3,7 @@ import type {
   WorkspaceState,
 } from "../../../shared/domain/contracts";
 import { validatePreferences } from "../domain/preferences";
+import { availableDictationMode } from "../../../shared/domain/dictationMode";
 import {
   persistPreferences,
   playDemoSample,
@@ -23,7 +24,11 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       throw new Error(
         "Не удалось сохранить. Изменения остались в форме — попробуйте ещё раз после восстановления соединения.",
       );
-    const next = { ...state.preferences, ...patch };
+    const next = {
+      ...state.preferences,
+      ...patch,
+      dictationMode: availableDictationMode(patch.dictationMode),
+    };
     const phraseChanged =
       next.wakePhrase !== state.preferences.wakePhrase ||
       next.wakeLanguage !== state.preferences.wakeLanguage;

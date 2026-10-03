@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { LIVE_DICTATION_ENABLED } from "../shared/domain/dictationMode";
 import type {
   Workspace,
   WorkspaceState,
@@ -154,7 +155,7 @@ export function createMockWorkspace(): Workspace {
         "Локальная модель с очень длинным названием для проверки компоновки и переносов";
     }
     selectLatest(state, state.history[0] ?? null);
-    if (value.startsWith("live-")) {
+    if (LIVE_DICTATION_ENABLED && value.startsWith("live-")) {
       state.preferences.dictationMode = "live";
       dictation.start();
       const live = state.live as LiveDictation | null;

@@ -1,5 +1,6 @@
 import type { Preferences } from "../domain/contracts";
 import { defaults } from "../../features/preferences/domain/preferences";
+import { availableDictationMode } from "../domain/dictationMode";
 const storageKey = "fono-v3-demo-preferences-v1";
 // Persist demo preferences only. Transcripts, tokens and instructions never enter browser storage.
 const persistedKeys: (keyof Preferences)[] = [
@@ -53,8 +54,9 @@ export function readPreferences(): Preferences {
       safe.profile = defaults.profile;
     if (!["local", "cloud"].includes(String(safe.trainerProfile)))
       safe.trainerProfile = defaults.trainerProfile;
-    if (!["standard", "live"].includes(String(safe.dictationMode)))
-      safe.dictationMode = defaults.dictationMode;
+    safe.dictationMode = availableDictationMode(
+      safe.dictationMode as Preferences["dictationMode"],
+    );
     if (!["ru", "en"].includes(String(safe.wakeLanguage)))
       safe.wakeLanguage = defaults.wakeLanguage;
     return { ...defaults, ...safe };
@@ -66,6 +68,7 @@ export function persistPreferences(prefs: Preferences): void {
   const safe = Object.fromEntries(
     persistedKeys.map((key) => [key, prefs[key]]),
   );
+  safe.dictationMode = availableDictationMode(prefs.dictationMode);
   try {
     localStorage.setItem(storageKey, JSON.stringify(safe));
   } catch {

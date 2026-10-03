@@ -12,6 +12,7 @@ import type {
   ServiceJob,
 } from "../../domain/contracts";
 import { defaults } from "../../../features/preferences/domain/preferences";
+import { availableDictationMode } from "../../domain/dictationMode";
 import {
   validateWakePhrase,
   wakePhraseLanguage,
@@ -22,7 +23,7 @@ export function preferencesFromNative(
 ): Preferences {
   return {
     ...defaults,
-    dictationMode: s.dictation_mode || "standard",
+    dictationMode: availableDictationMode(s.dictation_mode),
     microphone: s.audio_device_id || "system",
     model:
       models.find((m) => m.local_path === s.whisper_model_path)?.size ||
@@ -84,10 +85,10 @@ export function applyPreferences(
   models: WhisperModelInfo[],
 ): Settings {
   const next = structuredClone(s);
+  next.dictation_mode = availableDictationMode(patch.dictationMode);
   const p = { ...preferencesFromNative(s, models), ...patch };
   const has = (key: keyof Preferences) => key in patch;
   const pairs = {
-    dictationMode: "dictation_mode",
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",

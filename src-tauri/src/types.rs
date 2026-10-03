@@ -614,6 +614,14 @@ impl Default for Settings {
 }
 
 impl Settings {
+    /// Live dictation is temporarily unavailable after manual quality review.
+    /// Normalize both persisted settings and settings submitted by older clients.
+    pub fn enforce_classic_dictation(&mut self) -> bool {
+        let changed = self.dictation_mode != DictationMode::Standard;
+        self.dictation_mode = DictationMode::Standard;
+        changed
+    }
+
     /// Returns true when an old single-connection configuration was migrated.
     pub fn migrate_llm_profiles(&mut self) -> bool {
         if !self.llm_profiles.is_empty() {
@@ -642,7 +650,28 @@ impl Settings {
 
 #[cfg(test)]
 mod wake_calibration_settings_tests {
-    use super::Settings;
+    use super::{AiMode, DictationMode, Settings};
+
+    #[test]
+    fn saved_live_mode_returns_to_classic_without_losing_processing_preferences() {
+        let mut settings: Settings = serde_json::from_value(serde_json::json!({
+            "dictation_mode": "live",
+            "ai_mode": "format",
+            "language": "en",
+            "clean_prompt": "Keep this instruction"
+        }))
+        .expect("previous live settings deserialize");
+
+        assert!(settings.enforce_classic_dictation());
+        assert_eq!(settings.dictation_mode, DictationMode::Standard);
+        assert_eq!(settings.ai_mode, AiMode::Format);
+        assert_eq!(settings.language, "en");
+        assert_eq!(
+            settings.clean_prompt.as_deref(),
+            Some("Keep this instruction")
+        );
+        assert!(!settings.enforce_classic_dictation());
+    }
 
     #[test]
     fn legacy_settings_without_calibration_profile_remain_compatible() {

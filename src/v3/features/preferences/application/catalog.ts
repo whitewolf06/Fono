@@ -1,5 +1,6 @@
 import type { Section } from "../../../shared/domain/contracts";
 import type { WlIconName } from "@whitelife-core/ui-kit";
+import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 export const sections: {
   id: Section;
   title: string;
@@ -55,12 +56,6 @@ export const searchIndex: {
   field: string;
   keywords: string;
 }[] = [
-  {
-    label: "Режим диктовки",
-    section: "activation",
-    field: "dictationMode",
-    keywords: "живая потоковая live streaming текст поэтапно",
-  },
   {
     label: "Микрофон",
     section: "audio",
@@ -164,3 +159,11 @@ export const searchIndex: {
     keywords: "логи ошибка проблема проверка",
   },
 ];
+
+if (LIVE_DICTATION_ENABLED)
+  searchIndex.unshift({
+    label: "Режим диктовки",
+    section: "activation",
+    field: "dictationMode",
+    keywords: "живая потоковая live streaming текст поэтапно",
+  });

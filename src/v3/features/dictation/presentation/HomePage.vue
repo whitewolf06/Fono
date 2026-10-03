@@ -9,6 +9,7 @@ import HomeServices from "./HomeServices.vue";
 import RecordControl from "./RecordControl.vue";
 import HomeTextPreview from "./HomeTextPreview.vue";
 import DictationModeControl from "./DictationModeControl.vue";
+import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 const workspace = useWorkspace();
 const { state } = workspace;
 const ui = useInteraction();
@@ -35,7 +36,7 @@ const ui = useInteraction();
             ? "нажмите для начала и завершения"
             : "удерживайте во время речи"
         }}</small>
-        <DictationModeControl />
+        <DictationModeControl v-if="LIVE_DICTATION_ENABLED" />
       </div>
     </header>
     <VoiceTools /><HomeServices /><RecordControl /><HomeTextPreview />
