@@ -2,6 +2,15 @@ import type { VersionEntry } from "./versionHistory";
 
 export const history06: VersionEntry[] = [
   {
+    version: "0.6.12",
+    date: "2026-10-05",
+    title: "Проверенная поставка для Windows",
+    changes: [
+      "Исправлена загрузка библиотек при проверке Windows-сборки: native-тесты используют поставляемый runtime вместо несовместимой системной ONNX Runtime.",
+      "Подготовлен подписанный установщик и канал обновлений через GitHub Releases.",
+    ],
+  },
+  {
     version: "0.6.11",
     date: "2026-10-05",
     title: "Обновления, память модели и спокойнее интерфейс",

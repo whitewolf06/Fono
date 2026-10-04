@@ -115,7 +115,7 @@ jobs:
         run: |
           cargo fmt --all --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --workspace --all-targets
+          ../scripts/test-native.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo clippy --locked --workspace --all-targets -- -D warnings
           exit $LASTEXITCODE

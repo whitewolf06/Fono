@@ -77,7 +77,7 @@ jobs:
         run: |
           cargo fmt --all --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --workspace --all-targets
+          ../scripts/test-native.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo clippy --locked --workspace --all-targets -- -D warnings
           exit $LASTEXITCODE
@@ -88,7 +88,7 @@ jobs:
         shell: pwsh
         run: |
           if (!$env:TAURI_SIGNING_PRIVATE_KEY) { throw 'Set TAURI_SIGNING_PRIVATE_KEY in the protected environment.' }
-          npm run tauri -- build --ci --bundles nsis --config build/update-release.conf.json -- --locked
+          node node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis --config build/update-release.conf.json -- --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --exit-code -- src-tauri/Cargo.lock package-lock.json
           exit $LASTEXITCODE

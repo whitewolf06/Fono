@@ -45,6 +45,25 @@ Sherpa-ONNX 1.13.4, проверяет SHA-256 и структуру путей,
 разрешённый staging-каталог и устанавливает `SHERPA_ONNX_LIB_DIR`. Проверяется
 версия в `Cargo.lock` и SHA-256 Silero VAD, уже включённого в Git.
 
+Windows-тесты запускаются через `scripts/test-native.ps1`: сначала Cargo собирает
+тот же набор тестов с `--no-run` и сообщает точные пути исполняемых файлов в JSON,
+затем четыре DLL из `SHERPA_ONNX_LIB_DIR` копируются рядом с каждым executable.
+После этого выполняется обычный `cargo test --locked --workspace --all-targets`.
+Старые копии DLL заменяются по SHA-256. Пути вне выбранного Cargo target и
+неполный runtime отклоняются. Это также поддерживает `--target-dir` и target triple.
+Один `PATH` недостаточен: системный `onnxruntime.dll` из `System32` имеет более
+высокий приоритет и может привести к падению при несовместимой версии API.
+Состав тестов и проверки нейронного VAD не сокращаются.
+
+Локальный запуск из корня репозитория в PowerShell 7:
+
+```powershell
+./scripts/bootstrap-ci-resources.ps1
+./scripts/test-native.ps1
+# Только Wake/VAD, с отдельным каталогом артефактов:
+./scripts/test-native.ps1 -CargoArguments @('--locked', '-p', 'fono-wake', '--features', 'sherpa-wake', '--target-dir', 'target-wake-check') -TestArguments @('--nocapture')
+```
+
 Версии / URL / хэши находятся в `scripts/ci-native-dependencies.json`:
 
 - Sherpa: digest официального [release asset](https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.4).
