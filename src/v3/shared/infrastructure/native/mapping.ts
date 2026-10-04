@@ -192,7 +192,12 @@ export function modelsFromNative(models: WhisperModelInfo[]): SpeechModel[] {
   }));
 }
 export function historyFromNative(e: DictationHistoryEntry): Dictation {
-  const kinds = ["filler", "repetition", "self_correction"] as const;
+  const kinds = [
+    "filler",
+    "repetition",
+    "self_correction",
+    "unfinished",
+  ] as const;
   const metadata = historyMetadataFromNative(e);
   return {
     id: e.id,
@@ -206,12 +211,18 @@ export function historyFromNative(e: DictationHistoryEntry): Dictation {
     metadata,
     title: e.text.slice(0, 64),
     findings: kinds.map((kind, i) => ({
-      title: ["Слова-паразиты", "Повторы", "Самоисправления"][i],
+      title: [
+        "Слова-паразиты",
+        "Повторы",
+        "Самоисправления",
+        "Незавершённые фразы",
+      ][i],
       count: e.analysis
         ? [
             e.analysis.filler_count,
             e.analysis.repetition_count,
             e.analysis.self_correction_count,
+            e.analysis.unfinished_count ?? 0,
           ][i]
         : 0,
       example:

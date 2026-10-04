@@ -3,6 +3,11 @@
   flex-direction: column;
   gap: var(--fono-space-5);
 }
+.wake-phrase-catalog {
+  color: var(--fono-muted);
+  font-size: var(--fono-type-sm);
+  overflow-wrap: anywhere;
+}
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -41,6 +46,39 @@
 }
 .wl-select-overlay {
   background: var(--fono-surface);
+}
+.wl-select:not(.is-disabled):hover {
+  border-color: var(--fono-select-border-hover);
+}
+.wl-select__dropdown {
+  align-items: center;
+  justify-content: center;
+  width: var(--fono-select-chevron-size);
+  height: var(--fono-select-chevron-size);
+  color: var(--fono-secondary);
+}
+.wl-select__dropdown-icon {
+  width: var(--fono-select-chevron-size);
+  height: var(--fono-select-chevron-size);
+  font-size: 0;
+  background: currentColor;
+  mask: url("../assets/select-chevron.svg") center / contain no-repeat;
+}
+.wl-select[aria-expanded="true"] .wl-select__dropdown-icon {
+  transform: rotate(180deg);
+}
+.wl-select__option:hover,
+.wl-select__option[data-active="true"] {
+  background: var(--fono-select-option-hover);
+  color: var(--fono-text);
+}
+.wl-select__option[aria-selected="true"] {
+  color: var(--fono-accent);
+  background: var(--fono-accent-soft);
+}
+.wl-select__option[aria-selected="true"]:hover,
+.wl-select__option[aria-selected="true"][data-active="true"] {
+  background: var(--fono-select-option-hover);
 }
 .wl-btn {
   flex-shrink: 0;

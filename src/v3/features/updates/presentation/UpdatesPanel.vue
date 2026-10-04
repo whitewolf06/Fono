@@ -48,7 +48,7 @@ async function install() {
     >
       Новая версия: <strong>{{ status.nextVersion }}</strong>
     </p>
-    <label class="toggle-row" for="update-checks">
+    <div class="toggle-row">
       <span
         ><strong>Проверять при запуске</strong
         ><small class="muted"
@@ -57,11 +57,12 @@ async function install() {
       >
       <WlSwitch
         id="update-checks"
+        aria-label="Проверять обновления при запуске"
         :model-value="status.checksEnabled"
         :disabled="busy || actionPending || status.phase === 'not_configured'"
         @update:model-value="run(() => port.setChecksEnabled($event))"
       />
-    </label>
+    </div>
     <div v-if="status.phase === 'downloading'" class="form-stack">
       <progress
         :value="progress ?? undefined"

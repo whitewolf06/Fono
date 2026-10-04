@@ -17,6 +17,7 @@ export function nativeWake(ctx: NativeContext): WakePort {
       call<WakeWordCapabilities>("get_wake_word_capabilities"),
     ]);
     const current = await ctx.readSettings();
+    ctx.state.wakePhrases = caps.supported_phrases;
     const profileReady =
       !!setup.profile &&
       setup.profile.backend === current.wake_backend &&

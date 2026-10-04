@@ -1,22 +1,67 @@
 <script setup lang="ts">
+import { computed, nextTick, ref } from "vue";
 import { WlSwitch } from "@whitelife-core/ui-kit";
 import type { ToggleKey } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
 import { useFeedback } from "../../../shared/application/feedback";
-const props = defineProps<{
-  name: ToggleKey;
-  label: string;
-  description?: string;
-  compact?: boolean;
-  disabled?: boolean;
-  effectiveValue?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    name: ToggleKey;
+    label: string;
+    description?: string;
+    compact?: boolean;
+    disabled?: boolean;
+    effectiveValue?: boolean;
+  }>(),
+  { effectiveValue: undefined },
+);
 const workspace = useWorkspace();
 const ui = useInteraction();
 const { run } = useFeedback();
+const changing = ref(false);
+const currentValue = computed(
+  () => props.effectiveValue ?? workspace.state.preferences[props.name],
+);
+const pending = computed(
+  () => changing.value || workspace.state.pending[props.name],
+);
+let nativeInput: HTMLInputElement | undefined;
+let restoreFocus = false;
+function rememberInput(event: FocusEvent) {
+  nativeInput = event.currentTarget as HTMLInputElement;
+}
+function syncNativeChecked(event: Event) {
+  // A refused controlled change does not update the model. Restore the native
+  // checkbox immediately, keeping the same element and its keyboard focus.
+  nativeInput = event.currentTarget as HTMLInputElement;
+  restoreFocus ||= nativeInput.ownerDocument.activeElement === nativeInput;
+  nativeInput.checked = currentValue.value;
+}
 async function change(value: boolean) {
-  if (props.disabled) return;
+  if (props.disabled || pending.value) return;
+  // Browser callbacks can flush Vue between the model listener and @change.
+  // Capture focus before disabling, rather than after the native input blurs.
+  restoreFocus =
+    !!nativeInput && nativeInput.ownerDocument.activeElement === nativeInput;
+  changing.value = true;
+  try {
+    await applyChange(value);
+  } finally {
+    changing.value = false;
+    await nextTick();
+    const document = nativeInput?.ownerDocument;
+    if (
+      restoreFocus &&
+      nativeInput?.isConnected &&
+      !nativeInput.disabled &&
+      document?.activeElement === document?.body
+    )
+      nativeInput.focus({ preventScroll: true });
+    restoreFocus = false;
+  }
+}
+async function applyChange(value: boolean) {
   if (
     props.name === "wakeEnabled" &&
     value &&
@@ -81,20 +126,20 @@ async function change(value: boolean) {
   <div
     class="toggle-row"
     :class="{ 'is-compact': compact }"
-    :aria-busy="workspace.state.pending[name] || undefined"
+    :aria-busy="pending || undefined"
   >
     <div v-if="!compact">
       <strong>{{ label }}</strong>
       <p v-if="description">{{ description }}</p>
     </div>
     <WlSwitch
-      :model-value="effectiveValue ?? workspace.state.preferences[name]"
-      :disabled="disabled || workspace.state.pending[name]"
+      :model-value="currentValue"
+      :disabled="disabled || pending"
       :aria-label="label"
       @update:model-value="change"
+      @change="syncNativeChecked"
+      @focus="rememberInput"
     />
-    <span v-if="workspace.state.pending[name]" class="sr-only" role="status"
-      >Сохранение</span
-    >
+    <span v-if="pending" class="sr-only" role="status">Сохранение</span>
   </div>
 </template>

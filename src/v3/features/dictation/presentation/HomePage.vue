@@ -22,7 +22,7 @@ const ui = useInteraction();
           <AppIcon name="lightning" :size="13" />Голосовой ввод
         </div>
         <h1 class="hero-title" aria-label="Fono"><FonoWordmark /></h1>
-        <p>Освободите мысли. Fono запишет.</p>
+        <p>Просто записывайте на лету.</p>
         <WlButton
           size="sm"
           variant="soft"

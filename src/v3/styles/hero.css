@@ -76,6 +76,11 @@
   min-width: 0;
   padding: var(--fono-space-3) var(--fono-space-4);
   border-right: 1px solid var(--fono-border-soft);
+  background: linear-gradient(
+    120deg,
+    var(--fono-surface),
+    var(--fono-service-end)
+  );
 }
 .tool-card:last-child {
   border-right: 0;
@@ -90,6 +95,23 @@
 .tool-title strong {
   font-size: var(--fono-type-sm);
   font-weight: 600;
+  min-width: 0;
+  line-height: 1.35;
+}
+.tool-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--fono-space-2);
+  min-width: 0;
+}
+.tool-icon {
+  width: var(--fono-tool-icon);
+  height: var(--fono-tool-icon);
+  color: var(--fono-electric-soft);
+  flex-shrink: 0;
+}
+.tool-title > .toggle-row {
+  flex-shrink: 0;
 }
 .tool-value {
   color: var(--fono-secondary);
@@ -119,76 +141,36 @@
   flex-direction: column;
   justify-content: center;
   padding: var(--fono-space-3) var(--fono-space-5);
-  min-height: 105px;
+  min-height: var(--fono-record-min-height);
+  container-type: size;
+  background: radial-gradient(
+    ellipse at center,
+    var(--fono-record-center) 0%,
+    var(--fono-record-mid) 42%,
+    var(--fono-canvas) 76%
+  );
 }
 .record-area > .voice-wave {
   margin: 0 auto;
   flex-shrink: 0;
+  height: clamp(
+    var(--fono-wave-height-compact),
+    calc(100cqh - var(--fono-record-controls-space)),
+    var(--fono-wave-height-max)
+  );
 }
-.voice-wave {
-  margin: auto;
-  width: min(100%, 590px);
-  height: var(--fono-wave-height);
-  pointer-events: none;
-  overflow: hidden;
-  color: var(--fono-electric);
+.record-area:has(.record-error) {
+  container-type: inline-size;
 }
-.voice-wave svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.ribbon-amplitude {
-  transform-origin: 340px 50px;
-  transform: scaleY(var(--wave-amplitude));
-  transition: transform 350ms ease;
-}
-.ribbon {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  filter: drop-shadow(0 0 4px var(--fono-glow));
-  transform-origin: center;
-  animation: ribbon-flow var(--fono-wave-idle) linear infinite;
-}
-.ribbon-two {
-  color: var(--fono-electric-soft);
-  opacity: 0.58;
-  stroke-width: 1;
-  animation-direction: reverse;
-  animation-duration: calc(var(--fono-wave-idle) * 1.25);
-}
-.ribbon-three {
-  opacity: 0.3;
-  stroke-width: 2;
-  animation-delay: -2s;
-}
-.voice-wave[data-phase="listening"] .ribbon {
-  animation-duration: var(--fono-wave-recording);
-}
-.voice-wave[data-phase="processing"] .ribbon,
-.voice-wave[data-phase="transcribing"] .ribbon {
-  animation-duration: var(--fono-wave-processing);
-  animation-direction: alternate;
-}
-.voice-wave[data-phase="error"] {
-  color: var(--fono-error);
-  opacity: 0.6;
-}
-@keyframes ribbon-flow {
-  from {
-    transform: translateX(-60px);
-  }
-  to {
-    transform: translateX(80px);
-  }
+.record-area:has(.record-error) > .voice-wave {
+  height: var(--fono-wave-height-compact);
 }
 .record-controls {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--fono-space-3);
-  margin-top: -3px;
+  margin-top: var(--fono-space-2);
   flex-wrap: wrap;
 }
 .record-status {
@@ -198,9 +180,10 @@
   gap: var(--fono-space-2);
 }
 .record-error {
-  max-width: 640px;
+  max-width: min(100%, var(--fono-live-notice-width));
   margin: var(--fono-space-2) auto 0;
   color: var(--fono-error);
   font-size: var(--fono-type-xs);
   text-align: center;
+  overflow-wrap: anywhere;
 }

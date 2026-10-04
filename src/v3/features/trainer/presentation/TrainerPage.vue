@@ -1,84 +1,61 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { WlButton } from "@whitelife-core/ui-kit";
+import { computed, ref } from "vue";
 import { useWorkspace } from "../../../shared/application/workspace";
-import { useFeedback } from "../../../shared/application/feedback";
-import { analyze } from "../domain/analysis";
+import {
+  aggregateFindings,
+  exactDateLabel,
+  findingsCount,
+  formatMetric,
+  recordingDurationLabel,
+  sortTrainerEntries,
+  wordCount,
+  type TrainerSort,
+} from "../application/overview";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import EmptyState from "../../../shared/presentation/EmptyState.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import SelectField from "../../../shared/presentation/SelectField.vue";
 import { PreferenceToggle } from "../../preferences";
+import TrainerChart from "./TrainerChart.vue";
+import TrainerDetails from "./TrainerDetails.vue";
+
 const workspace = useWorkspace();
-const { busy, run, error } = useFeedback();
 const period = ref(7);
+const sort = ref<TrainerSort>("date");
 const selectedId = ref("");
-const recommendation = ref("");
 const entries = computed(() =>
   workspace.state.history.filter(
-    (e) =>
-      e.original &&
-      (!workspace.native || e.analysisReady) &&
-      Date.now() - Date.parse(e.createdAt) <= period.value * 86400000,
+    (entry) =>
+      entry.original &&
+      (!workspace.native || entry.analysisReady) &&
+      Date.now() - Date.parse(entry.createdAt) <= period.value * 86400000,
   ),
+);
+const sortedEntries = computed(() =>
+  sortTrainerEntries(entries.value, sort.value),
 );
 const selected = computed(
   () =>
-    entries.value.find((e) => e.id === selectedId.value) || entries.value[0],
+    entries.value.find((entry) => entry.id === selectedId.value) ||
+    sortedEntries.value[0],
 );
-const findings = computed(() =>
-  selected.value ? analyze(selected.value) : [],
+const totals = computed(() => aggregateFindings(entries.value));
+const count = computed(() =>
+  totals.value.reduce((sum, finding) => sum + finding.count, 0),
 );
-const totals = computed(() =>
-  entries.value.reduce(
-    (acc, entry) => {
-      analyze(entry).forEach((item, i) => (acc[i] += item.count));
-      return acc;
-    },
-    [0, 0, 0],
-  ),
+const words = computed(() =>
+  entries.value.reduce((sum, entry) => sum + wordCount(entry), 0),
 );
-const trend = computed(() =>
-  entries.value
-    .slice()
-    .reverse()
-    .map((entry, i) => ({
-      x: 28 + i * (430 / Math.max(1, entries.value.length - 1)),
-      y:
-        105 -
-        Math.min(80, analyze(entry).reduce((n, f) => n + f.count, 0) * 23),
-    })),
+const density = computed(() =>
+  words.value > 0 ? (count.value * 100) / words.value : 0,
 );
-watch([selectedId, period], () => {
-  recommendation.value = "";
-});
-async function recommend() {
-  await run(async () => {
-    if (workspace.trainer.recommend && selected.value) {
-      recommendation.value = await workspace.trainer.recommend(
-        selected.value.id,
-      );
-      return;
-    }
-    if (
-      workspace.state.profiles.find(
-        (p) => p.id === workspace.state.preferences.trainerProfile,
-      )?.location === "cloud" &&
-      !workspace.state.preferences.cloudConsent
-    )
-      throw new Error("Разрешите передачу данных в облако в настройках ИИ.");
-    await workspace.settings.testConnection(
-      workspace.state.preferences.trainerProfile,
-    );
-    recommendation.value =
-      "Перед следующей диктовкой сформулируйте одну главную мысль. Говорите короткими фразами и делайте паузы вместо «ну». Затем сравните следующую запись с этой.";
-  });
-}
 </script>
+
 <template>
   <div class="page">
     <PageHeading
       title="Речевой тренер"
-      description="Маленькие наблюдения для более ясной речи."
+      description="Замечайте привычки в речи и сравнивайте свои диктовки."
       ><PreferenceToggle name="trainerEnabled" label="Речевой тренер" compact
     /></PageHeading>
     <div
@@ -88,24 +65,26 @@ async function recommend() {
       <div class="large-icon"><AppIcon name="activity" :size="36" /></div>
       <h2>Услышать себя по-новому</h2>
       <p>
-        Fono замечает повторы и слова-паразиты в исходных расшифровках. Анализ
-        остаётся на вашем компьютере.
+        Fono замечает слова-паразиты, повторы и самопоправки в исходных
+        расшифровках. Анализ остаётся на вашем компьютере.
       </p>
       <PreferenceToggle
         name="trainerEnabled"
         label="Включить речевого тренера"
         description="Потребуется разрешение сохранять исходные расшифровки."
-      /><small v-if="!workspace.native"
+      />
+      <small v-if="!workspace.native"
         >Предпросмотр использует демонстрационные записи.</small
       >
     </div>
     <template v-else>
-      <div class="section-header">
+      <div class="section-header trainer-toolbar">
         <div class="segmented" aria-label="Период анализа">
           <button
             v-for="days in [7, 30, 90]"
             :key="days"
             :class="{ selected: period === days }"
+            :aria-pressed="period === days"
             @click="period = days"
           >
             {{ days }} дней
@@ -118,114 +97,72 @@ async function recommend() {
       <template v-if="entries.length">
         <div class="trainer-overview">
           <div class="trainer-stats">
-            <small class="eyebrow">Ваша речь в динамике</small>
-            <h2>{{ entries.length }} диктовки</h2>
-            <p class="muted">Разобраны за выбранный период</p>
+            <small class="eyebrow">За выбранный период</small>
+            <h2>
+              <span class="trainer-summary-label">Диктовок:</span>
+              {{ entries.length }}
+            </h2>
+            <p class="muted">Слов в исходных расшифровках: {{ words }}</p>
+            <div class="trainer-summary">
+              <div>
+                <strong>{{ count }}</strong
+                ><small>маркеров в речи</small>
+              </div>
+              <div>
+                <strong>{{ formatMetric(density) }}</strong
+                ><small>на 100 слов</small>
+              </div>
+            </div>
             <div
-              v-for="(label, i) in [
-                'Слова-паразиты',
-                'Повторы',
-                'Неуверенные обороты',
-              ]"
-              :key="label"
+              v-for="finding in totals"
+              :key="finding.title"
               class="metric-line"
             >
-              <span>{{ label }}</span
-              ><strong>{{ totals[i] }}</strong>
+              <span>{{ finding.title }}</span
+              ><strong>{{ finding.count }}</strong>
             </div>
           </div>
-          <div class="trend-chart">
-            <div class="section-header">
-              <strong>Привычки на одну диктовку</strong
-              ><small>меньше — лучше</small>
-            </div>
-            <svg
-              viewBox="0 0 490 135"
-              role="img"
-              aria-label="Количество речевых привычек по диктовкам"
-            >
-              <path d="M20 30H470 M20 68H470 M20 106H470" class="chart-grid" />
-              <polyline
-                :points="trend.map((p) => p.x + ',' + p.y).join(' ')"
-                class="chart-line"
-              />
-              <circle
-                v-for="(point, i) in trend"
-                :key="i"
-                :cx="point.x"
-                :cy="point.y"
-                r="4"
-              /></svg
-            ><small class="muted">От ранних записей к последним</small>
-          </div>
+          <TrainerChart
+            :entries="entries"
+            :selected-id="selected?.id"
+            @select="selectedId = $event"
+          />
         </div>
         <div class="master-detail">
           <div class="entry-list">
-            <h3 class="date-label">Разобранные диктовки</h3>
+            <div class="trainer-list-toolbar">
+              <h3 class="date-label">Разобранные диктовки</h3>
+              <SelectField
+                v-model="sort"
+                label="Сортировка"
+                :options="[
+                  { value: 'date', label: 'Сначала новые' },
+                  { value: 'duration', label: 'Сначала долгие' },
+                  { value: 'length', label: 'Сначала длинные тексты' },
+                ]"
+              />
+            </div>
             <button
-              v-for="entry in entries"
+              v-for="entry in sortedEntries"
               :key="entry.id"
-              class="entry-button"
+              class="entry-button trainer-entry"
               :class="{ selected: selected?.id === entry.id }"
+              :aria-pressed="selected?.id === entry.id"
               @click="selectedId = entry.id"
             >
               <strong>{{ entry.title }}</strong>
-              <p>{{ entry.text }}</p>
-              <small>{{
-                new Date(entry.createdAt).toLocaleDateString("ru-RU")
-              }}</small>
+              <p>{{ entry.original }}</p>
+              <time :datetime="entry.createdAt">{{
+                exactDateLabel(entry.createdAt)
+              }}</time>
+              <span class="trainer-entry-meta"
+                ><span>{{ recordingDurationLabel(entry) }}</span
+                ><span>Слов: {{ wordCount(entry) }}</span
+                ><span>Маркеров: {{ findingsCount(entry) }}</span></span
+              >
             </button>
           </div>
-          <article v-if="selected" class="detail-pane">
-            <h2>{{ selected.title }}</h2>
-            <p class="reading-text compact">{{ selected.original }}</p>
-            <div
-              v-for="finding in findings"
-              :key="finding.title"
-              class="finding"
-            >
-              <div class="section-header">
-                <strong>{{ finding.title }}</strong
-                ><span class="count-badge">{{ finding.count }}</span>
-              </div>
-              <p v-if="finding.count">
-                <em>{{ finding.example }}</em> — {{ finding.advice }}
-              </p>
-              <p v-else class="muted">В этой диктовке не обнаружены.</p>
-            </div>
-            <div class="recommendation">
-              <AppIcon name="sparkle" />
-              <div>
-                <strong>Небольшая практика</strong>
-                <p>
-                  Запишите одну мысль за 30 секунд. Пауза между фразами поможет
-                  избежать повторов.
-                </p>
-              </div>
-            </div>
-            <WlButton
-              v-if="workspace.state.preferences.trainerAiEnabled"
-              size="sm"
-              :loading="busy"
-              @click="recommend"
-              >Получить рекомендацию ИИ</WlButton
-            ><RouterLink
-              v-else
-              class="text-link"
-              to="/settings/processing?field=trainerModel"
-              >Настроить рекомендации через ИИ</RouterLink
-            >
-            <p v-if="recommendation" class="notice" role="status">
-              {{ recommendation }}
-              <small
-                >{{
-                  workspace.native ? "Ответ ИИ" : "Демонстрационный ответ"
-                }}
-                · {{ workspace.state.preferences.trainerModel }}</small
-              >
-            </p>
-            <p v-if="error" role="alert" class="error-text">{{ error }}</p>
-          </article>
+          <TrainerDetails v-if="selected" :entry="selected" />
         </div>
       </template>
       <EmptyState
@@ -239,3 +176,58 @@ async function recommend() {
     </template>
   </div>
 </template>
+
+<style scoped>
+.trainer-toolbar {
+  flex-wrap: wrap;
+  gap: var(--fono-space-3);
+}
+.trainer-summary-label {
+  font-size: var(--fono-type-lg);
+  font-weight: normal;
+  color: var(--fono-muted);
+}
+.trainer-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fono-space-5);
+  margin-bottom: var(--fono-space-4);
+}
+.trainer-summary > div {
+  display: grid;
+  gap: var(--fono-space-1);
+}
+.trainer-summary strong {
+  color: var(--fono-electric-soft);
+  font-size: var(--fono-type-xl);
+  font-variant-numeric: tabular-nums;
+}
+.trainer-summary small {
+  color: var(--fono-muted);
+}
+.trainer-list-toolbar {
+  padding: var(--fono-space-3);
+  border-bottom: 1px solid var(--fono-border);
+}
+.trainer-list-toolbar .date-label {
+  padding: 0;
+  margin-bottom: var(--fono-space-3);
+}
+.trainer-entry strong {
+  overflow-wrap: anywhere;
+}
+.trainer-entry time {
+  display: block;
+  color: var(--fono-secondary);
+  font-size: var(--fono-type-xs);
+  font-variant-numeric: tabular-nums;
+}
+.trainer-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fono-space-1) var(--fono-space-3);
+  margin-top: var(--fono-space-1);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-xs);
+}
+</style>

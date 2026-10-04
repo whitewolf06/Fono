@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { WlButton } from "@whitelife-core/ui-kit";
+import { WlButton, type WlIconName } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
 import { microphones, PreferenceToggle } from "../../preferences";
@@ -16,6 +16,7 @@ const ui = useInteraction();
 const tools = computed<
   {
     title: string;
+    icon: WlIconName;
     panel: QuickPanel;
     value: string;
     health: Health;
@@ -27,6 +28,7 @@ const tools = computed<
   return [
     {
       title: "Микрофон",
+      icon: "microphone",
       panel: "microphone",
       value: workspace.state.microphoneAvailable
         ? (workspace.state.devices || microphones).find(
@@ -37,6 +39,7 @@ const tools = computed<
     },
     {
       title: "Пробуждение",
+      icon: "lightning",
       panel: "wake",
       value: p.wakePhrase,
       health: !p.wakeEnabled
@@ -53,6 +56,7 @@ const tools = computed<
     },
     {
       title: "Распознавание",
+      icon: "message",
       panel: "recognition",
       value:
         model?.status === "installed"
@@ -69,6 +73,7 @@ const tools = computed<
     },
     {
       title: "Обработка текста",
+      icon: "sparkle",
       panel: "processing",
       value:
         p.dictationMode === "live"
@@ -93,8 +98,11 @@ const tools = computed<
   <section class="voice-tools" aria-label="Основные инструменты">
     <article v-for="tool in tools" :key="tool.panel" class="tool-card">
       <div class="tool-title">
-        <strong>{{ tool.title }}</strong
-        ><PreferenceToggle
+        <div class="tool-heading">
+          <AppIcon class="tool-icon" :name="tool.icon" />
+          <strong>{{ tool.title }}</strong>
+        </div>
+        <PreferenceToggle
           v-if="tool.toggle"
           :name="tool.toggle"
           :label="tool.title"

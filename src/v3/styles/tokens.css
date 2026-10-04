@@ -25,6 +25,31 @@
     var(--fono-surface) 97%,
     var(--fono-electric)
   );
+  --fono-record-center: color-mix(
+    in srgb,
+    var(--fono-surface-raised) 84%,
+    var(--fono-electric)
+  );
+  --fono-record-mid: color-mix(
+    in srgb,
+    var(--fono-record-center) 38%,
+    var(--fono-canvas)
+  );
+  --fono-select-option-hover: color-mix(
+    in srgb,
+    var(--fono-accent) 16%,
+    var(--fono-surface)
+  );
+  --fono-select-border-hover: color-mix(
+    in srgb,
+    var(--fono-accent) 55%,
+    var(--fono-border)
+  );
+  --fono-select-chevron-size: 20px;
+  --fono-trainer-filler: var(--fono-accent);
+  --fono-trainer-repetition: var(--fono-warning);
+  --fono-trainer-correction: var(--fono-success);
+  --fono-trainer-unfinished: var(--fono-error);
 
   --wl-bg: var(--fono-canvas);
   --wl-bg-soft: var(--fono-surface);
@@ -71,7 +96,14 @@
   --fono-brand-icon: 32px;
   --fono-nav-height: 46px;
   --fono-service-icon: 42px;
-  --fono-wave-height: 62px;
+  --fono-tool-icon: 16px;
+  --fono-wave-width: 1080px;
+  --fono-wave-height: clamp(112px, 18vh, 200px);
+  --fono-wave-height-compact: 88px;
+  --fono-wave-height-max: 220px;
+  --fono-wave-drift: 50px;
+  --fono-record-min-height: 160px;
+  --fono-record-controls-space: 80px;
   --fono-text-max-height: 260px;
   --fono-history-stat-width: 150px;
   --fono-live-notice-width: 640px;

@@ -25,6 +25,15 @@ const wakeLanguages = computed(
       { value: "en", label: "Английский" },
     ],
 );
+const phraseOptions = computed(() => {
+  const examples =
+    draft.value.wakeLanguage === "ru"
+      ? ["эй фоно", "привет компьютер"]
+      : ["hey fono", "hello computer"];
+  const current = draft.value.wakePhrase;
+  if (current && !examples.includes(current)) examples.unshift(current);
+  return examples.map((value) => ({ value, label: value }));
+});
 </script>
 <template>
   <div class="form-stack">
@@ -83,6 +92,18 @@ const wakeLanguages = computed(
         :options="wakeLanguages"
         hint="Выберите язык своей фразы. Одновременно работает один профиль."
       />
+      <SelectField
+        v-model="draft.wakePhrase"
+        label="Примеры фраз"
+        :options="phraseOptions"
+        hint="Пример заполняет поле ниже. Новую фразу нужно сохранить и проверить в мастере."
+      />
+      <p
+        v-if="workspace.state.wakePhrases?.length"
+        class="muted wake-phrase-catalog"
+      >
+        Фразы текущего детектора: {{ workspace.state.wakePhrases.join(" · ") }}
+      </p>
       <WlField
         v-slot="field"
         id="wakePhrase"
