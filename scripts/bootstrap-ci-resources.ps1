@@ -83,6 +83,48 @@ function Invoke-HiddenInstaller([string]$File, [string[]]$Arguments) {
     if ($process.ExitCode -ne 0) { throw "SDK installation failed with exit code $($process.ExitCode)." }
 }
 
+function Invoke-PythonArchiveCommand([string[]]$Arguments) {
+    $process = [Diagnostics.Process]::new()
+    $started = $false
+    try {
+        $process.StartInfo.FileName = $pythonExecutable
+        $process.StartInfo.UseShellExecute = $false
+        $process.StartInfo.CreateNoWindow = $true
+        $process.StartInfo.RedirectStandardInput = $true
+        $process.StartInfo.RedirectStandardOutput = $true
+        $process.StartInfo.RedirectStandardError = $true
+        foreach ($argument in @('-I', '-B') + $Arguments) { $process.StartInfo.ArgumentList.Add($argument) }
+        if (!$process.Start()) { throw 'Cannot start the Python archive helper.' }
+        $started = $true
+        $process.StandardInput.Close()
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $finished = $process.WaitForExit(60000)
+        if (!$finished) {
+            if (!$process.HasExited) { $process.Kill($true) }
+            if (!$process.WaitForExit(5000)) { throw 'Cannot stop the timed-out Python archive helper.' }
+        }
+        $output = $stdout.GetAwaiter().GetResult()
+        $errorOutput = $stderr.GetAwaiter().GetResult()
+        if ($output) { Write-Host $output.TrimEnd() }
+        if ($errorOutput) { Write-Host $errorOutput.TrimEnd() }
+        if (!$finished) { throw 'Python archive helper exceeded its 60-second deadline.' }
+        if ($process.ExitCode -ne 0) { throw "Python archive helper failed (exit $($process.ExitCode))." }
+    } finally {
+        if ($started) {
+            try {
+                if (!$process.HasExited) {
+                    $process.Kill($true)
+                    if (!$process.WaitForExit(5000)) { Write-Warning 'Owned Python archive helper did not exit after termination.' }
+                }
+            } catch {
+                Write-Warning 'Could not finish cleanup of the owned Python archive helper.'
+            }
+        }
+        $process.Dispose()
+    }
+}
+
 $cargoLock = Get-Content -LiteralPath (Join-Path $repoRoot 'src-tauri\Cargo.lock') -Raw
 $expectedVersion = [regex]::Escape($manifest.sherpa.version)
 if ($cargoLock -notmatch "name = `"sherpa-onnx-sys`"\r?\nversion = `"$expectedVersion`"") {
@@ -97,42 +139,51 @@ if ($ValidateOnly) {
     return
 }
 
+if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'Native CI bootstrap requires PowerShell 7 or newer (pwsh).' }
 if (![Environment]::Is64BitOperatingSystem -or $env:OS -ne 'Windows_NT') { throw 'Bootstrap requires Windows x64.' }
 if ($InstallGpuSdks -and $env:GITHUB_ACTIONS -ne 'true') {
     throw 'Automatic SDK installation is restricted to GitHub Actions build machines. Local SDK installation is manual.'
 }
-$tarExecutable = Join-Path $env:SystemRoot 'System32\tar.exe'
-if (!(Test-Path -LiteralPath $tarExecutable -PathType Leaf)) { throw 'Windows System32 tar.exe is required.' }
-# Git GNU tar interprets the colon in an absolute Windows archive path as a remote host.
-Write-Host "Using Windows archive tool: $tarExecutable"
-& $tarExecutable --version
-if ($LASTEXITCODE -ne 0) { throw 'Cannot verify Windows tar version.' }
+$pythonCommand = Get-Command python.exe -CommandType Application -All -ErrorAction SilentlyContinue |
+    Where-Object { $_.Source -notmatch '[\\/]WindowsApps[\\/]' } | Select-Object -First 1
+if (!$pythonCommand) { throw 'A real Python 3.12+ executable on PATH is required; Windows Store aliases are not supported.' }
+$pythonExecutable = $pythonCommand.Source
+Write-Host "Using Python archive helper: $pythonExecutable (60-second process limit)."
+Write-Host 'Checking archive extraction security fixtures.'
+Invoke-PythonArchiveCommand @((Join-Path $PSScriptRoot 'extract-ci-archive.test.py'))
 New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
 $archive = Get-VerifiedDownload $manifest.sherpa
-Write-Host 'Inspecting verified Sherpa archive paths.'
-$entries = & $tarExecutable -tf $archive
-if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Sherpa archive.' }
-foreach ($entry in $entries) {
-    if ($entry -match '(^[\\/]|^[A-Za-z]:|(^|[\\/])\.\.([\\/]|$))' -or ($entry.TrimEnd('/') -ne $manifest.sherpa.directory -and !$entry.StartsWith("$($manifest.sherpa.directory)/"))) {
-        throw 'Sherpa archive has an unexpected extraction path.'
+$extractionRoot = Join-Path $workRoot ("sherpa-unpacked-" + [Guid]::NewGuid().ToString('N'))
+Write-Host 'Validating and extracting the verified Sherpa archive with Python stdlib.'
+try {
+    Invoke-PythonArchiveCommand @((Join-Path $PSScriptRoot 'extract-ci-archive.py'), '--archive', $archive, '--destination', $extractionRoot, '--root', $manifest.sherpa.directory, '--sha256', $manifest.sherpa.sha256)
+    $libDir = Join-Path $extractionRoot "$($manifest.sherpa.directory)\lib"
+    $destination = Join-Path $repoRoot 'src-tauri\resources\sherpa-onnx'
+    foreach ($name in @($requiredDlls) + @('sherpa-onnx-c-api.lib', 'onnxruntime.lib')) {
+        if (!(Test-Path -LiteralPath (Join-Path $libDir $name) -PathType Leaf)) { throw "Missing Sherpa library: $name" }
     }
+    New-Item -ItemType Directory -Path $destination -Force | Out-Null
+    Write-Host 'Staging verified Sherpa DLLs.'
+    foreach ($name in $requiredDlls) {
+        Copy-Item -LiteralPath (Join-Path $libDir $name) -Destination (Join-Path $destination $name) -Force
+    }
+    Set-BuildEnvironment 'SHERPA_ONNX_LIB_DIR' $libDir
+    Add-BuildPath $libDir
+    Write-Host "Verified Sherpa $($manifest.sherpa.version) runtime prepared from its official archive."
+} catch {
+    $resolvedWorkRoot = [IO.Path]::GetFullPath($workRoot).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $resolvedExtractionRoot = [IO.Path]::GetFullPath($extractionRoot)
+    if (!$resolvedExtractionRoot.StartsWith($resolvedWorkRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Refusing to clean an extraction directory outside the CI work root.'
+    }
+    if (Test-Path -LiteralPath $resolvedExtractionRoot) {
+        if ((Get-Item -LiteralPath $resolvedExtractionRoot).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw 'Refusing to clean a linked extraction directory.'
+        }
+        Remove-Item -LiteralPath $resolvedExtractionRoot -Recurse -Force
+    }
+    throw
 }
-Write-Host 'Extracting verified Sherpa runtime.'
-& $tarExecutable -xf $archive -C $workRoot
-if ($LASTEXITCODE -ne 0) { throw 'Cannot extract Sherpa archive.' }
-$libDir = Join-Path $workRoot "$($manifest.sherpa.directory)\lib"
-$destination = Join-Path $repoRoot 'src-tauri\resources\sherpa-onnx'
-New-Item -ItemType Directory -Path $destination -Force | Out-Null
-foreach ($name in @($requiredDlls) + @('sherpa-onnx-c-api.lib', 'onnxruntime.lib')) {
-    if (!(Test-Path -LiteralPath (Join-Path $libDir $name) -PathType Leaf)) { throw "Missing Sherpa library: $name" }
-}
-Write-Host 'Staging verified Sherpa DLLs.'
-foreach ($name in $requiredDlls) {
-    Copy-Item -LiteralPath (Join-Path $libDir $name) -Destination (Join-Path $destination $name) -Force
-}
-Set-BuildEnvironment 'SHERPA_ONNX_LIB_DIR' $libDir
-Add-BuildPath $libDir
-Write-Host "Verified Sherpa $($manifest.sherpa.version) runtime prepared from its official archive."
 
 if ($InstallGpuSdks) {
     $cudaInstaller = Get-VerifiedDownload $manifest.cuda
