@@ -101,10 +101,16 @@ if (![Environment]::Is64BitOperatingSystem -or $env:OS -ne 'Windows_NT') { throw
 if ($InstallGpuSdks -and $env:GITHUB_ACTIONS -ne 'true') {
     throw 'Automatic SDK installation is restricted to GitHub Actions build machines. Local SDK installation is manual.'
 }
+$tarExecutable = Join-Path $env:SystemRoot 'System32\tar.exe'
+if (!(Test-Path -LiteralPath $tarExecutable -PathType Leaf)) { throw 'Windows System32 tar.exe is required.' }
+# Git GNU tar interprets the colon in an absolute Windows archive path as a remote host.
+Write-Host "Using Windows archive tool: $tarExecutable"
+& $tarExecutable --version
+if ($LASTEXITCODE -ne 0) { throw 'Cannot verify Windows tar version.' }
 New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
 $archive = Get-VerifiedDownload $manifest.sherpa
 Write-Host 'Inspecting verified Sherpa archive paths.'
-$entries = & tar -tf $archive
+$entries = & $tarExecutable -tf $archive
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Sherpa archive.' }
 foreach ($entry in $entries) {
     if ($entry -match '(^[\\/]|^[A-Za-z]:|(^|[\\/])\.\.([\\/]|$))' -or ($entry.TrimEnd('/') -ne $manifest.sherpa.directory -and !$entry.StartsWith("$($manifest.sherpa.directory)/"))) {
@@ -112,7 +118,7 @@ foreach ($entry in $entries) {
     }
 }
 Write-Host 'Extracting verified Sherpa runtime.'
-& tar -xf $archive -C $workRoot
+& $tarExecutable -xf $archive -C $workRoot
 if ($LASTEXITCODE -ne 0) { throw 'Cannot extract Sherpa archive.' }
 $libDir = Join-Path $workRoot "$($manifest.sherpa.directory)\lib"
 $destination = Join-Path $repoRoot 'src-tauri\resources\sherpa-onnx'
