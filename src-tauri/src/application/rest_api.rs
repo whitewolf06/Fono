@@ -437,6 +437,7 @@ mod tests {
 
     struct CompletingRuntime {
         requested_language: Arc<Mutex<Option<String>>>,
+        pcm_samples: Arc<Mutex<Vec<i16>>>,
     }
 
     impl TranscriptionRuntime for CompletingRuntime {
@@ -446,11 +447,12 @@ mod tests {
 
         fn transcribe(
             &self,
-            _pcm_samples: &[i16],
+            pcm_samples: &[i16],
             language: &str,
             _cancellation: OperationCancellation,
         ) -> AppResult<Transcript> {
             *self.requested_language.lock().unwrap() = Some(language.into());
+            *self.pcm_samples.lock().unwrap() = pcm_samples.to_vec();
             Ok(Transcript {
                 text: "готово".into(),
                 detected_language: Some(language.into()),
@@ -704,9 +706,11 @@ mod tests {
         let upload_dir =
             std::env::temp_dir().join(format!("fono-rest-test-{}", uuid::Uuid::new_v4()));
         let requested_language = Arc::new(Mutex::new(None));
+        let pcm_samples = Arc::new(Mutex::new(Vec::new()));
         let queue = Arc::new(TranscriptionJobQueue::new(
             TranscriptionService::new(CompletingRuntime {
                 requested_language: Arc::clone(&requested_language),
+                pcm_samples: Arc::clone(&pcm_samples),
             }),
             NoInteractiveActivity,
             1,
@@ -728,7 +732,7 @@ mod tests {
         );
         body.extend_from_slice(include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/vendor/whisper.cpp/bindings/go/samples/jfk.wav"
+            "/tests/fixtures/audio/tone-16k-mono.wav"
         )));
         body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
 
@@ -758,6 +762,10 @@ mod tests {
         let completed = queue.run_next().expect("queued upload completes");
         assert_eq!(completed.result.expect("completed result").model, "base");
         assert_eq!(requested_language.lock().unwrap().as_deref(), Some("ru"));
+        let decoded_samples = pcm_samples.lock().unwrap();
+        assert_eq!(decoded_samples.len(), 1600);
+        assert!(decoded_samples.iter().any(|sample| *sample > 0));
+        assert!(decoded_samples.iter().any(|sample| *sample < 0));
         assert!(std::fs::read_dir(&upload_dir).unwrap().next().is_none());
         std::fs::remove_dir_all(upload_dir).unwrap();
     }

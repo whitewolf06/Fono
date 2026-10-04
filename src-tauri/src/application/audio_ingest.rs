@@ -408,29 +408,36 @@ mod tests {
     }
 
     #[test]
-    fn decodes_the_existing_mp3_fixture_without_loading_the_source_file_whole() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("vendor/whisper.cpp/samples/jfk.mp3");
+    fn decodes_the_synthetic_mp3_fixture_without_loading_the_source_file_whole() {
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/audio/silence-16k-mono.mp3");
         let audio = decode_file(&path, AudioIngestPolicy::default()).unwrap();
 
         assert_eq!(audio.source_sample_rate, 16_000);
+        assert_eq!(audio.source_channels, 1);
         assert!(!audio.pcm_samples.is_empty());
         assert!(audio.duration_seconds > 0.0);
+        assert!(audio.pcm_samples.iter().all(|sample| *sample == 0));
     }
 
     #[test]
-    fn decodes_the_existing_wav_fixture() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("vendor/whisper.cpp/bindings/go/samples/jfk.wav");
+    fn decodes_the_synthetic_wav_fixture() {
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/audio/tone-16k-mono.wav");
         let audio = decode_file(&path, AudioIngestPolicy::default()).unwrap();
 
         assert_eq!(audio.source_sample_rate, WHISPER_SAMPLE_RATE);
         assert_eq!(audio.source_channels, 1);
         assert!(!audio.pcm_samples.is_empty());
+        assert_eq!(audio.pcm_samples.len(), 1600);
+        assert!(audio.pcm_samples.iter().any(|sample| *sample > 0));
+        assert!(audio.pcm_samples.iter().any(|sample| *sample < 0));
     }
 
     #[test]
     fn file_size_limit_is_checked_before_decoder_creation() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("vendor/whisper.cpp/samples/jfk.mp3");
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/audio/silence-16k-mono.mp3");
         let policy = AudioIngestPolicy {
             max_file_bytes: 1,
             ..AudioIngestPolicy::default()
