@@ -5,12 +5,28 @@ import globals from "globals";
 import vue from "eslint-plugin-vue";
 import vueParser from "vue-eslint-parser";
 export default [
-  { ignores: ["dist/**", "build/**", "node_modules/**", "src-tauri/**"] },
+  {
+    ignores: [
+      "dist/**",
+      "landing/dist/**",
+      "build/**",
+      "node_modules/**",
+      "src-tauri/**",
+    ],
+  },
   js.configs.recommended,
   ...vue.configs["flat/essential"],
   {
     files: ["scripts/**/*.mjs", "tests/**/*.mjs"],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["landing/**/*.mjs"],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["landing/src/js/**/*.js"],
+    languageOptions: { globals: globals.browser },
   },
   {
     files: ["**/*.{ts,tsx,vue}"],

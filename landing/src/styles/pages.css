@@ -1,0 +1,160 @@
+.page-hero {
+  position: relative;
+  overflow: hidden;
+  padding-block: var(--fono-space-20);
+  border-bottom: 1px solid var(--fono-border);
+  background:
+    linear-gradient(90deg, var(--fono-night) 28%, transparent),
+    linear-gradient(
+      0deg,
+      var(--fono-night),
+      color-mix(in srgb, var(--fono-night) 42%, transparent)
+    ),
+    url("../images/night-mountains.png") right center / cover;
+}
+
+.page-hero .container {
+  display: grid;
+  justify-items: start;
+  gap: var(--fono-space-5);
+}
+
+.page-hero h1 {
+  max-width: 900px;
+}
+
+.page-hero .lead {
+  max-width: 710px;
+}
+
+.prose {
+  max-width: 780px;
+}
+
+.prose > * + * {
+  margin-top: var(--fono-space-5);
+}
+
+.prose h2:not(:first-child) {
+  margin-top: var(--fono-space-12);
+}
+
+.prose h3:not(:first-child) {
+  margin-top: var(--fono-space-8);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: var(--fono-space-6);
+  color: var(--fono-secondary);
+}
+
+.prose li + li {
+  margin-top: var(--fono-space-3);
+}
+
+.prose strong {
+  color: var(--fono-text);
+  font-weight: 600;
+}
+
+.prose a:not(.button) {
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
+.prose code,
+.faq-list code {
+  padding: var(--fono-space-1) var(--fono-space-2);
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius-sm);
+  background: var(--fono-night);
+  color: var(--fono-electric-soft);
+  font-size: var(--fono-type-sm);
+  overflow-wrap: anywhere;
+}
+
+.prose pre {
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.prose .callout {
+  margin-block: var(--fono-space-8);
+}
+
+.faq-list {
+  border-top: 1px solid var(--fono-border);
+}
+
+.faq-list details {
+  border-bottom: 1px solid var(--fono-border);
+}
+
+.faq-list summary {
+  padding-block: var(--fono-space-6);
+  padding-right: var(--fono-space-4);
+  color: var(--fono-text);
+  font-size: var(--fono-type-lg);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.faq-list summary::marker {
+  color: var(--fono-electric-soft);
+}
+
+.faq-list details[open] summary {
+  color: var(--fono-electric-soft);
+}
+
+.faq-list details > :not(summary) {
+  max-width: 860px;
+  margin-left: var(--fono-space-5);
+  margin-bottom: var(--fono-space-6);
+}
+
+.faq-list details > :not(summary) + :not(summary) {
+  margin-top: calc(var(--fono-space-3) * -1);
+}
+
+.faq-list a {
+  text-decoration: underline;
+}
+
+.download-panel {
+  display: grid;
+  justify-items: start;
+  gap: var(--fono-space-5);
+}
+
+.download-panel h2 {
+  line-height: 1.3;
+}
+
+.download-panel p {
+  max-width: 640px;
+}
+
+.requirements-detail {
+  margin-top: var(--fono-space-8);
+}
+
+.requirements-detail p {
+  max-width: 900px;
+}
+
+@media (max-width: 720px) {
+  .page-hero {
+    padding-block: var(--fono-space-12);
+    background-position: center;
+  }
+
+  .page-hero h1 {
+    overflow-wrap: break-word;
+  }
+
+  .faq-list summary {
+    font-size: var(--fono-type-body);
+  }
+}

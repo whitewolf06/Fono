@@ -1,0 +1,262 @@
+.product-preview {
+  width: 100%;
+  max-width: 650px;
+  margin-inline: auto;
+}
+
+.preview-window {
+  overflow: hidden;
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius);
+  background: var(--fono-night);
+  box-shadow: var(--fono-shadow);
+}
+
+.preview-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--fono-space-2) var(--fono-space-3);
+  border-bottom: 1px solid var(--fono-border);
+  background: var(--fono-surface);
+  color: var(--fono-muted);
+  font-size: 10px;
+}
+
+.window-controls {
+  display: flex;
+  gap: var(--fono-space-4);
+  font-family: var(--fono-mono);
+}
+
+.preview-workspace {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.preview-sidebar {
+  padding: var(--fono-space-4) var(--fono-space-2);
+  border-right: 1px solid var(--fono-border);
+}
+
+.preview-brand {
+  width: 67px;
+  margin: var(--fono-space-1) var(--fono-space-2) var(--fono-space-6);
+}
+
+.preview-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--fono-space-2);
+  margin-bottom: var(--fono-space-2);
+  padding: var(--fono-space-2);
+  border-radius: var(--fono-radius-sm);
+  color: var(--fono-muted);
+  font-size: 10px;
+}
+
+.preview-nav-item svg {
+  width: 14px;
+  height: 14px;
+  color: var(--fono-electric-soft);
+}
+
+.preview-nav-item.active {
+  background: var(--fono-accent-soft);
+  color: var(--fono-electric-soft);
+}
+
+.preview-main {
+  min-width: 0;
+}
+
+.preview-hero {
+  display: grid;
+  min-height: 138px;
+  justify-items: start;
+  gap: var(--fono-space-2);
+  padding: var(--fono-space-5);
+  background:
+    linear-gradient(
+      90deg,
+      var(--fono-night),
+      color-mix(in srgb, var(--fono-night) 25%, transparent)
+    ),
+    url("../images/night-mountains.png") center / cover;
+}
+
+.preview-hero .eyebrow {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.preview-hero > img {
+  width: 112px;
+}
+
+.preview-hero > p {
+  font-size: 11px;
+}
+
+.preview-hotkey {
+  padding: var(--fono-space-1) var(--fono-space-2);
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius-sm);
+  color: var(--fono-electric-soft);
+  background: var(--fono-accent-soft);
+  font-size: 9px;
+}
+
+.preview-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fono-space-3);
+  padding: var(--fono-space-3) var(--fono-space-5);
+  border-block: 1px solid var(--fono-border);
+  color: var(--fono-muted);
+  font-size: 9px;
+}
+
+.preview-tools span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fono-space-1);
+}
+
+.preview-tools svg {
+  width: 12px;
+  height: 12px;
+  color: var(--fono-electric-soft);
+}
+
+.preview-record {
+  position: relative;
+  display: grid;
+  min-height: 99px;
+  align-content: center;
+  justify-items: center;
+  gap: var(--fono-space-1);
+  padding: var(--fono-space-3);
+}
+
+.preview-wave {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--fono-electric);
+  opacity: 0.55;
+}
+
+.wave-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2px;
+  animation: wave-drift 8s ease-in-out infinite alternate;
+}
+
+.wave-line-two {
+  color: var(--fono-electric-soft);
+  opacity: 0.65;
+  animation-direction: alternate-reverse;
+  animation-duration: 10s;
+}
+
+.preview-record-label {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--fono-space-1);
+  color: var(--fono-electric-soft);
+  font-size: 10px;
+}
+
+.preview-record-label svg {
+  width: 22px;
+  height: 22px;
+}
+
+.preview-transcript {
+  padding: var(--fono-space-4) var(--fono-space-5);
+  border-top: 1px solid var(--fono-border);
+  background: var(--fono-surface);
+}
+
+.preview-transcript-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fono-space-2);
+  margin-bottom: var(--fono-space-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.preview-transcript-heading small {
+  color: var(--fono-electric-soft);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.preview-transcript > p {
+  padding: var(--fono-space-3);
+  border-left: 2px solid var(--fono-electric);
+  background: var(--fono-surface-raised);
+  color: var(--fono-text);
+  font-size: 11px;
+  line-height: 1.75;
+}
+
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--fono-space-2);
+  margin-top: var(--fono-space-3);
+  color: var(--fono-muted);
+  font-size: 9px;
+}
+
+.preview-actions span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fono-space-1);
+}
+
+.preview-actions svg {
+  width: 12px;
+  height: 12px;
+}
+
+.product-preview figcaption {
+  margin-top: var(--fono-space-3);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-sm);
+  text-align: center;
+}
+
+@keyframes wave-drift {
+  from {
+    transform: translateX(-10px);
+  }
+  to {
+    transform: translateX(10px);
+  }
+}
+
+@media (max-width: 480px) {
+  .preview-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .preview-sidebar {
+    display: none;
+  }
+
+  .preview-hero,
+  .preview-tools,
+  .preview-transcript {
+    padding-inline: var(--fono-space-4);
+  }
+}

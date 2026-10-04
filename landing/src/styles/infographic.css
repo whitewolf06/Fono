@@ -1,0 +1,224 @@
+.dictation-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--fono-space-10) var(--fono-space-8);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.dictation-step {
+  position: relative;
+  min-width: 0;
+}
+
+.dictation-step:not(:last-child)::after,
+.dictation-recognition .dictation-card::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: var(--fono-space-8);
+  height: var(--fono-space-2);
+  background: var(--fono-electric-soft);
+  clip-path: polygon(0 44%, 78% 44%, 78% 0, 100% 50%, 78% 100%, 78% 56%, 0 56%);
+}
+
+.dictation-card {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: var(--fono-space-4);
+  padding: var(--fono-space-6);
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius);
+  background: var(--fono-night);
+}
+
+.dictation-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fono-space-4);
+}
+
+.dictation-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius-sm);
+  background: var(--fono-accent-soft);
+  color: var(--fono-electric-soft);
+}
+
+.dictation-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.dictation-number {
+  color: var(--fono-muted);
+  font-family: var(--fono-mono);
+  font-size: var(--fono-type-sm);
+}
+
+.dictation-card h3 {
+  font-size: var(--fono-type-lg);
+  line-height: 1.4;
+}
+
+.dictation-card p {
+  font-size: var(--fono-type-md);
+}
+
+.dictation-field,
+.dictation-label,
+.dictation-wave {
+  margin-top: auto;
+}
+
+.dictation-field {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: var(--fono-space-2);
+  padding: var(--fono-space-2) var(--fono-space-3);
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius-sm);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-sm);
+}
+
+.dictation-cursor {
+  width: 1px;
+  height: 18px;
+  background: var(--fono-electric);
+}
+
+.dictation-field-result {
+  border-color: var(--fono-glow);
+  color: var(--fono-text);
+}
+
+.dictation-wave {
+  width: 100%;
+  height: 42px;
+  padding-block: var(--fono-space-2);
+  color: var(--fono-electric);
+}
+
+.dictation-label {
+  color: var(--fono-electric-soft);
+  font-size: var(--fono-type-sm);
+}
+
+.dictation-result .dictation-card {
+  border-color: var(--fono-glow);
+}
+
+.dictation-result {
+  grid-column: 4;
+  grid-row: 1;
+}
+
+.dictation-recognition {
+  display: contents;
+}
+
+.dictation-recognition .dictation-card {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.dictation-recognition::after {
+  display: none;
+}
+
+.dictation-optional {
+  position: relative;
+  grid-column: 3 / span 2;
+  grid-row: 2;
+  padding: var(--fono-space-6);
+  border: 1px dashed var(--fono-border);
+  border-radius: var(--fono-radius);
+  background: var(--fono-night);
+}
+
+.dictation-optional::before,
+.dictation-optional::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  width: var(--fono-space-2);
+  height: var(--fono-space-10);
+  background: var(--fono-muted);
+  clip-path: polygon(44% 0, 56% 0, 56% 78%, 100% 78%, 50% 100%, 0 78%, 44% 78%);
+}
+
+.dictation-optional::before {
+  left: calc(25% - var(--fono-space-2));
+}
+
+.dictation-optional::after {
+  right: calc(25% - var(--fono-space-2));
+  transform: rotate(180deg);
+}
+
+.dictation-optional-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fono-space-2);
+  margin-bottom: var(--fono-space-2);
+}
+
+.dictation-optional-heading svg {
+  width: 20px;
+  height: 20px;
+  color: var(--fono-electric-soft);
+}
+
+.dictation-optional h4 {
+  margin: 0;
+  font-size: var(--fono-type-md);
+  font-weight: 600;
+}
+
+.dictation-badge {
+  padding: var(--fono-space-1) var(--fono-space-2);
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius-sm);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-sm);
+}
+
+.dictation-optional p,
+.dictation-ai-options {
+  font-size: var(--fono-type-sm);
+}
+
+.dictation-ai-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fono-space-4);
+  margin-block: var(--fono-space-4);
+  color: var(--fono-muted);
+}
+
+.dictation-ai-options span {
+  display: grid;
+  gap: var(--fono-space-1);
+}
+
+.dictation-ai-options strong {
+  color: var(--fono-secondary);
+  font-weight: 600;
+}
+
+.dictation-privacy-note {
+  color: var(--fono-muted);
+}

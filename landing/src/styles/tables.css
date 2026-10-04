@@ -1,0 +1,95 @@
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius);
+  background: var(--fono-night);
+  scrollbar-color: var(--fono-muted) var(--fono-surface);
+}
+
+.capability-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: left;
+}
+
+.capability-table caption {
+  padding: var(--fono-space-4) var(--fono-space-6);
+  border-bottom: 1px solid var(--fono-border);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-md);
+  text-align: left;
+}
+
+.capability-table th,
+.capability-table td {
+  padding: var(--fono-space-5) var(--fono-space-6);
+  border-bottom: 1px solid var(--fono-border-soft);
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.capability-table thead th {
+  background: var(--fono-surface-raised);
+  color: var(--fono-electric-soft);
+  font-weight: 600;
+}
+
+.capability-table tr > :first-child {
+  width: 24%;
+}
+
+.capability-table tr > :nth-child(2) {
+  width: 34%;
+}
+
+.capability-table tbody th {
+  color: var(--fono-text);
+  font-weight: 600;
+}
+
+.capability-table td {
+  color: var(--fono-secondary);
+}
+
+.capability-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.table-note {
+  max-width: 900px;
+  margin-top: var(--fono-space-4);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-md);
+}
+
+.table-note a {
+  text-decoration: underline;
+}
+
+.table-scroll-cue {
+  margin-top: 0;
+  margin-bottom: var(--fono-space-4);
+}
+
+@media (min-width: 841px) {
+  .table-scroll-cue {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 720px) {
+  .capability-table th,
+  .capability-table td,
+  .capability-table caption {
+    padding: var(--fono-space-4);
+  }
+}
