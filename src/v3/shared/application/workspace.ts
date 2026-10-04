@@ -12,6 +12,7 @@ export const phaseLabels = {
   silence: "Жду продолжения",
   transcribing: "Распознаю речь",
   processing: "Привожу текст в порядок",
+  awaiting_action: "Выберите действие с текстом",
   done: "Текст готов",
   cancelled: "Запись отменена",
   error: "Нужна ваша помощь",

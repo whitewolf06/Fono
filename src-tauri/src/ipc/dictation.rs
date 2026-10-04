@@ -19,10 +19,6 @@ pub fn start_dictation(app: AppHandle) -> AppResult<()> {
     crate::application::dictation::start(app, OperationSource::Ui)
 }
 
-pub(crate) fn start_dictation_from(app: AppHandle, source: OperationSource) -> AppResult<u64> {
-    crate::application::dictation::start_operation(app, source)
-}
-
 #[tauri::command]
 pub async fn stop_dictation(app: AppHandle) -> AppResult<Transcript> {
     crate::application::dictation::stop(app).await
@@ -62,11 +58,27 @@ pub fn cancel_dictation(app: AppHandle) -> AppResult<()> {
     if let Some(event) = pipeline.cancel_for(operation) {
         crate::events::emit_operation(&app, event);
     }
+    crate::application::dictation::workflow::cancelled(&app, operation);
     let _ = pipeline.stop_recording_for(operation);
     pipeline::set_idle_if_no_operation(&app, state.inner(), &pipeline);
     crate::application::dictation::resume_wake_if_idle(&app);
     tracing::info!("dictation cancelled by overlay");
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_pending_dictation(
+    app: AppHandle,
+) -> Option<crate::application::dictation::workflow::PendingDictation> {
+    crate::application::dictation::workflow::snapshot(&app)
+}
+
+#[tauri::command]
+pub async fn resolve_pending_dictation(
+    app: AppHandle,
+    request: crate::application::dictation::workflow::PendingRequest,
+) -> AppResult<Option<Transcript>> {
+    crate::application::dictation::workflow::resolve(app, request).await
 }
 
 #[tauri::command]

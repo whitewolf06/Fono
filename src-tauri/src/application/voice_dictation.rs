@@ -113,7 +113,7 @@ async fn run_once(
     }
 
     let mut gate = super::speech_gate::SpeechGate::new(app)?;
-    if !gate.accept(&samples).has_speech {
+    if !gate.recording_has_speech(&samples, || cancellation.is_cancelled()) {
         pipeline::set_state_for_operation(
             app,
             state.inner(),

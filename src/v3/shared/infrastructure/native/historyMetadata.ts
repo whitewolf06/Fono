@@ -34,7 +34,9 @@ export function historyMetadataFromNative(
       language: m.language,
       detectedLanguage: m.detected_language,
       dictationMode: m.dictation_mode,
-      processingMode: m.processing_mode,
+      processingMode: m.processing_preset ?? m.processing_mode,
+      processingTrigger: m.processing_workflow ?? undefined,
+      processingTranslation: m.processing_target_language,
       dictionaryEnabled: m.dictionary_enabled,
     };
   // Old archives may have the actual backend and opt-in processing statistics.

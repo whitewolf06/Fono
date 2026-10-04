@@ -18,6 +18,15 @@
   --fono-success: var(--wl-green-400);
   --fono-error: var(--wl-red-400);
   --fono-warning: var(--wl-amber-400);
+  --fono-translation: color-mix(
+    in srgb,
+    var(--wl-blue-400) 65%,
+    var(--wl-red-400)
+  );
+  --fono-pending-width: 440px;
+  --fono-pending-height: 228px;
+  --fono-pending-compact-width: 380px;
+  --fono-pending-compact-height: 196px;
   --fono-scrim: color-mix(in srgb, var(--fono-night) 74%, transparent);
   --fono-glow: color-mix(in srgb, var(--fono-electric) 30%, transparent);
   --fono-service-end: color-mix(

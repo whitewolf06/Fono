@@ -1,5 +1,11 @@
 export type DictationPhase =
-  "idle" | "listening" | "transcribing" | "processing" | "injecting" | "error";
+  | "idle"
+  | "listening"
+  | "transcribing"
+  | "processing"
+  | "awaiting_action"
+  | "injecting"
+  | "error";
 
 export interface DictationSnapshot {
   phase: DictationPhase;
@@ -39,6 +45,10 @@ export const phaseCopy: Record<
     hint: "Преобразую аудио в текст локально.",
   },
   processing: { label: "Обрабатываю", hint: "Подготавливаю текст к вставке." },
+  awaiting_action: {
+    label: "Ожидает выбора",
+    hint: "Продолжите работу с результатом в Fono V3.",
+  },
   injecting: {
     label: "Вставляю",
     hint: "Отправляю готовый текст в активное окно.",

@@ -20,27 +20,31 @@ pub(crate) async fn transcribe_test(
     duration_ms: u64,
     inject: Option<bool>,
 ) -> AppResult<Transcript> {
-    ensure_capture_allowed(&app)?;
-    let settings = app.state::<AppState>().settings();
-    if settings.whisper_model_path.is_none() {
-        let message = "Whisper model is not selected. Download and choose a model in settings.";
-        emit_pipeline_error(&app, message);
-        return Err(AppError::Stt(message.into()));
-    }
     let pipeline = app.state::<Pipeline>();
-    let operation = pipeline
-        .start_recording_from(
-            settings.audio_device_id.as_deref(),
-            OperationSource::Diagnostics,
-        )
-        .map_err(|error| {
-            emit_pipeline_error(&app, &error.to_string());
-            error
-        })?;
-    if !pipeline.set_session_settings_for(operation, settings) {
-        pipeline.stop_recording_for(operation)?;
-        return Err(AppError::Cancelled("Проверка микрофона отменена".into()));
-    }
+    let operation = {
+        let _admission = crate::application::capture_configuration::begin_capture()?;
+        ensure_capture_allowed(&app)?;
+        let settings = app.state::<AppState>().settings();
+        if settings.whisper_model_path.is_none() {
+            let message = "Whisper model is not selected. Download and choose a model in settings.";
+            emit_pipeline_error(&app, message);
+            return Err(AppError::Stt(message.into()));
+        }
+        let operation = pipeline
+            .start_recording_from(
+                settings.audio_device_id.as_deref(),
+                OperationSource::Diagnostics,
+            )
+            .map_err(|error| {
+                emit_pipeline_error(&app, &error.to_string());
+                error
+            })?;
+        if !pipeline.set_session_settings_for(operation, settings) {
+            pipeline.stop_recording_for(operation)?;
+            return Err(AppError::Cancelled("Проверка микрофона отменена".into()));
+        }
+        operation
+    };
     // Pause only after successful capture acquisition. A failed concurrent start
     // must not resume the wake pause owned by another dictation.
     let mut scope = OperationScope::new(app.clone(), operation, true);
@@ -88,7 +92,7 @@ async fn run(
         return Err(error);
     }
     let mut speech_gate = crate::application::speech_gate::SpeechGate::new(app)?;
-    if !speech_gate.accept(&samples).has_speech {
+    if !speech_gate.recording_has_speech(&samples, || session.cancellation.is_cancelled()) {
         return Ok(empty_transcript());
     }
     if !session.transition(PipelineState::Transcribing, TerminalReason::Completed) {

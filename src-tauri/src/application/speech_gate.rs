@@ -72,4 +72,20 @@ impl SpeechGate {
             }
         }
     }
+
+    /// A completed capture needs a confirmed neural segment and sustained
+    /// acoustic evidence. The streaming latch alone includes VAD hangover.
+    pub fn recording_has_speech(&mut self, samples: &[i16], cancelled: impl Fn() -> bool) -> bool {
+        #[cfg(feature = "sherpa-wake")]
+        {
+            self.inner
+                .analyze_recording(samples, cancelled)
+                .is_some_and(|decision| decision.has_speech)
+        }
+        #[cfg(not(feature = "sherpa-wake"))]
+        {
+            let _ = (samples, cancelled);
+            false
+        }
+    }
 }

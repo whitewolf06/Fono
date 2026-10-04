@@ -82,6 +82,7 @@ pub enum OperationSource {
 pub enum OperationPhase {
     Recording,
     Transcribing,
+    AwaitingAction,
     Processing,
     Injecting,
 }
@@ -309,6 +310,11 @@ fn can_transition(from: OperationPhase, to: OperationPhase) -> bool {
         || matches!(
             (from, to),
             (OperationPhase::Recording, OperationPhase::Transcribing)
+                | (OperationPhase::Transcribing, OperationPhase::AwaitingAction)
+                | (OperationPhase::AwaitingAction, OperationPhase::Processing)
+                | (OperationPhase::AwaitingAction, OperationPhase::Injecting)
+                | (OperationPhase::Processing, OperationPhase::AwaitingAction)
+                | (OperationPhase::Injecting, OperationPhase::AwaitingAction)
                 | (OperationPhase::Transcribing, OperationPhase::Processing)
                 | (OperationPhase::Transcribing, OperationPhase::Injecting)
                 | (OperationPhase::Processing, OperationPhase::Injecting)
@@ -318,6 +324,37 @@ fn can_transition(from: OperationPhase, to: OperationPhase) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn awaiting_action_retains_operation_and_supports_processing_retry() {
+        let coordinator = OperationCoordinator::new();
+        let operation = coordinator.start(OperationSource::Hotkey).unwrap();
+        coordinator
+            .transition(operation.id, OperationPhase::Transcribing)
+            .unwrap();
+        coordinator
+            .transition(operation.id, OperationPhase::AwaitingAction)
+            .unwrap();
+        assert!(coordinator.start(OperationSource::Ui).is_err());
+        coordinator
+            .transition(operation.id, OperationPhase::Processing)
+            .unwrap();
+        coordinator
+            .transition(operation.id, OperationPhase::AwaitingAction)
+            .unwrap();
+        coordinator
+            .transition(operation.id, OperationPhase::Injecting)
+            .unwrap();
+        coordinator
+            .transition(operation.id, OperationPhase::AwaitingAction)
+            .unwrap();
+        coordinator.cancel(operation.id).unwrap();
+        let next = coordinator.start(OperationSource::Ui).unwrap();
+        assert!(coordinator
+            .transition(operation.id, OperationPhase::Injecting)
+            .is_none());
+        assert_eq!(coordinator.current().unwrap().id, next.id);
+    }
 
     #[test]
     fn only_one_operation_owns_the_lease() {

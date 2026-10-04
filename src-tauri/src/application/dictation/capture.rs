@@ -67,6 +67,7 @@ fn start_configured(
     cursor: Option<(u64, u64)>,
     force_standard: bool,
 ) -> AppResult<u64> {
+    let admission = crate::application::capture_configuration::begin_capture()?;
     ensure_capture_allowed(&app)?;
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
@@ -94,15 +95,33 @@ fn start_configured(
         pipeline.stop_recording_for(operation)?;
         return Err(AppError::Cancelled("Диктовка отменена".into()));
     }
-    app.state::<fono_wake::WakeWordHandle>().pause();
-    pipeline::set_state_for_operation(
-        &app,
-        state.inner(),
-        &pipeline,
-        operation,
-        PipelineState::Listening,
-        TerminalReason::Completed,
-    );
+    drop(admission);
+    super::workflow::capture_target(&app, operation, source);
+    // The focus probe above deliberately runs outside all admission/capture
+    // locks. Cancel may finish this operation while its provider is responding.
+    // An old start must not pause WakeWord after idle cleanup already resumed it.
+    if !super::capture_activation::activate(
+        || {
+            pipeline
+                .while_operation(operation, || {
+                    app.state::<fono_wake::WakeWordHandle>().pause();
+                })
+                .is_some()
+        },
+        || {
+            pipeline::set_state_for_operation(
+                &app,
+                state.inner(),
+                &pipeline,
+                operation,
+                PipelineState::Listening,
+                TerminalReason::Completed,
+            )
+        },
+        || super::resume_wake_if_idle(&app),
+    ) {
+        return Err(AppError::Cancelled("Диктовка отменена".into()));
+    }
     arm_recording_safety_timeout(app.clone(), operation, force_standard);
     Ok(operation)
 }
@@ -179,7 +198,16 @@ pub(super) fn finish_samples(
         return Ok(None);
     }
     let mut speech_gate = crate::application::speech_gate::SpeechGate::new(&session.app)?;
-    if !speech_gate.accept(&samples).has_speech {
+    if !speech_gate.recording_has_speech(&samples, || session.cancellation.is_cancelled()) {
+        tracing::debug!(
+            operation = session.operation,
+            captured_samples = samples.len(),
+            "dictation skipped: no confirmed speech in capture"
+        );
+        return Ok(None);
+    }
+    if !session.active("after speech validation") {
+        diagnostic.stt_cancelled();
         return Ok(None);
     }
     let captured_samples = samples.len();

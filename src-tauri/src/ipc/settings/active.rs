@@ -9,9 +9,17 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
         || previous.whisper_model_path != next.whisper_model_path
         || previous.acceleration != next.acceleration
         || previous.hotkey != next.hotkey
-        || previous.command_hotkey != next.command_hotkey;
+        || previous.hotkey_mode != next.hotkey_mode
+        || previous.command_hotkey != next.command_hotkey
+        || previous.ai_mode != next.ai_mode
+        || previous.processing_workflow != next.processing_workflow
+        || previous.processing_preset != next.processing_preset
+        || previous.processing_target_language != next.processing_target_language
+        || previous.clean_prompt != next.clean_prompt
+        || previous.llm_profiles != next.llm_profiles
+        || previous.text_correction_llm != next.text_correction_llm;
     if active && capture_changed {
-        return Err(AppError::Busy("Сначала завершите текущую запись: режим, микрофон, модель и горячие клавиши применяются между диктовками".into()));
+        return Err(AppError::Busy("Сначала завершите диктовку: настройки записи, горячих клавиш и обработки текста применяются между сеансами".into()));
     }
     Ok(())
 }
@@ -37,5 +45,27 @@ mod tests {
             ..previous.clone()
         };
         assert!(validate(true, &previous, &next).is_ok());
+    }
+
+    #[test]
+    fn hotkey_behavior_changes_only_between_operations() {
+        let previous = Settings::default();
+        let next = Settings {
+            hotkey_mode: crate::types::HotkeyMode::Toggle,
+            ..previous.clone()
+        };
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
+    }
+
+    #[test]
+    fn changing_processing_workflow_cannot_hide_pending_result() {
+        let previous = Settings::default();
+        let next = Settings {
+            processing_workflow: crate::types::ProcessingWorkflow::Manual,
+            ..previous.clone()
+        };
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
     }
 }

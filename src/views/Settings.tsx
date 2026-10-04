@@ -324,6 +324,7 @@ export function SettingsView() {
     listening: "🔴 Слушаю…",
     transcribing: "🟡 Распознаю…",
     processing: "🟡 Обрабатываю…",
+    awaiting_action: "Ожидает выбора в Fono V3",
     injecting: "🟢 Готово",
     error: "⛔ Ошибка",
   };

@@ -20,6 +20,7 @@ const STATE_LABEL: Record<PipelineState, string> = {
   listening: "Слушаю…",
   transcribing: "Распознаю…",
   processing: "Обрабатываю…",
+  awaiting_action: "Выберите действие в Fono V3",
   injecting: "Вставляю…",
   error: "Ошибка",
 };
@@ -29,6 +30,7 @@ const STATE_COLOR: Record<PipelineState, string> = {
   listening: "bg-brand-500",
   transcribing: "bg-amber-500",
   processing: "bg-amber-500",
+  awaiting_action: "bg-amber-500",
   injecting: "bg-emerald-500",
   error: "bg-red-600",
 };

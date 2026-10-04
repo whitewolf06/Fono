@@ -6,3 +6,4 @@ export {
   liveStatus,
   assertDraftAvailable,
 } from "./domain/live";
+export { processDemoText } from "./infrastructure/mockText";

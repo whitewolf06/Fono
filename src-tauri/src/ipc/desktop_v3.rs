@@ -47,6 +47,7 @@ pub fn publish_result(app: &AppHandle, result: LastDictation) {
 }
 #[tauri::command]
 pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
+    let _activity = crate::application::updates::activity::lease()?;
     let settings = app.state::<AppState>().settings();
     if text.trim().is_empty() || text.len() > 200_000 {
         return Err(AppError::Config(
@@ -69,7 +70,12 @@ pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
         return Err(AppError::Config("Выберите модель обработки текста".into()));
     }
     crate::llm::LlmClient::from_settings(&settings)
-        .process(&text, settings.ai_mode, settings.clean_prompt.as_deref())
+        .process_preset(
+            &text,
+            crate::application::dictation::workflow::effective_preset(&settings),
+            settings.processing_target_language,
+            settings.clean_prompt.as_deref(),
+        )
         .await
 }
 #[tauri::command]

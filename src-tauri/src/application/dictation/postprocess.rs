@@ -7,6 +7,45 @@ use crate::{
     types::{AiMode, PipelineState, Transcript},
 };
 
+/// Ordinary workflow processing reports errors instead of silently dropping a
+/// requested translation. The caller keeps raw text for retry/explicit insertion.
+pub(super) async fn selected(
+    session: &Session,
+    transcript: &Transcript,
+    preset: super::workflow::TextPreset,
+    language: Option<super::workflow::TranslationLanguage>,
+    enabled: bool,
+    preserve_legacy_command: bool,
+) -> crate::error::AppResult<Option<String>> {
+    if !enabled {
+        return Ok(Some(transcript.text.clone()));
+    }
+    if session.settings.ai_mode == AiMode::Off {
+        return Err(crate::error::AppError::Llm(
+            "Включите обработку текста и выберите модель".into(),
+        ));
+    }
+    if !session.transition(PipelineState::Processing, TerminalReason::Completed) {
+        return Ok(None);
+    }
+    let client = LlmClient::from_settings(&session.settings);
+    // Preserve the legacy command hotkey until a preset is explicitly selected.
+    if preserve_legacy_command
+        && session.settings.ai_mode == AiMode::Command
+        && session.settings.processing_preset.is_none()
+        && language.is_none()
+    {
+        return tokio::select! {
+            result = client.process(&transcript.text,AiMode::Command,session.settings.clean_prompt.as_deref()) => result.map(Some),
+            _ = wait_for_cancellation(session.cancellation.clone()) => Ok(None),
+        };
+    }
+    tokio::select! {
+        result = client.process_preset(&transcript.text,preset,language,session.settings.clean_prompt.as_deref()) => result.map(Some),
+        _ = wait_for_cancellation(session.cancellation.clone()) => Ok(None),
+    }
+}
+
 pub(super) async fn process(
     session: &Session,
     transcript: &Transcript,

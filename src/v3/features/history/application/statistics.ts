@@ -78,7 +78,28 @@ export function dictationFacts(
         clean: "Очистка",
         format: "Форматирование",
         command: "Команда",
+        task: "Постановка задачи",
+        formal: "Деловое письмо",
       }[m.processingMode],
+    });
+  if (m?.processingTrigger)
+    facts.push({
+      title: "Запуск обработки",
+      value:
+        m.processingTrigger === "manual"
+          ? "По выбору после записи"
+          : "Автоматически",
+    });
+  if (m?.processingTranslation)
+    facts.push({
+      title: "Перевод результата",
+      value: {
+        en: "Английский",
+        ru: "Русский",
+        de: "Немецкий",
+        fr: "Французский",
+        es: "Испанский",
+      }[m.processingTranslation],
     });
   if (m?.dictionaryEnabled !== undefined)
     facts.push({

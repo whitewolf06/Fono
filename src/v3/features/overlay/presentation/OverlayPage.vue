@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Phase } from "../../../shared/domain/contracts";
 import {
@@ -9,25 +10,42 @@ import { useOverlayDemo } from "../application/useOverlayDemo";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import OverlayPreview from "./OverlayPreview.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
-const { state } = useWorkspace();
+const workspace = useWorkspace();
+const { state } = workspace;
+const copyMessage = ref("");
 const {
   phase,
   seconds,
   level,
   live,
+  pending,
+  resultText,
   select,
   selectLive,
   resumeLive,
   finish,
   cancel,
   play,
-} = useOverlayDemo();
+  resolve,
+  showPendingError,
+} = useOverlayDemo(() => state.preferences);
+async function copy(text: string) {
+  copyMessage.value = "";
+  try {
+    await workspace.copy(text);
+    copyMessage.value = "Демонстрационный текст скопирован.";
+  } catch {
+    copyMessage.value =
+      "Не удалось скопировать. Выделите текст и скопируйте вручную.";
+  }
+}
 const phases: Phase[] = [
   "idle",
   "listening",
   "silence",
   "transcribing",
   "processing",
+  "awaiting_action",
   "error",
   "done",
   "cancelled",
@@ -51,6 +69,7 @@ const phases: Phase[] = [
       >
         {{ phaseLabels[value] }}
       </button>
+      <button @click="showPendingError">Ошибка обработки · повторить</button>
     </div>
     <div
       v-if="LIVE_DICTATION_ENABLED"
@@ -70,8 +89,13 @@ const phases: Phase[] = [
         <span class="desktop-dots">● ● ●</span>
         <h3>Место для ваших мыслей</h3>
         <p>Индикатор остаётся рядом, пока вы работаете.</p>
-        <div class="mock-text-line" />
-        <div class="mock-text-line short" />
+        <p v-if="resultText" class="overlay-demo-result" role="status">
+          {{ resultText }}
+        </p>
+        <template v-else>
+          <div class="mock-text-line" />
+          <div class="mock-text-line short" />
+        </template>
       </div>
       <div class="overlay-variants">
         <section>
@@ -82,10 +106,13 @@ const phases: Phase[] = [
             :level="level"
             :seconds="seconds"
             :live="live"
+            :pending="pending"
             interactive
             @finish="finish"
             @cancel="cancel"
             @resume="resumeLive"
+            @resolve="resolve"
+            @copy="copy"
           />
         </section>
         <section>
@@ -96,10 +123,13 @@ const phases: Phase[] = [
             :level="level"
             :seconds="seconds"
             :live="live"
+            :pending="pending"
             interactive
             @finish="finish"
             @cancel="cancel"
             @resume="resumeLive"
+            @resolve="resolve"
+            @copy="copy"
           />
         </section>
       </div>
@@ -107,8 +137,11 @@ const phases: Phase[] = [
     <div class="section-header">
       <small class="muted"
         >Масштаб и прозрачность берутся из настроек. Это не настоящее окно
-        Tauri.</small
+        Tauri. Действия изменяют только этот предпросмотр.</small
       ><WlButton size="sm" @click="play">Проиграть сценарий</WlButton>
     </div>
+    <small v-if="copyMessage" class="muted" role="status">{{
+      copyMessage
+    }}</small>
   </div>
 </template>

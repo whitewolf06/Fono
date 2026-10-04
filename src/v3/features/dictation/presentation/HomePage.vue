@@ -32,8 +32,8 @@ const ui = useInteraction();
           }}<template #icon
             ><AppIcon name="edit" :size="12" /></template></WlButton
         ><small class="hero-hint">{{
-          state.preferences.dictationMode === "live"
-            ? "нажмите для начала и завершения"
+          state.preferences.hotkeyMode === "toggle"
+            ? "нажмите для начала · ещё раз для завершения"
             : "удерживайте во время речи"
         }}</small>
         <DictationModeControl v-if="LIVE_DICTATION_ENABLED" />

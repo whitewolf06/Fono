@@ -8,10 +8,24 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
   return {
     async save(patch) {
       if (
-        patch.dictationMode &&
-        ["listening", "silence", "transcribing", "processing"].includes(
-          state.phase,
-        )
+        [
+          "dictationMode",
+          "hotkey",
+          "hotkeyMode",
+          "commandHotkey",
+          "processingTrigger",
+          "processingMode",
+          "processingTranslation",
+          "profile",
+          "processingModel",
+        ].some((key) => key in patch) &&
+        [
+          "listening",
+          "silence",
+          "transcribing",
+          "processing",
+          "awaiting_action",
+        ].includes(state.phase)
       )
         throw new Error("Сначала завершите текущую диктовку.");
       await ctx.save(patch);

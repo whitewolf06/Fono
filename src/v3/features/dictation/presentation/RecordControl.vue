@@ -9,6 +9,7 @@ import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import VoiceWave from "./VoiceWave.vue";
 import { liveStatus } from "../domain/live";
 import { useFeedback } from "../../../shared/application/feedback";
+import PendingDictationActions from "../../../shared/presentation/PendingDictationActions.vue";
 const { run } = useFeedback();
 const workspace = useWorkspace();
 const live = computed(() => workspace.state.live);
@@ -38,7 +39,15 @@ const working = computed(() =>
       :phase="workspace.state.phase"
       :level="workspace.state.audioLevel"
     />
-    <div class="record-controls">
+    <PendingDictationActions
+      v-if="workspace.state.pendingDictation"
+      :pending="workspace.state.pendingDictation"
+      @resolve="
+        (request) => run(() => workspace.dictation.resolvePending(request))
+      "
+      @copy="(text) => run(() => workspace.copy(text), 'Скопировано')"
+    />
+    <div v-else class="record-controls">
       <span class="record-status" role="status"
         >{{ status
         }}<span v-if="recording" class="mono"
@@ -56,9 +65,6 @@ const working = computed(() =>
         size="sm"
         :variant="recording ? 'soft-danger' : 'soft'"
         :loading="working"
-        :disabled="
-          recording && workspace.state.recordingSource === 'hotkey' && !liveMode
-        "
         @click="
           run(() =>
             recording
@@ -71,13 +77,7 @@ const working = computed(() =>
             :name="recording ? 'stop' : 'microphone'"
             :size="16" /></template
         >{{
-          recording
-            ? workspace.state.recordingSource === "hotkey" && !liveMode
-              ? "Отпустите клавишу"
-              : "Завершить"
-            : working
-              ? "Обработка"
-              : "Начать запись"
+          recording ? "Завершить" : working ? "Обработка" : "Начать запись"
         }}</WlButton
       ><WlButton
         v-if="recording || working"

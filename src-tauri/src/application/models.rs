@@ -95,12 +95,28 @@ pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) 
         return Ok(());
     }
 
+    let _configuration = super::capture_configuration::reserve_configuration(|| {
+        if app
+            .state::<crate::pipeline::Pipeline>()
+            .current_operation()
+            .is_some()
+            || super::dictation::workflow::is_busy(app)
+        {
+            return Err(AppError::Busy(
+                "Сначала завершите текущую диктовку перед выбором модели".into(),
+            ));
+        }
+        Ok(())
+    })?;
+
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
     let acceleration = settings.acceleration;
     let worker_paths = crate::stt::worker_paths_for_app(app);
     let background_activity = _activity.clone();
+    let background_configuration = _configuration.clone();
     let prepared = tauri::async_runtime::spawn_blocking(move || {
         let _activity = background_activity;
+        let _configuration = background_configuration;
         stt.ensure_loaded(&model_path, acceleration, &worker_paths)
     })
     .await

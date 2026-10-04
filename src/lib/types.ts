@@ -2,7 +2,13 @@
 // В Rust они зеркалируются в src-tauri/src/types.rs (serde::Serialize).
 
 export type PipelineState =
-  "idle" | "listening" | "transcribing" | "processing" | "injecting" | "error";
+  | "idle"
+  | "listening"
+  | "transcribing"
+  | "processing"
+  | "awaiting_action"
+  | "injecting"
+  | "error";
 
 export interface DeviceInfo {
   id: string;
@@ -93,6 +99,10 @@ export interface Settings {
   update_checks_enabled: boolean;
   /** Глобальная горячая клавиша push-to-talk, напр. "Ctrl+Space" */
   hotkey: string;
+  hotkey_mode?: "hold" | "toggle";
+  processing_workflow?: "automatic" | "manual";
+  processing_preset?: "clean" | "format" | "task" | "formal" | null;
+  processing_target_language?: "en" | "ru" | "de" | "fr" | "es" | null;
   /** Включена ли активация по ключевой фразе */
   wake_word_enabled: boolean;
   /** Сама фраза, напр. "Эй, ассистент" */
@@ -403,6 +413,9 @@ export interface DictationHistoryMetadata {
   detected_language: string | null;
   dictation_mode: "standard" | "live";
   processing_mode: AiMode;
+  processing_workflow?: "automatic" | "manual" | null;
+  processing_preset?: "clean" | "format" | "task" | "formal" | null;
+  processing_target_language?: "en" | "ru" | "de" | "fr" | "es" | null;
   dictionary_enabled: boolean;
 }
 

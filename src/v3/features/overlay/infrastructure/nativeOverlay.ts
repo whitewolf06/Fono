@@ -10,6 +10,8 @@ import type {
   NativeLiveSnapshot,
 } from "../../../shared/infrastructure/native/dictation";
 import { livePhase } from "../../dictation";
+import type { PendingDictation } from "../../../shared/domain/processing";
+import { createPendingOverlay } from "./pendingOverlay";
 interface Preview {
   overlay_scale: number;
   overlay_opacity: number;
@@ -26,6 +28,7 @@ export function createNativeOverlay() {
     error: "",
     source: null as string | null,
     live: null as LiveDictation | null,
+    pending: null as PendingDictation | null,
     preview: null as Preview | null,
   });
   let settings: Settings | null = null,
@@ -33,9 +36,11 @@ export function createNativeOverlay() {
     polling = false,
     started = Date.now(),
     operation = -1;
+  const pending = createPendingOverlay(state, () => disposed);
   const releases: (() => void)[] = [];
   let moveTimer: ReturnType<typeof setTimeout> | undefined;
   const fail = (error: unknown) => {
+    if (disposed) return;
     state.error = error instanceof Error ? error.message : String(error);
   };
   function applySettings() {
@@ -50,7 +55,9 @@ export function createNativeOverlay() {
       });
   }
   function bind<T>(channel: string, listener: (v: T) => void) {
-    void subscribe(channel, listener)
+    void subscribe<T>(channel, (value) => {
+      if (!disposed) listener(value);
+    })
       .then((release) => (disposed ? release() : releases.push(release)))
       .catch(fail);
   }
@@ -89,6 +96,7 @@ export function createNativeOverlay() {
     state.source = v.source;
   }
   bind<NativeLiveSnapshot>("dictation-live", applyLive);
+  bind<PendingDictation | null>("pending-dictation", pending.apply);
   bind<Preview | null>("overlay-preview", (p) => {
     state.preview = p;
     applySettings();
@@ -99,13 +107,17 @@ export function createNativeOverlay() {
       state.seconds = v.speaking ? 0 : Math.ceil(v.remaining_ms / 1000);
     },
   );
+  const hydration = pending.stamp();
   void Promise.all([
     call<Settings>("get_settings"),
     call<Preview | null>("get_overlay_preview"),
+    call<PendingDictation | null>("get_pending_dictation"),
   ])
-    .then(([s, p]) => {
+    .then(([s, p, dictation]) => {
+      if (disposed) return;
       settings = s;
       state.preview = p;
+      pending.apply(dictation, hydration);
       applySettings();
     })
     .catch(fail);
@@ -122,17 +134,29 @@ export function createNativeOverlay() {
   const timer = setInterval(async () => {
     if (disposed || polling) return;
     polling = true;
+    const ticket = pending.stamp();
     try {
-      const [v, live] = await Promise.all([
+      const [v, live, dictation] = await Promise.all([
         call<NativeSnapshot>("get_desktop_snapshot"),
         call<NativeLiveSnapshot | null>("get_live_dictation"),
+        call<PendingDictation | null>("get_pending_dictation"),
       ]);
+      if (disposed) return;
+      if (v.operation_id > 0 && v.operation_id < operation) return;
+      if (!pending.current(ticket)) return;
+      pending.observeOperation(v.operation_id);
+      pending.apply(dictation, ticket);
+      if (state.pending) {
+        operation = Math.max(operation, state.pending.sessionId);
+        applySettings();
+        return;
+      }
       applyLive(live);
       if (state.live && state.preferences.dictationMode === "live") {
         applySettings();
         return;
       }
-      if (operation !== v.operation_id) {
+      if (v.operation_id > 0 && operation !== v.operation_id) {
         operation = v.operation_id;
         started = Date.now();
         state.seconds = 0;
@@ -148,7 +172,7 @@ export function createNativeOverlay() {
       state.elapsed = Math.floor((Date.now() - started) / 1000);
       applySettings();
     } catch (error) {
-      fail(error);
+      if (pending.current(ticket)) fail(error);
     } finally {
       polling = false;
     }
@@ -157,6 +181,8 @@ export function createNativeOverlay() {
     state,
     drag: () => window.startDragging().catch(fail),
     resume: () => call("resume_live_insertion").catch(fail),
+    resolve: pending.resolve,
+    copy: pending.copy,
     finish: () =>
       (state.preview && state.phase === "idle"
         ? call("hide_overlay_preview")
@@ -167,9 +193,14 @@ export function createNativeOverlay() {
           )
       ).catch(fail),
     cancel: () =>
-      (state.phase === "idle"
-        ? call("hide_overlay_preview")
-        : call("cancel_dictation")
+      (state.pending
+        ? pending.resolve({
+            sessionId: state.pending.sessionId,
+            action: "cancel",
+          })
+        : state.phase === "idle"
+          ? call("hide_overlay_preview")
+          : call("cancel_dictation")
       ).catch(fail),
     dispose() {
       disposed = true;

@@ -5,7 +5,6 @@ import { createNativeContext } from "../shared/infrastructure/native/context";
 import { nativeSettings } from "../shared/infrastructure/native/settings";
 import {
   nativeDictation,
-  type NativeSnapshot,
   type NativeResult,
   type NativeLiveSnapshot,
 } from "../shared/infrastructure/native/dictation";
@@ -14,6 +13,7 @@ import { nativeWake } from "../shared/infrastructure/native/wake";
 import { nativeCommands } from "../features/commands/infrastructure/nativeCommands";
 import { createNativeDiagnosticReport } from "../features/diagnostic-report";
 import { createNativeUpdates } from "../features/updates";
+import type { PendingDictation } from "../shared/domain/processing";
 export function createNativeWorkspace(): Workspace {
   const state = reactive<WorkspaceState>({
     preferences: {
@@ -61,12 +61,19 @@ export function createNativeWorkspace(): Workspace {
   let disposed = false;
   let polling = false;
   const releases: (() => void)[] = [];
+  const subscriptions: Promise<void>[] = [];
   function bind<T>(channel: string, handler: (value: T) => void) {
-    void subscribe(channel, handler)
-      .then((release) => (disposed ? release() : releases.push(release)))
-      .catch(ctx.report);
+    subscriptions.push(
+      subscribe(channel, handler)
+        .then((release) => {
+          if (disposed) release();
+          else releases.push(release);
+        })
+        .catch(ctx.report),
+    );
   }
   bind<NativeResult>("dictation-result", dictation.accept);
+  bind<PendingDictation | null>("pending-dictation", dictation.pending);
   bind<NativeLiveSnapshot>("dictation-live", dictation.live);
   bind<string>("command-proposal", (proposal) => {
     state.commandProposal = proposal;
@@ -129,7 +136,10 @@ export function createNativeWorkspace(): Workspace {
   });
   async function refresh() {
     try {
+      await Promise.all(subscriptions);
+      if (disposed) return;
       await ctx.refresh();
+      await dictation.refresh();
       await wake.load();
       state.scenario = "normal";
     } catch (error) {
@@ -142,12 +152,7 @@ export function createNativeWorkspace(): Workspace {
     if (disposed || polling || state.scenario !== "normal") return;
     polling = true;
     try {
-      const [snapshot, live] = await Promise.all([
-        call<NativeSnapshot>("get_desktop_snapshot"),
-        call<NativeLiveSnapshot | null>("get_live_dictation"),
-      ]);
-      dictation.live(live);
-      dictation.snapshot(snapshot);
+      await dictation.refresh();
     } catch (error) {
       ctx.report(error);
     } finally {

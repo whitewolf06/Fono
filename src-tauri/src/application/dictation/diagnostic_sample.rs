@@ -14,9 +14,12 @@ pub(crate) async fn record_diagnostic_sample(
     device_id: Option<&str>,
     duration: std::time::Duration,
 ) -> AppResult<Vec<i16>> {
-    ensure_capture_allowed(app)?;
     let pipeline = app.state::<Pipeline>();
-    let operation = pipeline.start_recording_from(device_id, OperationSource::Diagnostics)?;
+    let operation = {
+        let _admission = crate::application::capture_configuration::begin_capture()?;
+        ensure_capture_allowed(app)?;
+        pipeline.start_recording_from(device_id, OperationSource::Diagnostics)?
+    };
     let mut scope = OperationScope::new(app.clone(), operation, true);
     let result = collect(app, operation, duration).await;
     scope.complete(&result);

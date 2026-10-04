@@ -25,13 +25,20 @@ const fields: (keyof Preferences)[][] = [
   ["model", "language", "acceleration"],
   [
     "hotkey",
+    "hotkeyMode",
     "commandHotkey",
     "dictationMode",
     "wakePhrase",
     "wakeLanguage",
     "silenceMs",
   ],
-  ["processingMode", "profile", "processingModel"],
+  [
+    "processingTrigger",
+    "processingMode",
+    "processingTranslation",
+    "profile",
+    "processingModel",
+  ],
   [],
 ];
 const { draft, dirty, save, canLeave, reset } = useDraft(
@@ -124,6 +131,12 @@ async function skip() {
       <template v-if="step === 4"
         ><p>
           Нажмите «Начать запись», произнесите фразу, затем «Завершить».
+          {{
+            workspace.state.preferences.processingEnabled &&
+            workspace.state.preferences.processingTrigger === "manual"
+              ? "После распознавания выберите действие в индикаторе или на главной."
+              : ""
+          }}
           {{
             workspace.native
               ? "Ниже появится распознанный текст."

@@ -1,11 +1,13 @@
 //! Shared capture, recognition and completion for ordinary and diagnostic dictation.
 mod capture;
+mod capture_activation;
 mod diagnostic_sample;
 mod diagnostics;
 mod lifecycle;
 mod postprocess;
 mod recognition;
 mod standard;
+pub(crate) mod workflow;
 
 #[allow(unused_imports)] // Preserve the existing application API.
 pub(crate) use capture::start_command;

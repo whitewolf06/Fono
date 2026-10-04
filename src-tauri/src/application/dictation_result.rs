@@ -46,6 +46,38 @@ pub fn archive_with_metadata(
     operation: u64,
     timings: DictationTimingMeasurements,
 ) {
+    archive_session(
+        app,
+        settings,
+        SessionArchive {
+            id,
+            transcript,
+            final_text,
+            operation,
+            timings,
+            created_at: chrono::Utc::now(),
+        },
+    );
+}
+
+pub struct SessionArchive<'a> {
+    pub id: String,
+    pub transcript: &'a Transcript,
+    pub final_text: &'a str,
+    pub operation: u64,
+    pub timings: DictationTimingMeasurements,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub fn archive_session(app: &AppHandle, settings: &Settings, record: SessionArchive<'_>) {
+    let SessionArchive {
+        id,
+        transcript,
+        final_text,
+        operation,
+        timings,
+        created_at,
+    } = record;
     if final_text.trim().is_empty() || !settings.history_enabled {
         return;
     }
@@ -58,7 +90,7 @@ pub fn archive_with_metadata(
     let entry = DictationHistoryEntry {
         id: id.clone(),
         text: final_text.into(),
-        created_at: chrono::Utc::now(),
+        created_at,
         device: transcript.device.clone(),
         metadata: Some(DictationHistoryMetadata::from_result(
             settings, transcript, timings,

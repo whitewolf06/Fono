@@ -20,7 +20,7 @@ pub mod replay;
 pub mod speech_vad;
 pub mod test;
 #[cfg(feature = "sherpa-wake")]
-pub use speech_vad::{SpeechVadDecision, StreamingSpeechVad};
+pub use speech_vad::{RecordedSpeechDecision, SpeechVadDecision, StreamingSpeechVad};
 
 pub use audio_source::{AudioCursor, AudioHub, AudioPacket, AudioSubscription};
 #[cfg(feature = "whisper-wake")]

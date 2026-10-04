@@ -81,6 +81,13 @@ export const searchIndex: {
     keywords: "hotkey shortcut ctrl space сочетание",
   },
   {
+    label: "Режим горячей клавиши",
+    section: "activation",
+    field: "hotkeyMode",
+    keywords:
+      "удерживать зажать отпустить нажать повторно toggle hold старт стоп",
+  },
+  {
     label: "Фраза пробуждения",
     section: "activation",
     field: "wakePhrase",
@@ -102,7 +109,22 @@ export const searchIndex: {
     label: "Обработка текста",
     section: "processing",
     field: "processingMode",
-    keywords: "пунктуация очистка форматирование llm постобработка",
+    keywords:
+      "пунктуация очистка форматирование задача задачи деловое письмо llm постобработка стиль",
+  },
+  {
+    label: "Автоматическая или ручная обработка",
+    section: "processing",
+    field: "processingTrigger",
+    keywords:
+      "по кнопке ручная автоматическая индикатор overlay обработать вставить",
+  },
+  {
+    label: "Перевод после обработки",
+    section: "processing",
+    field: "processingTranslation",
+    keywords:
+      "перевести перевод английский русский немецкий французский испанский язык",
   },
   {
     label: "Подключение и модели ИИ",

@@ -7,12 +7,25 @@ let server,
   nativeSettings,
   nativeDictation,
   nativeWake,
+  createNativeOverlay,
+  createPendingOverlay,
   rawDefaults,
   defaults;
-let calls, invoke;
+let calls, invoke, callbacks, listeners;
 before(async () => {
   globalThis.window = {
-    __TAURI_INTERNALS__: { invoke: (...args) => invoke(...args) },
+    __TAURI_INTERNALS__: {
+      invoke: (...args) => invoke(...args),
+      metadata: { currentWindow: { label: "overlay" } },
+      transformCallback: (callback) => {
+        const id = callbacks.size + 1;
+        callbacks.set(id, callback);
+        return id;
+      },
+    },
+    __TAURI_EVENT_PLUGIN_INTERNALS__: {
+      unregisterListener: (event) => listeners.delete(event),
+    },
   };
   server = await createServer({
     appType: "custom",
@@ -34,20 +47,34 @@ before(async () => {
   ({ nativeWake } = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/native/wake.ts",
   ));
+  ({ createNativeOverlay } = await server.ssrLoadModule(
+    "/src/v3/features/overlay/infrastructure/nativeOverlay.ts",
+  ));
+  ({ createPendingOverlay } = await server.ssrLoadModule(
+    "/src/v3/features/overlay/infrastructure/pendingOverlay.ts",
+  ));
   ({ DEFAULT_SETTINGS: rawDefaults } =
     await server.ssrLoadModule("/src/lib/types.ts"));
   ({ defaults } = await server.ssrLoadModule(
     "/src/v3/features/preferences/domain/preferences.ts",
   ));
+  globalThis.document = { documentElement: { classList: { add() {} } } };
 });
 after(async () => {
-  await server.close();
+  await server?.close();
   delete globalThis.window;
+  delete globalThis.document;
 });
 beforeEach(() => {
   calls = [];
+  callbacks = new Map();
+  listeners = new Map();
   invoke = async (command, args) => {
     calls.push([command, args]);
+    if (command === "plugin:event|listen") {
+      listeners.set(args.event, callbacks.get(args.handler));
+      return args.handler;
+    }
     if (command === "get_settings") return structuredClone(rawDefaults);
     if (
       [
@@ -368,17 +395,190 @@ test("final processed payload updates the same result id without replacing manua
   assert.equal(s.last.entry.text, "Обработанный текст.");
   assert.equal(s.last.draft, "Ручная правка");
 });
-test("wake recording is confirmed without racing its auto-stop; hotkey must be released", async () => {
+test("wake confirms its auto-stop; overlay Stop finishes both hold and toggle hotkeys", async () => {
   const s = state(),
     dictation = nativeDictation(createContext(s));
   s.recordingSource = "wake_word";
   await dictation.port.finish();
   assert.equal(calls.at(-1)[0], "confirm_dictation");
   s.recordingSource = "hotkey";
-  await assert.rejects(dictation.port.finish(), /Отпустите/);
+  for (const mode of ["hold", "toggle"]) {
+    s.preferences.hotkeyMode = mode;
+    await dictation.port.finish();
+    assert.equal(calls.at(-1)[0], "stop_dictation");
+  }
   s.recordingSource = "ui";
   await dictation.port.finish();
   assert.equal(calls.at(-1)[0], "stop_dictation");
+});
+
+function pendingDictation(sessionId, patch = {}) {
+  return {
+    sessionId,
+    phase: "awaiting_action",
+    originalText: "Публичный пример текста",
+    resultText: null,
+    createdAt: "2026-10-04T12:00:00Z",
+    preset: "clean",
+    targetLanguage: null,
+    processingEnabled: true,
+    source: "hotkey",
+    error: null,
+    insertionBlocked: false,
+    ...patch,
+  };
+}
+function pendingState() {
+  return { pending: null, phase: "idle", source: null, level: 0, error: "" };
+}
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+test("overlay hydration and poll replies cannot erase newer pending events", () => {
+  const s = pendingState(),
+    controller = createPendingOverlay(s, () => false);
+  const hydration = controller.stamp();
+  controller.apply(pendingDictation(1));
+  controller.apply(null, hydration);
+  assert.equal(s.pending.sessionId, 1);
+  const poll = controller.stamp();
+  controller.apply(pendingDictation(2));
+  controller.apply(pendingDictation(1), poll);
+  controller.apply(null, poll);
+  assert.equal(s.pending.sessionId, 2);
+  assert.equal(s.phase, "awaiting_action");
+  controller.apply(null);
+  controller.apply(pendingDictation(2));
+  controller.apply(pendingDictation(1));
+  assert.equal(
+    s.pending,
+    null,
+    "retired pending cannot resurrect after completion",
+  );
+});
+
+test("overlay ignores a delayed action error or reply for an older session", async () => {
+  const s = pendingState(),
+    controller = createPendingOverlay(s, () => false);
+  controller.apply(pendingDictation(1));
+  let reject;
+  invoke = async () =>
+    new Promise((_, r) => {
+      reject = r;
+    });
+  const first = controller.resolve({
+    sessionId: 1,
+    action: "process_and_insert",
+    preset: "formal",
+    targetLanguage: "en",
+  });
+  assert.equal(s.phase, "processing");
+  controller.apply(null);
+  controller.apply(pendingDictation(2));
+  reject("Поздняя ошибка предыдущего текста");
+  await first;
+  assert.equal(s.pending.sessionId, 2);
+  assert.equal(s.error, "");
+  let resolve;
+  invoke = async () =>
+    new Promise((r) => {
+      resolve = r;
+    });
+  const second = controller.resolve({ sessionId: 2, action: "insert_raw" });
+  controller.apply(null);
+  controller.apply(pendingDictation(3));
+  resolve(null);
+  await second;
+  assert.equal(s.pending.sessionId, 3);
+});
+
+test("overlay pending errors retain text, duplicate actions are fenced, cancel blocks late work", async () => {
+  const s = pendingState(),
+    controller = createPendingOverlay(s, () => false);
+  controller.apply(pendingDictation(7));
+  invoke = async (name, args) => {
+    calls.push([name, args]);
+    if (name === "resolve_pending_dictation") throw "Соединение недоступно";
+  };
+  await controller.resolve({ sessionId: 7, action: "process_and_insert" });
+  assert.equal(s.pending.originalText, "Публичный пример текста");
+  assert.equal(s.phase, "awaiting_action");
+  assert.equal(s.error, "Соединение недоступно");
+  controller.apply(pendingDictation(7), controller.stamp());
+  assert.equal(
+    s.error,
+    "Соединение недоступно",
+    "polling keeps an actionable IPC error visible",
+  );
+  let finish;
+  invoke = async (name, args) => {
+    calls.push([name, args]);
+    if (args.request.action !== "cancel")
+      return new Promise((r) => {
+        finish = r;
+      });
+  };
+  const processing = controller.resolve({
+    sessionId: 7,
+    action: "process_and_insert",
+  });
+  controller.apply(pendingDictation(7), controller.stamp());
+  assert.equal(
+    s.phase,
+    "processing",
+    "a lagging poll cannot re-enable processing controls",
+  );
+  const before = calls.length;
+  await controller.resolve({ sessionId: 7, action: "insert_raw" });
+  assert.equal(calls.length, before);
+  await controller.resolve({ sessionId: 7, action: "cancel" });
+  finish(null);
+  await processing;
+  assert.equal(s.pending, null);
+  assert.equal(s.phase, "cancelled");
+  controller.apply(pendingDictation(7));
+  assert.equal(s.pending, null);
+});
+
+test("native overlay hydrates pending, wires IPC actions/copy, and rejects late initial null", async () => {
+  const originalInvoke = invoke;
+  let completeHydration;
+  invoke = async (name, args) => {
+    if (name === "get_pending_dictation")
+      return new Promise((r) => {
+        completeHydration = r;
+      });
+    return originalInvoke(name, args);
+  };
+  const overlay = createNativeOverlay();
+  try {
+    await flush();
+    listeners.get("pending-dictation")({
+      payload: pendingDictation(11, { resultText: "Обработанный результат" }),
+    });
+    completeHydration(null);
+    await flush();
+    assert.equal(overlay.state.pending.sessionId, 11);
+    assert.equal(overlay.state.phase, "awaiting_action");
+    invoke = originalInvoke;
+    await overlay.copy("Обработанный результат");
+    assert.deepEqual(calls.at(-1), [
+      "copy_dictation_text",
+      { text: "Обработанный результат" },
+    ]);
+    await overlay.resolve({ sessionId: 11, action: "insert_raw" });
+    assert.ok(
+      calls.some(
+        ([name, args]) =>
+          name === "resolve_pending_dictation" && args.request.sessionId === 11,
+      ),
+    );
+    assert.equal(overlay.state.pending, null);
+    await overlay.finish();
+    assert.equal(calls.at(-1)[0], "stop_dictation");
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
 });
 test("model deletion cannot cancel a similarly named download", async () => {
   const s = state();

@@ -50,13 +50,20 @@ pub async fn save_settings(
     // Update checks are owned by their explicit opt-in command. A stale full
     // settings form, including an older renderer, cannot silently change it.
     settings.update_checks_enabled = old_settings.update_checks_enabled;
-    active::validate(
-        app.state::<crate::pipeline::Pipeline>()
-            .current_operation()
-            .is_some(),
-        &old_settings,
-        &settings,
-    )?;
+    let _configuration = crate::application::capture_configuration::reserve_configuration(|| {
+        if crate::application::dictation::workflow::is_busy(&app) {
+            return Err(AppError::Busy(
+                "Сначала обработайте, вставьте или отмените ожидающую диктовку".into(),
+            ));
+        }
+        active::validate(
+            app.state::<crate::pipeline::Pipeline>()
+                .current_operation()
+                .is_some(),
+            &old_settings,
+            &settings,
+        )
+    })?;
     let wake_settings_changed = wake::invalidate_changed(&mut settings, &old_settings);
     normalize_llm_profiles(&mut settings, &old_settings);
     validate_settings(&settings)?;
@@ -64,26 +71,16 @@ pub async fn save_settings(
         crate::application::wake_validation::ensure_profile_can_activate(&settings)?;
     }
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
+        || old_settings.hotkey_mode != settings.hotkey_mode
         || old_settings.command_hotkey != settings.command_hotkey;
     let model_changed = old_settings.whisper_model_path != settings.whisper_model_path
         || old_settings.acceleration != settings.acceleration;
-
-    if shortcuts_changed {
-        if let Err(error) = crate::register_all_shortcuts(&app, &settings) {
-            let rollback = restore_shortcuts(&app, &old_settings);
-            return Err(AppError::Config(format!(
-                "Не удалось зарегистрировать горячие клавиши: {error}. {rollback}"
-            )));
-        }
-    }
 
     let previous_secrets = profile_secret_snapshot(&old_settings, &settings)?;
     let persisted_settings = match prepare_secret_update(settings, &old_settings) {
         Ok(settings) => settings,
         Err(error) => {
-            if shortcuts_changed {
-                let _ = restore_shortcuts(&app, &old_settings);
-            }
+            let _ = restore_profile_secrets(&previous_secrets);
             return Err(error);
         }
     };
@@ -94,8 +91,10 @@ pub async fn save_settings(
             let acceleration = persisted_settings.acceleration;
             let worker_paths = crate::stt::worker_paths_for_app(&app);
             let background_activity = _activity.clone();
+            let background_configuration = _configuration.clone();
             let prepared = match tauri::async_runtime::spawn_blocking(move || {
                 let _activity = background_activity;
+                let _configuration = background_configuration;
                 stt.ensure_loaded(std::path::Path::new(&path), acceleration, &worker_paths)
             })
             .await
@@ -107,11 +106,20 @@ pub async fn save_settings(
             };
             if let Err(error) = prepared {
                 let _ = restore_profile_secrets(&previous_secrets);
-                if shortcuts_changed {
-                    let _ = restore_shortcuts(&app, &old_settings);
-                }
                 return Err(error);
             }
+        }
+    }
+
+    // No awaits remain after registration: cancellation during model
+    // preparation cannot leave new shortcuts paired with old persisted values.
+    if shortcuts_changed {
+        if let Err(error) = crate::register_all_shortcuts(&app, &persisted_settings) {
+            let rollback = restore_shortcuts(&app, &old_settings);
+            let _ = restore_profile_secrets(&previous_secrets);
+            return Err(AppError::Config(format!(
+                "Не удалось зарегистрировать горячие клавиши: {error}. {rollback}"
+            )));
         }
     }
 

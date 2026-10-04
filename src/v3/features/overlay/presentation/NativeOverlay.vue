@@ -8,8 +8,22 @@ const phase = computed(() =>
     ? "listening"
     : overlay.state.phase,
 );
+const pending = computed(() =>
+  overlay.state.pending && overlay.state.error
+    ? {
+        ...overlay.state.pending,
+        error: overlay.state.pending.error || overlay.state.error,
+      }
+    : overlay.state.pending,
+);
 function drag(event: PointerEvent) {
-  if (event.target instanceof Element && !event.target.closest("button"))
+  if (
+    event.button === 0 &&
+    event.target instanceof Element &&
+    !event.target.closest(
+      "button, select, input, a, [data-overlay-interactive]",
+    )
+  )
     void overlay.drag();
 }
 onUnmounted(overlay.dispose);
@@ -23,18 +37,20 @@ onUnmounted(overlay.dispose);
       :seconds="overlay.state.seconds"
       :elapsed="overlay.state.elapsed"
       :live="overlay.state.live"
+      :pending="pending"
       interactive
-      :can-finish="
-        !overlay.state.source ||
-        overlay.state.preferences.dictationMode === 'live' ||
-        ['ui', 'wake_word'].includes(overlay.state.source)
-      "
       @finish="overlay.finish"
       @cancel="overlay.cancel"
       @resume="overlay.resume"
+      @resolve="overlay.resolve"
+      @copy="overlay.copy"
     />
-    <span v-if="overlay.state.error" class="sr-only" role="alert">{{
-      overlay.state.error
-    }}</span>
+    <p
+      v-if="overlay.state.error && !pending"
+      class="native-overlay-error"
+      role="alert"
+    >
+      {{ overlay.state.error }}
+    </p>
   </div>
 </template>

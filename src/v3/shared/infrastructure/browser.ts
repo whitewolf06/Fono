@@ -15,9 +15,12 @@ const persistedKeys: (keyof Preferences)[] = [
   "wakeLanguage",
   "silenceMs",
   "hotkey",
+  "hotkeyMode",
   "commandHotkey",
   "processingEnabled",
   "processingMode",
+  "processingTrigger",
+  "processingTranslation",
   "profile",
   "processingModel",
   "autostart",
@@ -60,6 +63,15 @@ export function readPreferences(): Preferences {
     );
     if (!["ru", "en"].includes(String(safe.wakeLanguage)))
       safe.wakeLanguage = defaults.wakeLanguage;
+    for (const [key, values] of Object.entries({
+      hotkeyMode: ["hold", "toggle"],
+      processingMode: ["clean", "format", "task", "formal"],
+      processingTrigger: ["automatic", "manual"],
+      processingTranslation: ["none", "en", "ru", "de", "fr", "es"],
+    })) {
+      if (!values.includes(String(safe[key])))
+        safe[key] = defaults[key as keyof Preferences];
+    }
     return { ...defaults, ...safe, dictionaryEntries: [] };
   } catch {
     return { ...defaults };

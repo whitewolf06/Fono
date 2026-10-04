@@ -222,6 +222,9 @@ impl Pipeline {
             PipelineState::Processing => self
                 .operations
                 .transition(operation_id, OperationPhase::Processing),
+            PipelineState::AwaitingAction => self
+                .operations
+                .transition(operation_id, OperationPhase::AwaitingAction),
             PipelineState::Injecting => self
                 .operations
                 .transition(operation_id, OperationPhase::Injecting),
@@ -239,9 +242,12 @@ impl Pipeline {
                         .operations
                         .acquire_resource(operation_id, OperationResource::Stt);
                 }
-                PipelineState::Processing => {
+                PipelineState::Processing | PipelineState::AwaitingAction => {
                     self.operations
                         .release_resource(operation_id, OperationResource::Stt);
+                    self.operations
+                        .release_resource(operation_id, OperationResource::Injection);
+                    self.scheduler.release_reservation(operation_id);
                 }
                 PipelineState::Injecting => {
                     self.operations
@@ -536,6 +542,7 @@ pub(crate) fn sync_overlay_window(handle: &AppHandle, state: PipelineState) {
     };
     let visible = (handle.state::<AppState>().settings().overlay_enabled
         && state != PipelineState::Idle)
+        || crate::application::dictation::workflow::has_pending(handle)
         || crate::overlay::has_preview(handle);
     let visibility_state = if visible {
         PipelineState::Listening
@@ -726,6 +733,50 @@ mod tests {
             Some(OperationEvent::Finished(terminal))
                 if terminal.id == operation.id && terminal.reason == TerminalReason::Completed
         ));
+        assert!(!pipeline.is_operation_active(operation.id));
+    }
+
+    #[test]
+    fn awaiting_action_releases_stt_but_keeps_operation_and_retries() {
+        let pipeline = Pipeline::new();
+        let operation = pipeline.operations.start(OperationSource::Hotkey).unwrap();
+        pipeline
+            .sync_operation_state_for(
+                operation.id,
+                PipelineState::Transcribing,
+                TerminalReason::Completed,
+            )
+            .unwrap();
+        pipeline
+            .sync_operation_state_for(
+                operation.id,
+                PipelineState::AwaitingAction,
+                TerminalReason::Completed,
+            )
+            .unwrap();
+        assert!(pipeline.is_operation_active(operation.id));
+        assert!(!pipeline
+            .operations
+            .resources(operation.id)
+            .unwrap()
+            .contains(&OperationResource::Stt));
+        pipeline
+            .sync_operation_state_for(
+                operation.id,
+                PipelineState::Processing,
+                TerminalReason::Completed,
+            )
+            .unwrap();
+        pipeline
+            .sync_operation_state_for(
+                operation.id,
+                PipelineState::AwaitingAction,
+                TerminalReason::Completed,
+            )
+            .unwrap();
+        pipeline
+            .sync_operation_state_for(operation.id, PipelineState::Idle, TerminalReason::Cancelled)
+            .unwrap();
         assert!(!pipeline.is_operation_active(operation.id));
     }
 

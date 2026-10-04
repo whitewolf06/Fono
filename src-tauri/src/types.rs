@@ -3,6 +3,9 @@
 //! Эти структуры зеркалируют `src/lib/types.ts` на фронтенде.
 //! При изменении не забудьте синхронизировать обе стороны.
 
+pub use crate::application::dictation::workflow::{
+    ProcessingWorkflow, TextPreset, TranslationLanguage,
+};
 pub use fono_wake::WakeWordBackend;
 mod history_metadata;
 pub use history_metadata::{
@@ -19,6 +22,8 @@ pub enum PipelineState {
     Listening,
     Transcribing,
     Processing,
+    #[serde(rename = "awaiting_action")]
+    AwaitingAction,
     Injecting,
     Error,
 }
@@ -269,7 +274,7 @@ pub enum LlmConnectionKind {
     Cloud,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LlmProfile {
     /// Stable, URL-safe identifier. It is also part of the OS credential name.
     pub id: String,
@@ -310,7 +315,7 @@ impl LlmProfile {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LlmConsumerAssignment {
     #[serde(default)]
     pub profile_id: Option<String>,
@@ -374,6 +379,15 @@ pub enum DictationMode {
     Live,
 }
 
+/// Global dictation shortcut behavior; legacy settings retain push-to-talk.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HotkeyMode {
+    #[default]
+    Hold,
+    Toggle,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalDictionaryEntry {
     pub written: String,
@@ -401,6 +415,8 @@ pub struct Settings {
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
     #[serde(default)]
+    pub hotkey_mode: HotkeyMode,
+    #[serde(default)]
     pub wake_word_enabled: bool,
     #[serde(default = "default_wake_word")]
     pub wake_word: String,
@@ -416,6 +432,13 @@ pub struct Settings {
     pub wake_calibration_profile: Option<WakeCalibrationProfile>,
     #[serde(default = "default_ai_mode")]
     pub ai_mode: AiMode,
+    #[serde(default)]
+    pub processing_workflow: ProcessingWorkflow,
+    /// None retains the legacy ai_mode choice until a new renderer selects a preset.
+    #[serde(default)]
+    pub processing_preset: Option<TextPreset>,
+    #[serde(default)]
+    pub processing_target_language: Option<TranslationLanguage>,
     #[serde(default = "default_llm_url")]
     pub llm_base_url: String,
     #[serde(default)]
@@ -582,6 +605,7 @@ impl Default for Settings {
             personal_dictionary_entries: Vec::new(),
             update_checks_enabled: false,
             hotkey: default_hotkey(),
+            hotkey_mode: HotkeyMode::Hold,
             wake_word_enabled: false,
             wake_word: default_wake_word(),
             wake_backend: default_wake_backend(),
@@ -589,6 +613,9 @@ impl Default for Settings {
             wake_word_sensitivity: default_wake_word_sensitivity(),
             wake_calibration_profile: None,
             ai_mode: default_ai_mode(),
+            processing_workflow: ProcessingWorkflow::Automatic,
+            processing_preset: None,
+            processing_target_language: None,
             llm_base_url: default_llm_url(),
             llm_model: None,
             autostart: false,
@@ -671,7 +698,22 @@ impl Settings {
 
 #[cfg(test)]
 mod wake_calibration_settings_tests {
-    use super::{AiMode, DictationMode, Settings};
+    use super::{AiMode, DictationMode, HotkeyMode, Settings};
+
+    #[test]
+    fn legacy_settings_default_to_hold_and_toggle_round_trips() {
+        let settings: Settings =
+            serde_json::from_value(serde_json::json!({})).expect("legacy settings deserialize");
+        assert_eq!(settings.hotkey_mode, HotkeyMode::Hold);
+        let settings = Settings {
+            hotkey_mode: HotkeyMode::Toggle,
+            ..settings
+        };
+        let json = serde_json::to_value(&settings).expect("serialize hotkey mode");
+        assert_eq!(json["hotkey_mode"], "toggle");
+        let restored: Settings = serde_json::from_value(json).expect("restore hotkey mode");
+        assert_eq!(restored.hotkey_mode, HotkeyMode::Toggle);
+    }
 
     #[test]
     fn saved_live_mode_returns_to_classic_without_losing_processing_preferences() {

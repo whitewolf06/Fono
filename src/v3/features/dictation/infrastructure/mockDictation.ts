@@ -1,41 +1,30 @@
 import type {
   DictationPort,
   WorkspaceState,
-  Dictation,
 } from "../../../shared/domain/contracts";
-import { assertDraftAvailable } from "../domain/live";
 import { canonicalizeDictionary } from "../../../shared/domain/personalDictionary";
-const wait = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
-export function selectLatest(state: WorkspaceState, entry: Dictation | null) {
-  state.last = {
-    entry,
-    variant: entry?.original ? "original" : "result",
-    draft: entry?.original ?? entry?.text ?? "",
-    edited: false,
-    undo: null,
-  };
-}
+import {
+  capturePreferences,
+  createDemoEntry,
+  publishDemoEntry,
+  selectLatest,
+} from "./mockSession";
+import { createPendingWorkflow } from "./mockPending";
+import { createMockDraftActions } from "./mockDraft";
+import { processDemoText } from "./mockText";
+export { selectLatest } from "./mockSession";
+
+const wait = (milliseconds: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+
 export function createDictationPort(
   state: WorkspaceState,
+  delay: (milliseconds: number) => Promise<void> = wait,
 ): DictationPort & { dispose(): void } {
   let generation = 0;
-  let recognitionSnapshot = recognitionPreferences();
-  function recognitionPreferences() {
-    const p = state.preferences;
-    return {
-      model: state.models.find((m) => m.id === p.model)?.name || p.model,
-      acceleration: p.acceleration,
-      language: p.language,
-      processingEnabled: p.processingEnabled,
-      processingMode: p.processingMode,
-    };
-  }
-  let dictionarySnapshot = {
-    dictionaryEnabled: state.preferences.dictionaryEnabled,
-    dictionaryEntries: state.preferences.dictionaryEntries,
-  };
+  let snapshot = capturePreferences(state);
   let timer: ReturnType<typeof setInterval> | undefined;
+  const pending = createPendingWorkflow(state, delay, () => port.cancel());
   const liveWords =
     "Сегодня мы проверим живую диктовку. Да, да, естественные повторы останутся. Подтверждённый текст появляется последовательно и больше не переписывается.".split(
       " ",
@@ -48,13 +37,19 @@ export function createDictationPort(
   function reset() {
     generation++;
     stopTimer();
+    pending.clear();
   }
   const port: DictationPort & { dispose(): void } = {
     start() {
       if (
-        ["listening", "silence", "transcribing", "processing"].includes(
-          state.phase,
-        )
+        state.pendingDictation ||
+        [
+          "listening",
+          "silence",
+          "transcribing",
+          "processing",
+          "awaiting_action",
+        ].includes(state.phase)
       )
         return;
       if (!state.microphoneAvailable) {
@@ -65,7 +60,9 @@ export function createDictationPort(
       }
       if (
         !state.models.some(
-          (m) => m.id === state.preferences.model && m.status === "installed",
+          (model) =>
+            model.id === state.preferences.model &&
+            model.status === "installed",
         )
       ) {
         state.error =
@@ -78,14 +75,7 @@ export function createDictationPort(
       state.phase = "listening";
       state.elapsed = 0;
       state.recordingSource = "ui";
-      recognitionSnapshot = recognitionPreferences();
-      dictionarySnapshot = {
-        dictionaryEnabled: state.preferences.dictionaryEnabled,
-        dictionaryEntries: state.preferences.dictionaryEntries.map((entry) => ({
-          ...entry,
-          spoken: [...entry.spoken],
-        })),
-      };
+      snapshot = capturePreferences(state);
       state.live =
         state.preferences.dictationMode === "live"
           ? {
@@ -118,10 +108,10 @@ export function createDictationPort(
             state.live.insertionState === "active"
               ? ""
               : state.live.committedText;
-        } else if (state.elapsed >= 10 && state.preferences.wakeEnabled) {
+        } else if (state.elapsed >= 10 && snapshot.preferences.wakeEnabled) {
           state.phase = "silence";
           state.audioLevel = 0.03;
-          if (state.elapsed >= 10 + state.preferences.silenceMs / 1000)
+          if (state.elapsed >= 10 + snapshot.preferences.silenceMs / 1000)
             void port.finish();
         }
       }, 100);
@@ -131,90 +121,85 @@ export function createDictationPort(
       stopTimer();
       const ticket = ++generation;
       const generationStarted = Date.now();
+      const captured = snapshot;
+      const preferences = captured.preferences;
+      const live = state.live;
       state.phase = "transcribing";
-      if (state.live) {
-        state.live.phase = "draining";
-        state.live.revision++;
+      if (live) {
+        live.phase = "draining";
+        live.revision++;
       }
-      await wait(800);
+      await delay(800);
       if (ticket !== generation) return;
-      const recognitionDurationMs = Date.now() - generationStarted;
-      let processingDurationMs: number | null = null;
-      const original = state.live
-        ? [state.live.committedText, state.live.draftText]
-            .filter(Boolean)
-            .join(" ") || liveWords.slice(0, 6).join(" ")
+      const original = live
+        ? [live.committedText, live.draftText].filter(Boolean).join(" ") ||
+          liveWords.slice(0, 6).join(" ")
         : "Так, давайте, ну, оставим главное под рукой. Завтра проверим новый интерфейс и соберём обратную связь от команды.";
-      let text = original;
-      if (
-        recognitionSnapshot.processingEnabled &&
-        state.preferences.dictationMode !== "live"
-      ) {
-        state.phase = "processing";
-        const processingStarted = Date.now();
-        await wait(800);
-        if (ticket !== generation) return;
-        processingDurationMs = Date.now() - processingStarted;
-        if (state.aiAvailable)
-          text =
-            "Давайте оставим главное под рукой. Завтра проверим новый интерфейс и соберём обратную связь от команды.";
-        else
-          state.error =
-            "Обработка недоступна. Исходная расшифровка сохранена в последнем тексте.";
-      }
-      if (state.preferences.dictationMode !== "live")
-        text = canonicalizeDictionary(dictionarySnapshot, text);
-      const entry: Dictation = {
-        id: "session-" + Date.now(),
-        createdAt: new Date().toISOString(),
-        title: "Новая диктовка",
+      const entry = createDemoEntry(
+        state,
+        captured,
         original,
+        ticket,
+        generationStarted,
+        Date.now() - generationStarted,
+      );
+      if (
+        !live &&
+        preferences.processingEnabled &&
+        preferences.processingTrigger === "manual"
+      ) {
+        pending.enqueue({
+          sessionId: ticket,
+          entry,
+          snapshot: captured,
+          generationStarted,
+        });
+        return;
+      }
+      let text = original;
+      let processingDurationMs: number | null = null;
+      if (!live && preferences.processingEnabled) {
+        state.phase = "processing";
+        const started = Date.now();
+        await delay(800);
+        if (ticket !== generation) return;
+        processingDurationMs = Date.now() - started;
+        if (!state.aiAvailable) {
+          pending.enqueue(
+            { sessionId: ticket, entry, snapshot: captured, generationStarted },
+            "Демонстрационная модель недоступна. Повторите обработку или вставьте исходный текст.",
+          );
+          return;
+        }
+        text = processDemoText(
+          original,
+          preferences.processingMode,
+          preferences.processingTranslation === "none"
+            ? null
+            : preferences.processingTranslation,
+        );
+      }
+      if (!live) text = canonicalizeDictionary(preferences, text);
+      publishDemoEntry(
+        state,
+        captured,
+        entry,
         text,
-        duration: Math.max(1, Math.round(state.elapsed)),
-        metadata: {
-          demo: true,
-          recordingDurationMs: Math.round(state.elapsed * 1000),
-          generationDurationMs: Date.now() - generationStarted,
-          recognitionDurationMs,
-          processingDurationMs,
-          model: recognitionSnapshot.model,
-          language: recognitionSnapshot.language,
-          requestedAcceleration: ["auto", "cpu", "cuda", "vulkan"].includes(
-            recognitionSnapshot.acceleration,
-          )
-            ? (recognitionSnapshot.acceleration as
-                "auto" | "cpu" | "cuda" | "vulkan")
-            : undefined,
-          backend: null,
-          dictationMode: "standard",
-          processingMode: recognitionSnapshot.processingEnabled
-            ? recognitionSnapshot.processingMode
-            : "off",
-          dictionaryEnabled: dictionarySnapshot.dictionaryEnabled,
-        },
-      };
-      selectLatest(state, entry);
-      if (dictionarySnapshot.dictionaryEnabled && text !== original) {
-        state.last.variant = "result";
-        state.last.draft = text;
-      }
-      if (state.preferences.historyEnabled) {
-        const archived = { ...entry };
-        if (
-          !state.preferences.analyticsConsent ||
-          !state.preferences.trainerEnabled
-        )
-          delete archived.original;
-        state.history.unshift(archived);
-      }
-      state.phase = state.error ? "error" : "done";
-      if (state.live) {
-        state.live.phase = "done";
-        state.live.committedText = text;
-        state.live.draftText = "";
-        state.live.revision++;
+        !live && preferences.processingEnabled
+          ? preferences.processingMode
+          : "off",
+        generationStarted,
+        processingDurationMs,
+      );
+      state.phase = "done";
+      if (live) {
+        live.phase = "done";
+        live.committedText = text;
+        live.draftText = "";
+        live.revision++;
       }
     },
+    resolvePending: pending.resolve,
     cancel() {
       reset();
       if (state.live) {
@@ -249,61 +234,7 @@ export function createDictationPort(
       state.live.warning = undefined;
       state.live.revision++;
     },
-    chooseVariant(variant) {
-      assertDraftAvailable(state.live);
-      const entry = state.last.entry;
-      if (!entry) return;
-      state.last.variant = variant;
-      state.last.draft =
-        variant === "original" ? (entry.original ?? entry.text) : entry.text;
-      state.last.edited = false;
-      state.last.undo = null;
-    },
-    edit(text) {
-      assertDraftAvailable(state.live);
-      state.last.draft = text;
-      state.last.edited = true;
-      state.last.undo = null;
-    },
-    async improve() {
-      assertDraftAvailable(state.live);
-      if (state.preferences.dictationMode === "live")
-        throw new Error("В живом режиме обработка через ИИ отключена.");
-      if (!state.preferences.processingEnabled || !state.last.draft.trim())
-        throw new Error(
-          "Включите обработку текста, чтобы использовать улучшение.",
-        );
-      const entryId = state.last.entry?.id;
-      const previous = state.last.draft;
-      await wait(800);
-      if (!state.aiAvailable)
-        throw new Error(
-          "Модель недоступна. Текст не изменён — проверьте подключение.",
-        );
-      if (state.last.entry?.id !== entryId || state.last.draft !== previous)
-        return;
-      state.last.undo = previous;
-      const cleaned = previous
-        .replace(/(^|[.!?]\s+)(Так,\s*|Ну,\s*)/g, "$1")
-        .replace(/, ну,/gi, ",")
-        .replace(/потом, потом/gi, "потом")
-        .trim()
-        .replace(/^[а-яёa-z]/u, (letter) => letter.toLocaleUpperCase("ru"));
-      state.last.draft =
-        state.preferences.processingMode === "format"
-          ? cleaned
-              .split(/(?<=\.)\s+/)
-              .map((s) => "• " + s)
-              .join("\n")
-          : cleaned;
-      state.last.edited = true;
-    },
-    undoImprove() {
-      if (state.last.undo !== null) {
-        state.last.draft = state.last.undo;
-        state.last.undo = null;
-      }
-    },
+    ...createMockDraftActions(state, delay),
     dispose: reset,
   };
   return port;

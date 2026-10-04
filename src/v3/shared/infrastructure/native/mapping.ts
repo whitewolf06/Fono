@@ -41,6 +41,7 @@ export function preferencesFromNative(
       .split("+")
       .map((x) => x.trim())
       .join(" + "),
+    hotkeyMode: s.hotkey_mode ?? "hold",
     commandHotkey: s.command_hotkey
       .split("+")
       .map((x) => x.trim())
@@ -57,7 +58,10 @@ export function preferencesFromNative(
     wakeThreshold: s.wake_word_threshold,
     speechThreshold: s.wake_dictation_speech_threshold,
     processingEnabled: s.ai_mode !== "off",
-    processingMode: s.ai_mode === "format" ? "format" : "clean",
+    processingMode:
+      s.processing_preset ?? (s.ai_mode === "format" ? "format" : "clean"),
+    processingTrigger: s.processing_workflow ?? "automatic",
+    processingTranslation: s.processing_target_language ?? "none",
     profile: s.text_correction_llm.profile_id || "",
     processingModel:
       s.text_correction_llm.model ||
@@ -131,6 +135,12 @@ export function applyPreferences(
     next.whisper_model_path = model?.local_path || s.whisper_model_path;
   }
   if (has("hotkey")) next.hotkey = p.hotkey.replaceAll(" ", "");
+  if (has("hotkeyMode")) next.hotkey_mode = p.hotkeyMode;
+  if (has("processingTrigger")) next.processing_workflow = p.processingTrigger;
+  if (has("processingMode")) next.processing_preset = p.processingMode;
+  if (has("processingTranslation"))
+    next.processing_target_language =
+      p.processingTranslation === "none" ? null : p.processingTranslation;
   if (has("wakeLanguage") || has("wakePhrase")) {
     const error = validateWakePhrase(p.wakePhrase, p.wakeLanguage);
     if (error) throw new Error(error);
@@ -140,7 +150,11 @@ export function applyPreferences(
   if (has("commandHotkey"))
     next.command_hotkey = p.commandHotkey.replaceAll(" ", "");
   if (has("processingEnabled") || has("processingMode"))
-    next.ai_mode = p.processingEnabled ? p.processingMode : "off";
+    next.ai_mode = p.processingEnabled
+      ? p.processingMode === "clean"
+        ? "clean"
+        : "format"
+      : "off";
   if (has("profile")) next.text_correction_llm.profile_id = p.profile || null;
   if (has("processingModel"))
     next.text_correction_llm.model = p.processingModel || null;

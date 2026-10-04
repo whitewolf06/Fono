@@ -124,7 +124,19 @@ pub fn show_window(app: &AppHandle) -> AppResult<()> {
     } else {
         settings.overlay_scale
     };
-    resize(&window, scale)?;
+    if crate::application::dictation::workflow::has_pending(app) {
+        let (width, height) = if settings.overlay_mini_mode {
+            (400.0, 216.0)
+        } else {
+            (440.0, 248.0)
+        };
+        window.set_size(tauri::LogicalSize::new(
+            (width * f64::from(scale)).round(),
+            (height * f64::from(scale)).round(),
+        ))?;
+    } else {
+        resize(&window, scale)?;
+    }
     let position = window.outer_position()?;
     if !position_fits(&window, position.x, position.y)? {
         move_to_center(app, &window)?;

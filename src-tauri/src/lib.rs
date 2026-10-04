@@ -25,13 +25,10 @@ pub mod types;
 pub mod vad;
 pub mod verbose;
 
-use crate::operation::OperationSource;
 use crate::state::AppState;
 use crate::types::{PipelineState, Settings, WakeWordBackend};
 use fono_wake::{AudioHub, WakeWordConfig, WakeWordEvent, WakeWordHandle};
 use tauri::{Manager, RunEvent, WindowEvent};
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
-use tauri_plugin_global_shortcut::ShortcutState;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 /// Restores wake-word listening when a wake-triggered operation leaves scope.
@@ -211,6 +208,7 @@ pub fn run() {
         .manage(crate::application::updates::UpdateService::default())
         .manage(pipeline)
         .manage(crate::application::live_dictation::LiveController::default())
+        .manage(crate::application::dictation::workflow::Runtime::default())
         .manage(wake_word)
         .manage(audio_hub)
         .manage(crate::overlay::OverlayRuntime::default())
@@ -299,6 +297,8 @@ pub fn run() {
             ipc::dictation::confirm_dictation,
             ipc::dictation::cancel_dictation,
             ipc::dictation::transcribe_test,
+            ipc::dictation::get_pending_dictation,
+            ipc::dictation::resolve_pending_dictation,
             ipc::system::get_dictation_history,
             ipc::system::clear_dictation_history,
             ipc::system::delete_dictation_history_entry,
@@ -413,108 +413,12 @@ fn setup_global_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
-/// Регистрирует (или перерегистрирует) все глобальные шорткаты.
-/// Сначала отменяет все текущие, затем регистрирует push-to-talk и command hotkey.
+/// Register both shortcuts through the application-owned key state machines.
 pub fn register_all_shortcuts(
     app: &tauri::AppHandle,
     settings: &crate::types::Settings,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let gs = app.global_shortcut();
-    let _ = gs.unregister_all();
-
-    // Push-to-talk: зажатие → запись, отпускание → стоп + STT + вставка.
-    let held = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let held_operation = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
-    gs.on_shortcut(settings.hotkey.as_str(), move |app, _, event| {
-        let live = application::live_dictation::is_active(app);
-        match event.state {
-            ShortcutState::Pressed => {
-                if held.swap(true, std::sync::atomic::Ordering::AcqRel) {
-                    return;
-                }
-                if live {
-                    let handle = app.clone();
-                    let operation = app.state::<pipeline::Pipeline>().operation_id();
-                    tauri::async_runtime::spawn(async move {
-                        let _ = application::live_dictation::finish_for(handle, operation).await;
-                    });
-                    return;
-                }
-                events::emit_pipeline_mode(app, events::PipelineModeV1::Dictation);
-                match ipc::dictation::start_dictation_from(app.clone(), OperationSource::Hotkey) {
-                    Err(e) => {
-                        events::emit_error(app, events::ErrorCodeV1::Audio, e.to_string(), None);
-                        tracing::warn!("start_dictation via global shortcut failed: {e}");
-                    }
-                    Ok(operation) => {
-                        held_operation.store(operation, std::sync::atomic::Ordering::Release);
-                    }
-                }
-            }
-            ShortcutState::Released => {
-                held.store(false, std::sync::atomic::Ordering::Release);
-                let operation = held_operation.swap(0, std::sync::atomic::Ordering::AcqRel);
-                if live {
-                    return;
-                }
-                if operation != 0 {
-                    let app_for_stop = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(e) = application::dictation::stop_with_reason_for(
-                            app_for_stop,
-                            operation,
-                            application::dictation_tail_diagnostics::DictationStopReason::Manual,
-                        )
-                        .await
-                        {
-                            tracing::warn!("stop_dictation via global shortcut failed: {e}");
-                        }
-                    });
-                }
-            }
-        }
-    })?;
-    tracing::info!("push-to-talk hotkey '{}' registered", settings.hotkey);
-
-    // Voice commands: зажатие → запись, отпускание → стоп + STT + выполнение команды.
-    let command_hotkey = settings.command_hotkey.clone();
-    let command_operation = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
-    gs.on_shortcut(command_hotkey.as_str(), move |app, _, event| {
-        match event.state {
-            ShortcutState::Pressed => {
-                events::emit_pipeline_mode(app, events::PipelineModeV1::Command);
-                match application::dictation::start_command_operation(app.clone()) {
-                    Err(e) => {
-                        events::emit_error(app, events::ErrorCodeV1::Audio, e.to_string(), None);
-                        tracing::warn!("start voice command recording failed: {e}");
-                    }
-                    Ok(operation) => {
-                        command_operation.store(operation, std::sync::atomic::Ordering::Release);
-                    }
-                }
-            }
-            ShortcutState::Released => {
-                let operation = command_operation.swap(0, std::sync::atomic::Ordering::AcqRel);
-                if operation != 0 {
-                    let app_for_command = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(e) = run_voice_command(&app_for_command, operation).await {
-                            tracing::warn!("voice command failed: {e}");
-                            events::emit_error(
-                                &app_for_command,
-                                events::ErrorCodeV1::Internal,
-                                e.to_string(),
-                                None,
-                            );
-                        }
-                    });
-                }
-            }
-        }
-    })?;
-    tracing::info!("command hotkey '{}' registered", command_hotkey);
-
-    Ok(())
+    application::hotkeys::register_all_shortcuts(app, settings)
 }
 
 /// Полный цикл голосовой команды: запись → STT → выполнение.

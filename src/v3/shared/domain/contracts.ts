@@ -2,12 +2,20 @@ import type { WakePort, WakeSetupState, WakeCapabilities } from "./wake";
 import type { DictationMetadata } from "./historyMetadata";
 import type { DiagnosticReportPort } from "./diagnosticReport";
 import type { UpdatesPort } from "./updates";
+import type {
+  PendingDictation,
+  PendingDictationRequest,
+  ProcessingPreset,
+  ProcessingTrigger,
+  ProcessingTranslation,
+} from "./processing";
 export type Phase =
   | "idle"
   | "listening"
   | "silence"
   | "transcribing"
   | "processing"
+  | "awaiting_action"
   | "done"
   | "cancelled"
   | "error";
@@ -52,11 +60,14 @@ export interface Preferences {
   wakeLanguage: "ru" | "en";
   silenceMs: number;
   hotkey: string;
+  hotkeyMode: "hold" | "toggle";
   commandHotkey: string;
   wakeThreshold: number;
   speechThreshold: number;
   processingEnabled: boolean;
-  processingMode: "clean" | "format";
+  processingMode: ProcessingPreset;
+  processingTrigger: ProcessingTrigger;
+  processingTranslation: ProcessingTranslation;
   profile: string;
   processingModel: string;
   instruction: string;
@@ -166,6 +177,7 @@ export type Scenario =
   | "live-backlog"
   | "live-insertion-error";
 export interface WorkspaceState {
+  pendingDictation?: PendingDictation | null;
   wakeSetup?: WakeSetupState;
   wakeCapabilities?: WakeCapabilities;
   live?: LiveDictation | null;
@@ -213,6 +225,7 @@ export interface SettingsPort {
   removeProfile(id: string): void;
 }
 export interface DictationPort {
+  resolvePending(request: PendingDictationRequest): Promise<void>;
   start(): void;
   finish(): Promise<void>;
   cancel(): void;

@@ -18,6 +18,7 @@ use crate::{
     },
     types::{PipelineState, Transcript},
 };
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
 pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
@@ -66,7 +67,7 @@ async fn stop_operation(
                 .current_operation()
                 .map(|item| item.source)
                 .unwrap_or(OperationSource::Ui);
-            let report = ReportTrace::begin(operation, source);
+            let report = Arc::new(ReportTrace::begin(operation, source));
             let result = stop_once(&app, operation, reason, &report).await;
             report.outcome(match &result {
                 Ok(transcript)
@@ -90,7 +91,7 @@ async fn stop_once(
     app: &AppHandle,
     operation: u64,
     reason: DictationStopReason,
-    report: &ReportTrace,
+    report: &Arc<ReportTrace>,
 ) -> AppResult<Transcript> {
     let session = Session::current(app, operation)?;
     let mut diagnostic = DictationTailDiagnostic::new(operation, session.source, reason);
@@ -127,6 +128,9 @@ async fn stop_once(
             return Ok(transcript);
         }
     }
+    if transcript.text.trim().is_empty() {
+        return Ok(transcript);
+    }
     let history_id = crate::history::next_id();
     let pipeline = app.state::<Pipeline>();
     if pipeline
@@ -137,13 +141,45 @@ async fn stop_once(
     {
         return Ok(empty_transcript());
     }
+    if super::workflow::should_defer(&session.settings) {
+        super::workflow::enqueue(&session, &transcript, history_id, report.clone(), None)?;
+        return Ok(transcript);
+    }
     let processed = {
         let _timer = report.stage(ReportStage::Processing);
-        postprocess::process(&session, &transcript, Some(&mut diagnostic)).await
+        postprocess::selected(
+            &session,
+            &transcript,
+            super::workflow::effective_preset(&session.settings),
+            session.settings.processing_target_language,
+            super::workflow::should_process(&session.settings),
+            true,
+        )
+        .await
+    };
+    let processed = match processed {
+        Ok(value) => value,
+        Err(error) => {
+            diagnostic.postprocessor_fallback();
+            session.error(crate::events::ErrorCodeV1::Llm, error.to_string());
+            super::workflow::enqueue(
+                &session,
+                &transcript,
+                history_id,
+                report.clone(),
+                Some(error.to_string()),
+            )?;
+            return Ok(transcript);
+        }
     };
     let Some(final_text) = processed else {
         return Ok(empty_transcript());
     };
+    if session.settings.ai_mode == crate::types::AiMode::Off {
+        diagnostic.postprocessor_skipped();
+    } else {
+        diagnostic.postprocessor_succeeded(final_text != transcript.text);
+    }
     let final_text = crate::application::personal_dictionary::canonicalize_dictation(
         &session.settings,
         &final_text,
@@ -176,10 +212,28 @@ async fn stop_once(
             return Ok(empty_transcript());
         }
         let _timer = report.stage(ReportStage::Insertion);
-        crate::injection::inject_text(&final_text, session.settings.injection_mode)
+        super::workflow::insert_captured(&session, &final_text).await
     } else {
         Ok(())
     };
+    if !session.active("ordinary insertion returned") {
+        return Ok(empty_transcript());
+    }
+    if let Err(error) = insertion {
+        session.error(crate::events::ErrorCodeV1::Injection, error.to_string());
+        super::workflow::enqueue(
+            &session,
+            &transcript,
+            history_id,
+            report.clone(),
+            Some(error.to_string()),
+        )?;
+        super::workflow::block_insertion(app, operation, error.to_string(), final_text.clone());
+        return Ok(Transcript {
+            text: final_text,
+            ..transcript
+        });
+    }
     if pipeline
         .while_operation(operation, || {
             dictation_result::archive_with_metadata(
@@ -195,10 +249,6 @@ async fn stop_once(
         .is_none()
     {
         return Ok(empty_transcript());
-    }
-    if let Err(error) = insertion {
-        session.error(crate::events::ErrorCodeV1::Injection, error.to_string());
-        return Err(error);
     }
     Ok(Transcript {
         text: final_text,

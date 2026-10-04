@@ -14,9 +14,13 @@ defineProps<{
 const workspace = useWorkspace();
 const draft = defineModel<Preferences>({ required: true });
 const active = computed(() =>
-  ["listening", "silence", "transcribing", "processing"].includes(
-    workspace.state.phase,
-  ),
+  [
+    "listening",
+    "silence",
+    "transcribing",
+    "processing",
+    "awaiting_action",
+  ].includes(workspace.state.phase),
 );
 const wakeLanguages = computed(
   () =>
@@ -58,13 +62,24 @@ const phraseOptions = computed(() => {
         id="hotkey"
         label="Горячая клавиша"
         :hint="
-          draft.dictationMode === 'live'
+          draft.hotkeyMode === 'toggle'
             ? 'Нажмите, чтобы начать в выбранном поле. Нажмите снова, чтобы завершить.'
             : 'Удерживайте сочетание во время речи. Отпустите для распознавания.'
         "
       >
         <WlInput v-bind="field" v-model="draft.hotkey" />
       </WlField>
+      <SelectField
+        id="hotkeyMode"
+        v-model="draft.hotkeyMode"
+        label="Как работает горячая клавиша"
+        :disabled="active"
+        :options="[
+          { value: 'hold', label: 'Удерживать · отпустить для завершения' },
+          { value: 'toggle', label: 'Нажать · повторное нажатие завершает' },
+        ]"
+        hint="В обоих вариантах текст появляется после завершения записи. Голосовая команда записывается удержанием своей клавиши."
+      />
     </template>
     <WlField
       v-if="!scope || scope === 'command-hotkey'"

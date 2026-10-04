@@ -18,11 +18,14 @@ export const defaults: Preferences = {
   wakeLanguage: "ru",
   silenceMs: 1600,
   hotkey: "Ctrl + Space",
+  hotkeyMode: "hold",
   commandHotkey: "Ctrl + Shift + Space",
   wakeThreshold: 0.55,
   speechThreshold: 0.4,
   processingEnabled: true,
   processingMode: "clean",
+  processingTrigger: "automatic",
+  processingTranslation: "none",
   profile: "local",
   processingModel: "Qwen 3 · 8B",
   instruction: "",
@@ -61,6 +64,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "wakeLanguage",
     "silenceMs",
     "hotkey",
+    "hotkeyMode",
     "commandHotkey",
     "wakeThreshold",
     "speechThreshold",
@@ -68,6 +72,8 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
   processing: [
     "processingEnabled",
     "processingMode",
+    "processingTrigger",
+    "processingTranslation",
     "profile",
     "processingModel",
     "instruction",
@@ -96,8 +102,14 @@ export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
   microphone: ["microphone"],
   wake: ["wakePhrase", "wakeLanguage", "silenceMs"],
   recognition: ["model", "language", "acceleration"],
-  processing: ["processingMode", "profile", "processingModel"],
-  hotkey: ["hotkey", "dictationMode"],
+  processing: [
+    "processingMode",
+    "processingTrigger",
+    "processingTranslation",
+    "profile",
+    "processingModel",
+  ],
+  hotkey: ["hotkey", "hotkeyMode", "dictationMode"],
   "command-hotkey": ["commandHotkey"],
 };
 export const quickSections: Record<QuickPanel, Section> = {
@@ -131,6 +143,14 @@ export const profiles = [
 export function validatePreferences(p: Preferences): string | null {
   const dictionaryError = validateDictionary(p.dictionaryEntries);
   if (dictionaryError) return dictionaryError;
+  if (!["hold", "toggle"].includes(p.hotkeyMode))
+    return "Выберите режим горячей клавиши.";
+  if (!["automatic", "manual"].includes(p.processingTrigger))
+    return "Выберите способ запуска обработки.";
+  if (!["clean", "format", "task", "formal"].includes(p.processingMode))
+    return "Выберите режим обработки.";
+  if (!["none", "en", "ru", "de", "fr", "es"].includes(p.processingTranslation))
+    return "Выберите язык перевода.";
   if (
     !/^(Ctrl|Alt|Shift)(\s\+\s(Ctrl|Alt|Shift))*\s\+\s([A-Z0-9]|Space|F[1-9]|F1[0-2])$/.test(
       p.hotkey,

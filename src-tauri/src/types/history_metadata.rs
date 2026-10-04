@@ -1,5 +1,8 @@
 //! Actual recognition facts for each saved session, independent of analytics.
-use super::{AccelerationMode, AiMode, DictationMode, Settings, Transcript};
+use super::{
+    AccelerationMode, AiMode, DictationMode, ProcessingWorkflow, Settings, TextPreset, Transcript,
+    TranslationLanguage,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +51,12 @@ pub struct DictationHistoryMetadata {
     pub detected_language: Option<String>,
     pub dictation_mode: DictationMode,
     pub processing_mode: AiMode,
+    #[serde(default)]
+    pub processing_workflow: Option<ProcessingWorkflow>,
+    #[serde(default)]
+    pub processing_preset: Option<TextPreset>,
+    #[serde(default)]
+    pub processing_target_language: Option<TranslationLanguage>,
     pub dictionary_enabled: bool,
 }
 
@@ -87,6 +96,12 @@ impl DictationHistoryMetadata {
             detected_language: transcript.detected_language.clone(),
             dictation_mode: settings.dictation_mode,
             processing_mode: settings.ai_mode,
+            processing_workflow: Some(settings.processing_workflow),
+            processing_preset: (settings.ai_mode != AiMode::Off)
+                .then(|| crate::application::dictation::workflow::effective_preset(settings)),
+            processing_target_language: (settings.ai_mode != AiMode::Off)
+                .then_some(settings.processing_target_language)
+                .flatten(),
             dictionary_enabled: settings.personal_dictionary_enabled,
         }
     }
@@ -188,5 +203,54 @@ mod tests {
         entry.clear_analytics_data(super::super::DictationAnalysisStatus::Disabled);
         assert!(entry.original_text.is_none());
         assert_eq!(entry.metadata.unwrap().recognition_duration_ms, Some(1250));
+    }
+    #[test]
+    fn applied_workflow_preset_and_translation_remain_session_facts() {
+        let settings = Settings {
+            processing_workflow: ProcessingWorkflow::Manual,
+            processing_preset: Some(TextPreset::Task),
+            processing_target_language: Some(TranslationLanguage::En),
+            ai_mode: AiMode::Clean,
+            ..Settings::default()
+        };
+        let metadata =
+            DictationHistoryMetadata::from_result(&settings, &transcript(), Default::default());
+        assert_eq!(
+            metadata.processing_workflow,
+            Some(ProcessingWorkflow::Manual)
+        );
+        assert_eq!(metadata.processing_preset, Some(TextPreset::Task));
+        assert_eq!(
+            metadata.processing_target_language,
+            Some(TranslationLanguage::En)
+        );
+        let disabled = Settings {
+            ai_mode: AiMode::Off,
+            ..settings
+        };
+        let raw =
+            DictationHistoryMetadata::from_result(&disabled, &transcript(), Default::default());
+        assert_eq!(raw.processing_preset, None);
+        assert_eq!(raw.processing_target_language, None);
+    }
+    #[test]
+    fn legacy_metadata_without_workflow_fields_still_deserializes() {
+        let metadata = DictationHistoryMetadata::from_result(
+            &Settings::default(),
+            &transcript(),
+            Default::default(),
+        );
+        let mut json = serde_json::to_value(metadata).unwrap();
+        for field in [
+            "processing_workflow",
+            "processing_preset",
+            "processing_target_language",
+        ] {
+            json.as_object_mut().unwrap().remove(field);
+        }
+        let legacy: DictationHistoryMetadata = serde_json::from_value(json).unwrap();
+        assert_eq!(legacy.processing_workflow, None);
+        assert_eq!(legacy.processing_preset, None);
+        assert_eq!(legacy.processing_target_language, None);
     }
 }

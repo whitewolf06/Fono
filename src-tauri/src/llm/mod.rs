@@ -5,6 +5,8 @@
 //! в запросе, но активные инструменты пока не вызываются (заготовка для
 //! будущих команд: «ответь на email», «кратко перескажи» и т.п.).
 
+mod presets;
+
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 

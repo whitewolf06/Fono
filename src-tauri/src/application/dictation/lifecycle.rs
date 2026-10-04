@@ -8,6 +8,7 @@ use crate::{
 };
 use tauri::{AppHandle, Manager};
 
+#[derive(Clone)]
 pub(super) struct Session {
     pub app: AppHandle,
     pub operation: u64,
@@ -100,6 +101,11 @@ impl OperationScope {
 
 impl Drop for OperationScope {
     fn drop(&mut self) {
+        // Stop is complete, but a deferred action still owns this operation.
+        if super::workflow::retains(&self.app, self.operation) {
+            return;
+        }
+        super::workflow::clear_target(&self.app, self.operation);
         let pipeline = self.app.state::<Pipeline>();
         if self.reason != TerminalReason::Completed {
             if let Some(cancellation) = pipeline.cancellation(self.operation) {
