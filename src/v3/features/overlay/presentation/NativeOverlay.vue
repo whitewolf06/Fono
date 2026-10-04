@@ -38,19 +38,20 @@ onUnmounted(overlay.dispose);
       :elapsed="overlay.state.elapsed"
       :live="overlay.state.live"
       :pending="pending"
+      :processing-choice="overlay.state.processingChoice"
+      :processing-saving="
+        overlay.processing.pending || overlay.processing.saving
+      "
+      :processing-error="overlay.processing.error"
+      :error="pending ? undefined : overlay.state.error"
       interactive
       @finish="overlay.finish"
       @cancel="overlay.cancel"
       @resume="overlay.resume"
       @resolve="overlay.resolve"
       @copy="overlay.copy"
+      @processing-change="overlay.chooseProcessing"
+      @help-change="overlay.setHelp"
     />
-    <p
-      v-if="overlay.state.error && !pending"
-      class="native-overlay-error"
-      role="alert"
-    >
-      {{ overlay.state.error }}
-    </p>
   </div>
 </template>

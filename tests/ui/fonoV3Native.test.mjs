@@ -573,8 +573,55 @@ test("native overlay hydrates pending, wires IPC actions/copy, and rejects late 
       ),
     );
     assert.equal(overlay.state.pending, null);
+    assert.equal(overlay.state.phase, "done");
+    const dictationActions = () =>
+      calls.filter(([name]) =>
+        ["stop_dictation", "confirm_dictation", "cancel_dictation"].includes(
+          name,
+        ),
+      );
+    const actionsBeforeTerminalFinish = dictationActions().length;
     await overlay.finish();
-    assert.equal(calls.at(-1)[0], "stop_dictation");
+    assert.equal(
+      dictationActions().length,
+      actionsBeforeTerminalFinish,
+      "completed pending text cannot stop an absent recording",
+    );
+    await overlay.cancel();
+    assert.ok(calls.some(([name]) => name === "dismiss_dictation_overlay"));
+
+    for (const [index, mode] of ["hold", "toggle"].entries()) {
+      const sessionId = 12 + index;
+      Object.assign(overlay.state, {
+        phase: "listening",
+        sessionId,
+        source: "hotkey",
+      });
+      overlay.state.preferences.hotkeyMode = mode;
+      const actionsBeforeStop = dictationActions().length;
+      await overlay.finish();
+      assert.deepEqual(dictationActions().slice(actionsBeforeStop), [
+        ["stop_dictation", { sessionId }],
+      ]);
+    }
+
+    Object.assign(overlay.state, {
+      phase: "idle",
+      sessionId: null,
+      preview: {
+        overlay_scale: 1,
+        overlay_opacity: 1,
+        overlay_mini_mode: false,
+      },
+    });
+    const dismisses = () =>
+      calls.filter(([name]) => name === "dismiss_dictation_overlay").length;
+    const dismissesBeforePreview = dismisses();
+    const actionsBeforePreview = dictationActions().length;
+    await overlay.finish();
+    await overlay.cancel();
+    assert.equal(dismisses(), dismissesBeforePreview + 2);
+    assert.equal(dictationActions().length, actionsBeforePreview);
   } finally {
     overlay.dispose();
     await flush();

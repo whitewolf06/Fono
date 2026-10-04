@@ -27,6 +27,7 @@ const persistedKeys: (keyof Preferences)[] = [
   "insertion",
   "overlayEnabled",
   "overlayCompact",
+  "overlayQuickProcessing",
   "overlayScale",
   "overlayOpacity",
   "overlayPosition",

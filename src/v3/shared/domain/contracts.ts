@@ -75,6 +75,7 @@ export interface Preferences {
   insertion: string;
   overlayEnabled: boolean;
   overlayCompact: boolean;
+  overlayQuickProcessing: boolean;
   overlayScale: number;
   overlayOpacity: number;
   overlayPosition: string;

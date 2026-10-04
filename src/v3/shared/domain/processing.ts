@@ -2,6 +2,13 @@ export type ProcessingPreset = "clean" | "format" | "task" | "formal";
 export type ProcessingTrigger = "automatic" | "manual";
 export type TranslationLanguage = "en" | "ru" | "de" | "fr" | "es";
 export type ProcessingTranslation = "none" | TranslationLanguage;
+export interface OverlayProcessingChoice {
+  preset: ProcessingPreset;
+  targetLanguage: TranslationLanguage | null;
+}
+export interface OverlayProcessingChoiceRequest extends OverlayProcessingChoice {
+  sessionId: number | null;
+}
 export interface PendingDictation {
   sessionId: number;
   phase: "awaiting_action" | "processing";

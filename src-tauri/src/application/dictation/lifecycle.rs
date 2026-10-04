@@ -20,21 +20,15 @@ pub(super) struct Session {
 impl Session {
     pub fn current(app: &AppHandle, operation: u64) -> AppResult<Self> {
         let pipeline = app.state::<Pipeline>();
-        let current = pipeline
-            .current_operation()
-            .filter(|current| current.id == operation)
+        let (current, cancellation, settings) = pipeline
+            .freeze_session_for_completion(operation, || app.state::<AppState>().settings())
             .ok_or_else(|| AppError::Cancelled("Диктовка отменена или заменена".into()))?;
-        let cancellation = pipeline.cancellation(operation).ok_or_else(|| {
-            AppError::Internal("active dictation has no cancellation signal".into())
-        })?;
         Ok(Self {
             app: app.clone(),
             operation,
             source: current.source,
             cancellation,
-            settings: pipeline
-                .session_settings_for(operation)
-                .unwrap_or_else(|| app.state::<AppState>().settings()),
+            settings,
         })
     }
 

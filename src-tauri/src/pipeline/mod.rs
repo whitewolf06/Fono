@@ -25,7 +25,9 @@ use crate::types::PipelineState;
 #[cfg(test)]
 mod capture_tests;
 pub mod completion;
+mod processing_choice;
 pub mod scheduler;
+mod session_control;
 use crate::audio::RecordingBuffer;
 
 const RECORDING_SAMPLE_RATE: usize = 16_000;
@@ -53,6 +55,7 @@ pub struct Pipeline {
     pub completion: completion::CompletionGate,
     scheduler: Arc<scheduler::SttScheduler>,
     session_settings: Mutex<Option<(u64, crate::types::Settings)>>,
+    processing_frozen_for: AtomicU64,
 }
 
 impl Pipeline {
@@ -80,6 +83,7 @@ impl Pipeline {
             completion: completion::CompletionGate::default(),
             scheduler: Arc::new(scheduler::SttScheduler::default()),
             session_settings: Mutex::new(None),
+            processing_frozen_for: AtomicU64::new(0),
         }
     }
 
@@ -188,8 +192,7 @@ impl Pipeline {
     /// Подтвердить текущую диктовку (закончить запись досрочно).
     pub fn confirm(&self) {
         if let Some(operation) = self.operations.current() {
-            let _ = self.operations.confirm(operation.id);
-            tracing::debug!(operation = operation.id, "pipeline: confirmation requested");
+            self.confirm_for(operation.id);
         }
     }
 

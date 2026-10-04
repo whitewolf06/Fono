@@ -1,6 +1,8 @@
 //! Deferred dictation owns its operation and updater lease until a user action.
 mod actions;
 mod insertion;
+mod overlay_choice;
+mod overlay_dismissal;
 mod state;
 mod types;
 
@@ -15,6 +17,8 @@ use crate::{
     types::{AiMode, PipelineState, Transcript},
 };
 pub(crate) use actions::resolve;
+pub(crate) use overlay_choice::{update as update_overlay_choice, OverlayProcessingChoiceRequest};
+pub(crate) use overlay_dismissal::dismiss as dismiss_overlay;
 use parking_lot::Mutex;
 use state::{Record, Store};
 use std::sync::Arc;

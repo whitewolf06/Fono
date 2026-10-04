@@ -7,10 +7,13 @@ import type {
 import type {
   PendingDictation,
   PendingDictationRequest,
+  OverlayProcessingChoice,
 } from "../../../shared/domain/processing";
 import { processDemoText } from "../../dictation";
 
 export function useOverlayDemo(getPreferences?: () => Preferences) {
+  const sampleText =
+    "Так, давайте, ну, оставим главное под рукой. Завтра проверим новый интерфейс и соберём обратную связь от команды.";
   const phase = ref<Phase>("listening");
   const seconds = ref(3);
   const level = ref(0.6);
@@ -48,13 +51,12 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
       }, milliseconds);
     });
   }
-  function waiting(error: string | null = null) {
-    const preferences = getPreferences?.();
+  function waiting(error: string | null = null, captured?: Preferences) {
+    const preferences = captured ?? getPreferences?.();
     pending.value = {
       sessionId: ++nextSession,
       phase: "awaiting_action",
-      originalText:
-        "Так, давайте, ну, оставим главное под рукой. Завтра проверим новый интерфейс и соберём обратную связь от команды.",
+      originalText: sampleText,
       resultText: null,
       createdAt: new Date().toISOString(),
       preset: preferences?.processingMode || "clean",
@@ -113,6 +115,10 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     resetTransition();
     const ticket = revision;
     const capturedLive = live.value;
+    const capturedPreferences = getPreferences?.();
+    const captured = capturedPreferences
+      ? { ...capturedPreferences }
+      : undefined;
     phase.value = "transcribing";
     if (capturedLive) capturedLive.phase = "draining";
     await delay(700);
@@ -120,7 +126,22 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     if (capturedLive) {
       capturedLive.phase = "done";
       phase.value = "done";
-    } else waiting();
+    } else if (captured && !captured.processingEnabled) {
+      resultText.value = sampleText;
+      phase.value = "done";
+    } else if (captured?.processingTrigger === "automatic") {
+      phase.value = "processing";
+      await delay(850);
+      if (ticket !== revision) return;
+      resultText.value = processDemoText(
+        sampleText,
+        captured.processingMode,
+        captured.processingTranslation === "none"
+          ? null
+          : captured.processingTranslation,
+      );
+      phase.value = "done";
+    } else waiting(null, captured);
   }
   async function resolve(request: PendingDictationRequest) {
     const current = pending.value;
@@ -165,6 +186,22 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     finish,
     cancel,
     resolve,
+    chooseProcessing(choice: OverlayProcessingChoice) {
+      if (
+        !["listening", "silence", "awaiting_action"].includes(phase.value) ||
+        pending.value?.phase === "processing"
+      )
+        return;
+      const preferences = getPreferences?.();
+      if (preferences) {
+        preferences.processingMode = choice.preset;
+        preferences.processingTranslation = choice.targetLanguage ?? "none";
+      }
+      if (pending.value) {
+        pending.value.preset = choice.preset;
+        pending.value.targetLanguage = choice.targetLanguage;
+      }
+    },
     showPendingError() {
       select("awaiting_action");
       pending.value!.error =

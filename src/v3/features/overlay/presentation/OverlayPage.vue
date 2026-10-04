@@ -12,6 +12,7 @@ import OverlayPreview from "./OverlayPreview.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 const workspace = useWorkspace();
 const { state } = workspace;
+const demoPreferences = ref({ ...state.preferences });
 const copyMessage = ref("");
 const {
   phase,
@@ -28,7 +29,14 @@ const {
   play,
   resolve,
   showPendingError,
-} = useOverlayDemo(() => state.preferences);
+  chooseProcessing,
+} = useOverlayDemo(() => demoPreferences.value);
+function quickRecording() {
+  demoPreferences.value.hotkeyMode = "toggle";
+  demoPreferences.value.processingEnabled = true;
+  demoPreferences.value.overlayQuickProcessing = true;
+  select("listening");
+}
 async function copy(text: string) {
   copyMessage.value = "";
   try {
@@ -70,6 +78,7 @@ const phases: Phase[] = [
         {{ phaseLabels[value] }}
       </button>
       <button @click="showPendingError">Ошибка обработки · повторить</button>
+      <button @click="quickRecording">Запись · быстрые настройки</button>
     </div>
     <div
       v-if="LIVE_DICTATION_ENABLED"
@@ -101,7 +110,7 @@ const phases: Phase[] = [
         <section>
           <small>Подробный</small
           ><OverlayPreview
-            :preferences="{ ...state.preferences, overlayCompact: false }"
+            :preferences="{ ...demoPreferences, overlayCompact: false }"
             :phase="phase"
             :level="level"
             :seconds="seconds"
@@ -113,12 +122,13 @@ const phases: Phase[] = [
             @resume="resumeLive"
             @resolve="resolve"
             @copy="copy"
+            @processing-change="chooseProcessing"
           />
         </section>
         <section>
           <small>Компактный</small
           ><OverlayPreview
-            :preferences="{ ...state.preferences, overlayCompact: true }"
+            :preferences="{ ...demoPreferences, overlayCompact: true }"
             :phase="phase"
             :level="level"
             :seconds="seconds"
@@ -130,6 +140,7 @@ const phases: Phase[] = [
             @resume="resumeLive"
             @resolve="resolve"
             @copy="copy"
+            @processing-change="chooseProcessing"
           />
         </section>
       </div>

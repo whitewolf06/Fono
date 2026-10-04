@@ -473,6 +473,8 @@ pub struct Settings {
     pub overlay_opacity: f32,
     #[serde(default)]
     pub overlay_mini_mode: bool,
+    #[serde(default = "default_overlay_enabled")]
+    pub overlay_quick_processing: bool,
     #[serde(default)]
     pub verbose_logging: bool,
     #[serde(default = "default_llm_provider")]
@@ -632,6 +634,7 @@ impl Default for Settings {
             overlay_scale: default_overlay_scale(),
             overlay_opacity: default_overlay_opacity(),
             overlay_mini_mode: false,
+            overlay_quick_processing: true,
             verbose_logging: false,
             llm_provider: default_llm_provider(),
             llm_api_key: None,

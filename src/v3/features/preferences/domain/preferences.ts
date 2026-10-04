@@ -33,6 +33,7 @@ export const defaults: Preferences = {
   insertion: "clipboard",
   overlayEnabled: true,
   overlayCompact: false,
+  overlayQuickProcessing: true,
   overlayScale: 100,
   overlayOpacity: 95,
   overlayPosition: "bottom",
@@ -86,9 +87,12 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
   overlay: [
     "overlayEnabled",
     "overlayCompact",
+    "overlayQuickProcessing",
     "overlayScale",
     "overlayOpacity",
     "overlayPosition",
+    "processingMode",
+    "processingTranslation",
   ],
   privacy: [
     "historyEnabled",
@@ -141,6 +145,8 @@ export const profiles = [
   { value: "cloud", label: "В облаке · OpenAI (демо)" },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  if (typeof p.overlayQuickProcessing !== "boolean")
+    return "Выберите, показывать ли быстрые настройки обработки.";
   const dictionaryError = validateDictionary(p.dictionaryEntries);
   if (dictionaryError) return dictionaryError;
   if (!["hold", "toggle"].includes(p.hotkeyMode))

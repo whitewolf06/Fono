@@ -146,6 +146,8 @@ export interface Settings {
   overlay_opacity: number;
   /** Мини-режим overlay */
   overlay_mini_mode: boolean;
+  /** Быстрый выбор стиля и перевода в индикаторе режима повторного нажатия. */
+  overlay_quick_processing?: boolean;
   /** Подробные логи для отладки */
   verbose_logging: boolean;
   /** Провайдер LLM */
@@ -334,6 +336,7 @@ export const DEFAULT_SETTINGS: Settings = {
   overlay_enabled: true,
   overlay_opacity: 1.0,
   overlay_mini_mode: false,
+  overlay_quick_processing: true,
   verbose_logging: false,
   llm_provider: "lmstudio",
   llm_api_key: null,

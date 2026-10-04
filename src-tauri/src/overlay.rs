@@ -3,13 +3,15 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::Mutex;
-use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewWindow};
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::error::{AppError, AppResult};
-use crate::overlay_geometry::{center, fits_screen, ScreenRect};
+use crate::overlay_geometry::GeometryState;
 use crate::state::AppState;
 use crate::types::Settings;
+
+mod window_layout;
 
 #[derive(Clone, Copy, Serialize)]
 pub struct OverlayPreview {
@@ -23,6 +25,33 @@ pub struct OverlayPreview {
 pub struct OverlayRuntime {
     next_id: AtomicU64,
     preview: Mutex<Option<OverlayPreview>>,
+    geometry: Mutex<GeometryState>,
+}
+
+/// Renderer-only display flags survive native settings/visibility synchronization.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OverlayLayout {
+    pub help_open: bool,
+    #[serde(default)]
+    pub error_visible: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OverlayDimensions {
+    pub width: f64,
+    pub height: f64,
+}
+
+#[tauri::command]
+pub fn set_overlay_layout(app: AppHandle, layout: OverlayLayout) -> AppResult<OverlayDimensions> {
+    let runtime = app.state::<OverlayRuntime>();
+    {
+        let mut geometry = runtime.geometry.lock();
+        geometry.help_open = layout.help_open;
+        geometry.error_visible = layout.error_visible;
+    }
+    window_layout::apply(&app, &overlay_window(&app)?)
 }
 
 #[tauri::command]
@@ -90,8 +119,7 @@ pub fn show_overlay_preview(
 pub fn reset_overlay_position(app: AppHandle) -> AppResult<()> {
     let settings = app.state::<AppState>().settings();
     let window = overlay_window(&app)?;
-    resize(&window, settings.overlay_scale)?;
-    move_to_center(&app, &window)?;
+    window_layout::place(&app, &window, None)?;
     show_overlay_preview(
         app,
         settings.overlay_scale,
@@ -102,45 +130,12 @@ pub fn reset_overlay_position(app: AppHandle) -> AppResult<()> {
 
 pub fn restore_position(app: &AppHandle, settings: &Settings) -> AppResult<()> {
     let window = overlay_window(app)?;
-    resize(&window, settings.overlay_scale)?;
-    if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
-        if position_fits(&window, x, y)? {
-            window.set_position(PhysicalPosition::new(x, y))?;
-            return Ok(());
-        }
-    }
-    move_to_center(app, &window)
+    window_layout::restore(app, &window, settings)
 }
 
 pub fn show_window(app: &AppHandle) -> AppResult<()> {
     let window = overlay_window(app)?;
-    let settings = app.state::<AppState>().settings();
-    let scale = if app.state::<AppState>().pipeline_state() == crate::types::PipelineState::Idle {
-        app.state::<OverlayRuntime>()
-            .preview
-            .lock()
-            .map(|preview| preview.overlay_scale)
-            .unwrap_or(settings.overlay_scale)
-    } else {
-        settings.overlay_scale
-    };
-    if crate::application::dictation::workflow::has_pending(app) {
-        let (width, height) = if settings.overlay_mini_mode {
-            (400.0, 216.0)
-        } else {
-            (440.0, 248.0)
-        };
-        window.set_size(tauri::LogicalSize::new(
-            (width * f64::from(scale)).round(),
-            (height * f64::from(scale)).round(),
-        ))?;
-    } else {
-        resize(&window, scale)?;
-    }
-    let position = window.outer_position()?;
-    if !position_fits(&window, position.x, position.y)? {
-        move_to_center(app, &window)?;
-    }
+    window_layout::apply(app, &window)?;
     window.unminimize()?;
     window.show()?;
     Ok(())
@@ -154,61 +149,23 @@ pub fn save_position(app: &AppHandle, x: i32, y: i32) -> AppResult<()> {
         return Ok(());
     }
     let current = window.outer_position()?;
-    if current.x != x || current.y != y || !position_fits(&window, x, y)? {
+    if current.x != x || current.y != y || !window_layout::position_fits(&window, x, y)? {
         return Ok(());
     }
-    persist_position(app, x, y)
+    let position = app
+        .state::<OverlayRuntime>()
+        .geometry
+        .lock()
+        .position_to_save((x, y));
+    let Some((anchor_x, anchor_y)) = position else {
+        return Ok(());
+    };
+    persist_position(app, anchor_x, anchor_y)
 }
 
 fn overlay_window(app: &AppHandle) -> AppResult<WebviewWindow> {
     app.get_webview_window("overlay")
         .ok_or_else(|| AppError::Internal("Окно оверлея недоступно".into()))
-}
-
-fn resize(window: &WebviewWindow, scale: f32) -> AppResult<()> {
-    let scale = if scale.is_finite() {
-        scale.clamp(0.5, 2.0)
-    } else {
-        1.0
-    };
-    window.set_size(tauri::LogicalSize::new(
-        (286.0 * scale).round(),
-        (88.0 * scale).round(),
-    ))?;
-    Ok(())
-}
-
-fn screen_rect(monitor: &tauri::Monitor) -> ScreenRect {
-    let area = monitor.work_area();
-    ScreenRect {
-        x: area.position.x,
-        y: area.position.y,
-        width: area.size.width,
-        height: area.size.height,
-    }
-}
-
-fn position_fits(window: &WebviewWindow, x: i32, y: i32) -> AppResult<bool> {
-    let size = window.outer_size()?;
-    Ok(window
-        .available_monitors()?
-        .iter()
-        .any(|monitor| fits_screen(x, y, size.width, size.height, screen_rect(monitor))))
-}
-
-fn move_to_center(app: &AppHandle, window: &WebviewWindow) -> AppResult<()> {
-    // Prefer the monitor containing settings, where the user pressed Reset.
-    let monitor = app
-        .get_webview_window("settings")
-        .and_then(|settings| settings.current_monitor().ok().flatten())
-        .or(window.primary_monitor()?)
-        .ok_or_else(|| AppError::Internal("Не найден экран для оверлея".into()))?;
-    let size = window.outer_size()?;
-    let (x, y) = center(size.width, size.height, screen_rect(&monitor));
-    window.set_position(PhysicalPosition::new(x, y))?;
-    persist_position(app, x, y)?;
-    tracing::info!(x, y, "overlay moved to screen center");
-    Ok(())
 }
 
 fn persist_position(app: &AppHandle, x: i32, y: i32) -> AppResult<()> {
@@ -230,24 +187,7 @@ pub fn position_overlay(app: AppHandle, position: String) -> AppResult<()> {
         return Err(AppError::Config("Неизвестное положение индикатора".into()));
     }
     let window = overlay_window(&app)?;
-    let settings = app.state::<AppState>().settings();
-    resize(&window, settings.overlay_scale)?;
-    let monitor = app
-        .get_webview_window("settings")
-        .and_then(|w| w.current_monitor().ok().flatten())
-        .or(window.primary_monitor()?)
-        .ok_or_else(|| AppError::Internal("Не найден монитор".into()))?;
-    let screen = screen_rect(&monitor);
-    let size = window.outer_size()?;
-    let (x, _) = center(size.width, size.height, screen);
-    let y = if position == "top" {
-        screen.y + 24
-    } else {
-        screen.y + screen.height.saturating_sub(size.height + 24) as i32
-    };
-    window.set_position(PhysicalPosition::new(x, y))?;
-    persist_position(&app, x, y)?;
-    Ok(())
+    window_layout::place(&app, &window, Some(&position))
 }
 #[tauri::command]
 pub fn hide_overlay_preview(app: AppHandle) -> AppResult<()> {

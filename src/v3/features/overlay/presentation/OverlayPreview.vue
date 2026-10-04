@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref, useId, watch } from "vue";
 import type {
   Phase,
   Preferences,
@@ -8,12 +8,14 @@ import type {
 import type {
   PendingDictation,
   PendingDictationRequest,
+  OverlayProcessingChoice,
 } from "../../../shared/domain/processing";
-import { liveStatus, VoiceWave } from "../../dictation";
-import { phaseLabels } from "../../../shared/application/workspace";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import PendingDictationActions from "../../../shared/presentation/PendingDictationActions.vue";
-withDefaults(
+import ProcessingChoiceControls from "../../../shared/presentation/ProcessingChoiceControls.vue";
+import OverlayToolbar from "./OverlayToolbar.vue";
+import OverlayHelp from "./OverlayHelp.vue";
+const props = withDefaults(
   defineProps<{
     preferences: Preferences;
     phase?: Phase;
@@ -24,17 +26,48 @@ withDefaults(
     elapsed?: number;
     live?: LiveDictation | null;
     pending?: PendingDictation | null;
+    processingChoice?: OverlayProcessingChoice | null;
+    processingSaving?: boolean;
+    processingError?: string;
+    error?: string;
   }>(),
   { phase: "listening", level: 0.6, seconds: 3, elapsed: 12, canFinish: true },
 );
-defineEmits<{
+const emit = defineEmits<{
   finish: [];
   cancel: [];
   resume: [];
   resolve: [request: PendingDictationRequest];
   copy: [text: string];
+  processingChange: [choice: OverlayProcessingChoice];
+  helpChange: [open: boolean];
 }>();
 const help = ref(false);
+const helpId = useId();
+const rememberChoice = computed(
+  () =>
+    props.preferences.hotkeyMode === "toggle" &&
+    props.preferences.overlayQuickProcessing &&
+    props.preferences.processingEnabled,
+);
+const quick = computed(
+  () =>
+    rememberChoice.value &&
+    ["listening", "silence"].includes(props.phase) &&
+    !props.pending,
+);
+const choice = computed<OverlayProcessingChoice>(
+  () =>
+    props.processingChoice ?? {
+      preset: props.pending?.preset ?? props.preferences.processingMode,
+      targetLanguage: props.pending
+        ? props.pending.targetLanguage
+        : props.preferences.processingTranslation === "none"
+          ? null
+          : props.preferences.processingTranslation,
+    },
+);
+watch(help, (open) => emit("helpChange", open));
 </script>
 <template>
   <div class="overlay-preview-wrap">
@@ -44,161 +77,88 @@ const help = ref(false);
         compact: preferences.overlayCompact,
         disabled: !preferences.overlayEnabled,
         expanded: !!pending,
+        quick,
         'show-help': help,
       }"
       :style="{
         zoom: preferences.overlayScale / 100,
+        '--fono-overlay-zoom': preferences.overlayScale / 100,
         opacity: preferences.overlayOpacity / 100,
       }"
     >
-      <div v-if="pending" class="overlay-pending-header">
-        <AppIcon
-          :name="pending.insertionBlocked ? 'warn' : 'sparkle'"
-          :size="18"
-        />
-        <strong>{{
-          pending.phase === "processing"
-            ? "Обрабатываю текст"
-            : pending.insertionBlocked
-              ? "Текст сохранён для копирования"
-              : "Текст готов · выберите действие"
-        }}</strong>
-        <button
-          class="overlay-control"
-          aria-label="Подсказка о кнопках"
-          :aria-expanded="help"
-          @click="help = !help"
-        >
-          <AppIcon name="info" :size="16" />
-        </button>
-      </div>
-      <template v-else>
-        <AppIcon
-          :name="
-            phase === 'error'
-              ? 'warn'
-              : phase === 'done'
-                ? 'check'
-                : 'microphone'
-          "
-          :size="20"
-        />
-        <div v-if="!help" class="overlay-body">
-          <strong>{{
-            preferences.overlayEnabled
-              ? live
-                ? liveStatus(live)
-                : phaseLabels[phase]
-              : "Индикатор выключен"
-          }}</strong>
-          <VoiceWave
-            v-if="!preferences.overlayCompact"
-            :phase="phase"
-            :level="level"
+      <template v-if="pending">
+        <div class="overlay-pending-header">
+          <AppIcon
+            :name="pending.insertionBlocked ? 'warn' : 'sparkle'"
+            :size="18"
           />
-          <small
-            v-if="live && !preferences.overlayCompact"
-            class="overlay-live-text"
-            :title="live.committedText + ' ' + live.draftText"
-            >{{ live.committedText.slice(-80)
-            }}<span class="live-draft"> {{ live.draftText }}</span></small
+          <strong>{{
+            pending.phase === "processing"
+              ? "Обрабатываю текст"
+              : pending.insertionBlocked
+                ? "Текст доступен для копирования"
+                : "Текст готов · выберите действие"
+          }}</strong>
+          <button
+            type="button"
+            class="overlay-control overlay-help-toggle"
+            title="Что означают кнопки"
+            aria-label="Пояснения к кнопкам"
+            :aria-expanded="help"
+            :aria-controls="helpId"
+            @click="help = !help"
           >
-          <small
-            v-if="
-              phase === 'silence' ||
-              (live?.phase === 'listening' && seconds > 0)
-            "
-            >{{ live ? "Фрагмент" : "Завершение" }} через
-            {{ seconds }} сек</small
-          >
-          <small v-else-if="!preferences.overlayCompact">{{
-            phase === "error"
-              ? "Проверьте настройки"
-              : phase === "listening"
-                ? Math.floor(elapsed / 60)
-                    .toString()
-                    .padStart(2, "0") +
-                  ":" +
-                  Math.floor(elapsed % 60)
-                    .toString()
-                    .padStart(2, "0")
-                : "Fono"
-          }}</small>
+            <AppIcon name="info" :size="16" />
+          </button>
         </div>
-        <div v-if="help" class="overlay-inline-help">
-          {{
-            preferences.overlayCompact
-              ? "■ Завершить · × Отмена"
-              : preferences.hotkeyMode === "toggle"
-                ? "Повторное нажатие или ■ — завершить. × — отмена."
-                : "Отпустить или ■ — завершить. × — отмена."
-          }}
-        </div>
-        <button
-          v-if="
-            interactive &&
-            live?.phase === 'listening' &&
-            ['none', 'paused_focus'].includes(live.insertionState)
-          "
-          class="overlay-control dictation-action--insert"
-          aria-label="Продолжить вставку в выбранное поле"
-          @click="$emit('resume')"
-        >
-          <AppIcon name="play" :size="15" />
-        </button>
-        <button
-          v-if="
-            interactive &&
-            canFinish &&
-            (phase === 'listening' || phase === 'silence')
-          "
-          class="overlay-control dictation-action--insert"
-          title="Завершить диктовку"
-          aria-label="Завершить диктовку"
-          @click="$emit('finish')"
-        >
-          <AppIcon name="stop" :size="15" />
-        </button>
-        <button
-          class="overlay-control"
-          title="Подсказка о кнопках"
-          aria-label="Подсказка о кнопках"
-          :aria-expanded="help"
-          @click="help = !help"
-        >
-          <AppIcon name="info" :size="15" />
-        </button>
-        <button
-          v-if="interactive"
-          class="overlay-control dictation-action--cancel"
-          title="Отменить или закрыть индикатор"
-          aria-label="Отменить или закрыть индикатор"
-          @click="$emit('cancel')"
-        >
-          <AppIcon name="x" :size="15" />
-        </button>
+        <PendingDictationActions
+          :pending="pending"
+          :choice="rememberChoice ? choice : undefined"
+          :saving="processingSaving"
+          :remember-choice="rememberChoice"
+          @choice="(value) => emit('processingChange', value)"
+          @resolve="(request) => emit('resolve', request)"
+          @copy="(text) => emit('copy', text)"
+        />
       </template>
-      <div v-if="pending && help" class="overlay-legend">
-        <p class="dictation-action--insert">Исходный — вставить без ИИ.</p>
-        <p class="dictation-action--process">
-          Обработка — очистить, оформить, составить задачу или письмо.
-        </p>
-        <p class="dictation-action--translate">
-          Перевод — обработать и перевести на выбранный язык.
-        </p>
-        <p class="dictation-action--cancel">
-          × Отменить без вставки. Копировать — сохранить текст в буфере.
-        </p>
-        <small>Выбор действует только для этой диктовки.</small>
-        <button class="dictation-action" @click="help = false">
-          Назад к тексту
-        </button>
-      </div>
-      <PendingDictationActions
-        v-else-if="pending"
-        :pending="pending"
-        @resolve="(request) => $emit('resolve', request)"
-        @copy="(text) => $emit('copy', text)"
+      <OverlayToolbar
+        v-else
+        :preferences="preferences"
+        :phase="phase"
+        :level="level"
+        :elapsed="elapsed"
+        :seconds="seconds"
+        :live="live"
+        :interactive="interactive"
+        :can-finish="canFinish"
+        :saving="processingSaving"
+        :help="help"
+        :help-id="helpId"
+        @finish="emit('finish')"
+        @cancel="emit('cancel')"
+        @resume="emit('resume')"
+        @help="help = !help"
+      />
+      <ProcessingChoiceControls
+        v-if="quick"
+        :choice="choice"
+        :saving="processingSaving"
+        remember
+        @change="(value) => emit('processingChange', value)"
+      />
+      <p
+        v-if="processingError || error"
+        class="overlay-error"
+        role="alert"
+        data-overlay-interactive
+      >
+        {{ processingError || error }}
+      </p>
+      <OverlayHelp
+        v-if="help"
+        :id="helpId"
+        :preferences="preferences"
+        :pending="!!pending"
       />
     </div>
   </div>

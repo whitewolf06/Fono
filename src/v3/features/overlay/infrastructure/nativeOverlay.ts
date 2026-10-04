@@ -10,13 +10,17 @@ import type {
   NativeLiveSnapshot,
 } from "../../../shared/infrastructure/native/dictation";
 import { livePhase } from "../../dictation";
-import type { PendingDictation } from "../../../shared/domain/processing";
+import type {
+  PendingDictation,
+  OverlayProcessingChoice,
+} from "../../../shared/domain/processing";
 import { createPendingOverlay } from "./pendingOverlay";
-interface Preview {
-  overlay_scale: number;
-  overlay_opacity: number;
-  overlay_mini_mode: boolean;
-}
+import { createOverlayControls } from "./overlayControls";
+import { bindOverlayLayout } from "./overlayLayout";
+import {
+  createOverlayHydration,
+  type NativeOverlayPreview as Preview,
+} from "./overlayHydration";
 export function createNativeOverlay() {
   document.documentElement.classList.add("native-overlay-document");
   const state = reactive({
@@ -30,6 +34,9 @@ export function createNativeOverlay() {
     live: null as LiveDictation | null,
     pending: null as PendingDictation | null,
     preview: null as Preview | null,
+    sessionId: null as number | null,
+    processingChoice: null as OverlayProcessingChoice | null,
+    helpOpen: false,
   });
   let settings: Settings | null = null,
     disposed = false,
@@ -38,11 +45,26 @@ export function createNativeOverlay() {
     operation = -1;
   const pending = createPendingOverlay(state, () => disposed);
   const releases: (() => void)[] = [];
+  const readiness: Promise<unknown>[] = [];
   let moveTimer: ReturnType<typeof setTimeout> | undefined;
   const fail = (error: unknown) => {
     if (disposed) return;
     state.error = error instanceof Error ? error.message : String(error);
   };
+  const controls = createOverlayControls(
+    state,
+    () => settings,
+    (s) => {
+      settings = s;
+      applySettings();
+    },
+    () => disposed,
+  );
+  const releaseLayout = bindOverlayLayout(
+    state,
+    () => controls.state.error,
+    fail,
+  );
   function applySettings() {
     if (settings) state.preferences = preferencesFromNative(settings, []);
     if (state.preferences.dictationMode !== "live") state.live = null;
@@ -55,16 +77,26 @@ export function createNativeOverlay() {
       });
   }
   function bind<T>(channel: string, listener: (v: T) => void) {
-    void subscribe<T>(channel, (value) => {
+    const ready = subscribe<T>(channel, (value) => {
       if (!disposed) listener(value);
     })
       .then((release) => (disposed ? release() : releases.push(release)))
       .catch(fail);
+    readiness.push(ready);
   }
-  bind<Settings>("settings-changed", (s) => {
-    settings = s;
-    applySettings();
+  const hydration = createOverlayHydration({
+    disposed: () => disposed,
+    settings: (s) => {
+      settings = s;
+      applySettings();
+    },
+    preview: (p) => {
+      state.preview = p;
+      applySettings();
+    },
+    pending,
   });
+  bind<Settings>("settings-changed", hydration.settingsChanged);
   function applyLive(v: NativeLiveSnapshot | null) {
     if (!v || (settings && settings.dictation_mode !== "live")) return;
     if (state.live && Number(v.session_id) < Number(state.live.sessionId))
@@ -97,30 +129,14 @@ export function createNativeOverlay() {
   }
   bind<NativeLiveSnapshot>("dictation-live", applyLive);
   bind<PendingDictation | null>("pending-dictation", pending.apply);
-  bind<Preview | null>("overlay-preview", (p) => {
-    state.preview = p;
-    applySettings();
-  });
+  bind<Preview | null>("overlay-preview", hydration.previewChanged);
   bind<{ remaining_ms: number; speaking: boolean }>(
     "wake-dictation-countdown",
     (v) => {
       state.seconds = v.speaking ? 0 : Math.ceil(v.remaining_ms / 1000);
     },
   );
-  const hydration = pending.stamp();
-  void Promise.all([
-    call<Settings>("get_settings"),
-    call<Preview | null>("get_overlay_preview"),
-    call<PendingDictation | null>("get_pending_dictation"),
-  ])
-    .then(([s, p, dictation]) => {
-      if (disposed) return;
-      settings = s;
-      state.preview = p;
-      pending.apply(dictation, hydration);
-      applySettings();
-    })
-    .catch(fail);
+  void hydration.load(readiness).catch(fail);
   const window = getCurrentWindow();
   void window
     .onMoved(({ payload: { x, y } }) => {
@@ -144,6 +160,7 @@ export function createNativeOverlay() {
       if (disposed) return;
       if (v.operation_id > 0 && v.operation_id < operation) return;
       if (!pending.current(ticket)) return;
+      state.sessionId = v.operation_id > 0 ? v.operation_id : null;
       pending.observeOperation(v.operation_id);
       pending.apply(dictation, ticket);
       if (state.pending) {
@@ -158,6 +175,7 @@ export function createNativeOverlay() {
       }
       if (v.operation_id > 0 && operation !== v.operation_id) {
         operation = v.operation_id;
+        state.error = "";
         started = Date.now();
         state.seconds = 0;
       }
@@ -179,33 +197,58 @@ export function createNativeOverlay() {
   }, 120);
   return {
     state,
+    processing: controls.state,
+    chooseProcessing: (choice: OverlayProcessingChoice) => {
+      state.error = "";
+      controls.choose(choice);
+    },
+    setHelp: (open: boolean) => {
+      state.helpOpen = open;
+    },
     drag: () => window.startDragging().catch(fail),
     resume: () => call("resume_live_insertion").catch(fail),
-    resolve: pending.resolve,
+    resolve: (request: Parameters<typeof pending.resolve>[0]) =>
+      controls.resolve(request, pending.resolve).catch(fail),
     copy: pending.copy,
-    finish: () =>
-      (state.preview && state.phase === "idle"
-        ? call("hide_overlay_preview")
-        : call(
-            state.source === "wake_word"
-              ? "confirm_dictation"
-              : "stop_dictation",
-          )
-      ).catch(fail),
-    cancel: () =>
-      (state.pending
-        ? pending.resolve({
-            sessionId: state.pending.sessionId,
-            action: "cancel",
-          })
-        : state.phase === "idle"
-          ? call("hide_overlay_preview")
-          : call("cancel_dictation")
-      ).catch(fail),
+    finish: () => {
+      const sessionId = state.sessionId;
+      const source = state.source;
+      return controls
+        .finish(() =>
+          state.preview && state.phase === "idle"
+            ? call("dismiss_dictation_overlay")
+            : sessionId !== null && sessionId > 0
+              ? call(
+                  source === "wake_word"
+                    ? "confirm_dictation"
+                    : "stop_dictation",
+                  { sessionId },
+                )
+              : Promise.resolve(),
+        )
+        .catch(fail);
+    },
+    cancel: () => {
+      controls.cancel();
+      return (
+        state.pending
+          ? pending.resolve({
+              sessionId: state.pending.sessionId,
+              action: "cancel",
+            })
+          : ["idle", "done", "error", "cancelled"].includes(state.phase)
+            ? call("dismiss_dictation_overlay")
+            : state.sessionId !== null && state.sessionId > 0
+              ? call("cancel_dictation", { sessionId: state.sessionId })
+              : Promise.resolve()
+      ).catch(fail);
+    },
     dispose() {
       disposed = true;
       clearInterval(timer);
       clearTimeout(moveTimer);
+      controls.dispose();
+      releaseLayout();
       releases.forEach((stop) => stop());
     },
   };

@@ -9,13 +9,14 @@ import type { Phase, Preferences } from "../../../shared/domain/contracts";
 import type {
   PendingDictation,
   PendingDictationRequest,
+  OverlayProcessingChoice,
 } from "../../../shared/domain/processing";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import { OverlayPreview } from "../../overlay";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 const draft = defineModel<Preferences>({ required: true });
-const previewScenario = ref("awaiting_action");
+const previewScenario = ref("recording");
 const previewFeedback = ref("");
 const sampleText =
   "Проверить новую версию Fono и отправить команде результаты.";
@@ -60,6 +61,10 @@ function resolvePreview(request: PendingDictationRequest) {
 function copyPreview(text: string) {
   void run(() => workspace.copy(text), "Текст примера скопирован");
 }
+function changePreviewProcessing(choice: OverlayProcessingChoice) {
+  draft.value.processingMode = choice.preset;
+  draft.value.processingTranslation = choice.targetLanguage ?? "none";
+}
 </script>
 <template>
   <div class="form-stack">
@@ -70,7 +75,13 @@ function copyPreview(text: string) {
     /><PreferenceToggle
       name="overlayCompact"
       label="Компактный вид"
-      description="Только статус и основные действия."
+      description="Меньше места для статуса. Быстрые настройки остаются доступны."
+    />
+    <PreferenceToggle
+      id="overlayQuickProcessing"
+      name="overlayQuickProcessing"
+      label="Быстрые настройки обработки"
+      description="В режиме повторного нажатия показывать стиль и перевод в индикаторе. Выбор запоминается для следующих диктовок."
     /><label id="overlayScale"
       >Масштаб · {{ draft.overlayScale }}%<WlSlider
         v-model="draft.overlayScale"
@@ -119,6 +130,7 @@ function copyPreview(text: string) {
         @cancel="previewScenario = 'cancelled'"
         @resolve="resolvePreview"
         @copy="copyPreview"
+        @processing-change="changePreviewProcessing"
       /><small
         >Предпросмотр изменяется сразу. Для применения нажмите
         «Сохранить».</small
@@ -130,6 +142,11 @@ function copyPreview(text: string) {
     <details class="advanced" open>
       <summary>Что означают кнопки</summary>
       <div class="form-stack overlay-legend">
+        <p class="muted">
+          <AppIcon name="stop" :size="14" class="dictation-action--insert" />
+          Зелёная «Завершить» — остановить запись и распознать речь с выбранными
+          настройками. Повторное нажатие горячей клавиши делает то же самое.
+        </p>
         <p class="muted">
           <AppIcon name="check" :size="14" class="dictation-action--insert" />
           «Вставить исходный» — отправить расшифровку без ИИ.
@@ -161,6 +178,10 @@ function copyPreview(text: string) {
           Обработка и перевод доступны при включённом ИИ. При ручном выборе Fono
           ждёт действия после распознавания; новые записи до этого не
           начинаются.
+        </p>
+        <p class="muted">
+          Стиль и язык, выбранные в индикаторе, запоминаются. Быстрые настройки
+          можно скрыть; способ запуска обработки остаётся прежним.
         </p>
       </div>
     </details>

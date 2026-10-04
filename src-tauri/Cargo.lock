@@ -1163,7 +1163,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fono"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "anyhow",
  "arboard",

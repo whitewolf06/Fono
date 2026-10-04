@@ -151,6 +151,13 @@ export const searchIndex: {
     keywords: "overlay плавающий прозрачность масштаб компактный положение",
   },
   {
+    label: "Быстрые настройки обработки в индикаторе",
+    section: "overlay",
+    field: "overlayQuickProcessing",
+    keywords:
+      "стиль перевод пресет запомнить overlay повторное нажатие быстрые",
+  },
+  {
     label: "История и срок хранения",
     section: "privacy",
     field: "retentionDays",

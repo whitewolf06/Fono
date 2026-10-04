@@ -296,9 +296,11 @@ pub fn run() {
             ipc::dictation::stop_dictation,
             ipc::dictation::confirm_dictation,
             ipc::dictation::cancel_dictation,
+            ipc::dictation::dismiss_dictation_overlay,
             ipc::dictation::transcribe_test,
             ipc::dictation::get_pending_dictation,
             ipc::dictation::resolve_pending_dictation,
+            ipc::dictation::update_overlay_processing_choice,
             ipc::system::get_dictation_history,
             ipc::system::clear_dictation_history,
             ipc::system::delete_dictation_history_entry,
@@ -340,6 +342,7 @@ pub fn run() {
             // overlay
             ipc::settings::save_overlay_position,
             overlay::get_overlay_preview,
+            overlay::set_overlay_layout,
             overlay::show_overlay_preview,
             overlay::reset_overlay_position,
             overlay::position_overlay,
@@ -472,7 +475,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 let state = app.state::<AppState>();
                 let is_paused = state.toggle_dictation_paused();
                 if is_paused {
-                    if let Err(error) = ipc::dictation::cancel_dictation(app.clone()) {
+                    if let Err(error) = ipc::dictation::cancel_dictation(app.clone(), None) {
                         events::emit_error(
                             app,
                             events::ErrorCodeV1::Audio,

@@ -133,6 +133,17 @@ pub fn cancel(app: &AppHandle) -> AppResult<()> {
     else {
         return Ok(());
     };
+    cancel_session(app, session)
+}
+
+pub(crate) fn cancel_for(app: &AppHandle, operation: u64) -> AppResult<()> {
+    let session = current(app)
+        .filter(|session| session.operation == operation)
+        .ok_or_else(|| AppError::Cancelled("Диктовка отменена или заменена".into()))?;
+    cancel_session(app, session)
+}
+
+fn cancel_session(app: &AppHandle, session: Arc<LiveSession>) -> AppResult<()> {
     if !session.request_cancel() {
         return Ok(());
     }

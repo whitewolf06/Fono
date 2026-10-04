@@ -27,6 +27,35 @@
   --fono-pending-height: 228px;
   --fono-pending-compact-width: 380px;
   --fono-pending-compact-height: 196px;
+  --fono-overlay-width: 340px;
+  --fono-overlay-compact-width: 300px;
+  --fono-overlay-expanded-width: 420px;
+  --fono-overlay-expanded-compact-width: 380px;
+  --fono-overlay-radius: 12px;
+  --fono-overlay-wave-height: 18px;
+  --fono-overlay-help-height: 112px;
+  --fono-overlay-error-height: 40px;
+  --fono-overlay-choice-label-width: 48px;
+  --fono-overlay-finish-background: color-mix(
+    in srgb,
+    var(--fono-success) 12%,
+    var(--fono-surface)
+  );
+  --fono-overlay-finish-border: color-mix(
+    in srgb,
+    var(--fono-success) 44%,
+    var(--fono-border)
+  );
+  --fono-overlay-cancel-background: color-mix(
+    in srgb,
+    var(--fono-error) 5%,
+    var(--fono-surface)
+  );
+  --fono-overlay-cancel-border: color-mix(
+    in srgb,
+    var(--fono-error) 24%,
+    var(--fono-border)
+  );
   --fono-scrim: color-mix(in srgb, var(--fono-night) 74%, transparent);
   --fono-glow: color-mix(in srgb, var(--fono-electric) 30%, transparent);
   --fono-service-end: color-mix(

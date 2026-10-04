@@ -3,33 +3,50 @@ import { ref, watch } from "vue";
 import type {
   PendingDictation,
   PendingDictationRequest,
-  ProcessingPreset,
-  ProcessingTranslation,
+  OverlayProcessingChoice,
 } from "../domain/processing";
-import { presetOptions, translationOptions } from "../domain/processing";
+import ProcessingChoiceControls from "./ProcessingChoiceControls.vue";
 import AppIcon from "./AppIcon.vue";
-const props = defineProps<{ pending: PendingDictation }>();
+const props = defineProps<{
+  pending: PendingDictation;
+  choice?: OverlayProcessingChoice;
+  rememberChoice?: boolean;
+  saving?: boolean;
+}>();
 const emit = defineEmits<{
   resolve: [request: PendingDictationRequest];
   copy: [text: string];
+  choice: [choice: OverlayProcessingChoice];
 }>();
-const preset = ref<ProcessingPreset>(props.pending.preset);
-const translation = ref<ProcessingTranslation>(
-  props.pending.targetLanguage ?? "none",
-);
+const selected = ref<OverlayProcessingChoice>({
+  preset: props.pending.preset,
+  targetLanguage: props.pending.targetLanguage,
+});
 watch(
   () => props.pending.sessionId,
   () => {
-    preset.value = props.pending.preset;
-    translation.value = props.pending.targetLanguage ?? "none";
+    selected.value = {
+      preset: props.pending.preset,
+      targetLanguage: props.pending.targetLanguage,
+    };
   },
 );
+watch(
+  () => props.choice,
+  (value) => {
+    if (value) selected.value = { ...value };
+  },
+  { immediate: true },
+);
+function choose(choice: OverlayProcessingChoice) {
+  selected.value = { ...choice };
+  if (props.rememberChoice) emit("choice", choice);
+}
 function resolve(action: PendingDictationRequest["action"]) {
   emit("resolve", {
     sessionId: props.pending.sessionId,
     action,
-    preset: preset.value,
-    targetLanguage: translation.value === "none" ? null : translation.value,
+    ...selected.value,
   });
 }
 </script>
@@ -38,75 +55,55 @@ function resolve(action: PendingDictationRequest["action"]) {
     <p class="pending-text" :title="pending.resultText ?? pending.originalText">
       {{ pending.resultText ?? pending.originalText }}
     </p>
-    <template v-if="pending.processingEnabled && !pending.insertionBlocked">
-      <div class="pending-presets" role="group" aria-label="Режим обработки">
-        <button
-          v-for="option in presetOptions"
-          :key="option.value"
-          class="dictation-action dictation-action--process"
-          :aria-pressed="preset === option.value"
-          :disabled="pending.phase === 'processing'"
-          @click="preset = option.value"
-        >
-          {{ option.label }}
-        </button>
-      </div>
-      <div
-        class="pending-languages"
-        role="group"
-        aria-label="Перевод после обработки"
-      >
-        <span>Перевод</span>
-        <button
-          v-for="option in translationOptions"
-          :key="option.value"
-          class="dictation-action dictation-action--translate"
-          :title="option.label"
-          :aria-label="option.label"
-          :aria-pressed="translation === option.value"
-          :disabled="pending.phase === 'processing'"
-          @click="translation = option.value"
-        >
-          {{ option.value === "none" ? "Нет" : option.value.toUpperCase() }}
-        </button>
-      </div>
-    </template>
+    <ProcessingChoiceControls
+      v-if="pending.processingEnabled && !pending.insertionBlocked"
+      :choice="selected"
+      :disabled="pending.phase === 'processing'"
+      :saving="saving"
+      :remember="rememberChoice"
+      @change="choose"
+    />
     <p v-if="pending.error" class="pending-error" role="alert">
       {{ pending.error }}
     </p>
     <div class="pending-footer" role="group" aria-label="Действия с диктовкой">
       <button
+        type="button"
         class="dictation-action dictation-action--insert"
         :title="
           pending.source === 'ui'
             ? 'Оставить исходный текст в Fono'
             : 'Вставить исходный текст без обработки'
         "
-        :disabled="pending.phase === 'processing' || pending.insertionBlocked"
+        :disabled="
+          pending.phase === 'processing' || pending.insertionBlocked || saving
+        "
         @click="resolve('insert_raw')"
       >
         Исходный
       </button>
       <button
         v-if="pending.processingEnabled && !pending.insertionBlocked"
+        type="button"
         class="dictation-action"
         :class="
-          translation === 'none'
-            ? 'dictation-action--process'
-            : 'dictation-action--translate'
+          selected.targetLanguage
+            ? 'dictation-action--translate'
+            : 'dictation-action--process'
         "
-        :disabled="pending.phase === 'processing'"
+        :disabled="pending.phase === 'processing' || saving"
         @click="resolve('process_and_insert')"
       >
         {{
           pending.phase === "processing"
             ? "Обработка…"
-            : translation === "none"
-              ? "Обработать"
-              : "Обработать · " + translation.toUpperCase()
+            : selected.targetLanguage
+              ? "Обработать · " + selected.targetLanguage.toUpperCase()
+              : "Обработать"
         }}
       </button>
       <button
+        type="button"
         class="dictation-action"
         title="Копировать текст"
         aria-label="Копировать текст"
@@ -115,12 +112,12 @@ function resolve(action: PendingDictationRequest["action"]) {
         <AppIcon name="copy" :size="14" />
       </button>
       <button
-        class="dictation-action dictation-action--cancel"
+        type="button"
+        class="dictation-action overlay-cancel"
         title="Отменить диктовку"
-        aria-label="Отменить диктовку"
         @click="resolve('cancel')"
       >
-        <AppIcon name="x" :size="14" />
+        <AppIcon name="x" :size="14" />Отмена
       </button>
     </div>
   </div>
