@@ -1,8 +1,13 @@
 import type { Preferences } from "../domain/contracts";
 import { defaults } from "../../features/preferences/domain/preferences";
 import { availableDictationMode } from "../domain/dictationMode";
+import { availableWakeEnabled } from "../domain/wakeAvailability";
 import { clonePreferences } from "../../features/preferences/domain/processingPrompts";
+import { PROJECT_SITE_URL } from "../domain/project";
 const storageKey = "fono-v3-demo-preferences-v1";
+export async function openProjectSite(): Promise<void> {
+  window.open(PROJECT_SITE_URL, "_blank", "noopener,noreferrer");
+}
 // Persist demo preferences only. Transcripts, tokens and instructions never enter browser storage.
 const persistedKeys: (keyof Preferences)[] = [
   "dictationMode",
@@ -10,6 +15,7 @@ const persistedKeys: (keyof Preferences)[] = [
   "model",
   "language",
   "acceleration",
+  "gpuModelResidency",
   "dictionaryEnabled",
   "wakeEnabled",
   "wakePhrase",
@@ -64,9 +70,11 @@ export function readPreferences(): Preferences {
     safe.dictationMode = availableDictationMode(
       safe.dictationMode as Preferences["dictationMode"],
     );
+    safe.wakeEnabled = availableWakeEnabled(Boolean(safe.wakeEnabled));
     if (!["ru", "en"].includes(String(safe.wakeLanguage)))
       safe.wakeLanguage = defaults.wakeLanguage;
     for (const [key, values] of Object.entries({
+      gpuModelResidency: ["resident", "adaptive"],
       hotkeyMode: ["hold", "toggle"],
       processingMode: ["raw", "clean", "format", "task", "formal"],
       processingTrigger: ["automatic", "manual"],
@@ -85,6 +93,7 @@ export function persistPreferences(prefs: Preferences): void {
     persistedKeys.map((key) => [key, prefs[key]]),
   );
   safe.dictationMode = availableDictationMode(prefs.dictationMode);
+  safe.wakeEnabled = availableWakeEnabled(prefs.wakeEnabled);
   // Dictionary terms remain in memory; only the optional switch is persisted.
   try {
     localStorage.setItem(storageKey, JSON.stringify(safe));

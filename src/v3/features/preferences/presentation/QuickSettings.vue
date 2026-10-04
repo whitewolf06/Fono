@@ -10,6 +10,7 @@ import { useFeedback } from "../../../shared/application/feedback";
 import AudioFields from "./AudioFields.vue";
 import ActivationFields from "./ActivationFields.vue";
 import ProcessingFields from "./ProcessingFields.vue";
+import { WAKE_WORD_AVAILABLE } from "../../../shared/domain/wakeAvailability";
 const props = defineProps<{ panel: QuickPanel }>();
 const ui = useInteraction();
 const router = useRouter();
@@ -73,7 +74,7 @@ onScopeDispose(removeGuard);
       ><WlButton
         variant="primary"
         :loading="busy"
-        :disabled="!dirty"
+        :disabled="!dirty || (panel === 'wake' && !WAKE_WORD_AVAILABLE)"
         @click="
           run(save, 'Настройки сохранены').then((ok) => {
             if (ok && !dirty) ui.state.quick = null;

@@ -44,6 +44,8 @@ pub(super) struct UpdateData {
     #[cfg(windows)]
     pub pending: Option<PendingUpdate>,
     pub cancellation: Option<Arc<watch::Sender<u8>>>,
+    #[cfg(windows)]
+    pub automatic_check: bool,
 }
 
 pub struct UpdateService {
@@ -52,6 +54,8 @@ pub struct UpdateService {
     pub(super) settings_transaction: Arc<tokio::sync::Mutex<()>>,
     pub(super) channel: Option<Channel>,
     pub(super) shutdown_started: Arc<AtomicBool>,
+    #[cfg(windows)]
+    pub(super) automatic: super::automatic::Scheduler,
 }
 
 impl Default for UpdateService {
@@ -80,11 +84,15 @@ impl Default for UpdateService {
                 #[cfg(windows)]
                 pending: None,
                 cancellation: None,
+                #[cfg(windows)]
+                automatic_check: false,
             }),
             serial: Arc::new(tokio::sync::Mutex::new(())),
             settings_transaction: Arc::new(tokio::sync::Mutex::new(())),
             channel,
             shutdown_started: Arc::new(AtomicBool::new(false)),
+            #[cfg(windows)]
+            automatic: super::automatic::Scheduler::default(),
         }
     }
 }
@@ -109,6 +117,16 @@ impl UpdateService {
             true
         } else {
             false
+        }
+    }
+
+    #[cfg(windows)]
+    pub(super) fn cancel_automatic_check(&self) {
+        let data = self.data.lock();
+        if data.automatic_check && data.snapshot.phase == UpdatePhase::Checking {
+            if let Some(cancellation) = &data.cancellation {
+                cancellation.send_replace(1);
+            }
         }
     }
 
@@ -137,6 +155,10 @@ impl Drop for ActionGuard<'_> {
     fn drop(&mut self) {
         let mut data = self.0.data.lock();
         data.cancellation = None;
+        #[cfg(windows)]
+        {
+            data.automatic_check = false;
+        }
         if matches!(
             data.snapshot.phase,
             UpdatePhase::Checking | UpdatePhase::Downloading
@@ -176,6 +198,36 @@ mod tests {
         service.data.lock().cancellation = Some(Arc::new(sender));
         service.transition(UpdatePhase::Installing, "installing");
         assert!(!service.cancel());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn opt_out_cancels_only_an_automatic_feed_check() {
+        let service = UpdateService::default();
+        let (sender, receiver) = watch::channel(0);
+        {
+            let mut data = service.data.lock();
+            data.cancellation = Some(Arc::new(sender));
+            data.snapshot.phase = UpdatePhase::Checking;
+        }
+        service.cancel_automatic_check();
+        assert_eq!(*receiver.borrow(), 0, "manual check remains active");
+        service.data.lock().automatic_check = true;
+        service.cancel_automatic_check();
+        assert_eq!(*receiver.borrow(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn opt_out_does_not_cancel_an_explicit_download_or_install() {
+        let service = UpdateService::default();
+        let (sender, receiver) = watch::channel(0);
+        service.data.lock().cancellation = Some(Arc::new(sender));
+        for phase in [UpdatePhase::Downloading, UpdatePhase::Installing] {
+            service.transition(phase, "explicit operation");
+            service.cancel_automatic_check();
+            assert_eq!(*receiver.borrow(), 0);
+        }
     }
 
     #[tokio::test]

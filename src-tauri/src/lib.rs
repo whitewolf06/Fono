@@ -206,6 +206,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(app_state)
         .manage(crate::application::updates::UpdateService::default())
+        .manage(crate::application::gpu_memory::SttMemoryRuntime::default())
         .manage(pipeline)
         .manage(crate::application::live_dictation::LiveController::default())
         .manage(crate::application::dictation::workflow::Runtime::default())
@@ -257,6 +258,7 @@ pub fn run() {
             crate::application::models::preload_configured_stt(app.handle().clone());
             app.state::<crate::application::service_control::ServiceControl>()
                 .initialize(app.handle().clone());
+            crate::application::gpu_memory::start(app.handle().clone());
             app.manage(
                 crate::application::speech_analysis_queue::SpeechAnalysisQueue::start(
                     app.handle().clone(),
@@ -282,6 +284,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // state
             ipc::desktop_v3::get_desktop_snapshot,
+            ipc::memory::get_stt_memory_status,
             ipc::desktop_v3::improve_text,
             ipc::desktop_v3::clear_speech_analytics,
             ipc::desktop_v3::recommend_speech,
@@ -363,6 +366,7 @@ pub fn run() {
             ipc::updates::install_update,
             ipc::updates::cancel_update_download,
             ipc::updates::set_update_checks_enabled,
+            ipc::project::open_project_site,
             ipc::diagnostics::clear_logs,
             ipc::diagnostics::test_microphone,
             // wake word
@@ -558,7 +562,7 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
             .unwrap_or_default(),
     };
     Ok(WakeWordConfig {
-        enabled: settings.wake_word_enabled,
+        enabled: types::WAKE_WORD_AVAILABLE && settings.wake_word_enabled,
         backend: settings.wake_backend,
         phrase: settings.wake_word.clone(),
         audio_device_id: settings.audio_device_id.clone(),
@@ -582,6 +586,10 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
 async fn start_wake_word_if_enabled(
     handle: &tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if !types::WAKE_WORD_AVAILABLE {
+        tracing::info!("wake word: temporarily unavailable, skipping");
+        return Ok(());
+    }
     let activity = crate::application::updates::activity::lease()?;
     use tauri::Manager;
     let state = handle.state::<state::AppState>();

@@ -5,6 +5,10 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
+import {
+  WAKE_WORD_AVAILABLE,
+  WAKE_WORD_UNAVAILABLE,
+} from "../../../shared/domain/wakeAvailability";
 const workspace = useWorkspace();
 const scenarios: { id: Scenario; title: string; detail: string }[] = [
   {
@@ -99,6 +103,10 @@ const scenarios: { id: Scenario; title: string; detail: string }[] = [
       Выбор сценария заменяет текущие демонстрационные данные и черновик. Для
       обычного просмотра выберите «Готов к работе». Ни один сценарий не
       обращается к настоящему бэкенду.
+    </p>
+    <p v-if="!WAKE_WORD_AVAILABLE" class="notice">
+      Пробуждение голосом: {{ WAKE_WORD_UNAVAILABLE }}. Это ограничение
+      действует во всех сценариях.
     </p>
     <div class="scenario-grid">
       <button

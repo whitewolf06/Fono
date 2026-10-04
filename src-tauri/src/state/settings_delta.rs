@@ -81,6 +81,7 @@ fn merge_delta(latest: &Settings, base: &Settings, candidate: &Settings) -> AppR
         };
     }
     merged.enforce_classic_dictation();
+    merged.enforce_wake_availability();
     Ok(merged)
 }
 
@@ -148,6 +149,27 @@ mod tests {
             assert_eq!(settings.overlay_y, Some(283));
         }
         assert_eq!(state.settings_version.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn legacy_wake_cannot_be_restored_by_stale_or_explicit_settings_delta() {
+        let base = Settings {
+            wake_word_enabled: true,
+            wake_word: "hey fono".into(),
+            hotkey_mode: crate::types::HotkeyMode::Toggle,
+            ..Settings::default()
+        };
+        let mut latest = base.clone();
+        latest.wake_word_enabled = false;
+        for mut candidate in [base.clone(), latest.clone()] {
+            candidate.wake_word_enabled = true;
+            candidate.language = "en".into();
+            let merged = merge_delta(&latest, &base, &candidate).expect("merge wake delta");
+            assert!(!merged.wake_word_enabled);
+            assert_eq!(merged.wake_word, "hey fono");
+            assert_eq!(merged.hotkey_mode, crate::types::HotkeyMode::Toggle);
+            assert_eq!(merged.language, "en");
+        }
     }
 
     #[test]

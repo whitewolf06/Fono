@@ -1,6 +1,7 @@
 import { call } from "./ipc";
 import type { NativeContext } from "./context";
 import type { WakePort } from "../../domain/wake";
+import { ensureWakeAvailable } from "../../domain/wakeAvailability";
 import type {
   WakeCalibrationStatus,
   WakeProfileValidationStatus,
@@ -59,17 +60,20 @@ export function nativeWake(ctx: NativeContext): WakePort {
     };
   }
   async function execute(command: string, args?: Record<string, unknown>) {
+    if (command !== "cancel_wake_calibration") ensureWakeAvailable();
     await call(command, args);
     await load();
   }
   return {
     load,
     async download() {
+      ensureWakeAvailable();
       if (!(await call<boolean>("is_kws_model_downloaded")))
         await call("download_kws_model");
       await load();
     },
     async test() {
+      ensureWakeAvailable();
       await call("record_wake_word_sample", { durationMs: 4000 });
       const result = await call<WakeWordRecognitionReport>(
         "recognize_wake_word_sample",

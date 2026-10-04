@@ -7,6 +7,12 @@ fn encode_samples_i16_base64(samples: &[i16]) -> String {
 }
 
 impl WorkerMailbox {
+    pub(super) fn is_idle(&self) -> bool {
+        !self.busy.load(Ordering::Acquire)
+            && !self.health_pending.load(Ordering::Acquire)
+            && self.command_tx.is_empty()
+    }
+
     pub(super) fn start(session: WorkerSession) -> Self {
         let backend = session.backend;
         let path = session.path.clone();

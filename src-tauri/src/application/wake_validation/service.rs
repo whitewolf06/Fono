@@ -12,6 +12,7 @@ use super::rules::{
 use super::state::WakeProfileValidationService;
 
 pub fn start(app: &AppHandle) -> AppResult<WakeProfileValidationStatus> {
+    crate::types::ensure_wake_available()?;
     let _update_admission = crate::application::updates::activity::begin()?;
     let state = app.state::<AppState>();
     let base = state.settings();
@@ -50,6 +51,7 @@ pub async fn record(
     app: AppHandle,
     kind: WakeProfileValidationKind,
 ) -> AppResult<WakeProfileValidationStatus> {
+    crate::types::ensure_wake_available()?;
     let _activity = crate::application::updates::activity::lease()?;
     let service = app.state::<WakeProfileValidationService>();
     let settings = app.state::<AppState>().settings();

@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import type { UpdatesPort, UpdateStatus } from "../../../shared/domain/updates";
+import { updateBusy } from "../../../shared/domain/updates";
 import { call } from "../../../shared/infrastructure/native/ipc";
 
 export function createNativeUpdates(
@@ -15,25 +16,55 @@ export function createNativeUpdates(
     checksEnabled: false,
   });
   let disposed = false;
-  let refreshing = false;
-  async function refresh() {
-    if (disposed || refreshing) return;
-    refreshing = true;
-    try {
-      const value = await transport<UpdateStatus>("get_update_status");
-      if (!disposed)
-        Object.assign(state, { nextVersion: null, totalBytes: null }, value);
-    } finally {
-      refreshing = false;
-    }
+  let revision = 0;
+  let activeActions = 0;
+  let readSequence = 0;
+  let pendingRead:
+    { revision: number; id: number; promise: Promise<void> } | undefined;
+  function apply(value: UpdateStatus) {
+    Object.assign(state, { nextVersion: null, totalBytes: null }, value);
+  }
+  function refresh(): Promise<void> {
+    if (disposed) return Promise.resolve();
+    const ticket = revision;
+    if (pendingRead?.revision === ticket) return pendingRead.promise;
+    const id = ++readSequence;
+    const promise = (async () => {
+      try {
+        const value = await transport<UpdateStatus>("get_update_status");
+        if (
+          !disposed &&
+          ticket === revision &&
+          id === readSequence &&
+          (!activeActions || updateBusy(value.phase))
+        )
+          apply(value);
+      } catch (error) {
+        // An older startup/poll failure cannot replace a newer action's result.
+        if (!disposed && ticket === revision && id === readSequence)
+          throw error;
+      }
+    })();
+    pendingRead = { revision: ticket, id, promise };
+    void promise
+      .finally(() => {
+        if (pendingRead?.id === id) pendingRead = undefined;
+      })
+      .catch(() => {});
+    return promise;
   }
   async function action(command: string, args?: Record<string, unknown>) {
+    const ticket = ++revision;
+    activeActions++;
     try {
       const value = await transport<UpdateStatus>(command, args);
-      if (!disposed)
-        Object.assign(state, { nextVersion: null, totalBytes: null }, value);
+      if (!disposed && ticket === revision) apply(value);
     } finally {
-      await refresh();
+      activeActions--;
+      revision++;
+      // Keep download progress polling while install_update is pending, but
+      // never turn a completed write into an error of its diagnostic refresh.
+      await refresh().catch(() => {});
     }
   }
   const timer = setInterval(() => {
@@ -56,6 +87,7 @@ export function createNativeUpdates(
     },
     dispose() {
       disposed = true;
+      revision++;
       clearInterval(timer);
     },
   };

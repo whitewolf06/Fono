@@ -13,6 +13,8 @@ import type {
 } from "../../domain/contracts";
 import { defaults } from "../../../features/preferences/domain/preferences";
 import { availableDictationMode } from "../../domain/dictationMode";
+import { availableWakeEnabled } from "../../domain/wakeAvailability";
+import { availableGpuModelResidency } from "../../domain/gpuMemory";
 import { historyMetadataFromNative } from "./historyMetadata";
 import {
   emptyProcessingPrompts,
@@ -36,6 +38,7 @@ export function preferencesFromNative(
       "",
     language: s.language,
     acceleration: s.acceleration,
+    gpuModelResidency: availableGpuModelResidency(s.gpu_model_residency),
     dictionaryEnabled: s.personal_dictionary_enabled ?? false,
     dictionaryEntries: (s.personal_dictionary_entries ?? []).map((entry) => ({
       written: entry.written,
@@ -50,7 +53,7 @@ export function preferencesFromNative(
       .split("+")
       .map((x) => x.trim())
       .join(" + "),
-    wakeEnabled: s.wake_word_enabled,
+    wakeEnabled: availableWakeEnabled(s.wake_word_enabled),
     wakePhrase: s.wake_word,
     wakeLanguage:
       s.wake_backend === "sherpa_streaming_ru"
@@ -121,6 +124,7 @@ export function applyPreferences(
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",
+    gpuModelResidency: "gpu_model_residency",
     dictionaryEnabled: "personal_dictionary_enabled",
     wakeEnabled: "wake_word_enabled",
     wakePhrase: "wake_word",
@@ -141,6 +145,7 @@ export function applyPreferences(
   for (const [key, nativeKey] of Object.entries(pairs))
     if (has(key as keyof Preferences))
       Object.assign(next, { [nativeKey]: p[key as keyof Preferences] });
+  next.wake_word_enabled = availableWakeEnabled(next.wake_word_enabled);
   if (has("microphone"))
     next.audio_device_id = p.microphone === "system" ? null : p.microphone;
   if (has("dictionaryEntries"))

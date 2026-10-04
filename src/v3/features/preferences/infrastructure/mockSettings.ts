@@ -4,6 +4,10 @@ import type {
 } from "../../../shared/domain/contracts";
 import { validatePreferences } from "../domain/preferences";
 import { availableDictationMode } from "../../../shared/domain/dictationMode";
+import {
+  availableWakeEnabled,
+  ensureWakeAvailable,
+} from "../../../shared/domain/wakeAvailability";
 import { mockProcessing } from "./mockProcessing";
 import { clonePreferences } from "../domain/processingPrompts";
 import {
@@ -14,6 +18,7 @@ const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 export function createSettingsPort(state: WorkspaceState): SettingsPort {
   async function save(patch: Partial<WorkspaceState["preferences"]>) {
+    if (patch.wakeEnabled) ensureWakeAvailable();
     if (
       patch.dictationMode &&
       ["listening", "silence", "transcribing", "processing"].includes(
@@ -30,6 +35,9 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       ...state.preferences,
       ...patch,
       dictationMode: availableDictationMode(patch.dictationMode),
+      wakeEnabled: availableWakeEnabled(
+        patch.wakeEnabled ?? state.preferences.wakeEnabled,
+      ),
     };
     const phraseChanged =
       next.wakePhrase !== state.preferences.wakePhrase ||
@@ -61,6 +69,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     save,
     async toggle(key, value) {
       if (state.pending[key]) return;
+      if (key === "wakeEnabled" && value) ensureWakeAvailable();
       if (key === "wakeEnabled" && value && state.wakeSetup?.verified === false)
         throw new Error(
           "Сначала настройте свою фразу и пройдите контрольную проверку.",

@@ -7,6 +7,11 @@ import NativeWakeSetup from "./NativeWakeSetup.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
+import {
+  WAKE_WORD_AVAILABLE,
+  WAKE_WORD_UNAVAILABLE,
+  WAKE_WORD_ALTERNATIVE,
+} from "../../../shared/domain/wakeAvailability";
 defineProps<{
   scope?: "wake" | "hotkey" | "command-hotkey";
   advanced?: boolean;
@@ -95,6 +100,9 @@ const phraseOptions = computed(() => {
       <WlInput v-bind="field" v-model="draft.commandHotkey" />
     </WlField>
     <template v-if="scope !== 'hotkey' && scope !== 'command-hotkey'">
+      <p v-if="!WAKE_WORD_AVAILABLE" class="notice" role="status">
+        {{ WAKE_WORD_UNAVAILABLE }}. {{ WAKE_WORD_ALTERNATIVE }}
+      </p>
       <PreferenceToggle
         name="wakeEnabled"
         label="Пробуждение голосом"
@@ -105,12 +113,14 @@ const phraseOptions = computed(() => {
         v-model="draft.wakeLanguage"
         label="Язык фразы пробуждения"
         :options="wakeLanguages"
+        :disabled="!WAKE_WORD_AVAILABLE"
         hint="Выберите язык своей фразы. Одновременно работает один профиль."
       />
       <SelectField
         v-model="draft.wakePhrase"
         label="Примеры фраз"
         :options="phraseOptions"
+        :disabled="!WAKE_WORD_AVAILABLE"
         hint="Пример заполняет поле ниже. Новую фразу нужно сохранить и проверить в мастере."
       />
       <p
@@ -129,13 +139,19 @@ const phraseOptions = computed(() => {
             : 'Например «hey fono» или «hello computer». Фраза проверяется на реальных записях.'
         "
       >
-        <WlInput v-bind="field" v-model="draft.wakePhrase" :maxlength="80" />
+        <WlInput
+          v-bind="field"
+          v-model="draft.wakePhrase"
+          :maxlength="80"
+          :disabled="!WAKE_WORD_AVAILABLE"
+        />
       </WlField>
       <SelectField
         v-if="draft.dictationMode === 'standard'"
         id="silenceMs"
         v-model="draft.silenceMs"
         label="Завершать после паузы"
+        :disabled="!WAKE_WORD_AVAILABLE"
         :options="[
           { value: 800, label: '0,8 секунды' },
           { value: 1600, label: '1,6 секунды' },
@@ -172,6 +188,7 @@ const phraseOptions = computed(() => {
               :min="0.1"
               :max="0.9"
               :step="0.05"
+              :disabled="!WAKE_WORD_AVAILABLE"
               aria-label="Чувствительность пробуждения"
             />
           </label>
@@ -182,6 +199,7 @@ const phraseOptions = computed(() => {
               :min="workspace.native ? 0.001 : 0.1"
               :max="workspace.native ? 0.05 : 0.9"
               :step="workspace.native ? 0.001 : 0.05"
+              :disabled="!WAKE_WORD_AVAILABLE"
               aria-label="Порог речи"
             />
           </label>

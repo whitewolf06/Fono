@@ -159,11 +159,9 @@
     var(--fono-wave-height-max)
   );
 }
-.record-area:has(.record-error) {
+.record-area:has(.dictation-notice),
+.record-area:has(.pending-actions) {
   container-type: inline-size;
-}
-.record-area:has(.record-error) > .voice-wave {
-  height: var(--fono-wave-height-compact);
 }
 .record-controls {
   display: flex;
@@ -178,12 +176,4 @@
   font-size: var(--fono-type-sm);
   display: flex;
   gap: var(--fono-space-2);
-}
-.record-error {
-  max-width: min(100%, var(--fono-live-notice-width));
-  margin: var(--fono-space-2) auto 0;
-  color: var(--fono-error);
-  font-size: var(--fono-type-xs);
-  text-align: center;
-  overflow-wrap: anywhere;
 }

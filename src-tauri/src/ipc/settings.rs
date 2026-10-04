@@ -46,6 +46,7 @@ pub async fn save_settings(
     let _activity = crate::application::updates::activity::lease()?;
     let _transaction = crate::application::updates::settings_transaction(&app).await;
     settings.enforce_classic_dictation();
+    settings.enforce_wake_availability();
     settings.migrate_processing_prompts();
     let old_settings = state.settings();
     // Update checks are owned by their explicit opt-in command. A stale full

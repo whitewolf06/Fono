@@ -15,6 +15,7 @@ import FonoWordmark from "../shared/FonoWordmark.vue";
 import CommandConfirmation from "../features/commands/presentation/CommandConfirmation.vue";
 import PageLoadState from "../shared/presentation/PageLoadState.vue";
 import QuickSettings from "../features/preferences/presentation/QuickSettings.vue";
+import SidebarExtras from "./presentation/SidebarExtras.vue";
 const workspace = useWorkspace();
 const router = useRouter();
 const ui = useInteraction();
@@ -112,6 +113,7 @@ onUnmounted(() => {
           }}</span></RouterLink
         >
       </nav>
+      <SidebarExtras />
       <div v-if="!workspace.native" class="sidebar-bottom">
         <span class="demo-label"><span />Демо интерфейса</span
         ><RouterLink
@@ -130,12 +132,10 @@ onUnmounted(() => {
         role="status"
       >
         Доступна Fono {{ workspace.updates.state.nextVersion }}
-        <RouterLink class="text-link" to="/settings/general?field=updates"
-          >Обновить</RouterLink
-        >
+        <RouterLink class="text-link" to="/updates">Обновить</RouterLink>
       </div>
       <div
-        v-if="workspace.native && workspace.state.error"
+        v-if="workspace.native && workspace.state.error && $route.path !== '/'"
         class="notice error"
         role="alert"
       >

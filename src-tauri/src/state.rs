@@ -72,6 +72,7 @@ impl AppState {
 
     pub fn set_settings(&self, mut settings: Settings) {
         settings.enforce_classic_dictation();
+        settings.enforce_wake_availability();
         settings.migrate_processing_prompts();
         *self.settings.lock() = settings;
         self.settings_version.fetch_add(1, Ordering::SeqCst);
@@ -173,6 +174,19 @@ pub fn settings_path() -> AppResult<std::path::PathBuf> {
     Ok(app_data_dir()?.join("settings.json"))
 }
 
+/// Automatic updater rate limiting is technical state, separate from user settings.
+#[cfg(windows)]
+pub(crate) fn load_update_check_time() -> AppResult<Option<u64>> {
+    let _guard = PERSISTENCE_LOCK.lock();
+    load_json_with_backup(&app_data_dir()?.join("update-check-time.json"))
+}
+
+#[cfg(windows)]
+pub(crate) fn save_update_check_time(timestamp: u64) -> AppResult<()> {
+    let _guard = PERSISTENCE_LOCK.lock();
+    save_json_atomically(&app_data_dir()?.join("update-check-time.json"), &timestamp)
+}
+
 pub fn history_path() -> AppResult<std::path::PathBuf> {
     Ok(app_data_dir()?.join("dictation-history.json"))
 }
@@ -258,6 +272,7 @@ pub fn load_settings() -> AppResult<Option<Settings>> {
     };
 
     let normalized_mode = settings.enforce_classic_dictation();
+    let normalized_wake = settings.enforce_wake_availability();
     let migrated_profiles = settings.migrate_llm_profiles();
     let migrated_prompts = settings.migrate_processing_prompts();
     let legacy_secret = if let Some(api_key) = settings.llm_api_key.take() {
@@ -282,7 +297,7 @@ pub fn load_settings() -> AppResult<Option<Settings>> {
     settings.has_llm_api_key = settings
         .llm_profile(Some(crate::types::LlmProfile::DEFAULT_ID))
         .is_some_and(|profile| profile.has_api_key);
-    if legacy || migrated_profiles || normalized_mode || migrated_prompts {
+    if legacy || migrated_profiles || normalized_mode || migrated_prompts || normalized_wake {
         save_versioned_json_atomically(&path, &settings)?;
     }
     {
@@ -296,6 +311,7 @@ pub fn save_settings(settings: &Settings) -> AppResult<()> {
     let path = settings_path()?;
     let mut settings = settings.clone();
     settings.enforce_classic_dictation();
+    settings.enforce_wake_availability();
     settings.migrate_processing_prompts();
     save_versioned_json_atomically(&path, &settings)?;
     tracing::info!(?path, "saved settings");

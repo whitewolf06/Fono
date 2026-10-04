@@ -1,0 +1,61 @@
+.dictation-notice {
+  min-width: 0;
+  font-size: var(--fono-type-sm);
+  line-height: 1.5;
+  color: var(--fono-secondary);
+}
+.dictation-notice-title {
+  display: flex;
+  align-items: center;
+  gap: var(--fono-space-2);
+  color: var(--fono-warning);
+}
+.dictation-notice-title svg {
+  flex-shrink: 0;
+}
+.dictation-notice-summary p {
+  margin: var(--fono-space-1) 0 0;
+}
+.dictation-notice-details {
+  margin-top: var(--fono-space-2);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-xs);
+}
+.dictation-notice-details summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.dictation-notice-details summary:hover {
+  color: var(--fono-electric-soft);
+}
+.dictation-notice-details summary:focus-visible {
+  outline: 2px solid var(--fono-electric);
+  outline-offset: 2px;
+}
+.dictation-notice-details p {
+  margin-top: var(--fono-space-2);
+  max-height: var(--fono-text-max-height);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.record-area > .dictation-notice,
+.record-area > .pending-actions {
+  align-self: center;
+  width: min(100%, var(--fono-pending-width));
+}
+.record-area > .pending-actions .pending-footer {
+  justify-content: center;
+  gap: var(--fono-space-2);
+  margin-top: var(--fono-space-3);
+}
+.record-area > .pending-actions .pending-text {
+  color: var(--fono-muted);
+  margin-block: var(--fono-space-3);
+}
+.overlay-sketch > .dictation-notice {
+  margin-top: var(--fono-space-3);
+  padding-top: var(--fono-space-2);
+  border-top: 1px solid var(--fono-border-soft);
+  font-size: var(--fono-type-xs);
+}

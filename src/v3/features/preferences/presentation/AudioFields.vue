@@ -7,6 +7,7 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import GpuMemoryField from "./GpuMemoryField.vue";
 const props = defineProps<{ scope?: "microphone" | "recognition" }>();
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
@@ -101,6 +102,7 @@ const installed = computed(() =>
           :options="workspace.state.accelerations || accelerations"
         />
       </div>
+      <GpuMemoryField v-model="draft" />
     </template>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
   </div>

@@ -14,6 +14,7 @@ pub use state::{WakeCalibrationService, WakeCalibrationStatus};
 use tauri::{AppHandle, Manager};
 
 pub fn start(app: &AppHandle) -> AppResult<WakeCalibrationStatus> {
+    crate::types::ensure_wake_available()?;
     let _update_admission = crate::application::updates::activity::begin()?;
     if crate::application::wake_validation::status(app).active {
         return Err(AppError::Config("Сначала завершите проверку фразы".into()));
@@ -29,6 +30,7 @@ pub fn start(app: &AppHandle) -> AppResult<WakeCalibrationStatus> {
     Ok(status(app))
 }
 pub async fn record_next(app: AppHandle) -> AppResult<WakeCalibrationStatus> {
+    crate::types::ensure_wake_available()?;
     let _activity = crate::application::updates::activity::lease()?;
     let service = app.state::<WakeCalibrationService>();
     let (id, settings) = service.begin_recording()?;

@@ -13,6 +13,16 @@ export const router = createRouter({
         import("../features/history/presentation/HistoryPage.vue"),
     },
     {
+      path: "/releases",
+      component: () =>
+        import("../features/releases/presentation/ReleasesPage.vue"),
+    },
+    {
+      path: "/updates",
+      component: () =>
+        import("../features/updates/presentation/UpdatesPage.vue"),
+    },
+    {
       path: "/trainer",
       component: () =>
         import("../features/trainer/presentation/TrainerPage.vue"),

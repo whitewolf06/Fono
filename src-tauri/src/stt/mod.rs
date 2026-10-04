@@ -26,6 +26,7 @@ pub use paths::{worker_paths_for_app, WorkerPaths};
 use routing::{ActiveEngine, EngineState, SttReadinessObserver};
 pub use routing::{SttHealth, SttReadiness};
 mod embedded;
+mod residency;
 mod window;
 use embedded::EmbeddedEngine;
 pub use fono_stt_protocol::{TimedSegment, WindowTranscript};
@@ -37,6 +38,7 @@ pub struct SttEngine {
     load_gate: Mutex<()>,
     readiness: Mutex<SttReadiness>,
     readiness_observer: Mutex<Option<SttReadinessObserver>>,
+    generation: std::sync::atomic::AtomicU64,
 }
 
 impl SttEngine {
@@ -46,6 +48,7 @@ impl SttEngine {
             load_gate: Mutex::new(()),
             readiness: Mutex::new(SttReadiness::Unloaded),
             readiness_observer: Mutex::new(None),
+            generation: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
@@ -122,6 +125,8 @@ impl SttEngine {
                     // Worker shutdown and native model cleanup may block. They
                     // must happen after the routing state lock is released.
                     drop(previous);
+                    self.generation
+                        .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
                     self.set_readiness(SttReadiness::Ready {
                         device: device.to_string(),
                     });

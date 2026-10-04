@@ -58,10 +58,11 @@ const choice = computed<OverlayProcessingChoice>(
 );
 const indicator = computed<IndicatorState>(() => {
   const pending = props.pending;
+  const error = props.processingError || pending?.error || props.error || "";
   const phase = pending
     ? pending.phase === "processing"
       ? "processing"
-      : pending.error
+      : error
         ? "error"
         : "ready"
     : ["listening", "silence", "idle"].includes(props.phase)
@@ -79,7 +80,8 @@ const indicator = computed<IndicatorState>(() => {
     elapsedMs: props.elapsed * 1000,
     level: props.level,
     result: pending?.resultText || pending?.originalText || "",
-    error: props.processingError || pending?.error || props.error || "",
+    error,
+    insertionBlocked: pending?.insertionBlocked ?? false,
     copying: props.copying ?? false,
     status:
       props.phase === "silence" && !pending
@@ -126,7 +128,11 @@ function choose(patch: Partial<IndicatorChoice>) {
       :quick="quick"
       :saving="processingSaving"
       :can-finish="interactive && canFinish"
-      :can-retry="!!pending?.error && pending.processingEnabled"
+      :can-retry="
+        !!pending?.error &&
+        pending.processingEnabled &&
+        !pending.insertionBlocked
+      "
       @accept="emit('finish')"
       @cancel="emit('cancel')"
       @close="emit('cancel')"

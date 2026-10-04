@@ -13,6 +13,11 @@
   line-height: 1.4;
   margin-block: var(--fono-space-1);
 }
+.pending-title {
+  color: var(--fono-text);
+  font-size: var(--fono-type-sm);
+  font-weight: 600;
+}
 .pending-footer {
   display: flex;
   align-items: center;
@@ -59,16 +64,8 @@
 .dictation-action--translate {
   color: var(--fono-translation);
 }
-.dictation-action--cancel,
-.pending-error {
+.dictation-action--cancel {
   color: var(--fono-error);
-}
-.pending-error {
-  max-height: var(--fono-space-10);
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-  line-height: 1.4;
-  margin-block: var(--fono-space-1);
 }
 .overlay-demo-result {
   white-space: pre-wrap;

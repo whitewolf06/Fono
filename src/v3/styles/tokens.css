@@ -1,8 +1,22 @@
 :root {
   color-scheme: dark;
-  --fono-night: #0c131c;
-  --fono-night-raised: #131b25;
-  --fono-night-card: #192330;
+  /* Blend every background surface with 40% neutral gray at the same brightness. */
+  --fono-background-color-weight: 60%;
+  --fono-night: color-mix(
+    in srgb,
+    #0c131c var(--fono-background-color-weight),
+    #131313
+  );
+  --fono-night-raised: color-mix(
+    in srgb,
+    #131b25 var(--fono-background-color-weight),
+    #1b1b1b
+  );
+  --fono-night-card: color-mix(
+    in srgb,
+    #192330 var(--fono-background-color-weight),
+    #232323
+  );
   --fono-electric: #2ab7ff;
   --fono-electric-soft: #8bd4ff;
   --fono-canvas: var(--fono-night);
@@ -11,12 +25,16 @@
   --fono-text: var(--wl-gray-200);
   --fono-secondary: var(--wl-blue-100);
   --fono-muted: #92a6bd;
-  --fono-border: #223348;
+  --fono-border: color-mix(
+    in srgb,
+    #223348 var(--fono-background-color-weight),
+    #333333
+  );
   --fono-border-soft: color-mix(in srgb, var(--fono-border) 60%, transparent);
   --fono-accent: var(--fono-electric);
   --fono-background-accent: color-mix(
     in srgb,
-    var(--fono-electric) 60%,
+    var(--fono-electric) 36%,
     var(--wl-gray-400)
   );
   --fono-accent-soft: color-mix(
@@ -119,7 +137,9 @@
   --wl-accent: var(--fono-accent);
   --wl-accent-hover: var(--fono-electric-soft);
   --wl-accent-soft: var(--fono-accent-soft);
+  --wl-accent-soft-hover: var(--fono-select-option-hover);
   --wl-accent-border: color-mix(in srgb, var(--fono-accent) 28%, transparent);
+  --wl-accent-border-hover: var(--fono-select-border-hover);
   --wl-action-primary-bg: var(--fono-accent);
   --wl-action-primary-hover: var(--fono-electric-soft);
   --wl-action-primary-text: var(--fono-night);

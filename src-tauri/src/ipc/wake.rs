@@ -35,6 +35,7 @@ pub struct WakeWordTestReport {
 #[cfg(feature = "sherpa-wake")]
 #[tauri::command]
 pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestReport> {
+    crate::types::ensure_wake_available()?;
     let activity = crate::application::updates::activity::lease()?;
     crate::application::dictation::ensure_capture_allowed(&app)?;
     let settings = app.state::<AppState>().settings();
@@ -80,6 +81,7 @@ pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestRepor
 #[cfg(not(feature = "sherpa-wake"))]
 #[tauri::command]
 pub async fn test_wake_word_model(_app: AppHandle) -> AppResult<WakeWordTestReport> {
+    crate::types::ensure_wake_available()?;
     Err(AppError::Internal(
         "sherpa-wake backend не собран в эту сборку".into(),
     ))
@@ -87,6 +89,7 @@ pub async fn test_wake_word_model(_app: AppHandle) -> AppResult<WakeWordTestRepo
 
 #[tauri::command]
 pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
+    crate::types::ensure_wake_available()?;
     let _activity = crate::application::updates::activity::lease()?;
     let _settings_transaction = crate::application::updates::settings_transaction(&app).await;
     let state = app.state::<AppState>();

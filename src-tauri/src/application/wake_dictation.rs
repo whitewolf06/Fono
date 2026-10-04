@@ -15,6 +15,7 @@ pub async fn run(
     pre_roll: Vec<i16>,
     cursor: Option<fono_wake::AudioCursor>,
 ) -> AppResult<()> {
+    crate::types::ensure_wake_available()?;
     let settings = app.state::<AppState>().settings();
     let mut vad = SpeechGate::new(app)?;
     let operation = super::dictation::start_with_audio_operation(

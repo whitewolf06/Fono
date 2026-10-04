@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick } from "vue";
 import { WlButton, WlSwitch } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
@@ -12,11 +12,50 @@ const { run, error, busy: actionPending } = useFeedback();
 const port = workspace.updates;
 const status = port.state;
 const busy = computed(() => updateBusy(status.phase));
+let checksInput: HTMLInputElement | undefined;
+let restoreChecksFocus = false;
+function rememberChecksInput(event: FocusEvent) {
+  checksInput = event.currentTarget as HTMLInputElement;
+}
+function syncChecksInput(event: Event) {
+  // A refused controlled change leaves Vue's value unchanged; restore the
+  // native checkbox without remounting the keyboard focus target.
+  checksInput = event.currentTarget as HTMLInputElement;
+  restoreChecksFocus ||=
+    checksInput.ownerDocument.activeElement === checksInput;
+  checksInput.checked = status.checksEnabled;
+}
+async function changeChecksEnabled(value: boolean) {
+  if (busy.value || actionPending.value || status.phase === "not_configured")
+    return;
+  restoreChecksFocus =
+    !!checksInput && checksInput.ownerDocument.activeElement === checksInput;
+  try {
+    await run(() => port.setChecksEnabled(value));
+  } finally {
+    await nextTick();
+    const document = checksInput?.ownerDocument;
+    if (
+      restoreChecksFocus &&
+      checksInput?.isConnected &&
+      !checksInput.disabled &&
+      document?.activeElement === document?.body
+    )
+      checksInput.focus({ preventScroll: true });
+    restoreChecksFocus = false;
+  }
+}
 const progress = computed(() => downloadPercent(status));
-const recording = computed(() =>
-  ["listening", "silence", "transcribing", "processing"].includes(
-    workspace.state.phase,
-  ),
+const recording = computed(
+  () =>
+    !!workspace.state.pendingDictation ||
+    [
+      "listening",
+      "silence",
+      "transcribing",
+      "processing",
+      "awaiting_action",
+    ].includes(workspace.state.phase),
 );
 async function install() {
   if (props.unsaved || recording.value) return;
@@ -50,17 +89,20 @@ async function install() {
     </p>
     <div class="toggle-row">
       <span
-        ><strong>Проверять при запуске</strong
+        ><strong>Проверять автоматически</strong
         ><small class="muted"
-          >Только проверка новой версии. Установка — по вашей кнопке.</small
+          >При запуске и затем раз в сутки. Установка — только по вашей
+          кнопке.</small
         ></span
       >
       <WlSwitch
         id="update-checks"
-        aria-label="Проверять обновления при запуске"
+        aria-label="Проверять обновления автоматически"
         :model-value="status.checksEnabled"
         :disabled="busy || actionPending || status.phase === 'not_configured'"
-        @update:model-value="run(() => port.setChecksEnabled($event))"
+        @update:model-value="changeChecksEnabled"
+        @change="syncChecksInput"
+        @focus="rememberChecksInput"
       />
     </div>
     <div v-if="status.phase === 'downloading'" class="form-stack">

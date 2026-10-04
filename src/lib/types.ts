@@ -137,6 +137,8 @@ export interface Settings {
   clean_prompt: string | null;
   /** Предпочтительный backend ускорения Whisper */
   acceleration: AccelerationMode;
+  /** Хранение модели Whisper в видеопамяти; отсутствует у старых настроек. */
+  gpu_model_residency?: "resident" | "adaptive";
   /** Способ вставки текста в активное окно */
   injection_mode: InjectionMode;
   /** Горячая клавиша для голосовых команд */
@@ -334,6 +336,7 @@ export const DEFAULT_SETTINGS: Settings = {
   overlay_y: null,
   clean_prompt: null,
   acceleration: "auto",
+  gpu_model_residency: "resident",
   injection_mode: "sendinput",
   command_hotkey: "Ctrl+Shift+Space",
   launch_apps: [],

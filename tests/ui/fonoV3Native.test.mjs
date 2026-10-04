@@ -251,20 +251,35 @@ test("editing a legacy Russian phrase selects RU streaming and rejects mixed scr
   assert.equal(raw.wake_backend, "whisper_experimental");
   assert.equal(raw.wake_word, "Привет, компьютер");
 });
-test("wake toggle invokes detector lifecycle and rolls back on error", async () => {
+test("unavailable native wake refuses activation before IPC; disabling remains safe", async () => {
   const s = state();
   s.preferences.wakeEnabled = false;
   const port = nativeSettings(createContext(s));
-  await port.toggle("wakeEnabled", true);
-  assert.equal(calls[0][0], "enable_wake_word");
-  assert.ok(!calls.some(([name]) => name === "save_settings"));
-  s.preferences.wakeEnabled = false;
-  invoke = async () => {
-    throw "Модель не найдена";
-  };
-  await assert.rejects(port.toggle("wakeEnabled", true), /Модель не найдена/);
+  await assert.rejects(port.toggle("wakeEnabled", true), /Временно недоступно/);
+  await assert.rejects(port.save({ wakeEnabled: true }), /Временно недоступно/);
+  assert.equal(calls.length, 0);
   assert.equal(s.preferences.wakeEnabled, false);
+  await port.toggle("wakeEnabled", false);
+  assert.equal(calls[0][0], "disable_wake_word");
   assert.equal(s.pending.wakeEnabled, false);
+});
+
+test("native mapping cannot re-enable persisted wake and retains its configuration", () => {
+  const raw = {
+    ...structuredClone(rawDefaults),
+    wake_word_enabled: true,
+    wake_word: "my helper fono",
+  };
+  assert.equal(mapping.preferencesFromNative(raw, []).wakeEnabled, false);
+  for (const patch of [{ language: "en" }, { wakeEnabled: true }]) {
+    const mapped = mapping.applyPreferences(raw, patch, []);
+    assert.equal(mapped.wake_word_enabled, false);
+    assert.equal(mapped.wake_word, raw.wake_word);
+    assert.deepEqual(
+      mapped.wake_calibration_profile,
+      raw.wake_calibration_profile,
+    );
+  }
 });
 test("serialized settings patches read latest settings and do not lose a preceding update", async () => {
   const raw = structuredClone(rawDefaults),
@@ -768,17 +783,9 @@ test("legacy and submitted live mode normalize to classic without changing saved
   assert.equal(mapped.dictationMode, "standard");
 });
 
-test("wake test records audio and invokes the detector, and language options include both engines", async () => {
+test("unavailable native wake retains language choices but refuses every capture and setup IPC", async () => {
   const s = state(),
     port = nativeWake(createContext(s));
-  const originalInvoke = invoke;
-  invoke = async (command, args) => {
-    if (command === "recognize_wake_word_sample") {
-      calls.push([command, args]);
-      return { detected: true, recognized: "hey fono", processing_ms: 42 };
-    }
-    return originalInvoke(command, args);
-  };
   await port.load();
   assert.equal(s.wakeSetup.required, 5);
   assert.equal(s.wakeSetup.validation.positiveRequired, 3);
@@ -786,19 +793,92 @@ test("wake test records audio and invokes the detector, and language options inc
     s.wakeCapabilities.languages.map((l) => l.value),
     ["ru", "en"],
   );
-  const result = await port.test();
-  assert.match(result, /42 мс/);
-  const names = calls.map(([name]) => name);
-  assert.ok(
-    names.indexOf("record_wake_word_sample") <
-      names.indexOf("recognize_wake_word_sample"),
+  calls.length = 0;
+  for (const action of [
+    () => port.test(),
+    () => port.download(),
+    () => port.begin(),
+    () => port.record(),
+    () => port.beginValidation(),
+    () => port.validate("silence"),
+  ])
+    await assert.rejects(action(), /Временно недоступно/);
+  assert.equal(calls.length, 0);
+});
+
+test("GPU residency defaults for legacy settings and round-trips without changing acceleration", () => {
+  const raw = structuredClone(rawDefaults);
+  delete raw.gpu_model_residency;
+  raw.acceleration = "vulkan";
+  assert.equal(
+    mapping.preferencesFromNative(raw, []).gpuModelResidency,
+    "resident",
   );
-  await port.validate("silence");
-  assert.ok(
-    calls.some(
-      ([name, args]) =>
-        name === "record_wake_profile_validation_sample" &&
-        args.kind === "silence",
-    ),
+  const next = mapping.applyPreferences(
+    raw,
+    { gpuModelResidency: "adaptive" },
+    [],
   );
+  assert.equal(next.gpu_model_residency, "adaptive");
+  assert.equal(next.acceleration, "vulkan");
+  assert.equal(
+    mapping.preferencesFromNative(next, []).gpuModelResidency,
+    "adaptive",
+  );
+});
+
+test("GPU monitor uses native status and does not invent usage for unsupported hardware", async () => {
+  const s = state();
+  const snapshot = {
+    mode: "adaptive",
+    residency: "resident",
+    monitoring: "unsupported",
+    message: "Несколько видеокарт: мониторинг недоступен",
+  };
+  invoke = async (command) => {
+    assert.equal(command, "get_stt_memory_status");
+    return snapshot;
+  };
+  await createContext(s).readGpuMemory();
+  assert.deepEqual(s.gpuMemory, snapshot);
+  assert.equal(s.gpuMemory.usedBytes, undefined);
+});
+
+test("GPU residency cannot change during dictation or pending result resolution", async () => {
+  for (const phase of [
+    "listening",
+    "transcribing",
+    "processing",
+    "awaiting_action",
+  ]) {
+    const s = state();
+    s.phase = phase;
+    await assert.rejects(
+      nativeSettings(createContext(s)).save({ gpuModelResidency: "adaptive" }),
+      /Сначала завершите/,
+    );
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("GPU diagnostic failure never turns a committed settings save into an error", async () => {
+  const s = state();
+  const stored = structuredClone(rawDefaults);
+  s.gpuMemory = { monitoring: "monitoring", usedBytes: 1, totalBytes: 2 };
+  invoke = async (command, args) => {
+    if (command === "get_settings") return stored;
+    if (command === "save_settings") Object.assign(stored, args.settings);
+    if (["list_audio_devices", "get_dictation_history"].includes(command))
+      return [];
+    if (command === "get_stt_memory_status")
+      throw new Error("unavailable GPU counter");
+  };
+  await nativeSettings(createContext(s)).save({
+    gpuModelResidency: "adaptive",
+  });
+  assert.equal(stored.gpu_model_residency, "adaptive");
+  assert.equal(s.preferences.gpuModelResidency, "adaptive");
+  assert.equal(s.gpuMemory, undefined);
+  assert.match(s.gpuMemoryError, /Не удалось получить/);
+  assert.equal(s.error, "");
 });

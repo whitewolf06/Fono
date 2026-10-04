@@ -1,5 +1,7 @@
 @import "./styles/tokens.css";
 @import "./styles/shell.css";
+@import "./styles/sidebar-extras.css";
+@import "./styles/releases.css";
 @import "./styles/hero.css";
 @import "./styles/services.css";
 @import "./styles/home-preview.css";
@@ -10,6 +12,7 @@
 @import "./styles/processing-prompts.css";
 @import "./styles/overlay.css";
 @import "./styles/dictation-actions.css";
+@import "./styles/dictation-notice.css";
 @import "./styles/overlay-controls.css";
 @import "./styles/overlay-sketch.css";
 @import "./styles/overlay-sketch-page.css";

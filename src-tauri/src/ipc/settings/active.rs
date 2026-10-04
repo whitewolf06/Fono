@@ -8,6 +8,7 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
         || previous.audio_device_id != next.audio_device_id
         || previous.whisper_model_path != next.whisper_model_path
         || previous.acceleration != next.acceleration
+        || previous.gpu_model_residency != next.gpu_model_residency
         || previous.hotkey != next.hotkey
         || previous.hotkey_mode != next.hotkey_mode
         || previous.command_hotkey != next.command_hotkey
@@ -29,6 +30,17 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gpu_residency_changes_apply_between_capture_sessions() {
+        let previous = Settings::default();
+        let next = Settings {
+            gpu_model_residency: crate::types::GpuModelResidency::Adaptive,
+            ..previous.clone()
+        };
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
+    }
     #[test]
     fn only_actual_prompt_changes_block_active_capture() {
         let previous = Settings::default();

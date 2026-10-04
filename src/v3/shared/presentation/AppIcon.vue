@@ -9,10 +9,12 @@ defineProps<{
     | "undo"
     | "download"
     | "keyboard"
+    | "external-link"
     | "translate";
   size?: number;
 }>();
 const paths: Record<string, string> = {
+  "external-link": "M14 3h7v7 M21 3L10 14 M10 3H3v18h18v-7",
   copy: "M8 8h12v13H8z M16 8V3H3v13h5",
   server:
     "M4 3h16v7H4z M4 14h16v7H4z M7 6.5h.01 M7 17.5h.01 M11 6.5h6 M11 17.5h6",

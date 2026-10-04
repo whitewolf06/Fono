@@ -5,6 +5,10 @@ import type { ToggleKey } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
 import { useFeedback } from "../../../shared/application/feedback";
+import {
+  WAKE_WORD_AVAILABLE,
+  WAKE_WORD_UNAVAILABLE,
+} from "../../../shared/domain/wakeAvailability";
 const props = withDefaults(
   defineProps<{
     name: ToggleKey;
@@ -20,9 +24,15 @@ const workspace = useWorkspace();
 const ui = useInteraction();
 const { run } = useFeedback();
 const changing = ref(false);
-const currentValue = computed(
-  () => props.effectiveValue ?? workspace.state.preferences[props.name],
+const currentValue = computed(() =>
+  props.name === "wakeEnabled" && !WAKE_WORD_AVAILABLE
+    ? false
+    : (props.effectiveValue ?? workspace.state.preferences[props.name]),
 );
+const unavailable = computed(
+  () => props.name === "wakeEnabled" && !WAKE_WORD_AVAILABLE,
+);
+const disabled = computed(() => props.disabled || unavailable.value);
 const pending = computed(
   () => changing.value || workspace.state.pending[props.name],
 );
@@ -39,7 +49,7 @@ function syncNativeChecked(event: Event) {
   nativeInput.checked = currentValue.value;
 }
 async function change(value: boolean) {
-  if (props.disabled || pending.value) return;
+  if (disabled.value || pending.value) return;
   // Browser callbacks can flush Vue between the model listener and @change.
   // Capture focus before disabling, rather than after the native input blurs.
   restoreFocus =
@@ -130,11 +140,14 @@ async function applyChange(value: boolean) {
   >
     <div v-if="!compact">
       <strong>{{ label }}</strong>
-      <p v-if="description">{{ description }}</p>
+      <p v-if="description || unavailable">
+        {{ unavailable ? WAKE_WORD_UNAVAILABLE : description }}
+      </p>
     </div>
     <WlSwitch
       :model-value="currentValue"
       :disabled="disabled || pending"
+      :title="unavailable ? WAKE_WORD_UNAVAILABLE : undefined"
       :aria-label="label"
       @update:model-value="change"
       @change="syncNativeChecked"

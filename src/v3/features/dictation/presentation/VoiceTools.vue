@@ -6,6 +6,10 @@ import { useInteraction } from "../../../shared/application/interaction";
 import { microphones, PreferenceToggle } from "../../preferences";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import StatusDot from "../../../shared/presentation/StatusDot.vue";
+import {
+  WAKE_WORD_AVAILABLE,
+  WAKE_WORD_UNAVAILABLE,
+} from "../../../shared/domain/wakeAvailability";
 import type {
   Health,
   QuickPanel,
@@ -45,16 +49,19 @@ const tools = computed<
       icon: "lightning",
       panel: "wake",
       value: p.wakePhrase,
-      health: !p.wakeEnabled
-        ? "off"
-        : ["loading", "initializing"].includes(workspace.state.wakeStatus || "")
-          ? "loading"
-          : workspace.state.wakeStatus === "missing_model" ||
-              workspace.state.wakeSetup?.verified === false
-            ? "missing"
-            : workspace.state.wakeStatus?.startsWith("error")
-              ? "error"
-              : "ready",
+      health:
+        !WAKE_WORD_AVAILABLE || !p.wakeEnabled
+          ? "off"
+          : ["loading", "initializing"].includes(
+                workspace.state.wakeStatus || "",
+              )
+            ? "loading"
+            : workspace.state.wakeStatus === "missing_model" ||
+                workspace.state.wakeSetup?.verified === false
+              ? "missing"
+              : workspace.state.wakeStatus?.startsWith("error")
+                ? "error"
+                : "ready",
       toggle: "wakeEnabled",
     },
     {
@@ -120,13 +127,30 @@ const tools = computed<
       </div>
       <div class="tool-value" :title="tool.value">{{ tool.value }}</div>
       <div class="tool-bottom">
-        <StatusDot :health="tool.health" /><WlButton
+        <StatusDot
+          :health="tool.health"
+          :label="
+            tool.panel === 'wake' && !WAKE_WORD_AVAILABLE
+              ? 'Временно недоступно'
+              : undefined
+          "
+        /><WlButton
           size="xs"
           variant="ghost"
           :aria-label="'Настроить: ' + tool.title"
+          :disabled="tool.panel === 'wake' && !WAKE_WORD_AVAILABLE"
+          :title="
+            tool.panel === 'wake' && !WAKE_WORD_AVAILABLE
+              ? WAKE_WORD_UNAVAILABLE
+              : undefined
+          "
           @click="ui.openQuick(tool.panel)"
           ><template #icon><AppIcon name="settings" :size="14" /></template
-          >Настроить</WlButton
+          >{{
+            tool.panel === "wake" && !WAKE_WORD_AVAILABLE
+              ? "Скоро"
+              : "Настроить"
+          }}</WlButton
         >
       </div>
     </article>

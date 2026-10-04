@@ -188,6 +188,74 @@ test("compiled main pending UI offers copy and close for copy-only sessions, wit
   assert.match(html, /aria-pressed="false" aria-label="Английский"/);
 });
 
+test("insertion failure has one notice, no listening wave, and usable copy and close actions", async () => {
+  const pending = await recorded();
+  const reason =
+    "ошибка вставки текста: Поле для вставки изменилось или недоступно.";
+  pending.error = reason;
+  pending.insertionBlocked = true;
+  workspace.state.error = reason;
+  const { default: RecordControl } = await server.ssrLoadModule(
+    "/src/v3/features/dictation/presentation/RecordControl.vue",
+  );
+  const { workspaceKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/workspace.ts",
+  );
+  const { WlToastService } = await import("@whitelife-core/ui-kit");
+  const app = createSSRApp({ render: () => h(RecordControl) });
+  app.provide(workspaceKey, workspace);
+  app.use(WlToastService);
+  const html = await renderToString(app);
+  assert.equal(html.split(reason).length - 1, 1);
+  assert.doesNotMatch(html, /voice-wave|record-error|Вставить исходный текст/);
+  assert.match(html, /Вставка остановлена/);
+  assert.match(html, /часть текста могла уже вставиться/);
+  assert.match(html, /<details[^>]*><summary>Подробнее<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
+  assert.match(html, /aria-label="Копировать текст"/);
+  assert.match(html, /Закрыть без копирования/);
+});
+
+test("a clipboard failure stays visible even when insertion is blocked", async () => {
+  const { dictationNotice } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/dictationNotice.ts",
+  );
+  const notice = dictationNotice("Не удалось скопировать текст.", {
+    insertionBlocked: true,
+    hasText: true,
+  });
+  assert.equal(notice.kind, "copy");
+  assert.equal(notice.title, "Не удалось скопировать");
+  assert.equal(dictationNotice(""), null);
+  assert.equal(
+    dictationNotice("", { insertionBlocked: true }).kind,
+    "insertion",
+  );
+});
+
+test("overlay uses a short insertion status and does not offer processing retry", async () => {
+  const { default: OverlayPreview } = await server.ssrLoadModule(
+    "/src/v3/features/overlay/presentation/OverlayPreview.vue",
+  );
+  const pending = await recorded();
+  pending.insertionBlocked = true;
+  pending.error = "ошибка вставки текста: Поле для вставки изменилось.";
+  const html = await renderToString(
+    createSSRApp({
+      render: () =>
+        h(OverlayPreview, {
+          preferences: workspace.state.preferences,
+          pending,
+        }),
+    }),
+  );
+  assert.match(html, /Вставка остановлена/);
+  assert.match(html, /Скопировать текст и закрыть/);
+  assert.match(html, /Подробнее/);
+  assert.doesNotMatch(html, /Повторить обработку без вставки|voice-wave/);
+  assert.equal(html.split(pending.error).length - 1, 1);
+});
+
 test("manual setting does not hold a dictation when processing is disabled", async () => {
   workspace.state.preferences.processingEnabled = false;
   const count = workspace.state.history.length;

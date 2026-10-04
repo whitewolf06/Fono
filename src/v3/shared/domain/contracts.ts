@@ -2,6 +2,7 @@ import type { WakePort, WakeSetupState, WakeCapabilities } from "./wake";
 import type { DictationMetadata } from "./historyMetadata";
 import type { DiagnosticReportPort } from "./diagnosticReport";
 import type { UpdatesPort } from "./updates";
+import type { GpuModelResidency, GpuMemoryStatus } from "./gpuMemory";
 import type {
   PendingDictation,
   PendingDictationRequest,
@@ -57,6 +58,7 @@ export interface Preferences {
   model: string;
   language: string;
   acceleration: string;
+  gpuModelResidency: GpuModelResidency;
   dictionaryEnabled: boolean;
   dictionaryEntries: PersonalDictionaryEntry[];
   wakeEnabled: boolean;
@@ -184,6 +186,8 @@ export type Scenario =
   | "live-backlog"
   | "live-insertion-error";
 export interface WorkspaceState {
+  gpuMemory?: GpuMemoryStatus;
+  gpuMemoryError?: string;
   pendingDictation?: PendingDictation | null;
   wakeSetup?: WakeSetupState;
   wakeCapabilities?: WakeCapabilities;
@@ -283,6 +287,7 @@ export interface Workspace {
   service: ServicePort;
   report: DiagnosticReportPort;
   updates: UpdatesPort;
+  openProjectSite(): Promise<void>;
   copy(text: string): Promise<void>;
   scenario(value: Scenario): void;
   diagnostics(): Diagnostic[];

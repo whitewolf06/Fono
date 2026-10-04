@@ -3,15 +3,18 @@ import type { NativeContext } from "./context";
 import type { LlmProfile } from "../../../../lib/types";
 import { call, playMicrophoneSample } from "./ipc";
 import { nativeWake } from "./wake";
+import { ensureWakeAvailable } from "../../domain/wakeAvailability";
 import { nativeProcessing } from "../../../features/preferences/infrastructure/nativeProcessing";
 export function nativeSettings(ctx: NativeContext): SettingsPort {
   const { state } = ctx;
   return {
     ...nativeProcessing(),
     async save(patch) {
+      if (patch.wakeEnabled) ensureWakeAvailable();
       if (
         [
           "dictationMode",
+          "gpuModelResidency",
           "hotkey",
           "hotkeyMode",
           "commandHotkey",
@@ -42,6 +45,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
     },
     async toggle(key, value) {
       if (state.pending[key]) return;
+      if (key === "wakeEnabled" && value) ensureWakeAvailable();
       const previous = state.preferences[key];
       state.pending[key] = true;
       state.preferences[key] = value;

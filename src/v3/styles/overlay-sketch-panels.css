@@ -19,11 +19,6 @@
 .overlay-sketch-panel small {
   color: var(--fono-muted);
 }
-.overlay-sketch-error {
-  color: var(--fono-error);
-  font-size: var(--fono-type-xs);
-  margin-top: var(--fono-space-3);
-}
 .overlay-sketch-options {
   display: flex;
   flex-wrap: wrap;

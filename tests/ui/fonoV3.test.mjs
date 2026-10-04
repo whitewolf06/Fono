@@ -69,11 +69,11 @@ test("cancelled transcription cannot publish a late result", async () => {
 test("save errors roll back toggles and preserve committed fields", async () => {
   workspace.scenario("save-error");
   await assert.rejects(
-    workspace.settings.toggle("wakeEnabled", false),
+    workspace.settings.toggle("serviceEnabled", false),
     /Не удалось сохранить/,
   );
-  assert.equal(workspace.state.preferences.wakeEnabled, true);
-  assert.equal(workspace.state.pending.wakeEnabled, false);
+  assert.equal(workspace.state.preferences.serviceEnabled, true);
+  assert.equal(workspace.state.pending.serviceEnabled, false);
   await assert.rejects(workspace.settings.save({ language: "en" }));
   assert.equal(workspace.state.preferences.language, "ru");
 });
@@ -91,6 +91,60 @@ test("browser persistence contains preferences but never dictation or instructio
   assert.equal(reloaded.state.preferences.language, "en");
   assert.equal(reloaded.state.preferences.instruction, "");
   reloaded.dispose();
+});
+
+test("demo GPU mode survives reload, rejects invalid modes and does not claim real GPU usage", async () => {
+  await workspace.settings.save({ gpuModelResidency: "adaptive" });
+  const reloaded = createWorkspace();
+  try {
+    assert.equal(reloaded.state.preferences.gpuModelResidency, "adaptive");
+    assert.equal(reloaded.state.gpuMemory, undefined);
+    await assert.rejects(
+      reloaded.settings.save({ gpuModelResidency: "per-recording" }),
+      /видеопамяти/,
+    );
+    assert.equal(reloaded.state.preferences.gpuModelResidency, "adaptive");
+  } finally {
+    reloaded.dispose();
+  }
+  storage.set(
+    "fono-v3-demo-preferences-v1",
+    JSON.stringify({ gpuModelResidency: "bad" }),
+  );
+  const legacy = createWorkspace();
+  assert.equal(legacy.state.preferences.gpuModelResidency, "resident");
+  legacy.dispose();
+});
+
+test("GPU usage reports only available finite measurements", async () => {
+  const { gpuMemoryUsage } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/gpuMemory.ts",
+  );
+  assert.equal(gpuMemoryUsage(), null);
+  assert.equal(
+    gpuMemoryUsage({ monitoring: "unsupported", usedBytes: 5, totalBytes: 10 }),
+    null,
+  );
+  assert.equal(
+    gpuMemoryUsage({
+      monitoring: "monitoring",
+      usedBytes: NaN,
+      totalBytes: 10,
+    }),
+    null,
+  );
+  assert.equal(
+    gpuMemoryUsage({ monitoring: "monitoring", usedBytes: 0, totalBytes: 0 }),
+    null,
+  );
+  assert.equal(
+    gpuMemoryUsage({
+      monitoring: "monitoring",
+      usedBytes: 3 * 1024 ** 3,
+      totalBytes: 8 * 1024 ** 3,
+    }),
+    "3.0 / 8.0 ГБ видеопамяти занято",
+  );
 });
 
 test("missing device/model and unavailable AI have actionable failures", async () => {
@@ -272,24 +326,55 @@ test("focus pause keeps capture alive and resume is explicit; cancel keeps the c
   assert.equal(workspace.state.live.phase, "cancelled");
 });
 
-test("custom wake setup requires five examples, three fresh examples and both negative checks", async () => {
-  await workspace.settings.save({
-    wakePhrase: "мой помощник фоно",
-    wakeLanguage: "ru",
-  });
-  await workspace.wake.load();
-  assert.equal(workspace.state.wakeSetup.verified, false);
-  await workspace.wake.begin();
-  for (let i = 0; i < 5; i++) await workspace.wake.record();
-  assert.equal(workspace.state.wakeSetup.profileReady, true);
-  assert.equal(workspace.state.wakeSetup.verified, false);
-  await workspace.wake.beginValidation();
-  for (let i = 0; i < 3; i++) await workspace.wake.validate("positive");
-  await workspace.wake.validate("silence");
-  assert.equal(workspace.state.wakeSetup.verified, false);
-  await workspace.wake.validate("other_phrase");
-  assert.equal(workspace.state.wakeSetup.verified, true);
-  assert.equal(workspace.state.wakeSetup.validation.completed, true);
+test("unavailable wake refuses activation and setup while retaining the stored phrase and profile", async () => {
+  const phrase = workspace.state.preferences.wakePhrase;
+  const profile = JSON.parse(JSON.stringify(workspace.state.wakeSetup));
+  assert.equal(workspace.state.preferences.wakeEnabled, false);
+  for (const action of [
+    () => workspace.settings.toggle("wakeEnabled", true),
+    () => workspace.settings.save({ wakeEnabled: true }),
+    () => workspace.wake.download(),
+    () => workspace.wake.test(),
+    () => workspace.wake.begin(),
+    () => workspace.wake.record(),
+    () => workspace.wake.beginValidation(),
+    () => workspace.wake.validate("positive"),
+  ])
+    await assert.rejects(action(), /Временно недоступно/);
+  assert.equal(workspace.state.preferences.wakePhrase, phrase);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(workspace.state.wakeSetup)),
+    profile,
+  );
+  for (const scenario of ["normal", "save-error", "no-microphone"]) {
+    workspace.scenario(scenario);
+    assert.equal(workspace.state.preferences.wakeEnabled, false);
+  }
+});
+
+test("previous enabled wake preferences normalize off without losing phrase or hotkey mode", async () => {
+  storage.set(
+    "fono-v3-demo-preferences-v1",
+    JSON.stringify({
+      wakeEnabled: true,
+      wakePhrase: "my helper fono",
+      wakeLanguage: "en",
+      hotkeyMode: "toggle",
+    }),
+  );
+  const reload = createWorkspace();
+  try {
+    assert.equal(reload.state.preferences.wakeEnabled, false);
+    assert.equal(reload.state.preferences.wakePhrase, "my helper fono");
+    assert.equal(reload.state.preferences.hotkeyMode, "toggle");
+    await reload.settings.save({ language: "en" });
+    assert.equal(
+      JSON.parse(storage.get("fono-v3-demo-preferences-v1")).wakeEnabled,
+      false,
+    );
+  } finally {
+    reload.dispose();
+  }
 });
 
 test("wake phrase validation matches native word limits and language alphabets", async () => {

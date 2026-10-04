@@ -1,5 +1,7 @@
 //! Optional signed public updates; installation requires an explicit UI action.
 pub mod activity;
+#[cfg(windows)]
+mod automatic;
 mod configuration;
 #[cfg(windows)]
 mod runtime;
@@ -65,9 +67,8 @@ pub async fn set_checks_enabled(app: &AppHandle, enabled: bool) -> AppResult<Upd
             AppError::Config("Не удалось сохранить настройку проверки обновлений.".into())
         })?;
     crate::events::emit_settings(app, &settings);
-    if !enabled {
-        service.cancel();
-    }
+    #[cfg(windows)]
+    automatic::changed(app);
     Ok(status(app))
 }
 
@@ -80,11 +81,8 @@ pub(crate) async fn settings_transaction(app: &AppHandle) -> tokio::sync::OwnedM
 }
 
 pub fn check_on_startup(app: AppHandle) {
-    if !app.state::<AppState>().settings().update_checks_enabled {
-        return;
-    }
-    tauri::async_runtime::spawn(async move {
-        // One best-effort check per launch. Never starts download or installer.
-        let _ = check(&app).await;
-    });
+    #[cfg(windows)]
+    automatic::start(app);
+    #[cfg(not(windows))]
+    let _ = app;
 }

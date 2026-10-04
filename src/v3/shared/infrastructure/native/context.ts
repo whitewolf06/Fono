@@ -7,6 +7,7 @@ import type {
   LocalTranscriptionServiceSnapshot,
 } from "../../../../lib/types";
 import { call } from "./ipc";
+import type { GpuMemoryStatus } from "../../domain/gpuMemory";
 import {
   preferencesFromNative,
   profilesFromNative,
@@ -119,6 +120,16 @@ export function createNativeContext(state: WorkspaceState) {
       .sort((a, b) => b.created_at_ms - a.created_at_ms)
       .map(jobFromNative);
   }
+  async function readGpuMemory() {
+    try {
+      state.gpuMemory = await call<GpuMemoryStatus>("get_stt_memory_status");
+      state.gpuMemoryError = "";
+    } catch {
+      state.gpuMemory = undefined;
+      state.gpuMemoryError =
+        "Не удалось получить состояние видеопамяти. Проверка повторится автоматически.";
+    }
+  }
   async function refresh() {
     await readModels();
     await readSettings();
@@ -126,6 +137,7 @@ export function createNativeContext(state: WorkspaceState) {
       readHistory(),
       readDevices(),
       readService(),
+      readGpuMemory(),
       call<{ cuda: boolean; vulkan: boolean }>(
         "get_acceleration_capabilities",
       ).then((c) => {
@@ -162,6 +174,7 @@ export function createNativeContext(state: WorkspaceState) {
     if (patch.overlayPosition && patch.overlayPosition !== "custom")
       await call("position_overlay", { position: patch.overlayPosition });
     await readHistory();
+    await readGpuMemory();
   }
   return {
     state,
@@ -175,6 +188,7 @@ export function createNativeContext(state: WorkspaceState) {
     readHistory,
     readDevices,
     readService,
+    readGpuMemory,
   };
 }
 export type NativeContext = ReturnType<typeof createNativeContext>;

@@ -161,9 +161,11 @@ export function createNativeWorkspace(): Workspace {
   }, 160);
   const dataTimer = setInterval(() => {
     if (!disposed && state.scenario === "normal")
-      void Promise.all([ctx.readService(), ctx.readHistory()]).catch(
-        ctx.report,
-      );
+      void Promise.all([
+        ctx.readService(),
+        ctx.readHistory(),
+        ctx.readGpuMemory(),
+      ]).catch(ctx.report);
   }, 3000);
   return {
     native: true,
@@ -217,6 +219,7 @@ export function createNativeWorkspace(): Workspace {
       },
     },
     copy: (text) => call("copy_dictation_text", { text }),
+    openProjectSite: () => call("open_project_site"),
     scenario() {
       void refresh();
     },

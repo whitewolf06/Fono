@@ -42,6 +42,7 @@ before(async () => {
 after(async () => await server?.close());
 
 async function renderToggle({ enabled, pending = false, ...props }) {
+  const name = props.name || "serviceEnabled";
   const app = createSSRApp({
     render: () =>
       h(PreferenceToggle, {
@@ -54,8 +55,8 @@ async function renderToggle({ enabled, pending = false, ...props }) {
   app.use(WlToastService);
   app.provide(workspaceKey, {
     state: {
-      preferences: { serviceEnabled: enabled },
-      pending: { serviceEnabled: pending },
+      preferences: { [name]: enabled },
+      pending: { [name]: pending },
     },
   });
   app.provide(interactionKey, { confirm: async () => false });
@@ -149,12 +150,12 @@ test("cancelled trainer consent restores native checked, keeps focus and blocks 
   }
 });
 
-test("rejected unverified wake remains unchecked in the real input and accessible state", async () => {
+test("unavailable wake stays disabled and unchecked even for a verified profile", async () => {
   const control = mountControlledToggle(
     "wakeEnabled",
     {
       preferences: { wakeEnabled: false },
-      wakeSetup: { verified: false },
+      wakeSetup: { verified: true },
     },
     async () => false,
   );
@@ -163,10 +164,54 @@ test("rejected unverified wake remains unchecked in the real input and accessibl
     await flushChanges();
     control.assertState(false);
     assert.equal(control.state.preferences.wakeEnabled, false);
-    assert.equal(control.input.props.disabled, false);
+    assert.equal(control.input.props.disabled, true);
   } finally {
     control.dispose();
   }
+});
+
+test("unavailable wake renders unchecked even if an old UI snapshot still says enabled", async () => {
+  const html = await renderToggle({
+    enabled: true,
+    name: "wakeEnabled",
+    label: "Пробуждение",
+  });
+  assert.match(inputAttributes(html), /aria-checked="false"/);
+  assert.match(inputAttributes(html), /\bdisabled(?:\s|$)/);
+  assert.match(html, /Временно недоступно/);
+});
+
+test("activation form disables wake fields and setup but preserves both hotkeys", async () => {
+  const { default: ActivationFields } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/presentation/ActivationFields.vue",
+  );
+  const { defaults } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/domain/preferences.ts",
+  );
+  const app = createSSRApp({
+    render: () =>
+      h(ActivationFields, { modelValue: { ...defaults }, advanced: true }),
+  });
+  app.use(WlConfig);
+  app.use(WlToastService);
+  app.provide(workspaceKey, {
+    native: false,
+    wake: {},
+    state: { preferences: { ...defaults }, phase: "idle", pending: {} },
+  });
+  app.provide(interactionKey, { confirm: async () => false });
+  const html = await renderToString(app);
+  assert.match(html, /Временно недоступно/);
+  assert.match(html, /Начинайте диктовку кнопкой или горячей клавишей/);
+  const input = (id) =>
+    html.match(new RegExp(`<input\\b[^>]*id="${id}"[^>]*>`))?.[0];
+  assert.ok(input("wakePhrase"));
+  assert.match(input("wakePhrase"), /\bdisabled(?:\s|>)/);
+  for (const id of ["hotkey", "commandHotkey"]) {
+    assert.ok(input(id));
+    assert.doesNotMatch(input(id), /\bdisabled(?:\s|>)/);
+  }
+  assert.doesNotMatch(html, />Включить пробуждение</);
 });
 
 test("accepted trainer consent commits both preferences and updates the same controlled input", async () => {

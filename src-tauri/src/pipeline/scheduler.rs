@@ -27,6 +27,11 @@ pub struct SttPermit {
 }
 
 impl SttScheduler {
+    pub(crate) fn is_busy(&self) -> bool {
+        let state = self.state.lock();
+        state.occupied || state.interactive.is_some()
+    }
+
     pub fn reserve(&self, operation: u64) {
         let mut state = self.state.lock();
         state.interactive = Some(operation);

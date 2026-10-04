@@ -19,6 +19,7 @@ export interface IndicatorState extends IndicatorChoice {
   level: number;
   result: string;
   error: string;
+  insertionBlocked?: boolean;
   copying: boolean;
   status?: string;
 }

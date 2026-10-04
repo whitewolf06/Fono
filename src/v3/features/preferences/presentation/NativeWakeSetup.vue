@@ -4,6 +4,7 @@ import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
 import type { WakeValidationKind } from "../../../shared/domain/wake";
+import { WAKE_WORD_AVAILABLE } from "../../../shared/domain/wakeAvailability";
 const props = defineProps<{ phrase: string; language: "ru" | "en" }>();
 const workspace = useWorkspace();
 const { run, busy, error } = useFeedback();
@@ -43,11 +44,13 @@ async function begin() {
 async function validate(kind: WakeValidationKind) {
   await run(() => workspace.wake!.validate(kind));
 }
-onMounted(() => void run(() => workspace.wake!.load()));
+onMounted(() => {
+  if (WAKE_WORD_AVAILABLE) void run(() => workspace.wake!.load());
+});
 </script>
 <template>
   <section
-    v-if="workspace.wake"
+    v-if="workspace.wake && WAKE_WORD_AVAILABLE"
     class="wake-setup form-stack"
     aria-label="Настройка своей фразы"
   >
@@ -189,4 +192,5 @@ onMounted(() => void run(() => workspace.wake!.load()));
     <p v-if="result" class="notice" role="status">{{ result }}</p>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
   </section>
+  <WlButton v-else size="sm" disabled>Настройка фразы · скоро</WlButton>
 </template>

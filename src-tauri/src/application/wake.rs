@@ -50,6 +50,7 @@ pub(crate) async fn record_transient_sample(
     app: AppHandle,
     duration_ms: u64,
 ) -> AppResult<RecordedWakeSample> {
+    crate::types::ensure_wake_available()?;
     let settings = app.state::<AppState>().settings();
     let samples = super::dictation::record_diagnostic_sample(
         &app,
@@ -75,6 +76,7 @@ pub(crate) async fn record_transient_sample(
 
 /// Runs the saved microphone sample through the selected wake-word backend.
 pub async fn recognize_sample(app: AppHandle) -> AppResult<WakeWordRecognitionReport> {
+    crate::types::ensure_wake_available()?;
     super::dictation::ensure_capture_allowed(&app)?;
     let samples = std::mem::take(&mut *TEST_AUDIO.lock());
     if samples.is_empty() {
@@ -90,6 +92,7 @@ pub(crate) async fn recognize_transient_samples(
     app: &AppHandle,
     samples: Vec<i16>,
 ) -> AppResult<WakeWordRecognitionReport> {
+    crate::types::ensure_wake_available()?;
     let _activity = crate::application::updates::activity::lease()?;
     super::dictation::ensure_capture_allowed(app)?;
     let settings = app.state::<AppState>().settings();

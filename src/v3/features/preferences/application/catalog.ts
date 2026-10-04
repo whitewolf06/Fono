@@ -75,6 +75,13 @@ export const searchIndex: {
     keywords: "whisper stt скачать загрузка ускорение cuda язык",
   },
   {
+    label: "Модель в видеопамяти",
+    section: "audio",
+    field: "gpu-memory",
+    keywords:
+      "gpu vram память видеокарта адаптивный постоянный resident adaptive выгрузка освобождение vulkan cuda",
+  },
+  {
     label: "Горячая клавиша",
     section: "activation",
     field: "hotkey",

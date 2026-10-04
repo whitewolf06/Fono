@@ -9,6 +9,7 @@ pub use crate::application::dictation::workflow::{
 pub use fono_wake::WakeWordBackend;
 mod history_metadata;
 mod processing_prompts;
+mod wake_availability;
 pub use history_metadata::{
     DictationBackend, DictationHistoryMetadata, DictationTimingMeasurements,
 };
@@ -17,6 +18,7 @@ pub use processing_prompts::{
     MAX_PROCESSING_TEXT_BYTES,
 };
 use serde::{Deserialize, Serialize};
+pub use wake_availability::{ensure_wake_available, WAKE_WORD_AVAILABLE, WAKE_WORD_UNAVAILABLE};
 
 /// Состояние голосового конвейера (FSM).
 /// См. `docs/architecture.md` → "Основной конвейер".
@@ -235,6 +237,15 @@ pub enum AccelerationMode {
     Cuda,
     Vulkan,
     Cpu,
+}
+
+/// GPU residency is independent of the selected inference backend.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GpuModelResidency {
+    #[default]
+    Resident,
+    Adaptive,
 }
 
 impl AccelerationMode {
@@ -468,6 +479,8 @@ pub struct Settings {
     pub use_gpu: bool,
     #[serde(default)]
     pub acceleration: AccelerationMode,
+    #[serde(default)]
+    pub gpu_model_residency: GpuModelResidency,
     #[serde(default = "default_injection_mode")]
     pub injection_mode: InjectionMode,
     #[serde(default = "default_command_hotkey")]
@@ -638,6 +651,7 @@ impl Default for Settings {
             clean_prompt: None,
             use_gpu: default_use_gpu(),
             acceleration: AccelerationMode::Auto,
+            gpu_model_residency: GpuModelResidency::Resident,
             injection_mode: default_injection_mode(),
             command_hotkey: default_command_hotkey(),
             launch_apps: Vec::new(),
@@ -684,6 +698,13 @@ impl Settings {
         changed
     }
 
+    /// Keep the phrase and local profile while disabling the unfinished feature.
+    pub fn enforce_wake_availability(&mut self) -> bool {
+        let changed = !WAKE_WORD_AVAILABLE && self.wake_word_enabled;
+        self.wake_word_enabled &= WAKE_WORD_AVAILABLE;
+        changed
+    }
+
     /// Returns true when an old single-connection configuration was migrated.
     pub fn migrate_llm_profiles(&mut self) -> bool {
         if !self.llm_profiles.is_empty() {
@@ -713,6 +734,23 @@ impl Settings {
 #[cfg(test)]
 mod wake_calibration_settings_tests {
     use super::{AiMode, DictationMode, HotkeyMode, Settings};
+
+    #[test]
+    fn previous_enabled_wake_is_disabled_without_losing_phrase_or_hotkey() {
+        let mut settings: Settings = serde_json::from_value(serde_json::json!({
+            "wake_word_enabled": true,
+            "wake_word": "hey fono",
+            "hotkey_mode": "toggle",
+            "wake_word_threshold": 0.42
+        }))
+        .expect("previous wake settings deserialize");
+        assert!(settings.enforce_wake_availability());
+        assert!(!settings.wake_word_enabled);
+        assert_eq!(settings.wake_word, "hey fono");
+        assert_eq!(settings.hotkey_mode, HotkeyMode::Toggle);
+        assert_eq!(settings.wake_word_threshold, 0.42);
+        assert!(!settings.enforce_wake_availability());
+    }
 
     #[test]
     fn legacy_settings_default_to_hold_and_toggle_round_trips() {
@@ -1019,6 +1057,21 @@ mod dictation_history_tests {
         assert!(!settings.analytics_enabled);
         assert!(settings.speech_trainer_enabled);
         assert_eq!(settings.analytics_retention_days, 30);
+    }
+
+    #[test]
+    fn legacy_gpu_residency_stays_resident_and_adaptive_is_persisted() {
+        use super::GpuModelResidency;
+        let legacy: Settings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(legacy.gpu_model_residency, GpuModelResidency::Resident);
+        let adaptive = Settings {
+            gpu_model_residency: GpuModelResidency::Adaptive,
+            ..legacy
+        };
+        let json = serde_json::to_value(&adaptive).unwrap();
+        assert_eq!(json["gpu_model_residency"], "adaptive");
+        let roundtrip: Settings = serde_json::from_value(json).unwrap();
+        assert_eq!(roundtrip.gpu_model_residency, GpuModelResidency::Adaptive);
     }
 
     #[test]

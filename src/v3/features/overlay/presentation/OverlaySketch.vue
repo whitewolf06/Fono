@@ -12,6 +12,8 @@ import {
 } from "../../../shared/domain/processing";
 import { VoiceWave } from "../../dictation";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import { dictationNotice } from "../../../shared/domain/dictationNotice";
+import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
 import OverlaySketchToggles from "./OverlaySketchToggles.vue";
 import OverlayIndicatorHelp from "./OverlayIndicatorHelp.vue";
 const props = withDefaults(
@@ -57,6 +59,15 @@ const ready = computed(
   () => !!props.state.result && ["ready", "error"].includes(props.state.phase),
 );
 const recording = computed(() => props.state.phase === "recording");
+const notice = computed(() =>
+  dictationNotice(props.state.error, {
+    insertionBlocked: props.state.insertionBlocked,
+    hasText: !!props.state.result,
+  }),
+);
+const status = computed(
+  () => notice.value?.title || props.state.status || labels[props.state.phase],
+);
 const clock = computed(() => {
   const seconds = Math.floor(props.state.elapsedMs / 1000);
   return `${Math.floor(seconds / 60)
@@ -102,16 +113,14 @@ watch(recording, (value) => {
       </div>
       <div class="overlay-sketch-summary" aria-live="polite">
         <div class="overlay-sketch-status">
-          <strong :title="state.status || labels[state.phase]">{{
-            state.status || labels[state.phase]
-          }}</strong
+          <strong :title="status">{{ status }}</strong
           ><small>{{ clock }}</small>
         </div>
         <p v-if="ready" class="overlay-sketch-result" :title="state.result">
           {{ state.result }}
         </p>
         <VoiceWave
-          v-else
+          v-else-if="!notice"
           :phase="wavePhase[state.phase]"
           :level="state.level"
         />
@@ -177,9 +186,7 @@ watch(recording, (value) => {
         </div>
       </div>
     </div>
-    <p v-if="state.error" class="overlay-sketch-error" role="alert">
-      {{ state.error }}
-    </p>
+    <DictationNotice v-if="notice" :notice="notice" :show-title="false" />
     <div v-if="panel" :id="panelId" class="overlay-sketch-panel">
       <OverlayIndicatorHelp v-if="panel === 'help'" :hotkey-mode="hotkeyMode" />
       <template v-else-if="panel === 'processing'">

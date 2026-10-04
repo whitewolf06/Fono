@@ -12,7 +12,7 @@ const pending = computed(() =>
   overlay.state.pending && overlay.state.error
     ? {
         ...overlay.state.pending,
-        error: overlay.state.pending.error || overlay.state.error,
+        error: overlay.state.error || overlay.state.pending.error,
       }
     : overlay.state.pending,
 );

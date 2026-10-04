@@ -1,104 +1,17 @@
-use std::{
-    sync::{atomic::Ordering, Arc},
-    time::Duration,
-};
+use std::sync::{atomic::Ordering, Arc};
 use tauri::{AppHandle, Manager};
-use tauri_plugin_updater::UpdaterExt;
 use tokio::sync::watch;
 
 use super::{
     activity,
-    configuration::is_public_https,
-    state::{cancelled, ActionGuard, PendingUpdate},
+    state::{ActionGuard, PendingUpdate},
     UpdatePhase, UpdateService,
 };
 use crate::error::{AppError, AppResult};
+mod check;
 mod transfer;
 
-const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
-
 impl UpdateService {
-    pub(super) async fn check(&self, app: &AppHandle) -> AppResult<()> {
-        let _serial = Arc::clone(&self.serial).try_lock_owned().map_err(|_| {
-            AppError::Busy("Проверка или установка обновления уже выполняется.".into())
-        })?;
-        let Some(channel) = &self.channel else {
-            return Ok(());
-        };
-        if !secure_plugin_config(app.config().plugins.0.get("updater")) {
-            return Err(self.fail("Проверка подписанной версии или безопасного TLS не настроена. Обновление отключено."));
-        }
-        let (sender, mut receiver) = watch::channel(0u8);
-        {
-            let mut data = self.data.lock();
-            data.snapshot.phase = UpdatePhase::Checking;
-            data.snapshot.message = "Проверяем подписанный канал обновлений…".into();
-            data.snapshot.downloaded_bytes = 0;
-            data.snapshot.total_bytes = None;
-            data.pending = None;
-            data.snapshot.next_version = None;
-            data.cancellation = Some(Arc::new(sender));
-        }
-        let _action = ActionGuard(self);
-        let shutdown_app = app.clone();
-        let shutdown_started = Arc::clone(&self.shutdown_started);
-        let updater = app
-            .updater_builder()
-            .pubkey(channel.public_key.clone())
-            .endpoints(vec![channel.endpoint.clone()])
-            .map_err(|_| self.fail("Конфигурация подписанного канала некорректна."))?
-            .timeout(CHECK_TIMEOUT)
-            .version_comparator(|current, release| {
-                release.version > current && release.version.pre.is_empty()
-            })
-            .configure_client(|builder| {
-                builder
-                    .https_only(true)
-                    .connect_timeout(Duration::from_secs(10))
-            })
-            .on_before_exit(move || {
-                shutdown_started.store(true, Ordering::Release);
-                crate::shutdown_app(&shutdown_app);
-                shutdown_app.cleanup_before_exit();
-            })
-            .build()
-            .map_err(|_| self.fail("Не удалось подготовить проверку обновлений."))?;
-        let checked = tokio::select! {
-            biased;
-            _ = cancelled(&mut receiver) => {
-                self.transition(UpdatePhase::Idle, "Проверка обновлений отменена.");
-                return Ok(());
-            },
-            checked = tokio::time::timeout(CHECK_TIMEOUT, updater.check()) => checked,
-        };
-        match checked {
-            Err(_) => Err(self.fail("Проверка заняла слишком много времени. Повторите позже.")),
-            Ok(Err(_)) => Err(self
-                .fail("Не удалось проверить обновления. Проверьте подключение и повторите позже.")),
-            Ok(Ok(None)) => {
-                self.transition(UpdatePhase::UpToDate, "Установлена актуальная версия Fono.");
-                Ok(())
-            }
-            Ok(Ok(Some(update))) => {
-                if !is_public_https(&update.download_url) || update.signature.is_empty() {
-                    return Err(self.fail(
-                        "Канал вернул небезопасный или неподписанный пакет. Установка запрещена.",
-                    ));
-                }
-                let mut data = self.data.lock();
-                data.snapshot.phase = UpdatePhase::Available;
-                data.snapshot.next_version = Some(update.version.clone());
-                data.snapshot.message =
-                    "Новая версия доступна. Установка начнётся только по вашей команде.".into();
-                data.pending = Some(PendingUpdate {
-                    update,
-                    verified_bytes: None,
-                });
-                Ok(())
-            }
-        }
-    }
-
     pub(super) async fn install(&self, app: &AppHandle) -> AppResult<()> {
         let serial = Arc::clone(&self.serial).try_lock_owned().map_err(|_| {
             AppError::Busy("Проверка или установка обновления уже выполняется.".into())

@@ -8,6 +8,8 @@ import type {
 import { effectiveProcessingLanguage } from "../domain/processing";
 import ProcessingChoiceControls from "./ProcessingChoiceControls.vue";
 import AppIcon from "./AppIcon.vue";
+import DictationNotice from "./DictationNotice.vue";
+import { dictationNotice } from "../domain/dictationNotice";
 const props = defineProps<{
   pending: PendingDictation;
   choice?: OverlayProcessingChoice;
@@ -58,9 +60,25 @@ function resolve(action: PendingDictationRequest["action"]) {
 const effectiveLanguage = computed(() =>
   effectiveProcessingLanguage(selected.value),
 );
+const notice = computed(() =>
+  dictationNotice(props.pending.error, {
+    insertionBlocked: props.pending.insertionBlocked,
+    hasText: !!(props.pending.resultText ?? props.pending.originalText),
+  }),
+);
 </script>
 <template>
   <div class="pending-actions" data-overlay-interactive>
+    <DictationNotice v-if="notice" :notice="notice" />
+    <p v-else class="pending-title" role="status">
+      {{
+        pending.phase === "processing"
+          ? "Обрабатываю текст"
+          : pending.copyOnly
+            ? "Текст готов"
+            : "Выберите действие с текстом"
+      }}
+    </p>
     <p class="pending-text" :title="pending.resultText ?? pending.originalText">
       {{ pending.resultText ?? pending.originalText }}
     </p>
@@ -75,12 +93,9 @@ const effectiveLanguage = computed(() =>
       :remember="rememberChoice"
       @change="choose"
     />
-    <p v-if="pending.error" class="pending-error" role="alert">
-      {{ pending.error }}
-    </p>
     <div class="pending-footer" role="group" aria-label="Действия с диктовкой">
       <button
-        v-if="!pending.copyOnly"
+        v-if="!pending.copyOnly && !pending.insertionBlocked"
         type="button"
         class="dictation-action dictation-action--insert"
         :title="
@@ -139,18 +154,22 @@ const effectiveLanguage = computed(() =>
         "
       >
         <AppIcon name="copy" :size="14" />
-        <span v-if="pending.copyOnly">Копировать</span>
+        <span v-if="pending.copyOnly || pending.insertionBlocked"
+          >Копировать</span
+        >
       </button>
       <button
         type="button"
         class="dictation-action overlay-cancel"
         :title="
-          pending.copyOnly ? 'Закрыть без копирования' : 'Отменить диктовку'
+          pending.copyOnly || pending.insertionBlocked
+            ? 'Закрыть без копирования'
+            : 'Отменить диктовку'
         "
         @click="resolve('cancel')"
       >
         <AppIcon name="x" :size="14" />{{
-          pending.copyOnly ? "Закрыть" : "Отмена"
+          pending.copyOnly || pending.insertionBlocked ? "Закрыть" : "Отмена"
         }}
       </button>
     </div>

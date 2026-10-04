@@ -11,8 +11,17 @@ import { liveStatus } from "../domain/live";
 import { useFeedback } from "../../../shared/application/feedback";
 import PendingDictationActions from "../../../shared/presentation/PendingDictationActions.vue";
 import { copyPendingText } from "../application/copyPendingText";
+import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
+import { dictationNotice } from "../../../shared/domain/dictationNotice";
 const { run } = useFeedback();
 const workspace = useWorkspace();
+const pending = computed(() => {
+  const value = workspace.state.pendingDictation;
+  return value
+    ? { ...value, error: workspace.state.error || value.error }
+    : null;
+});
+const notice = computed(() => dictationNotice(workspace.state.error));
 const live = computed(() => workspace.state.live);
 const liveMode = computed(
   () => workspace.state.preferences.dictationMode === "live",
@@ -52,19 +61,21 @@ async function copyPending(text: string, sessionId: number) {
 <template>
   <section class="record-area" aria-label="Диктовка">
     <VoiceWave
+      v-if="!pending && !notice"
       :phase="workspace.state.phase"
       :level="workspace.state.audioLevel"
     />
     <PendingDictationActions
-      v-if="workspace.state.pendingDictation"
-      :pending="workspace.state.pendingDictation"
+      v-if="pending"
+      :pending="pending"
       @resolve="
         (request) => run(() => workspace.dictation.resolvePending(request))
       "
       @copy="copyPending"
     />
-    <div v-else class="record-controls">
-      <span class="record-status" role="status"
+    <DictationNotice v-else-if="notice" :notice="notice" />
+    <div v-if="!pending" class="record-controls">
+      <span class="record-status" role="status" v-if="!notice"
         >{{ status
         }}<span v-if="recording" class="mono"
           >{{
@@ -135,17 +146,6 @@ async function copyPending(text: string, sessionId: number) {
         variant="ghost"
         @click="run(() => workspace.dictation.resumeInsertion())"
         >Продолжить вставку · демо</WlButton
-      >
-    </p>
-    <p v-if="workspace.state.error" class="record-error" role="alert">
-      {{ workspace.state.error }}
-      <RouterLink
-        :to="
-          workspace.state.microphoneAvailable
-            ? '/settings/processing'
-            : '/settings/audio'
-        "
-        >Настройки</RouterLink
       >
     </p>
   </section>

@@ -42,6 +42,24 @@ fn busy() -> AppError {
 }
 
 impl Gate {
+    fn while_idle<T>(
+        &self,
+        check_idle: impl FnOnce() -> bool,
+        action: impl FnOnce() -> T,
+    ) -> Option<(T, ActivityLease<'_>)> {
+        // GPU release already owns a nonblocking STT load gate. Do not wait
+        // for a synchronous start that could itself be waiting for that gate.
+        let mut state = self.0.try_lock()?;
+        if state.reserved || state.leases > 0 || !check_idle() {
+            return None;
+        }
+        // Only detachment belongs inside this fence. The returned lease holds
+        // installer exclusion while native GPU/worker cleanup runs outside it.
+        let result = action();
+        state.leases += 1;
+        Some((result, ActivityLease { gate: self }))
+    }
+
     fn begin(&self) -> AppResult<StartGuard<'_>> {
         let guard = self.0.lock();
         if guard.reserved {
@@ -118,6 +136,18 @@ pub fn lease() -> AppResult<ActivityLease<'static>> {
     GATE.lease()
 }
 
+pub(crate) fn while_idle<T>(
+    check_idle: impl FnOnce() -> bool,
+    action: impl FnOnce() -> T,
+) -> Option<(T, ActivityLease<'static>)> {
+    GATE.while_idle(check_idle, action)
+}
+
+pub(crate) fn is_busy() -> bool {
+    let state = GATE.0.lock();
+    state.reserved || state.leases > 0
+}
+
 pub(super) fn reserve(
     check_idle: impl FnOnce() -> AppResult<()>,
 ) -> AppResult<InstallReservation<'static>> {
@@ -131,6 +161,44 @@ mod tests {
         atomic::{AtomicBool, Ordering},
         Arc,
     };
+
+    #[test]
+    fn gpu_detachment_waits_for_operations_and_protects_cleanup() {
+        let gate = Gate::default();
+        let preparation = gate.lease().unwrap();
+        assert!(gate
+            .while_idle(|| true, || panic!("busy action ran"))
+            .is_none());
+        drop(preparation);
+        assert!(gate
+            .while_idle(|| false, || panic!("active action ran"))
+            .is_none());
+        let (_, cleanup) = gate.while_idle(|| true, || ()).unwrap();
+        assert!(gate.reserve(|| Ok(())).is_err());
+        // User work may start after detachment. The STT load gate makes it
+        // wait for native destruction, while the installer remains excluded.
+        assert!(gate.begin().is_ok());
+        drop(cleanup);
+        assert!(gate.reserve(|| Ok(())).is_ok());
+    }
+
+    #[test]
+    fn installing_update_prevents_gpu_detachment() {
+        let gate = Gate::default();
+        let _install = gate.reserve(|| Ok(())).unwrap();
+        assert!(gate
+            .while_idle(|| true, || panic!("installing action ran"))
+            .is_none());
+    }
+
+    #[test]
+    fn synchronous_start_never_waits_on_gpu_release_admission() {
+        let gate = Gate::default();
+        let _start = gate.begin().unwrap();
+        assert!(gate
+            .while_idle(|| true, || panic!("start action ran"))
+            .is_none());
+    }
 
     #[test]
     fn reservation_rejects_starts_and_releases_after_install_failure() {

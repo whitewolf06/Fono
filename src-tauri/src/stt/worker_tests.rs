@@ -18,6 +18,9 @@ const TEST_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
     transcribe_base: TEST_TIMEOUT,
     transcribe_max: TEST_TIMEOUT,
 };
+// EOF tests verify transport semantics, not inference deadlines. Their file
+// barrier/controller needs scheduling headroom during parallel workspace gates.
+const EOF_FIXTURE_TIMEOUT: Duration = Duration::from_secs(5);
 
 struct WorkerFixture {
     directory: PathBuf,
@@ -26,6 +29,12 @@ struct WorkerFixture {
 
 impl WorkerFixture {
     fn create(after_load: &str) -> Self {
+        // A fake nonresponding worker should sleep on stdin rather than burn
+        // a CPU core in a cmd goto loop and starve other protocol fixtures.
+        let after_load = after_load.replace(
+            ":hang\r\ngoto hang",
+            ":hang\r\nset /p ignored=\r\ngoto hang",
+        );
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system clock is before the Unix epoch")
@@ -150,6 +159,8 @@ fn worker_exit_before_response_terminates_the_session() {
         ">\"%~dp0request-observed\" echo ready\r\n:await_exit\r\nif not exist \"%~dp0allow-exit\" goto await_exit\r\nexit /b 17",
     );
     let mut session = fixture.start();
+    session.timeouts.transcribe_base = EOF_FIXTURE_TIMEOUT;
+    session.timeouts.transcribe_max = EOF_FIXTURE_TIMEOUT;
     let writer = session
         .stdin_tx
         .as_ref()
@@ -158,7 +169,7 @@ fn worker_exit_before_response_terminates_the_session() {
     let observed = fixture.directory.join("request-observed");
     let release = fixture.directory.join("allow-exit");
     let release_worker = thread::spawn(move || {
-        let deadline = Instant::now() + TEST_TIMEOUT;
+        let deadline = Instant::now() + EOF_FIXTURE_TIMEOUT;
         while !observed.exists() {
             assert!(
                 Instant::now() < deadline,
@@ -173,11 +184,11 @@ fn worker_exit_before_response_terminates_the_session() {
                     line: String::new(),
                     result_tx,
                 },
-                TEST_TIMEOUT,
+                remaining_until(deadline),
             )
             .expect("enqueue barrier after transcription frame");
         result_rx
-            .recv_timeout(TEST_TIMEOUT)
+            .recv_timeout(remaining_until(deadline))
             .expect("writer acknowledges FIFO barrier")
             .expect("complete request reached open worker stdin");
         fs::write(release, b"exit").expect("release worker only after completed write");

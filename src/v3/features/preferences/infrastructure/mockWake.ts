@@ -1,5 +1,6 @@
 import type { WorkspaceState } from "../../../shared/domain/contracts";
 import type { WakePort, WakeSetupState } from "../../../shared/domain/wake";
+import { ensureWakeAvailable } from "../../../shared/domain/wakeAvailability";
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -68,19 +69,23 @@ export function createMockWake(
     resetDemo,
     load,
     async download() {
+      ensureWakeAvailable();
       await wait(300);
       state.wakeSetup!.modelReady = true;
     },
     async test() {
+      ensureWakeAvailable();
       await wait(400);
       return "Демонстрация: фраза обнаружена. Микрофон и модель не используются.";
     },
     async begin() {
+      ensureWakeAvailable();
       generation++;
       state.wakeSetup = { ...fresh(), active: true };
       language = state.preferences.wakeLanguage;
     },
     async record() {
+      ensureWakeAvailable();
       const s = state.wakeSetup!;
       if (!s.active) throw new Error("Сначала начните настройку фразы.");
       const ticket = generation;
@@ -94,6 +99,7 @@ export function createMockWake(
       }
     },
     async beginValidation() {
+      ensureWakeAvailable();
       const s = state.wakeSetup!;
       if (!s.profileReady) throw new Error("Сначала запишите пять образцов.");
       s.validation = {
@@ -107,6 +113,7 @@ export function createMockWake(
       };
     },
     async validate(kind) {
+      ensureWakeAvailable();
       const s = state.wakeSetup!;
       if (!s.validation.active)
         throw new Error("Сначала начните контрольную проверку.");

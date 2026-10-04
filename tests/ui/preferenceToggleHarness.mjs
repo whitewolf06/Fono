@@ -11,11 +11,13 @@ export async function createToggleHarness(
   server,
   workspaceKey,
   interactionKey,
+  options = {},
 ) {
   // Execute the real SFC client render and WhiteUI checkbox directive, without
   // adding a DOM dependency or substituting the production switch component.
   const source = readFileSync(
-    "src/v3/features/preferences/presentation/PreferenceToggle.vue",
+    options.componentPath ||
+      "src/v3/features/preferences/presentation/PreferenceToggle.vue",
     "utf8",
   );
   const script = compileScript(parse(source).descriptor, {
@@ -32,6 +34,10 @@ export async function createToggleHarness(
     modules[`../../../shared/application/${name}`] = await server.ssrLoadModule(
       `/src/v3/shared/application/${name}.ts`,
     );
+  modules["../../../shared/domain/wakeAvailability"] =
+    await server.ssrLoadModule("/src/v3/shared/domain/wakeAvailability.ts");
+  for (const [specifier, path] of Object.entries(options.imports || {}))
+    modules[specifier] = await server.ssrLoadModule(path);
   const module = { exports: {} };
   new Function("require", "module", "exports", compiled.code)(
     (name) => {
@@ -112,6 +118,7 @@ export async function createToggleHarness(
     const workspace = {
       native: true,
       state: reactive({ pending: {}, ...state }),
+      updates: state.updates,
       settings: {
         async save(patch) {
           Object.assign(workspace.state.preferences, patch);
@@ -122,7 +129,8 @@ export async function createToggleHarness(
       },
     };
     const app = renderer.createApp({
-      render: () => h(PreferenceToggle, { name, label: "Test switch" }),
+      render: () =>
+        h(PreferenceToggle, { name, label: "Test switch", ...options.props }),
     });
     app.use(WlConfig);
     app.use(WlToastService);

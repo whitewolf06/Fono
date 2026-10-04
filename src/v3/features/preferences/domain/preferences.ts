@@ -15,9 +15,10 @@ export const defaults: Preferences = {
   model: "small",
   language: "ru",
   acceleration: "auto",
+  gpuModelResidency: "resident",
   dictionaryEnabled: false,
   dictionaryEntries: [],
-  wakeEnabled: true,
+  wakeEnabled: false,
   wakePhrase: "Эй, фоно",
   wakeLanguage: "ru",
   silenceMs: 1600,
@@ -62,6 +63,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "model",
     "language",
     "acceleration",
+    "gpuModelResidency",
     "dictionaryEntries",
   ],
   activation: [
@@ -115,7 +117,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
 export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
   microphone: ["microphone"],
   wake: ["wakePhrase", "wakeLanguage", "silenceMs"],
-  recognition: ["model", "language", "acceleration"],
+  recognition: ["model", "language", "acceleration", "gpuModelResidency"],
   processing: [
     "processingMode",
     "processingTrigger",
@@ -156,6 +158,8 @@ export const profiles = [
   { value: "cloud", label: "В облаке · OpenAI (демо)" },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  if (!["resident", "adaptive"].includes(p.gpuModelResidency))
+    return "Выберите режим хранения модели в видеопамяти.";
   if (typeof p.overlayQuickProcessing !== "boolean")
     return "Выберите, показывать ли быстрые настройки обработки.";
   const dictionaryError = validateDictionary(p.dictionaryEntries);

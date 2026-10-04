@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { openProjectSite } from "../shared/infrastructure/browser";
 import { createMockDiagnosticReport } from "../features/diagnostic-report";
 import { createMockUpdates } from "../features/updates";
 import { LIVE_DICTATION_ENABLED } from "../shared/domain/dictationMode";
@@ -201,6 +202,7 @@ export function createMockWorkspace(): Workspace {
       },
     },
     copy: copyToClipboard,
+    openProjectSite,
     scenario,
     diagnostics() {
       const model = state.models.find((m) => m.id === state.preferences.model);
