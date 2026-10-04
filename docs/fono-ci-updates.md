@@ -93,8 +93,8 @@ Updater signing защищает обновление; это отдельная
 
 Сначала workflow-файл должен появиться в default branch для
 [`workflow_dispatch`](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
-На 2026-10-04 default branch репозитория — `codex/backend-refactoring`;
-перенос workflow туда или изменение default branch выполняются отдельно.
+Ветка по умолчанию репозитория — `main`; настройка подтверждена через GitHub API
+2026-10-04. Локальный `origin/HEAD` также указывает на `main`.
 Само задание подписанной сборки допускает только выбранную ветку `main`.
 
 1. Создать GitHub environment `fono-update-preparation` с required reviewers.
@@ -109,7 +109,7 @@ Updater signing защищает обновление; это отдельная
    должен быть доступен этому workflow. Ключи не генерируются задачей CI.
 4. Запустить workflow на `main` и указать `download_base`: будущий HTTPS каталог
    installer текущей версии, например
-   `https://github.com/whitewolf06/fono/releases/download/v0.5.22/`.
+   `https://github.com/whitewolf06/fono/releases/download/v0.6.0/`.
 
 Workflow повторяет проверки, собирает NSIS с временным override
 `bundle.createUpdaterArtifacts=true`, затем проверяет `.sig` против выбранного
@@ -149,8 +149,12 @@ GitHub Releases допускает assets меньше 2 GiB и не огран�
 release, проверить доступность без аккаунта, затем опубликовать `latest.json`.
 Endpoint: `https://github.com/whitewolf06/fono/releases/latest/download/latest.json`.
 Публичный ключ фиксируется в `update-channel.json`; приватный ключ остаётся вне
-репозитория и передаётся только в signing secret. Первый подписанный выпуск ещё
-нужно подготовить. Этот workflow не меняет visibility и не публикует release.
+репозитория. Локальный ключ хранится в пользовательском каталоге `.fono/signing`;
+его резервную копию нужно хранить отдельно от исходников. В CI ключ передаётся
+только через signing secret. Подписанный установщик 0.5.22 подготовлен и проверен
+локально; для первого публичного выпуска согласована версия 0.6.0. Публикация
+следует после ручной проверки пользователя. Этот workflow не меняет visibility
+и не публикует release.
 Не помещать PAT / секреты в URL клиентского updater.
 
 ## Границы подтверждения

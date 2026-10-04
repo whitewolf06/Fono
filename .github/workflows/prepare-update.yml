@@ -70,6 +70,9 @@ jobs:
         run: ./scripts/bootstrap-ci-resources.ps1 -InstallGpuSdks
       - name: Native gates
         working-directory: src-tauri
+        env:
+          # GPU workers are built by beforeBuildCommand after these CPU gates.
+          TAURI_CONFIG: '{"bundle":{"resources":{"resources/stt-workers/*":null}}}'
         shell: pwsh
         run: |
           cargo fmt --all --check
