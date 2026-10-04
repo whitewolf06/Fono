@@ -37,6 +37,23 @@ fn stop_freezes_selection_before_audio_drain_changes_the_public_phase() {
 }
 
 #[test]
+fn failed_stop_restores_ownership_only_for_the_exact_editable_capture() {
+    let (pipeline, id) = recording();
+    let mut restored = 0;
+    assert!(pipeline.while_editable_recording(id, || restored += 1));
+    assert_eq!(restored, 1);
+    assert!(!pipeline.while_editable_recording(id + 1, || panic!("wrong capture")));
+    pipeline
+        .freeze_session_for_completion(id, Settings::default)
+        .unwrap();
+    assert!(!pipeline.while_editable_recording(id, || panic!("frozen capture")));
+    pipeline.cancel_for(id).unwrap();
+    let next = pipeline.operations.start(OperationSource::Hotkey).unwrap();
+    assert!(!pipeline.while_editable_recording(id, || panic!("successor capture")));
+    assert!(pipeline.while_editable_recording(next.id, || restored += 1));
+}
+
+#[test]
 fn selection_commits_before_concurrent_stop_can_snapshot_it() {
     let (pipeline, id) = recording();
     let pipeline = Arc::new(pipeline);

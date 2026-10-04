@@ -75,6 +75,7 @@ export function dictationFacts(
       title: "Обработка текста (настройка)",
       value: {
         off: "Выключена",
+        raw: "Без изменений",
         clean: "Очистка",
         format: "Форматирование",
         command: "Команда",

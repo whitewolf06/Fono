@@ -3,6 +3,7 @@ mod actions;
 mod insertion;
 mod overlay_choice;
 mod overlay_dismissal;
+mod overlay_flush;
 mod state;
 mod types;
 
@@ -19,13 +20,17 @@ use crate::{
 pub(crate) use actions::resolve;
 pub(crate) use overlay_choice::{update as update_overlay_choice, OverlayProcessingChoiceRequest};
 pub(crate) use overlay_dismissal::dismiss as dismiss_overlay;
+pub(crate) use overlay_flush::{
+    acknowledge as acknowledge_overlay_flush, flush as flush_overlay_processing,
+};
 use parking_lot::Mutex;
 use state::{Record, Store};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 use types::PendingPhase;
 pub(crate) use types::{
-    effective_preset, should_defer, should_process, PendingAction, PendingDictation, PendingRequest,
+    effective_language, effective_preset, should_defer, should_process, PendingAction,
+    PendingDictation, PendingRequest,
 };
 pub use types::{ProcessingWorkflow, TextPreset, TranslationLanguage};
 
@@ -36,6 +41,7 @@ struct PendingData {
     history_id: String,
     created_at: chrono::DateTime<chrono::Utc>,
     report: Arc<ReportTrace>,
+    ready_timings: Option<crate::types::DictationTimingMeasurements>,
     target: Option<TextTarget>,
     _activity: Arc<ActivityLease<'static>>,
 }
@@ -44,6 +50,7 @@ struct PendingData {
 pub(crate) struct Runtime {
     store: Mutex<Store<PendingData>>,
     capture_target: Mutex<Option<(u64, Option<TextTarget>)>>,
+    flush: overlay_flush::FlushRuntime,
 }
 
 pub(crate) fn snapshot(app: &AppHandle) -> Option<PendingDictation> {
@@ -114,6 +121,7 @@ pub(super) fn enqueue(
     history_id: String,
     report: Arc<ReportTrace>,
     error: Option<String>,
+    copy_only: bool,
 ) -> AppResult<bool> {
     let activity = Arc::new(activity::lease()?);
     let runtime = session.app.state::<Runtime>();
@@ -123,7 +131,7 @@ pub(super) fn enqueue(
         .as_ref()
         .filter(|(id, _)| *id == session.operation)
         .and_then(|(_, target)| target.clone());
-    let unavailable = session.source != OperationSource::Ui && target.is_none();
+    let unavailable = !copy_only && session.source != OperationSource::Ui && target.is_none();
     let created_at = chrono::Utc::now();
     let snapshot = PendingDictation {
         session_id: session.operation,
@@ -132,11 +140,13 @@ pub(super) fn enqueue(
         result_text: None,
         created_at: created_at.to_rfc3339(),
         preset: effective_preset(&session.settings),
-        target_language: session.settings.processing_target_language,
+        target_language: effective_language(&session.settings),
         processing_enabled: session.settings.ai_mode != AiMode::Off,
+        translation_enabled: session.settings.processing_translation_enabled,
         source: session.source,
         error: error.or_else(|| unavailable.then(|| "Поле для вставки недоступно. Скопируйте текст из Fono или отмените и начните диктовку в нужном поле".into())),
         insertion_blocked: unavailable,
+        copy_only,
     };
     let data = PendingData {
         session: session.clone(),
@@ -144,6 +154,7 @@ pub(super) fn enqueue(
         history_id,
         created_at,
         report,
+        ready_timings: None,
         target,
         _activity: activity.clone(),
     };
@@ -169,6 +180,30 @@ pub(super) fn enqueue(
 fn publish(app: &AppHandle) {
     if let Err(error) = app.emit("pending-dictation", snapshot(app)) {
         tracing::warn!(%error, "could not publish pending dictation");
+    }
+}
+
+/// An explicit overlay acceptance keeps ownership and its updater lease for Copy.
+pub(super) fn preview_result(app: &AppHandle, operation: u64, text: String) {
+    let runtime = app.state::<Runtime>();
+    let changed = {
+        let mut store = runtime.store.lock();
+        if let Some(record) = store
+            .pending
+            .as_mut()
+            .filter(|record| record.snapshot.session_id == operation)
+        {
+            record.snapshot.copy_only = true;
+            record.snapshot.result_text = Some(text);
+            record.snapshot.phase = PendingPhase::AwaitingAction;
+            record.data.ready_timings = Some(record.data.report.history_timings());
+            true
+        } else {
+            false
+        }
+    };
+    if changed {
+        publish(app);
     }
 }
 

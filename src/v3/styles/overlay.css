@@ -160,7 +160,7 @@
 .native-overlay {
   height: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   user-select: none;
 }
@@ -168,11 +168,14 @@
   width: 100%;
   height: 100%;
   padding: 0;
+  align-items: flex-start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .native-overlay .overlay-preview {
   max-width: calc(100vw / var(--fono-overlay-zoom));
-  max-height: calc(100vh / var(--fono-overlay-zoom));
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  max-height: none;
+  overflow: visible;
   box-shadow: none;
 }

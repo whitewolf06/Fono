@@ -39,6 +39,8 @@ export function createOverlayControls(
               s.processing_preset ??
               (s.ai_mode === "format" ? "format" : "clean"),
             targetLanguage: s.processing_target_language ?? null,
+            processingEnabled: s.ai_mode !== "off",
+            translationEnabled: s.processing_translation_enabled,
           }
         : {
             preset: state.preferences.processingMode,
@@ -46,12 +48,20 @@ export function createOverlayControls(
               state.preferences.processingTranslation === "none"
                 ? null
                 : state.preferences.processingTranslation,
+            processingEnabled: state.preferences.processingEnabled,
+            translationEnabled: state.preferences.processingTranslationEnabled,
           };
     },
     isCurrent: (id) => !disposed() && context() === id,
     commit: (s, request) => {
       commitSettings(s);
       state.processingChoice = {
+        ...(request.processingEnabled === undefined
+          ? {}
+          : { processingEnabled: request.processingEnabled }),
+        ...(request.translationEnabled === undefined
+          ? {}
+          : { translationEnabled: request.translationEnabled }),
         preset: request.preset,
         targetLanguage: request.targetLanguage,
       };
@@ -90,12 +100,22 @@ export function createOverlayControls(
       )
         await action();
     },
+    async flushFor(sessionId: number) {
+      if (!queue.state.pending && !queue.state.saving && !queue.state.error)
+        return;
+      if (disposed() || context() !== sessionId)
+        throw new Error("Диктовка уже завершена или заменена");
+      await queue.flush();
+      if (disposed() || context() !== sessionId)
+        throw new Error("Диктовка уже завершена или заменена");
+    },
     async resolve(
       request: PendingDictationRequest,
       action: (request: PendingDictationRequest) => Promise<void>,
     ) {
       if (disposed() || state.pending?.sessionId !== request.sessionId) return;
-      if (request.action === "process_and_insert") await queue.flush();
+      if (["process_and_insert", "process_preview"].includes(request.action))
+        await queue.flush();
       else queue.discard();
       if (!disposed() && state.pending?.sessionId === request.sessionId)
         await action(request);

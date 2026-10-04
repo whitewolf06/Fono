@@ -37,7 +37,7 @@ pub(crate) async fn stop_with_reason(
     }
     let pipeline = app.state::<Pipeline>();
     let operation = pipeline.operation_id();
-    stop_operation(app, operation, reason).await
+    stop_operation(app, operation, reason, false).await
 }
 
 /// Timers and key releases retain the operation they actually started.
@@ -49,13 +49,18 @@ pub(crate) async fn stop_with_reason_for(
     if !app.state::<Pipeline>().is_operation_active(operation) {
         return Ok(empty_transcript());
     }
-    stop_operation(app, operation, reason).await
+    stop_operation(app, operation, reason, false).await
+}
+
+pub(crate) async fn stop_overlay_for(app: AppHandle, operation: u64) -> AppResult<Transcript> {
+    stop_operation(app, operation, DictationStopReason::Manual, true).await
 }
 
 async fn stop_operation(
     app: AppHandle,
     operation: u64,
     reason: DictationStopReason,
+    copy_only: bool,
 ) -> AppResult<Transcript> {
     let pipeline = app.state::<Pipeline>();
     match pipeline.completion.claim(operation)? {
@@ -68,7 +73,7 @@ async fn stop_operation(
                 .map(|item| item.source)
                 .unwrap_or(OperationSource::Ui);
             let report = Arc::new(ReportTrace::begin(operation, source));
-            let result = stop_once(&app, operation, reason, &report).await;
+            let result = stop_once(&app, operation, reason, &report, copy_only).await;
             report.outcome(match &result {
                 Ok(transcript)
                     if transcript.text.is_empty() && pipeline.is_operation_active(operation) =>
@@ -92,6 +97,7 @@ async fn stop_once(
     operation: u64,
     reason: DictationStopReason,
     report: &Arc<ReportTrace>,
+    copy_only: bool,
 ) -> AppResult<Transcript> {
     let session = Session::current(app, operation)?;
     let mut diagnostic = DictationTailDiagnostic::new(operation, session.source, reason);
@@ -141,8 +147,18 @@ async fn stop_once(
     {
         return Ok(empty_transcript());
     }
-    if super::workflow::should_defer(&session.settings) {
-        super::workflow::enqueue(&session, &transcript, history_id, report.clone(), None)?;
+    if !copy_only
+        && session.source != OperationSource::Hotkey
+        && super::workflow::should_defer(&session.settings)
+    {
+        super::workflow::enqueue(
+            &session,
+            &transcript,
+            history_id,
+            report.clone(),
+            None,
+            false,
+        )?;
         return Ok(transcript);
     }
     let processed = {
@@ -151,9 +167,8 @@ async fn stop_once(
             &session,
             &transcript,
             super::workflow::effective_preset(&session.settings),
-            session.settings.processing_target_language,
+            super::workflow::effective_language(&session.settings),
             super::workflow::should_process(&session.settings),
-            true,
         )
         .await
     };
@@ -168,7 +183,11 @@ async fn stop_once(
                 history_id,
                 report.clone(),
                 Some(error.to_string()),
+                copy_only,
             )?;
+            if copy_only {
+                super::workflow::preview_result(app, operation, transcript.text.clone());
+            }
             return Ok(transcript);
         }
     };
@@ -200,6 +219,21 @@ async fn stop_once(
     {
         return Ok(empty_transcript());
     }
+    if copy_only {
+        super::workflow::enqueue(
+            &session,
+            &transcript,
+            history_id,
+            report.clone(),
+            None,
+            true,
+        )?;
+        super::workflow::preview_result(app, operation, final_text.clone());
+        return Ok(Transcript {
+            text: final_text,
+            ..transcript
+        });
+    }
     let insertion = if session.source != OperationSource::Ui {
         if !session.transition(PipelineState::Injecting, TerminalReason::Completed) {
             return Ok(empty_transcript());
@@ -227,6 +261,7 @@ async fn stop_once(
             history_id,
             report.clone(),
             Some(error.to_string()),
+            false,
         )?;
         super::workflow::block_insertion(app, operation, error.to_string(), final_text.clone());
         return Ok(Transcript {

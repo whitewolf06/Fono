@@ -15,7 +15,6 @@ pub(super) async fn selected(
     preset: super::workflow::TextPreset,
     language: Option<super::workflow::TranslationLanguage>,
     enabled: bool,
-    preserve_legacy_command: bool,
 ) -> crate::error::AppResult<Option<String>> {
     if !enabled {
         return Ok(Some(transcript.text.clone()));
@@ -25,23 +24,15 @@ pub(super) async fn selected(
             "Включите обработку текста и выберите модель".into(),
         ));
     }
+    if preset == super::workflow::TextPreset::Raw && language.is_none() {
+        return Ok(Some(transcript.text.clone()));
+    }
     if !session.transition(PipelineState::Processing, TerminalReason::Completed) {
         return Ok(None);
     }
     let client = LlmClient::from_settings(&session.settings);
-    // Preserve the legacy command hotkey until a preset is explicitly selected.
-    if preserve_legacy_command
-        && session.settings.ai_mode == AiMode::Command
-        && session.settings.processing_preset.is_none()
-        && language.is_none()
-    {
-        return tokio::select! {
-            result = client.process(&transcript.text,AiMode::Command,session.settings.clean_prompt.as_deref()) => result.map(Some),
-            _ = wait_for_cancellation(session.cancellation.clone()) => Ok(None),
-        };
-    }
     tokio::select! {
-        result = client.process_preset(&transcript.text,preset,language,session.settings.clean_prompt.as_deref()) => result.map(Some),
+        result = client.process_preset(&transcript.text,preset,language,session.settings.processing_prompts.choice(preset)) => result.map(Some),
         _ = wait_for_cancellation(session.cancellation.clone()) => Ok(None),
     }
 }
@@ -64,10 +55,12 @@ pub(super) async fn process(
         return None;
     }
     let client = LlmClient::from_settings(&session.settings);
-    let process = client.process(
+    let preset = super::workflow::effective_preset(&session.settings);
+    let process = client.process_preset(
         &transcript.text,
-        session.settings.ai_mode,
-        session.settings.clean_prompt.as_deref(),
+        preset,
+        super::workflow::effective_language(&session.settings),
+        session.settings.processing_prompts.choice(preset),
     );
     let result = tokio::select! {
         result = process => Some(result),

@@ -46,6 +46,7 @@ pub async fn save_settings(
     let _activity = crate::application::updates::activity::lease()?;
     let _transaction = crate::application::updates::settings_transaction(&app).await;
     settings.enforce_classic_dictation();
+    settings.migrate_processing_prompts();
     let old_settings = state.settings();
     // Update checks are owned by their explicit opt-in command. A stale full
     // settings form, including an older renderer, cannot silently change it.
@@ -366,6 +367,7 @@ pub fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<()> {
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
+    settings.processing_prompts.validate()?;
     crate::application::personal_dictionary::validate(&settings.personal_dictionary_entries)?;
     crate::overlay::validate_appearance(settings.overlay_scale, settings.overlay_opacity)?;
     if settings.hotkey.trim().is_empty() || settings.command_hotkey.trim().is_empty() {

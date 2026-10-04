@@ -38,6 +38,7 @@ onUnmounted(overlay.dispose);
       :elapsed="overlay.state.elapsed"
       :live="overlay.state.live"
       :pending="pending"
+      :copying="overlay.state.copying"
       :processing-choice="overlay.state.processingChoice"
       :processing-saving="
         overlay.processing.pending || overlay.processing.saving

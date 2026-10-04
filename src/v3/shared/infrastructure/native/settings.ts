@@ -3,9 +3,11 @@ import type { NativeContext } from "./context";
 import type { LlmProfile } from "../../../../lib/types";
 import { call, playMicrophoneSample } from "./ipc";
 import { nativeWake } from "./wake";
+import { nativeProcessing } from "../../../features/preferences/infrastructure/nativeProcessing";
 export function nativeSettings(ctx: NativeContext): SettingsPort {
   const { state } = ctx;
   return {
+    ...nativeProcessing(),
     async save(patch) {
       if (
         [
@@ -16,6 +18,8 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
           "processingTrigger",
           "processingMode",
           "processingTranslation",
+          "processingTranslationEnabled",
+          "processingPrompts",
           "profile",
           "processingModel",
         ].some((key) => key in patch) &&

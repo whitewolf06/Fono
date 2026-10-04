@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
-  --fono-night: #071321;
-  --fono-night-raised: #0d1b2b;
-  --fono-night-card: #122336;
+  --fono-night: #0c131c;
+  --fono-night-raised: #131b25;
+  --fono-night-card: #192330;
   --fono-electric: #2ab7ff;
   --fono-electric-soft: #8bd4ff;
   --fono-canvas: var(--fono-night);
@@ -14,7 +14,16 @@
   --fono-border: #223348;
   --fono-border-soft: color-mix(in srgb, var(--fono-border) 60%, transparent);
   --fono-accent: var(--fono-electric);
-  --fono-accent-soft: color-mix(in srgb, var(--fono-electric) 11%, transparent);
+  --fono-background-accent: color-mix(
+    in srgb,
+    var(--fono-electric) 60%,
+    var(--wl-gray-400)
+  );
+  --fono-accent-soft: color-mix(
+    in srgb,
+    var(--fono-background-accent) 11%,
+    transparent
+  );
   --fono-success: var(--wl-green-400);
   --fono-error: var(--wl-red-400);
   --fono-warning: var(--wl-amber-400);
@@ -36,6 +45,16 @@
   --fono-overlay-help-height: 112px;
   --fono-overlay-error-height: 40px;
   --fono-overlay-choice-label-width: 48px;
+  --fono-overlay-wave-width: 60%;
+  --fono-sketch-width: 600px;
+  --fono-sketch-compact-width: 520px;
+  --fono-sketch-brand: 48px;
+  --fono-sketch-brand-compact: 40px;
+  --fono-sketch-action: 36px;
+  --fono-sketch-toggle-width: 104px;
+  --fono-sketch-option: 28px;
+  --fono-sketch-wave-height: 38px;
+  --fono-sketch-stage-height: 380px;
   --fono-overlay-finish-background: color-mix(
     in srgb,
     var(--fono-success) 12%,
@@ -61,12 +80,12 @@
   --fono-service-end: color-mix(
     in srgb,
     var(--fono-surface) 97%,
-    var(--fono-electric)
+    var(--fono-background-accent)
   );
   --fono-record-center: color-mix(
     in srgb,
     var(--fono-surface-raised) 84%,
-    var(--fono-electric)
+    var(--fono-background-accent)
   );
   --fono-record-mid: color-mix(
     in srgb,
@@ -75,7 +94,7 @@
   );
   --fono-select-option-hover: color-mix(
     in srgb,
-    var(--fono-accent) 16%,
+    var(--fono-background-accent) 16%,
     var(--fono-surface)
   );
   --fono-select-border-hover: color-mix(
@@ -143,6 +162,7 @@
   --fono-record-min-height: 160px;
   --fono-record-controls-space: 80px;
   --fono-text-max-height: 260px;
+  --fono-prompt-result-height: 320px;
   --fono-history-stat-width: 150px;
   --fono-live-notice-width: 640px;
   --fono-mode-control-width: 300px;

@@ -25,6 +25,9 @@ const tools = computed<
 >(() => {
   const p = workspace.state.preferences;
   const model = workspace.state.models.find((m) => m.id === p.model);
+  const translating =
+    p.processingTranslationEnabled && p.processingTranslation !== "none";
+  const passthrough = p.processingMode === "raw" && !translating;
   return [
     {
       title: "Микрофон",
@@ -78,17 +81,23 @@ const tools = computed<
       value:
         p.dictationMode === "live"
           ? "Без ИИ в живом режиме"
-          : p.processingModel || "Выберите модель",
+          : p.processingMode === "raw"
+            ? translating
+              ? `Только перевод · ${p.processingTranslation.toUpperCase()}`
+              : "Без изменений · без ИИ"
+            : p.processingModel || "Выберите модель",
       health:
         p.dictationMode === "live" || !p.processingEnabled
           ? "off"
-          : workspace.native && !workspace.state.aiChecked
-            ? p.profile && p.processingModel
-              ? "ready"
-              : "missing"
-            : workspace.state.aiAvailable
-              ? "ready"
-              : "error",
+          : passthrough
+            ? "ready"
+            : workspace.native && !workspace.state.aiChecked
+              ? p.profile && p.processingModel
+                ? "ready"
+                : "missing"
+              : workspace.state.aiAvailable
+                ? "ready"
+                : "error",
       toggle: p.dictationMode === "live" ? undefined : "processingEnabled",
     },
   ];

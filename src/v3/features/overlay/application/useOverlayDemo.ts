@@ -51,24 +51,32 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
       }, milliseconds);
     });
   }
-  function waiting(error: string | null = null, captured?: Preferences) {
+  function waiting(
+    error: string | null = null,
+    captured?: Preferences,
+    result: string | null = null,
+    copyOnly = false,
+  ) {
     const preferences = captured ?? getPreferences?.();
     pending.value = {
       sessionId: ++nextSession,
       phase: "awaiting_action",
       originalText: sampleText,
-      resultText: null,
+      resultText: result,
       createdAt: new Date().toISOString(),
       preset: preferences?.processingMode || "clean",
       targetLanguage:
         preferences?.processingTranslation &&
+        preferences.processingTranslationEnabled &&
         preferences.processingTranslation !== "none"
           ? preferences.processingTranslation
           : null,
       processingEnabled: preferences?.processingEnabled ?? true,
+      translationEnabled: preferences?.processingTranslationEnabled ?? true,
       source: "hotkey",
       error,
       insertionBlocked: false,
+      copyOnly,
     };
     phase.value = "awaiting_action";
     level.value = 0;
@@ -110,7 +118,7 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     phase.value = "cancelled";
     if (live.value) live.value.phase = "cancelled";
   }
-  async function finish() {
+  async function finish(origin?: "button" | "hotkey") {
     if (!["listening", "silence"].includes(phase.value)) return;
     resetTransition();
     const ticket = revision;
@@ -126,6 +134,26 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     if (capturedLive) {
       capturedLive.phase = "done";
       phase.value = "done";
+    } else if (origin === "button" || origin === "hotkey") {
+      let text = sampleText;
+      if (captured?.processingEnabled) {
+        phase.value = "processing";
+        await delay(850);
+        if (ticket !== revision) return;
+        text = processDemoText(
+          sampleText,
+          captured.processingMode,
+          captured.processingTranslationEnabled &&
+            captured.processingTranslation !== "none"
+            ? captured.processingTranslation
+            : null,
+        );
+      }
+      if (origin === "button") waiting(null, captured, text, true);
+      else {
+        resultText.value = text;
+        phase.value = "done";
+      }
     } else if (captured && !captured.processingEnabled) {
       resultText.value = sampleText;
       phase.value = "done";
@@ -136,7 +164,8 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
       resultText.value = processDemoText(
         sampleText,
         captured.processingMode,
-        captured.processingTranslation === "none"
+        !captured.processingTranslationEnabled ||
+          captured.processingTranslation === "none"
           ? null
           : captured.processingTranslation,
       );
@@ -147,7 +176,18 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     const current = pending.value;
     if (!current || current.sessionId !== request.sessionId) return;
     if (request.action === "cancel") return cancel();
+    if (request.action === "complete") {
+      resetTransition();
+      pending.value = null;
+      phase.value = "done";
+      return;
+    }
     if (current.phase === "processing") return;
+    if (
+      current.copyOnly &&
+      ["insert_raw", "process_and_insert"].includes(request.action)
+    )
+      return;
     if (request.action === "insert_raw") {
       resetTransition();
       resultText.value = current.originalText;
@@ -161,17 +201,29 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     current.phase = "processing";
     current.error = null;
     current.preset = request.preset || current.preset;
-    if (request.targetLanguage !== undefined)
+    if (request.targetLanguage !== undefined) {
       current.targetLanguage = request.targetLanguage;
+      current.translationEnabled = request.targetLanguage !== null;
+    }
     phase.value = "processing";
     await delay(850);
     if (ticket !== revision || pending.value?.sessionId !== current.sessionId)
       return;
-    resultText.value = processDemoText(
+    const processed = processDemoText(
       current.originalText,
       current.preset,
-      current.targetLanguage,
+      (current.translationEnabled ??
+        getPreferences?.().processingTranslationEnabled)
+        ? current.targetLanguage
+        : null,
     );
+    if (request.action === "process_preview") {
+      current.resultText = processed;
+      current.phase = "awaiting_action";
+      phase.value = "awaiting_action";
+      return;
+    }
+    resultText.value = processed;
     pending.value = null;
     phase.value = "done";
   }
@@ -196,10 +248,22 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
       if (preferences) {
         preferences.processingMode = choice.preset;
         preferences.processingTranslation = choice.targetLanguage ?? "none";
+        if (choice.processingEnabled !== undefined)
+          preferences.processingEnabled = choice.processingEnabled;
+        if (choice.translationEnabled !== undefined)
+          preferences.processingTranslationEnabled = choice.translationEnabled;
       }
       if (pending.value) {
         pending.value.preset = choice.preset;
-        pending.value.targetLanguage = choice.targetLanguage;
+        pending.value.translationEnabled =
+          choice.translationEnabled ??
+          preferences?.processingTranslationEnabled ??
+          true;
+        pending.value.targetLanguage = pending.value.translationEnabled
+          ? choice.targetLanguage
+          : null;
+        if (choice.processingEnabled !== undefined)
+          pending.value.processingEnabled = choice.processingEnabled;
       }
     },
     showPendingError() {

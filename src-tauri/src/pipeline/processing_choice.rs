@@ -8,6 +8,21 @@ use crate::{
 use std::sync::atomic::Ordering;
 
 impl Pipeline {
+    /// Restore a failed shortcut completion only while its exact capture is editable.
+    pub(crate) fn while_editable_recording(&self, operation: u64, apply: impl FnOnce()) -> bool {
+        let recording = self.recording.lock();
+        if !*recording
+            || self.processing_frozen_for.load(Ordering::Acquire) == operation
+            || !self
+                .current_operation()
+                .is_some_and(|capture| capture.id == operation)
+        {
+            return false;
+        }
+        apply();
+        true
+    }
+
     /// Stop freezes the choice before cloning settings, even while the public
     /// phase still says Recording and audio drain/VAD have not completed yet.
     pub(crate) fn freeze_session_for_completion(

@@ -18,6 +18,8 @@ import SelectField from "../../../shared/presentation/SelectField.vue";
 const draft = defineModel<Preferences>({ required: true });
 const previewScenario = ref("recording");
 const previewFeedback = ref("");
+const previewResult = ref<string | null>(null);
+let previewRevision = 0;
 const sampleText =
   "Проверить новую версию Fono и отправить команде результаты.";
 const previewPhase = computed<Phase>(() => {
@@ -35,16 +37,19 @@ const previewPhase = computed<Phase>(() => {
 const demoPending = computed<PendingDictation | null>(() =>
   previewScenario.value === "awaiting_action"
     ? {
-        sessionId: 1,
+        sessionId: previewRevision,
         phase: "awaiting_action" as const,
         originalText: sampleText,
-        resultText: null,
+        resultText: previewResult.value,
+        copyOnly: true,
         preset: draft.value.processingMode,
         targetLanguage:
+          !draft.value.processingTranslationEnabled ||
           draft.value.processingTranslation === "none"
             ? null
             : draft.value.processingTranslation,
         processingEnabled: draft.value.processingEnabled,
+        translationEnabled: draft.value.processingTranslationEnabled,
         source: "hotkey" as const,
         createdAt: "2026-10-04T12:00:00.000Z",
         error: null,
@@ -52,18 +57,42 @@ const demoPending = computed<PendingDictation | null>(() =>
       }
     : null,
 );
-watch(previewScenario, () => (previewFeedback.value = ""), { flush: "sync" });
+watch(
+  previewScenario,
+  () => {
+    previewRevision++;
+    previewFeedback.value = "";
+    previewResult.value = null;
+  },
+  { flush: "sync" },
+);
 function resolvePreview(request: PendingDictationRequest) {
+  if (demoPending.value?.sessionId !== request.sessionId) return;
+  if (request.action === "process_preview") {
+    previewResult.value = sampleText;
+    previewFeedback.value =
+      "Обработка показана на примере. Доступно копирование без вставки в другое приложение.";
+    return;
+  }
   previewScenario.value = request.action === "cancel" ? "cancelled" : "done";
   previewFeedback.value =
     "Действие показано на примере. Текст не обрабатывался и не вставлялся в другое приложение.";
 }
-function copyPreview(text: string) {
-  void run(() => workspace.copy(text), "Текст примера скопирован");
+async function copyPreview(text: string) {
+  const revision = previewRevision;
+  const copied = await run(
+    () => workspace.copy(text),
+    "Текст примера скопирован",
+  );
+  if (copied && revision === previewRevision) previewScenario.value = "done";
 }
 function changePreviewProcessing(choice: OverlayProcessingChoice) {
   draft.value.processingMode = choice.preset;
   draft.value.processingTranslation = choice.targetLanguage ?? "none";
+  if (choice.processingEnabled !== undefined)
+    draft.value.processingEnabled = choice.processingEnabled;
+  if (choice.translationEnabled !== undefined)
+    draft.value.processingTranslationEnabled = choice.translationEnabled;
 }
 </script>
 <template>
@@ -143,13 +172,19 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
       <summary>Что означают кнопки</summary>
       <div class="form-stack overlay-legend">
         <p class="muted">
-          <AppIcon name="stop" :size="14" class="dictation-action--insert" />
-          Зелёная «Завершить» — остановить запись и распознать речь с выбранными
-          настройками. Повторное нажатие горячей клавиши делает то же самое.
+          <AppIcon name="check" :size="14" class="dictation-action--insert" />
+          Зелёная галочка — завершить запись с текущими настройками и оставить
+          результат для копирования. Текст не вставляется автоматически.
         </p>
         <p class="muted">
-          <AppIcon name="check" :size="14" class="dictation-action--insert" />
-          «Вставить исходный» — отправить расшифровку без ИИ.
+          <AppIcon
+            name="keyboard"
+            :size="14"
+            class="dictation-action--insert"
+          />
+          Повторное нажатие горячей клавиши — распознать речь, применить
+          выбранную обработку, вставить текст в исходное поле и закрыть
+          индикатор.
         </p>
         <p class="muted">
           <AppIcon
@@ -157,22 +192,22 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
             :size="14"
             class="dictation-action--process"
           />
-          Обработка — очистка, форматирование, постановка задачи или деловое
-          письмо.
+          Обработка — выбранный стиль. «Без изменений» пропускает редактирование
+          через ИИ; с переводом выполняется только перевод.
         </p>
         <p class="muted">
           <AppIcon
-            name="message"
+            name="translate"
             :size="14"
             class="dictation-action--translate"
           />
-          Перевод — оформить текст выбранным способом и перевести на выбранный
-          язык.
+          Перевод — включить выбранный язык. Шестерёнка справа открывает выбор
+          языка. Выключение сохраняет его для следующей записи.
         </p>
         <p class="muted">
           <AppIcon name="x" :size="14" class="dictation-action--cancel" />
-          Отмена — завершить диктовку без вставки. «Копировать» оставляет текст
-          в буфере.
+          Красный крестик — отменить или закрыть без копирования. «Копировать»
+          помещает результат в буфер и закрывает индикатор.
         </p>
         <p class="muted">
           Обработка и перевод доступны при включённом ИИ. При ручном выборе Fono

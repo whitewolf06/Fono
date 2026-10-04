@@ -38,9 +38,12 @@ function quickRecording() {
   select("listening");
 }
 async function copy(text: string) {
+  const sessionId = pending.value?.sessionId;
   copyMessage.value = "";
   try {
     await workspace.copy(text);
+    if (sessionId && pending.value?.sessionId === sessionId)
+      await resolve({ sessionId, action: "complete" });
     copyMessage.value = "Демонстрационный текст скопирован.";
   } catch {
     copyMessage.value =
@@ -64,6 +67,8 @@ const phases: Phase[] = [
     <PageHeading
       title="Индикатор записи"
       description="Браузерный предпросмотр плавающего окна."
+      ><RouterLink class="text-link" to="/overlay-sketch"
+        >Новый набросок</RouterLink
       ><RouterLink class="text-link" to="/settings/overlay"
         >Настройки внешнего вида</RouterLink
       ></PageHeading
@@ -79,6 +84,12 @@ const phases: Phase[] = [
       </button>
       <button @click="showPendingError">Ошибка обработки · повторить</button>
       <button @click="quickRecording">Запись · быстрые настройки</button>
+      <button
+        :disabled="!['listening', 'silence'].includes(phase)"
+        @click="finish('hotkey')"
+      >
+        Завершить сочетанием · демо
+      </button>
     </div>
     <div
       v-if="LIVE_DICTATION_ENABLED"
@@ -117,7 +128,7 @@ const phases: Phase[] = [
             :live="live"
             :pending="pending"
             interactive
-            @finish="finish"
+            @finish="finish('button')"
             @cancel="cancel"
             @resume="resumeLive"
             @resolve="resolve"
@@ -135,7 +146,7 @@ const phases: Phase[] = [
             :live="live"
             :pending="pending"
             interactive
-            @finish="finish"
+            @finish="finish('button')"
             @cancel="cancel"
             @resume="resumeLive"
             @resolve="resolve"

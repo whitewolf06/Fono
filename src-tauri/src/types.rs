@@ -8,8 +8,13 @@ pub use crate::application::dictation::workflow::{
 };
 pub use fono_wake::WakeWordBackend;
 mod history_metadata;
+mod processing_prompts;
 pub use history_metadata::{
     DictationBackend, DictationHistoryMetadata, DictationTimingMeasurements,
+};
+pub use processing_prompts::{
+    ProcessingPromptChoice, ProcessingPrompts, MAX_PROCESSING_PROMPT_CHARS,
+    MAX_PROCESSING_TEXT_BYTES,
 };
 use serde::{Deserialize, Serialize};
 
@@ -439,6 +444,10 @@ pub struct Settings {
     pub processing_preset: Option<TextPreset>,
     #[serde(default)]
     pub processing_target_language: Option<TranslationLanguage>,
+    #[serde(default = "default_processing_translation_enabled")]
+    pub processing_translation_enabled: bool,
+    #[serde(default)]
+    pub processing_prompts: ProcessingPrompts,
     #[serde(default = "default_llm_url")]
     pub llm_base_url: String,
     #[serde(default)]
@@ -618,6 +627,8 @@ impl Default for Settings {
             processing_workflow: ProcessingWorkflow::Automatic,
             processing_preset: None,
             processing_target_language: None,
+            processing_translation_enabled: true,
+            processing_prompts: ProcessingPrompts::default(),
             llm_base_url: default_llm_url(),
             llm_model: None,
             autostart: false,
@@ -780,6 +791,10 @@ fn default_overlay_scale() -> f32 {
 }
 
 fn default_overlay_enabled() -> bool {
+    true
+}
+
+fn default_processing_translation_enabled() -> bool {
     true
 }
 

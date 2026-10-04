@@ -20,6 +20,7 @@ interface PendingCapture {
   entry: Dictation;
   snapshot: CaptureSnapshot;
   generationStarted: number;
+  processingDurationMs?: number;
 }
 
 export function createPendingWorkflow(
@@ -48,10 +49,12 @@ export function createPendingWorkflow(
       createdAt: value.entry.createdAt,
       preset: preferences.processingMode,
       targetLanguage:
+        preferences.processingTranslationEnabled === false ||
         preferences.processingTranslation === "none"
           ? null
           : preferences.processingTranslation,
       processingEnabled: preferences.processingEnabled,
+      translationEnabled: preferences.processingTranslationEnabled !== false,
       source:
         state.recordingSource === "hotkey"
           ? "hotkey"
@@ -70,11 +73,11 @@ export function createPendingWorkflow(
     text: string,
     preset: ProcessingPreset | "off",
     processingDurationMs: number | null,
+    alreadyCanonical = false,
   ) {
-    const canonical = canonicalizeDictionary(
-      current.snapshot.preferences,
-      text,
-    );
+    const canonical = alreadyCanonical
+      ? text
+      : canonicalizeDictionary(current.snapshot.preferences, text);
     publishDemoEntry(
       state,
       current.snapshot,
@@ -92,6 +95,7 @@ export function createPendingWorkflow(
     current: PendingCapture,
     preset: ProcessingPreset,
     targetLanguage: TranslationLanguage | null,
+    preview: boolean,
   ) {
     const ticket = ++revision;
     const started = Date.now();
@@ -100,13 +104,15 @@ export function createPendingWorkflow(
       phase: "processing",
       preset,
       targetLanguage,
+      translationEnabled: targetLanguage !== null,
       error: null,
     });
     state.phase = "processing";
     state.error = "";
-    await delay(800);
+    const needsModel = preset !== "raw" || targetLanguage !== null;
+    if (needsModel) await delay(800);
     if (ticket !== revision || capture !== current) return;
-    if (!state.aiAvailable) {
+    if (needsModel && !state.aiAvailable) {
       const error =
         "Демонстрационная модель недоступна. Проверьте подключение, повторите обработку или вставьте исходный текст.";
       pending.phase = "awaiting_action";
@@ -120,7 +126,22 @@ export function createPendingWorkflow(
       preset,
       targetLanguage,
     );
-    complete(current, pending.resultText, preset, Date.now() - started);
+    const duration = Date.now() - started;
+    if (preview) {
+      current.processingDurationMs = duration;
+      pending.resultText = canonicalizeDictionary(
+        current.snapshot.preferences,
+        pending.resultText,
+      );
+      pending.phase = "awaiting_action";
+      state.phase = "awaiting_action";
+      state.error = "";
+      selectLatest(state, { ...current.entry, text: pending.resultText });
+      state.last.variant = "result";
+      state.last.draft = pending.resultText;
+      return;
+    }
+    complete(current, pending.resultText, preset, duration);
   }
   async function resolve(request: PendingDictationRequest): Promise<void> {
     const current = capture;
@@ -131,12 +152,30 @@ export function createPendingWorkflow(
       onCancel();
       return;
     }
+    if (
+      pending.copyOnly &&
+      ["insert_raw", "process_and_insert"].includes(request.action)
+    )
+      throw new Error(
+        "Эта диктовка ожидает копирования. Вставка из неё недоступна.",
+      );
     if (inFlight) {
-      if (request.action === "process_and_insert") return inFlight;
+      if (["process_and_insert", "process_preview"].includes(request.action))
+        return inFlight;
       throw new Error("Сначала дождитесь обработки или отмените диктовку.");
     }
     if (request.action === "insert_raw") {
       complete(current, pending.originalText, "off", null);
+      return;
+    }
+    if (request.action === "complete") {
+      complete(
+        current,
+        pending.resultText ?? pending.originalText,
+        pending.processingEnabled ? pending.preset : "off",
+        current.processingDurationMs ?? null,
+        pending.resultText !== null,
+      );
       return;
     }
     if (!pending.processingEnabled)
@@ -147,6 +186,7 @@ export function createPendingWorkflow(
       request.targetLanguage === undefined
         ? pending.targetLanguage
         : request.targetLanguage,
+      request.action === "process_preview",
     );
     inFlight = running;
     try {

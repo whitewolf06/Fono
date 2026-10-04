@@ -101,8 +101,13 @@ export interface Settings {
   hotkey: string;
   hotkey_mode?: "hold" | "toggle";
   processing_workflow?: "automatic" | "manual";
-  processing_preset?: "clean" | "format" | "task" | "formal" | null;
+  processing_preset?: "raw" | "clean" | "format" | "task" | "formal" | null;
   processing_target_language?: "en" | "ru" | "de" | "fr" | "es" | null;
+  processing_translation_enabled?: boolean;
+  processing_prompts?: Record<
+    "clean" | "format" | "task" | "formal",
+    { use_custom: boolean; custom_prompt: string }
+  >;
   /** Включена ли активация по ключевой фразе */
   wake_word_enabled: boolean;
   /** Сама фраза, напр. "Эй, ассистент" */
@@ -417,7 +422,7 @@ export interface DictationHistoryMetadata {
   dictation_mode: "standard" | "live";
   processing_mode: AiMode;
   processing_workflow?: "automatic" | "manual" | null;
-  processing_preset?: "clean" | "format" | "task" | "formal" | null;
+  processing_preset?: "raw" | "clean" | "format" | "task" | "formal" | null;
   processing_target_language?: "en" | "ru" | "de" | "fr" | "es" | null;
   dictionary_enabled: boolean;
 }

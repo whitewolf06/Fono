@@ -38,6 +38,26 @@ pub async fn stop_dictation(app: AppHandle, session_id: Option<u64>) -> AppResul
     crate::application::dictation::stop(app).await
 }
 
+/// Clicking the check icon produces a copyable result and never inserts it.
+#[tauri::command]
+pub async fn finish_overlay_dictation(app: AppHandle, session_id: u64) -> AppResult<Transcript> {
+    let operation = app
+        .state::<Pipeline>()
+        .requested_operation(Some(session_id))?;
+    crate::application::dictation::stop_overlay_for(app, operation).await
+}
+#[tauri::command]
+pub fn acknowledge_overlay_processing_flush(
+    app: AppHandle,
+    session_id: u64,
+    request_id: u64,
+    error: Option<String>,
+) {
+    crate::application::dictation::workflow::acknowledge_overlay_flush(
+        &app, session_id, request_id, error,
+    );
+}
+
 #[tauri::command]
 pub async fn transcribe_test(
     app: AppHandle,

@@ -15,7 +15,9 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
         || previous.processing_workflow != next.processing_workflow
         || previous.processing_preset != next.processing_preset
         || previous.processing_target_language != next.processing_target_language
+        || previous.processing_translation_enabled != next.processing_translation_enabled
         || previous.clean_prompt != next.clean_prompt
+        || previous.processing_prompts != next.processing_prompts
         || previous.llm_profiles != next.llm_profiles
         || previous.text_correction_llm != next.text_correction_llm;
     if active && capture_changed {
@@ -27,6 +29,17 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_actual_prompt_changes_block_active_capture() {
+        let previous = Settings::default();
+        let roundtrip: Settings =
+            serde_json::from_value(serde_json::to_value(&previous).unwrap()).unwrap();
+        assert!(validate(true, &previous, &roundtrip).is_ok());
+        let mut next = roundtrip;
+        next.processing_prompts.task.custom_prompt = "Свой промпт".into();
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
+    }
     #[test]
     fn changing_mode_cannot_hide_an_active_live_session() {
         let previous = Settings::default();

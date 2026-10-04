@@ -4,6 +4,8 @@ import type {
 } from "../../../shared/domain/contracts";
 import { validatePreferences } from "../domain/preferences";
 import { availableDictationMode } from "../../../shared/domain/dictationMode";
+import { mockProcessing } from "./mockProcessing";
+import { clonePreferences } from "../domain/processingPrompts";
 import {
   persistPreferences,
   playDemoSample,
@@ -47,7 +49,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     const error = validatePreferences(next);
     if (error) throw new Error(error);
     persistPreferences(next);
-    Object.assign(state.preferences, next);
+    Object.assign(state.preferences, clonePreferences(next));
     if (phraseChanged && state.wakeSetup) {
       state.wakeSetup.profileReady = false;
       state.wakeSetup.verified = false;
@@ -55,6 +57,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     state.logs.unshift("Настройки обновлены");
   }
   return {
+    ...mockProcessing(state),
     save,
     async toggle(key, value) {
       if (state.pending[key]) return;

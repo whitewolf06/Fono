@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { WlButton, WlField, WlTextarea } from "@whitelife-core/ui-kit";
+import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
@@ -8,6 +8,8 @@ import SelectField from "../../../shared/presentation/SelectField.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import ProfileManager from "./ProfileManager.vue";
 import LlmModelField from "./LlmModelField.vue";
+import ProcessingPrompts from "./ProcessingPrompts.vue";
+import { translationOptions } from "../../../shared/domain/processing";
 defineProps<{ advanced?: boolean }>();
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
@@ -19,12 +21,7 @@ const profiles = computed(() =>
 const selectedProfile = computed(() =>
   workspace.state.profiles.find((p) => p.id === draft.value.profile),
 );
-const canProcess = computed(
-  () =>
-    draft.value.processingEnabled &&
-    Boolean(selectedProfile.value) &&
-    Boolean(draft.value.processingModel),
-);
+const canProcess = computed(() => draft.value.processingEnabled);
 const trainerProfile = computed(() =>
   workspace.state.profiles.find((p) => p.id === draft.value.trainerProfile),
 );
@@ -53,8 +50,8 @@ const trainerProfile = computed(() =>
       ]"
       :hint="
         draft.processingTrigger === 'manual'
-          ? 'После распознавания Fono ждёт вашего выбора в индикаторе или на главной: вставить исходный текст или обработать. До выбора текст не вставляется.'
-          : 'Fono обработает текст выбранным способом и вставит готовый результат.'
+          ? 'После распознавания Fono ждёт вашего решения. Галочка в индикаторе оставляет результат для копирования; повторное нажатие сочетания вставляет текст с выбранными настройками.'
+          : 'Fono применит текущие настройки. Повторное нажатие сочетания вставляет результат; галочка оставляет его для копирования без автоматической вставки.'
       "
     />
     <SelectField
@@ -63,6 +60,10 @@ const trainerProfile = computed(() =>
       label="Стиль обработки по умолчанию"
       :disabled="!canProcess"
       :options="[
+        {
+          value: 'raw',
+          label: 'Без изменений · только распознавание или перевод',
+        },
         { value: 'clean', label: 'Очистка · сохранить ваш стиль' },
         { value: 'format', label: 'Форматирование · структурировать мысли' },
         { value: 'task', label: 'Постановка задачи · цель и шаги' },
@@ -73,17 +74,25 @@ const trainerProfile = computed(() =>
     <SelectField
       id="processingTranslation"
       v-model="draft.processingTranslation"
-      label="Перевод после обработки"
+      label="Язык перевода"
       :disabled="!canProcess"
-      :options="[
-        { value: 'none', label: 'Без перевода' },
-        { value: 'en', label: 'Английский' },
-        { value: 'ru', label: 'Русский' },
-        { value: 'de', label: 'Немецкий' },
-        { value: 'fr', label: 'Французский' },
-        { value: 'es', label: 'Испанский' },
-      ]"
-      hint="ИИ сначала убирает лишнее и оформляет текст, затем переводит его с сохранением смысла."
+      :options="[...translationOptions]"
+      :hint="
+        draft.processingMode === 'raw'
+          ? 'Без изменений: выполняется только перевод. Без перевода запрос к модели не отправляется.'
+          : 'ИИ редактирует текст и переводит его с сохранением смысла.'
+      "
+    />
+    <PreferenceToggle
+      name="processingTranslationEnabled"
+      label="Применять перевод"
+      description="Язык запоминается даже при выключенном переводе."
+      :disabled="!canProcess || draft.processingTranslation === 'none'"
+      :effective-value="
+        !canProcess || draft.processingTranslation === 'none'
+          ? false
+          : undefined
+      "
     />
     <p class="muted">
       В режиме повторного нажатия быстрые настройки индикатора позволяют сменить
@@ -135,6 +144,8 @@ const trainerProfile = computed(() =>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     <template v-if="advanced">
       <div class="section-divider" />
+      <ProcessingPrompts v-model="draft" />
+      <div class="section-divider" />
       <ProfileManager />
       <div class="section-divider" />
       <h3>Рекомендации речевого тренера</h3>
@@ -169,23 +180,6 @@ const trainerProfile = computed(() =>
         label="Разрешить отправку выбранных данных в облако"
         description="Без этого разрешения облачные рекомендации не работают."
       />
-      <details id="advanced" class="advanced">
-        <summary>Дополнительно · пользовательская инструкция</summary>
-        <WlField
-          v-slot="field"
-          label="Инструкция модели"
-          :hint="
-            workspace.native
-              ? 'Сохраняется локально и отправляется выбранной модели вместе с текстом.'
-              : 'Не сохраняется в браузере. Не добавляйте личные данные.'
-          "
-          ><WlTextarea
-            v-bind="field"
-            v-model="draft.instruction"
-            :rows="4"
-            placeholder="Сохраняй смысл и мой стиль. Не добавляй новых фактов."
-        /></WlField>
-      </details>
     </template>
   </div>
 </template>

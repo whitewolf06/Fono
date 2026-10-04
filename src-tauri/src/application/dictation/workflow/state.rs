@@ -51,7 +51,23 @@ impl<T: Clone> Store<T> {
         if record.snapshot.phase == PendingPhase::Processing {
             return Err(AppError::Busy("Диктовка уже обрабатывается".into()));
         }
-        if record.snapshot.insertion_blocked {
+        if record.snapshot.copy_only
+            && matches!(
+                request.action,
+                super::PendingAction::InsertRaw | super::PendingAction::ProcessAndInsert
+            )
+        {
+            return Err(AppError::Config(
+                "Эта диктовка завершена для копирования. Скопируйте текст или закройте индикатор"
+                    .into(),
+            ));
+        }
+        if record.snapshot.insertion_blocked
+            && !matches!(
+                request.action,
+                super::PendingAction::Complete | super::PendingAction::ProcessPreview
+            )
+        {
             return Err(AppError::Injection("Вставка заблокирована. Скопируйте текст из Fono; повторная отправка может дублировать текст".into()));
         }
         if let Some(preset) = request.preset {
@@ -59,6 +75,7 @@ impl<T: Clone> Store<T> {
         }
         if let Some(language) = request.target_language {
             record.snapshot.target_language = language;
+            record.snapshot.translation_enabled = language.is_some();
         }
         record.snapshot.phase = PendingPhase::Processing;
         record.snapshot.error = None;

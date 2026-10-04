@@ -8,6 +8,10 @@ import type {
   ProcessingPreset,
   ProcessingTrigger,
   ProcessingTranslation,
+  ProcessingPrompts,
+  ProcessingPromptCatalog,
+  ProcessingPreviewInput,
+  ProcessingPreviewResult,
 } from "./processing";
 export type Phase =
   | "idle"
@@ -68,6 +72,8 @@ export interface Preferences {
   processingMode: ProcessingPreset;
   processingTrigger: ProcessingTrigger;
   processingTranslation: ProcessingTranslation;
+  processingTranslationEnabled: boolean;
+  processingPrompts: ProcessingPrompts;
   profile: string;
   processingModel: string;
   instruction: string;
@@ -212,6 +218,13 @@ export interface WorkspaceState {
   testSignal: number;
 }
 export interface SettingsPort {
+  processingPromptCatalog(): Promise<ProcessingPromptCatalog>;
+  previewProcessing(
+    input: ProcessingPreviewInput,
+  ): Promise<ProcessingPreviewResult>;
+  startProcessingCapture(): Promise<void>;
+  finishProcessingCapture(): Promise<string>;
+  cancelProcessingCapture(): Promise<void>;
   save(patch: Partial<Preferences>): Promise<void>;
   toggle(key: ToggleKey, value: boolean): Promise<void>;
   downloadModel(id: string): Promise<void>;

@@ -1,6 +1,7 @@
 import type { Preferences } from "../domain/contracts";
 import { defaults } from "../../features/preferences/domain/preferences";
 import { availableDictationMode } from "../domain/dictationMode";
+import { clonePreferences } from "../../features/preferences/domain/processingPrompts";
 const storageKey = "fono-v3-demo-preferences-v1";
 // Persist demo preferences only. Transcripts, tokens and instructions never enter browser storage.
 const persistedKeys: (keyof Preferences)[] = [
@@ -21,6 +22,7 @@ const persistedKeys: (keyof Preferences)[] = [
   "processingMode",
   "processingTrigger",
   "processingTranslation",
+  "processingTranslationEnabled",
   "profile",
   "processingModel",
   "autostart",
@@ -45,7 +47,7 @@ const persistedKeys: (keyof Preferences)[] = [
 export function readPreferences(): Preferences {
   try {
     const raw: unknown = JSON.parse(localStorage.getItem(storageKey) || "{}");
-    if (!raw || typeof raw !== "object") return { ...defaults };
+    if (!raw || typeof raw !== "object") return clonePreferences(defaults);
     const safe: Record<string, unknown> = {};
     for (const key of persistedKeys) {
       const value = (raw as Record<string, unknown>)[key];
@@ -66,16 +68,16 @@ export function readPreferences(): Preferences {
       safe.wakeLanguage = defaults.wakeLanguage;
     for (const [key, values] of Object.entries({
       hotkeyMode: ["hold", "toggle"],
-      processingMode: ["clean", "format", "task", "formal"],
+      processingMode: ["raw", "clean", "format", "task", "formal"],
       processingTrigger: ["automatic", "manual"],
       processingTranslation: ["none", "en", "ru", "de", "fr", "es"],
     })) {
       if (!values.includes(String(safe[key])))
         safe[key] = defaults[key as keyof Preferences];
     }
-    return { ...defaults, ...safe, dictionaryEntries: [] };
+    return { ...clonePreferences(defaults), ...safe, dictionaryEntries: [] };
   } catch {
-    return { ...defaults };
+    return clonePreferences(defaults);
   }
 }
 export function persistPreferences(prefs: Preferences): void {

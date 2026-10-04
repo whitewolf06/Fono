@@ -5,6 +5,8 @@ pub mod diagnostics;
 pub mod dictation;
 pub mod llm;
 pub mod models;
+pub mod processing;
+pub mod processing_capture;
 pub mod service;
 pub mod settings;
 pub mod system;

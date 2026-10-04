@@ -7,6 +7,7 @@ import { createServer } from "vite";
 let server,
   createControls,
   createNativeOverlay,
+  bindLayout,
   OverlayPreview,
   defaults,
   rawDefaults;
@@ -53,6 +54,9 @@ before(async () => {
   ));
   ({ createNativeOverlay } = await server.ssrLoadModule(
     "/src/v3/features/overlay/infrastructure/nativeOverlay.ts",
+  ));
+  ({ bindOverlayLayout: bindLayout } = await server.ssrLoadModule(
+    "/src/v3/features/overlay/infrastructure/overlayLayout.ts",
   ));
   // Native adapter setup needs a class marker, but no native window or DOM is opened.
   globalThis.document = { documentElement: { classList: { add() {} } } };
@@ -229,7 +233,11 @@ test("persistence failure visibly rolls back choice and blocks Finish until a su
     const finishing = controls.finish(async () => stops.push("stop"));
     saves[0].reject(new Error("Не удалось сохранить выбор"));
     await assert.rejects(finishing, /Не удалось сохранить/);
-    assert.deepEqual(state.processingChoice, choice());
+    assert.deepEqual(state.processingChoice, {
+      ...choice(),
+      processingEnabled: true,
+      translationEnabled: rawDefaults.processing_translation_enabled,
+    });
     assert.match(controls.state.error, /Не удалось сохранить/);
     await assert.rejects(
       controls.finish(async () => stops.push("stop")),
@@ -374,60 +382,64 @@ function buttons(html) {
   );
 }
 
-test("recording SSR shows quick choices only for toggle with processing and the optional flag enabled", async () => {
+test("recording shows switches even with processing off so it can be enabled during toggle capture", async () => {
   const enabled = await render();
-  assert.match(enabled, /aria-label="Стиль обработки"/);
-  assert.match(enabled, /aria-label="Перевод после обработки"/);
-  assert.match(enabled, /Выбор сохраняется для следующих диктовок/);
+  assert.match(enabled, /aria-label="Выбрать стиль обработки"/);
+  assert.match(enabled, /aria-label="Выбрать язык перевода"/);
   assert.equal(
-    buttons(enabled).filter((b) => b.includes("overlay-finish")).length,
+    buttons(enabled).filter((b) => b.includes("overlay-sketch-action accept"))
+      .length,
     1,
   );
   assert.match(
-    buttons(enabled).find((b) => b.includes("overlay-finish")),
+    buttons(enabled).find((b) => b.includes("overlay-sketch-action accept")),
     /Завершить/,
   );
   assert.match(
-    buttons(enabled).find((b) => b.includes("overlay-cancel")),
-    /Отмена/,
+    buttons(enabled).find((b) => b.includes("overlay-sketch-action cancel")),
+    /Отменить запись/,
   );
   for (const patch of [
     { hotkeyMode: "hold" },
-    { processingEnabled: false },
     { overlayQuickProcessing: false },
   ]) {
     const html = await render(patch);
-    assert.doesNotMatch(html, /aria-label="Стиль обработки"/);
-    assert.doesNotMatch(html, /aria-label="Перевод после обработки"/);
+    assert.doesNotMatch(html, /aria-label="Выбрать стиль обработки"/);
+    assert.doesNotMatch(html, /aria-label="Выбрать язык перевода"/);
     assert.equal(
-      buttons(html).filter((b) => b.includes("overlay-finish")).length,
+      buttons(html).filter((b) => b.includes("overlay-sketch-action accept"))
+        .length,
       1,
     );
     assert.equal(
-      buttons(html).filter((b) => b.includes("overlay-cancel")).length,
+      buttons(html).filter((b) => b.includes("overlay-sketch-action cancel"))
+        .length,
       1,
     );
   }
+  const off = await render({ processingEnabled: false });
+  assert.match(off, /aria-label="Постобработка"/);
+  assert.match(off, /aria-label="Перевод"[^>]*disabled/);
 });
 
-test("saving disables only Finish; selected options remain clickable and pending keeps raw/process/copy/cancel", async () => {
+test("saving blocks Finish and switches but Cancel remains available; ready result offers Copy and Close only", async () => {
   const html = await render(
     {},
     { processingSaving: true, processingChoice: choice("formal", "en") },
   );
   assert.match(
-    buttons(html).find((b) => b.includes("overlay-finish")),
+    buttons(html).find((b) => b.includes("overlay-sketch-action accept")),
     /\bdisabled\b/,
   );
   assert.doesNotMatch(
-    buttons(html).find((b) => b.includes("overlay-cancel")),
+    buttons(html).find((b) => b.includes("overlay-sketch-action cancel")),
     /\bdisabled\b/,
   );
   const choices = buttons(html).filter((b) =>
-    /dictation-action--(?:process|translate)/.test(b),
+    b.includes("overlay-sketch-option"),
   );
-  assert.equal(choices.length, 10);
-  assert.ok(choices.every((b) => !/\bdisabled\b/.test(b)));
+  assert.equal(choices.length, 2);
+  assert.ok(choices.every((b) => /\bdisabled\b/.test(b)));
   const pendingHtml = await render(
     {},
     {
@@ -440,12 +452,13 @@ test("saving disables only Finish; selected options remain clickable and pending
     },
   );
   assert.match(pendingHtml, /Обработанный вариант/);
-  assert.match(pendingHtml, /Исходный/);
-  assert.match(pendingHtml, /Обработать · EN/);
-  assert.match(pendingHtml, /aria-label="Копировать текст"/);
+  assert.match(pendingHtml, /aria-label="Скопировать текст и закрыть"/);
+  assert.doesNotMatch(pendingHtml, /overlay-sketch-action accept/);
   assert.match(
-    buttons(pendingHtml).find((b) => b.includes("overlay-cancel")),
-    /Отмена/,
+    buttons(pendingHtml).find((b) =>
+      b.includes("overlay-sketch-action cancel"),
+    ),
+    /Закрыть без копирования/,
   );
 });
 
@@ -575,8 +588,8 @@ test("native terminal Close dismisses the overlay; only positive active session 
     calls.length = 0;
     await overlay.finish();
     assert.deepEqual(
-      calls.find(([name]) => name === "stop_dictation"),
-      ["stop_dictation", { sessionId: 42 }],
+      calls.find(([name]) => name === "finish_overlay_dictation"),
+      ["finish_overlay_dictation", { sessionId: 42 }],
     );
     await overlay.cancel();
     assert.deepEqual(
@@ -586,5 +599,233 @@ test("native terminal Close dismisses the overlay; only positive active session 
   } finally {
     overlay.dispose();
     await flush();
+  }
+});
+
+test("physical shortcut acknowledgement waits for the latest persisted overlay switches", async () => {
+  const overlay = createNativeOverlay();
+  try {
+    await flush();
+    const saves = saveChoices();
+    overlay.state.phase = "listening";
+    overlay.state.sessionId = 42;
+    overlay.chooseProcessing({
+      ...choice("raw", "en"),
+      processingEnabled: true,
+      translationEnabled: false,
+    });
+    listeners.get("overlay-processing-flush")({
+      payload: { sessionId: 42, requestId: 7 },
+    });
+    await flush();
+    assert.ok(
+      !calls.some(([name]) => name === "acknowledge_overlay_processing_flush"),
+    );
+    saves[0].resolve({
+      ...saved("raw", "en"),
+      ai_mode: "clean",
+      processing_translation_enabled: false,
+    });
+    await flush();
+    assert.deepEqual(
+      calls.find(([name]) => name === "acknowledge_overlay_processing_flush"),
+      [
+        "acknowledge_overlay_processing_flush",
+        { sessionId: 42, requestId: 7, error: null },
+      ],
+    );
+    assert.equal(overlay.state.processingChoice.translationEnabled, false);
+    assert.equal(overlay.state.processingChoice.targetLanguage, "en");
+    assert.ok(
+      !calls.some(([name]) => name === "finish_overlay_dictation"),
+      "acknowledgement cannot finish or switch a session itself",
+    );
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("failed clipboard copy retains the exact pending result and only successful Copy completes without insertion", async () => {
+  const overlay = createNativeOverlay();
+  try {
+    await flush();
+    overlay.state.pending = pending(52, {
+      copyOnly: true,
+      resultText: "готовый текст",
+    });
+    overlay.state.phase = "awaiting_action";
+    const baseline = invoke;
+    let failure = true;
+    invoke = async (name, args) => {
+      if (name === "copy_dictation_text") {
+        calls.push([name, args]);
+        if (failure) throw new Error("Буфер недоступен");
+        return;
+      }
+      return baseline(name, args);
+    };
+    await overlay.copy("готовый текст");
+    assert.equal(overlay.state.pending.sessionId, 52);
+    assert.equal(overlay.state.pending.resultText, "готовый текст");
+    assert.match(overlay.state.error, /Буфер недоступен/);
+    assert.ok(!calls.some(([name]) => name === "resolve_pending_dictation"));
+    failure = false;
+    await overlay.copy("готовый текст");
+    assert.deepEqual(
+      calls.find(([name]) => name === "resolve_pending_dictation"),
+      [
+        "resolve_pending_dictation",
+        { request: { sessionId: 52, action: "complete" } },
+      ],
+    );
+    assert.equal(overlay.state.pending, null);
+    assert.equal(overlay.state.copying, false);
+    assert.ok(!calls.some(([name]) => name === "reinsert_dictation"));
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("a late clipboard response cannot complete or close a successor pending session", async () => {
+  const overlay = createNativeOverlay(),
+    copied = deferred();
+  try {
+    await flush();
+    overlay.state.pending = pending(61, { resultText: "старый" });
+    const baseline = invoke;
+    invoke = async (name, args) =>
+      name === "copy_dictation_text" ? copied.promise : baseline(name, args);
+    const copying = overlay.copy("старый");
+    overlay.state.pending = pending(62, { resultText: "новый" });
+    copied.resolve();
+    await copying;
+    assert.equal(overlay.state.pending.sessionId, 62);
+    assert.ok(!calls.some(([name]) => name === "resolve_pending_dictation"));
+  } finally {
+    copied.resolve();
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("native layout measures the mounted widget, expands before measurement and disposes its observer", async () => {
+  const previousDocument = globalThis.document;
+  let height = 126,
+    notify,
+    disconnected = 0,
+    observed;
+  const widget = { getBoundingClientRect: () => ({ height }) };
+  globalThis.document = {
+    querySelector: (selector) => {
+      assert.equal(selector, ".native-overlay .overlay-sketch");
+      return widget;
+    },
+  };
+  globalThis.ResizeObserver = class {
+    constructor(callback) {
+      notify = callback;
+    }
+    observe(element) {
+      observed = element;
+    }
+    disconnect() {
+      disconnected++;
+    }
+  };
+  const state = reactive({
+    preferences: { ...defaults, overlayScale: 150 },
+    phase: "listening",
+    pending: null,
+    helpOpen: false,
+    error: "",
+  });
+  const release = bindLayout(
+    state,
+    () => "",
+    (error) => {
+      throw error;
+    },
+  );
+  try {
+    await flush();
+    assert.equal(observed, widget);
+    const layouts = () =>
+      calls
+        .filter(([name]) => name === "set_overlay_layout")
+        .map(([, args]) => args.layout);
+    assert.equal(layouts()[0].contentHeight, null);
+    assert.equal(
+      layouts().at(-1).contentHeight,
+      126,
+      "getRect already includes the 150% zoom",
+    );
+    const baseline = layouts().length;
+    notify();
+    notify();
+    await flush();
+    assert.equal(
+      layouts().length,
+      baseline,
+      "unchanged bounds do not cause resize loops",
+    );
+    height = 274;
+    state.helpOpen = true;
+    await flush();
+    assert.deepEqual(
+      layouts()
+        .slice(baseline)
+        .map((layout) => layout.contentHeight),
+      [null, 274],
+    );
+    height = 94;
+    state.helpOpen = false;
+    await flush();
+    assert.equal(layouts().at(-1).contentHeight, 94);
+    const beforeDispose = layouts().length;
+    release();
+    assert.equal(disconnected, 1);
+    height = 300;
+    notify();
+    state.helpOpen = true;
+    await flush();
+    assert.equal(layouts().length, beforeDispose);
+  } finally {
+    release();
+    globalThis.document = previousDocument;
+    delete globalThis.ResizeObserver;
+  }
+});
+
+test("native layout ignores invalid renderer measurements and retains its static fallback", async () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    querySelector: () => ({
+      getBoundingClientRect: () => ({ height: Number.NaN }),
+    }),
+  };
+  const state = reactive({
+    preferences: { ...defaults },
+    phase: "listening",
+    pending: null,
+    helpOpen: false,
+    error: "",
+  });
+  const release = bindLayout(
+    state,
+    () => "",
+    (error) => {
+      throw error;
+    },
+  );
+  try {
+    await flush();
+    const layouts = calls.filter(([name]) => name === "set_overlay_layout");
+    assert.equal(layouts.length, 1);
+    assert.equal(layouts[0][1].layout.contentHeight, null);
+  } finally {
+    release();
+    globalThis.document = previousDocument;
   }
 });

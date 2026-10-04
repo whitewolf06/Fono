@@ -72,6 +72,7 @@ impl AppState {
 
     pub fn set_settings(&self, mut settings: Settings) {
         settings.enforce_classic_dictation();
+        settings.migrate_processing_prompts();
         *self.settings.lock() = settings;
         self.settings_version.fetch_add(1, Ordering::SeqCst);
     }
@@ -258,6 +259,7 @@ pub fn load_settings() -> AppResult<Option<Settings>> {
 
     let normalized_mode = settings.enforce_classic_dictation();
     let migrated_profiles = settings.migrate_llm_profiles();
+    let migrated_prompts = settings.migrate_processing_prompts();
     let legacy_secret = if let Some(api_key) = settings.llm_api_key.take() {
         crate::secrets::store_llm_api_key(&api_key)?;
         Some(api_key)
@@ -280,7 +282,7 @@ pub fn load_settings() -> AppResult<Option<Settings>> {
     settings.has_llm_api_key = settings
         .llm_profile(Some(crate::types::LlmProfile::DEFAULT_ID))
         .is_some_and(|profile| profile.has_api_key);
-    if legacy || migrated_profiles || normalized_mode {
+    if legacy || migrated_profiles || normalized_mode || migrated_prompts {
         save_versioned_json_atomically(&path, &settings)?;
     }
     {
@@ -294,6 +296,7 @@ pub fn save_settings(settings: &Settings) -> AppResult<()> {
     let path = settings_path()?;
     let mut settings = settings.clone();
     settings.enforce_classic_dictation();
+    settings.migrate_processing_prompts();
     save_versioned_json_atomically(&path, &settings)?;
     tracing::info!(?path, "saved settings");
     Ok(())

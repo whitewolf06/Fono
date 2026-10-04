@@ -133,10 +133,11 @@ export const searchIndex: {
     keywords: "openai lmstudio ключ профиль api сервер ии",
   },
   {
-    label: "Пользовательская инструкция",
+    label: "Системные промпты и проверка обработки",
     section: "processing",
-    field: "advanced",
-    keywords: "prompt промпт подсказка",
+    field: "processingPrompts",
+    keywords:
+      "prompt промпт подсказка инструкция тест проверка попробовать диктовка",
   },
   {
     label: "Рекомендации тренера через ИИ",

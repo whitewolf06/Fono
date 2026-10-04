@@ -19,6 +19,8 @@ pub struct OverlayProcessingChoiceRequest {
     pub preset: TextPreset,
     #[serde(deserialize_with = "required_nullable")]
     pub target_language: Option<TranslationLanguage>,
+    pub processing_enabled: Option<bool>,
+    pub translation_enabled: Option<bool>,
 }
 
 fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -87,6 +89,16 @@ fn editable_pending<T>(
 fn apply_choice(settings: &mut Settings, request: &OverlayProcessingChoiceRequest) {
     settings.processing_preset = Some(request.preset);
     settings.processing_target_language = request.target_language;
+    if let Some(enabled) = request.processing_enabled {
+        settings.ai_mode = if enabled {
+            crate::types::AiMode::Clean
+        } else {
+            crate::types::AiMode::Off
+        };
+    }
+    if let Some(enabled) = request.translation_enabled {
+        settings.processing_translation_enabled = enabled;
+    }
 }
 
 fn persist_choice(
@@ -106,8 +118,10 @@ fn persist_choice(
     }
     if let Some((snapshot, settings)) = pending {
         snapshot.preset = request.preset;
-        snapshot.target_language = request.target_language;
         apply_choice(settings, request);
+        snapshot.target_language = super::effective_language(settings);
+        snapshot.processing_enabled = settings.ai_mode != crate::types::AiMode::Off;
+        snapshot.translation_enabled = settings.processing_translation_enabled;
     }
     Ok(persisted)
 }

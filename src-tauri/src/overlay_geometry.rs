@@ -42,6 +42,7 @@ pub struct WindowRect {
 pub struct GeometryState {
     pub help_open: bool,
     pub error_visible: bool,
+    pub content_height: Option<f64>,
     pub anchor: Option<(i32, i32)>,
     applied_position: Option<(i32, i32)>,
     unsaved_drag_anchor: Option<(i32, i32)>,
@@ -102,17 +103,17 @@ pub fn logical_size(
     scale: f32,
 ) -> (f64, f64) {
     let (width, mut height) = match (mode, compact) {
-        (DisplayMode::Toolbar, false) => (360.0, 104.0),
-        (DisplayMode::Toolbar, true) => (320.0, 72.0),
-        (DisplayMode::QuickProcessing, false) => (440.0, 192.0),
-        (DisplayMode::QuickProcessing, true) => (400.0, 168.0),
-        (DisplayMode::Pending, false) => (440.0, 292.0),
-        (DisplayMode::Pending, true) => (400.0, 272.0),
+        (DisplayMode::Toolbar, false) => (600.0, 108.0),
+        (DisplayMode::Toolbar, true) => (520.0, 96.0),
+        (DisplayMode::QuickProcessing, false) => (600.0, 108.0),
+        (DisplayMode::QuickProcessing, true) => (520.0, 96.0),
+        (DisplayMode::Pending, false) => (600.0, 120.0),
+        (DisplayMode::Pending, true) => (520.0, 112.0),
     };
     if help_open {
-        height += 120.0;
+        height += 300.0;
     }
-    if error_visible && mode == DisplayMode::Toolbar {
+    if error_visible {
         height += 48.0;
     }
     let scale = f64::from(if scale.is_finite() {
@@ -121,6 +122,18 @@ pub fn logical_size(
         1.0
     });
     (width * scale, height * scale)
+}
+
+/// Measured renderer height already includes the user's CSS zoom.
+pub fn measured_size(fallback: (f64, f64), content_height: Option<f64>) -> (f64, f64) {
+    (
+        fallback.0,
+        valid_content_height(content_height).unwrap_or(fallback.1),
+    )
+}
+
+pub fn valid_content_height(height: Option<f64>) -> Option<f64> {
+    height.filter(|value| value.is_finite() && (32.0..=1600.0).contains(value))
 }
 
 pub fn fit_at_anchor(

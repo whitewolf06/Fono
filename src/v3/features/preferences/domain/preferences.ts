@@ -5,6 +5,10 @@ import type {
 } from "../../../shared/domain/contracts";
 import { validateWakePhrase } from "./wakePhrase";
 import { validateDictionary } from "../../../shared/domain/personalDictionary";
+import {
+  emptyProcessingPrompts,
+  validateProcessingPrompts,
+} from "./processingPrompts";
 export const defaults: Preferences = {
   dictationMode: "standard",
   microphone: "system",
@@ -26,6 +30,8 @@ export const defaults: Preferences = {
   processingMode: "clean",
   processingTrigger: "automatic",
   processingTranslation: "none",
+  processingTranslationEnabled: true,
+  processingPrompts: emptyProcessingPrompts(),
   profile: "local",
   processingModel: "Qwen 3 · 8B",
   instruction: "",
@@ -75,6 +81,8 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "processingMode",
     "processingTrigger",
     "processingTranslation",
+    "processingTranslationEnabled",
+    "processingPrompts",
     "profile",
     "processingModel",
     "instruction",
@@ -91,8 +99,10 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "overlayScale",
     "overlayOpacity",
     "overlayPosition",
+    "processingEnabled",
     "processingMode",
     "processingTranslation",
+    "processingTranslationEnabled",
   ],
   privacy: [
     "historyEnabled",
@@ -110,6 +120,7 @@ export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
     "processingMode",
     "processingTrigger",
     "processingTranslation",
+    "processingTranslationEnabled",
     "profile",
     "processingModel",
   ],
@@ -153,8 +164,12 @@ export function validatePreferences(p: Preferences): string | null {
     return "Выберите режим горячей клавиши.";
   if (!["automatic", "manual"].includes(p.processingTrigger))
     return "Выберите способ запуска обработки.";
-  if (!["clean", "format", "task", "formal"].includes(p.processingMode))
+  if (!["raw", "clean", "format", "task", "formal"].includes(p.processingMode))
     return "Выберите режим обработки.";
+  if (typeof p.processingTranslationEnabled !== "boolean")
+    return "Выберите, включён ли перевод.";
+  const promptsError = validateProcessingPrompts(p.processingPrompts);
+  if (promptsError) return promptsError;
   if (!["none", "en", "ru", "de", "fr", "es"].includes(p.processingTranslation))
     return "Выберите язык перевода.";
   if (

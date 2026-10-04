@@ -10,6 +10,7 @@ import VoiceWave from "./VoiceWave.vue";
 import { liveStatus } from "../domain/live";
 import { useFeedback } from "../../../shared/application/feedback";
 import PendingDictationActions from "../../../shared/presentation/PendingDictationActions.vue";
+import { copyPendingText } from "../application/copyPendingText";
 const { run } = useFeedback();
 const workspace = useWorkspace();
 const live = computed(() => workspace.state.live);
@@ -32,6 +33,21 @@ const recording = computed(() =>
 const working = computed(() =>
   ["transcribing", "processing"].includes(workspace.state.phase),
 );
+async function copyPending(text: string, sessionId: number) {
+  await run(
+    () =>
+      copyPendingText(
+        {
+          pending: () => workspace.state.pendingDictation,
+          copy: workspace.copy,
+          resolve: workspace.dictation.resolvePending,
+        },
+        text,
+        sessionId,
+      ),
+    "Скопировано",
+  );
+}
 </script>
 <template>
   <section class="record-area" aria-label="Диктовка">
@@ -45,7 +61,7 @@ const working = computed(() =>
       @resolve="
         (request) => run(() => workspace.dictation.resolvePending(request))
       "
-      @copy="(text) => run(() => workspace.copy(text), 'Скопировано')"
+      @copy="copyPending"
     />
     <div v-else class="record-controls">
       <span class="record-status" role="status"

@@ -238,7 +238,7 @@
     flex-wrap: wrap;
   }
   .overlay-preview {
-    max-width: 240px;
+    max-width: 100%;
   }
 }
 @media (prefers-reduced-motion: reduce) {

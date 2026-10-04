@@ -83,15 +83,22 @@ async fn execute(
     }
     let final_text = match action {
         PendingAction::InsertRaw => data.transcript.text.clone(),
-        PendingAction::ProcessAndInsert => {
+        PendingAction::Complete => choice
+            .result_text
+            .clone()
+            .unwrap_or_else(|| data.transcript.text.clone()),
+        PendingAction::ProcessAndInsert | PendingAction::ProcessPreview => {
             let _timer = data.report.stage(ReportStage::Processing);
             match postprocess::selected(
                 session,
                 &data.transcript,
                 choice.preset,
-                choice.target_language,
-                true,
-                false,
+                if choice.translation_enabled {
+                    choice.target_language
+                } else {
+                    None
+                },
+                choice.processing_enabled,
             )
             .await
             {
@@ -105,10 +112,14 @@ async fn execute(
         }
         PendingAction::Cancel => unreachable!(),
     };
-    let final_text = crate::application::personal_dictionary::canonicalize_dictation(
-        &session.settings,
-        &final_text,
-    );
+    let final_text = if action == PendingAction::Complete && choice.result_text.is_some() {
+        final_text
+    } else {
+        crate::application::personal_dictionary::canonicalize_dictation(
+            &session.settings,
+            &final_text,
+        )
+    };
     if !session.active("pending before insertion") {
         return Ok(empty_transcript());
     }
@@ -133,8 +144,23 @@ async fn execute(
         return Ok(empty_transcript());
     }
     publish(&session.app);
-    let timings = data.report.history_timings();
-    if session.source != crate::operation::OperationSource::Ui {
+    let timings = if action == PendingAction::Complete {
+        data.ready_timings
+            .clone()
+            .unwrap_or_else(|| data.report.history_timings())
+    } else {
+        data.report.history_timings()
+    };
+    if action == PendingAction::ProcessPreview {
+        super::preview_result(&session.app, session.operation, final_text.clone());
+        session.transition(PipelineState::AwaitingAction, TerminalReason::Completed);
+        return Ok(Transcript {
+            text: final_text,
+            ..data.transcript.clone()
+        });
+    }
+    if action != PendingAction::Complete && session.source != crate::operation::OperationSource::Ui
+    {
         let Some(target) = data
             .target
             .as_ref()
@@ -178,7 +204,8 @@ async fn execute(
             let mut settings = session.settings.clone();
             settings.processing_preset = Some(choice.preset);
             settings.processing_target_language = choice.target_language;
-            if action == PendingAction::InsertRaw {
+            settings.processing_translation_enabled = choice.translation_enabled;
+            if action == PendingAction::InsertRaw || !choice.processing_enabled {
                 settings.ai_mode = AiMode::Off;
                 settings.processing_target_language = None;
             } else {

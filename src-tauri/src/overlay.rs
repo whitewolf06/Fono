@@ -35,6 +35,8 @@ pub struct OverlayLayout {
     pub help_open: bool,
     #[serde(default)]
     pub error_visible: bool,
+    #[serde(default)]
+    pub content_height: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -50,6 +52,8 @@ pub fn set_overlay_layout(app: AppHandle, layout: OverlayLayout) -> AppResult<Ov
         let mut geometry = runtime.geometry.lock();
         geometry.help_open = layout.help_open;
         geometry.error_visible = layout.error_visible;
+        geometry.content_height =
+            crate::overlay_geometry::valid_content_height(layout.content_height);
     }
     window_layout::apply(&app, &overlay_window(&app)?)
 }

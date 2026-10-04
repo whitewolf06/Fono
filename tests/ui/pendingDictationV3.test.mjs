@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { after, afterEach, before, beforeEach, test } from "node:test";
 import { createServer } from "vite";
-import { effectScope } from "vue";
+import { createSSRApp, effectScope, h } from "vue";
+import { renderToString } from "vue/server-renderer";
 
 let server, workspace, port, createWorkspace, createPort, browser, storage;
 let useOverlayDemo, overlayScope;
@@ -66,6 +67,125 @@ test("manual stop waits for an action and prevents a second capture without arch
   port.start();
   assert.equal(workspace.state.pendingDictation.sessionId, pending.sessionId);
   assert.equal(workspace.state.phase, "awaiting_action");
+});
+
+test("copy-only processing waits for copy completion and blocks insertion actions", async () => {
+  const count = workspace.state.history.length;
+  const pending = await recorded();
+  pending.copyOnly = true;
+  await assert.rejects(
+    port.resolvePending({ sessionId: pending.sessionId, action: "insert_raw" }),
+    /Вставка/,
+  );
+  await assert.rejects(
+    port.resolvePending({
+      sessionId: pending.sessionId,
+      action: "process_and_insert",
+    }),
+    /Вставка/,
+  );
+  await port.resolvePending({
+    sessionId: pending.sessionId,
+    action: "process_preview",
+    preset: "formal",
+  });
+  assert.equal(workspace.state.phase, "awaiting_action");
+  assert.match(workspace.state.pendingDictation.resultText, /Деловое письмо/);
+  assert.equal(workspace.state.history.length, count);
+  const previewText = workspace.state.pendingDictation.resultText;
+  await port.resolvePending({
+    sessionId: pending.sessionId,
+    action: "complete",
+  });
+  assert.equal(workspace.state.pendingDictation, null);
+  assert.equal(workspace.state.history.length, count + 1);
+  assert.equal(workspace.state.history[0].text, previewText);
+  await assert.rejects(
+    port.resolvePending({ sessionId: pending.sessionId, action: "complete" }),
+    /завершена/,
+  );
+  assert.equal(workspace.state.history.length, count + 1);
+});
+
+test("main Copy waits for clipboard success, closes only its copy-only session and never inserts", async () => {
+  const { copyPendingText } = await server.ssrLoadModule(
+    "/src/v3/features/dictation/application/copyPendingText.ts",
+  );
+  const first = { sessionId: 14, phase: "awaiting_action", copyOnly: true };
+  let current = first;
+  const actions = [];
+  let release;
+  const ports = {
+    pending: () => current,
+    copy: () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    resolve: async (request) => {
+      actions.push(request);
+    },
+  };
+  const copying = copyPendingText(ports, "Ready text.", 14);
+  assert.equal(actions.length, 0);
+  release();
+  await copying;
+  assert.deepEqual(actions, [{ sessionId: 14, action: "complete" }]);
+  actions.length = 0;
+  const staleCopy = copyPendingText(ports, "Old text.", 14);
+  current = { sessionId: 15, phase: "awaiting_action", copyOnly: true };
+  release();
+  await staleCopy;
+  assert.equal(actions.length, 0);
+  await assert.rejects(
+    copyPendingText(
+      {
+        ...ports,
+        copy: async () => {
+          throw new Error("Clipboard denied");
+        },
+      },
+      "Text.",
+      15,
+    ),
+    /Clipboard denied/,
+  );
+  assert.equal(actions.length, 0);
+  current.copyOnly = false;
+  await copyPendingText({ ...ports, copy: async () => {} }, "Text.", 15);
+  assert.equal(actions.length, 0);
+});
+
+test("compiled main pending UI offers copy and close for copy-only sessions, with effective disabled translation", async () => {
+  const { default: PendingActions } = await server.ssrLoadModule(
+    "/src/v3/shared/presentation/PendingDictationActions.vue",
+  );
+  const html = await renderToString(
+    createSSRApp({
+      render: () =>
+        h(PendingActions, {
+          pending: {
+            sessionId: 8,
+            phase: "awaiting_action",
+            copyOnly: true,
+            originalText: "Raw text.",
+            resultText: "Ready text.",
+            preset: "clean",
+            targetLanguage: "en",
+            processingEnabled: true,
+            translationEnabled: false,
+            error: null,
+            insertionBlocked: false,
+            source: "hotkey",
+          },
+        }),
+    }),
+  );
+  assert.doesNotMatch(html, /Вставить исходный текст|>\s*Исходный\s*</);
+  assert.match(html, /Копировать текст и закрыть индикатор/);
+  assert.match(html, /Закрыть без копирования/);
+  assert.doesNotMatch(html, /Обработать · EN/);
+  assert.match(html, /aria-pressed="true" aria-label="Без перевода"/);
+  assert.match(html, /aria-pressed="false" aria-label="Английский"/);
 });
 
 test("manual setting does not hold a dictation when processing is disabled", async () => {

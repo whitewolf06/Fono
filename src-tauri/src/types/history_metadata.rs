@@ -100,7 +100,7 @@ impl DictationHistoryMetadata {
             processing_preset: (settings.ai_mode != AiMode::Off)
                 .then(|| crate::application::dictation::workflow::effective_preset(settings)),
             processing_target_language: (settings.ai_mode != AiMode::Off)
-                .then_some(settings.processing_target_language)
+                .then(|| crate::application::dictation::workflow::effective_language(settings))
                 .flatten(),
             dictionary_enabled: settings.personal_dictionary_enabled,
         }
@@ -116,6 +116,25 @@ fn seconds_to_ms(seconds: Option<f32>) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn disabled_translation_does_not_record_the_remembered_language_as_applied() {
+        let settings = Settings {
+            ai_mode: AiMode::Clean,
+            processing_translation_enabled: false,
+            processing_target_language: Some(TranslationLanguage::En),
+            ..Settings::default()
+        };
+        let metadata = DictationHistoryMetadata::from_result(
+            &settings,
+            &transcript(),
+            DictationTimingMeasurements::default(),
+        );
+        assert_eq!(metadata.processing_target_language, None);
+        assert_eq!(
+            settings.processing_target_language,
+            Some(TranslationLanguage::En)
+        );
+    }
     fn transcript() -> Transcript {
         Transcript {
             text: "PRIVATE TEXT".into(),

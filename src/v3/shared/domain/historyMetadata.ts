@@ -11,7 +11,8 @@ export interface DictationMetadata {
   language?: string;
   detectedLanguage?: string | null;
   dictationMode?: "standard" | "live";
-  processingMode?: "off" | "clean" | "format" | "command" | "task" | "formal";
+  processingMode?:
+    "off" | "raw" | "clean" | "format" | "command" | "task" | "formal";
   processingTrigger?: "automatic" | "manual";
   processingTranslation?: "en" | "ru" | "de" | "fr" | "es" | null;
   dictionaryEnabled?: boolean;

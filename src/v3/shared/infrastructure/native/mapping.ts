@@ -15,6 +15,10 @@ import { defaults } from "../../../features/preferences/domain/preferences";
 import { availableDictationMode } from "../../domain/dictationMode";
 import { historyMetadataFromNative } from "./historyMetadata";
 import {
+  emptyProcessingPrompts,
+  promptPresets,
+} from "../../../features/preferences/domain/processingPrompts";
+import {
   validateWakePhrase,
   wakePhraseLanguage,
 } from "../../../features/preferences/domain/wakePhrase";
@@ -62,6 +66,20 @@ export function preferencesFromNative(
       s.processing_preset ?? (s.ai_mode === "format" ? "format" : "clean"),
     processingTrigger: s.processing_workflow ?? "automatic",
     processingTranslation: s.processing_target_language ?? "none",
+    processingTranslationEnabled: s.processing_translation_enabled ?? true,
+    processingPrompts: Object.fromEntries(
+      promptPresets.map((preset) => [
+        preset,
+        s.processing_prompts?.[preset]
+          ? {
+              useCustom: s.processing_prompts[preset].use_custom,
+              customPrompt: s.processing_prompts[preset].custom_prompt,
+            }
+          : preset === "clean" && s.clean_prompt?.trim()
+            ? { useCustom: true, customPrompt: s.clean_prompt }
+            : emptyProcessingPrompts()[preset],
+      ]),
+    ) as Preferences["processingPrompts"],
     profile: s.text_correction_llm.profile_id || "",
     processingModel:
       s.text_correction_llm.model ||
@@ -143,6 +161,20 @@ export function applyPreferences(
   if (has("processingTranslation"))
     next.processing_target_language =
       p.processingTranslation === "none" ? null : p.processingTranslation;
+  if (has("processingTranslationEnabled"))
+    next.processing_translation_enabled = p.processingTranslationEnabled;
+  if (has("processingPrompts")) {
+    next.processing_prompts = Object.fromEntries(
+      promptPresets.map((preset) => [
+        preset,
+        {
+          use_custom: p.processingPrompts[preset].useCustom,
+          custom_prompt: p.processingPrompts[preset].customPrompt,
+        },
+      ]),
+    ) as NonNullable<Settings["processing_prompts"]>;
+    next.clean_prompt = null;
+  }
   if (has("wakeLanguage") || has("wakePhrase")) {
     const error = validateWakePhrase(p.wakePhrase, p.wakeLanguage);
     if (error) throw new Error(error);
@@ -160,7 +192,8 @@ export function applyPreferences(
   if (has("profile")) next.text_correction_llm.profile_id = p.profile || null;
   if (has("processingModel"))
     next.text_correction_llm.model = p.processingModel || null;
-  if (has("instruction")) next.clean_prompt = p.instruction || null;
+  if (has("instruction") && !has("processingPrompts"))
+    next.clean_prompt = p.instruction || null;
   if (has("overlayScale")) next.overlay_scale = p.overlayScale / 100;
   if (has("overlayOpacity")) next.overlay_opacity = p.overlayOpacity / 100;
   if (has("trainerAiEnabled"))

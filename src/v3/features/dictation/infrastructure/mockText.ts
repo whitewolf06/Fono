@@ -26,6 +26,7 @@ export function processDemoText(
   preset: ProcessingPreset,
   targetLanguage: TranslationLanguage | null,
 ): string {
+  if (preset === "raw" && !targetLanguage) return original;
   const cleaned = cleanDemoText(original);
   const text = targetLanguage ? translations[targetLanguage] : cleaned;
   const marker = targetLanguage

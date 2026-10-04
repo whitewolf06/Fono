@@ -76,6 +76,14 @@ impl ShortcutState {
     pub fn started(&mut self, operation: u64) {
         self.operation = (operation != 0).then_some(operation);
     }
+
+    pub fn restore_stop(&mut self, operation: u64, active: Option<ActiveCapture>) {
+        if self.operation.is_none()
+            && active.is_some_and(|capture| capture.operation == operation && capture.recording)
+        {
+            self.operation = Some(operation);
+        }
+    }
 }
 
 #[cfg(test)]

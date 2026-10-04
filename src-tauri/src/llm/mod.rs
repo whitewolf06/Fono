@@ -5,7 +5,7 @@
 //! в запросе, но активные инструменты пока не вызываются (заготовка для
 //! будущих команд: «ответь на email», «кратко перескажи» и т.п.).
 
-mod presets;
+pub(crate) mod presets;
 
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -93,6 +93,12 @@ pub struct LlmClient {
 }
 
 impl LlmClient {
+    pub(crate) fn selected_model(&self) -> Option<&str> {
+        self.model
+            .as_deref()
+            .filter(|model| !model.trim().is_empty())
+    }
+
     pub fn new(
         base_url: impl Into<String>,
         model: Option<String>,
@@ -187,7 +193,7 @@ impl LlmClient {
 
     /// Применяет выбранную обработку к транскрипту.
     /// Если модель не указана или режим Off — возвращает исходный текст.
-    /// `clean_prompt` позволяет пользователю переопределить системный промт для режима Clean.
+    /// Legacy callers share the editor composer; voice commands retain their own mode.
     pub async fn process(
         &self,
         transcript: &str,
@@ -202,6 +208,31 @@ impl LlmClient {
             tracing::debug!("LLM model not set, returning raw transcript");
             return Ok(transcript.to_string());
         };
+
+        if matches!(mode, AiMode::Clean | AiMode::Format) {
+            let choice = clean_prompt.filter(|p| !p.trim().is_empty()).map(|prompt| {
+                crate::types::ProcessingPromptChoice {
+                    use_custom: true,
+                    custom_prompt: prompt.to_owned(),
+                }
+            });
+            return self
+                .process_preset(
+                    transcript,
+                    if mode == AiMode::Format {
+                        crate::types::TextPreset::Format
+                    } else {
+                        crate::types::TextPreset::Clean
+                    },
+                    None,
+                    if mode == AiMode::Clean {
+                        choice.as_ref()
+                    } else {
+                        None
+                    },
+                )
+                .await;
+        }
 
         let system = system_prompt(mode, clean_prompt);
         let user = user_prompt(transcript, mode);

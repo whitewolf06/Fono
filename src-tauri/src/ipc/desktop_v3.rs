@@ -57,6 +57,11 @@ pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
     if settings.ai_mode == AiMode::Off {
         return Err(AppError::Config("Включите обработку текста".into()));
     }
+    let preset = crate::application::dictation::workflow::effective_preset(&settings);
+    let language = crate::application::dictation::workflow::effective_language(&settings);
+    if preset == TextPreset::Raw && language.is_none() {
+        return Ok(text);
+    }
     let profile = settings
         .correction_profile()
         .ok_or_else(|| AppError::Config("Выберите подключение для обработки".into()))?;
@@ -72,9 +77,9 @@ pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
     crate::llm::LlmClient::from_settings(&settings)
         .process_preset(
             &text,
-            crate::application::dictation::workflow::effective_preset(&settings),
-            settings.processing_target_language,
-            settings.clean_prompt.as_deref(),
+            preset,
+            language,
+            settings.processing_prompts.choice(preset),
         )
         .await
 }

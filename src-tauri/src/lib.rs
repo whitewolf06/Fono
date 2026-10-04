@@ -209,6 +209,7 @@ pub fn run() {
         .manage(pipeline)
         .manage(crate::application::live_dictation::LiveController::default())
         .manage(crate::application::dictation::workflow::Runtime::default())
+        .manage(crate::application::dictation::ProcessingCaptureRuntime::default())
         .manage(wake_word)
         .manage(audio_hub)
         .manage(crate::overlay::OverlayRuntime::default())
@@ -294,6 +295,8 @@ pub fn run() {
             ipc::dictation::resume_live_insertion,
             ipc::dictation::start_dictation,
             ipc::dictation::stop_dictation,
+            ipc::dictation::finish_overlay_dictation,
+            ipc::dictation::acknowledge_overlay_processing_flush,
             ipc::dictation::confirm_dictation,
             ipc::dictation::cancel_dictation,
             ipc::dictation::dismiss_dictation_overlay,
@@ -333,6 +336,11 @@ pub fn run() {
             ipc::llm::list_llm_models,
             ipc::llm::test_llm_profile,
             ipc::llm::list_llm_profile_models,
+            ipc::processing::get_processing_prompt_catalog,
+            ipc::processing::preview_processing_text,
+            ipc::processing_capture::start_processing_test_capture,
+            ipc::processing_capture::finish_processing_test_capture,
+            ipc::processing_capture::cancel_processing_test_capture,
             // settings
             ipc::settings::get_settings,
             ipc::settings::get_acceleration_capabilities,

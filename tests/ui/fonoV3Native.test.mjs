@@ -561,11 +561,31 @@ test("native overlay hydrates pending, wires IPC actions/copy, and rejects late 
     assert.equal(overlay.state.phase, "awaiting_action");
     invoke = originalInvoke;
     await overlay.copy("Обработанный результат");
-    assert.deepEqual(calls.at(-1), [
-      "copy_dictation_text",
-      { text: "Обработанный результат" },
-    ]);
+    assert.deepEqual(
+      calls.find(([name]) => name === "copy_dictation_text"),
+      ["copy_dictation_text", { text: "Обработанный результат" }],
+    );
+    assert.deepEqual(
+      calls.find(([name]) => name === "resolve_pending_dictation"),
+      [
+        "resolve_pending_dictation",
+        { request: { sessionId: 11, action: "complete" } },
+      ],
+    );
+    assert.ok(
+      calls.findIndex(([name]) => name === "copy_dictation_text") <
+        calls.findIndex(([name]) => name === "resolve_pending_dictation"),
+      "the result closes only after clipboard success",
+    );
+    const completedActions = calls.filter(
+      ([name]) => name === "resolve_pending_dictation",
+    ).length;
     await overlay.resolve({ sessionId: 11, action: "insert_raw" });
+    assert.equal(
+      calls.filter(([name]) => name === "resolve_pending_dictation").length,
+      completedActions,
+      "late old insertion cannot reinsert the copied result",
+    );
     assert.ok(
       calls.some(
         ([name, args]) =>
@@ -576,9 +596,12 @@ test("native overlay hydrates pending, wires IPC actions/copy, and rejects late 
     assert.equal(overlay.state.phase, "done");
     const dictationActions = () =>
       calls.filter(([name]) =>
-        ["stop_dictation", "confirm_dictation", "cancel_dictation"].includes(
-          name,
-        ),
+        [
+          "finish_overlay_dictation",
+          "stop_dictation",
+          "confirm_dictation",
+          "cancel_dictation",
+        ].includes(name),
       );
     const actionsBeforeTerminalFinish = dictationActions().length;
     await overlay.finish();
@@ -601,7 +624,7 @@ test("native overlay hydrates pending, wires IPC actions/copy, and rejects late 
       const actionsBeforeStop = dictationActions().length;
       await overlay.finish();
       assert.deepEqual(dictationActions().slice(actionsBeforeStop), [
-        ["stop_dictation", { sessionId }],
+        ["finish_overlay_dictation", { sessionId }],
       ]);
     }
 

@@ -88,31 +88,31 @@ fn resize_before_drag_debounce_keeps_the_new_position_and_ignores_native_clamps(
 fn toolbar_errors_and_help_reserve_space_without_expanding_pending_twice() {
     assert_eq!(
         logical_size(DisplayMode::Toolbar, false, false, false, 1.0),
-        (360.0, 104.0)
+        (600.0, 108.0)
     );
     assert_eq!(
         logical_size(DisplayMode::Toolbar, true, false, false, 1.0),
-        (320.0, 72.0)
+        (520.0, 96.0)
     );
     assert_eq!(
         logical_size(DisplayMode::Toolbar, false, true, true, 1.0),
-        (360.0, 272.0)
+        (600.0, 456.0)
     );
     assert_eq!(
         logical_size(DisplayMode::QuickProcessing, false, false, true, 1.0),
-        (440.0, 192.0)
+        (600.0, 156.0)
     );
     assert_eq!(
         logical_size(DisplayMode::QuickProcessing, true, true, true, 1.0),
-        (400.0, 288.0)
+        (520.0, 444.0)
     );
     assert_eq!(
         logical_size(DisplayMode::Pending, false, true, true, 1.0),
-        (440.0, 412.0)
+        (600.0, 468.0)
     );
     assert_eq!(
         logical_size(DisplayMode::Pending, true, false, true, 1.0),
-        (400.0, 272.0)
+        (520.0, 160.0)
     );
 }
 
@@ -144,15 +144,15 @@ fn combining_user_scale_and_monitor_dpi_clamps_to_available_work_area() {
 fn invalid_scaling_falls_back_and_supported_user_scale_is_bounded() {
     assert_eq!(
         logical_size(DisplayMode::Toolbar, false, false, false, f32::NAN),
-        (360.0, 104.0)
+        (600.0, 108.0)
     );
     assert_eq!(
         logical_size(DisplayMode::Toolbar, false, false, false, 9.0),
-        (720.0, 208.0)
+        (1200.0, 216.0)
     );
     assert_eq!(
         logical_size(DisplayMode::Toolbar, false, false, false, 0.0),
-        (180.0, 52.0)
+        (300.0, 54.0)
     );
     assert_eq!(
         fit_at_anchor((100, 100), (360.0, 104.0), f64::NAN, PRIMARY).width,
@@ -223,6 +223,23 @@ fn ordinary_layout_updates_retain_renderer_help_and_error_flags() {
             state.error_visible,
             1.0
         ),
-        (360.0, 272.0)
+        (600.0, 456.0)
     );
+}
+
+#[test]
+fn measured_height_includes_user_scale_once_and_monitor_dpi_once() {
+    let fallback = logical_size(DisplayMode::QuickProcessing, false, true, false, 1.5);
+    assert_eq!(measured_size(fallback, Some(210.0)), (900.0, 210.0));
+    let rect = fit_at_anchor(
+        (100, 100),
+        measured_size(fallback, Some(210.0)),
+        1.25,
+        PRIMARY,
+    );
+    assert_eq!((rect.width, rect.height), (1125, 263));
+    for invalid in [f64::NAN, f64::INFINITY, -1.0, 0.0, 1601.0] {
+        assert_eq!(measured_size(fallback, Some(invalid)), fallback);
+    }
+    assert_eq!(measured_size(fallback, None), fallback);
 }

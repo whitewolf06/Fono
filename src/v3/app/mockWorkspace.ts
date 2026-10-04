@@ -9,6 +9,7 @@ import type {
   LiveDictation,
 } from "../shared/domain/contracts";
 import { defaults } from "../features/preferences/domain/preferences";
+import { clonePreferences } from "../features/preferences/domain/processingPrompts";
 import { createSettingsPort } from "../features/preferences/infrastructure/mockSettings";
 import { createMockWake } from "../features/preferences/infrastructure/mockWake";
 import {
@@ -112,7 +113,7 @@ export function createMockWorkspace(): Workspace {
   }, 800);
   function scenario(value: Scenario) {
     dictation.cancel();
-    state.preferences = { ...defaults };
+    state.preferences = clonePreferences(defaults);
     state.history = demoHistory();
     state.models = demoModels();
     state.profiles = profileDefaults();

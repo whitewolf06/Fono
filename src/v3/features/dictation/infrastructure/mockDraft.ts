@@ -39,8 +39,14 @@ export function createMockDraftActions(
         );
       const entryId = state.last.entry?.id;
       const previous = state.last.draft;
-      await delay(800);
-      if (!state.aiAvailable)
+      const targetLanguage =
+        preferences.processingTranslationEnabled !== false &&
+        preferences.processingTranslation !== "none"
+          ? preferences.processingTranslation
+          : null;
+      const needsModel = preferences.processingMode !== "raw" || targetLanguage;
+      if (needsModel) await delay(800);
+      if (needsModel && !state.aiAvailable)
         throw new Error(
           "Модель недоступна. Текст не изменён — проверьте подключение.",
         );
@@ -50,9 +56,7 @@ export function createMockDraftActions(
       state.last.draft = processDemoText(
         previous,
         preferences.processingMode,
-        preferences.processingTranslation === "none"
-          ? null
-          : preferences.processingTranslation,
+        targetLanguage,
       );
       state.last.edited = true;
     },

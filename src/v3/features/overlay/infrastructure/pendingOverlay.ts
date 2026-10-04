@@ -11,6 +11,7 @@ interface PendingState {
   source: string | null;
   level: number;
   error: string;
+  copying?: boolean;
 }
 
 /** Events win over older poll replies; retired sessions cannot reappear. */
@@ -28,6 +29,7 @@ export function createPendingOverlay(
   function apply(value: PendingDictation | null, ticket?: number) {
     if (disposed() || (ticket !== undefined && !current(ticket))) return;
     const previousSession = state.pending?.sessionId;
+    const previousError = state.pending?.error;
     if (value) {
       if (
         !Number.isSafeInteger(value.sessionId) ||
@@ -54,7 +56,12 @@ export function createPendingOverlay(
       state.pending = null;
     }
     epoch++;
-    if (previousSession !== value?.sessionId || value?.error) state.error = "";
+    if (previousSession !== value?.sessionId) state.copying = false;
+    if (
+      previousSession !== value?.sessionId ||
+      (value?.error && value.error !== previousError)
+    )
+      state.error = "";
   }
   function observeOperation(id: number) {
     if (id <= latestSession) return;
@@ -84,8 +91,19 @@ export function createPendingOverlay(
         state.pending?.sessionId !== request.sessionId
       )
         return;
-      apply(null);
-      state.phase = request.action === "cancel" ? "cancelled" : "done";
+      if (request.action === "process_preview") {
+        const value = await call<PendingDictation | null>(
+          "get_pending_dictation",
+        );
+        if (
+          ownAction === action &&
+          state.pending?.sessionId === request.sessionId
+        )
+          apply(value);
+      } else {
+        apply(null);
+        state.phase = request.action === "cancel" ? "cancelled" : "done";
+      }
     } catch (error) {
       if (
         disposed() ||
@@ -103,11 +121,34 @@ export function createPendingOverlay(
   }
   async function copy(text: string) {
     const session = state.pending?.sessionId;
+    if (
+      !session ||
+      disposed() ||
+      state.copying ||
+      state.pending?.phase === "processing"
+    )
+      return;
+    const ownAction = ++action;
+    state.copying = true;
+    state.error = "";
     try {
       await call("copy_dictation_text", { text });
+      if (
+        disposed() ||
+        ownAction !== action ||
+        state.pending?.sessionId !== session
+      )
+        return;
+      await resolve({ sessionId: session, action: "complete" });
     } catch (error) {
       if (!disposed() && state.pending?.sessionId === session)
         state.error = error instanceof Error ? error.message : String(error);
+    } finally {
+      if (
+        !disposed() &&
+        (!state.pending || state.pending.sessionId === session)
+      )
+        state.copying = false;
     }
   }
   return { stamp, current, apply, observeOperation, resolve, copy };

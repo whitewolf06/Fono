@@ -4,10 +4,11 @@ use tauri::{AppHandle, Manager, Monitor, PhysicalPosition, PhysicalSize, Webview
 use crate::{
     error::{AppError, AppResult},
     overlay_geometry::{
-        center, display_mode, fit_at_anchor, fits_screen, logical_size, valid_dpi, ScreenRect,
+        center, display_mode, fit_at_anchor, fits_screen, logical_size, measured_size, valid_dpi,
+        ScreenRect,
     },
     state::AppState,
-    types::{AiMode, HotkeyMode, PipelineState, Settings},
+    types::{HotkeyMode, PipelineState, Settings},
 };
 
 use super::{OverlayDimensions, OverlayRuntime};
@@ -27,9 +28,7 @@ pub(super) fn apply(app: &AppHandle, window: &WebviewWindow) -> AppResult<Overla
         crate::application::dictation::workflow::has_pending(app),
         phase == PipelineState::Listening,
         preview.is_some(),
-        settings.hotkey_mode == HotkeyMode::Toggle
-            && settings.ai_mode != AiMode::Off
-            && settings.overlay_quick_processing,
+        settings.hotkey_mode == HotkeyMode::Toggle && settings.overlay_quick_processing,
     );
     let runtime = app.state::<OverlayRuntime>();
     let mut geometry = runtime.geometry.lock();
@@ -57,6 +56,7 @@ pub(super) fn apply(app: &AppHandle, window: &WebviewWindow) -> AppResult<Overla
         geometry.error_visible,
         scale,
     );
+    let size = measured_size(size, geometry.content_height);
     let rect = fit_at_anchor(anchor, size, monitor.scale_factor(), screen);
     let desired = PhysicalSize::new(rect.width, rect.height);
     if window.outer_size()? != desired {

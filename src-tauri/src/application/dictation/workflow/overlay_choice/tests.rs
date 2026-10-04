@@ -10,6 +10,8 @@ fn request(id: Option<u64>) -> OverlayProcessingChoiceRequest {
         session_id: id,
         preset: TextPreset::Formal,
         target_language: Some(TranslationLanguage::En),
+        processing_enabled: None,
+        translation_enabled: None,
     }
 }
 fn pending() -> PendingDictation {
@@ -22,9 +24,11 @@ fn pending() -> PendingDictation {
         preset: TextPreset::Clean,
         target_language: None,
         processing_enabled: true,
+        translation_enabled: true,
         source: OperationSource::Hotkey,
         error: None,
         insertion_blocked: false,
+        copy_only: false,
     }
 }
 
@@ -218,4 +222,69 @@ fn saving_selection_never_enables_processing_or_quick_controls() {
             &settings
         ));
     }
+}
+
+#[test]
+fn explicit_switches_persist_and_keep_the_translation_language_while_disabled() {
+    let base = Settings::default();
+    let mut session = base.clone();
+    let mut choice = request(Some(5));
+    choice.processing_enabled = Some(false);
+    choice.translation_enabled = Some(false);
+    let saved = persist_choice(&choice, &base, Some(&mut session), None, |_, settings| {
+        Ok(settings.clone())
+    })
+    .unwrap();
+    assert_eq!(saved.ai_mode, AiMode::Off);
+    assert_eq!(
+        saved.processing_target_language,
+        Some(TranslationLanguage::En)
+    );
+    assert!(!saved.processing_translation_enabled);
+    assert_eq!(super::super::types::effective_language(&saved), None);
+    choice.processing_enabled = Some(true);
+    let restored = persist_choice(&choice, &saved, Some(&mut session), None, |_, settings| {
+        Ok(settings.clone())
+    })
+    .unwrap();
+    assert_eq!(restored.ai_mode, AiMode::Clean);
+    assert_eq!(
+        restored.processing_target_language,
+        Some(TranslationLanguage::En)
+    );
+    assert_eq!(super::super::types::effective_language(&restored), None);
+}
+
+#[test]
+fn pending_uses_the_effective_language_without_losing_the_saved_choice() {
+    let base = Settings::default();
+    let mut settings = base.clone();
+    let mut snapshot = pending();
+    let mut choice = request(Some(5));
+    choice.translation_enabled = Some(false);
+    persist_choice(
+        &choice,
+        &base,
+        None,
+        Some((&mut snapshot, &mut settings)),
+        |_, candidate| Ok(candidate.clone()),
+    )
+    .unwrap();
+    assert_eq!(
+        settings.processing_target_language,
+        Some(TranslationLanguage::En)
+    );
+    assert_eq!(snapshot.target_language, None);
+    assert!(!snapshot.translation_enabled);
+    choice.translation_enabled = Some(true);
+    persist_choice(
+        &choice,
+        &base,
+        None,
+        Some((&mut snapshot, &mut settings)),
+        |_, candidate| Ok(candidate.clone()),
+    )
+    .unwrap();
+    assert_eq!(snapshot.target_language, Some(TranslationLanguage::En));
+    assert!(snapshot.translation_enabled);
 }

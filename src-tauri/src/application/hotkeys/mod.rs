@@ -38,7 +38,7 @@ pub(crate) fn register_all_shortcuts(
 
 fn handle(
     app: &AppHandle,
-    state: &Mutex<ShortcutState>,
+    state: &Arc<Mutex<ShortcutState>>,
     event: NativeState,
     mode: HotkeyMode,
     command: bool,
@@ -86,6 +86,7 @@ fn handle(
     drop(key);
     if let Action::Stop(operation) = action {
         let app = app.clone();
+        let key_state = Arc::clone(state);
         tauri::async_runtime::spawn(async move {
             if command {
                 if let Err(error) = super::voice_dictation::run(&app, operation).await {
@@ -97,14 +98,44 @@ fn handle(
                         None,
                     );
                 }
-            } else if let Err(error) = super::dictation::stop_with_reason_for(
-                app,
-                operation,
-                super::dictation_tail_diagnostics::DictationStopReason::Manual,
-            )
-            .await
-            {
-                tracing::warn!(%error, "shortcut dictation stop failed");
+            } else {
+                if let Err(error) =
+                    super::dictation::workflow::flush_overlay_processing(&app, operation).await
+                {
+                    {
+                        let mut key = key_state.lock();
+                        app.state::<Pipeline>()
+                            .while_editable_recording(operation, || {
+                                key.restore_stop(
+                                    operation,
+                                    Some(ActiveCapture {
+                                        operation,
+                                        recording: true,
+                                    }),
+                                );
+                            });
+                    }
+                    events::emit_error(
+                        &app,
+                        events::ErrorCodeV1::Internal,
+                        error.to_string(),
+                        Some(operation),
+                    );
+                    if let Some(window) = app.get_webview_window("overlay") {
+                        use tauri::Emitter;
+                        let _ = window.emit("overlay-processing-flush-error", error.to_string());
+                    }
+                    return;
+                }
+                if let Err(error) = super::dictation::stop_with_reason_for(
+                    app,
+                    operation,
+                    super::dictation_tail_diagnostics::DictationStopReason::Manual,
+                )
+                .await
+                {
+                    tracing::warn!(%error, "shortcut dictation stop failed");
+                }
             }
         });
     }

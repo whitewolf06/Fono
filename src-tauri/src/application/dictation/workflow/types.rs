@@ -16,6 +16,7 @@ pub enum ProcessingWorkflow {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TextPreset {
+    Raw,
     #[default]
     Clean,
     Format,
@@ -61,6 +62,12 @@ pub fn should_process(settings: &Settings) -> bool {
 pub fn should_defer(settings: &Settings) -> bool {
     should_process(settings) && settings.processing_workflow == ProcessingWorkflow::Manual
 }
+pub fn effective_language(settings: &Settings) -> Option<TranslationLanguage> {
+    settings
+        .processing_translation_enabled
+        .then_some(settings.processing_target_language)
+        .flatten()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -80,9 +87,11 @@ pub struct PendingDictation {
     pub preset: TextPreset,
     pub target_language: Option<TranslationLanguage>,
     pub processing_enabled: bool,
+    pub translation_enabled: bool,
     pub source: OperationSource,
     pub error: Option<String>,
     pub insertion_blocked: bool,
+    pub copy_only: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -90,6 +99,8 @@ pub struct PendingDictation {
 pub enum PendingAction {
     InsertRaw,
     ProcessAndInsert,
+    ProcessPreview,
+    Complete,
     Cancel,
 }
 

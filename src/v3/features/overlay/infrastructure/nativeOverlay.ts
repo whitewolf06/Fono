@@ -37,6 +37,7 @@ export function createNativeOverlay() {
     sessionId: null as number | null,
     processingChoice: null as OverlayProcessingChoice | null,
     helpOpen: false,
+    copying: false,
   });
   let settings: Settings | null = null,
     disposed = false,
@@ -97,6 +98,29 @@ export function createNativeOverlay() {
     pending,
   });
   bind<Settings>("settings-changed", hydration.settingsChanged);
+  bind<{ sessionId: number; requestId: number }>(
+    "overlay-processing-flush",
+    (request) => {
+      void controls
+        .flushFor(request.sessionId)
+        .then(() =>
+          call("acknowledge_overlay_processing_flush", {
+            ...request,
+            error: null,
+          }),
+        )
+        .catch((error) =>
+          call("acknowledge_overlay_processing_flush", {
+            ...request,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        )
+        .catch(fail);
+    },
+  );
+  bind<string>("overlay-processing-flush-error", (error) => {
+    state.error = error;
+  });
   function applyLive(v: NativeLiveSnapshot | null) {
     if (!v || (settings && settings.dictation_mode !== "live")) return;
     if (state.live && Number(v.session_id) < Number(state.live.sessionId))
@@ -212,18 +236,12 @@ export function createNativeOverlay() {
     copy: pending.copy,
     finish: () => {
       const sessionId = state.sessionId;
-      const source = state.source;
       return controls
         .finish(() =>
           state.preview && state.phase === "idle"
             ? call("dismiss_dictation_overlay")
             : sessionId !== null && sessionId > 0
-              ? call(
-                  source === "wake_word"
-                    ? "confirm_dictation"
-                    : "stop_dictation",
-                  { sessionId },
-                )
+              ? call("finish_overlay_dictation", { sessionId })
               : Promise.resolve(),
         )
         .catch(fail);

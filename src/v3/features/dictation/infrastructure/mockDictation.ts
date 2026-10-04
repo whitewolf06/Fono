@@ -123,6 +123,11 @@ export function createDictationPort(
       const generationStarted = Date.now();
       const captured = snapshot;
       const preferences = captured.preferences;
+      const targetLanguage =
+        preferences.processingTranslationEnabled !== false &&
+        preferences.processingTranslation !== "none"
+          ? preferences.processingTranslation
+          : null;
       const live = state.live;
       state.phase = "transcribing";
       if (live) {
@@ -158,7 +163,11 @@ export function createDictationPort(
       }
       let text = original;
       let processingDurationMs: number | null = null;
-      if (!live && preferences.processingEnabled) {
+      if (
+        !live &&
+        preferences.processingEnabled &&
+        (preferences.processingMode !== "raw" || targetLanguage)
+      ) {
         state.phase = "processing";
         const started = Date.now();
         await delay(800);
@@ -174,9 +183,7 @@ export function createDictationPort(
         text = processDemoText(
           original,
           preferences.processingMode,
-          preferences.processingTranslation === "none"
-            ? null
-            : preferences.processingTranslation,
+          targetLanguage,
         );
       }
       if (!live) text = canonicalizeDictionary(preferences, text);

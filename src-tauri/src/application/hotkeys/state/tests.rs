@@ -124,3 +124,46 @@ fn processing_and_unrelated_recording_do_not_start_or_stop() {
         );
     }
 }
+
+#[test]
+fn failed_toggle_flush_restores_stop_for_the_same_capture() {
+    let mut key = ShortcutState::default();
+    assert_eq!(
+        key.event(KeyEvent::Pressed, HotkeyMode::Toggle, None),
+        Action::Start
+    );
+    key.started(42);
+    key.event(KeyEvent::Released, HotkeyMode::Toggle, recording(42));
+    assert_eq!(
+        key.event(KeyEvent::Pressed, HotkeyMode::Toggle, recording(42)),
+        Action::Stop(42)
+    );
+    key.restore_stop(42, recording(42));
+    assert_eq!(
+        key.event(KeyEvent::Pressed, HotkeyMode::Toggle, recording(42)),
+        Action::None
+    );
+    key.event(KeyEvent::Released, HotkeyMode::Toggle, recording(42));
+    assert_eq!(
+        key.event(KeyEvent::Pressed, HotkeyMode::Toggle, recording(42)),
+        Action::Stop(42)
+    );
+}
+
+#[test]
+fn late_flush_failure_cannot_restore_a_replaced_or_completed_capture() {
+    let mut key = ShortcutState::default();
+    key.restore_stop(42, recording(43));
+    assert_eq!(key.operation, None);
+    key.restore_stop(
+        42,
+        Some(ActiveCapture {
+            operation: 42,
+            recording: false,
+        }),
+    );
+    assert_eq!(key.operation, None);
+    key.started(43);
+    key.restore_stop(42, recording(42));
+    assert_eq!(key.operation, Some(43));
+}
