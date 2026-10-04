@@ -18,20 +18,54 @@ function Assert-Checksum([string]$Path, [string]$Expected) {
     }
 }
 
-function Get-VerifiedDownload($Dependency) {
+function Assert-DownloadSpec($Dependency) {
     $uri = [Uri]$Dependency.url
     if ($uri.Scheme -ne 'https' -or $Dependency.sha256 -notmatch '^[0-9a-f]{64}$') {
         throw 'Dependency manifest requires HTTPS and a pinned SHA-256.'
     }
-    $destination = Join-Path $workRoot ([IO.Path]::GetFileName($uri.AbsolutePath))
-    if (!(Test-Path -LiteralPath $destination -PathType Leaf)) {
-        $partial = "$destination.part"
-        Invoke-WebRequest -Uri $uri -OutFile $partial -TimeoutSec 1800
-        Assert-Checksum $partial $Dependency.sha256
-        Move-Item -LiteralPath $partial -Destination $destination -Force
+    if ($Dependency.downloadTimeoutSeconds -isnot [long] -and $Dependency.downloadTimeoutSeconds -isnot [int]) {
+        throw 'Dependency manifest requires an integer download timeout.'
     }
-    Assert-Checksum $destination $Dependency.sha256
-    return $destination
+    if ($Dependency.downloadTimeoutSeconds -lt 30 -or $Dependency.downloadTimeoutSeconds -gt 1800) {
+        throw 'Dependency download timeout must be between 30 and 1800 seconds.'
+    }
+}
+
+function Get-VerifiedDownload($Dependency) {
+    Assert-DownloadSpec $Dependency
+    $uri = [Uri]$Dependency.url
+    $fileName = [IO.Path]::GetFileName($uri.AbsolutePath)
+    $destination = Join-Path $workRoot $fileName
+    if (Test-Path -LiteralPath $destination -PathType Leaf) {
+        Write-Host "Verifying cached dependency: $fileName"
+        Assert-Checksum $destination $Dependency.sha256
+        return $destination
+    }
+    $partial = "$destination.part"
+    $attemptLimit = 3
+    for ($attempt = 1; $attempt -le $attemptLimit; $attempt++) {
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        try {
+            Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+            Write-Host "Downloading $fileName (attempt $attempt/$attemptLimit, total limit $($Dependency.downloadTimeoutSeconds)s)."
+            # PowerShell TimeoutSec bounds connection setup only; curl max-time also bounds the response body.
+            & curl.exe --disable --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time $Dependency.downloadTimeoutSeconds --speed-time 30 --speed-limit 1024 --output $partial --url $uri.AbsoluteUri
+            if ($LASTEXITCODE -ne 0) { throw "Dependency download failed (curl exit $LASTEXITCODE)." }
+            $downloadBytes = (Get-Item -LiteralPath $partial).Length
+            Write-Host "Downloaded ${fileName}: $downloadBytes bytes in $([Math]::Round($watch.Elapsed.TotalSeconds, 1))s; verifying SHA-256."
+            Assert-Checksum $partial $Dependency.sha256
+            Move-Item -LiteralPath $partial -Destination $destination -Force
+            Write-Host "Verified dependency: $fileName ($([Math]::Round($watch.Elapsed.TotalSeconds, 1))s)."
+            return $destination
+        } catch {
+            Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+            Write-Warning "$fileName attempt $attempt/$attemptLimit failed after $([Math]::Round($watch.Elapsed.TotalSeconds, 1))s: $($_.Exception.Message)"
+            if ($attempt -eq $attemptLimit) { throw }
+            Start-Sleep -Seconds 2
+        } finally {
+            $watch.Stop()
+        }
+    }
 }
 
 function Set-BuildEnvironment([string]$Name, [string]$Value) {
@@ -57,8 +91,7 @@ if ($cargoLock -notmatch "name = `"sherpa-onnx-sys`"\r?\nversion = `"$expectedVe
 Assert-Checksum (Join-Path $repoRoot $manifest.vad.path) $manifest.vad.sha256
 if ($ValidateOnly) {
     foreach ($dependency in @($manifest.sherpa, $manifest.cuda, $manifest.vulkan)) {
-        if ([Uri]$dependency.url -and ([Uri]$dependency.url).Scheme -ne 'https') { throw 'Insecure dependency URL.' }
-        if ($dependency.sha256 -notmatch '^[0-9a-f]{64}$') { throw 'Invalid dependency SHA-256.' }
+        Assert-DownloadSpec $dependency
     }
     Write-Host 'Pinned native manifest, Sherpa lock version and VAD checksum verified.'
     return
@@ -70,6 +103,7 @@ if ($InstallGpuSdks -and $env:GITHUB_ACTIONS -ne 'true') {
 }
 New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
 $archive = Get-VerifiedDownload $manifest.sherpa
+Write-Host 'Inspecting verified Sherpa archive paths.'
 $entries = & tar -tf $archive
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Sherpa archive.' }
 foreach ($entry in $entries) {
@@ -77,6 +111,7 @@ foreach ($entry in $entries) {
         throw 'Sherpa archive has an unexpected extraction path.'
     }
 }
+Write-Host 'Extracting verified Sherpa runtime.'
 & tar -xf $archive -C $workRoot
 if ($LASTEXITCODE -ne 0) { throw 'Cannot extract Sherpa archive.' }
 $libDir = Join-Path $workRoot "$($manifest.sherpa.directory)\lib"
@@ -85,6 +120,7 @@ New-Item -ItemType Directory -Path $destination -Force | Out-Null
 foreach ($name in @($requiredDlls) + @('sherpa-onnx-c-api.lib', 'onnxruntime.lib')) {
     if (!(Test-Path -LiteralPath (Join-Path $libDir $name) -PathType Leaf)) { throw "Missing Sherpa library: $name" }
 }
+Write-Host 'Staging verified Sherpa DLLs.'
 foreach ($name in $requiredDlls) {
     Copy-Item -LiteralPath (Join-Path $libDir $name) -Destination (Join-Path $destination $name) -Force
 }

@@ -106,6 +106,7 @@ jobs:
         shell: pwsh
         run: rustup toolchain install 1.96.1 --profile minimal --component rustfmt --component clippy
       - name: Bootstrap verified native runtime
+        timeout-minutes: 10
         shell: pwsh
         run: ./scripts/bootstrap-ci-resources.ps1
       - name: Test and lint native workspace
