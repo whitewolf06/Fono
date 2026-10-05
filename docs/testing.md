@@ -1,33 +1,56 @@
 # Ручное тестирование Fono
 
-Для обновления голосового ядра 2026-10-03 использовать актуальные сценарии
-[fono-voice-reliability.md](fono-voice-reliability.md): обычная/живая диктовка,
-custom RU/EN WakeWord, focus pause/resume, API preemption и cold/warm replay.
-Ниже сохранены общие и исторические проверки; старые замеры transport не
-характеризуют живой режим с ограниченными окнами.
+Текущее приложение использует классическую диктовку с режимами горячей клавиши
+`hold` и `toggle`. Основная ручная приёмка — запись, отмена, вставка, принятие
+в overlay без вставки, копирование и выбор обработки/перевода во время записи.
+WakeWord временно недоступен; поэтапный вывод «На лету» скрыт.
+
+Актуальные сценарии:
+
+- [STATUS.md](STATUS.md) — доступные возможности и границы подтверждения.
+- [fono-v3-qa.md](fono-v3-qa.md) — интерфейс и состояния V3.
+- [overlay-prompts-qa.md](overlay-prompts-qa.md) — overlay, промпты и обработка.
+- [fono-memory-updates-qa.md](fono-memory-updates-qa.md) — память модели и updater.
+- [fono-voice-reliability.md](fono-voice-reliability.md) — голосовое ядро,
+  сохранённые экспериментальные пути и результаты ограниченных замеров.
+
+Голос, глобальные клавиши и пользовательские окна проверяет пользователь.
+Ниже сохранены общие и исторические методики qualification; проверки WakeWord
+и живого вывода не являются инструкцией включить их в текущей версии.
 
 ## Автоматический gate перед ручной проверкой
 
-Из `src-tauri`:
+Из корня репозитория в **PowerShell 7**, с установленными build-зависимостями:
 
 ```powershell
-cargo fmt --all --check
-cargo test --workspace --target-dir target-codex-review
-cargo clippy --workspace --all-targets --target-dir target-codex-review -- -D warnings
-cargo check -p fono --no-default-features --target-dir target-codex-review
-cargo check -p fono --no-default-features --features whisper-wake --target-dir target-codex-review
-cargo check -p fono --no-default-features --features sherpa-wake --target-dir target-codex-review
-cargo check -p fono --target-dir target-codex-review
+./scripts/bootstrap-ci-resources.ps1
+./scripts/test-native.ps1 -CargoArguments @('--locked', '--workspace', '--all-targets', '--target-dir', 'target-codex-review')
+Push-Location src-tauri
+try {
+    cargo fmt --all --check
+    cargo clippy --locked --workspace --all-targets --target-dir target-codex-review -- -D warnings
+    cargo check --locked -p fono --no-default-features --target-dir target-codex-review
+    cargo check --locked -p fono --no-default-features --features whisper-wake --target-dir target-codex-review
+    cargo check --locked -p fono --no-default-features --features sherpa-wake --target-dir target-codex-review
+    cargo check --locked -p fono --target-dir target-codex-review
+} finally {
+    Pop-Location
+}
 ```
 
-Supply-chain gate описан в `dependency-policy.md`. Автоматические проверки не
+Wrapper сам меняет рабочий каталог на `src-tauri`, собирает точный набор
+тестов и размещает четыре закреплённые Sherpa/ONNX DLL рядом с executable.
+Прямой `cargo test` с одним `PATH` на Windows может загрузить несовместимый
+системный ONNX runtime. Подробности: [fono-ci-updates.md](fono-ci-updates.md).
+
+Supply-chain gate описан в [dependency-policy.md](dependency-policy.md). Автоматические проверки не
 заменяют desktop smoke, soak/leak measurement и installer smoke.
 
 Release manifest path автоматически проверяется командой:
 
 ```powershell
 cd src-tauri
-cargo check -p fono --release --target-dir target-codex-review
+cargo check --locked -p fono --release --target-dir target-codex-review
 ```
 
 Она подтверждает, что `build.rs` принимает закрытый набор STT worker/Sherpa
@@ -64,10 +87,10 @@ Mailbox fixture проверяет owner-thread `ping` и отмену зави�
 она возвращает `Cancelled`, завершает owner session и не удерживает health за
 длительным inference.
 
-Для воспроизводимого baseline STT transport:
+Для воспроизводимого baseline STT transport (из корня после bootstrap):
 
 ```powershell
-cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_recording_lengths --target-dir target-codex-review -- --nocapture
+./scripts/test-native.ps1 -CargoArguments @('--locked', '-p', 'fono', 'stt::worker::tests::base64_transport_measurement_for_typical_recording_lengths', '--target-dir', 'target-codex-review') -TestArguments @('--nocapture')
 ```
 
 Последний замер 2026-08-11: 5/30/120 сек дали соответственно 213 511 B,
@@ -75,7 +98,14 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
 машины, размер — contract test. Пяти­минутный буфер также проверяется на
 помещение в `MAX_REQUEST_FRAME_BYTES` (16 MiB).
 
-## Перед началом
+## Сохранённые методики qualification
+
+Общие STT, отмена и вставка применимы к текущей классической диктовке. Сведения
+о старых wake backends, прежних UI-кнопках и замерах ниже сохранены для
+регрессий и будущей доработки. Проверки wake-пути выполнять только после
+отдельного восстановления функции и согласования её качества.
+
+### Перед началом
 
 - Перед переключением между dev и installer полностью завершите Fono через tray
   и убедитесь в Диспетчере задач, что `fono.exe` не остался запущенным.
@@ -83,8 +113,8 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
   ярлык или список недавних приложений. Сверьте версию рядом с заголовком Fono.
 - Используйте сборку из `src-tauri\target\release\fono.exe` или installer.
 - Выберите микрофон и скачайте/выберите Whisper model.
-- Если тестируете wake word, включите его отдельно: hotkey должен работать и
-  при выключенном wake word.
+- WakeWord в текущем приложении недоступен. После его восстановления
+  hotkey должен работать независимо от включения пробуждения.
 
 ## STT / acceleration
 
@@ -103,7 +133,8 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
 Проверка выполняется в **Desktop dev** или собранном Tauri-приложении: браузерный
 `npm run dev:ui` не запускает реальный микрофон, hotkey и wake pipeline.
 
-1. Для global hotkey и wake word отдельно прогоните короткую обычную фразу:
+1. Для global hotkey прогоните короткую обычную фразу; историческую проверку
+   wake-пути повторите после восстановления функции:
    с тихим окончанием, с короткой паузой и без паузы. Повторите с выключенной и
    включённой AI-обработкой.
 2. После каждого прогона найдите в `%APPDATA%\Fono\logs` единственную строку
@@ -121,7 +152,11 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
 В записи нет аудиосэмплов, фрагментов транскрипта, пути к модели или текста
 ошибок. Логи содержат только длительности, счётчики и статусы этапов.
 
-## Wake word
+## Wake word — историческая методика
+
+Этот раздел описывает прежние backend-ы и их проверки. Native gate текущего
+приложения запрещает включение, запись теста и калибровку WakeWord. Для будущей
+потоковой RU/EN qualification используйте [fono-voice-reliability.md](fono-voice-reliability.md).
 
 - В Sherpa разрешены только `hey fono`, `okay fun` и `рамзи`; сохранение другой
   фразы должно вернуть validation error. В Whisper Experimental произвольная
@@ -145,6 +180,9 @@ cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_
    threshold и score, с которыми был создан Sherpa.
 
 ## Регрессии
+
+Общие сценарии остаются применимыми. Пункты с WakeWord относятся к будущей
+qualification после возврата функции; сейчас их не требуется включать в UI.
 
 - Local REST: с выбранной Whisper-моделью выполнить health, отправить WAV через
   `/v1/transcriptions`, дождаться `completed`, затем проверить stop приложения

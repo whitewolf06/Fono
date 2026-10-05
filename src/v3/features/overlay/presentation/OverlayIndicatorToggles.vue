@@ -18,13 +18,13 @@ defineEmits<{
 }>();
 </script>
 <template>
-  <div class="overlay-sketch-toggles">
+  <div class="overlay-indicator-toggles">
     <div
-      class="overlay-sketch-toggle"
+      class="overlay-indicator-toggle"
       :class="{ active: choice.postprocessingOn }"
     >
       <span
-        class="overlay-sketch-toggle-icon"
+        class="overlay-indicator-toggle-icon"
         title="Постобработка"
         aria-hidden="true"
       >
@@ -42,7 +42,7 @@ defineEmits<{
       />
       <button
         type="button"
-        class="overlay-sketch-option"
+        class="overlay-indicator-option"
         :title="`Постобработка: ${presetOptions.find((item) => item.value === choice.style)?.label}. Выбрать стиль`"
         aria-label="Выбрать стиль обработки"
         :aria-expanded="panel === 'processing'"
@@ -54,11 +54,11 @@ defineEmits<{
       </button>
     </div>
     <div
-      class="overlay-sketch-toggle translation"
+      class="overlay-indicator-toggle translation"
       :class="{ active: choice.postprocessingOn && choice.translationOn }"
     >
       <span
-        class="overlay-sketch-toggle-icon"
+        class="overlay-indicator-toggle-icon"
         title="Перевод"
         aria-hidden="true"
       >
@@ -80,7 +80,7 @@ defineEmits<{
       />
       <button
         type="button"
-        class="overlay-sketch-option"
+        class="overlay-indicator-option"
         :title="`Перевод: ${translationOptions.find((item) => item.value === choice.language)?.label}. Выбрать язык`"
         aria-label="Выбрать язык перевода"
         :aria-expanded="panel === 'translation'"

@@ -64,15 +64,14 @@
   --fono-overlay-error-height: 40px;
   --fono-overlay-choice-label-width: 48px;
   --fono-overlay-wave-width: 60%;
-  --fono-sketch-width: 600px;
-  --fono-sketch-compact-width: 520px;
-  --fono-sketch-brand: 48px;
-  --fono-sketch-brand-compact: 40px;
-  --fono-sketch-action: 36px;
-  --fono-sketch-toggle-width: 104px;
-  --fono-sketch-option: 28px;
-  --fono-sketch-wave-height: 38px;
-  --fono-sketch-stage-height: 380px;
+  --fono-indicator-width: 600px;
+  --fono-indicator-compact-width: 520px;
+  --fono-indicator-brand: 48px;
+  --fono-indicator-brand-compact: 40px;
+  --fono-indicator-action: 36px;
+  --fono-indicator-toggle-width: 104px;
+  --fono-indicator-option: 28px;
+  --fono-indicator-wave-height: 38px;
   --fono-overlay-finish-background: color-mix(
     in srgb,
     var(--fono-success) 12%,

@@ -54,7 +54,7 @@ jobs:
       - name: Frontend gates
         shell: pwsh
         run: |
-          foreach ($command in @('typecheck:v3', 'lint', 'test:ui', 'test:v3', 'format:check', 'build')) {
+          foreach ($command in @('typecheck:v3', 'lint', 'test:v3', 'format:check', 'build')) {
             npm run $command
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }

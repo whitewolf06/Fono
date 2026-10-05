@@ -5,6 +5,8 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $releaseDir = Join-Path $repoRoot 'src-tauri\target\release'
+# Historical filenames are intentional: remove stale outputs from checkouts
+# built before the Fono rename. These names are not current application branding.
 $legacyArtifacts = @(
     'whisperclone_lib.dll',
     'whisperclone_lib.dll.exp',

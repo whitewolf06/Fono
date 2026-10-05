@@ -14,7 +14,7 @@ import { VoiceWave } from "../../dictation";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import { dictationNotice } from "../../../shared/domain/dictationNotice";
 import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
-import OverlaySketchToggles from "./OverlaySketchToggles.vue";
+import OverlayIndicatorToggles from "./OverlayIndicatorToggles.vue";
 import OverlayIndicatorHelp from "./OverlayIndicatorHelp.vue";
 const props = withDefaults(
   defineProps<{
@@ -90,18 +90,18 @@ watch(recording, (value) => {
 </script>
 <template>
   <div
-    class="overlay-sketch"
+    class="overlay-indicator"
     :class="{ compact, 'is-ready': ready, 'is-recording': recording }"
     :data-phase="state.phase"
-    :style="{ '--sketch-level': state.level }"
+    :style="{ '--indicator-level': state.level }"
     @keydown.esc.stop="panel = null"
   >
-    <div class="overlay-sketch-body">
-      <div class="overlay-sketch-brand">
+    <div class="overlay-indicator-body">
+      <div class="overlay-indicator-brand">
         <img src="/fono-icon.png" alt="" aria-hidden="true" />
         <button
           type="button"
-          class="overlay-sketch-info"
+          class="overlay-indicator-info"
           title="Что означают кнопки"
           aria-label="Что означают кнопки"
           :aria-expanded="panel === 'help'"
@@ -111,12 +111,12 @@ watch(recording, (value) => {
           <AppIcon name="info" :size="13" />
         </button>
       </div>
-      <div class="overlay-sketch-summary" aria-live="polite">
-        <div class="overlay-sketch-status">
+      <div class="overlay-indicator-summary" aria-live="polite">
+        <div class="overlay-indicator-status">
           <strong :title="status">{{ status }}</strong
           ><small>{{ clock }}</small>
         </div>
-        <p v-if="ready" class="overlay-sketch-result" :title="state.result">
+        <p v-if="ready" class="overlay-indicator-result" :title="state.result">
           {{ state.result }}
         </p>
         <VoiceWave
@@ -125,8 +125,8 @@ watch(recording, (value) => {
           :level="state.level"
         />
       </div>
-      <div class="overlay-sketch-right">
-        <OverlaySketchToggles
+      <div class="overlay-indicator-right">
+        <OverlayIndicatorToggles
           v-if="quick"
           :choice="state"
           :disabled="!recording || saving"
@@ -136,13 +136,13 @@ watch(recording, (value) => {
           @configure="configure"
         />
         <div
-          class="overlay-sketch-actions"
+          class="overlay-indicator-actions"
           role="group"
           aria-label="Действия с диктовкой"
         >
           <button
             type="button"
-            class="overlay-sketch-action cancel"
+            class="overlay-indicator-action cancel"
             :title="ready ? 'Закрыть без копирования' : 'Отменить запись'"
             :aria-label="ready ? 'Закрыть без копирования' : 'Отменить запись'"
             @click="ready ? emit('close') : emit('cancel')"
@@ -152,7 +152,7 @@ watch(recording, (value) => {
           <button
             v-if="ready && canRetry"
             type="button"
-            class="overlay-sketch-action processing"
+            class="overlay-indicator-action processing"
             title="Повторить обработку без вставки"
             aria-label="Повторить обработку без вставки"
             :disabled="saving || state.copying"
@@ -163,7 +163,7 @@ watch(recording, (value) => {
           <button
             v-if="ready"
             type="button"
-            class="overlay-sketch-action copy"
+            class="overlay-indicator-action copy"
             title="Скопировать текст и закрыть"
             aria-label="Скопировать текст и закрыть"
             :disabled="state.copying"
@@ -175,7 +175,7 @@ watch(recording, (value) => {
           <button
             v-else
             type="button"
-            class="overlay-sketch-action accept"
+            class="overlay-indicator-action accept"
             title="Завершить запись без вставки"
             aria-label="Завершить запись без вставки"
             :disabled="!recording || saving || !canFinish"
@@ -187,12 +187,12 @@ watch(recording, (value) => {
       </div>
     </div>
     <DictationNotice v-if="notice" :notice="notice" :show-title="false" />
-    <div v-if="panel" :id="panelId" class="overlay-sketch-panel">
+    <div v-if="panel" :id="panelId" class="overlay-indicator-panel">
       <OverlayIndicatorHelp v-if="panel === 'help'" :hotkey-mode="hotkeyMode" />
       <template v-else-if="panel === 'processing'">
         <strong>Стиль постобработки</strong>
         <div
-          class="overlay-sketch-options"
+          class="overlay-indicator-options"
           role="group"
           aria-label="Стиль постобработки"
         >
@@ -212,7 +212,7 @@ watch(recording, (value) => {
       <template v-else>
         <strong>Язык перевода</strong>
         <div
-          class="overlay-sketch-options"
+          class="overlay-indicator-options"
           role="group"
           aria-label="Язык перевода"
         >

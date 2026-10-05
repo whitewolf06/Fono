@@ -67,8 +67,6 @@ const phases: Phase[] = [
     <PageHeading
       title="Индикатор записи"
       description="Браузерный предпросмотр плавающего окна."
-      ><RouterLink class="text-link" to="/overlay-sketch"
-        >Новый набросок</RouterLink
       ><RouterLink class="text-link" to="/settings/overlay"
         >Настройки внешнего вида</RouterLink
       ></PageHeading

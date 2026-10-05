@@ -5,7 +5,7 @@ import type {
   DeviceInfo,
   WakeWordCapabilities,
   LocalTranscriptionServiceSnapshot,
-} from "../../../../lib/types";
+} from "./ipcTypes";
 import { call } from "./ipc";
 import type { GpuMemoryStatus } from "../../domain/gpuMemory";
 import {
@@ -16,7 +16,7 @@ import {
   jobFromNative,
   applyPreferences,
 } from "./mapping";
-import type { DictationHistoryEntry } from "../../../../lib/types";
+import type { DictationHistoryEntry } from "./ipcTypes";
 export function createNativeContext(state: WorkspaceState) {
   let models: WhisperModelInfo[] = [];
   let saveTail: Promise<unknown> = Promise.resolve();

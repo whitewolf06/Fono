@@ -1,5 +1,5 @@
 import { reactive } from "vue";
-import type { Settings } from "../../../../lib/types";
+import type { Settings } from "../../../shared/infrastructure/native/ipcTypes";
 import type {
   OverlayProcessingChoice,
   OverlayProcessingChoiceRequest,

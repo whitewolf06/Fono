@@ -53,11 +53,6 @@ export const router = createRouter({
         import("../features/overlay/presentation/OverlayPage.vue"),
     },
     {
-      path: "/overlay-sketch",
-      component: () =>
-        import("../features/overlay/presentation/OverlaySketchPage.vue"),
-    },
-    {
       path: "/scenarios",
       component: () =>
         import("../features/scenarios/presentation/ScenariosPage.vue"),

@@ -3,7 +3,7 @@ import type {
   WhisperModelInfo,
   DictationHistoryEntry,
   LocalTranscriptionJob,
-} from "../../../../lib/types";
+} from "./ipcTypes";
 import type {
   Preferences,
   ConnectionProfile,

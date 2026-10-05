@@ -11,7 +11,7 @@ import type {
   OverlayProcessingChoice,
 } from "../../../shared/domain/processing";
 import type { IndicatorChoice, IndicatorState } from "../domain/indicator";
-import OverlaySketch from "./OverlaySketch.vue";
+import OverlayIndicator from "./OverlayIndicator.vue";
 const props = withDefaults(
   defineProps<{
     preferences: Preferences;
@@ -114,7 +114,7 @@ function choose(patch: Partial<IndicatorChoice>) {
 </script>
 <template>
   <div class="overlay-preview-wrap">
-    <OverlaySketch
+    <OverlayIndicator
       class="overlay-preview"
       :class="{ disabled: !preferences.overlayEnabled }"
       :style="{

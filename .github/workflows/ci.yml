@@ -64,7 +64,6 @@ jobs:
         run: |
           npm run typecheck:v3
           npm run lint
-          npm run test:ui
           npm run test:v3
           npm run test:release
           npm run format:check

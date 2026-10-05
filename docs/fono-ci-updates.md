@@ -4,7 +4,7 @@
 
 `Fono checks` запускается при push в `main` / `codex/**`, PR в `main` и вручную.
 
-- Frontend: locked `npm ci`, Vue typecheck, lint, V1/V2 и V3 unit tests,
+- Frontend: locked `npm ci`, Vue typecheck, lint, актуальные Vue unit tests,
   проверки release scripts, форматирование, синхронизация версии и production build.
 - Windows: `cargo fmt`, тесты всего workspace, clippy с запретом предупреждений,
   CPU / Whisper Wake / Sherpa Wake feature checks. Тесты протокола проверяют
@@ -101,7 +101,8 @@ npm run test:release
 Нативный updater использует Tauri и проверяет подпись installer. Установка
 вызывается только отдельным действием пользователя. Публичный канал задаёт
 `src-tauri/update-channel.json` (`publicKey` / `endpoint`), переменные окружения
-`FONO_UPDATER_PUBLIC_KEY` / `FONO_UPDATER_ENDPOINT` могут его переопределить.
+`FONO_UPDATER_PUBLIC_KEY` / `FONO_UPDATER_ENDPOINT` могут его переопределить
+при сборке. Изменение окружения уже установленного приложения канал не меняет.
 При отсутствии обоих источников канал не настроен и проверки сети нет.
 Автоматическая проверка по умолчанию выключена; пользователь может включить её.
 Updater signing защищает обновление; это отдельная подпись от Windows Authenticode
@@ -120,7 +121,7 @@ Updater signing защищает обновление; это отдельная
    Разрешить deployment branch только `main`.
 2. В `src-tauri/update-channel.json` хранится публичный ключ и HTTPS URL.
    Environment variables `FONO_UPDATER_PUBLIC_KEY` / `FONO_UPDATER_ENDPOINT`
-   необязательны и переопределяют эти значения. Публичный ключ — **содержимое**
+   необязательны и переопределяют эти значения при сборке. Публичный ключ — **содержимое**
    `.pub` файла Tauri signer; при смене ключа нужны согласование и миграция уже
    установленных клиентов.
 3. Environment secrets: `TAURI_SIGNING_PRIVATE_KEY` — содержимое приватного ключа;
@@ -128,7 +129,7 @@ Updater signing защищает обновление; это отдельная
    должен быть доступен этому workflow. Ключи не генерируются задачей CI.
 4. Запустить workflow на `main` и указать `download_base`: будущий HTTPS каталог
    installer текущей версии, например
-   `https://github.com/whitewolf06/fono/releases/download/v0.6.0/`.
+   `https://github.com/whitewolf06/fono/releases/download/v0.6.12/`.
 
 Workflow повторяет проверки, собирает NSIS с временным override
 `bundle.createUpdaterArtifacts=true`, затем проверяет `.sig` против выбранного
@@ -138,8 +139,8 @@ credentials, query и fragment; размеры signature/JSON/installer огра
 `requireSignedVersion=true` требует, чтобы версия внутри подписанного trusted
 comment совпадала с `package.json` и JSON. Для этого нужен Tauri CLI 2.11.5:
 его bundler записывает версию, а CLI 2.11.4 её не добавлял.
-Обычный `tauri signer sign` её не добавляет и не подходит для
-подготовки updater вручную без versioned signature.
+При ручной подписи через CLI 2.11.5 нужен `tauri signer sign --app-version`
+с версией приложения: подпись без versioned trusted comment validator отклоняет.
 
 Выходной Actions artifact:
 
@@ -151,8 +152,8 @@ comment совпадала с `package.json` и JSON. Для этого нуже
 В workflow нет `contents:write`, создания release, загрузки в публичный канал
 или установки приложения. `download_base` — будущий адрес; генерация JSON не
 доказывает, что адрес доступен. Артефакты нужно скачать и проверить перед
-отдельной публикацией. Подпись и канал обновлений станут доступны пользователям
-после выпуска сборки с согласованным публичным ключом и endpoint.
+отдельной публикацией. В опубликованном Fono 0.6.12 уже настроены согласованный
+публичный ключ и endpoint.
 
 ## Бесплатный канал GitHub Releases
 
@@ -164,23 +165,28 @@ GitHub Releases допускает assets меньше 2 GiB и не огран�
 релиза или bandwidth — [официальные ограничения](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases).
 Выпускаемый installer ограничен 512 MiB нашим validator и native updater.
 
-Будущая публикация: сначала загрузить immutable installer и `.sig` в versioned
+Порядок публикации: сначала загрузить immutable installer и `.sig` в versioned
 release, проверить доступность без аккаунта, затем опубликовать `latest.json`.
 Endpoint: `https://github.com/whitewolf06/fono/releases/latest/download/latest.json`.
 Публичный ключ фиксируется в `update-channel.json`; приватный ключ остаётся вне
 репозитория. Локальный ключ хранится в пользовательском каталоге `.fono/signing`;
 его резервную копию нужно хранить отдельно от исходников. В CI ключ передаётся
-только через signing secret. Подписанный установщик 0.5.22 подготовлен и проверен
-локально; для первого публичного выпуска согласована версия 0.6.0. Публикация
-следует после ручной проверки пользователя. Этот workflow не меняет visibility
-и не публикует release.
+только через signing secret. [Fono 0.6.12](https://github.com/whitewolf06/fono/releases/tag/v0.6.12)
+опубликован 2026-10-05: локально собранный подписанный NSIS, `.sig` и `latest.json`.
+Подпись, версия и доступность публичного канала без аккаунта проверены.
+Этот workflow не меняет visibility и не публикует release.
 Не помещать PAT / секреты в URL клиентского updater.
 
 ## Границы подтверждения
 
-Локальные unit/структурные проверки scripts и workflows не подтверждают запуск
-GitHub Actions. npm secret уже настроен; signing secrets, квоты и protected
-environment ещё нужно настроить, первый remote run не выполнялся.
+Для исходного коммита выпуска 0.6.12 `fb54dc1883baee3f287b523dc82b10b0a058f9c9`
+[Fono checks #37245293432](https://github.com/whitewolf06/fono/actions/runs/37245293432)
+успешно прошёл все три задания: core/protocol, frontend/release scripts и Windows
+native workspace. Это не проверка пользовательского микрофона или установки.
+
+Ручной workflow подписанной сборки остаётся отдельным этапом: локальная подпись
+и обычный CI не подтверждают его выполнение. Перед его запуском нужно проверить
+signing secrets, protected environment и квоты аккаунта.
 Clean-Windows installer acceptance отложен пользователем;
 этому этапу также остаются реальные проверки download → signature verification
 → установка → перезапуск со своей историей и настройками.

@@ -1,6 +1,6 @@
 import type { NativeContext } from "./context";
 import type { DictationPort, Phase } from "../../domain/contracts";
-import type { Transcript } from "../../../../lib/types";
+import type { Transcript } from "./ipcTypes";
 import { call } from "./ipc";
 import { createNativeSessionSync } from "./sessionSync";
 import { createNativeResultObserver } from "./sessionResult";

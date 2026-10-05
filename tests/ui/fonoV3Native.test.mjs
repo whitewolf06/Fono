@@ -53,8 +53,9 @@ before(async () => {
   ({ createPendingOverlay } = await server.ssrLoadModule(
     "/src/v3/features/overlay/infrastructure/pendingOverlay.ts",
   ));
-  ({ DEFAULT_SETTINGS: rawDefaults } =
-    await server.ssrLoadModule("/src/lib/types.ts"));
+  ({ DEFAULT_SETTINGS: rawDefaults } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/ipcTypes.ts",
+  ));
   ({ defaults } = await server.ssrLoadModule(
     "/src/v3/features/preferences/domain/preferences.ts",
   ));

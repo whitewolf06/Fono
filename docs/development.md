@@ -37,7 +37,7 @@ CUDA Toolkit и Vulkan SDK нужны только разработчику, к�
 ## Локальная разработка
 
 ```powershell
-npm install
+npm ci
 npm run tauri dev
 ```
 
@@ -46,8 +46,8 @@ npm run tauri dev
 Используйте подходящий уровень, а не installer по умолчанию:
 
 1. **Только UI в браузере:** `npm run dev:ui`, затем
-   `http://127.0.0.1:1420/?ui=v2`. Это mock-режим для быстрой визуальной и
-   интерактивной проверки UI v2; Rust, Tauri IPC, микрофон, hotkey и overlay в
+   `http://127.0.0.1:1420/v3.html`. Это mock-режим для быстрой визуальной и
+   интерактивной проверки Vue-интерфейса; Rust, Tauri IPC, микрофон, hotkey и overlay в
    нём не проверяются.
 2. **Desktop без установки:** `npm run tauri dev` для разработки или прямой
    запуск `src-tauri\target\release\fono.exe` после production-сборки. Это
@@ -57,7 +57,7 @@ npm run tauri dev
    финального release smoke-test: упаковки ресурсов, установки и запуска в
    пользовательском окружении. Его не нужно запускать для каждой UI-итерации.
 
-Быстрые проверки Rust:
+Быстрые проверки Rust (PowerShell 7; сначала из корня `./scripts/bootstrap-ci-resources.ps1` для закреплённого runtime):
 
 ```powershell
 cd src-tauri
@@ -66,10 +66,10 @@ cargo check -p fono --no-default-features
 cargo check -p fono --no-default-features --features whisper-wake
 cargo check -p fono --no-default-features --features sherpa-wake
 cargo check -p fono
-cargo test --workspace
+../scripts/test-native.ps1
 cargo clippy --workspace --all-targets -- -D warnings
 cargo deny check --config deny.toml
-cargo test -p fono stt::worker::tests::base64_transport_measurement_for_typical_recording_lengths -- --nocapture
+
 ```
 
 ## Release
@@ -83,7 +83,7 @@ npm run release
 Если frontend и release resources уже подготовлены и проверены отдельно, повторную упаковку
 можно запустить через Tauri CLI с `src-tauri/tauri.prebuilt.conf.json`; этот
 override пропускает их повторную подготовку, но перед bundling удаляет только
-известные legacy-артефакты прежнего имени `WhisperClone` из `target\release`.
+известные legacy-артефакты предыдущего имени приложения из `target\release`.
 Rust build и bundling при этом остаются обязательными.
 
 Он запускает frontend build, затем `scripts/prepare-release-resources.ps1` и
@@ -122,15 +122,9 @@ src-tauri\target\release\bundle\msi\
 1. Запустить Fono и выбрать модель Whisper.
 2. Проверить CUDA, Vulkan, Auto и CPU через тест диктовки.
 3. Убедиться, что в логах есть `STT backend selected: CUDA` либо `Vulkan`.
-4. Для Sherpa скачать KWS model и проверить встроенный `LIGHT UP` WAV, затем
-   ручную запись текущей wake-фразы.
-   Для Sherpa доступны только `hey fono` и `okay fun`; для другой фразы
-   используйте Whisper Experimental.
-5. Проверить wake → post-wake dictation → Listening: микрофон не должен
-   переподключаться между этими фазами, так как их обслуживает один `AudioHub`.
-6. Для command hotkey и явной команды после wake phrase убедиться, что действие
-   выполняется только после preview и confirm; смена настроек либо ожидание более
-   30 секунд инвалидирует preview.
+4. WakeWord временно недоступен; включение детектора и проверка wake-фразы относятся к отдельной будущей задаче качества.
+5. Проверить оба режима hotkey: удержание и повторное нажатие. Экспериментальная поэтапная вставка скрыта.
+6. Для command hotkey убедиться, что действие выполняется только после preview и confirm; смена настроек либо ожидание более 30 секунд инвалидирует preview.
 7. Проверить, что worker не открывает Terminal.
 
 Логи находятся в `%APPDATA%\Fono\logs`.
@@ -147,5 +141,10 @@ npm run tauri dev
 
 Контракт и ручной smoke-test: [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md).
 
-API key LLM хранится в Windows Credential Manager под target
-`Fono/llm-api-key`; `settings.json`, IPC и диагностические логи его не содержат.
+API key каждого LLM-профиля хранится в Windows Credential Manager под target
+`Fono/llm-profile/<id>`. Прежний target `Fono/llm-api-key` поддерживается для
+миграции; `settings.json`, IPC и диагностические логи ключей не содержат.
+
+## Фронтенд
+
+Единственный frontend — Vue в `src/v3/`. Корневой URL и `v3.html` открывают один интерфейс; React, Tailwind и pnpm-конфиги удалены. `package-lock.json` и `npm ci` задают воспроизводимые зависимости. `npm run test:ui` запускает актуальные V3-тесты.

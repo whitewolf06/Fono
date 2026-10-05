@@ -26,8 +26,9 @@ before(async () => {
     await server.ssrLoadModule(
       "/src/v3/shared/infrastructure/native/mapping.ts",
     ));
-  ({ DEFAULT_SETTINGS: settings } =
-    await server.ssrLoadModule("/src/lib/types.ts"));
+  ({ DEFAULT_SETTINGS: settings } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/ipcTypes.ts",
+  ));
   ({ historyMetadataFromNative: metadata } = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/native/historyMetadata.ts",
   ));

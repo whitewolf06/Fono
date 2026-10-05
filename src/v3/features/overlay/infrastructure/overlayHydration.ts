@@ -1,4 +1,4 @@
-import type { Settings } from "../../../../lib/types";
+import type { Settings } from "../../../shared/infrastructure/native/ipcTypes";
 import type { PendingDictation } from "../../../shared/domain/processing";
 import { call } from "../../../shared/infrastructure/native/ipc";
 

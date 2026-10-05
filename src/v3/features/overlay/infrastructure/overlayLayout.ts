@@ -46,7 +46,7 @@ export function bindOverlayLayout(
     )
       return;
     const nextWidget = document.querySelector(
-      ".native-overlay .overlay-sketch",
+      ".native-overlay .overlay-indicator",
     );
     if (nextWidget !== widget) {
       observer?.disconnect();

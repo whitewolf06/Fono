@@ -1,4 +1,4 @@
-import type { PipelineState } from "../../../../lib/types";
+import type { PipelineState } from "./ipcTypes";
 import type { LiveDictation } from "../../domain/contracts";
 
 export interface NativeResult {

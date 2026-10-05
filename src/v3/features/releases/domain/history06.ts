@@ -2,6 +2,15 @@ import type { VersionEntry } from "./versionHistory";
 
 export const history06: VersionEntry[] = [
   {
+    version: "0.6.13",
+    date: "2026-10-05",
+    title: "Очистка репозитория",
+    changes: [
+      "Удалены старые HTML-прототипы, React-интерфейсы и их неиспользуемые ресурсы и зависимости.",
+      "Документация и правила разработки приведены к текущему интерфейсу Fono на Vue.",
+    ],
+  },
+  {
     version: "0.6.12",
     date: "2026-10-05",
     title: "Проверенная поставка для Windows",

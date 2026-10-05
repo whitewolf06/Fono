@@ -14,6 +14,5 @@
 @import "./styles/dictation-actions.css";
 @import "./styles/dictation-notice.css";
 @import "./styles/overlay-controls.css";
-@import "./styles/overlay-sketch.css";
-@import "./styles/overlay-sketch-page.css";
+@import "./styles/overlay-indicator.css";
 @import "./styles/responsive.css";

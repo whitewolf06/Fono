@@ -1,59 +1,45 @@
 # Fono
 
-Локальный Windows voice layer: диктовка в активное окно, wake word, overlay,
-локальная AI-обработка через LM Studio и безопасные голосовые команды.
+Голосовой ввод для Windows: локальное распознавание речи, вставка в активное окно, необязательная обработка и перевод текста через ИИ.
 
-## Текущий статус
+## Возможности
 
-Рабочий Windows MVP. Основной сценарий — hotkey или wake word → запись →
-Whisper → опциональная обработка → вставка текста.
+- Диктовка при удержании горячей клавиши или между двумя нажатиями. Используется классический режим распознавания.
+- Vue 3 + TypeScript и WhiteUI 0.6.0: главная, настройки, история, речевой тренер, голосовые команды и API-сервис.
+- Плавающий индикатор с уровнем голоса, отменой, принятием, копированием и быстрым выбором обработки и перевода.
+- Локальные модели Whisper; ускорение Auto/CUDA/Vulkan/CPU. CUDA и Vulkan работают в отдельных worker-процессах.
+- Встроенные или собственные системные промпты для обработки; режим «Без изменений»; тест инструкции на тексте или пробной диктовке.
+- Личный словарь, расширенные сведения в истории, локальный анализ речевых привычек и технический отчёт без пользовательских текстов.
+- Локальный REST API транскрибации и голосовые команды с ограниченным набором действий.
+- Подписанные обновления через GitHub Releases, ручная проверка и опциональная проверка раз в сутки.
 
-- Push-to-talk и post-wake диктовка с отменой, VAD и overlay.
-- Модели Whisper загружаются через UI и хранятся в `%APPDATA%\Fono\whisper-models`.
-- Режимы STT: **Auto**, **CUDA**, **Vulkan**, **CPU**.
-  Auto выбирает CUDA → Vulkan → встроенный GPU → CPU.
-- CUDA и Vulkan поставляются отдельными worker-процессами; их консоль не
-  отображается пользователю.
-- Wake word: `Whisper Experimental` для гибкой фразы, `Sherpa-ONNX` для
-  быстрого KWS. Для Sherpa сейчас проверены `hey fono` и `okay fun`; произвольная
-  фраза потребует корректной BPE-токенизации.
-- LM Studio уже подключён для clean/format/command режимов.
-- Базовые команды: громкость, медиа, запуск приложений из allowlist и фокус окон.
+WakeWord временно недоступен до улучшения качества. Экспериментальная поэтапная вставка скрыта. Голос, вставка в Windows и обновление установленной версии проверяются пользователем; приёмка на чистой Windows — отдельный этап.
 
-## Сборка
+## Установка
 
-Нужны Rust, Node.js, MSVC Build Tools, CMake, Vulkan SDK и CUDA Toolkit на
-**машине сборки**. Конечному пользователю CUDA Toolkit не нужен: нужные CUDA
-runtime DLL поставляются с CUDA worker.
+[Релизы Fono для Windows x64](https://github.com/whitewolf06/fono/releases/latest). Для проверки updater оставьте прежнюю установленную версию и используйте «Настройки → Основные → Обновления». В новом интерфейсе обновления также доступны из бокового меню.
+
+## Разработка
 
 ```powershell
-npm install
-npm run release
+npm ci
+npm run dev:ui
 ```
 
-`npm run release` сначала собирает frontend, затем готовит закрытый manifest
-CUDA/Vulkan workers и Sherpa runtime DLL, после чего создаёт NSIS/MSI через
-Tauri. Артефакты появляются в
-`src-tauri\target\release\bundle\`.
+Откройте http://127.0.0.1:1420/ или http://127.0.0.1:1420/v3.html. В браузере используются демонстрационные данные. `npm run dev:desktop:v3` запускает настоящее приложение с Tauri IPC и Rust.
 
-Для быстрой разработки:
+На машине сборки нужны Node.js, закреплённый Rust toolchain, MSVC Build Tools, Windows SDK, CMake, LLVM, CUDA Toolkit и Vulkan SDK. Реестр WhiteUI указан в `.npmrc`; npm-токен хранится вне репозитория. Менеджер зависимостей — npm, источник lock — `package-lock.json`.
 
-```powershell
-npm run tauri dev
-```
+`npm run release` создаёт установщики NSIS/MSI в `src-tauri/target/release/bundle/`. Для подписанных обновлений нужен существующий signing key вне Git. Публикация выполняется отдельно от сборки.
 
-## Документы
+## Документация
 
-- [Текущий статус](docs/STATUS.md)
-- [Roadmap](docs/roadmap.md)
-- [Multi-backend STT](docs/MULTI_BACKEND_ARCHITECTURE.md)
-- [Wake word](docs/WAKE_WORD_ARCHITECTURE.md)
-- [Разработка и release](docs/development.md)
-- [Ручное тестирование](docs/testing.md)
-- [Локальный REST API транскрибации](docs/LOCAL_TRANSCRIPTION_API.md)
+- [Текущий статус](docs/STATUS.md) и [дальнейшие задачи](docs/roadmap.md).
+- [Архитектура](docs/architecture.md) и [фронтенд](docs/frontend-architecture.md).
+- [Разработка и сборка](docs/development.md), [CI и обновления](docs/fono-ci-updates.md).
+- [Проверка голосового ядра](docs/fono-voice-reliability.md), [индикатора и промптов](docs/overlay-prompts-qa.md), [памяти модели и обновлений](docs/fono-memory-updates-qa.md).
+- [Multi-backend STT](docs/MULTI_BACKEND_ARCHITECTURE.md), [локальный REST API](docs/LOCAL_TRANSCRIPTION_API.md).
 
 ## Приватность
 
-Аудио и STT остаются на устройстве. Текст отправляется наружу только если
-пользователь явно настроил внешний OpenAI-совместимый LLM endpoint; LM Studio
-по умолчанию работает локально.
+Распознавание речи выполняется на устройстве. Текст отправляется наружу при включённой обработке или переводе через настроенное внешнее подключение; LM Studio может работать локально. Ключи подключений хранятся в Windows Credential Manager. Сохранение истории и исходных расшифровок настраивается отдельно.

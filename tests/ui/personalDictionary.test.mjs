@@ -32,8 +32,9 @@ before(async () => {
   mapping = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/native/mapping.ts",
   );
-  ({ DEFAULT_SETTINGS: rawDefaults } =
-    await server.ssrLoadModule("/src/lib/types.ts"));
+  ({ DEFAULT_SETTINGS: rawDefaults } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/ipcTypes.ts",
+  ));
 });
 beforeEach(() => {
   storage.clear();

@@ -1,6 +1,6 @@
 import type { SettingsPort, Preferences } from "../../domain/contracts";
 import type { NativeContext } from "./context";
-import type { LlmProfile } from "../../../../lib/types";
+import type { LlmProfile } from "./ipcTypes";
 import { call, playMicrophoneSample } from "./ipc";
 import { nativeWake } from "./wake";
 import { ensureWakeAvailable } from "../../domain/wakeAvailability";

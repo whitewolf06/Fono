@@ -1,6 +1,6 @@
 import { reactive } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Settings } from "../../../../lib/types";
+import type { Settings } from "../../../shared/infrastructure/native/ipcTypes";
 import type { Phase, LiveDictation } from "../../../shared/domain/contracts";
 import { defaults } from "../../preferences/domain/preferences";
 import { preferencesFromNative } from "../../../shared/infrastructure/native/mapping";

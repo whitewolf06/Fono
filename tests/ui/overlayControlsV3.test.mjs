@@ -44,8 +44,9 @@ before(async () => {
   ({ defaults } = await server.ssrLoadModule(
     "/src/v3/features/preferences/domain/preferences.ts",
   ));
-  ({ DEFAULT_SETTINGS: rawDefaults } =
-    await server.ssrLoadModule("/src/lib/types.ts"));
+  ({ DEFAULT_SETTINGS: rawDefaults } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/ipcTypes.ts",
+  ));
   ({ createOverlayControls: createControls } = await server.ssrLoadModule(
     "/src/v3/features/overlay/infrastructure/overlayControls.ts",
   ));
@@ -387,16 +388,17 @@ test("recording shows switches even with processing off so it can be enabled dur
   assert.match(enabled, /aria-label="Выбрать стиль обработки"/);
   assert.match(enabled, /aria-label="Выбрать язык перевода"/);
   assert.equal(
-    buttons(enabled).filter((b) => b.includes("overlay-sketch-action accept"))
-      .length,
+    buttons(enabled).filter((b) =>
+      b.includes("overlay-indicator-action accept"),
+    ).length,
     1,
   );
   assert.match(
-    buttons(enabled).find((b) => b.includes("overlay-sketch-action accept")),
+    buttons(enabled).find((b) => b.includes("overlay-indicator-action accept")),
     /Завершить/,
   );
   assert.match(
-    buttons(enabled).find((b) => b.includes("overlay-sketch-action cancel")),
+    buttons(enabled).find((b) => b.includes("overlay-indicator-action cancel")),
     /Отменить запись/,
   );
   for (const patch of [
@@ -407,12 +409,12 @@ test("recording shows switches even with processing off so it can be enabled dur
     assert.doesNotMatch(html, /aria-label="Выбрать стиль обработки"/);
     assert.doesNotMatch(html, /aria-label="Выбрать язык перевода"/);
     assert.equal(
-      buttons(html).filter((b) => b.includes("overlay-sketch-action accept"))
+      buttons(html).filter((b) => b.includes("overlay-indicator-action accept"))
         .length,
       1,
     );
     assert.equal(
-      buttons(html).filter((b) => b.includes("overlay-sketch-action cancel"))
+      buttons(html).filter((b) => b.includes("overlay-indicator-action cancel"))
         .length,
       1,
     );
@@ -428,15 +430,15 @@ test("saving blocks Finish and switches but Cancel remains available; ready resu
     { processingSaving: true, processingChoice: choice("formal", "en") },
   );
   assert.match(
-    buttons(html).find((b) => b.includes("overlay-sketch-action accept")),
+    buttons(html).find((b) => b.includes("overlay-indicator-action accept")),
     /\bdisabled\b/,
   );
   assert.doesNotMatch(
-    buttons(html).find((b) => b.includes("overlay-sketch-action cancel")),
+    buttons(html).find((b) => b.includes("overlay-indicator-action cancel")),
     /\bdisabled\b/,
   );
   const choices = buttons(html).filter((b) =>
-    b.includes("overlay-sketch-option"),
+    b.includes("overlay-indicator-option"),
   );
   assert.equal(choices.length, 2);
   assert.ok(choices.every((b) => /\bdisabled\b/.test(b)));
@@ -453,10 +455,10 @@ test("saving blocks Finish and switches but Cancel remains available; ready resu
   );
   assert.match(pendingHtml, /Обработанный вариант/);
   assert.match(pendingHtml, /aria-label="Скопировать текст и закрыть"/);
-  assert.doesNotMatch(pendingHtml, /overlay-sketch-action accept/);
+  assert.doesNotMatch(pendingHtml, /overlay-indicator-action accept/);
   assert.match(
     buttons(pendingHtml).find((b) =>
-      b.includes("overlay-sketch-action cancel"),
+      b.includes("overlay-indicator-action cancel"),
     ),
     /Закрыть без копирования/,
   );
@@ -719,7 +721,7 @@ test("native layout measures the mounted widget, expands before measurement and 
   const widget = { getBoundingClientRect: () => ({ height }) };
   globalThis.document = {
     querySelector: (selector) => {
-      assert.equal(selector, ".native-overlay .overlay-sketch");
+      assert.equal(selector, ".native-overlay .overlay-indicator");
       return widget;
     },
   };

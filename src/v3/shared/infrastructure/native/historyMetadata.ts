@@ -1,4 +1,4 @@
-import type { DictationHistoryEntry } from "../../../../lib/types";
+import type { DictationHistoryEntry } from "./ipcTypes";
 import type {
   DictationMetadata,
   DictationBackend,

@@ -1,4 +1,4 @@
-.overlay-sketch-panel {
+.overlay-indicator-panel {
   display: grid;
   gap: var(--fono-space-2);
   padding-top: var(--fono-space-3);
@@ -7,24 +7,24 @@
   font-size: var(--fono-type-xs);
   line-height: 1.5;
 }
-.overlay-sketch-panel p {
+.overlay-indicator-panel p {
   display: flex;
   align-items: flex-start;
   gap: var(--fono-space-2);
 }
-.overlay-sketch-panel p > svg {
+.overlay-indicator-panel p > svg {
   flex-shrink: 0;
   margin-top: var(--fono-space-1);
 }
-.overlay-sketch-panel small {
+.overlay-indicator-panel small {
   color: var(--fono-muted);
 }
-.overlay-sketch-options {
+.overlay-indicator-options {
   display: flex;
   flex-wrap: wrap;
   gap: var(--fono-space-2);
 }
-.overlay-sketch-options button {
+.overlay-indicator-options button {
   padding: var(--fono-space-1) var(--fono-space-2);
   border: 1px solid var(--fono-border);
   border-radius: var(--fono-radius-sm);
@@ -32,8 +32,8 @@
   color: var(--fono-secondary);
   cursor: pointer;
 }
-.overlay-sketch-options button[aria-pressed="true"],
-.overlay-sketch-options button:hover:not(:disabled) {
+.overlay-indicator-options button[aria-pressed="true"],
+.overlay-indicator-options button:hover:not(:disabled) {
   border-color: var(--wl-accent-border);
   color: var(--fono-electric-soft);
   background: var(--fono-accent-soft);

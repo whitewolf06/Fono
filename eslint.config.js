@@ -15,7 +15,7 @@ export default [
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["**/*.{ts,tsx,vue}"],
+    files: ["**/*.{ts,vue}"],
     languageOptions: {
       parser: tsParser,
       ecmaVersion: "latest",

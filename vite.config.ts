@@ -1,5 +1,4 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import vue from "@vitejs/plugin-vue";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,7 +32,7 @@ function gitRevision() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), vue()],
+  plugins: [vue()],
   define: {
     __FONO_FRONTEND_BUILD__: JSON.stringify({
       version: packageVersion,

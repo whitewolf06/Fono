@@ -24,8 +24,9 @@ before(async () => {
   preferences = await server.ssrLoadModule(
     "/src/v3/features/preferences/domain/preferences.ts",
   );
-  ({ DEFAULT_SETTINGS: rawDefaults } =
-    await server.ssrLoadModule("/src/lib/types.ts"));
+  ({ DEFAULT_SETTINGS: rawDefaults } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/ipcTypes.ts",
+  ));
   ({ createOverlayProcessingQueue: createQueue } = await server.ssrLoadModule(
     "/src/v3/features/overlay/infrastructure/overlayProcessingChoice.ts",
   ));

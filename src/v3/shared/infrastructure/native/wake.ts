@@ -7,7 +7,7 @@ import type {
   WakeProfileValidationStatus,
   WakeWordRecognitionReport,
   WakeWordCapabilities,
-} from "../../../../lib/types";
+} from "./ipcTypes";
 
 export function nativeWake(ctx: NativeContext): WakePort {
   async function load() {
