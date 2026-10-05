@@ -13,6 +13,7 @@ build/
 src-tauri/target/
 src-tauri/target-*/
 src-tauri/gen/
+tools/fono-setup/target/
 
 # Models (large binary files)
 src-tauri/resources/whisper/*.bin

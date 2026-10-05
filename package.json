@@ -1,6 +1,6 @@
 {
   "name": "fono",
-  "version": "0.6.13",
+  "version": "0.6.14",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
@@ -12,6 +12,7 @@
     "build:workers": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-stt-workers.ps1",
     "prepare:release-resources": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prepare-release-resources.ps1",
     "release": "npm run tauri -- build",
+    "build:setup": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-online-installer.ps1",
     "test:ui": "npm run test:v3",
     "version:check": "node scripts/version.mjs check",
     "version:bump": "node scripts/version.mjs bump",

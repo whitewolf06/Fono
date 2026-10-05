@@ -10,6 +10,9 @@
   CPU / Whisper Wake / Sherpa Wake feature checks. Тесты протокола проверяют
   отмену, границы транспортных данных и lifecycle без реального GPU.
 - Rust core / protocol проверяются отдельным заданием без приватного npm-пакета.
+- Онлайн-установщик проверяется отдельным Windows job: Rust format/tests/strict
+  Clippy и release EXE со статическим CRT. Приватный UI Kit не нужен;
+  загрузчик и NSIS не запускаются. Инструкции: [online-installer.md](online-installer.md).
 - UI Kit фиксирован на 0.6.0. Actions привязаны к commit SHA, Node — 22.23.3,
   Rust — 1.96.1. Версия Rust соответствует `src-tauri/rust-toolchain.toml`.
 

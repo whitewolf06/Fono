@@ -32,6 +32,8 @@ npm run dev:ui
 
 `npm run release` создаёт установщики NSIS/MSI в `src-tauri/target/release/bundle/`. Для подписанных обновлений нужен существующий signing key вне Git. Публикация выполняется отдельно от сборки.
 
+`npm run build:setup` создаёт небольшой самостоятельный `build/online-installer/FonoSetup.exe`: загрузку последнего опубликованного Fono, докачивание и проверку подписи перед обычной установкой. Полный NSIS сохраняется. Подробности и ручная проверка — [онлайн-установщик](docs/online-installer.md).
+
 ## Документация
 
 - [Текущий статус](docs/STATUS.md) и [дальнейшие задачи](docs/roadmap.md).
