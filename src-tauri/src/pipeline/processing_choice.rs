@@ -2,9 +2,9 @@
 use super::Pipeline;
 use crate::{
     error::{AppError, AppResult},
-    operation::{OperationCancellation, OperationPhase, OperationSnapshot},
     types::Settings,
 };
+use fono_core::{OperationCancellation, OperationPhase, OperationSnapshot};
 use std::sync::atomic::Ordering;
 
 impl Pipeline {

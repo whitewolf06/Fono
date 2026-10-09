@@ -17,11 +17,12 @@ WakeWord временно недоступен до улучшения каче�
 
 ## Установка
 
-[Релизы Fono для Windows x64](https://github.com/whitewolf06/fono/releases/latest). Для проверки updater оставьте прежнюю установленную версию и используйте «Настройки → Основные → Обновления». В новом интерфейсе обновления также доступны из бокового меню.
+[Релизы Fono для Windows x64](https://github.com/whitewolf06/fono/releases/latest). Установленный Fono проверяет обновления в «Настройки → Основные → Обновления» или через боковое меню. Загрузка и установка запускаются отдельно пользователем.
 
 ## Разработка
 
 ```powershell
+git submodule update --init --recursive
 npm ci
 npm run dev:ui
 ```
@@ -36,11 +37,12 @@ npm run dev:ui
 
 ## Документация
 
-- [Текущий статус](docs/STATUS.md) и [дальнейшие задачи](docs/roadmap.md).
-- [Архитектура](docs/architecture.md) и [фронтенд](docs/frontend-architecture.md).
-- [Разработка и сборка](docs/development.md), [CI и обновления](docs/fono-ci-updates.md).
-- [Проверка голосового ядра](docs/fono-voice-reliability.md), [индикатора и промптов](docs/overlay-prompts-qa.md), [памяти модели и обновлений](docs/fono-memory-updates-qa.md).
-- [Multi-backend STT](docs/MULTI_BACKEND_ARCHITECTURE.md), [локальный REST API](docs/LOCAL_TRANSCRIPTION_API.md).
+[Оглавление документации](docs/README.md) помогает выбрать нужную инструкцию.
+
+- [Текущий статус](docs/STATUS.md) и [оставшиеся задачи](docs/roadmap.md).
+- [Разработка и сборка](docs/development.md), [проверки и ручная приёмка](docs/testing.md).
+- [Архитектура](docs/architecture.md), [фронтенд](docs/frontend-architecture.md), [локальный REST API](docs/LOCAL_TRANSCRIPTION_API.md).
+- [CI и подписанные обновления](docs/fono-ci-updates.md), [онлайн-установщик](docs/online-installer.md).
 
 ## Приватность
 

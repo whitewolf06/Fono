@@ -5,11 +5,11 @@ mod session;
 
 use crate::{
     error::{AppError, AppResult},
-    operation::OperationSource,
     pipeline::{self, Pipeline},
     state::AppState,
     types::{AiMode, PipelineState, Transcript},
 };
+use fono_core::OperationSource;
 use parking_lot::Mutex;
 pub use session::LiveSnapshot;
 use session::{LiveData, LiveSession};
@@ -98,7 +98,7 @@ pub fn start(
         &pipeline,
         operation,
         PipelineState::Listening,
-        crate::operation::TerminalReason::Completed,
+        fono_core::TerminalReason::Completed,
     );
     session.emit(&app);
     tauri::async_runtime::spawn(insertion::observe_focus(app.clone(), session.clone()));

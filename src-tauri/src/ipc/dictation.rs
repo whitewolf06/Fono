@@ -1,18 +1,12 @@
 //! IPC commands for observing and controlling the active dictation operation.
 
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
-use crate::operation::OperationSource;
 use crate::pipeline::{self, Pipeline};
 use crate::state::AppState;
-use crate::types::PipelineState;
 use crate::types::Transcript;
-
-#[tauri::command]
-pub fn get_pipeline_state(state: State<'_, AppState>) -> PipelineState {
-    state.pipeline_state()
-}
+use fono_core::OperationSource;
 
 #[tauri::command]
 pub fn start_dictation(app: AppHandle) -> AppResult<()> {

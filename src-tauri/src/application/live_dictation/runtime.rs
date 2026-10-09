@@ -94,7 +94,7 @@ async fn drive(
                 &pipeline,
                 session.operation,
                 PipelineState::Transcribing,
-                crate::operation::TerminalReason::Completed,
+                fono_core::TerminalReason::Completed,
             );
         }
         let needs_decode = speech.has_speech && audio_end > decoded_end;

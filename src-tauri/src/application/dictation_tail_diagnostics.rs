@@ -4,8 +4,8 @@
 //! sample counts and stage outcomes only: never audio samples, transcript text,
 //! model paths, or error messages that could contain dictated text.
 
-use crate::operation::OperationSource;
 use crate::vad::VadResult;
+use fono_core::OperationSource;
 
 const SAMPLE_RATE_HZ: usize = 16_000;
 

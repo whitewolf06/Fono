@@ -28,7 +28,7 @@ pub struct DesktopSnapshot {
     level: f32,
     last: Option<LastDictation>,
     operation_id: u64,
-    source: Option<crate::operation::OperationSource>,
+    source: Option<fono_core::OperationSource>,
 }
 #[tauri::command]
 pub fn get_desktop_snapshot(app: AppHandle) -> DesktopSnapshot {

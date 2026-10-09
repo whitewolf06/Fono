@@ -6,11 +6,11 @@ use super::{
 use crate::{
     application::dictation_tail_diagnostics::DictationTailDiagnostic,
     error::{AppError, AppResult},
-    operation::{OperationSource, TerminalReason},
     pipeline::{self, Pipeline},
     state::AppState,
     types::PipelineState,
 };
+use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Manager};
 
 pub(crate) fn start(app: AppHandle, source: OperationSource) -> AppResult<()> {
@@ -37,11 +37,6 @@ pub(crate) fn start_with_audio_operation(
     cursor: Option<(u64, u64)>,
 ) -> AppResult<u64> {
     start_configured(app, source, pre_roll, cursor, false)
-}
-
-#[allow(dead_code)] // Compatibility entry point; hotkeys need the operation-returning variant.
-pub(crate) fn start_command(app: AppHandle) -> AppResult<()> {
-    start_command_operation(app).map(|_| ())
 }
 
 pub(crate) fn start_command_operation(app: AppHandle) -> AppResult<u64> {
@@ -154,7 +149,7 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64, command: bool) {
             ),
         );
         if command {
-            if let Err(error) = crate::run_voice_command(&app, operation).await {
+            if let Err(error) = crate::application::voice_dictation::run(&app, operation).await {
                 emit_pipeline_error(&app, &error.to_string());
             }
         } else if let Err(error) = stop_with_reason_for(

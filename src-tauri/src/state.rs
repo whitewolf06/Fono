@@ -643,7 +643,7 @@ mod tests {
         let proposal = crate::application::command_proposal::create(
             &state,
             7,
-            crate::operation::OperationSource::Hotkey,
+            fono_core::OperationSource::Hotkey,
             "громче".into(),
             None,
         );
@@ -661,7 +661,7 @@ mod tests {
         let mut proposal = crate::application::command_proposal::create(
             &state,
             8,
-            crate::operation::OperationSource::Hotkey,
+            fono_core::OperationSource::Hotkey,
             "тише".into(),
             None,
         );

@@ -1,6 +1,6 @@
 use crate::error::{AppError, AppResult};
-use crate::operation::OperationCancellation;
 use crate::types::Transcript;
+use fono_core::OperationCancellation;
 use fono_stt_protocol::{BackendKind, WindowTranscript};
 
 use super::{ActiveEngine, EngineState, SttEngine};

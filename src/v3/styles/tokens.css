@@ -59,9 +59,6 @@
   --fono-overlay-expanded-width: 420px;
   --fono-overlay-expanded-compact-width: 380px;
   --fono-overlay-radius: 12px;
-  --fono-overlay-wave-height: 18px;
-  --fono-overlay-help-height: 112px;
-  --fono-overlay-error-height: 40px;
   --fono-overlay-choice-label-width: 48px;
   --fono-overlay-wave-width: 60%;
   --fono-indicator-width: 600px;
@@ -184,7 +181,6 @@
   --fono-prompt-result-height: 320px;
   --fono-history-stat-width: 150px;
   --fono-live-notice-width: 640px;
-  --fono-mode-control-width: 300px;
   --fono-overlay-text-lines: 2;
   --fono-control-height: 34px;
   --fono-motion-fast: 160ms;

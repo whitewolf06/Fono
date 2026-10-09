@@ -2,9 +2,9 @@
 //! bounded COM owner; a slow provider pauses insertion instead of spawning threads.
 use crate::{
     error::{AppError, AppResult},
-    operation::OperationCancellation,
     types::InjectionMode,
 };
+use fono_core::OperationCancellation;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextTarget {

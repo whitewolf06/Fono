@@ -13,11 +13,11 @@ use crate::{
     application::updates::activity::{self, ActivityLease},
     error::AppResult,
     injection::target::TextTarget,
-    operation::{OperationSource, TerminalReason},
     pipeline::Pipeline,
     types::{AiMode, PipelineState, Transcript},
 };
 pub(crate) use actions::resolve;
+use fono_core::{OperationSource, TerminalReason};
 pub(crate) use overlay_choice::{update as update_overlay_choice, OverlayProcessingChoiceRequest};
 pub(crate) use overlay_dismissal::dismiss as dismiss_overlay;
 pub(crate) use overlay_flush::{

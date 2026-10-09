@@ -3,8 +3,8 @@ use super::Pipeline;
 use crate::{
     audio::{AudioRecorder, RecordingWriter},
     error::{AppError, AppResult},
-    operation::{OperationSource, TerminalReason},
 };
+use fono_core::{OperationSource, TerminalReason};
 use parking_lot::Mutex;
 use std::sync::{
     atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},

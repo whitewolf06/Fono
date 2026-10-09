@@ -1,9 +1,7 @@
 //! Interactive capture is independent of STT. Background windows yield and
 //! restart at their checkpoint when an interactive session reserves the engine.
-use crate::{
-    error::{AppError, AppResult},
-    operation::OperationCancellation,
-};
+use crate::error::{AppError, AppResult};
+use fono_core::OperationCancellation;
 use parking_lot::{Condvar, Mutex};
 use std::sync::Arc;
 use std::time::Duration;

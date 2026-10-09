@@ -1,8 +1,8 @@
 use crate::{
-    operation::{OperationPhase, OperationSource, TerminalReason},
     pipeline::Pipeline,
     types::{AiMode, HotkeyMode, PipelineState, Settings, TextPreset, TranslationLanguage},
 };
+use fono_core::{OperationPhase, OperationSource, TerminalReason};
 use std::sync::{mpsc, Arc};
 
 fn recording() -> (Pipeline, u64) {

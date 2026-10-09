@@ -9,10 +9,10 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState as NativeSta
 
 use crate::{
     events,
-    operation::OperationSource,
     pipeline::Pipeline,
     types::{HotkeyMode, Settings},
 };
+use fono_core::OperationSource;
 use state::{Action, ActiveCapture, KeyEvent, ShortcutState};
 
 pub(crate) fn register_all_shortcuts(

@@ -1,11 +1,11 @@
 //! Operation fencing and cleanup survive every early return and dropped future.
 use crate::{
     error::{AppError, AppResult},
-    operation::{OperationCancellation, OperationSource, TerminalReason},
     pipeline::{self, Pipeline},
     state::AppState,
     types::{PipelineState, Settings},
 };
+use fono_core::{OperationCancellation, OperationSource, TerminalReason};
 use tauri::{AppHandle, Manager};
 
 #[derive(Clone)]

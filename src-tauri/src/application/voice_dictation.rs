@@ -1,10 +1,6 @@
 //! Explicit command dictation retains the ordinary capture and scheduler rules.
-use crate::{
-    application,
-    operation::{OperationSource, TerminalReason},
-    pipeline, stt,
-    types::PipelineState,
-};
+use crate::{application, pipeline, stt, types::PipelineState};
+use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Emitter, Manager};
 struct CommandCleanup {
     app: AppHandle,

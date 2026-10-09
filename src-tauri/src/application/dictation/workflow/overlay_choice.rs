@@ -3,11 +3,11 @@ use super::{state::Store, PendingPhase, Runtime, TextPreset, TranslationLanguage
 use crate::{
     application::{capture_configuration, updates},
     error::{AppError, AppResult},
-    operation::OperationPhase,
     pipeline::Pipeline,
     state::AppState,
     types::Settings,
 };
+use fono_core::OperationPhase;
 use serde::{Deserialize, Deserializer};
 use tauri::{AppHandle, Manager};
 

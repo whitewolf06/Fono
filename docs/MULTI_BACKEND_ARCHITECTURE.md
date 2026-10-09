@@ -1,115 +1,100 @@
 # Переключаемые STT backend-ы
 
-## Продуктовая цель
-
-В настройках Fono пользователь выбирает один режим:
-
-- `Авто` — CUDA, затем Vulkan, затем CPU;
-- `CUDA` — NVIDIA release;
-- `Vulkan` — AMD, Intel или NVIDIA с Vulkan driver;
-- `CPU` — совместимый fallback.
-
-Выбор должен быть честным: выбранный backend либо запускается и отображается в
-status, либо приложение показывает конкретную причину недоступности. Нельзя
-молча выбрать CPU, если пользователь явно выбрал CUDA или Vulkan.
-
-## Почему это не один feature toggle
-
-CUDA и Vulkan компилируются внутрь `whisper.cpp`. Текущий `SttEngine` живёт в
-Tauri process и получает только `use_gpu: bool`; он не умеет выбрать конкретный
-GPU backend в уже собранном binary.
-
-Поэтому release состоит из общего UI/координатора и отдельных side-by-side
-STT workers:
+Fono использует общий `SttEngine` для встроенного Whisper и отдельных
+CUDA/Vulkan workers. CUDA и Vulkan компилируются внутрь `whisper.cpp`;
+отдельные процессы позволяют выбирать ускорение во время работы приложения.
 
 ```text
-Fono UI + DictationCoordinator
-        | JSON line protocol (stdin/stdout)
-        +-- fono-stt-cuda-worker.exe
-        +-- fono-stt-vulkan-worker.exe
-        +-- встроенный CPU backend
+Fono UI → Rust pipeline → SttEngine
+                          +-- fono-stt-cuda-worker.exe
+                          +-- fono-stt-vulkan-worker.exe
+                          +-- встроенный Whisper
 ```
 
-Каждый worker содержит один скомпилированный backend. UI выбирает worker,
-перезапускает его при смене режима и получает фактический runtime status.
+CUDA worker — Rust crate `src-tauri/crates/fono-stt-worker` на `whisper-rs`.
+Vulkan worker — CMake-проект `src-tauri/crates/fono-stt-vulkan-worker`
+на закреплённом `src-tauri/vendor/whisper.cpp`.
 
-## Worker contract (protocol 3, 2026-10-03)
+## Выбор ускорения
 
-Transport — ограниченные JSON Lines, PCM i16 little-endian в base64.
-`hello` сообщает protocol version, поддержку окон, отмены, token timestamps
-и пределы кадров. Release и `prepare:release-resources` проверяют handshake;
-старые несовместимые EXE не принимаются.
+Кандидаты определены в `src-tauri/src/stt/paths.rs`:
 
-`transcribe_window` возвращает слова с абсолютными sample timestamps.
-`cancel_request` адресует уникальный request id и читается независимо от
-inference. Мягкая отмена сохраняет процесс и модель; зависший worker
-завершается supervisor-ом. Окна live/API ограничены, рабочие буферы
-переиспользуются. Интерактивный STT вытесняет окно API; оно повторяется
-с checkpoint после освобождения ресурса.
+| Настройка | Порядок выбора                                                             |
+| --------- | -------------------------------------------------------------------------- |
+| `Auto`    | CUDA worker → Vulkan worker → встроенный GPU, если собран → встроенный CPU |
+| `CUDA`    | CUDA worker; при отсутствии worker — встроенная CUDA, если собрана         |
+| `Vulkan`  | Vulkan worker; при отсутствии worker — встроенный Vulkan, если собран      |
+| `CPU`     | Встроенный CPU                                                             |
 
-Полная схема и проверенные cold/warm замеры:
-[fono-voice-reliability.md](fono-voice-reliability.md).
+Успех worker означает совместимый handshake и загрузку выбранной модели.
+В `Auto` ошибка кандидата позволяет проверить следующий. Явный CUDA/Vulkan
+не переходит на CPU и не повторяет отказавший worker через другой кандидат:
+ошибка возвращается пользователю. Выбранное ускорение и фактический backend
+хранятся отдельно; результат распознавания сообщает реальный `device`.
 
-### Исторический минимальный contract
+`ensure_loaded` переиспользует совместимую модель. Подготовка новой модели
+или worker сериализована отдельным load gate; длительная загрузка не держит
+общий routing lock. Замена публикуется после успешной подготовки,
+старые ресурсы освобождаются вне routing lock. Readiness имеет состояния
+`unloaded`, `loading`, `ready`, `failed`.
 
-Вход (`stdin`, JSON Lines):
+## Worker protocol 3
 
-```json
-{
-  "type": "transcribe",
-  "id": "uuid",
-  "model_path": "...",
-  "language": "auto",
-  "samples_i16_base64": "..."
-}
-```
+Источник контракта — `src-tauri/crates/fono-stt-protocol/src/lib.rs`.
+Transport — JSON Lines через `stdin`/`stdout`; `stderr` используется
+для технических логов. PCM — моно i16 little-endian в base64.
+Максимальный request frame — 16 MiB, response frame — 1 MiB.
 
-Выход (`stdout`, JSON Lines):
+Запросы содержат `protocol_version`, уникальный `request_id` и,
+для работы конкретной операции, `operation_id`. Ответы возвращают
+соответствующие идентификаторы. Несовместимая версия, неверный ответ
+или нарушенный размер завершаются контролируемой ошибкой.
 
-```json
-{"type":"ready","backend":"cuda"}
-{"type":"load","model_path":"..."}
-{"type":"model_loaded","backend":"cuda"}
-{"type":"result","id":"uuid","text":"...","audio_secs":1.2,"transcribe_secs":0.3,"backend":"cuda"}
-{"type":"error","id":"uuid","code":"model_load","message":"..."}
-```
+| Запрос              | Результат                                                                         |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `hello`             | `ready`: backend и capabilities                                                   |
+| `load`              | `model_loaded` после загрузки модели                                              |
+| `ping`              | `pong` для health-проверки                                                        |
+| `transcribe`        | `result`: текст, длительности и backend                                           |
+| `transcribe_window` | `window_result`: текст окна и временные метки слов                                |
+| `cancel_request`    | Отмена `target_request_id`; целевой запрос возвращает `error` с `code: cancelled` |
+| `shutdown`          | `shutting_down` и завершение процесса                                             |
 
-`stderr` используется только для технических логов и не является IPC.
+`cancel_request` читается независимо от inference и не имеет отдельного
+ответа. Handshake проверяет backend, версию, поддержку окон, отмены,
+token timestamps и допустимые размеры frames. `load` выполняется
+после handshake; одного `ready` недостаточно для готовности модели.
 
-## Правила Auto
+## Lifecycle и scheduling
 
-1. Прочитать manifests workers, поставленных рядом с приложением.
-2. Попробовать CUDA worker; успехом считается `ready` и успешная загрузка
-   выбранной модели.
-3. Если CUDA не подходит, попробовать Vulkan worker.
-4. Затем встроенный GPU backend, если он собран в оболочке Fono.
-5. В последнюю очередь — встроенный CPU backend.
-6. Сохранить фактический backend для UI и диагностического лога.
+Worker mailbox принадлежит выделенному owner thread. Длительное распознавание
+не удерживает общий маршрутизатор. Health сообщает `busy`, когда идёт работа.
+Мягкая отмена сохраняет процесс и модель; при зависании или повреждённом
+протоколе supervisor завершает session и процесс.
 
-Ручной выбор CUDA/Vulkan не делает fallback без согласия пользователя: он
-возвращает понятную ошибку и предлагает `Авто` или доступный режим.
+API работает ограниченными окнами и уступает интерактивной диктовке.
+Отмена окна ради приоритета не отменяет API-задание: оно продолжает работу
+с checkpoint. Временные метки окон абсолютные, относительно sample cursor.
+Экспериментальный поэтапный вывод использует тот же контракт, но в текущем
+приложении скрыт; `live` нормализуется в `standard`.
 
-## Критерии готовности
+Политика `resident` сохраняет загруженную GPU-модель. `adaptive` освобождает
+её при устойчивом давлении памяти только в простое; следующий запрос
+вызывает тот же `ensure_loaded`. Ограничения мониторинга и admission leases
+описаны в [architecture.md](architecture.md).
 
-- CUDA smoke-test не регрессирует относительно рабочего текущего release.
-- Vulkan worker собирается с актуальным `whisper.cpp` и запускается минимум на
-  одной AMD или Intel GPU.
-- CPU worker не подменяет явный GPU выбор.
-- Installer содержит только нужные DLL каждого worker-а.
-- Переключение режима не требует переустановки и не оставляет зависшие процессы.
+## Сборка и границы проверки
 
-## Основа реализации (2026-07-10)
+`npm run build:workers` пересобирает оба EXE. Изменение протокола требует
+обновления бинарников. `prepare:release-resources` и release-сборка
+проверяют handshake каждого поставляемого worker и закрытый manifest
+его EXE/DLL. Runtime DLL CUDA поставляются рядом с worker; CUDA Toolkit
+и Vulkan SDK нужны машине сборки. Пользователю нужны совместимые драйверы.
 
-- `crates/fono-stt-protocol` задаёт JSON Lines contract, включая `ping`, `load` и
-  `transcribe`.
-- CUDA worker собран на текущей рабочей цепочке `whisper-rs`; Vulkan worker —
-  отдельный CMake-проект на актуальном `whisper.cpp` (`vendor/whisper.cpp`).
-- Перед первой диктовкой выбранный worker получает `load`, поэтому модель не
-  загружается во время записи пользователя.
-- `SttEngine` выбирает `CUDA → Vulkan → embedded GPU → CPU` для `Auto`. Явный
-  выбор CUDA или Vulkan возвращает ошибку, а не подменяется CPU.
-- `scripts/build-stt-workers.ps1` собирает оба EXE. CUDA runtime DLL кладутся
-  рядом с CUDA worker: пользователю нужен совместимый NVIDIA driver, но не CUDA Toolkit.
-
-Оставшаяся release-проверка: прогнать готовый установщик на чистой AMD/Intel
-машине и подтвердить фактический `device=Vulkan` на реальной диктовке.
+Инструкции сборки — [development.md](development.md), native resources
+и CI — [fono-ci-updates.md](fono-ci-updates.md). Handshake, unit tests
+и сборка не подтверждают качество распознавания или установленный пакет
+на AMD/Intel. Остались реальные проверки CPU-only, CUDA, Vulkan, Auto,
+смены ускорения и отказов drivers/runtime — [roadmap.md](roadmap.md).
+Прежние ограниченные cold/warm замеры сохранены
+в [fono-voice-reliability.md](fono-voice-reliability.md).

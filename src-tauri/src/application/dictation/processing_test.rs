@@ -6,10 +6,10 @@ use super::{
 };
 use crate::{
     error::{AppError, AppResult},
-    operation::OperationSource,
     pipeline::Pipeline,
     state::AppState,
 };
+use fono_core::OperationSource;
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};

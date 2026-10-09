@@ -14,7 +14,7 @@ pub(super) fn activate(
 #[cfg(test)]
 mod tests {
     use super::activate;
-    use crate::operation::{OperationCoordinator, OperationPhase, OperationSource};
+    use fono_core::{OperationCoordinator, OperationPhase, OperationSource};
     use std::sync::atomic::{AtomicBool, Ordering};
 
     #[test]

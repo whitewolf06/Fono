@@ -37,8 +37,9 @@ CUDA Toolkit и Vulkan SDK нужны только разработчику, к�
 ## Локальная разработка
 
 ```powershell
+git submodule update --init --recursive
 npm ci
-npm run tauri dev
+npm run dev:desktop:v3
 ```
 
 ### Уровни тестирования
@@ -47,9 +48,9 @@ npm run tauri dev
 
 1. **Только UI в браузере:** `npm run dev:ui`, затем
    `http://127.0.0.1:1420/v3.html`. Это mock-режим для быстрой визуальной и
-   интерактивной проверки Vue-интерфейса; Rust, Tauri IPC, микрофон, hotkey и overlay в
-   нём не проверяются.
-2. **Desktop без установки:** `npm run tauri dev` для разработки или прямой
+   интерактивной проверки Vue-интерфейса, включая `#/overlay`; Rust, Tauri IPC,
+   микрофон, hotkey и нативное окно индикатора в нём не проверяются.
+2. **Desktop без установки:** `npm run dev:desktop:v3` для разработки или прямой
    запуск `src-tauri\target\release\fono.exe` после production-сборки. Это
    настоящий Tauri-процесс с Rust-бэкендом; на нём проверяются основное и
    overlay-окна и нативные сценарии.
@@ -57,20 +58,24 @@ npm run tauri dev
    финального release smoke-test: упаковки ресурсов, установки и запуска в
    пользовательском окружении. Его не нужно запускать для каждой UI-итерации.
 
-Быстрые проверки Rust (PowerShell 7; сначала из корня `./scripts/bootstrap-ci-resources.ps1` для закреплённого runtime):
+### Изоляция debug-данных
+
+Для отдельной debug-копии задайте абсолютный `FONO_TEST_DATA_DIR` и свободный
+`FONO_API_PORT` до запуска. Настройки и история будут находиться в выбранном
+каталоге; операции с настоящими Windows credentials и автозапуском заблокированы.
+Release игнорирует тестовый каталог.
 
 ```powershell
-cd src-tauri
-cargo fmt --all --check
-cargo check -p fono --no-default-features
-cargo check -p fono --no-default-features --features whisper-wake
-cargo check -p fono --no-default-features --features sherpa-wake
-cargo check -p fono
-../scripts/test-native.ps1
-cargo clippy --workspace --all-targets -- -D warnings
-cargo deny check --config deny.toml
-
+$env:FONO_TEST_DATA_DIR = "C:\Temp\Fono-debug"
+$env:FONO_API_PORT = "17833"
+npm run dev:desktop:v3
 ```
+
+Микрофон, глобальная клавиша и внешняя вставка остаются настоящими. Изолированный
+каталог не превращает desktop в browser mock. После проверки уберите переменные
+из текущего PowerShell-сеанса. Приложение и установку пользователь проверяет сам.
+
+Автоматические команды и матрица Rust features — в [testing.md](testing.md).
 
 ## Release
 
@@ -147,4 +152,4 @@ API key каждого LLM-профиля хранится в Windows Credential
 
 ## Фронтенд
 
-Единственный frontend — Vue в `src/v3/`. Корневой URL и `v3.html` открывают один интерфейс; React, Tailwind и pnpm-конфиги удалены. `package-lock.json` и `npm ci` задают воспроизводимые зависимости. `npm run test:ui` запускает актуальные V3-тесты.
+Единственный frontend — Vue в `src/v3/`. Корневой URL и `v3.html` открывают один интерфейс. `package-lock.json` и `npm ci` задают воспроизводимые зависимости. `npm run test:ui` запускает V3-тесты. Маршруты, слои и правила данных — в [frontend-architecture.md](frontend-architecture.md).

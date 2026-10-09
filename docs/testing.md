@@ -1,26 +1,36 @@
-# Ручное тестирование Fono
+# Проверки и ручная приёмка Fono
 
-Текущее приложение использует классическую диктовку с режимами горячей клавиши
-`hold` и `toggle`. Основная ручная приёмка — запись, отмена, вставка, принятие
-в overlay без вставки, копирование и выбор обработки/перевода во время записи.
-WakeWord временно недоступен; поэтапный вывод «На лету» скрыт.
+Fono использует классическую диктовку с горячей клавишей в режимах `hold` и `toggle`. WakeWord временно недоступен, поэтапный вывод «На лету» скрыт. Методики этих экспериментов находятся в [fono-voice-reliability.md](fono-voice-reliability.md) и не входят в текущую приёмку.
 
-Актуальные сценарии:
+Проверяйте три уровня отдельно:
 
-- [STATUS.md](STATUS.md) — доступные возможности и границы подтверждения.
-- [fono-v3-qa.md](fono-v3-qa.md) — интерфейс и состояния V3.
-- [overlay-prompts-qa.md](overlay-prompts-qa.md) — overlay, промпты и обработка.
-- [fono-memory-updates-qa.md](fono-memory-updates-qa.md) — память модели и updater.
-- [fono-voice-reliability.md](fono-voice-reliability.md) — голосовое ядро,
-  сохранённые экспериментальные пути и результаты ограниченных замеров.
+| Уровень               | Как запустить                                                              | Что подтверждает                                                      |
+| --------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| UI в браузере         | `npm run dev:ui`, `http://127.0.0.1:1420/v3.html`                          | Vue, mock-контракты, состояния, компоновку и browser adapters         |
+| Desktop без установки | `npm run dev:desktop:v3` или собранный `src-tauri/target/release/fono.exe` | Настоящие Rust/Tauri, микрофон, hotkey, индикатор и внешнюю вставку   |
+| Поставляемая сборка   | `npm run release`, затем пользовательская установка                        | Ресурсы NSIS/MSI, установку, запуск и обновление установленной версии |
 
-Голос, глобальные клавиши и пользовательские окна проверяет пользователь.
-Ниже сохранены общие и исторические методики qualification; проверки WakeWord
-и живого вывода не являются инструкцией включить их в текущей версии.
+Агент не записывает микрофон и не управляет пользовательским приложением ради UAT. Окна, голос, поля, UAC и установку пользователь проверяет самостоятельно. Приёмка на чистой Windows остаётся отдельным отложенным этапом.
 
-## Автоматический gate перед ручной проверкой
+## Автоматические проверки
 
-Из корня репозитория в **PowerShell 7**, с установленными build-зависимостями:
+Из корня репозитория:
+
+```powershell
+npm run typecheck:v3
+npm run lint
+npm run test:v3
+npm run test:release
+npm run build
+npm run version:check
+npm run format:check
+```
+
+`test:ui` запускает тот же набор, что `test:v3`. Проверки форматирования охватывают Vue V3, конфиг ESLint, README, документацию и правила агентов. Результат конкретного прогона относится к проверенному commit и окружению.
+
+### Rust и native runtime
+
+В PowerShell 7 с установленными build-зависимостями, из корня:
 
 ```powershell
 ./scripts/bootstrap-ci-resources.ps1
@@ -33,184 +43,64 @@ try {
     cargo check --locked -p fono --no-default-features --features whisper-wake --target-dir target-codex-review
     cargo check --locked -p fono --no-default-features --features sherpa-wake --target-dir target-codex-review
     cargo check --locked -p fono --target-dir target-codex-review
+    cargo deny --config deny.toml check
 } finally {
     Pop-Location
 }
 ```
 
-Wrapper сам меняет рабочий каталог на `src-tauri`, собирает точный набор
-тестов и размещает четыре закреплённые Sherpa/ONNX DLL рядом с executable.
-Прямой `cargo test` с одним `PATH` на Windows может загрузить несовместимый
-системный ONNX runtime. Подробности: [fono-ci-updates.md](fono-ci-updates.md).
+Wrapper собирает выбранные тесты и размещает закреплённые Sherpa/ONNX DLL рядом с executable. Одного `PATH` на Windows недостаточно: системный ONNX runtime может оказаться несовместимым. Подробности — [CI и ресурсы](fono-ci-updates.md), политика лицензий и advisories — [dependency-policy.md](dependency-policy.md).
 
-Supply-chain gate описан в [dependency-policy.md](dependency-policy.md). Автоматические проверки не
-заменяют desktop smoke, soak/leak measurement и installer smoke.
+Тесты покрывают владение операциями и leases, stale/duplicate Stop и Cancel, ошибки LLM transport, отказ окна индикатора, readiness и protocol-3 worker fixtures. Они используют адаптеры и проверяют отдельные контракты; работа настоящего Whisper, микрофона и GPU требует desktop-проверки.
 
-Release manifest path автоматически проверяется командой:
-
-```powershell
-cd src-tauri
-cargo check --locked -p fono --release --target-dir target-codex-review
-```
-
-Она подтверждает, что `build.rs` принимает закрытый набор STT worker/Sherpa
-resources, но не собирает installer и не проверяет установку.
-
-Unit-тесты `fono-core` проверяют, что lease принадлежит только активной
-операции, duplicate/stale acquisition отклоняется, а terminal failure очищает
-все leases. Отдельный детерминированный цикл из 1000 `start → leases →
-cancel/failed` подтверждает, что после каждого terminal-состояния не остаётся
-активной операции или lease.
-
-Локальный HTTP fault-injection harness для `LlmClient` не использует сеть и
-проверяет реальный transport path: HTTP 503, malformed JSON и ответ больше
-2 MiB превращаются в контролируемую ошибку.
-
-Overlay adapter fault-injection проверяет, что отказ `show/hide` фиксируется в
-логах и не пробрасывается в operation lifecycle; terminal transition не зависит
-от доступности окна.
-
-`SttEngine` unit-тест проверяет начальное `unloaded` readiness и переход в
-`failed` при недоступной модели — без запуска Whisper, worker или микрофона.
-Фоновый preload использует тот же `ensure_loaded` и load-gate; его реальная
-проверка с выбранной моделью относится к desktop dev/manual уровню, потому что
-создание Tauri `AppHandle` и запуск native Whisper не являются unit-test средой.
-Worker fixture отдельно проверяет protocol-v3 health `ping → pong`; health API
-возвращает `busy`, а не ожидает активную транскрипцию.
-Отдельный fixture с зависшим worker подтверждает, что cancellation прерывает
-ожидание менее чем за две секунды, завершает process/session и возвращает
-`Cancelled`, а не ждёт штатного request deadline.
-Ещё один Windows fixture 100 раз запускает worker с malformed response и
-проверяет после каждого отказа kill/wait cleanup и возможность следующего
-handshake; это regression gate для restart path без GPU и реальной модели.
-Mailbox fixture проверяет owner-thread `ping` и отмену зависшей транскрипции:
-она возвращает `Cancelled`, завершает owner session и не удерживает health за
-длительным inference.
-
-Для воспроизводимого baseline STT transport (из корня после bootstrap):
+Размер JSON/base64 transport для типичных длительностей и предел кадра проверяются воспроизводимым тестом:
 
 ```powershell
 ./scripts/test-native.ps1 -CargoArguments @('--locked', '-p', 'fono', 'stt::worker::tests::base64_transport_measurement_for_typical_recording_lengths', '--target-dir', 'target-codex-review') -TestArguments @('--nocapture')
 ```
 
-Последний замер 2026-08-11: 5/30/120 сек дали соответственно 213 511 B,
-1 280 175 B и 5 120 175 B JSON; encode занял 3/24/102 ms. Время зависит от
-машины, размер — contract test. Пяти­минутный буфер также проверяется на
-помещение в `MAX_REQUEST_FRAME_BYTES` (16 MiB).
+После `npm run prepare:release-resources` закрытый manifest ресурсов дополнительно проверяется командой `cargo check --locked -p fono --release` из `src-tauri`. Эта проверка не создаёт installer и не подтверждает установку.
 
-## Сохранённые методики qualification
+## UI в браузере
 
-Общие STT, отмена и вставка применимы к текущей классической диктовке. Сведения
-о старых wake backends, прежних UI-кнопках и замерах ниже сохранены для
-регрессий и будущей доработки. Проверки wake-пути выполнять только после
-отдельного восстановления функции и согласования её качества.
+На размерах 720×560, 900×720 и 1440×900 проверьте страницы из [карты маршрутов](frontend-architecture.md):
 
-### Перед началом
+1. Отсутствие горизонтальной прокрутки, длинные названия моделей и большой последний текст.
+2. Диалоги и селекты: Tab/Shift+Tab, Escape, возврат фокуса и положение страницы.
+3. Общий черновик настроек, сохранение, отмену, защиту несохранённых правок и откат выключателя при ошибке.
+4. Запись на главной, редактирование, улучшение, отмену и копирование отображаемого текста.
+5. Историю, поиск, отсутствие исходной версии без согласия, тренер, словарь, команды и очередь API.
+6. Первоначальную настройку, прямые маршруты, «Назад», обновления и состояния ожидания/ошибки.
+7. Общий компонент индикатора через `#/overlay`: компактный/подробный вид, настройки, принятие и отмену.
+8. Демосценарии через `#/scenarios`, сброс mock и отсутствие ошибок приложения в консоли.
 
-- Перед переключением между dev и installer полностью завершите Fono через tray
-  и убедитесь в Диспетчере задач, что `fono.exe` не остался запущенным.
-- Для dev запускайте точный путь `src-tauri\target\release\fono.exe`, а не
-  ярлык или список недавних приложений. Сверьте версию рядом с заголовком Fono.
-- Используйте сборку из `src-tauri\target\release\fono.exe` или installer.
-- Выберите микрофон и скачайте/выберите Whisper model.
-- WakeWord в текущем приложении недоступен. После его восстановления
-  hotkey должен работать независимо от включения пробуждения.
+Browser mock не подтверждает native IPC, глобальную клавишу, запись аудио, распознавание, сетевой API, VRAM или установку.
 
-## STT / acceleration
+## Desktop: подготовка и сценарии
 
-Для каждого режима **CUDA**, **Vulkan**, **Auto**, **CPU**:
+Перед переключением dev/installer полностью завершите Fono через tray. Для прямого запуска используйте точный путь собранного EXE и сверьте его версию. Выберите микрофон, установленную Whisper-модель и нужное ускорение. Изоляция debug-настроек через `FONO_TEST_DATA_DIR` и отдельный API-порт описаны в [development.md](development.md).
 
-1. Сохранить режим в настройках.
-2. Нажать тест записи/распознавания и произнести короткую фразу.
-3. Проверить текст, время и device в результате.
-4. В `%APPDATA%\Fono\logs` проверить `STT backend selected`.
+| Сценарий                                                                      | Инструкция                                                   |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Удержание/повторное нажатие, отмена, ручной выбор, история и смена поля       | [dictation-controls-qa.md](dictation-controls-qa.md)         |
+| Индикатор без перехвата фокуса, сохранение выбора, промпты и пробная диктовка | [overlay-prompts-qa.md](overlay-prompts-qa.md)               |
+| Память Whisper, отключённый WakeWord и проверка обновлений                    | [fono-memory-updates-qa.md](fono-memory-updates-qa.md)       |
+| Метаданные истории, локальный словарь и отчёт диагностики                     | [fono-quality-enhancements.md](fono-quality-enhancements.md) |
+| Health, WAV upload/polling, очередь и отмена API                              | [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md)     |
+| Загрузчик, продолжение загрузки, подпись, UAC и NSIS                          | [online-installer.md](online-installer.md)                   |
 
-Ожидание: Auto на NVIDIA выбирает CUDA; при явном CUDA/Vulkan приложение не
-должно тихо перейти на CPU.
+Для каждого ускорения Auto/CUDA/Vulkan/CPU сверяйте выбранный режим и фактический backend. Явный CUDA/Vulkan при недоступности возвращает ошибку; Auto может выбрать следующий доступный backend. Отдельно нужны AMD/Intel и чистая Windows.
 
-## Диагностика окончания диктовки
+Проверьте тихое окончание фразы, короткую паузу, полезные короткие слова, тишину и случайный щелчок. Длительная обработка не должна блокировать UI. Cancel запрещает позднюю вставку; следующий запуск после отмены должен работать. При изменении исходного поля или частичной отправке результат остаётся для копирования, автоматическая повторная вставка блокируется. Worker-процессы не открывают Terminal.
 
-Проверка выполняется в **Desktop dev** или собранном Tauri-приложении: браузерный
-`npm run dev:ui` не запускает реальный микрофон, hotkey и wake pipeline.
+### Диагностика окончания фразы
 
-1. Для global hotkey прогоните короткую обычную фразу; историческую проверку
-   wake-пути повторите после восстановления функции:
-   с тихим окончанием, с короткой паузой и без паузы. Повторите с выключенной и
-   включённой AI-обработкой.
-2. После каждого прогона найдите в `%APPDATA%\Fono\logs` единственную строку
-   `event="dictation_tail_diagnostic"` с тем же `operation`.
-3. Сравните `source`, `stop_reason`, `captured_ms`, VAD-поля, `stt`,
-   `postprocessor` и `first_suspected_layer`. Значения `capture`, `vad`, `stt`
-   и `postprocessor` указывают первый технически подозрительный слой; `none`
-   означает, что по числовым измерениям причина не обнаружена.
-4. В wake-пути ожидается `vad_applied=false`: он намеренно не делает второй
-   offline trim после realtime-таймера тишины. В hotkey-пути VAD применяется
-   только к ведущей тишине: при найденной речи `vad_trailing_after_ms` должен
-   быть равен `vad_trailing_before_ms`. Это подтверждает, что хвост уже
-   записанной фразы полностью передан в STT.
+Для локальной диагностики после Stop найдите в `%APPDATA%\Fono\logs` запись `event="dictation_tail_diagnostic"` с тем же `operation`. Сравните `source`, `stop_reason`, `captured_ms`, VAD-поля, `stt`, `postprocessor` и `first_suspected_layer`. Значение `none` означает, что числовые измерения не обнаружили подозрительного этапа.
 
-В записи нет аудиосэмплов, фрагментов транскрипта, пути к модели или текста
-ошибок. Логи содержат только длительности, счётчики и статусы этапов.
+В hotkey-пути VAD удаляет ведущую тишину; при найденной речи `vad_trailing_after_ms` должен совпадать с `vad_trailing_before_ms`. Запись содержит длительности, счётчики и статусы, без аудио и фрагментов транскрипта. Это техническая подсказка, а не измерение точности распознавания.
 
-## Wake word — историческая методика
+## Что сохранить по итогам приёмки
 
-Этот раздел описывает прежние backend-ы и их проверки. Native gate текущего
-приложения запрещает включение, запись теста и калибровку WakeWord. Для будущей
-потоковой RU/EN qualification используйте [fono-voice-reliability.md](fono-voice-reliability.md).
+Укажите версию/ревизию, уровень проверки, Windows/GPU/driver, выбранный и фактический backend, шаги воспроизведения, ожидаемый и полученный результат. Для отчёта используйте «Настройки → Диагностика»: разрешённые технические поля собираются без пользовательских текстов, ключей, путей и сырых логов. При необходимости добавьте проверенный пользователем screenshot.
 
-- В Sherpa разрешены только `hey fono`, `okay fun` и `рамзи`; сохранение другой
-  фразы должно вернуть validation error. В Whisper Experimental произвольная
-  phrase допускается, однако matching требует соседние слова в исходном порядке.
-
-### Whisper Experimental
-
-1. Указать фразу, например `okay fun`.
-2. Использовать «Записать» → «Распознать запись».
-3. Проверить live wake → post-wake диктовку → возврат listener в Listening.
-
-### Sherpa-ONNX
-
-1. Скачать KWS model в UI.
-2. Кнопка `Эталон Sherpa WAV` должна обнаружить `LIGHT UP`.
-3. Для ручного теста используйте `hey fono`, `okay fun` или `рамзи`.
-4. `Модель услышала: —` означает отсутствие keyword match, а не текстовую
-   транскрипцию. Для произвольной фразы выберите Whisper Experimental.
-5. Для диагностической dev-сборки проверьте в `%APPDATA%\Fono\logs` строку
-   `creating keyword spotter`: она фиксирует фактическую фразу, BPE-граф,
-   threshold и score, с которыми был создан Sherpa.
-
-## Регрессии
-
-Общие сценарии остаются применимыми. Пункты с WakeWord относятся к будущей
-qualification после возврата функции; сейчас их не требуется включать в UI.
-
-- Local REST: с выбранной Whisper-моделью выполнить health, отправить WAV через
-  `/v1/transcriptions`, дождаться `completed`, затем проверить stop приложения
-  и освобождение loopback-порта. Детальный сценарий —
-  [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md).
-
-- Wake → post-wake dictation использует один `AudioHub`: устройство не должно
-  переоткрываться, а после возврата listener продолжает получать аудио.
-- Unit-test с инъецируемым audio adapter проверяет: отказ получения устройства
-  завершает operation и не оставляет resource lease без реального микрофона.
-- Голосовая command-hotkey и явная команда после wake phrase создают preview;
-  confirm после 30 секунд или после изменения settings должен быть отклонён и не
-  выполнять действие.
-- Worker-процессы не открывают окно Terminal.
-- Во время длительной STT-транскрипции смена runtime-state не должна зависать на
-  глобальном маршрутизаторе STT; worker error должен очистить только текущую
-  session и позволить следующей операции создать новую.
-- Cancel не вставляет поздний результат; для standalone worker также
-  останавливает зависший process, а не только отбрасывает результат.
-- Clipboard mode не перезаписывает содержимое, скопированное пользователем во
-  время диктовки.
-- Clipboard mode восстанавливает прежний text/image/file-list и не вставляет в
-  окно, если foreground HWND изменился перед Ctrl+V.
-- Hotkey, wake word и command-hotkey не конкурируют за активную запись.
-- LM Studio failure возвращает raw transcript и понятную ошибку, не ломая UI.
-
-## Что приложить к баг-репорту
-
-- screenshot ошибки и выбранный backend;
-- последние строки `%APPDATA%\Fono\logs` (логи ротируются, хранится 14 файлов);
-- Windows version, GPU/driver и содержимое settings без API key.
+Пройденные unit tests, сборка EXE, публикация release и ручная приёмка фиксируются отдельно. Числа старого прогона не переносятся на новую версию.

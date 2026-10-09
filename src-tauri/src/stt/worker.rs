@@ -22,8 +22,8 @@ use fono_stt_protocol::{
 use parking_lot::Mutex;
 
 use crate::error::{AppError, AppResult};
-use crate::operation::OperationCancellation;
 use crate::types::Transcript;
+use fono_core::OperationCancellation;
 
 #[path = "worker_window.rs"]
 mod window;

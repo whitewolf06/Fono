@@ -7,11 +7,11 @@ use super::{
 };
 use crate::{
     error::{AppError, AppResult},
-    operation::{OperationSource, TerminalReason},
     pipeline::{self, Pipeline},
     state::AppState,
     types::{PipelineState, Transcript},
 };
+use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Manager};
 
 /// Record 500–30000 ms. No archive or desktop result is published; injection is optional.

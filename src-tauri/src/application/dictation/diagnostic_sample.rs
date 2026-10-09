@@ -2,11 +2,11 @@
 use super::{capture::ensure_capture_allowed, lifecycle::OperationScope, wait_for_cancellation};
 use crate::{
     error::{AppError, AppResult},
-    operation::{OperationSource, TerminalReason},
     pipeline::{self, Pipeline},
     state::AppState,
     types::PipelineState,
 };
+use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Manager};
 
 pub(crate) async fn record_diagnostic_sample(
@@ -52,7 +52,7 @@ pub(crate) async fn collect_samples(
     pipeline: &Pipeline,
     operation: u64,
     duration: std::time::Duration,
-    cancellation: crate::operation::OperationCancellation,
+    cancellation: fono_core::OperationCancellation,
 ) -> AppResult<Vec<i16>> {
     tokio::select! {
         _ = tokio::time::sleep(duration) => {},

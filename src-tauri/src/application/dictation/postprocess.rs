@@ -3,9 +3,9 @@ use super::{lifecycle::Session, wait_for_cancellation};
 use crate::{
     application::dictation_tail_diagnostics::DictationTailDiagnostic,
     llm::LlmClient,
-    operation::TerminalReason,
     types::{AiMode, PipelineState, Transcript},
 };
+use fono_core::TerminalReason;
 
 /// Ordinary workflow processing reports errors instead of silently dropping a
 /// requested translation. The caller keeps raw text for retry/explicit insertion.

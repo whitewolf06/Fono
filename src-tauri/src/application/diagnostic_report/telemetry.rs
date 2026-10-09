@@ -1,5 +1,5 @@
 //! Process-local numeric measurements. No user content is accepted by this API.
-use crate::operation::OperationSource;
+use fono_core::OperationSource;
 use parking_lot::Mutex;
 use std::{
     sync::{Arc, OnceLock},

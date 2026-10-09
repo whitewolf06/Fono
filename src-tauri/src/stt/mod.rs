@@ -15,8 +15,8 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 use crate::error::{AppError, AppResult};
-use crate::operation::OperationCancellation;
 use crate::types::{AccelerationMode, Transcript};
+use fono_core::OperationCancellation;
 
 mod paths;
 mod routing;

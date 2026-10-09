@@ -2,9 +2,9 @@
 
 use std::time::Duration;
 
-use crate::operation::OperationSource;
 use crate::state::AppState;
 use crate::types::CommandProposal;
+use fono_core::OperationSource;
 
 const PROPOSAL_TTL: Duration = Duration::from_secs(30);
 
@@ -36,8 +36,8 @@ pub fn create(
 
 #[cfg(test)]
 mod tests {
-    use crate::operation::OperationSource;
     use crate::state::AppState;
+    use fono_core::OperationSource;
 
     use super::create;
 

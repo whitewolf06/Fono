@@ -1,9 +1,7 @@
 //! Terminal dismissal never cancels or hides a replacement capture.
 use super::*;
-use crate::{
-    audio::{AudioRecorder, RecordingWriter},
-    operation::OperationSource,
-};
+use crate::audio::{AudioRecorder, RecordingWriter};
+use fono_core::OperationSource;
 use std::sync::{
     atomic::{AtomicBool, AtomicU32, Ordering},
     mpsc, Arc,

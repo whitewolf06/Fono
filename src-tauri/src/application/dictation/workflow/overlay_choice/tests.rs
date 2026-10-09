@@ -3,7 +3,8 @@ use crate::application::dictation::workflow::{
     state::{Claim, Record},
     PendingAction, PendingDictation, PendingRequest,
 };
-use crate::{operation::OperationSource, types::AiMode};
+use crate::types::AiMode;
+use fono_core::OperationSource;
 
 fn request(id: Option<u64>) -> OverlayProcessingChoiceRequest {
     OverlayProcessingChoiceRequest {

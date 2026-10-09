@@ -16,6 +16,7 @@ pub fn normalize(text: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
+#[cfg(any(feature = "sherpa-wake", test))]
 pub fn phrase_range(text: &str, phrase: &str) -> Option<(usize, usize)> {
     text.match_indices(phrase).find_map(|(start, _)| {
         let end = start + phrase.len();
@@ -24,12 +25,14 @@ pub fn phrase_range(text: &str, phrase: &str) -> Option<(usize, usize)> {
         (left && right).then_some((start, end))
     })
 }
+#[cfg(any(feature = "sherpa-wake", test))]
 pub struct PhraseMatcher {
     phrase: String,
     stable_samples: u64,
     confirmations: u8,
     candidate: Option<(usize, u64, u8)>,
 }
+#[cfg(any(feature = "sherpa-wake", test))]
 impl PhraseMatcher {
     pub fn new(phrase: &str, stability_ms: u64, confirmations: u8, rate: u32) -> Self {
         Self {

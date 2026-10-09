@@ -2,11 +2,11 @@ use super::super::session::LiveSession;
 use crate::{
     application::{dictation_result, live_agreement::LiveAgreement},
     error::AppResult,
-    operation::TerminalReason,
     pipeline::{self, Pipeline},
     state::AppState,
     types::{PipelineState, Transcript},
 };
+use fono_core::TerminalReason;
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{AppHandle, Manager};
 

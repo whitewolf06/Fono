@@ -15,7 +15,7 @@ fn record(id: u64) -> Record<()> {
             target_language: None,
             processing_enabled: true,
             translation_enabled: true,
-            source: crate::operation::OperationSource::Ui,
+            source: fono_core::OperationSource::Ui,
             error: None,
             insertion_blocked: false,
             copy_only: false,

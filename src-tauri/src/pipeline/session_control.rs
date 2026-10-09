@@ -50,7 +50,7 @@ impl Pipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::operation::OperationSource;
+    use fono_core::OperationSource;
 
     #[test]
     fn queued_old_stop_cancel_and_confirm_cannot_select_the_successor() {

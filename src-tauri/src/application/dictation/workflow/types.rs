@@ -1,8 +1,6 @@
 //! Public workflow choices contain no provider addresses or credentials.
-use crate::{
-    operation::OperationSource,
-    types::{AiMode, Settings},
-};
+use crate::types::{AiMode, Settings};
+use fono_core::OperationSource;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

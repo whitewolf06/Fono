@@ -1,11 +1,9 @@
 //! Closed fields form the redaction boundary: arbitrary text cannot enter a report.
-use crate::{
-    operation::OperationSource,
-    types::{
-        AccelerationMode, AiMode, InjectionMode, LlmConnectionKind, PipelineState, Settings,
-        WhisperModelSize,
-    },
+use crate::types::{
+    AccelerationMode, AiMode, InjectionMode, LlmConnectionKind, PipelineState, Settings,
+    WhisperModelSize,
 };
+use fono_core::OperationSource;
 use fono_wake::{WakeWordBackend, WakeWordStatus};
 
 pub(super) struct ReportSnapshot {

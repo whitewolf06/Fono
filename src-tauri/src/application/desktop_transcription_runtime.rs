@@ -10,11 +10,11 @@ use crate::application::transcription_service::{
     configured_model_identifier, TranscriptionRuntime,
 };
 use crate::error::{AppError, AppResult};
-use crate::operation::TerminalReason;
 use crate::pipeline::Pipeline;
 use crate::state::AppState;
 use crate::types::Transcript;
 use fono_core::OperationCancellation;
+use fono_core::TerminalReason;
 
 #[derive(Clone)]
 pub struct DesktopTranscriptionRuntime {

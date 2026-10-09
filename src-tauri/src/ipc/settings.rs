@@ -116,7 +116,9 @@ pub async fn save_settings(
     // No awaits remain after registration: cancellation during model
     // preparation cannot leave new shortcuts paired with old persisted values.
     if shortcuts_changed {
-        if let Err(error) = crate::register_all_shortcuts(&app, &persisted_settings) {
+        if let Err(error) =
+            crate::application::hotkeys::register_all_shortcuts(&app, &persisted_settings)
+        {
             let rollback = restore_shortcuts(&app, &old_settings);
             let _ = restore_profile_secrets(&previous_secrets);
             return Err(AppError::Config(format!(
@@ -452,7 +454,7 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
 }
 
 fn restore_shortcuts(app: &AppHandle, settings: &Settings) -> String {
-    match crate::register_all_shortcuts(app, settings) {
+    match crate::application::hotkeys::register_all_shortcuts(app, settings) {
         Ok(()) => "Старые значения восстановлены.".to_string(),
         Err(error) => {
             tracing::error!("failed to restore previous shortcuts: {error}");

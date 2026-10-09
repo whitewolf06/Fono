@@ -10,8 +10,6 @@ mod recognition;
 mod standard;
 pub(crate) mod workflow;
 
-#[allow(unused_imports)] // Preserve the existing application API.
-pub(crate) use capture::start_command;
 pub(crate) use capture::{ensure_capture_allowed, start, start_with_audio};
 pub(crate) use capture::{start_command_operation, start_operation, start_with_audio_operation};
 #[cfg(test)]
@@ -26,7 +24,8 @@ pub(crate) use processing_test::{
 };
 pub(crate) use standard::{stop, stop_overlay_for, stop_with_reason, stop_with_reason_for};
 
-use crate::{operation::OperationCancellation, types::Transcript};
+use crate::types::Transcript;
+use fono_core::OperationCancellation;
 
 pub(crate) async fn wait_for_cancellation(cancellation: OperationCancellation) {
     while !cancellation.is_cancelled() {

@@ -1,11 +1,11 @@
-//! Versioned backend events with legacy UI compatibility emissions.
+//! Versioned backend events and channels consumed by the current UI.
 
 use serde::Serialize;
 use tauri::{Emitter, Runtime};
 
-use crate::operation::OperationEvent;
 use crate::stt::SttReadiness;
 use crate::types::{PipelineState, Settings};
+use fono_core::OperationEvent;
 
 pub const EVENT_CHANNEL_V1: &str = "backend-event-v1";
 const SCHEMA_VERSION: u16 = 1;
@@ -41,15 +41,6 @@ pub struct PipelineStateEventV1 {
 pub enum PipelineModeV1 {
     Dictation,
     Command,
-}
-
-impl PipelineModeV1 {
-    fn legacy(self) -> &'static str {
-        match self {
-            Self::Dictation => "dictation",
-            Self::Command => "command",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -151,8 +142,7 @@ fn emit_v1<R: Runtime>(handle: &tauri::AppHandle<R>, event: BackendEventV1) {
 }
 
 pub fn emit_operation<R: Runtime>(handle: &tauri::AppHandle<R>, event: OperationEvent) {
-    emit_v1(handle, BackendEventV1::Operation(event.clone()));
-    let _ = handle.emit("operation-state", event);
+    emit_v1(handle, BackendEventV1::Operation(event));
 }
 
 pub fn emit_pipeline_state<R: Runtime>(handle: &tauri::AppHandle<R>, state: PipelineState) {
@@ -160,12 +150,10 @@ pub fn emit_pipeline_state<R: Runtime>(handle: &tauri::AppHandle<R>, state: Pipe
         handle,
         BackendEventV1::PipelineState(PipelineStateEventV1 { state }),
     );
-    let _ = handle.emit("pipeline-state", state);
 }
 
 pub fn emit_pipeline_mode<R: Runtime>(handle: &tauri::AppHandle<R>, mode: PipelineModeV1) {
     emit_v1(handle, BackendEventV1::PipelineMode(mode));
-    let _ = handle.emit("pipeline-mode", mode.legacy());
 }
 
 pub fn emit_wake_status<R: Runtime>(handle: &tauri::AppHandle<R>, status: WakeStatusV1) {
@@ -180,7 +168,6 @@ pub fn emit_wake_detected<R: Runtime>(handle: &tauri::AppHandle<R>, phrase: &str
             phrase: phrase.to_string(),
         }),
     );
-    let _ = handle.emit("wake-word-detected", phrase);
 }
 
 pub fn emit_wake_countdown<R: Runtime>(handle: &tauri::AppHandle<R>, countdown: WakeCountdownV1) {
@@ -204,22 +191,12 @@ pub fn emit_settings<R: Runtime>(handle: &tauri::AppHandle<R>, settings: &Settin
 pub fn emit_stt_readiness<R: Runtime>(handle: &tauri::AppHandle<R>, readiness: SttReadiness) {
     emit_v1(
         handle,
-        BackendEventV1::SttReadiness(SttReadinessEventV1 {
-            readiness: readiness.clone(),
-        }),
+        BackendEventV1::SttReadiness(SttReadinessEventV1 { readiness }),
     );
-    let _ = handle.emit("stt-readiness", readiness);
 }
 
 pub fn emit_model_download<R: Runtime>(handle: &tauri::AppHandle<R>, event: ModelDownloadEventV1) {
-    emit_v1(handle, BackendEventV1::ModelDownload(event.clone()));
-    if event.phase == ModelDownloadPhaseV1::Completed {
-        if event.download_id == "kws" {
-            let _ = handle.emit("kws-model-downloaded", true);
-        } else {
-            let _ = handle.emit("model-downloaded", event.model);
-        }
-    }
+    emit_v1(handle, BackendEventV1::ModelDownload(event));
 }
 
 pub fn emit_service_changed<R: Runtime>(handle: &tauri::AppHandle<R>) {

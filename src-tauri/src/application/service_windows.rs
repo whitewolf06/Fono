@@ -1,9 +1,9 @@
 //! Checkpointed API inference. No desktop events, dictation history, or insertion.
 use crate::application::live_agreement::LiveAgreement;
 use crate::error::{AppError, AppResult};
-use crate::operation::OperationCancellation;
 use crate::stt::WindowTranscript;
 use crate::types::Transcript;
+use fono_core::OperationCancellation;
 
 const WINDOW_SAMPLES: usize = 20 * 16_000;
 const OVERLAP_SAMPLES: usize = 2 * 16_000;

@@ -3,11 +3,11 @@
 use super::speech_gate::SpeechGate;
 use crate::{
     error::AppResult,
-    operation::{OperationSource, TerminalReason},
     pipeline::{self, Pipeline},
     state::AppState,
     types::{DictationMode, PipelineState},
 };
+use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Emitter, Manager};
 
 pub async fn run(

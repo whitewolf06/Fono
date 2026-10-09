@@ -47,7 +47,7 @@ pub async fn record_next(app: AppHandle) -> AppResult<WakeCalibrationStatus> {
     let mut result = rules::assess_samples(&recorded.samples);
     let mut hits = [false; 5];
     if result.accepted {
-        let mut config = match crate::settings_to_wake_config(&settings) {
+        let config = match crate::settings_to_wake_config(&settings) {
             Ok(config) => config,
             Err(error) => {
                 service.failed(id);
@@ -60,6 +60,7 @@ pub async fn record_next(app: AppHandle) -> AppResult<WakeCalibrationStatus> {
             let _activity = background_activity;
             #[cfg(feature = "sherpa-wake")]
             {
+                let mut config = config;
                 let mut hits = [false; 5];
                 for (index, threshold) in rules::CANDIDATES.iter().enumerate() {
                     config.threshold = *threshold;

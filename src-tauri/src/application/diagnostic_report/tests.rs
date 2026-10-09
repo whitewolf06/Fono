@@ -110,7 +110,7 @@ fn absent_measurements_are_explicit_and_report_is_stable() {
 fn report_distinguishes_audio_duration_from_finish_and_stage_latencies() {
     let last = super::telemetry::DictationMeasurement {
         operation: 7,
-        source: crate::operation::OperationSource::Hotkey,
+        source: fono_core::OperationSource::Hotkey,
         outcome: ReportOutcome::InsertionError,
         audio_ms: Some(10_000),
         finish_ms: 2500,

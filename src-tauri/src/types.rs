@@ -1,6 +1,6 @@
 //! Типы, общие между Rust и TypeScript.
 //!
-//! Эти структуры зеркалируют `src/lib/types.ts` на фронтенде.
+//! Эти структуры зеркалируют `src/v3/shared/infrastructure/native/ipcTypes.ts`.
 //! При изменении не забудьте синхронизировать обе стороны.
 
 pub use crate::application::dictation::workflow::{
@@ -601,7 +601,7 @@ pub struct CommandSettingsSnapshot {
 pub struct CommandProposal {
     pub id: u64,
     pub operation_id: u64,
-    pub source: crate::operation::OperationSource,
+    pub source: fono_core::OperationSource,
     pub original_text: String,
     pub normalized_action: String,
     pub confidence: Option<f32>,

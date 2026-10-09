@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "fono"
-version = "0.6.14"
+version = "0.6.15"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -52,8 +52,7 @@ tracing-appender = "0.2"
 # Аудио (захват через WASAPI на Windows)
 cpal = "0.15"
 
-# Whisper STT — автоматически собирает whisper.cpp через build-script
-# Включаем feature для core (CPU); cuda добавим позже на этапе оптимизации
+# Встроенный Whisper STT; GPU workers собираются отдельно.
 whisper-rs = "0.16"
 symphonia = { version = "0.5.5", default-features = false, features = ["wav", "mp3", "flac", "ogg", "vorbis", "pcm"] }
 audiopus = "0.2"
@@ -79,7 +78,7 @@ windows = { version = "0.58", features = [
     "Win32_Storage_FileSystem",
 ] }
 
-# HTTP-клиент к LM Studio
+# HTTP-клиент к LLM API и сервисам
 reqwest = { version = "0.12", features = ["json", "stream", "blocking"] }
 
 # Конcurrency
@@ -100,9 +99,9 @@ tauri-plugin-updater = "=2.12.0"
 # Portable CPU build is the release default. GPU builds are explicit opt-in so
 # a normal installer does not require CUDA/CUBLAS on the target machine.
 default = ["whisper-wake", "sherpa-wake"]
-# GPU-ускорение через CUDA (нужен CUDA Toolkit 12.8+, ~3 ГБ установка)
+# Встроенное GPU-ускорение через CUDA для явной сборки с CUDA Toolkit.
 cuda = ["whisper-rs/cuda", "fono-wake/cuda"]
-# GPU-ускорение через Vulkan (нужен Vulkan SDK ~500 МБ, работает на любой GPU)
+# Встроенное GPU-ускорение через Vulkan для явной сборки с Vulkan SDK.
 vulkan = ["whisper-rs/vulkan", "fono-wake/vulkan"]
 # Wake word backends
 whisper-wake = ["fono-wake/whisper-wake"]
@@ -120,8 +119,8 @@ opt-level = 3
 panic = "abort"
 strip = true
 
-# Нативные инструкции CPU (AVX2/AVX512/FMA) — критично для whisper.cpp.
-# ggml активно использует SIMD; без этого whisper работает в 3-5x медленнее.
+# whisper-rs-sys использует оптимизированный release-профиль;
+# переносимые CPU-флаги задаются в .cargo/config.toml.
 [profile.release.package.whisper-rs-sys]
 opt-level = 3
 strip = true

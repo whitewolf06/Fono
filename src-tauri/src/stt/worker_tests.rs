@@ -7,7 +7,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::*;
-use crate::operation::{OperationCoordinator, OperationSource};
+use fono_core::{OperationCoordinator, OperationSource};
 
 // Parallel workspace tests can briefly delay Windows cmd fixture startup;
 // keep this distinct from the production request deadlines.

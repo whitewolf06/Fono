@@ -15,13 +15,13 @@ use tauri::{AppHandle, Manager};
 
 use crate::audio::{AudioRecorder, AudioRecordingOwner, RecordingWriter};
 use crate::error::{AppError, AppResult};
-use crate::operation::{
-    OperationCancellation, OperationCoordinator, OperationEvent, OperationPhase, OperationResource,
-    OperationSnapshot, OperationSource, TerminalReason,
-};
 use crate::state::AppState;
 use crate::stt::SttEngine;
 use crate::types::PipelineState;
+use fono_core::{
+    OperationCancellation, OperationCoordinator, OperationEvent, OperationPhase, OperationResource,
+    OperationSnapshot, OperationSource, TerminalReason,
+};
 #[cfg(test)]
 mod capture_tests;
 pub mod completion;
@@ -583,10 +583,10 @@ mod tests {
 
     use crate::audio::{AudioRecorder, RecordingWriter};
     use crate::error::{AppError, AppResult};
-    use crate::operation::{
+    use crate::types::PipelineState;
+    use fono_core::{
         OperationEvent, OperationPhase, OperationResource, OperationSource, TerminalReason,
     };
-    use crate::types::PipelineState;
 
     use super::{append_bounded, sync_overlay_visibility, Pipeline};
 

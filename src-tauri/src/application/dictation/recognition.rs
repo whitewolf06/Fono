@@ -2,10 +2,10 @@
 use super::{lifecycle::Session, wait_for_cancellation};
 use crate::{
     error::{AppError, AppResult},
-    operation::OperationCancellation,
     pipeline::Pipeline,
     types::Transcript,
 };
+use fono_core::OperationCancellation;
 use tauri::Manager;
 
 async fn await_task<T: Send + 'static>(

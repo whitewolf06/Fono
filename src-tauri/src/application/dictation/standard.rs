@@ -11,13 +11,13 @@ use crate::{
         dictation_tail_diagnostics::{DictationStopReason, DictationTailDiagnostic},
     },
     error::AppResult,
-    operation::{OperationSource, TerminalReason},
     pipeline::{
         completion::{wait, FinishClaim},
         Pipeline,
     },
     types::{PipelineState, Transcript},
 };
+use fono_core::{OperationSource, TerminalReason};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 

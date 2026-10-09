@@ -160,7 +160,7 @@ pub fn inject_via_clipboard(text: &str) -> AppResult<()> {
 pub fn inject_via_clipboard_checked(
     text: &str,
     target: target::TextTarget,
-    cancel: crate::operation::OperationCancellation,
+    cancel: fono_core::OperationCancellation,
 ) -> AppResult<()> {
     CLIPBOARD_WORKER.inject(text.to_owned(), Some((target, cancel)))
 }
@@ -168,7 +168,7 @@ pub fn inject_via_clipboard_checked(
 pub fn inject_via_clipboard_checked(
     _: &str,
     _: target::TextTarget,
-    _: crate::operation::OperationCancellation,
+    _: fono_core::OperationCancellation,
 ) -> AppResult<()> {
     Err(AppError::Injection(
         "Вставка поддерживается только в Windows".into(),
@@ -179,7 +179,7 @@ pub fn inject_via_clipboard_checked(
 enum ClipboardCommand {
     Inject {
         text: String,
-        guard: Option<(target::TextTarget, crate::operation::OperationCancellation)>,
+        guard: Option<(target::TextTarget, fono_core::OperationCancellation)>,
         response: Sender<AppResult<()>>,
     },
     Shutdown {
@@ -224,7 +224,7 @@ impl ClipboardInjectionWorker {
     fn inject(
         &self,
         text: String,
-        guard: Option<(target::TextTarget, crate::operation::OperationCancellation)>,
+        guard: Option<(target::TextTarget, fono_core::OperationCancellation)>,
     ) -> AppResult<()> {
         let (response_tx, response_rx) = bounded(1);
         self.commands
@@ -257,7 +257,7 @@ static CLIPBOARD_WORKER: Lazy<ClipboardInjectionWorker> = Lazy::new(ClipboardInj
 #[cfg(windows)]
 fn inject_clipboard_on_owner_thread(
     text: &str,
-    guard: Option<&(target::TextTarget, crate::operation::OperationCancellation)>,
+    guard: Option<&(target::TextTarget, fono_core::OperationCancellation)>,
 ) -> AppResult<()> {
     if guard.is_some_and(|(field, cancel)| cancel.is_cancelled() || !self::target::matches(field)) {
         return Err(AppError::Injection(

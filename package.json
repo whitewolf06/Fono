@@ -1,13 +1,13 @@
 {
   "name": "fono",
-  "version": "0.6.14",
+  "version": "0.6.15",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:ui": "vite --mode ui",
-    "dev:desktop:v3": "tauri dev --config src-tauri/tauri.v3.conf.json",
+    "dev:desktop:v3": "tauri dev",
     "build": "tsc && vue-tsc --noEmit -p tsconfig.v3.json && vite build",
     "build:workers": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-stt-workers.ps1",
     "prepare:release-resources": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prepare-release-resources.ps1",
@@ -24,7 +24,7 @@
     "format": "prettier --write \"src/**/*.{ts,vue,css}\"",
     "typecheck:v3": "vue-tsc --noEmit -p tsconfig.v3.json",
     "format:v3": "prettier --write \"src/v3/**/*.{ts,vue,css}\"",
-    "format:check": "prettier --check \"src/v3/**/*.{ts,vue,css}\" eslint.config.js docs/fono-v3-frontend.md docs/fono-v3-qa.md AGENTS.md",
+    "format:check": "prettier --check \"src/v3/**/*.{ts,vue,css}\" eslint.config.js README.md \"docs/**/*.md\" AGENTS.md",
     "test:v3": "node --test --test-concurrency=1 tests/ui/fonoV3.test.mjs tests/ui/fonoV3Native.test.mjs tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs tests/ui/preferenceToggleV3.test.mjs tests/ui/voiceWave.test.mjs tests/ui/trainerV3.test.mjs tests/ui/pendingDictationV3.test.mjs tests/ui/pendingNative.test.mjs tests/ui/processingPreferences.test.mjs tests/ui/overlayProcessingChoiceV3.test.mjs tests/ui/overlayControlsV3.test.mjs",
     "test:release": "node --test scripts/release-support.test.mjs scripts/update-release.test.mjs scripts/native-test-runtime.test.mjs",
     "icons:generate": "node scripts/generate-icons.mjs"

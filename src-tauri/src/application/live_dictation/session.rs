@@ -1,8 +1,8 @@
 use crate::{
     injection::target::TextTarget,
-    operation::{OperationCancellation, OperationSource},
     types::{Settings, Transcript},
 };
+use fono_core::{OperationCancellation, OperationSource};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -12,7 +12,6 @@ pub mod history;
 pub mod injection;
 pub mod ipc;
 pub mod llm;
-pub mod operation;
 pub mod overlay;
 mod overlay_geometry;
 pub mod pipeline;
@@ -30,46 +29,6 @@ use crate::types::{PipelineState, Settings, WakeWordBackend};
 use fono_wake::{AudioHub, WakeWordConfig, WakeWordEvent, WakeWordHandle};
 use tauri::{Manager, RunEvent, WindowEvent};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-/// Restores wake-word listening when a wake-triggered operation leaves scope.
-/// The guard deliberately owns no operation state: it only pairs the engine
-/// pause with its mandatory resume across every early return and await point.
-#[cfg(test)]
-trait WakeLifecycle {
-    fn pause(&self);
-    fn resume(&self);
-}
-
-#[cfg(test)]
-impl WakeLifecycle for WakeWordHandle {
-    fn pause(&self) {
-        WakeWordHandle::pause(self);
-    }
-
-    fn resume(&self) {
-        WakeWordHandle::resume(self);
-    }
-}
-
-#[cfg(test)]
-struct WakePauseGuard<'a, T: WakeLifecycle> {
-    wake_handle: &'a T,
-}
-
-#[cfg(test)]
-impl<'a, T: WakeLifecycle> WakePauseGuard<'a, T> {
-    fn pause(wake_handle: &'a T) -> Self {
-        wake_handle.pause();
-        Self { wake_handle }
-    }
-}
-
-#[cfg(test)]
-impl<T: WakeLifecycle> Drop for WakePauseGuard<'_, T> {
-    fn drop(&mut self) {
-        self.wake_handle.resume();
-    }
-}
 
 /// Возвращает действие, явно продиктованное после wake phrase.
 ///
@@ -293,7 +252,6 @@ pub fn run() {
             ipc::desktop_v3::remove_whisper_model,
             ipc::desktop_v3::get_selected_model_metadata,
             ipc::system::get_build_info,
-            ipc::dictation::get_pipeline_state,
             ipc::dictation::get_live_dictation,
             ipc::dictation::resume_live_insertion,
             ipc::dictation::start_dictation,
@@ -320,7 +278,6 @@ pub fn run() {
             ipc::service::copy_local_transcription_api_token,
             ipc::text::copy_dictation_text,
             ipc::text::reinsert_dictation,
-            ipc::voice::get_pending_voice_command,
             ipc::voice::get_pending_command_proposal,
             ipc::voice::cancel_voice_command,
             ipc::voice::confirm_voice_command,
@@ -335,8 +292,6 @@ pub fn run() {
             ipc::models::download_kws_model,
             ipc::models::cancel_model_download,
             // llm
-            ipc::llm::test_llm_connection,
-            ipc::llm::list_llm_models,
             ipc::llm::test_llm_profile,
             ipc::llm::list_llm_profile_models,
             ipc::processing::get_processing_prompt_catalog,
@@ -421,27 +376,11 @@ fn shutdown_app(app: &tauri::AppHandle) {
 fn setup_global_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
     let settings = app_handle.state::<AppState>().settings();
-    if let Err(e) = register_all_shortcuts(&app_handle, &settings) {
+    if let Err(e) = application::hotkeys::register_all_shortcuts(&app_handle, &settings) {
         tracing::error!("Не удалось зарегистрировать горячие клавиши: {e}");
         tracing::error!("Возможно, одна из клавиш уже занята другим приложением.");
     }
     Ok(())
-}
-
-/// Register both shortcuts through the application-owned key state machines.
-pub fn register_all_shortcuts(
-    app: &tauri::AppHandle,
-    settings: &crate::types::Settings,
-) -> Result<(), Box<dyn std::error::Error>> {
-    application::hotkeys::register_all_shortcuts(app, settings)
-}
-
-/// Полный цикл голосовой команды: запись → STT → выполнение.
-async fn run_voice_command(
-    app: &tauri::AppHandle,
-    operation: u64,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    application::voice_dictation::run(app, operation).await
 }
 
 fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -679,54 +618,9 @@ pub async fn restart_wake_word(handle: &tauri::AppHandle) -> Result<(), String> 
     wake_handle.update_config(config).map_err(|e| e.to_string())
 }
 
-/// Запускает диктовку после срабатывания wake word.
-///
-/// Алгоритм:
-///   1. Паузим wake word (чтобы не ловить повторные срабатывания).
-///   2. Стартуем запись.
-///   3. Слушаем VAD: ждём пока пользователь говорит, потом тишина 1.5 сек → стоп.
-///   4. STT основной моделью + вставка текста.
-///   5. Резюммим wake word.
-pub async fn run_dictation_after_wake(
-    handle: &tauri::AppHandle,
-    pre_roll: Vec<i16>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    application::wake_dictation::run(handle, pre_roll, None).await?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod wake_command_tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    use super::{extract_wake_command, strip_leading_wake_phrase, WakeLifecycle, WakePauseGuard};
-
-    #[derive(Default)]
-    struct FakeWakeLifecycle {
-        pauses: AtomicUsize,
-        resumes: AtomicUsize,
-    }
-
-    impl WakeLifecycle for FakeWakeLifecycle {
-        fn pause(&self) {
-            self.pauses.fetch_add(1, Ordering::SeqCst);
-        }
-
-        fn resume(&self) {
-            self.resumes.fetch_add(1, Ordering::SeqCst);
-        }
-    }
-
-    #[test]
-    fn wake_pause_guard_resumes_on_early_scope_exit() {
-        let wake = FakeWakeLifecycle::default();
-        {
-            let _guard = WakePauseGuard::pause(&wake);
-            assert_eq!(wake.pauses.load(Ordering::SeqCst), 1);
-            assert_eq!(wake.resumes.load(Ordering::SeqCst), 0);
-        }
-        assert_eq!(wake.resumes.load(Ordering::SeqCst), 1);
-    }
+    use super::{extract_wake_command, strip_leading_wake_phrase};
 
     #[test]
     fn extracts_only_explicit_command_prefixes() {

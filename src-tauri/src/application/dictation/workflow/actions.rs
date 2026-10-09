@@ -9,11 +9,11 @@ use crate::{
         dictation_result,
     },
     error::{AppError, AppResult},
-    operation::TerminalReason,
     pipeline::{self, Pipeline},
     state::AppState,
     types::{AiMode, PipelineState, Transcript},
 };
+use fono_core::TerminalReason;
 use tauri::{AppHandle, Manager};
 
 pub(crate) async fn resolve(
@@ -159,8 +159,7 @@ async fn execute(
             ..data.transcript.clone()
         });
     }
-    if action != PendingAction::Complete && session.source != crate::operation::OperationSource::Ui
-    {
+    if action != PendingAction::Complete && session.source != fono_core::OperationSource::Ui {
         let Some(target) = data
             .target
             .as_ref()
