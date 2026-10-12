@@ -13,7 +13,7 @@ import EmptyState from "../../../shared/presentation/EmptyState.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 const workspace = useWorkspace();
 const ui = useInteraction();
-const { run } = useFeedback();
+const { run, busy, error } = useFeedback();
 const query = ref("");
 const period = ref(0);
 const selectedId = ref(workspace.state.history[0]?.id);
@@ -31,6 +31,7 @@ watch(filtered, (entries) => {
 });
 watch(selectedId, () => {
   variant.value = "result";
+  error.value = "";
 });
 const text = computed(() =>
   variant.value === "original"
@@ -60,6 +61,15 @@ async function clear() {
   )
     await run(() => workspace.history.clear());
 }
+async function toggleIncluded() {
+  const entry = selected.value;
+  if (!entry || busy.value) return;
+  const included = entry.analyticsIncluded === false;
+  await run(
+    () => workspace.history.setIncluded(entry.id, included),
+    included ? "Запись включена в аналитику" : "Запись исключена из аналитики",
+  );
+}
 </script>
 <template>
   <div class="page">
@@ -69,7 +79,7 @@ async function clear() {
       ><WlButton
         size="sm"
         variant="danger-quiet"
-        :disabled="!workspace.state.history.length"
+        :disabled="busy || !workspace.state.history.length"
         @click="clear"
         ><template #icon><AppIcon name="trash" :size="16" /></template
         >Очистить</WlButton
@@ -109,6 +119,7 @@ async function clear() {
             class="entry-button"
             :class="{ selected: selectedId === entry.id }"
             :aria-pressed="selectedId === entry.id"
+            :disabled="busy"
             @click="selectedId = entry.id"
           >
             <span class="entry-title">{{ entry.title }}</span>
@@ -116,6 +127,11 @@ async function clear() {
             <small
               >{{ timeLabel(entry.createdAt) }} ·
               {{ recordingLabel(entry) }}</small
+            >
+            <small
+              v-if="entry.analyticsIncluded === false"
+              class="history-excluded"
+              >Не учитывается в речевом тренере</small
             >
           </button>
         </section>
@@ -146,16 +162,39 @@ async function clear() {
           Исходная расшифровка не сохранена.
         </p>
         <div class="reading-text" tabindex="0">{{ text }}</div>
+        <p class="muted history-analytics-state">
+          {{
+            selected.analyticsIncluded === false
+              ? "Запись исключена из речевой аналитики. Текст остаётся в истории; включить её обратно можно здесь."
+              : "Запись разрешена для речевой аналитики. Тренер учтёт её при наличии исходной расшифровки и локального разбора."
+          }}
+        </p>
         <div class="actions">
           <WlButton
             size="sm"
+            :disabled="busy"
             @click="run(() => workspace.copy(text || ''), 'Текст скопирован')"
             ><template #icon><AppIcon name="copy" /></template
             >Копировать</WlButton
-          ><WlButton size="sm" variant="danger-quiet" @click="remove"
+          ><WlButton
+            size="sm"
+            variant="ghost"
+            :disabled="busy"
+            @click="toggleIncluded"
+            >{{
+              selected.analyticsIncluded === false
+                ? "Включить в аналитику"
+                : "Исключить из аналитики"
+            }}</WlButton
+          ><WlButton
+            size="sm"
+            variant="danger-quiet"
+            :disabled="busy"
+            @click="remove"
             >Удалить запись</WlButton
           >
         </div>
+        <p v-if="error" class="error-text" role="alert">{{ error }}</p>
       </article>
     </div>
     <EmptyState
@@ -196,5 +235,14 @@ async function clear() {
   color: var(--fono-muted);
   font-size: var(--fono-type-xs);
   font-variant-numeric: tabular-nums;
+}
+.history-excluded {
+  display: block;
+  margin-top: var(--fono-space-1);
+  color: var(--fono-warning);
+}
+.history-analytics-state {
+  font-size: var(--fono-type-sm);
+  line-height: 1.6;
 }
 </style>

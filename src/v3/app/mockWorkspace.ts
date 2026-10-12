@@ -3,6 +3,7 @@ import { openProjectSite } from "../shared/infrastructure/browser";
 import { createMockDiagnosticReport } from "../features/diagnostic-report";
 import { createMockUpdates } from "../features/updates";
 import { LIVE_DICTATION_ENABLED } from "../shared/domain/dictationMode";
+import { createMockTrainer } from "../features/trainer/infrastructure/mockTrainer";
 import type {
   Workspace,
   WorkspaceState,
@@ -87,6 +88,7 @@ export function createMockWorkspace(): Workspace {
   }
   selectLatest(state, state.history[0]);
   const dictation = createDictationPort(state);
+  const trainer = createMockTrainer(state);
   const updates = createMockUpdates(__FONO_FRONTEND_BUILD__.version);
   const wake = createMockWake(state);
   let disposed = false;
@@ -113,6 +115,7 @@ export function createMockWorkspace(): Workspace {
     }
   }, 800);
   function scenario(value: Scenario) {
+    trainer.reset();
     dictation.cancel();
     state.preferences = clonePreferences(defaults);
     state.history = demoHistory();
@@ -187,20 +190,22 @@ export function createMockWorkspace(): Workspace {
     commands: createCommandsPort(state),
     service: createServicePort(state),
     history: {
+      async setIncluded(id, included) {
+        const entry = state.history.find((item) => item.id === id);
+        if (!entry) throw new Error("Диктовка уже удалена из истории.");
+        entry.analyticsIncluded = included;
+        trainer.invalidate();
+      },
       remove(id) {
         state.history = state.history.filter((e) => e.id !== id);
+        trainer.invalidate();
       },
       clear() {
         state.history = [];
+        trainer.invalidate();
       },
     },
-    trainer: {
-      clear() {
-        state.history = state.history.map(
-          ({ original: _original, ...entry }) => entry,
-        );
-      },
-    },
+    trainer: trainer.port,
     copy: copyToClipboard,
     openProjectSite,
     scenario,
@@ -259,6 +264,7 @@ export function createMockWorkspace(): Workspace {
     },
     dispose() {
       disposed = true;
+      trainer.dispose();
       updates.dispose();
       clearInterval(jobsTimer);
       dictation.dispose();

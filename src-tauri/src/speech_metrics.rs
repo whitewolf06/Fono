@@ -48,8 +48,20 @@ fn tokenize(text: &str) -> Vec<WordToken> {
         .filter(|word| !word.is_empty())
         .map(|word| WordToken {
             source: word.to_owned(),
-            normalized: word.to_lowercase(),
+            normalized: normalize_word(word),
         })
+        .collect()
+}
+
+fn normalize_word(word: &str) -> String {
+    word.to_lowercase().replace('ё', "е")
+}
+
+/// Shared canonical words for local term keys; punctuation and case never split a term.
+pub(crate) fn normalized_words(text: &str) -> Vec<String> {
+    text.split(|character: char| !character.is_alphabetic())
+        .filter(|word| !word.is_empty())
+        .map(normalize_word)
         .collect()
 }
 

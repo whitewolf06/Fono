@@ -12,8 +12,8 @@ use crate::{
     error::AppResult,
     state,
     types::{
-        DictationAnalysisStatus, DictationHistoryEntry, SpeechDailyTrend, SpeechPeriodReport,
-        SpeechSessionAnalysis,
+        DictationAnalysisStatus, DictationHistoryEntry, Settings, SpeechDailyTrend,
+        SpeechPeriodReport, SpeechSessionAnalysis,
     },
 };
 
@@ -24,6 +24,7 @@ static HISTORY: Lazy<HistoryRepository> = Lazy::new(HistoryRepository::default);
 #[derive(Default)]
 pub struct HistoryRepository {
     write_lock: Mutex<()>,
+    analytics_revision: AtomicU64,
 }
 
 impl HistoryRepository {
@@ -40,7 +41,9 @@ impl HistoryRepository {
             analytics_retention_days,
             chrono::Utc::now(),
         ) {
-            state::save_history_document(&entries)?;
+            crate::application::trainer_report::invalidate_private_cache()?;
+            state::save_history_document_private(&entries)?;
+            self.privacy_changed();
         }
         Ok(entries)
     }
@@ -53,27 +56,54 @@ impl HistoryRepository {
     ) -> AppResult<()> {
         let _guard = self.write_lock.lock();
         let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
-        apply_analytics_privacy_policy_to_entries(
+        let expired = apply_analytics_privacy_policy_to_entries(
             &mut entries,
             analytics_enabled,
             analytics_retention_days,
             chrono::Utc::now(),
         );
         entries.insert(0, entry);
+        let dropped_ids = entries
+            .iter()
+            .skip(MAX_HISTORY_ENTRIES)
+            .map(|entry| entry.id.clone())
+            .collect::<Vec<_>>();
         entries.truncate(MAX_HISTORY_ENTRIES);
-        state::save_history_document(&entries)
+        if expired || !dropped_ids.is_empty() {
+            crate::application::trainer_report::invalidate_private_cache()?;
+            state::save_history_document_private(&entries)?;
+        } else {
+            state::save_history_document(&entries)?;
+        }
+        if expired {
+            self.privacy_changed();
+        }
+        for id in dropped_ids {
+            crate::application::trainer_ai::invalidate_session(&id);
+        }
+        crate::application::trainer_ai::sources_changed();
+        Ok(())
     }
 
     pub fn clear(&self) -> AppResult<()> {
         let _guard = self.write_lock.lock();
-        state::save_history_document::<DictationHistoryEntry>(&[])
+        crate::application::trainer_report::purge()?;
+        state::save_history_document_private::<DictationHistoryEntry>(&[])?;
+        self.privacy_changed();
+        Ok(())
     }
 
     pub fn delete(&self, id: &str) -> AppResult<()> {
         let _guard = self.write_lock.lock();
         let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
-        remove_entry(&mut entries, id);
-        state::save_history_document(&entries)
+        if remove_entry(&mut entries, id) {
+            crate::application::trainer_report::invalidate_private_cache()?;
+            state::save_history_document_private(&entries)?;
+            self.analytics_revision.fetch_add(1, Ordering::SeqCst);
+            crate::application::trainer_ai::invalidate_session(id);
+            crate::application::trainer_ai::sources_changed();
+        }
+        Ok(())
     }
 
     pub fn set_analytics_included(&self, id: &str, included: bool) -> AppResult<bool> {
@@ -87,7 +117,15 @@ impl HistoryRepository {
         }
 
         entry.analytics_included = included;
-        state::save_history_document(&entries)?;
+        if !included {
+            crate::application::trainer_report::invalidate_private_cache()?;
+            state::save_history_document_private(&entries)?;
+        } else {
+            state::save_history_document(&entries)?;
+        }
+        self.analytics_revision.fetch_add(1, Ordering::SeqCst);
+        crate::application::trainer_ai::invalidate_session(id);
+        crate::application::trainer_ai::sources_changed();
         Ok(true)
     }
 
@@ -104,7 +142,9 @@ impl HistoryRepository {
             analytics_retention_days,
             chrono::Utc::now(),
         ) {
-            state::save_history_document(&entries)?;
+            crate::application::trainer_report::invalidate_private_cache()?;
+            state::save_history_document_private(&entries)?;
+            self.privacy_changed();
         }
         Ok(())
     }
@@ -143,6 +183,7 @@ impl HistoryRepository {
             return Ok(false);
         }
         state::save_history_document(&entries)?;
+        crate::application::trainer_ai::sources_changed();
         Ok(true)
     }
 
@@ -159,6 +200,7 @@ impl HistoryRepository {
         entry.analysis_status = DictationAnalysisStatus::Failed;
         entry.analysis_error = Some(reason.to_owned());
         state::save_history_document(&entries)?;
+        crate::application::trainer_ai::sources_changed();
         Ok(true)
     }
 
@@ -167,7 +209,12 @@ impl HistoryRepository {
         let entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
         Ok(entries
             .into_iter()
-            .find(|entry| entry.id == id)
+            .find(|entry| {
+                entry.id == id
+                    && entry.analytics_included
+                    && entry.analysis_status == DictationAnalysisStatus::Ready
+                    && entry.original_text.is_some()
+            })
             .and_then(|entry| entry.analysis))
     }
 
@@ -182,6 +229,8 @@ impl HistoryRepository {
             return Ok(false);
         };
         if entry.analysis_status != DictationAnalysisStatus::Ready
+            || !entry.analytics_included
+            || entry.original_text.is_none()
             || entry.recommendation_status != DictationAnalysisStatus::Pending
         {
             return Ok(false);
@@ -199,7 +248,11 @@ impl HistoryRepository {
         let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
             return Ok(false);
         };
-        if entry.recommendation_status != DictationAnalysisStatus::Pending {
+        if !entry.analytics_included
+            || entry.analysis_status != DictationAnalysisStatus::Ready
+            || entry.original_text.is_none()
+            || entry.recommendation_status != DictationAnalysisStatus::Pending
+        {
             return Ok(false);
         }
         entry.recommendation_status = DictationAnalysisStatus::Failed;
@@ -216,6 +269,92 @@ impl HistoryRepository {
         let _guard = self.write_lock.lock();
         let entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
         Ok(build_period_report(entries, from, to))
+    }
+
+    fn privacy_changed(&self) {
+        self.analytics_revision.fetch_add(1, Ordering::SeqCst);
+        crate::application::trainer_ai::invalidate_all_sessions();
+        crate::application::trainer_ai::sources_changed();
+    }
+
+    fn with_trainer_entries<T>(
+        &self,
+        settings: &Settings,
+        action: impl FnOnce(Vec<DictationHistoryEntry>) -> AppResult<T>,
+    ) -> AppResult<T> {
+        let _guard = self.write_lock.lock();
+        let mut entries: Vec<DictationHistoryEntry> = state::load_history_document()?;
+        if apply_analytics_privacy_policy_to_entries(
+            &mut entries,
+            settings.analytics_enabled && settings.history_enabled,
+            settings.analytics_retention_days,
+            chrono::Utc::now(),
+        ) {
+            crate::application::trainer_report::invalidate_private_cache()?;
+            state::save_history_document_private(&entries)?;
+            self.privacy_changed();
+        }
+        action(entries)
+    }
+
+    fn recommendation_fingerprint(&self, entry: &DictationHistoryEntry) -> AppResult<String> {
+        let source = crate::application::trainer_report::source_fingerprint(entry)?;
+        Ok(format!(
+            "{}:{source}",
+            self.analytics_revision.load(Ordering::SeqCst)
+        ))
+    }
+
+    fn recommendation_input(
+        &self,
+        id: &str,
+        settings: &Settings,
+    ) -> AppResult<Option<(String, SpeechSessionAnalysis, String)>> {
+        self.with_trainer_entries(settings, |entries| {
+            let Some(entry) = entries.iter().find(|entry| {
+                entry.id == id
+                    && entry.recommendation_status == DictationAnalysisStatus::Pending
+                    && crate::application::trainer_report::eligible(
+                        entry,
+                        settings,
+                        chrono::Utc::now(),
+                    )
+            }) else {
+                return Ok(None);
+            };
+            Ok(Some((
+                entry.original_text.clone().unwrap(),
+                entry.analysis.clone().unwrap(),
+                self.recommendation_fingerprint(entry)?,
+            )))
+        })
+    }
+
+    fn update_recommendation_if_current(
+        &self,
+        id: &str,
+        expected_source_fp: &str,
+        settings: &Settings,
+        apply: impl FnOnce(&mut DictationHistoryEntry),
+    ) -> AppResult<bool> {
+        self.with_trainer_entries(settings, |mut entries| {
+            let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
+                return Ok(false);
+            };
+            if entry.recommendation_status != DictationAnalysisStatus::Pending
+                || !crate::application::trainer_report::eligible(
+                    entry,
+                    settings,
+                    chrono::Utc::now(),
+                )
+                || self.recommendation_fingerprint(entry)? != expected_source_fp
+            {
+                return Ok(false);
+            }
+            apply(entry);
+            state::save_history_document(&entries)?;
+            Ok(true)
+        })
     }
 }
 
@@ -271,6 +410,45 @@ pub fn mark_analysis_failed(id: &str, reason: &str) -> AppResult<bool> {
 
 pub fn session_analysis(id: &str) -> AppResult<Option<SpeechSessionAnalysis>> {
     HISTORY.session_analysis(id)
+}
+
+pub(crate) fn with_trainer_entries<T>(
+    settings: &Settings,
+    action: impl FnOnce(Vec<DictationHistoryEntry>) -> AppResult<T>,
+) -> AppResult<T> {
+    HISTORY.with_trainer_entries(settings, action)
+}
+
+pub fn recommendation_input(
+    id: &str,
+    settings: &Settings,
+) -> AppResult<Option<(String, SpeechSessionAnalysis, String)>> {
+    HISTORY.recommendation_input(id, settings)
+}
+
+pub fn complete_recommendation_if_current(
+    id: &str,
+    expected_source_fp: &str,
+    recommendation: crate::llm::SpeechLlmRecommendation,
+    settings: &Settings,
+) -> AppResult<bool> {
+    HISTORY.update_recommendation_if_current(id, expected_source_fp, settings, |entry| {
+        entry.recommendation = Some(recommendation);
+        entry.recommendation_error = None;
+        entry.recommendation_status = DictationAnalysisStatus::Ready;
+    })
+}
+
+pub fn mark_recommendation_failed_if_current(
+    id: &str,
+    expected_source_fp: &str,
+    reason: &str,
+    settings: &Settings,
+) -> AppResult<bool> {
+    HISTORY.update_recommendation_if_current(id, expected_source_fp, settings, |entry| {
+        entry.recommendation_error = Some(reason.to_owned());
+        entry.recommendation_status = DictationAnalysisStatus::Failed;
+    })
 }
 
 pub fn complete_recommendation(
@@ -361,7 +539,11 @@ fn build_period_report(
     let mut daily = BTreeMap::<chrono::NaiveDate, SpeechDailyTrend>::new();
 
     for entry in entries.into_iter().filter(|entry| {
-        entry.analytics_included && entry.created_at >= from && entry.created_at <= to
+        entry.analytics_included
+            && entry.analysis_status == DictationAnalysisStatus::Ready
+            && entry.original_text.is_some()
+            && entry.created_at >= from
+            && entry.created_at <= to
     }) {
         let Some(analysis) = entry.analysis else {
             continue;

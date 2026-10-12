@@ -13,6 +13,7 @@ pub mod service;
 pub mod settings;
 pub mod system;
 pub mod text;
+pub mod trainer;
 pub mod updates;
 pub mod voice;
 pub mod wake;

@@ -27,6 +27,8 @@ impl AppState {
         persist(&merged)?;
         *current = merged.clone();
         self.settings_version.fetch_add(1, Ordering::SeqCst);
+        drop(current);
+        crate::application::trainer_ai::settings_changed();
         Ok(merged)
     }
 }

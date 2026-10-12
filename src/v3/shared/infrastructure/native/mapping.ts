@@ -255,6 +255,7 @@ export function historyFromNative(e: DictationHistoryEntry): Dictation {
   const metadata = historyMetadataFromNative(e);
   return {
     id: e.id,
+    analyticsIncluded: e.analytics_included !== false,
     text: e.text,
     original: e.original_text || undefined,
     createdAt: e.created_at,

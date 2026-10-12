@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
+import type { TrainerPeriod, TrainerTerm } from "../domain/report";
 import {
-  aggregateFindings,
   exactDateLabel,
   findingsCount,
-  formatMetric,
   recordingDurationLabel,
   sortTrainerEntries,
   wordCount,
   type TrainerSort,
 } from "../application/overview";
+import {
+  createPeriodReportController,
+  initialPeriodReportState,
+} from "../application/periodReportController";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import EmptyState from "../../../shared/presentation/EmptyState.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
@@ -18,44 +22,131 @@ import SelectField from "../../../shared/presentation/SelectField.vue";
 import { PreferenceToggle } from "../../preferences";
 import TrainerChart from "./TrainerChart.vue";
 import TrainerDetails from "./TrainerDetails.vue";
+import PeriodReport from "./PeriodReport.vue";
 
 const workspace = useWorkspace();
-const period = ref(7);
+const periods: TrainerPeriod[] = [7, 30, 90];
+const periodState = reactive(initialPeriodReportState());
+const controller = createPeriodReportController(workspace.trainer, periodState);
+const connectionKey = computed(() => {
+  const preferences = workspace.state.preferences;
+  const profile = workspace.state.profiles.find(
+    (entry) => entry.id === preferences.trainerProfile,
+  );
+  return JSON.stringify([
+    preferences.trainerEnabled,
+    preferences.analyticsConsent,
+    preferences.retentionDays,
+    preferences.trainerAiEnabled,
+    preferences.trainerProfile,
+    preferences.trainerModel,
+    preferences.trainerScope,
+    preferences.cloudConsent,
+    profile?.id,
+    profile?.url,
+    profile?.provider,
+    profile?.location,
+    profile?.model,
+    profile?.name,
+  ]);
+});
+let stopDayChange = () => {};
 const sort = ref<TrainerSort>("date");
 const selectedId = ref("");
+const selectedTermKey = ref("");
+const selectedTerm = computed(() =>
+  periodState.report?.snapshot.terms.find(
+    (term) => term.key === selectedTermKey.value,
+  ),
+);
 const entries = computed(() =>
   workspace.state.history.filter(
     (entry) =>
+      entry.analyticsIncluded !== false &&
       entry.original &&
       (!workspace.native || entry.analysisReady) &&
-      Date.now() - Date.parse(entry.createdAt) <= period.value * 86400000,
+      periodState.report?.snapshot.sessionIds.includes(entry.id),
   ),
 );
 const sortedEntries = computed(() =>
-  sortTrainerEntries(entries.value, sort.value),
+  sortTrainerEntries(
+    selectedTerm.value
+      ? entries.value.filter((entry) =>
+          selectedTerm.value!.sessionIds.includes(entry.id),
+        )
+      : entries.value,
+    sort.value,
+  ),
 );
 const selected = computed(
   () =>
-    entries.value.find((entry) => entry.id === selectedId.value) ||
+    sortedEntries.value.find((entry) => entry.id === selectedId.value) ||
     sortedEntries.value[0],
 );
-const totals = computed(() => aggregateFindings(entries.value));
-const count = computed(() =>
-  totals.value.reduce((sum, finding) => sum + finding.count, 0),
+function selectTerm(term: TrainerTerm) {
+  selectedTermKey.value = term.key;
+  selectedId.value =
+    term.sessionIds.find((id) =>
+      entries.value.some((entry) => entry.id === id),
+    ) || "";
+}
+async function choosePeriod(days: TrainerPeriod) {
+  selectedTermKey.value = "";
+  selectedId.value = "";
+  await controller.setPeriod(days);
+}
+watch(
+  () =>
+    JSON.stringify([
+      workspace.state.history.map((entry) => [
+        entry.id,
+        entry.createdAt,
+        entry.analyticsIncluded,
+        entry.original,
+        entry.analysisReady,
+        entry.findings,
+      ]),
+      workspace.state.preferences.trainerEnabled,
+      workspace.state.preferences.analyticsConsent,
+      workspace.state.preferences.retentionDays,
+      workspace.state.preferences.trainerAiEnabled,
+      workspace.state.preferences.trainerProfile,
+      workspace.state.preferences.trainerModel,
+      workspace.state.preferences.trainerScope,
+      workspace.state.preferences.cloudConsent,
+      workspace.state.profiles.map((profile) => [
+        profile.id,
+        profile.name,
+        profile.model,
+        profile.url,
+        profile.provider,
+        profile.location,
+        profile.hasApiKey,
+      ]),
+    ]),
+  () => {
+    if (workspace.state.preferences.trainerEnabled) void controller.load();
+    else void controller.clear();
+  },
+  { immediate: true },
 );
-const words = computed(() =>
-  entries.value.reduce((sum, entry) => sum + wordCount(entry), 0),
-);
-const density = computed(() =>
-  words.value > 0 ? (count.value * 100) / words.value : 0,
-);
+onMounted(() => {
+  stopDayChange =
+    workspace.trainer.onDayChange?.(() => {
+      if (workspace.state.preferences.trainerEnabled) void controller.load();
+    }) || (() => {});
+});
+onUnmounted(() => {
+  stopDayChange();
+  void controller.dispose();
+});
 </script>
 
 <template>
   <div class="page">
     <PageHeading
       title="Речевой тренер"
-      description="Замечайте привычки в речи и сравнивайте свои диктовки."
+      description="Сравнивайте речевые привычки по диктовкам и выбранному периоду."
       ><PreferenceToggle name="trainerEnabled" label="Речевой тренер" compact
     /></PageHeading>
     <div
@@ -81,11 +172,11 @@ const density = computed(() =>
       <div class="section-header trainer-toolbar">
         <div class="segmented" aria-label="Период анализа">
           <button
-            v-for="days in [7, 30, 90]"
+            v-for="days in periods"
             :key="days"
-            :class="{ selected: period === days }"
-            :aria-pressed="period === days"
-            @click="period = days"
+            :class="{ selected: periodState.days === days }"
+            :aria-pressed="periodState.days === days"
+            @click="choosePeriod(days)"
           >
             {{ days }} дней
           </button>
@@ -94,40 +185,52 @@ const density = computed(() =>
           >Хранение данных</RouterLink
         >
       </div>
-      <template v-if="entries.length">
-        <div class="trainer-overview">
-          <div class="trainer-stats">
-            <small class="eyebrow">За выбранный период</small>
-            <h2>
-              <span class="trainer-summary-label">Диктовок:</span>
-              {{ entries.length }}
-            </h2>
-            <p class="muted">Слов в исходных расшифровках: {{ words }}</p>
-            <div class="trainer-summary">
-              <div>
-                <strong>{{ count }}</strong
-                ><small>маркеров в речи</small>
-              </div>
-              <div>
-                <strong>{{ formatMetric(density) }}</strong
-                ><small>на 100 слов</small>
-              </div>
-            </div>
-            <div
-              v-for="finding in totals"
-              :key="finding.title"
-              class="metric-line"
-            >
-              <span>{{ finding.title }}</span
-              ><strong>{{ finding.count }}</strong>
-            </div>
-          </div>
+      <PeriodReport
+        v-if="periodState.report"
+        :report="periodState.report"
+        :loading="periodState.loading"
+        :analyzing="periodState.analyzing"
+        :cancelling="periodState.cancelling"
+        :error="periodState.error"
+        :native="!!workspace.native"
+        :connection-key="connectionKey"
+        @refresh="controller.load(true)"
+        @analyze="controller.analyze"
+        @cancel="controller.cancel"
+        @select-term="selectTerm"
+      />
+      <div v-else-if="periodState.error" class="notice">
+        <p class="error-text" role="alert">{{ periodState.error }}</p>
+        <WlButton
+          size="sm"
+          :disabled="periodState.loading"
+          @click="controller.load()"
+          >Повторить загрузку отчёта</WlButton
+        >
+      </div>
+      <p v-else class="notice" role="status">Готовим локальный отчёт…</p>
+      <div
+        v-if="selectedTerm && !periodState.report?.stale"
+        class="section-header trainer-filter"
+      >
+        <span>Диктовки с «{{ selectedTerm.label }}»</span>
+        <WlButton size="sm" variant="ghost" @click="selectedTermKey = ''"
+          >Показать все диктовки</WlButton
+        >
+      </div>
+      <p v-if="periodState.report?.stale" class="notice" role="status">
+        Связанные диктовки появятся после обновления отчёта. Числа выше
+        относятся к сохранённому снимку.
+      </p>
+      <template v-else-if="sortedEntries.length">
+        <details class="session-chart">
+          <summary>График отдельных диктовок</summary>
           <TrainerChart
-            :entries="entries"
+            :entries="sortedEntries"
             :selected-id="selected?.id"
             @select="selectedId = $event"
           />
-        </div>
+        </details>
         <div class="master-detail">
           <div class="entry-list">
             <div class="trainer-list-toolbar">
@@ -167,8 +270,16 @@ const density = computed(() =>
       </template>
       <EmptyState
         v-else
-        title="Пока нечего разбирать"
-        text="Новые диктовки с исходной расшифровкой появятся здесь. Сохранение истории и локальная аналитика должны быть включены."
+        :title="
+          selectedTerm
+            ? 'Подходящие диктовки сейчас недоступны'
+            : 'Пока нечего разбирать'
+        "
+        :text="
+          selectedTerm
+            ? 'Записи могли измениться или быть исключены. Обновите отчёт либо покажите все диктовки.'
+            : 'Здесь появятся готовые диктовки, включённые в снимок периода. Сохранение истории и локальная аналитика должны быть включены.'
+        "
         ><RouterLink to="/settings/privacy" class="text-link"
           >Проверить настройки хранения</RouterLink
         ></EmptyState
@@ -182,28 +293,22 @@ const density = computed(() =>
   flex-wrap: wrap;
   gap: var(--fono-space-3);
 }
-.trainer-summary-label {
-  font-size: var(--fono-type-lg);
-  font-weight: normal;
-  color: var(--fono-muted);
-}
-.trainer-summary {
-  display: flex;
+.trainer-filter {
   flex-wrap: wrap;
-  gap: var(--fono-space-5);
+  gap: var(--fono-space-3);
+  font-size: var(--fono-type-sm);
   margin-bottom: var(--fono-space-4);
 }
-.trainer-summary > div {
-  display: grid;
-  gap: var(--fono-space-1);
+.session-chart {
+  margin-bottom: var(--fono-space-4);
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius);
+  background: var(--fono-surface);
 }
-.trainer-summary strong {
-  color: var(--fono-electric-soft);
-  font-size: var(--fono-type-xl);
-  font-variant-numeric: tabular-nums;
-}
-.trainer-summary small {
-  color: var(--fono-muted);
+.session-chart summary {
+  padding: var(--fono-space-3) var(--fono-space-4);
+  cursor: pointer;
+  font-size: var(--fono-type-sm);
 }
 .trainer-list-toolbar {
   padding: var(--fono-space-3);

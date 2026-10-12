@@ -92,40 +92,7 @@ pub async fn recommend_speech(
     app: AppHandle,
     id: String,
 ) -> AppResult<crate::llm::SpeechLlmRecommendation> {
-    let settings = app.state::<AppState>().settings();
-    let assignment = &settings.speech_analysis_llm;
-    if !settings.analytics_enabled || !settings.speech_trainer_enabled || !assignment.enabled {
-        return Err(AppError::Config(
-            "Включите тренера, аналитику и рекомендации ИИ".into(),
-        ));
-    }
-    let profile = settings
-        .speech_analysis_profile()
-        .ok_or_else(|| AppError::Config("Выберите подключение тренера".into()))?;
-    if profile.connection == LlmConnectionKind::Cloud && !assignment.cloud_consent {
-        return Err(AppError::Config(
-            "Подтвердите передачу данных в облако".into(),
-        ));
-    }
-    let entry = crate::history::list(true, settings.analytics_retention_days)?
-        .into_iter()
-        .find(|e| e.id == id && e.analytics_included)
-        .ok_or_else(|| AppError::Config("Диктовка недоступна для анализа".into()))?;
-    let original = entry
-        .original_text
-        .ok_or_else(|| AppError::Config("Исходная расшифровка удалена".into()))?;
-    let analysis = entry
-        .analysis
-        .unwrap_or_else(|| crate::speech_metrics::analyze_russian_speech(&original));
-    let findings = match assignment.data_scope {
-        SpeechLlmDataScope::MetricsOnly => None,
-        _ => Some(analysis.findings.as_slice()),
-    };
-    let text =
-        (assignment.data_scope == SpeechLlmDataScope::OriginalText).then_some(original.as_str());
-    crate::llm::LlmClient::from_profile(profile, assignment.model.as_deref())
-        .analyze_speech(&analysis, findings, text)
-        .await
+    crate::application::trainer_ai::recommend_session(app, id).await
 }
 #[tauri::command]
 pub fn get_microphone_sample(session: State<'_, DesktopSession>) -> AppResult<Vec<i16>> {

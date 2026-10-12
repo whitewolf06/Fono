@@ -22,6 +22,8 @@ pub mod rest_api;
 pub mod service_control;
 pub mod speech_analysis_queue;
 pub mod speech_gate;
+pub(crate) mod trainer_ai;
+pub(crate) mod trainer_report;
 pub mod transcription_contract;
 pub mod transcription_jobs;
 pub mod transcription_service;

@@ -14,6 +14,7 @@ import { nativeCommands } from "../features/commands/infrastructure/nativeComman
 import { createNativeDiagnosticReport } from "../features/diagnostic-report";
 import { createNativeUpdates } from "../features/updates";
 import type { PendingDictation } from "../shared/domain/processing";
+import { createNativeTrainer } from "../features/trainer/infrastructure/nativeTrainer";
 export function createNativeWorkspace(): Workspace {
   const state = reactive<WorkspaceState>({
     preferences: {
@@ -57,6 +58,7 @@ export function createNativeWorkspace(): Workspace {
       }),
   );
   const dictation = nativeDictation(ctx);
+  const trainer = createNativeTrainer(call, ctx.readHistory);
   const wake = nativeWake(ctx);
   let disposed = false;
   let polling = false;
@@ -177,6 +179,14 @@ export function createNativeWorkspace(): Workspace {
     settings: nativeSettings(ctx),
     dictation: dictation.port,
     history: {
+      async setIncluded(id, included) {
+        const found = await call<boolean>(
+          "set_dictation_history_entry_analytics_included",
+          { id, included },
+        );
+        if (!found) throw new Error("Диктовка уже удалена из истории.");
+        await ctx.readHistory();
+      },
       async remove(id) {
         await call("delete_dictation_history_entry", { id });
         await ctx.readHistory();
@@ -186,22 +196,7 @@ export function createNativeWorkspace(): Workspace {
         await ctx.readHistory();
       },
     },
-    trainer: {
-      async clear() {
-        await call("clear_speech_analytics");
-        await ctx.readHistory();
-      },
-      async recommend(id) {
-        const result = await call<{
-          summary: string;
-          recommendations: { title: string; exercise: string }[];
-        }>("recommend_speech", { id });
-        return [
-          result.summary,
-          ...result.recommendations.map((r) => r.title + ": " + r.exercise),
-        ].join("\n\n");
-      },
-    },
+    trainer,
     commands: nativeCommands(ctx),
     service: {
       async cancel(id) {
@@ -276,6 +271,7 @@ export function createNativeWorkspace(): Workspace {
     },
     dispose() {
       disposed = true;
+      void trainer.cancelPeriod().catch(ctx.report);
       clearInterval(timer);
       updates.dispose();
       clearInterval(dataTimer);

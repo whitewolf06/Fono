@@ -107,6 +107,7 @@ export type ToggleKey = {
   [K in keyof Preferences]: Preferences[K] extends boolean ? K : never;
 }[keyof Preferences];
 export interface Dictation {
+  analyticsIncluded?: boolean;
   metadata?: DictationMetadata;
   findings?: {
     title: string;
@@ -254,10 +255,20 @@ export interface DictationPort {
   undoImprove(): void;
 }
 export interface HistoryPort {
+  setIncluded(id: string, included: boolean): Promise<void>;
   remove(id: string): void;
   clear(): void;
 }
 export interface TrainerPort {
+  onDayChange?(handler: () => void): () => void;
+  getReport(
+    days: import("../../features/trainer/domain/report").TrainerPeriod,
+    refresh?: boolean,
+  ): Promise<import("../../features/trainer/domain/report").TrainerReport>;
+  analyzePeriod(
+    input: import("../../features/trainer/domain/report").TrainerPeriodAnalysis,
+  ): Promise<import("../../features/trainer/domain/report").TrainerReport>;
+  cancelPeriod(): Promise<void>;
   recommend?(id: string): Promise<string>;
   clear(): void;
 }

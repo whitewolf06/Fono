@@ -70,12 +70,20 @@ impl AppState {
         self.settings.lock().clone()
     }
 
+    pub fn settings_revision(&self) -> u64 {
+        self.settings_version.load(Ordering::SeqCst)
+    }
+
     pub fn set_settings(&self, mut settings: Settings) {
         settings.enforce_classic_dictation();
         settings.enforce_wake_availability();
         settings.migrate_processing_prompts();
-        *self.settings.lock() = settings;
-        self.settings_version.fetch_add(1, Ordering::SeqCst);
+        {
+            let mut current = self.settings.lock();
+            *current = settings;
+            self.settings_version.fetch_add(1, Ordering::SeqCst);
+        }
+        crate::application::trainer_ai::settings_changed();
     }
 
     pub fn pipeline_state(&self) -> crate::types::PipelineState {
@@ -234,6 +242,86 @@ where
     T: Serialize,
 {
     save_versioned_json_atomically(&history_path()?, &entries)
+}
+
+pub(crate) fn save_history_document_private<T>(entries: &[T]) -> AppResult<()>
+where
+    T: Serialize,
+{
+    save_versioned_json_privately(&history_path()?, &entries)
+}
+
+fn save_versioned_json_privately<T>(path: &Path, value: &T) -> AppResult<()>
+where
+    T: Serialize,
+{
+    let raw = serde_json::to_vec_pretty(&VersionedDocument {
+        schema_version: PERSISTENCE_SCHEMA_VERSION,
+        data: value,
+    })?;
+    // Do not rotate the private old primary into recovery. Keep a complete sanitized
+    // backup first, so a failed primary replacement cannot destroy the whole archive.
+    write_atomically(&backup_path(path), &raw, false)?;
+    write_atomically(path, &raw, false)?;
+    remove_document_temporaries(path)
+}
+
+fn trainer_cache_path() -> AppResult<PathBuf> {
+    Ok(app_data_dir()?.join("trainer-report-cache.json"))
+}
+
+pub(crate) fn load_trainer_cache_document<T>() -> AppResult<Option<T>>
+where
+    T: DeserializeOwned + Serialize,
+{
+    let _guard = PERSISTENCE_LOCK.lock();
+    load_json_with_backup(&trainer_cache_path()?)
+}
+
+pub(crate) fn save_trainer_cache_document<T>(cache: &T) -> AppResult<()>
+where
+    T: Serialize,
+{
+    let _guard = PERSISTENCE_LOCK.lock();
+    save_json_atomically(&trainer_cache_path()?, cache)
+}
+
+pub(crate) fn purge_trainer_cache_document() -> AppResult<()> {
+    let _guard = PERSISTENCE_LOCK.lock();
+    delete_json_with_backup(&trainer_cache_path()?)
+}
+
+fn delete_json_with_backup(path: &Path) -> AppResult<()> {
+    for copy in [path.to_owned(), backup_path(path)] {
+        match fs::remove_file(copy) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    remove_document_temporaries(path)
+}
+
+fn remove_document_temporaries(path: &Path) -> AppResult<()> {
+    // A killed atomic writer can leave a temporary file. Remove only this document's copies.
+    if let (Some(parent), Some(filename)) = (path.parent(), path.file_name()) {
+        let prefix = format!(".{}.", filename.to_string_lossy());
+        match fs::read_dir(parent) {
+            Ok(items) => {
+                for item in items {
+                    let item = item?;
+                    let filename = item.file_name();
+                    let filename = filename.to_string_lossy();
+                    if filename.starts_with(&prefix) && filename.ends_with(".tmp") {
+                        fs::remove_file(item.path())?;
+                    }
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn load_transcription_history_document<T>() -> AppResult<Vec<T>>
@@ -634,6 +722,49 @@ mod tests {
         let error = load_versioned_json_with_backup::<StoredValue>(&path).unwrap_err();
         assert!(error.to_string().contains("unsupported persistence schema"));
 
+        fs::remove_dir_all(path.parent().expect("test directory")).expect("remove test directory");
+    }
+
+    #[test]
+    fn private_save_sanitizes_primary_and_recovery_without_resurrecting_old_content() {
+        let path = temporary_test_path("private-history.json");
+        save_versioned_json_atomically(&path, &vec!["privatefixture"])
+            .expect("write initial private history");
+        save_versioned_json_atomically(&path, &vec!["privatefixture", "kept result"])
+            .expect("make recovery backup");
+        let abandoned = temporary_path(&path);
+        fs::write(&abandoned, "privatefixture").expect("make an interrupted writer fixture");
+
+        save_versioned_json_privately(&path, &vec!["kept result"]).expect("sanitize history");
+        for copy in [&path, &backup_path(&path)] {
+            let raw = fs::read_to_string(copy).expect("read sanitized history copy");
+            assert!(!raw.contains("privatefixture"));
+            assert!(raw.contains("kept result"));
+        }
+        assert!(!abandoned.exists());
+        fs::write(&path, "malformed").expect("damage primary");
+        let (recovered, _) = load_versioned_json_with_backup::<Vec<String>>(&path)
+            .expect("recover sanitized archive")
+            .expect("archive exists");
+        assert_eq!(recovered, vec!["kept result"]);
+        fs::remove_dir_all(path.parent().expect("test directory")).expect("remove test directory");
+    }
+
+    #[test]
+    fn cache_purge_removes_primary_backup_and_only_its_own_abandoned_temporary() {
+        let path = temporary_test_path("trainer-cache.json");
+        save_json_atomically(&path, &"privatefixture").expect("write cache");
+        save_json_atomically(&path, &"new privatefixture").expect("write cache backup");
+        let abandoned = temporary_path(&path);
+        fs::write(&abandoned, "privatefixture").expect("write abandoned cache");
+        let unrelated = path.parent().unwrap().join("other.json.tmp");
+        fs::write(&unrelated, "keep unrelated").expect("write unrelated file");
+        delete_json_with_backup(&path).expect("purge cache copies");
+        assert!(!path.exists());
+        assert!(!backup_path(&path).exists());
+        assert!(!abandoned.exists());
+        assert!(unrelated.exists());
+        assert!(load_json_with_backup::<String>(&path).unwrap().is_none());
         fs::remove_dir_all(path.parent().expect("test directory")).expect("remove test directory");
     }
 
