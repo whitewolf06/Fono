@@ -9,7 +9,8 @@ pub(crate) use requests::{
 use crate::{
     application::{
         trainer_report::{
-            self, TrainerAiConfiguration, TrainerAiPriority, TrainerAiSummary, TrainerReport,
+            self, TrainerAiConfiguration, TrainerAiContextPreflight, TrainerAiPriority,
+            TrainerAiSummary, TrainerReport,
         },
         updates::activity,
     },
@@ -67,7 +68,10 @@ pub(crate) fn ai_fingerprint(
             "promptVersion": payload::PROMPT_VERSION, "temperature": 0.2, "maxTokens": 1400,
             "maxSharedSessions": payload::MAX_SHARED_SESSIONS,
             "maxCharactersPerSession": payload::MAX_SHARED_CHARS,
-            "maxPatterns": 40, "maxExamplesPerPattern": 2
+            "maxPatterns": payload::MAX_PATTERNS,
+            "maxExamplesPerPattern": payload::MAX_EXAMPLES_PER_PATTERN,
+            "maxPayloadBytes": payload::MAX_PAYLOAD_BYTES,
+            "wordBoundary": "unicode-lexical-prefix-1"
         }
     });
     let bytes = serde_json::to_vec(&value)?;
@@ -75,7 +79,7 @@ pub(crate) fn ai_fingerprint(
 }
 
 pub(crate) fn report(days: u32, refresh: bool, settings: &Settings) -> AppResult<TrainerReport> {
-    let state = trainer_report::get(days, refresh, settings)?;
+    let (state, sources) = trainer_report::get_with_sources(days, refresh, settings)?;
     let configuration = configuration(settings);
     let scope = state
         .ai_summary
@@ -104,6 +108,23 @@ pub(crate) fn report(days: u32, refresh: bool, settings: &Settings) -> AppResult
     } else {
         None
     };
+    let ai_context = if state.stale {
+        None
+    } else {
+        Some(TrainerAiContextPreflight {
+            metrics_only: payload::prepare(
+                &state.snapshot,
+                &sources,
+                SpeechLlmDataScope::MetricsOnly,
+            )?
+            .context,
+            configured_shared: if configuration.data_scope == SpeechLlmDataScope::MetricsOnly {
+                None
+            } else {
+                Some(payload::prepare(&state.snapshot, &sources, configuration.data_scope)?.context)
+            },
+        })
+    };
     Ok(TrainerReport {
         snapshot: state.snapshot,
         current_fingerprint: state.current_fingerprint,
@@ -113,6 +134,7 @@ pub(crate) fn report(days: u32, refresh: bool, settings: &Settings) -> AppResult
         ai_summary: state.ai_summary,
         ai_configuration: configuration,
         ai_disabled_reason: reason.map(str::to_owned),
+        ai_context,
     })
 }
 
@@ -210,6 +232,7 @@ pub(crate) async fn analyze(
     share_text: bool,
     request_id: String,
 ) -> AppResult<TrainerReport> {
+    let lease = activity::lease()?;
     let state = app.state::<AppState>();
     let (settings, settings_revision, epoch) = {
         let settings = state.settings.lock();
@@ -240,12 +263,13 @@ pub(crate) async fn analyze(
         return report(days, false, &settings);
     }
 
-    // Take admission before registry/history locks. The detached job owns this
-    // lease until its HTTP future and any local commit have actually finished.
-    let lease = activity::lease()?;
+    // The detached job owns admission until its HTTP future and local commit
+    // actually finish, including the local context preparation above.
     let request = requests::PeriodRequest::begin(request_id, days)?;
     let (snapshot, sources) = trainer_report::analysis_input(days, &fingerprint, &settings)?;
-    let input = serde_json::to_string(&payload::build(&snapshot, &sources, scope))?;
+    let prepared = payload::prepare(&snapshot, &sources, scope)?;
+    let input = prepared.input;
+    let context = prepared.context;
     let profile = settings
         .speech_analysis_profile()
         .ok_or_else(|| AppError::Config("Выберите подключение речевого тренера".into()))?;
@@ -289,6 +313,7 @@ pub(crate) async fn analyze(
                 profile_name,
                 model,
                 data_scope: scope,
+                context: Some(context),
                 summary: result.summary,
                 priorities: result
                     .priorities

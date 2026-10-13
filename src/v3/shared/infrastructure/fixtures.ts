@@ -5,10 +5,12 @@ import type {
   LaunchApp,
 } from "../domain/contracts";
 export function demoHistory(): Dictation[] {
+  const now = new Date();
   const date = (days: number, hour: number) => {
-    const d = new Date();
+    const d = new Date(now);
     d.setDate(d.getDate() - days);
     d.setHours(hour, 24, 0, 0);
+    if (d > now) d.setDate(d.getDate() - 1);
     return d.toISOString();
   };
   return [

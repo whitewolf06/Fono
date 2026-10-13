@@ -69,19 +69,6 @@ export function aggregateFindings(entries: Dictation[]) {
   return [...totals].map(([title, count]) => ({ title, count }));
 }
 
-export function chartEntries(entries: Dictation[], limit = 24): Dictation[] {
-  return sortTrainerEntries(entries, "date").slice(0, limit).reverse();
-}
-
-export function chartValue(
-  count: number,
-  entry: Dictation,
-  metric: ChartMetric,
-): number {
-  const words = wordCount(entry);
-  return metric === "density" ? (words > 0 ? (count * 100) / words : 0) : count;
-}
-
 export function chartScale(values: number[]): { max: number; ticks: number[] } {
   const largest = Math.max(0, ...values);
   const roughStep = Math.max(1, largest / 4);

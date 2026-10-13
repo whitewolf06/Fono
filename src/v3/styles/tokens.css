@@ -121,6 +121,13 @@
   --fono-trainer-repetition: var(--fono-warning);
   --fono-trainer-correction: var(--fono-success);
   --fono-trainer-unfinished: var(--fono-error);
+  --fono-trainer-chart-height: 168px;
+  --fono-trainer-ranking-count-width: 56px;
+  --fono-trainer-ranking-density-width: 92px;
+  --fono-trainer-ranking-sessions-width: 80px;
+  --fono-trainer-workspace-min-height: 220px;
+  --fono-trainer-entry-list-compact-height: 300px;
+  --fono-trainer-day-select-width: 160px;
 
   --wl-bg: var(--fono-canvas);
   --wl-bg-soft: var(--fono-surface);
@@ -163,6 +170,7 @@
   --fono-sidebar-width: 210px;
   --fono-sidebar-compact: 64px;
   --fono-shell-width: 1400px;
+  --fono-window-height: 100dvh;
   --fono-hero-height: 185px;
   --fono-hero-wordmark: 180px;
   --fono-brand-wordmark: 88px;

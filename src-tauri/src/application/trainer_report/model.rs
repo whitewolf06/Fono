@@ -87,6 +87,48 @@ pub struct TrainerAiPriority {
     pub exercise: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrainerAiContextLimits {
+    pub max_shared_sessions: usize,
+    pub max_characters_per_session: usize,
+    pub max_patterns: usize,
+    pub max_examples_per_pattern: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrainerAiContext {
+    pub data_scope: SpeechLlmDataScope,
+    pub payload_bytes: usize,
+    pub payload_byte_limit: usize,
+    pub reduced: bool,
+    pub metrics_sessions: usize,
+    pub metrics_words: usize,
+    pub available_sessions: usize,
+    pub shared_sessions: usize,
+    pub omitted_sessions: usize,
+    pub shortened_sessions: usize,
+    pub available_words: usize,
+    pub shared_words: usize,
+    pub omitted_words: usize,
+    pub available_characters: usize,
+    pub shared_characters: usize,
+    pub omitted_characters: usize,
+    pub patterns_available: usize,
+    pub patterns_shared: usize,
+    pub examples_available: usize,
+    pub examples_shared: usize,
+    pub limits: TrainerAiContextLimits,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrainerAiContextPreflight {
+    pub metrics_only: TrainerAiContext,
+    pub configured_shared: Option<TrainerAiContext>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrainerAiSummary {
@@ -97,6 +139,8 @@ pub struct TrainerAiSummary {
     pub profile_name: String,
     pub model: String,
     pub data_scope: SpeechLlmDataScope,
+    #[serde(default)]
+    pub context: Option<TrainerAiContext>,
     pub summary: String,
     pub priorities: Vec<TrainerAiPriority>,
 }
@@ -124,6 +168,8 @@ pub struct TrainerReport {
     pub ai_summary: Option<TrainerAiSummary>,
     pub ai_configuration: TrainerAiConfiguration,
     pub ai_disabled_reason: Option<String>,
+    #[serde(default)]
+    pub ai_context: Option<TrainerAiContextPreflight>,
 }
 
 #[derive(Debug, Clone)]

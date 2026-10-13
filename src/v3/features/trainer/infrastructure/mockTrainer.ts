@@ -3,6 +3,7 @@ import type {
   WorkspaceState,
 } from "../../../shared/domain/contracts";
 import { observeTrainerDay } from "./dayChange";
+import { buildMockAiContext } from "./mockAiContext";
 import {
   buildTrainerSnapshot,
   demoFingerprint,
@@ -62,6 +63,7 @@ export function createMockTrainer(
       profile?.url,
       scope,
       "period-coach-1",
+      "bounded-context-1",
     ]);
   }
   function reset() {
@@ -162,6 +164,21 @@ export function createMockTrainer(
         aiStale: stale || Boolean(summary && summary.fingerprint !== identity),
         aiSummary: stale ? null : summary,
         aiDisabledReason: reason,
+        aiContext: stale
+          ? null
+          : {
+              metricsOnly: buildMockAiContext(snapshot, [], "metrics_only"),
+              configuredShared:
+                config.dataScope === "metrics_only"
+                  ? null
+                  : buildMockAiContext(
+                      snapshot,
+                      state.history.filter((entry) =>
+                        snapshot!.sessionIds.includes(entry.id),
+                      ),
+                      config.dataScope,
+                    ),
+            },
       }),
     ) as TrainerReport;
   }
@@ -205,6 +222,10 @@ export function createMockTrainer(
           profileName: report.aiConfiguration.profileName!,
           model: report.aiConfiguration.model!,
           dataScope: scope,
+          context:
+            scope === "metrics_only"
+              ? report.aiContext!.metricsOnly
+              : report.aiContext!.configuredShared,
           summary:
             "Демонстрационный разбор: начните с одной речевой привычки и сравните следующие диктовки.",
           priorities: [

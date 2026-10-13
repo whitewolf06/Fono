@@ -78,16 +78,38 @@ impl Period {
 }
 
 /// Opening a saved report never reruns its analytics or its AI layer.
-pub fn get(days: u32, refresh: bool, settings: &Settings) -> AppResult<TrainerSnapshotState> {
+pub(crate) fn get_with_sources(
+    days: u32,
+    refresh: bool,
+    settings: &Settings,
+) -> AppResult<(TrainerSnapshotState, Vec<DictationHistoryEntry>)> {
     crate::history::with_trainer_entries(settings, |entries| {
         let now = Utc::now();
         let mut cache = load_cache()?;
-        let (report, changed) = get_from_cache(&mut cache, &entries, days, refresh, settings, now)?;
+        let (report, sources, changed) =
+            get_from_cache_with_sources(&mut cache, &entries, days, refresh, settings, now)?;
         if changed {
             state::save_trainer_cache_document(&cache)?;
         }
-        Ok(report)
+        Ok((report, sources))
     })
+}
+
+fn get_from_cache_with_sources(
+    cache: &mut TrainerCache,
+    entries: &[DictationHistoryEntry],
+    days: u32,
+    refresh: bool,
+    settings: &Settings,
+    now: DateTime<Utc>,
+) -> AppResult<(TrainerSnapshotState, Vec<DictationHistoryEntry>, bool)> {
+    let (report, changed) = get_from_cache(cache, entries, days, refresh, settings, now)?;
+    let sources = if report.stale {
+        Vec::new()
+    } else {
+        eligible_sources(entries, Period::new(days, now)?, settings, now)
+    };
+    Ok((report, sources, changed))
 }
 
 /// Called immediately before submitting a consented payload; it does not refresh a stale report.

@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { WlButton } from "@whitelife-core/ui-kit";
+import { computed, watch } from "vue";
+import { WlButton, WlCard } from "@whitelife-core/ui-kit";
 import type { Dictation } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import { analyze } from "../domain/analysis";
+import { chartCategories } from "../application/chart";
+import {
+  transcriptHighlights,
+  type TranscriptHighlight,
+} from "../application/transcriptHighlights";
 import {
   exactDateLabel,
   findingsCount,
@@ -17,8 +22,18 @@ import {
 const props = defineProps<{ entry: Dictation }>();
 const workspace = useWorkspace();
 const { busy, run, error } = useFeedback();
-const recommendation = ref("");
 const findings = computed(() => analyze(props.entry));
+const categoryCounts = computed(() =>
+  chartCategories.map((category) => ({
+    ...category,
+    count:
+      findings.value.find((finding) => finding.title === category.title)
+        ?.count ?? 0,
+  })),
+);
+const highlightedTranscript = computed(() =>
+  transcriptHighlights(props.entry.original || "", findings.value),
+);
 const density = computed(() =>
   wordCount(props.entry) > 0
     ? (findingsCount(props.entry) * 100) / wordCount(props.entry)
@@ -45,129 +60,118 @@ const technicalFacts = computed(() => {
 watch(
   () => props.entry.id,
   () => {
-    recommendation.value = "";
     error.value = "";
   },
 );
-async function recommend() {
-  const entryId = props.entry.id;
-  await run(async () => {
-    let answer: string;
-    if (workspace.trainer.recommend)
-      answer = await workspace.trainer.recommend(entryId);
-    else {
-      if (workspace.native)
-        throw new Error(
-          "Рекомендации ИИ сейчас недоступны. Проверьте подключение в настройках обработки текста.",
-        );
-      if (
-        workspace.state.profiles.find(
-          (profile) =>
-            profile.id === workspace.state.preferences.trainerProfile,
-        )?.location === "cloud" &&
-        !workspace.state.preferences.cloudConsent
-      )
-        throw new Error("Разрешите передачу данных в облако в настройках ИИ.");
-      await workspace.settings.testConnection(
-        workspace.state.preferences.trainerProfile,
-      );
-      answer =
-        "Перед следующей диктовкой сформулируйте одну главную мысль. Говорите короткими фразами и делайте паузы вместо «ну». Затем сравните следующую запись с этой.";
-    }
-    if (props.entry.id === entryId) recommendation.value = answer;
-  });
+function markerTitle(segment: TranscriptHighlight): string {
+  const title =
+    chartCategories.find((category) => category.key === segment.category)
+      ?.title || "";
+  const markers = segment.markers
+    ?.map((marker) => `№${marker.number}: ${marker.title}`)
+    .join("; ");
+  return markers ? `${title}. ${markers}` : title;
 }
 </script>
 
 <template>
   <article class="detail-pane trainer-detail">
-    <div class="trainer-detail-heading">
+    <header class="trainer-detail-heading">
       <h2>{{ entry.title }}</h2>
       <time :datetime="entry.createdAt" :title="entry.createdAt">{{
         exactDateLabel(entry.createdAt)
       }}</time>
-    </div>
-    <div class="trainer-detail-facts">
-      <span
-        ><AppIcon name="clock" :size="14" />{{
-          recordingDurationLabel(entry)
-        }}</span
-      >
-      <span>Слов в расшифровке: {{ wordCount(entry) }}</span>
-      <span
-        >Маркеров: {{ findingsCount(entry) }} · {{ formatMetric(density) }} на
-        100 слов</span
-      >
-    </div>
+    </header>
+    <dl class="trainer-detail-facts">
+      <div>
+        <dt><AppIcon name="clock" :size="14" />Длительность</dt>
+        <dd>{{ recordingDurationLabel(entry) }}</dd>
+      </div>
+      <div>
+        <dt>Слов</dt>
+        <dd>{{ wordCount(entry) }}</dd>
+      </div>
+      <div>
+        <dt>Маркеров</dt>
+        <dd>
+          {{ findingsCount(entry) }}
+          <small>· {{ formatMetric(density) }} на 100 слов</small>
+        </dd>
+      </div>
+    </dl>
     <p v-if="technicalFacts" class="muted trainer-technical">
       {{ technicalFacts }}
     </p>
-    <div class="section-header trainer-original-heading">
-      <small class="eyebrow">Исходная расшифровка</small>
-      <WlButton
-        size="sm"
-        variant="ghost"
-        :disabled="busy"
-        @click="
-          run(
-            () => workspace.copy(entry.original || ''),
-            'Расшифровка скопирована',
-          )
-        "
-        ><template #icon><AppIcon name="copy" :size="14" /></template
-        >Копировать</WlButton
+    <WlCard class="trainer-detail-card trainer-original">
+      <template #title>
+        <div class="trainer-original-heading">
+          <h3>Исходная расшифровка</h3>
+          <WlButton
+            size="sm"
+            variant="soft"
+            :disabled="busy"
+            @click="
+              run(
+                () => workspace.copy(entry.original || ''),
+                'Расшифровка скопирована',
+              )
+            "
+          >
+            <template #icon><AppIcon name="copy" :size="14" /></template
+            >Копировать
+          </WlButton>
+        </div>
+      </template>
+      <div
+        class="trainer-original-text"
+        role="group"
+        aria-label="Исходная расшифровка с речевыми маркерами"
+        title="Номера отмечают вхождения маркеров; цвета соответствуют категориям."
+        tabindex="0"
       >
-    </div>
-    <div class="reading-text compact" tabindex="0">{{ entry.original }}</div>
-    <p v-if="!findingsCount(entry)" class="notice trainer-clean" role="status">
-      Речевые маркеры не найдены. Можно сравнить эту диктовку со следующими.
-    </p>
-    <div v-for="finding in findings" :key="finding.title" class="finding">
-      <div class="section-header">
-        <strong>{{ finding.title }}</strong
-        ><span class="count-badge">{{ finding.count }}</span>
+        <template
+          v-for="(segment, index) in highlightedTranscript"
+          :key="index"
+        >
+          <mark
+            v-if="segment.highlighted"
+            class="transcript-marker"
+            :data-category="segment.category"
+            :title="markerTitle(segment)"
+            >{{ segment.text }}</mark
+          >
+          <span v-else>{{ segment.text }}</span>
+          <sup
+            v-for="marker in segment.markers"
+            :key="marker.number"
+            class="transcript-marker-number"
+            :data-category="marker.category"
+            :data-number="marker.number"
+            :title="`№${marker.number}: ${marker.title}`"
+            aria-hidden="true"
+          />
+        </template>
       </div>
-      <p v-if="finding.count">
-        <em>{{ finding.example || "Обнаружены в исходной расшифровке" }}</em> —
-        {{ finding.advice }}
-      </p>
-      <p v-else class="muted">В этой диктовке не обнаружены.</p>
-    </div>
-    <small class="muted"
-      >Это наблюдения по тексту, а не оценка правильности речи. Контекст может
-      менять значение маркера.</small
-    >
-    <div class="recommendation">
-      <AppIcon name="sparkle" />
-      <div>
-        <strong>Небольшая практика</strong>
-        <p>
-          Сформулируйте одну мысль за 30 секунд. Пауза между фразами поможет
-          избежать повторов.
-        </p>
-      </div>
-    </div>
-    <WlButton
-      v-if="workspace.state.preferences.trainerAiEnabled"
-      size="sm"
-      :loading="busy"
-      :disabled="busy"
-      @click="recommend"
-      >Получить рекомендацию ИИ</WlButton
-    >
-    <RouterLink
-      v-else
-      class="text-link"
-      to="/settings/processing?field=trainerModel"
-      >Настроить рекомендации через ИИ</RouterLink
-    >
-    <p v-if="recommendation" class="notice" role="status">
-      {{ recommendation
-      }}<small
-        >{{ workspace.native ? "Ответ ИИ" : "Демонстрационный ответ" }} ·
-        {{ workspace.state.preferences.trainerModel }}</small
+      <dl
+        class="trainer-category-counts"
+        aria-label="Число речевых маркеров по категориям"
       >
-    </p>
+        <div
+          v-for="category in categoryCounts"
+          :key="category.key"
+          :data-category="category.key"
+        >
+          <dt>
+            <i
+              class="trainer-category-dot"
+              :data-category="category.key"
+              aria-hidden="true"
+            /><span>{{ category.title }}</span>
+          </dt>
+          <dd>{{ category.count }}</dd>
+        </div>
+      </dl>
+    </WlCard>
     <p v-if="error" role="alert" class="error-text">{{ error }}</p>
   </article>
 </template>
@@ -175,43 +179,156 @@ async function recommend() {
 <style scoped>
 .trainer-detail {
   min-width: 0;
+  display: grid;
+  gap: var(--fono-space-5);
+  align-content: start;
 }
 .trainer-detail-heading {
   display: grid;
   gap: var(--fono-space-2);
-  margin-bottom: var(--fono-space-3);
 }
 .trainer-detail-heading h2 {
   overflow-wrap: anywhere;
+  font-size: var(--fono-type-xl);
 }
 .trainer-detail-heading time {
-  color: var(--fono-secondary);
+  color: var(--fono-muted);
   font-size: var(--fono-type-sm);
   font-variant-numeric: tabular-nums;
 }
 .trainer-detail-facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--fono-space-2) var(--fono-space-3);
-  color: var(--fono-muted);
-  font-size: var(--fono-type-xs);
+  gap: var(--fono-space-4) var(--fono-space-6);
+  margin: 0;
 }
-.trainer-detail-facts span {
-  display: inline-flex;
-  align-items: center;
+.trainer-detail-facts > div {
+  display: grid;
   gap: var(--fono-space-1);
 }
+.trainer-detail-facts dt {
+  display: flex;
+  align-items: center;
+  gap: var(--fono-space-1);
+  color: var(--fono-muted);
+  font-size: var(--fono-type-sm);
+}
+.trainer-detail-facts dd {
+  margin: 0;
+  color: var(--fono-text);
+  font-size: var(--fono-type-lg);
+  font-weight: 600;
+}
+.trainer-detail-facts small {
+  color: var(--fono-muted);
+  font-size: var(--fono-type-sm);
+  font-weight: 400;
+}
 .trainer-technical {
-  font-size: var(--fono-type-xs);
-  margin-top: var(--fono-space-2);
+  font-size: var(--fono-type-sm);
   overflow-wrap: anywhere;
 }
-.trainer-original-heading {
-  margin-top: var(--fono-space-4);
-  flex-wrap: wrap;
-  gap: var(--fono-space-2);
+.trainer-detail-card {
+  min-width: 0;
+  background: var(--fono-canvas);
 }
-.trainer-clean {
-  margin-block: var(--fono-space-3);
+.trainer-detail-card :deep(.wl-card__caption) {
+  padding: var(--fono-space-4) var(--fono-space-4) 0;
+}
+.trainer-detail-card :deep(.wl-card__content) {
+  padding: var(--fono-space-4);
+}
+.trainer-original-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fono-space-3);
+}
+h3 {
+  font-size: var(--fono-type-lg);
+  margin: 0;
+}
+.trainer-original-text {
+  max-height: var(--fono-text-max-height);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--fono-text);
+  font-size: var(--fono-type-md);
+  line-height: 1.8;
+}
+.transcript-marker {
+  color: var(--marker-color);
+  background: transparent;
+  text-decoration-line: underline;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.15em;
+}
+.transcript-marker-number {
+  margin-inline: var(--fono-space-1);
+  color: var(--marker-color);
+  font-size: var(--fono-type-xs);
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: super;
+  user-select: none;
+}
+.transcript-marker-number::after {
+  content: attr(data-number);
+}
+[data-category="filler"] {
+  --marker-color: var(--fono-trainer-filler);
+}
+[data-category="repetition"] {
+  --marker-color: var(--fono-trainer-repetition);
+}
+[data-category="selfCorrection"] {
+  --marker-color: var(--fono-trainer-correction);
+}
+[data-category="unfinished"] {
+  --marker-color: var(--fono-trainer-unfinished);
+}
+.trainer-category-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fono-space-1) var(--fono-space-4);
+  margin: var(--fono-space-3) 0 0;
+  padding-top: var(--fono-space-3);
+  border-top: 1px solid var(--fono-border-soft);
+  color: var(--fono-secondary);
+  font-size: var(--fono-type-md);
+  line-height: 1.5;
+}
+.trainer-category-counts > div {
+  display: flex;
+  align-items: center;
+  gap: var(--fono-space-2);
+  min-width: 0;
+}
+.trainer-category-counts dt {
+  display: flex;
+  align-items: center;
+  gap: var(--fono-space-2);
+  min-width: 0;
+  color: var(--marker-color);
+}
+.trainer-category-counts dt span {
+  overflow-wrap: anywhere;
+}
+.trainer-category-counts dd {
+  flex-shrink: 0;
+  margin: 0;
+  color: var(--marker-color);
+  font-size: var(--fono-type-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.trainer-category-dot {
+  flex-shrink: 0;
+  width: var(--fono-space-2);
+  height: var(--fono-space-2);
+  border-radius: var(--fono-radius-sm);
+  background: var(--marker-color);
 }
 </style>

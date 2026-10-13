@@ -55,8 +55,37 @@ export interface TrainerAiSummary {
   profileName: string;
   model: string;
   dataScope: "metrics_only" | "findings" | "original_text";
+  context?: TrainerAiContext | null;
   summary: string;
   priorities: { title: string; basis: string; exercise: string }[];
+}
+export interface TrainerAiContext {
+  dataScope: TrainerAiSummary["dataScope"];
+  payloadBytes: number;
+  payloadByteLimit: number;
+  reduced: boolean;
+  metricsSessions: number;
+  metricsWords: number;
+  availableSessions: number;
+  sharedSessions: number;
+  omittedSessions: number;
+  shortenedSessions: number;
+  availableWords: number;
+  sharedWords: number;
+  omittedWords: number;
+  availableCharacters: number;
+  sharedCharacters: number;
+  omittedCharacters: number;
+  patternsAvailable: number;
+  patternsShared: number;
+  examplesAvailable: number;
+  examplesShared: number;
+  limits: {
+    maxSharedSessions: number;
+    maxCharactersPerSession: number;
+    maxPatterns: number;
+    maxExamplesPerPattern: number;
+  };
 }
 export interface TrainerAiConfiguration {
   enabled: boolean;
@@ -76,6 +105,10 @@ export interface TrainerReport {
   aiSummary: TrainerAiSummary | null;
   aiConfiguration: TrainerAiConfiguration;
   aiDisabledReason: string | null;
+  aiContext?: {
+    metricsOnly: TrainerAiContext;
+    configuredShared: TrainerAiContext | null;
+  } | null;
 }
 export interface TrainerPeriodAnalysis {
   days: TrainerPeriod;

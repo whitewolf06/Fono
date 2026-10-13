@@ -140,33 +140,12 @@ test("persisted native findings remain authoritative including categories with n
   ]);
 });
 
-test("chart normalization compares different transcript lengths and never clips larger observations", () => {
-  const short = entry("short", { original: "Два слова" });
-  const long = entry("long", { original: "У этого текста всего четыре слова" });
-  assert.equal(overview.chartValue(2, short, "density"), 100);
-  assert.equal(overview.chartValue(2, long, "density"), 100 / 3);
-  assert.equal(overview.chartValue(9, short, "count"), 9);
-  assert.equal(
-    overview.chartValue(9, entry("empty", { original: "" }), "density"),
-    0,
-  );
+test("daily chart scale never clips larger observations and handles empty samples", () => {
   const scale = overview.chartScale([0, 4, 27, 80]);
   assert.ok(scale.max >= 80);
   assert.ok(scale.ticks.includes(0));
   assert.equal(scale.ticks.at(-1), scale.max);
   assert.ok(overview.chartScale([0]).max > 0);
-});
-
-test("chart shows the most recent observations in chronological order even when the list is sorted otherwise", () => {
-  const entries = Array.from({ length: 30 }, (_, index) =>
-    entry(String(index), {
-      createdAt: new Date(Date.UTC(2026, 9, 1, index)).toISOString(),
-    }),
-  );
-  const visible = overview.chartEntries(entries.reverse());
-  assert.equal(visible.length, 24);
-  assert.equal(visible[0].id, "6");
-  assert.equal(visible.at(-1).id, "29");
 });
 
 test("date label includes calendar date, time with seconds and a clear unknown value", () => {

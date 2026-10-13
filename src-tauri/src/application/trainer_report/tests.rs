@@ -36,6 +36,37 @@ fn entry(id: &str, created_at: DateTime<Utc>, text: &str) -> DictationHistoryEnt
     }
 }
 
+fn context() -> TrainerAiContext {
+    TrainerAiContext {
+        data_scope: SpeechLlmDataScope::Findings,
+        payload_bytes: 4321,
+        payload_byte_limit: 48000,
+        reduced: true,
+        metrics_sessions: 13,
+        metrics_words: 500,
+        available_sessions: 13,
+        shared_sessions: 0,
+        omitted_sessions: 13,
+        shortened_sessions: 0,
+        available_words: 500,
+        shared_words: 0,
+        omitted_words: 500,
+        available_characters: 2500,
+        shared_characters: 0,
+        omitted_characters: 2500,
+        patterns_available: 43,
+        patterns_shared: 40,
+        examples_available: 120,
+        examples_shared: 80,
+        limits: TrainerAiContextLimits {
+            max_shared_sessions: 12,
+            max_characters_per_session: 3000,
+            max_patterns: 40,
+            max_examples_per_pattern: 2,
+        },
+    }
+}
+
 fn summary(snapshot_fp: &str) -> TrainerAiSummary {
     TrainerAiSummary {
         fingerprint: "ai-parameters".into(),
@@ -45,6 +76,7 @@ fn summary(snapshot_fp: &str) -> TrainerAiSummary {
         profile_name: "Fixture local".into(),
         model: "fixture-model".into(),
         data_scope: SpeechLlmDataScope::Findings,
+        context: Some(context()),
         summary: "privatefixture coaching".into(),
         priorities: vec![TrainerAiPriority {
             title: "priority".into(),
@@ -178,6 +210,91 @@ fn only_completed_included_unexpired_opt_in_sources_contribute() {
         assert!(
             eligible_sources(&records, Period::new(7, now).unwrap(), &disabled, now).is_empty()
         );
+    }
+}
+
+#[test]
+fn report_sources_match_fresh_eligibility_and_are_hidden_until_refresh_after_source_loss() {
+    let now = date("2026-10-12T12:00:00Z");
+    let mut config = settings();
+    config.analytics_retention_days = 1;
+    let older = entry("older", date("2026-10-11T12:05:00Z"), "ну я я");
+    let younger = entry("younger", now - Duration::hours(2), "то есть слова");
+    let mut pending = entry("pending", now, "не готовые слова");
+    pending.analysis_status = DictationAnalysisStatus::Pending;
+    let outside = entry("outside", now - Duration::days(10), "вне периода");
+    let records = vec![younger, pending, older, outside];
+    let mut cache = TrainerCache::default();
+    let (initial, sources, written) =
+        get_from_cache_with_sources(&mut cache, &records, 7, false, &config, now).unwrap();
+    assert!(written);
+    assert!(!initial.stale);
+    assert_eq!(initial.snapshot.included_sessions, 2);
+    assert_eq!(initial.snapshot.total_words, 6);
+    assert_eq!(
+        sources
+            .iter()
+            .map(|source| source.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["older", "younger"]
+    );
+    assert_eq!(
+        sources.iter().map(|source| &source.id).collect::<Vec<_>>(),
+        initial.snapshot.session_ids.iter().collect::<Vec<_>>()
+    );
+    for mutation in 0..3 {
+        let mut current_records = records.clone();
+        let checked_at = match mutation {
+            0 => {
+                current_records
+                    .iter_mut()
+                    .find(|source| source.id == "older")
+                    .unwrap()
+                    .analytics_included = false;
+                now
+            }
+            1 => {
+                current_records.retain(|source| source.id != "older");
+                now
+            }
+            _ => now + Duration::minutes(10),
+        };
+        let mut current_cache = cache.clone();
+        let (stale, stale_sources, written) = get_from_cache_with_sources(
+            &mut current_cache,
+            &current_records,
+            7,
+            false,
+            &config,
+            checked_at,
+        )
+        .unwrap();
+        assert!(!written);
+        assert!(stale.stale);
+        assert!(stale_sources.is_empty());
+        assert_eq!(stale.snapshot.counts, initial.snapshot.counts);
+        assert_eq!(stale.snapshot.generated_at, initial.snapshot.generated_at);
+        let (refreshed, refreshed_sources, written) = get_from_cache_with_sources(
+            &mut current_cache,
+            &current_records,
+            7,
+            true,
+            &config,
+            checked_at,
+        )
+        .unwrap();
+        assert!(written);
+        assert!(!refreshed.stale);
+        assert_eq!(refreshed.snapshot.included_sessions, 1);
+        assert_eq!(refreshed.snapshot.total_words, 3);
+        assert_eq!(
+            refreshed_sources
+                .iter()
+                .map(|source| source.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["younger"]
+        );
+        assert_eq!(refreshed.snapshot.session_ids, vec!["younger"]);
     }
 }
 
@@ -385,6 +502,8 @@ fn snapshot_and_ai_wire_models_roundtrip_with_the_frontend_camel_case_contract()
     let records = vec![entry("fixture", now, "ну я я то есть...")];
     let mut cache = TrainerCache::default();
     let (local, _) = get_from_cache(&mut cache, &records, 7, false, &settings(), now).unwrap();
+    let mut metrics_context = context();
+    metrics_context.data_scope = SpeechLlmDataScope::MetricsOnly;
     let report = TrainerReport {
         snapshot: local.snapshot,
         current_fingerprint: local.current_fingerprint.clone(),
@@ -402,6 +521,10 @@ fn snapshot_and_ai_wire_models_roundtrip_with_the_frontend_camel_case_contract()
             data_scope: SpeechLlmDataScope::MetricsOnly,
         },
         ai_disabled_reason: None,
+        ai_context: Some(TrainerAiContextPreflight {
+            metrics_only: metrics_context.clone(),
+            configured_shared: Some(context()),
+        }),
     };
     let json = serde_json::to_value(report).unwrap();
     assert!(json.get("currentFingerprint").is_some());
@@ -412,8 +535,87 @@ fn snapshot_and_ai_wire_models_roundtrip_with_the_frontend_camel_case_contract()
         .is_some());
     assert_eq!(json["aiConfiguration"]["dataScope"], "metrics_only");
     assert_eq!(json["aiSummary"]["dataScope"], "findings");
+    let expected_context = serde_json::json!({
+        "dataScope": "findings",
+        "payloadBytes": 4321,
+        "payloadByteLimit": 48000,
+        "reduced": true,
+        "metricsSessions": 13,
+        "metricsWords": 500,
+        "availableSessions": 13,
+        "sharedSessions": 0,
+        "omittedSessions": 13,
+        "shortenedSessions": 0,
+        "availableWords": 500,
+        "sharedWords": 0,
+        "omittedWords": 500,
+        "availableCharacters": 2500,
+        "sharedCharacters": 0,
+        "omittedCharacters": 2500,
+        "patternsAvailable": 43,
+        "patternsShared": 40,
+        "examplesAvailable": 120,
+        "examplesShared": 80,
+        "limits": {
+            "maxSharedSessions": 12,
+            "maxCharactersPerSession": 3000,
+            "maxPatterns": 40,
+            "maxExamplesPerPattern": 2,
+        },
+    });
+    assert_eq!(json["aiSummary"]["context"], expected_context);
+    assert_eq!(json["aiContext"]["configuredShared"], expected_context);
+    assert_eq!(
+        json["aiContext"]["metricsOnly"]["dataScope"],
+        "metrics_only"
+    );
     let decoded: TrainerReport = serde_json::from_value(json).unwrap();
     assert_eq!(decoded.snapshot.rules_version, RULES_VERSION);
+    let decoded_preflight = decoded.ai_context.unwrap();
+    assert_eq!(decoded_preflight.metrics_only, metrics_context);
+    assert_eq!(decoded_preflight.configured_shared, Some(context()));
+    assert_eq!(decoded.ai_summary.unwrap().context, Some(context()));
+}
+
+#[test]
+fn legacy_reports_and_summaries_without_context_keep_the_saved_ai_result() {
+    let now = date("2026-10-12T12:00:00Z");
+    let records = vec![entry("fixture", now, "ну я я то есть...")];
+    let mut cache = TrainerCache::default();
+    let (local, _) = get_from_cache(&mut cache, &records, 7, false, &settings(), now).unwrap();
+    let mut legacy_summary = serde_json::to_value(summary(&local.current_fingerprint)).unwrap();
+    legacy_summary.as_object_mut().unwrap().remove("context");
+    let decoded_summary: TrainerAiSummary = serde_json::from_value(legacy_summary.clone()).unwrap();
+    assert!(decoded_summary.context.is_none());
+    assert_eq!(decoded_summary.summary, "privatefixture coaching");
+    assert_eq!(
+        decoded_summary.snapshot_fingerprint,
+        local.current_fingerprint
+    );
+    let legacy_report = serde_json::json!({
+        "snapshot": local.snapshot,
+        "currentFingerprint": local.current_fingerprint,
+        "stale": false,
+        "aiFingerprint": "ai-parameters",
+        "aiStale": false,
+        "aiSummary": legacy_summary,
+        "aiConfiguration": {
+            "enabled": true,
+            "profileId": "fixture",
+            "profileName": "Fixture local",
+            "model": "fixture-model",
+            "cloud": false,
+            "cloudConsent": false,
+            "dataScope": "metrics_only",
+        },
+        "aiDisabledReason": null,
+    });
+    let decoded_report: TrainerReport = serde_json::from_value(legacy_report).unwrap();
+    assert!(decoded_report.ai_context.is_none());
+    let saved_summary = decoded_report.ai_summary.unwrap();
+    assert!(saved_summary.context.is_none());
+    assert_eq!(saved_summary.fingerprint, "ai-parameters");
+    assert_eq!(saved_summary.summary, "privatefixture coaching");
 }
 
 #[test]
@@ -488,10 +690,12 @@ fn reinclude_and_refresh_accepts_only_new_ai_provenance_and_persists_it() {
     .unwrap();
     assert!(!written);
     assert!(!report.stale);
+    let saved_summary = report.ai_summary.unwrap();
     assert_eq!(
-        report.ai_summary.unwrap().snapshot_fingerprint,
+        saved_summary.snapshot_fingerprint,
         refreshed.current_fingerprint
     );
+    assert_eq!(saved_summary.context, Some(context()));
 }
 
 #[test]

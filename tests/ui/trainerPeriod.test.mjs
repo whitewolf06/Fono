@@ -8,7 +8,8 @@ let server,
   createNativeTrainer,
   defaults,
   mapping,
-  observeTrainerDay;
+  observeTrainerDay,
+  buildMockAiContext;
 before(async () => {
   server = await createServer({
     appType: "custom",
@@ -33,6 +34,9 @@ before(async () => {
   );
   ({ observeTrainerDay } = await server.ssrLoadModule(
     "/src/v3/features/trainer/infrastructure/dayChange.ts",
+  ));
+  ({ buildMockAiContext } = await server.ssrLoadModule(
+    "/src/v3/features/trainer/infrastructure/mockAiContext.ts",
   ));
 });
 after(async () => server?.close());
@@ -81,6 +85,93 @@ const state = () => ({
       ),
     ),
   ),
+});
+
+test("AI context preview is numeric by default and saved coverage matches the consented request", async () => {
+  const demo = state();
+  demo.preferences.trainerScope = "original_text";
+  const trainer = createMockTrainer(
+    demo,
+    () => now,
+    async () => {},
+  );
+  const report = await trainer.port.getReport(7);
+  const numeric = report.aiContext.metricsOnly;
+  assert.equal(numeric.dataScope, "metrics_only");
+  assert.equal(numeric.metricsSessions, 3);
+  assert.equal(numeric.availableWords, 0);
+  assert.equal(numeric.sharedSessions, 0);
+  assert.equal(report.aiSummary, null);
+  const context = report.aiContext.configuredShared;
+  assert.equal(context.sharedSessions, 3);
+  assert.equal(context.omittedWords, 0);
+  assert.equal(
+    context.reduced,
+    context.examplesShared < context.examplesAvailable,
+  );
+  const result = await trainer.port.analyzePeriod({
+    days: 7,
+    fingerprint: report.snapshot.fingerprint,
+    shareText: true,
+  });
+  assert.deepEqual(result.aiSummary.context, context);
+  demo.history.push(entry("next"));
+  assert.equal((await trainer.port.getReport(7)).aiContext, null);
+});
+
+test("shared context bounds Unicode bytes and reports omitted words and partial dictations", () => {
+  const originals = Array.from({ length: 18 }, (_, index) =>
+    entry(String(index), "осмысленная мысль 😀 ".repeat(1000)),
+  );
+  const snapshot = period.buildTrainerSnapshot(
+    originals,
+    preferences(),
+    90,
+    now,
+  );
+  const context = buildMockAiContext(snapshot, originals, "original_text");
+  assert.equal(context.metricsSessions, 18);
+  assert.equal(context.metricsWords, snapshot.totalWords);
+  assert.equal(context.availableSessions, 18);
+  assert.ok(context.sharedSessions > 0 && context.sharedSessions <= 12);
+  assert.equal(context.omittedSessions, 18 - context.sharedSessions);
+  assert.equal(context.shortenedSessions, context.sharedSessions);
+  assert.ok(context.payloadBytes <= context.payloadByteLimit);
+  assert.equal(context.payloadByteLimit, 32768);
+  assert.ok(context.sharedWords > 0 && context.omittedWords > 0);
+  assert.equal(
+    context.sharedWords + context.omittedWords,
+    context.availableWords,
+  );
+  assert.equal(
+    context.sharedCharacters + context.omittedCharacters,
+    context.availableCharacters,
+  );
+  assert.equal(context.reduced, true);
+});
+
+test("findings context counts saved fragments instead of suggesting that full originals were sent", () => {
+  const originals = [entry("a", "ну, ну, ну"), entry("b", "ну")];
+  const snapshot = period.buildTrainerSnapshot(
+    originals,
+    preferences(),
+    7,
+    now,
+  );
+  const context = buildMockAiContext(snapshot, originals, "findings");
+  assert.equal(context.dataScope, "findings");
+  assert.equal(
+    context.availableCharacters,
+    snapshot.terms
+      .flatMap((term) => term.examples)
+      .reduce((sum, example) => sum + Array.from(example.fragment).length, 0),
+  );
+  assert.equal(context.metricsWords, snapshot.totalWords);
+  assert.ok(context.payloadBytes <= context.payloadByteLimit);
+  assert.equal(
+    context.sharedWords + context.omittedWords,
+    context.availableWords,
+  );
 });
 
 test("period rules normalize case, respect word boundaries and keep explainable session origins", () => {
