@@ -77,6 +77,11 @@ impl Gate {
         Ok(ActivityLease { gate: self })
     }
 
+    fn retain_cleanup(&self) -> ActivityLease<'_> {
+        self.0.lock().leases += 1;
+        ActivityLease { gate: self }
+    }
+
     fn reserve(
         &self,
         check_idle: impl FnOnce() -> AppResult<()>,
@@ -136,6 +141,13 @@ pub fn lease() -> AppResult<ActivityLease<'static>> {
     GATE.lease()
 }
 
+/// Retain teardown of an already owned native resource until its confirmed
+/// exit. This does not admit a new operation or reopen an install reservation.
+/// Acquire outside routing and admission locks, before starting cleanup.
+pub(crate) fn cleanup_lease() -> ActivityLease<'static> {
+    GATE.retain_cleanup()
+}
+
 pub(crate) fn while_idle<T>(
     check_idle: impl FnOnce() -> bool,
     action: impl FnOnce() -> T,
@@ -161,6 +173,19 @@ mod tests {
         atomic::{AtomicBool, Ordering},
         Arc,
     };
+
+    #[test]
+    fn cleanup_survives_reservation_failure_without_reopening_admission() {
+        let gate = Gate::default();
+        let reservation = gate.reserve(|| Ok(())).unwrap();
+        let cleanup = gate.retain_cleanup();
+        assert!(gate.begin().is_err());
+        assert!(gate.lease().is_err());
+        drop(reservation);
+        assert!(gate.reserve(|| Ok(())).is_err());
+        drop(cleanup);
+        assert!(gate.reserve(|| Ok(())).is_ok());
+    }
 
     #[test]
     fn gpu_detachment_waits_for_operations_and_protects_cleanup() {

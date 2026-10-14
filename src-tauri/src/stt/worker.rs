@@ -7,8 +7,8 @@
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -34,6 +34,10 @@ const TRANSCRIBE_BASE_TIMEOUT: Duration = Duration::from_secs(30);
 const TRANSCRIBE_MAX_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(20);
 const MAILBOX_HEALTH_TIMEOUT: Duration = Duration::from_millis(100);
+const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(500);
+const FORCE_EXIT_TIMEOUT: Duration = Duration::from_millis(500);
+const THREAD_JOIN_TIMEOUT: Duration = Duration::from_millis(500);
+const MAILBOX_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_STDERR_LINE_BYTES: usize = 4 * 1024;
 const STDERR_TAIL_LINES: usize = 32;
 
@@ -81,7 +85,10 @@ pub(super) struct WorkerSession {
     backend: BackendKind,
     path: PathBuf,
     model_path: String,
-    child: Child,
+    child: Arc<WorkerChild>,
+    cleanup: Arc<WorkerCleanupSupervisor>,
+    transport_stopping: Arc<AtomicBool>,
+    cleanup_ticket: Option<Arc<AtomicBool>>,
     stdin_tx: Option<Sender<WorkerWrite>>,
     stdin_thread: Option<JoinHandle<()>>,
     stdout_rx: Receiver<WorkerOutput>,
@@ -114,6 +121,10 @@ pub(super) struct WorkerMailbox {
     busy: Arc<AtomicBool>,
     alive: Arc<AtomicBool>,
     health_pending: AtomicBool,
+    closing: AtomicBool,
+    child: Arc<WorkerChild>,
+    cleanup: Arc<WorkerCleanupSupervisor>,
+    transport_stopping: Arc<AtomicBool>,
 }
 
 enum WorkerCommand {
@@ -125,17 +136,22 @@ enum WorkerCommand {
         cancellation: OperationCancellation,
         audio_start_sample: u64,
         response_tx: Sender<AppResult<fono_stt_protocol::WindowTranscript>>,
+        activity: crate::application::updates::activity::ActivityLease<'static>,
     },
     Transcribe {
         samples: Vec<i16>,
         language: String,
         cancellation: OperationCancellation,
         response_tx: Sender<AppResult<Transcript>>,
+        activity: crate::application::updates::activity::ActivityLease<'static>,
     },
     Ping {
         response_tx: Sender<AppResult<()>>,
+        activity: crate::application::updates::activity::ActivityLease<'static>,
     },
-    Shutdown,
+    Shutdown {
+        response_tx: Sender<WorkerCleanupStatus>,
+    },
 }
 
 pub(super) enum MailboxHealth {
@@ -148,6 +164,7 @@ include!("worker_session.rs");
 include!("worker_request.rs");
 include!("worker_mailbox.rs");
 include!("worker_transport.rs");
+include!("worker_cleanup.rs");
 #[cfg(test)]
 #[path = "worker_tests.rs"]
 mod tests;

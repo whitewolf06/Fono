@@ -9,6 +9,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use super::*;
 use fono_core::{OperationCoordinator, OperationSource};
 
+#[path = "worker_cleanup_tests.rs"]
+mod cleanup;
+
 // Parallel workspace tests can briefly delay Windows cmd fixture startup;
 // keep this distinct from the production request deadlines.
 const TEST_TIMEOUT: Duration = Duration::from_secs(1);

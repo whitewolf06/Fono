@@ -31,7 +31,10 @@ mod window;
 use embedded::EmbeddedEngine;
 pub use fono_stt_protocol::{TimedSegment, WindowTranscript};
 
-use worker::{MailboxHealth, WorkerMailbox, WorkerSession};
+use worker::{
+    worker_cleanup_busy, MailboxHealth, WorkerCleanupStatus, WorkerCleanupSupervisor,
+    WorkerMailbox, WorkerSession,
+};
 
 pub struct SttEngine {
     state: Mutex<EngineState>,
@@ -39,6 +42,7 @@ pub struct SttEngine {
     readiness: Mutex<SttReadiness>,
     readiness_observer: Mutex<Option<SttReadinessObserver>>,
     generation: std::sync::atomic::AtomicU64,
+    cleanup: Arc<WorkerCleanupSupervisor>,
 }
 
 impl SttEngine {
@@ -49,6 +53,7 @@ impl SttEngine {
             readiness: Mutex::new(SttReadiness::Unloaded),
             readiness_observer: Mutex::new(None),
             generation: std::sync::atomic::AtomicU64::new(0),
+            cleanup: Arc::default(),
         }
     }
 
@@ -58,6 +63,10 @@ impl SttEngine {
         acceleration: AccelerationMode,
         worker_paths: &WorkerPaths,
     ) -> AppResult<()> {
+        let _activity = crate::application::updates::activity::lease()?;
+        if self.cleanup.is_pending() {
+            return Err(worker_cleanup_busy());
+        }
         if !model_path.exists() {
             let error = AppError::Stt(format!("model file not found: {}", model_path.display()));
             self.set_failed_readiness(&error);
@@ -79,6 +88,9 @@ impl SttEngine {
         // ongoing transcription and device/status reads keep using the previous
         // engine until the replacement is fully prepared.
         let _load_gate = self.load_gate.lock();
+        if self.cleanup.is_pending() {
+            return Err(worker_cleanup_busy());
+        }
         {
             let mut state = self.state.lock();
             if candidates
@@ -95,6 +107,9 @@ impl SttEngine {
 
         let mut errors = Vec::new();
         for candidate in candidates {
+            if self.cleanup.is_pending() {
+                return Err(self.pending_load_error());
+            }
             let loaded = match &candidate {
                 EngineCandidate::Embedded { use_gpu } => EmbeddedEngine::load(model_path, *use_gpu)
                     .map(|engine| {
@@ -104,15 +119,19 @@ impl SttEngine {
                             device,
                         }
                     }),
-                EngineCandidate::Worker { backend, path } => {
-                    WorkerSession::start(path.clone(), *backend, model_path).map(|worker| {
-                        let device = worker.device();
-                        EngineState::Worker {
-                            session: Arc::new(WorkerMailbox::start(worker)),
-                            device,
-                        }
-                    })
-                }
+                EngineCandidate::Worker { backend, path } => WorkerSession::start(
+                    path.clone(),
+                    *backend,
+                    model_path,
+                    Arc::clone(&self.cleanup),
+                )
+                .map(|worker| {
+                    let device = worker.device();
+                    EngineState::Worker {
+                        session: Arc::new(WorkerMailbox::start(worker)),
+                        device,
+                    }
+                }),
             };
             match loaded {
                 Ok(loaded) => {
@@ -122,17 +141,23 @@ impl SttEngine {
                         let mut state = self.state.lock();
                         std::mem::replace(&mut *state, loaded)
                     };
+                    self.generation
+                        .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
                     // Worker shutdown and native model cleanup may block. They
                     // must happen after the routing state lock is released.
                     drop(previous);
-                    self.generation
-                        .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+                    if self.cleanup.is_pending() {
+                        return Err(self.pending_load_error());
+                    }
                     self.set_readiness(SttReadiness::Ready {
                         device: device.to_string(),
                     });
                     return Ok(());
                 }
                 Err(error) => {
+                    if self.cleanup.is_pending() {
+                        return Err(self.pending_load_error());
+                    }
                     errors.push(error.to_string());
                     if acceleration != AccelerationMode::Auto {
                         break;
@@ -168,6 +193,9 @@ impl SttEngine {
         language: &str,
         cancellation: Option<&OperationCancellation>,
     ) -> AppResult<Transcript> {
+        if self.cleanup.is_pending() {
+            return Err(worker_cleanup_busy());
+        }
         // Select the current session under the short-lived routing lock, then
         // run the expensive inference behind the selected engine's own lock.
         // Consequently device/status readers and a future supervisor mailbox
@@ -180,10 +208,13 @@ impl SttEngine {
         };
         if result.is_err() && active.is_worker() && !matches!(result, Err(AppError::Cancelled(_))) {
             tracing::warn!("STT worker session failed and will be restarted on the next operation");
-            let mut state = self.state.lock();
-            if state.contains(&active) {
-                *state = EngineState::Empty;
-            }
+            let previous = {
+                let mut state = self.state.lock();
+                state
+                    .contains(&active)
+                    .then(|| std::mem::replace(&mut *state, EngineState::Empty))
+            };
+            drop(previous);
         }
         result
     }
@@ -193,7 +224,8 @@ impl SttEngine {
     }
 
     pub fn is_loaded(&self) -> bool {
-        !matches!(&*self.state.lock(), EngineState::Empty)
+        self.reap_finished_worker();
+        self.cleanup.is_pending() || self.state.lock().active().is_some()
     }
 
     pub fn readiness(&self) -> SttReadiness {
@@ -208,6 +240,12 @@ impl SttEngine {
     }
 
     pub fn health(&self) -> SttHealth {
+        self.reap_finished_worker();
+        if self.cleanup.is_pending() {
+            return SttHealth::Busy {
+                device: self.device(),
+            };
+        }
         let (active, device) = {
             let state = self.state.lock();
             (state.active(), state.device())
@@ -218,10 +256,13 @@ impl SttEngine {
 
         let health = active.health(device);
         if let SttHealth::Failed { message, .. } = &health {
-            let mut state = self.state.lock();
-            if state.contains(&active) {
-                *state = EngineState::Empty;
-            }
+            let previous = {
+                let mut state = self.state.lock();
+                state
+                    .contains(&active)
+                    .then(|| std::mem::replace(&mut *state, EngineState::Empty))
+            };
+            drop(previous);
             self.set_readiness(SttReadiness::Failed {
                 message: message.clone(),
             });
@@ -241,6 +282,25 @@ impl SttEngine {
         self.set_readiness(SttReadiness::Failed {
             message: error.to_string(),
         });
+    }
+
+    fn pending_load_error(&self) -> AppError {
+        let error = worker_cleanup_busy();
+        self.set_failed_readiness(&error);
+        error
+    }
+
+    fn reap_finished_worker(&self) {
+        let retired = {
+            let mut state = self.state.lock();
+            if matches!(&*state, EngineState::Worker { session, .. } if session.is_retired()) {
+                Some(std::mem::replace(&mut *state, EngineState::Empty))
+            } else {
+                None
+            }
+        };
+        // Even a completed mailbox is dropped outside the routing lock.
+        drop(retired);
     }
 }
 

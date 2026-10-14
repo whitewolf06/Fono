@@ -111,7 +111,9 @@ fn tick(app: &AppHandle, sampler: &mut Sampler) {
     if released {
         state.policy.lock().released();
     }
-    let message = if released {
+    let message = if pipeline.stt().gpu_residency().cleanup_pending {
+        "Завершаем процесс распознавания. Загрузка новой модели пока недоступна."
+    } else if released {
         "Модель освобождена из видеопамяти; загрузится при следующей диктовке."
     } else if sample.is_ok() && !gpu.resident {
         idle_message(
@@ -165,7 +167,7 @@ fn release_idle(app: &AppHandle, expected_generation: u64) -> bool {
                 None => false,
             }
         });
-    // Worker destruction has finished before installer exclusion is released.
+    // Pending retirement owns its own cleanup lease until exit and IO completion.
     drop(cleanup_lease);
     released
 }

@@ -1,14 +1,45 @@
 impl WorkerSession {
-    pub(super) fn start(path: PathBuf, backend: BackendKind, model_path: &Path) -> AppResult<Self> {
-        Self::start_with_timeouts(path, backend, model_path, PRODUCTION_TIMEOUTS)
+    pub(super) fn start(
+        path: PathBuf,
+        backend: BackendKind,
+        model_path: &Path,
+        cleanup: Arc<WorkerCleanupSupervisor>,
+    ) -> AppResult<Self> {
+        Self::start_with_timeouts_and_supervisor(
+            path,
+            backend,
+            model_path,
+            PRODUCTION_TIMEOUTS,
+            cleanup,
+        )
     }
 
+    #[cfg(test)]
     fn start_with_timeouts(
         path: PathBuf,
         backend: BackendKind,
         model_path: &Path,
         timeouts: WorkerTimeouts,
     ) -> AppResult<Self> {
+        Self::start_with_timeouts_and_supervisor(
+            path,
+            backend,
+            model_path,
+            timeouts,
+            Arc::default(),
+        )
+    }
+
+    fn start_with_timeouts_and_supervisor(
+        path: PathBuf,
+        backend: BackendKind,
+        model_path: &Path,
+        timeouts: WorkerTimeouts,
+        cleanup: Arc<WorkerCleanupSupervisor>,
+    ) -> AppResult<Self> {
+        if cleanup.is_pending() {
+            return Err(worker_cleanup_busy());
+        }
         let mut command = Command::new(&path);
         command
             .stdin(Stdio::piped())
@@ -30,26 +61,33 @@ impl WorkerSession {
             ))
         })?;
         let Some(stdin) = child.stdin.take() else {
-            terminate_child(&mut child);
+            terminate_unstarted_child(child, &cleanup);
             return Err(AppError::Stt("worker stdin is unavailable".into()));
         };
         let Some(stdout) = child.stdout.take() else {
-            terminate_child(&mut child);
+            terminate_unstarted_child(child, &cleanup);
             return Err(AppError::Stt("worker stdout is unavailable".into()));
         };
         let Some(stderr) = child.stderr.take() else {
-            terminate_child(&mut child);
+            terminate_unstarted_child(child, &cleanup);
             return Err(AppError::Stt("worker stderr is unavailable".into()));
         };
-        let (stdout_rx, stdout_thread) = spawn_stdout_reader(stdout);
-        let (stdin_tx, stdin_thread) = spawn_stdin_writer(stdin);
+        let child = Arc::new(WorkerChild::new(child));
+        let transport_stopping = Arc::new(AtomicBool::new(false));
+        let (stdout_rx, stdout_thread) =
+            spawn_stdout_reader(stdout, Arc::clone(&transport_stopping));
+        let (stdin_tx, stdin_thread) = spawn_stdin_writer(stdin, Arc::clone(&transport_stopping));
         let stderr_tail = Arc::new(Mutex::new(VecDeque::with_capacity(STDERR_TAIL_LINES)));
-        let stderr_thread = spawn_stderr_reader(stderr, stderr_tail.clone());
+        let stderr_thread =
+            spawn_stderr_reader(stderr, stderr_tail.clone(), Arc::clone(&transport_stopping));
         let mut worker = Self {
             backend,
             path,
             model_path: model_path.to_string_lossy().to_string(),
             child,
+            cleanup,
+            transport_stopping,
+            cleanup_ticket: None,
             stdin_tx: Some(stdin_tx),
             stdin_thread: Some(stdin_thread),
             stdout_rx,

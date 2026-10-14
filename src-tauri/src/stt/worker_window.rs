@@ -98,6 +98,7 @@ impl WorkerMailbox {
             return Err(AppError::Cancelled("window cancelled before queue".into()));
         }
         let (response_tx, response_rx) = bounded(1);
+        let activity = crate::application::updates::activity::lease()?;
         self.enqueue(
             WorkerCommand::Window {
                 samples: samples.to_vec(),
@@ -107,6 +108,7 @@ impl WorkerMailbox {
                 cancellation: cancellation.clone(),
                 audio_start_sample,
                 response_tx,
+                activity,
             },
             cancellation,
         )?;
@@ -129,6 +131,9 @@ impl WorkerMailbox {
         cancellation: &OperationCancellation,
     ) -> AppResult<()> {
         loop {
+            if self.closing.load(Ordering::Acquire) || self.cleanup.is_pending() {
+                return Err(worker_cleanup_busy());
+            }
             if cancellation.is_cancelled() {
                 return Err(AppError::Cancelled("worker queue cancelled".into()));
             }

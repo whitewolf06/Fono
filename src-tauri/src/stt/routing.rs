@@ -67,7 +67,9 @@ impl EngineState {
         match self {
             Self::Empty => None,
             Self::Embedded { engine, .. } => Some(ActiveEngine::Embedded(Arc::clone(engine))),
-            Self::Worker { session, .. } => Some(ActiveEngine::Worker(Arc::clone(session))),
+            Self::Worker { session, .. } => session
+                .has_resources()
+                .then(|| ActiveEngine::Worker(Arc::clone(session))),
         }
     }
 

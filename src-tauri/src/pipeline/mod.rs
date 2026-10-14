@@ -522,6 +522,8 @@ pub fn set_state_for_operation(
     state.set_pipeline_state(new);
     tracing::debug!(operation = operation_id, "pipeline state -> {new:?}");
     crate::events::emit_pipeline_state(handle, new);
+    // Publish under the capture fence, but never hold it across window dispatch.
+    drop(_capture);
     sync_overlay_window(handle, new);
     true
 }
@@ -532,54 +534,26 @@ pub(crate) fn set_idle_if_no_operation(
     state: &AppState,
     pipeline: &Pipeline,
 ) -> bool {
-    pipeline.while_idle(|| {
+    let committed = pipeline.while_idle(|| {
         state.set_pipeline_state(PipelineState::Idle);
         crate::events::emit_pipeline_state(handle, PipelineState::Idle);
-        sync_overlay_window(handle, PipelineState::Idle);
-    })
-}
-
-pub(crate) fn sync_overlay_window(handle: &AppHandle, state: PipelineState) {
-    let Some(overlay) = handle.get_webview_window("overlay") else {
-        return;
-    };
-    let visible = (handle.state::<AppState>().settings().overlay_enabled
-        && state != PipelineState::Idle)
-        || crate::application::dictation::workflow::has_pending(handle)
-        || crate::overlay::has_preview(handle);
-    let visibility_state = if visible {
-        PipelineState::Listening
-    } else {
-        PipelineState::Idle
-    };
-    sync_overlay_visibility(visibility_state, |visible| {
-        if visible {
-            crate::overlay::show_window(handle)
-        } else {
-            overlay.hide().map_err(crate::error::AppError::from)
-        }
     });
+    if committed {
+        sync_overlay_window(handle, PipelineState::Idle);
+    }
+    committed
 }
 
-/// Keeps window-management failures outside the operation lifecycle. The
-/// caller has already committed its pipeline transition before this adapter is
-/// invoked, so a missing or closing overlay cannot retain a resource lease.
-fn sync_overlay_visibility<E>(state: PipelineState, set_visible: impl FnOnce(bool) -> Result<(), E>)
-where
-    E: std::fmt::Display,
-{
-    let visible = !matches!(state, PipelineState::Idle);
-    if let Err(error) = set_visible(visible) {
-        tracing::warn!(%error, visible, ?state, "could not synchronize overlay visibility");
-    }
+pub(crate) fn sync_overlay_window(handle: &AppHandle, _state: PipelineState) {
+    // Visibility is recomputed when the UI task executes. A queued old Idle
+    // notification must not hide the overlay of a newer recording.
+    crate::overlay::request_visibility(handle);
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicBool, AtomicU32};
     use std::sync::Arc;
-
-    use parking_lot::Mutex;
 
     use crate::audio::{AudioRecorder, RecordingWriter};
     use crate::error::{AppError, AppResult};
@@ -588,7 +562,7 @@ mod tests {
         OperationEvent, OperationPhase, OperationResource, OperationSource, TerminalReason,
     };
 
-    use super::{append_bounded, sync_overlay_visibility, Pipeline};
+    use super::{append_bounded, Pipeline};
 
     struct FailingAudioRecorder;
 
@@ -638,49 +612,6 @@ mod tests {
             .contains("injected audio acquisition failure"));
         assert_eq!(pipeline.operation_id(), 0);
         assert!(!pipeline.is_recording());
-    }
-
-    #[test]
-    fn overlay_fault_injection_cannot_undo_a_terminal_transition() {
-        let pipeline = Pipeline::new();
-        let operation = pipeline.operations.start(OperationSource::Ui).unwrap();
-        pipeline
-            .sync_operation_state_for(
-                operation.id,
-                PipelineState::Transcribing,
-                TerminalReason::Completed,
-            )
-            .expect("start STT phase");
-        pipeline
-            .sync_operation_state_for(
-                operation.id,
-                PipelineState::Injecting,
-                TerminalReason::Completed,
-            )
-            .expect("start injection phase");
-        assert!(pipeline.is_operation_active(operation.id));
-
-        let observed = Mutex::new(Vec::new());
-
-        sync_overlay_visibility(PipelineState::Injecting, |visible| {
-            observed.lock().push(visible);
-            Err("injected overlay show failure")
-        });
-        sync_overlay_visibility(PipelineState::Idle, |visible| {
-            observed.lock().push(visible);
-            Err("injected overlay hide failure")
-        });
-
-        assert_eq!(*observed.lock(), vec![true, false]);
-
-        pipeline
-            .sync_operation_state_for(operation.id, PipelineState::Idle, TerminalReason::Completed)
-            .expect("finish operation before hiding overlay");
-        sync_overlay_visibility(PipelineState::Idle, |_| {
-            Err("injected terminal overlay hide failure")
-        });
-        assert!(!pipeline.is_operation_active(operation.id));
-        assert!(pipeline.operations.resources(operation.id).is_none());
     }
 
     #[test]

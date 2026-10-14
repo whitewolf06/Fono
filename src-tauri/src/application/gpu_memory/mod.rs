@@ -82,6 +82,17 @@ pub(crate) fn status(app: &AppHandle) -> SttMemoryStatus {
     let settings = app.state::<AppState>().settings();
     let pipeline = app.state::<Pipeline>();
     let gpu = pipeline.stt().gpu_residency();
+    if gpu.cleanup_pending {
+        return SttMemoryStatus {
+            mode: settings.gpu_model_residency,
+            residency: Residency::Active,
+            monitoring: Monitoring::Disabled,
+            message: "Завершаем процесс распознавания. Загрузка новой модели пока недоступна."
+                .into(),
+            used_bytes: None,
+            total_bytes: None,
+        };
+    }
     let cpu = settings.acceleration == crate::types::AccelerationMode::Cpu
         || (gpu.loaded && !gpu.resident);
     let residency = if gpu.resident {

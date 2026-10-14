@@ -32,6 +32,9 @@ impl SttEngine {
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
     ) -> AppResult<WindowTranscript> {
+        if self.cleanup.is_pending() {
+            return Err(super::worker_cleanup_busy());
+        }
         if samples.len() > 30 * 16_000 {
             return Err(AppError::Stt("streaming window exceeds 30 seconds".into()));
         }
@@ -59,10 +62,13 @@ impl SttEngine {
             ),
         };
         if result.is_err() && active.is_worker() && !matches!(result, Err(AppError::Cancelled(_))) {
-            let mut state = self.state.lock();
-            if state.contains(&active) {
-                *state = EngineState::Empty;
-            }
+            let previous = {
+                let mut state = self.state.lock();
+                state
+                    .contains(&active)
+                    .then(|| std::mem::replace(&mut *state, EngineState::Empty))
+            };
+            drop(previous);
         }
         result
     }

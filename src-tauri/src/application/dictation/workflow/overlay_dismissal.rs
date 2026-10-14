@@ -11,10 +11,9 @@ pub(crate) fn dismiss(app: &AppHandle) -> AppResult<()> {
     app.state::<Pipeline>().dismiss_overlay_when_idle(
         || super::has_pending(app),
         || {
-            let window = app
-                .get_webview_window("overlay")
-                .ok_or_else(|| AppError::Internal("Окно оверлея недоступно".into()))?;
-            window.hide()?;
+            if app.get_webview_window("overlay").is_none() {
+                return Err(AppError::Internal("Окно оверлея недоступно".into()));
+            }
             // A preview timer or settings update must not reopen a terminal
             // indicator because AppState still held the previous Error phase.
             app.state::<AppState>()

@@ -8,6 +8,7 @@ impl WorkerSession {
         request: &WorkerRequest,
         cancellation: Option<&OperationCancellation>,
     ) -> AppResult<WorkerResponse> {
+        let _activity = crate::application::updates::activity::lease()?;
         let timeout = self.timeouts.for_request(request);
         let deadline = Instant::now() + timeout;
         if cancellation.is_some_and(OperationCancellation::is_cancelled) {
@@ -35,6 +36,9 @@ impl WorkerSession {
             return Err(self.fail_request(message.into()));
         }
         loop {
+            if self.child.stopping.load(Ordering::Acquire) {
+                return Err(self.cancel_request());
+            }
             if cancellation.is_some_and(OperationCancellation::is_cancelled) {
                 // A partially written JSON frame cannot be safely interrupted in-band.
                 return Err(self.cancel_request());
@@ -53,6 +57,9 @@ impl WorkerSession {
             }
         }
         let response = loop {
+            if self.child.stopping.load(Ordering::Acquire) {
+                return Err(self.cancel_request());
+            }
             if cancellation.is_some_and(OperationCancellation::is_cancelled) {
                 return Err(self.cancel_active(request));
             }
@@ -148,18 +155,49 @@ impl WorkerSession {
             .join(" | ")
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> WorkerCleanupStatus {
+        if let Some(ticket) = &self.cleanup_ticket {
+            return if ticket.load(Ordering::Acquire) {
+                WorkerCleanupStatus::Exited
+            } else {
+                WorkerCleanupStatus::Pending
+            };
+        }
+        let activity = Some(crate::application::updates::activity::cleanup_lease());
+        let _fence = self.cleanup.begin();
+        self.child.stopping.store(true, Ordering::Release);
+        self.transport_stopping.store(true, Ordering::Release);
         self.stdin_tx.take();
-        terminate_child(&mut self.child);
-        if let Some(thread) = self.stdin_thread.take() {
-            let _ = thread.join();
+        let exited = self.child.force_exit(Instant::now() + FORCE_EXIT_TIMEOUT);
+        let handles = [
+            self.stdin_thread.take(),
+            self.stdout_thread.take(),
+            self.stderr_thread.take(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        let handles = bounded_join(handles, Instant::now() + THREAD_JOIN_TIMEOUT);
+        if exited && handles.is_empty() {
+            return WorkerCleanupStatus::Exited;
         }
-        if let Some(thread) = self.stdout_thread.take() {
-            let _ = thread.join();
+        self.cleanup_ticket = Some(self.cleanup.retire(
+            Arc::clone(&self.child),
+            handles,
+            Arc::clone(&self.transport_stopping),
+            activity,
+        ));
+        WorkerCleanupStatus::Pending
+    }
+
+    pub(super) fn shutdown(&mut self) -> WorkerCleanupStatus {
+        if self.cleanup_ticket.is_some() {
+            return self.terminate();
         }
-        if let Some(thread) = self.stderr_thread.take() {
-            let _ = thread.join();
-        }
+        let _activity = crate::application::updates::activity::cleanup_lease();
+        let _fence = self.cleanup.begin();
+        self.request_graceful_shutdown();
+        self.terminate()
     }
 
     fn request_graceful_shutdown(&mut self) {
@@ -169,6 +207,7 @@ impl WorkerSession {
         let request = WorkerRequest::Shutdown {
             meta: self.next_meta("shutdown", None),
         };
+        let deadline = Instant::now() + GRACEFUL_SHUTDOWN_TIMEOUT;
         let Ok(line) = serde_json::to_string(&request) else {
             return;
         };
@@ -177,17 +216,16 @@ impl WorkerSession {
             return;
         };
         if stdin_tx
-            .send_timeout(WorkerWrite { line, result_tx }, Duration::from_millis(500))
+            .send_timeout(WorkerWrite { line, result_tx }, remaining_until(deadline))
             .is_err()
             || !matches!(
-                result_rx.recv_timeout(Duration::from_millis(500)),
+                result_rx.recv_timeout(remaining_until(deadline)),
                 Ok(Ok(()))
             )
         {
             return;
         }
-        if let Ok(WorkerOutput::Line(line)) =
-            self.stdout_rx.recv_timeout(Duration::from_millis(500))
+        if let Ok(WorkerOutput::Line(line)) = self.stdout_rx.recv_timeout(remaining_until(deadline))
         {
             let acknowledged =
                 serde_json::from_str::<WorkerResponse>(&line).is_ok_and(|response| {
@@ -196,7 +234,7 @@ impl WorkerSession {
                         && matches!(response, WorkerResponse::ShuttingDown { .. })
                 });
             if acknowledged {
-                let _ = self.child.wait();
+                self.child.await_exit(deadline);
             }
         }
     }

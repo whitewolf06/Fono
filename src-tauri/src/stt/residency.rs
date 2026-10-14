@@ -7,6 +7,7 @@ pub(crate) struct GpuResidency {
     pub resident: bool,
     pub exclusive: bool,
     pub generation: u64,
+    pub cleanup_pending: bool,
 }
 
 fn exclusive<T>(handle: &Arc<T>) -> bool {
@@ -17,7 +18,7 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
     match state {
         EngineState::Empty => (false, false),
         EngineState::Worker { session, device } => {
-            let gpu = matches!(*device, "CUDA" | "Vulkan");
+            let gpu = matches!(*device, "CUDA" | "Vulkan") && session.has_resources();
             (gpu, gpu && exclusive(session) && session.is_idle())
         }
         EngineState::Embedded { engine, device } => {
@@ -29,13 +30,16 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
 
 impl SttEngine {
     pub(crate) fn gpu_residency(&self) -> GpuResidency {
+        self.reap_finished_worker();
         let state = self.state.lock();
         let (resident, exclusive) = resident_gpu(&state);
+        let cleanup_pending = self.cleanup.is_pending();
         GpuResidency {
-            loaded: !matches!(*state, EngineState::Empty),
-            resident,
-            exclusive,
+            loaded: cleanup_pending || state.active().is_some(),
+            resident: cleanup_pending || resident,
+            exclusive: !cleanup_pending && exclusive,
             generation: self.generation.load(std::sync::atomic::Ordering::Acquire),
+            cleanup_pending,
         }
     }
 
@@ -50,6 +54,9 @@ impl SttEngine {
         let Some(_load) = self.load_gate.try_lock() else {
             return false;
         };
+        if self.cleanup.is_pending() {
+            return false;
+        }
         {
             let _state = self.state.lock();
             // Sampling and the pressure hold belong to this exact load. A
@@ -68,6 +75,12 @@ impl SttEngine {
             previous = Some(std::mem::replace(&mut *state, EngineState::Empty));
             true
         });
+        if let Some(EngineState::Worker { session, .. }) = previous.as_ref() {
+            if session.shutdown() == WorkerCleanupStatus::Pending {
+                *self.state.lock() = previous.take().expect("detached worker");
+                return false;
+            }
+        }
         drop(previous);
         // Keep readiness Ready: the selected model remains installed and can
         // load on the next request. Memory status reports actual residency.

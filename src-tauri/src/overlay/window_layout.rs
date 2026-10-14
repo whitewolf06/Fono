@@ -1,4 +1,5 @@
 //! Native sizing never activates the overlay or persists temporary clamp offsets.
+//! Every caller runs inside overlay::dispatch's UI-thread callback.
 use tauri::{AppHandle, Manager, Monitor, PhysicalPosition, PhysicalSize, WebviewWindow};
 
 use crate::{
@@ -110,7 +111,11 @@ pub(super) fn set_anchor(app: &AppHandle, position: (i32, i32)) {
         .set_anchor(position);
 }
 
-pub(super) fn place(app: &AppHandle, window: &WebviewWindow, edge: Option<&str>) -> AppResult<()> {
+pub(super) fn place(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    edge: Option<&str>,
+) -> AppResult<(i32, i32)> {
     // Explicit reset/placement follows the settings window's monitor.
     let monitor = app
         .get_webview_window("settings")
@@ -130,14 +135,14 @@ pub(super) fn place(app: &AppHandle, window: &WebviewWindow, edge: Option<&str>)
     };
     set_anchor(app, (x, y));
     apply(app, window)?;
-    super::persist_position(app, x, y)
+    Ok((x, y))
 }
 
 pub(super) fn restore(
     app: &AppHandle,
     window: &WebviewWindow,
     settings: &Settings,
-) -> AppResult<()> {
+) -> AppResult<Option<(i32, i32)>> {
     if let (Some(x), Some(y)) = (settings.overlay_x, settings.overlay_y) {
         if window
             .available_monitors()?
@@ -146,8 +151,8 @@ pub(super) fn restore(
         {
             set_anchor(app, (x, y));
             apply(app, window)?;
-            return Ok(());
+            return Ok(None);
         }
     }
-    place(app, window, None)
+    place(app, window, None).map(Some)
 }

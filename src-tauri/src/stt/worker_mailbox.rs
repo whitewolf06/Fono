@@ -8,7 +8,9 @@ fn encode_samples_i16_base64(samples: &[i16]) -> String {
 
 impl WorkerMailbox {
     pub(super) fn is_idle(&self) -> bool {
-        !self.busy.load(Ordering::Acquire)
+        !self.closing.load(Ordering::Acquire)
+            && !self.cleanup.is_pending()
+            && !self.busy.load(Ordering::Acquire)
             && !self.health_pending.load(Ordering::Acquire)
             && self.command_tx.is_empty()
     }
@@ -17,6 +19,9 @@ impl WorkerMailbox {
         let backend = session.backend;
         let path = session.path.clone();
         let model_path = session.model_path.clone();
+        let child = Arc::clone(&session.child);
+        let cleanup = Arc::clone(&session.cleanup);
+        let transport_stopping = Arc::clone(&session.transport_stopping);
         let (command_tx, command_rx) = bounded(2);
         let busy = Arc::new(AtomicBool::new(false));
         let alive = Arc::new(AtomicBool::new(true));
@@ -34,7 +39,9 @@ impl WorkerMailbox {
                         cancellation,
                         audio_start_sample,
                         response_tx,
+                        activity,
                     } => {
+                        let _activity = activity;
                         thread_busy.store(true, Ordering::Release);
                         let result = session.transcribe_window(
                             &samples,
@@ -54,7 +61,9 @@ impl WorkerMailbox {
                         language,
                         cancellation,
                         response_tx,
+                        activity,
                     } => {
+                        let _activity = activity;
                         thread_busy.store(true, Ordering::Release);
                         let result =
                             session.transcribe_cancellable(&samples, &language, &cancellation);
@@ -63,20 +72,32 @@ impl WorkerMailbox {
                         let _ = response_tx.send(result);
                         keep_running
                     }
-                    WorkerCommand::Ping { response_tx } => {
+                    WorkerCommand::Ping {
+                        response_tx,
+                        activity,
+                    } => {
+                        let _activity = activity;
                         thread_busy.store(true, Ordering::Release);
                         let result = session.ping();
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = result.is_ok();
+                        if !keep_running {
+                            session.shutdown();
+                        }
                         let _ = response_tx.send(result);
                         keep_running
                     }
-                    WorkerCommand::Shutdown => false,
+                    WorkerCommand::Shutdown { response_tx } => {
+                        let status = session.shutdown();
+                        let _ = response_tx.try_send(status);
+                        false
+                    }
                 };
                 if !keep_running {
                     break;
                 }
             }
+            drop(session);
             thread_busy.store(false, Ordering::Release);
             thread_alive.store(false, Ordering::Release);
         });
@@ -89,6 +110,10 @@ impl WorkerMailbox {
             busy,
             alive,
             health_pending: AtomicBool::new(false),
+            closing: AtomicBool::new(false),
+            child,
+            cleanup,
+            transport_stopping,
         }
     }
 
@@ -102,6 +127,24 @@ impl WorkerMailbox {
             && self.backend == backend
             && self.path == path
             && self.alive.load(Ordering::Acquire)
+            && !self.closing.load(Ordering::Acquire)
+            && !self.child.stopping.load(Ordering::Acquire)
+            && !self.cleanup.is_pending()
+    }
+
+    pub(super) fn has_resources(&self) -> bool {
+        !self.child.exited() || self.cleanup.is_pending()
+    }
+
+    pub(super) fn is_retired(&self) -> bool {
+        (self.closing.load(Ordering::Acquire) || self.child.stopping.load(Ordering::Acquire))
+            && !self.has_resources()
+            && !self.alive.load(Ordering::Acquire)
+            && self
+                .owner_thread
+                .lock()
+                .as_ref()
+                .map_or(true, JoinHandle::is_finished)
     }
 
     pub(super) fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
@@ -120,12 +163,14 @@ impl WorkerMailbox {
             ));
         }
         let (response_tx, response_rx) = bounded(1);
+        let activity = crate::application::updates::activity::lease()?;
         self.enqueue(
             WorkerCommand::Transcribe {
                 samples: samples.to_vec(),
                 language: language.into(),
                 cancellation: cancellation.clone(),
                 response_tx,
+                activity,
             },
             cancellation,
         )?;
@@ -143,6 +188,12 @@ impl WorkerMailbox {
     }
 
     pub(super) fn health(&self) -> MailboxHealth {
+        if self.closing.load(Ordering::Acquire) || self.cleanup.is_pending() {
+            return MailboxHealth::Busy;
+        }
+        let Ok(activity) = crate::application::updates::activity::lease() else {
+            return MailboxHealth::Busy;
+        };
         if self.busy.load(Ordering::Acquire)
             || self
                 .health_pending
@@ -152,9 +203,10 @@ impl WorkerMailbox {
             return MailboxHealth::Busy;
         }
         let (response_tx, response_rx) = bounded(1);
-        let send = self
-            .command_tx
-            .try_send(WorkerCommand::Ping { response_tx });
+        let send = self.command_tx.try_send(WorkerCommand::Ping {
+            response_tx,
+            activity,
+        });
         if send.is_err() {
             self.health_pending.store(false, Ordering::Release);
             return MailboxHealth::Failed(AppError::Stt("worker mailbox is unavailable".into()));
@@ -170,20 +222,77 @@ impl WorkerMailbox {
         self.health_pending.store(false, Ordering::Release);
         health
     }
+
+    pub(super) fn shutdown(&self) -> WorkerCleanupStatus {
+        if self.is_retired() {
+            if let Some(owner) = self.owner_thread.lock().take() {
+                let _ = owner.join();
+            }
+            return WorkerCleanupStatus::Exited;
+        }
+        let activity = Some(crate::application::updates::activity::cleanup_lease());
+        let _fence = self.cleanup.begin();
+        self.closing.store(true, Ordering::Release);
+        let Some(owner) = self.owner_thread.lock().take() else {
+            // This fence itself contributes one pending entry.
+            return if self.child.exited()
+                && self.cleanup.pending.load(Ordering::Acquire) == 1
+                && !self.alive.load(Ordering::Acquire)
+            {
+                WorkerCleanupStatus::Exited
+            } else {
+                WorkerCleanupStatus::Pending
+            };
+        };
+        // Interrupt a busy request in its polling loop; an idle owner still
+        // gets a normal protocol Shutdown. No caller waits on inference.
+        self.child.stopping.store(true, Ordering::Release);
+        let (response_tx, response_rx) = bounded(1);
+        let deadline = Instant::now() + MAILBOX_SHUTDOWN_TIMEOUT;
+        let sent = self
+            .command_tx
+            .send_timeout(
+                WorkerCommand::Shutdown { response_tx },
+                remaining_until(deadline),
+            )
+            .is_ok();
+        if sent {
+            let _ = response_rx.recv_timeout(remaining_until(deadline));
+        }
+        let mut handles = bounded_join(vec![owner], deadline);
+        if !handles.is_empty() || !self.child.exited() {
+            self.child.stopping.store(true, Ordering::Release);
+            self.transport_stopping.store(true, Ordering::Release);
+            self.child.force_exit(Instant::now() + FORCE_EXIT_TIMEOUT);
+            handles = bounded_join(handles, Instant::now() + THREAD_JOIN_TIMEOUT);
+        }
+        if self.child.exited()
+            && handles.is_empty()
+            && self.cleanup.pending.load(Ordering::Acquire) == 1
+        {
+            WorkerCleanupStatus::Exited
+        } else {
+            if !handles.is_empty() || !self.child.exited() {
+                self.cleanup.retire(
+                    Arc::clone(&self.child),
+                    handles,
+                    Arc::clone(&self.transport_stopping),
+                    activity,
+                );
+            }
+            WorkerCleanupStatus::Pending
+        }
+    }
 }
 
 impl Drop for WorkerMailbox {
     fn drop(&mut self) {
-        let _ = self.command_tx.send(WorkerCommand::Shutdown);
-        if let Some(thread) = self.owner_thread.lock().take() {
-            let _ = thread.join();
-        }
+        self.shutdown();
     }
 }
 
 impl Drop for WorkerSession {
     fn drop(&mut self) {
-        self.request_graceful_shutdown();
-        self.terminate();
+        self.shutdown();
     }
 }

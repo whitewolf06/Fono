@@ -365,8 +365,8 @@ fn restore_profile_secrets(previous: &BTreeMap<String, Option<String>>) -> Strin
 }
 
 #[tauri::command]
-pub fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<()> {
-    crate::overlay::save_position(&app, x, y)
+pub async fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<()> {
+    crate::overlay::save_position(&app, x, y).await
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
