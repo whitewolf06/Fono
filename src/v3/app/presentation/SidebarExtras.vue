@@ -49,7 +49,10 @@ const detailTitle = computed(
 );
 </script>
 <template>
-  <section class="sidebar-extras" aria-label="О Fono и обновления">
+  <section
+    class="sidebar-extras"
+    aria-label="О Fono, обратная связь и обновления"
+  >
     <nav class="sidebar-extra-nav" aria-label="Дополнительная навигация">
       <RouterLink
         to="/releases"
@@ -91,6 +94,17 @@ const detailTitle = computed(
           :size="14"
         />
       </a>
+      <RouterLink
+        to="/settings/diagnostics"
+        active-class="active"
+        class="sidebar-extra-item"
+        title="Открыть обратную связь Fono"
+        aria-label="Открыть обратную связь Fono"
+      >
+        <AppIcon name="note" :size="16" /><span class="sidebar-extra-label"
+          >Обратная связь</span
+        >
+      </RouterLink>
     </nav>
     <div
       class="sidebar-update-row"

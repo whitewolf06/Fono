@@ -5,6 +5,7 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import StatusDot from "../../../shared/presentation/StatusDot.vue";
+import { FeedbackCard } from "../../feedback";
 import { DiagnosticReportCard } from "../../diagnostic-report";
 const workspace = useWorkspace();
 const { run, busy } = useFeedback();
@@ -23,6 +24,7 @@ async function checkAll() {
 </script>
 <template>
   <div class="form-stack">
+    <FeedbackCard />
     <DiagnosticReportCard :port="workspace.report" :copy="workspace.copy" />
     <div class="section-header">
       <h3>Компоненты</h3>

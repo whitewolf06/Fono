@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import { openProjectSite } from "../shared/infrastructure/browser";
+import { createBrowserFeedbackChannel } from "../features/feedback";
 import { createMockDiagnosticReport } from "../features/diagnostic-report";
 import { createMockUpdates } from "../features/updates";
 import { LIVE_DICTATION_ENABLED } from "../shared/domain/dictationMode";
@@ -182,6 +183,7 @@ export function createMockWorkspace(): Workspace {
   }
   return {
     report: createMockDiagnosticReport(state),
+    feedback: createBrowserFeedbackChannel(),
     updates,
     state,
     wake,

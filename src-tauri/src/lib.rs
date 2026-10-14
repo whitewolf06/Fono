@@ -325,6 +325,7 @@ pub fn run() {
             ipc::updates::cancel_update_download,
             ipc::updates::set_update_checks_enabled,
             ipc::project::open_project_site,
+            ipc::project::open_feedback_form,
             ipc::diagnostics::clear_logs,
             ipc::diagnostics::test_microphone,
             // wake word

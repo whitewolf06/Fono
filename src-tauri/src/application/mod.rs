@@ -6,6 +6,7 @@ pub mod command_proposal;
 pub mod desktop_transcription_runtime;
 pub mod diagnostic_report;
 pub mod diagnostics;
+pub mod feedback_form;
 pub mod dictation;
 pub mod dictation_result;
 pub mod dictation_tail_diagnostics;

@@ -297,6 +297,7 @@ export interface Workspace {
   commands: CommandsPort;
   service: ServicePort;
   report: DiagnosticReportPort;
+  feedback: import("../../features/feedback/domain/channel").FeedbackChannelPort;
   updates: UpdatesPort;
   openProjectSite(): Promise<void>;
   copy(text: string): Promise<void>;

@@ -65,6 +65,7 @@ fn main() {
             println!("cargo:rustc-env={name}={value}");
         }
     }
+    println!("cargo:rerun-if-changed=feedback-channel.json");
     println!("cargo:rerun-if-changed=../.git/HEAD");
 
     let revision = env::var("FONO_BUILD_REVISION").unwrap_or_else(|_| git_revision());

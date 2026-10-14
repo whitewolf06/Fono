@@ -11,6 +11,7 @@ import {
 import { call, subscribe } from "../shared/infrastructure/native/ipc";
 import { nativeWake } from "../shared/infrastructure/native/wake";
 import { nativeCommands } from "../features/commands/infrastructure/nativeCommands";
+import { createNativeFeedbackChannel } from "../features/feedback";
 import { createNativeDiagnosticReport } from "../features/diagnostic-report";
 import { createNativeUpdates } from "../features/updates";
 import type { PendingDictation } from "../shared/domain/processing";
@@ -172,6 +173,7 @@ export function createNativeWorkspace(): Workspace {
   return {
     native: true,
     report: createNativeDiagnosticReport(),
+    feedback: createNativeFeedbackChannel(),
     updates,
     state,
     refresh,

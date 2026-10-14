@@ -3,8 +3,12 @@ use crate::error::{AppError, AppResult};
 /// Fixed application metadata. IPC does not accept arbitrary URLs or commands.
 pub const PROJECT_SITE_URL: &str = "https://fono.gorbach-dev.ru/";
 
-#[cfg(windows)]
 pub fn open() -> AppResult<()> {
+    open_url(PROJECT_SITE_URL)
+}
+
+#[cfg(windows)]
+pub(crate) fn open_url(target: &str) -> AppResult<()> {
     use windows::{
         core::{w, PCWSTR},
         Win32::{
@@ -12,8 +16,8 @@ pub fn open() -> AppResult<()> {
             UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL},
         },
     };
-    let url: Vec<u16> = PROJECT_SITE_URL.encode_utf16().chain(Some(0)).collect();
-    // The URL buffer lives through this synchronous call and is NUL-terminated.
+    let url: Vec<u16> = target.encode_utf16().chain(Some(0)).collect();
+    // Callers supply only validated application metadata; IPC accepts no URLs.
     let result = unsafe {
         ShellExecuteW(
             HWND::default(),
@@ -26,15 +30,15 @@ pub fn open() -> AppResult<()> {
     };
     if result.0 as usize <= 32 {
         return Err(AppError::Config(
-            "Не удалось открыть сайт Fono. Проверьте браузер по умолчанию в Windows.".into(),
+            "Не удалось открыть браузер. Проверьте браузер по умолчанию в Windows.".into(),
         ));
     }
     Ok(())
 }
 
 #[cfg(not(windows))]
-pub fn open() -> AppResult<()> {
+pub(crate) fn open_url(_target: &str) -> AppResult<()> {
     Err(AppError::Config(
-        "Открытие сайта доступно в Windows-сборке Fono.".into(),
+        "Открытие браузера доступно в Windows-сборке Fono.".into(),
     ))
 }
