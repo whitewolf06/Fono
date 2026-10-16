@@ -290,7 +290,9 @@ impl Owner {
             // Never snapshot our own temporary text as the next user's backup.
             return Err(failure("clipboard restoration is still pending"));
         }
-
+        super::modifiers::wait_for_release(|| {
+            guard.is_some_and(|(_, cancel)| cancel.is_cancelled())
+        })?;
         ensure_target(guard)?;
         let window = unsafe { GetForegroundWindow() };
         if window.0.is_null() {
@@ -331,7 +333,10 @@ impl Owner {
             self.restore();
             return Err(error);
         }
-
+        if let Err(error) = super::modifiers::ensure_released() {
+            self.restore();
+            return Err(error);
+        }
         if guard.is_some_and(|(_, cancel)| cancel.is_cancelled())
             || unsafe { GetForegroundWindow() } != window
         {

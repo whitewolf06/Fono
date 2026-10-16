@@ -11,6 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::types::InjectionMode;
 #[cfg(windows)]
 mod clipboard;
+mod modifiers;
 pub mod target;
 
 #[cfg(windows)]
@@ -59,6 +60,7 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
     let mut total_sent = 0usize;
 
     for chunk in chars.chunks(BATCH) {
+        modifiers::wait_for_release(|| false)?;
         let inputs: Vec<INPUT> = chunk
             .iter()
             .flat_map(|&c| {
@@ -183,13 +185,26 @@ fn send_ctrl_v() -> AppResult<()> {
 
     let inputs = [down_ctrl, down_v, up_v, up_ctrl];
 
+    modifiers::ensure_released()?;
+    // Never emit our V-up while the user is physically holding V either.
+    if unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState(VK_V as i32) } as u16
+        & 0x8000
+        != 0
+    {
+        return Err(AppError::Injection("paste key is still held".into()));
+    }
+
     unsafe {
         let cbsize = std::mem::size_of::<INPUT>() as i32;
         let sent = SendInput(&inputs, cbsize);
         if sent != inputs.len() as u32 {
-            // A partial sequence can leave Ctrl logically pressed. Always try to
-            // release both keys before surfacing the failure.
-            let releases = [up_v, up_ctrl];
+            // Recover only synthetic downs accepted from our own prefix. The
+            // modifier gate never emits key-up for keys held by the user.
+            let releases: Vec<_> = match sent {
+                1 | 3 => vec![up_ctrl],
+                2 => vec![up_v, up_ctrl],
+                _ => Vec::new(),
+            };
             let _ = SendInput(&releases, cbsize);
             return Err(AppError::Injection(format!(
                 "SendInput(Ctrl+V) отправил только {sent} из {} событий",

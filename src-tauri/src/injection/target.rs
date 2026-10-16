@@ -206,6 +206,7 @@ mod platform {
         let mut bytes = 0;
         let mut chars = text.char_indices().peekable();
         while chars.peek().is_some() {
+            super::super::modifiers::wait_for_release(|| cancel.is_cancelled())?;
             if cancel.is_cancelled() || !super::matches(target) {
                 return Ok(AppendResult {
                     bytes,
