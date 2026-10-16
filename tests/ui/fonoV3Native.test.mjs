@@ -8,6 +8,7 @@ let server,
   nativeDictation,
   nativeWake,
   createNativeOverlay,
+  createNativeWorkspace,
   createPendingOverlay,
   rawDefaults,
   defaults;
@@ -51,6 +52,9 @@ before(async () => {
   ({ createNativeOverlay } = await server.ssrLoadModule(
     "/src/v3/features/overlay/infrastructure/nativeOverlay.ts",
   ));
+  ({ createNativeWorkspace } = await server.ssrLoadModule(
+    "/src/v3/app/nativeWorkspace.ts",
+  ));
   ({ createPendingOverlay } = await server.ssrLoadModule(
     "/src/v3/features/overlay/infrastructure/pendingOverlay.ts",
   ));
@@ -78,6 +82,41 @@ beforeEach(() => {
       return args.handler;
     }
     if (command === "get_settings") return structuredClone(rawDefaults);
+    if (command === "get_desktop_snapshot")
+      return {
+        state: "idle",
+        operation_id: 0,
+        source: null,
+        level: 0,
+        last: null,
+      };
+    if (command === "get_pending_dictation" || command === "get_live_dictation")
+      return null;
+    if (command === "get_acceleration_capabilities")
+      return { cuda: false, vulkan: false };
+    if (command === "get_local_transcription_service_snapshot")
+      return {
+        enabled: false,
+        address: "http://127.0.0.1:17832",
+        error: null,
+        history: { jobs: [] },
+        queue: { jobs: [] },
+      };
+    if (command === "get_stt_memory_status")
+      return {
+        mode: "resident",
+        residency: "unloaded",
+        monitoring: "disabled",
+        message: "",
+      };
+    if (command === "get_update_status")
+      return {
+        phase: "idle",
+        currentVersion: "0.7.11",
+        message: "",
+        checksEnabled: false,
+        downloadedBytes: 0,
+      };
     if (
       [
         "get_dictation_history",
@@ -151,6 +190,53 @@ function state() {
     testSignal: 0,
   };
 }
+
+test("native workspace has no steady idle IPC and audio events are operation-scoped", async () => {
+  const workspace = createNativeWorkspace();
+  try {
+    await workspace.refresh();
+    await flush();
+    const beforeIdle = calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    assert.equal(
+      calls.length,
+      beforeIdle,
+      "idle update status and session timers must not invoke IPC",
+    );
+    const baseline = invoke;
+    invoke = async (command, args) =>
+      command === "get_desktop_snapshot"
+        ? {
+            state: "listening",
+            operation_id: 42,
+            source: "hotkey",
+            level: 0,
+            last: null,
+          }
+        : baseline(command, args);
+    const emit = (kind, payload) =>
+      listeners.get("backend-event-v1")({
+        payload: { schema_version: 1, kind, payload },
+      });
+    emit("pipeline_state", { state: "listening" });
+    await flush();
+    assert.equal(workspace.state.phase, "listening");
+    const beforeLevels = calls.length;
+    emit("audio_level", { operation_id: 41, level: 0.12, elapsed_ms: 9000 });
+    assert.equal(workspace.state.audioLevel, 0);
+    emit("audio_level", { operation_id: 42, level: 0.06, elapsed_ms: 4100 });
+    assert.equal(workspace.state.audioLevel, 0.48);
+    assert.equal(workspace.state.elapsed, 4.1);
+    assert.equal(
+      calls.length,
+      beforeLevels,
+      "audio frames cannot trigger state getter IPC",
+    );
+  } finally {
+    workspace.dispose();
+    await flush();
+  }
+});
 test("native patches preserve unrelated settings, key flags and overlay coordinates", () => {
   const raw = structuredClone(rawDefaults);
   raw.overlay_x = -1200;

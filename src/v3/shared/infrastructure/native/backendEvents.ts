@@ -1,10 +1,11 @@
 import type { PipelineState, Settings } from "./ipcTypes";
+import type { GpuMemoryStatus } from "../../domain/gpuMemory";
 
 interface Payloads {
   operation: {
     kind: "phase_changed" | "finished";
     id: number;
-    source: "ui" | "hotkey" | "wake_word" | "api" | "command";
+    source: "ui" | "hotkey" | "wake_word" | "diagnostics" | "service";
     phase: string;
     reason?: string;
   };
@@ -40,6 +41,9 @@ interface Payloads {
     total_bytes?: number | null;
   };
   service: null;
+  history_changed: null;
+  gpu_memory_changed: GpuMemoryStatus;
+  audio_level: { operation_id: number; level: number; elapsed_ms: number };
   error: { code: string; message: string; operation_id: number | null };
 }
 export type BackendEventV1 = {
@@ -55,6 +59,9 @@ const kinds = new Set<keyof Payloads>([
   "stt_readiness",
   "model_download",
   "service",
+  "history_changed",
+  "gpu_memory_changed",
+  "audio_level",
   "error",
 ]);
 

@@ -269,9 +269,20 @@ export function nativeDictation(ctx: NativeContext) {
   }
   return {
     port,
+    dispose: () => sync.invalidate(),
     refresh: sync.refresh,
     accept: observe(accept),
     snapshot: observe(snapshot),
+    level(value: { operation_id: number; level: number; elapsed_ms: number }) {
+      if (
+        value.operation_id !== currentOperation ||
+        state.phase !== "listening"
+      )
+        return;
+      state.audioLevel = Math.min(1, Math.max(0, value.level * 8));
+      state.testSignal = state.audioLevel;
+      state.elapsed = Math.max(0, value.elapsed_ms / 1000);
+    },
     live: observe(live),
     pending(value: PendingDictation | null) {
       sync.invalidate();

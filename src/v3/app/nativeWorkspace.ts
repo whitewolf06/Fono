@@ -8,7 +8,11 @@ import {
   type NativeResult,
   type NativeLiveSnapshot,
 } from "../shared/infrastructure/native/dictation";
-import { call, subscribe } from "../shared/infrastructure/native/ipc";
+import {
+  call,
+  subscribe,
+  subscribeBackend,
+} from "../shared/infrastructure/native/ipc";
 import { nativeWake } from "../shared/infrastructure/native/wake";
 import { nativeCommands } from "../features/commands/infrastructure/nativeCommands";
 import { createNativeFeedbackChannel } from "../features/feedback";
@@ -62,12 +66,13 @@ export function createNativeWorkspace(): Workspace {
   const trainer = createNativeTrainer(call, ctx.readHistory);
   const wake = nativeWake(ctx);
   let disposed = false;
-  let polling = false;
   const releases: (() => void)[] = [];
   const subscriptions: Promise<void>[] = [];
   function bind<T>(channel: string, handler: (value: T) => void) {
     subscriptions.push(
-      subscribe(channel, handler)
+      subscribe<T>(channel, (value) => {
+        if (!disposed) handler(value);
+      })
         .then((release) => {
           if (disposed) release();
           else releases.push(release);
@@ -85,7 +90,6 @@ export function createNativeWorkspace(): Workspace {
   bind<string>("command-proposal", (proposal) => {
     state.commandProposal = proposal;
   });
-  bind("settings-changed", () => void ctx.readSettings().catch(ctx.report));
   if (typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)
     bind<{ reason: string; message: string }>(
       "wake-word-configuration-invalidated",
@@ -98,11 +102,6 @@ export function createNativeWorkspace(): Workspace {
     "speech-analysis-changed",
     () => void ctx.readHistory().catch(ctx.report),
   );
-  bind(
-    "local-transcription-service-changed",
-    () => void ctx.readService().catch(ctx.report),
-  );
-  bind<string>("error", (message) => ctx.report(message));
   if (typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)
     bind<string>("wake-word-status", (status) => {
       state.wakeStatus = status;
@@ -114,36 +113,60 @@ export function createNativeWorkspace(): Workspace {
         state.countdown = countdown;
       },
     );
-  bind<{
-    kind: string;
-    payload: {
-      model: string;
-      download_id: string;
-      phase: string;
-      downloaded_bytes: number;
-      total_bytes?: number;
-    };
-  }>("backend-event-v1", (event) => {
-    if (event.kind !== "model_download") return;
-    const progress = event.payload;
-    const model = state.models.find(
-      (m) => progress.download_id === "whisper:" + m.id,
-    );
-    if (model && !["completed", "cancelled"].includes(progress.phase)) {
-      model.status = "downloading";
-      model.progress = progress.total_bytes
-        ? Math.min(
-            99,
-            Math.round(
-              (100 * progress.downloaded_bytes) / progress.total_bytes,
-            ),
-          )
-        : 0;
-    } else {
-      if (model) model.status = "available";
-      void ctx.readModels().catch(ctx.report);
-    }
-  });
+  subscriptions.push(
+    subscribeBackend((event) => {
+      if (disposed) return;
+      switch (event.kind) {
+        case "audio_level":
+          dictation.level(event.payload);
+          return;
+        case "pipeline_state":
+        case "pipeline_mode":
+          void dictation.refresh().catch(ctx.report);
+          return;
+        case "settings":
+          void ctx.readSettings().catch(ctx.report);
+          return;
+        case "history_changed":
+          void ctx.readHistory().catch(ctx.report);
+          return;
+        case "service":
+          void ctx.readService().catch(ctx.report);
+          return;
+        case "gpu_memory_changed":
+          ctx.acceptGpuMemory(event.payload);
+          return;
+        case "error":
+          ctx.report(event.payload.message);
+          void dictation.refresh().catch(ctx.report);
+          return;
+      }
+      if (event.kind !== "model_download") return;
+      const progress = event.payload;
+      const model = state.models.find(
+        (m) => progress.download_id === "whisper:" + m.id,
+      );
+      if (model && !["completed", "cancelled"].includes(progress.phase)) {
+        model.status = "downloading";
+        model.progress = progress.total_bytes
+          ? Math.min(
+              99,
+              Math.round(
+                (100 * progress.downloaded_bytes) / progress.total_bytes,
+              ),
+            )
+          : 0;
+      } else {
+        if (model) model.status = "available";
+        void ctx.readModels().catch(ctx.report);
+      }
+    })
+      .then((release) => {
+        if (disposed) release();
+        else releases.push(release);
+      })
+      .catch(ctx.report),
+  );
   async function refresh() {
     try {
       await Promise.all(subscriptions);
@@ -158,25 +181,6 @@ export function createNativeWorkspace(): Workspace {
     }
   }
   void refresh();
-  const timer = setInterval(async () => {
-    if (disposed || polling || state.scenario !== "normal") return;
-    polling = true;
-    try {
-      await dictation.refresh();
-    } catch (error) {
-      ctx.report(error);
-    } finally {
-      polling = false;
-    }
-  }, 160);
-  const dataTimer = setInterval(() => {
-    if (!disposed && state.scenario === "normal")
-      void Promise.all([
-        ctx.readService(),
-        ctx.readHistory(),
-        ctx.readGpuMemory(),
-      ]).catch(ctx.report);
-  }, 3000);
   return {
     native: true,
     report: createNativeDiagnosticReport(),
@@ -280,10 +284,10 @@ export function createNativeWorkspace(): Workspace {
     },
     dispose() {
       disposed = true;
+      ctx.dispose();
+      dictation.dispose();
       void trainer.cancelPeriod().catch(ctx.report);
-      clearInterval(timer);
       updates.dispose();
-      clearInterval(dataTimer);
       releases.forEach((release) => release());
     },
   };

@@ -72,6 +72,7 @@ pub(super) fn start(app: AppHandle) {
             let tick_app = app.clone();
             let result = tauri::async_runtime::spawn_blocking(move || {
                 tick(&tick_app, &mut sampler);
+                publish_if_changed(&tick_app);
                 sampler
             })
             .await;

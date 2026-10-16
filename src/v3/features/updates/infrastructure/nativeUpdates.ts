@@ -68,7 +68,8 @@ export function createNativeUpdates(
     }
   }
   const timer = setInterval(() => {
-    void refresh().catch(() => {});
+    if (activeActions || updateBusy(state.phase))
+      void refresh().catch(() => {});
   }, 2000);
   void refresh().catch(() => {
     state.phase = "error";

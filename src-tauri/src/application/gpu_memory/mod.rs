@@ -11,7 +11,7 @@ use serde::Serialize;
 use std::{sync::atomic::AtomicBool, time::Instant};
 use tauri::{AppHandle, Manager};
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Residency {
     Unloaded,
@@ -19,7 +19,7 @@ pub(crate) enum Residency {
     Active,
 }
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Monitoring {
     Disabled,
@@ -28,9 +28,9 @@ pub(crate) enum Monitoring {
     Unsupported,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct SttMemoryStatus {
+pub struct SttMemoryStatus {
     mode: GpuModelResidency,
     residency: Residency,
     monitoring: Monitoring,
@@ -53,6 +53,7 @@ pub(crate) struct SttMemoryRuntime {
     snapshot: Mutex<Snapshot>,
     policy: Mutex<policy::Policy>,
     epoch: Instant,
+    published: Mutex<Option<SttMemoryStatus>>,
 }
 
 impl Default for SttMemoryRuntime {
@@ -67,8 +68,19 @@ impl Default for SttMemoryRuntime {
             }),
             policy: Mutex::new(policy::Policy::default()),
             epoch: Instant::now(),
+            published: Mutex::new(None),
         }
     }
+}
+
+pub(crate) fn publish_if_changed(app: &AppHandle) {
+    let status = status(app);
+    let runtime = app.state::<SttMemoryRuntime>();
+    let mut previous = runtime.published.lock();
+    if previous.as_ref() == Some(&status) { return; }
+    *previous = Some(status.clone());
+    drop(previous);
+    crate::events::emit_gpu_memory_changed(app, status);
 }
 
 pub(crate) fn start(app: AppHandle) {

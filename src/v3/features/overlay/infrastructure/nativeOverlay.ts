@@ -4,7 +4,11 @@ import type { Settings } from "../../../shared/infrastructure/native/ipcTypes";
 import type { Phase, LiveDictation } from "../../../shared/domain/contracts";
 import { defaults } from "../../preferences/domain/preferences";
 import { preferencesFromNative } from "../../../shared/infrastructure/native/mapping";
-import { call, subscribe } from "../../../shared/infrastructure/native/ipc";
+import {
+  call,
+  subscribe,
+  subscribeBackend,
+} from "../../../shared/infrastructure/native/ipc";
 import type {
   NativeSnapshot,
   NativeLiveSnapshot,
@@ -48,6 +52,8 @@ export function createNativeOverlay() {
   const releases: (() => void)[] = [];
   const readiness: Promise<unknown>[] = [];
   let moveTimer: ReturnType<typeof setTimeout> | undefined;
+  let sessionRevision = 0;
+  let queued = false;
   const fail = (error: unknown) => {
     if (disposed) return;
     state.error = error instanceof Error ? error.message : String(error);
@@ -170,7 +176,6 @@ export function createNativeOverlay() {
         state.seconds = v.speaking ? 0 : Math.ceil(v.remaining_ms / 1000);
       },
     );
-  void hydration.load(readiness).catch(fail);
   const window = getCurrentWindow();
   void window
     .onMoved(({ payload: { x, y } }) => {
@@ -181,9 +186,14 @@ export function createNativeOverlay() {
     })
     .then((release) => (disposed ? release() : releases.push(release)))
     .catch(fail);
-  const timer = setInterval(async () => {
-    if (disposed || polling) return;
+  async function refreshSession(readPending = true) {
+    if (disposed) return;
+    if (polling) {
+      queued = true;
+      return;
+    }
     polling = true;
+    const revision = sessionRevision;
     const ticket = pending.stamp();
     try {
       const [v, live, dictation] = await Promise.all([
@@ -192,9 +202,12 @@ export function createNativeOverlay() {
         __FONO_EXPERIMENTAL_LIVE__
           ? call<NativeLiveSnapshot | null>("get_live_dictation")
           : Promise.resolve(null),
-        call<PendingDictation | null>("get_pending_dictation"),
+        readPending
+          ? call<PendingDictation | null>("get_pending_dictation")
+          : Promise.resolve(state.pending),
       ]);
       if (disposed) return;
+      if (revision !== sessionRevision) return;
       if (v.operation_id > 0 && v.operation_id < operation) return;
       if (!pending.current(ticket)) return;
       state.sessionId = v.operation_id > 0 ? v.operation_id : null;
@@ -230,8 +243,37 @@ export function createNativeOverlay() {
       if (pending.current(ticket)) fail(error);
     } finally {
       polling = false;
+      if (queued && !disposed) {
+        queued = false;
+        void refreshSession();
+      }
     }
-  }, 120);
+  }
+  readiness.push(
+    subscribeBackend((event) => {
+      if (disposed) return;
+      if (event.kind === "audio_level") {
+        if (
+          event.payload.operation_id !== operation ||
+          state.phase !== "listening"
+        )
+          return;
+        state.level = Math.min(1, Math.max(0, event.payload.level * 8));
+        state.elapsed = Math.floor(event.payload.elapsed_ms / 1000);
+      } else if (
+        ["pipeline_state", "pipeline_mode", "error"].includes(event.kind)
+      ) {
+        sessionRevision++;
+        void refreshSession();
+      }
+    })
+      .then((release) => (disposed ? release() : releases.push(release)))
+      .catch(fail),
+  );
+  void hydration
+    .load(readiness)
+    .then(() => refreshSession(false))
+    .catch(fail);
   return {
     state,
     processing: controls.state,
@@ -280,7 +322,6 @@ export function createNativeOverlay() {
     },
     dispose() {
       disposed = true;
-      clearInterval(timer);
       clearTimeout(moveTimer);
       controls.dispose();
       releaseLayout();

@@ -7,6 +7,7 @@ import type {
   LocalTranscriptionServiceSnapshot,
 } from "./ipcTypes";
 import { call } from "./ipc";
+import { createCoalescedRead } from "./coalescedRead";
 import type { GpuMemoryStatus } from "../../domain/gpuMemory";
 import {
   preferencesFromNative,
@@ -17,35 +18,49 @@ import {
   applyPreferences,
 } from "./mapping";
 import type { DictationHistoryEntry } from "./ipcTypes";
-export function createNativeContext(state: WorkspaceState) {
+export function createNativeContext(
+  state: WorkspaceState,
+  visible: () => boolean = () => true,
+) {
   let models: WhisperModelInfo[] = [];
   let saveTail: Promise<unknown> = Promise.resolve();
   let historyInitialized = false;
+  let disposed = false;
+  let settingsGeneration = 0;
+  let refreshGeneration = 0;
+  let devicesGeneration = 0;
+  const active = () => !disposed && visible();
   function serialize<T>(action: () => Promise<T>): Promise<T> {
     const task = saveTail.catch(() => {}).then(action);
     saveTail = task;
     return task;
   }
   function report(error: unknown) {
+    if (disposed) return;
     const message = error instanceof Error ? error.message : String(error);
     state.error = message;
     state.logs.unshift(message);
   }
   async function readSettings() {
+    const ticket = ++settingsGeneration;
     const raw = await call<Settings>("get_settings");
+    if (!active() || ticket !== settingsGeneration) return raw;
+    const custom =
+      raw.whisper_model_path &&
+      !models.some((model) => model.local_path === raw.whisper_model_path);
+    const selected = custom
+      ? await call<{ path: string; filename: string; bytes: number } | null>(
+          "get_selected_model_metadata",
+        )
+      : null;
+    // Settings callers, including wake research, retain their Settings return value;
+    // only the latest live request may publish preferences or custom-model metadata.
+    if (!active() || ticket !== settingsGeneration) return raw;
     state.preferences = preferencesFromNative(raw, models);
     state.profiles = profilesFromNative(raw);
-    if (
-      raw.whisper_model_path &&
-      !models.some((m) => m.local_path === raw.whisper_model_path)
-    ) {
-      const selected = await call<{
-        path: string;
-        filename: string;
-        bytes: number;
-      } | null>("get_selected_model_metadata");
-      state.models = state.models.filter((m) => !m.custom);
-      if (selected)
+    if (custom) {
+      state.models = state.models.filter((model) => !model.custom);
+      if (selected && selected.path === raw.whisper_model_path)
         state.models.push({
           id: selected.path,
           name: selected.filename,
@@ -56,41 +71,54 @@ export function createNativeContext(state: WorkspaceState) {
           custom: true,
         });
     }
-    state.applications = raw.launch_apps.map((a, i) => ({
-      id: String(i),
-      name: a.name,
-      path: a.exe_path,
-      phrase: a.aliases.join(", "),
+    state.applications = raw.launch_apps.map((app, index) => ({
+      id: String(index),
+      name: app.name,
+      path: app.exe_path,
+      phrase: app.aliases.join(", "),
     }));
     return raw;
   }
-  async function readModels() {
-    models = await call<WhisperModelInfo[]>("list_whisper_models");
-    const downloading = state.models.filter((m) => m.status === "downloading");
-    state.models = modelsFromNative(models).map((m) =>
-      m.status === "installed"
-        ? m
-        : downloading.find((d) => d.id === m.id) || m,
-    );
-  }
-  async function readHistory() {
-    state.history = (
-      await call<DictationHistoryEntry[]>("get_dictation_history")
-    ).map(historyFromNative);
-    if (!historyInitialized && !state.last.entry && state.history.length) {
-      const entry = state.history[0];
-      state.last = {
-        entry,
-        variant: "result",
-        draft: entry.text,
-        edited: false,
-        undo: null,
-      };
-    }
-    historyInitialized = true;
-  }
+  const modelRead = createCoalescedRead(
+    () => call<WhisperModelInfo[]>("list_whisper_models"),
+    (value) => {
+      models = value;
+      const downloading = state.models.filter(
+        (model) => model.status === "downloading",
+      );
+      state.models = modelsFromNative(models).map((model) =>
+        model.status === "installed"
+          ? model
+          : downloading.find((download) => download.id === model.id) || model,
+      );
+    },
+    active,
+  );
+  const readModels = modelRead.refresh;
+  const historyRead = createCoalescedRead(
+    () => call<DictationHistoryEntry[]>("get_dictation_history"),
+    (value) => {
+      state.history = value.map(historyFromNative);
+      if (!historyInitialized && !state.last.entry && state.history.length) {
+        const entry = state.history[0];
+        state.last = {
+          entry,
+          variant: "result",
+          draft: entry.text,
+          edited: false,
+          undo: null,
+        };
+      }
+      historyInitialized = true;
+    },
+    active,
+  );
+  const readHistory = historyRead.refresh;
   async function readDevices() {
+    if (!active()) return;
+    const ticket = ++devicesGeneration;
     const devices = await call<DeviceInfo[]>("list_audio_devices");
+    if (!active() || ticket !== devicesGeneration) return;
     state.devices = [
       { value: "system", label: "Системный микрофон" },
       ...devices.map((d) => ({ value: d.id, label: d.name })),
@@ -101,38 +129,64 @@ export function createNativeContext(state: WorkspaceState) {
         : d.id === state.preferences.microphone,
     );
   }
-  async function readService() {
-    const service = await call<
-      LocalTranscriptionServiceSnapshot & {
-        enabled: boolean;
-        error: string | null;
+  const serviceRead = createCoalescedRead(
+    () =>
+      call<
+        LocalTranscriptionServiceSnapshot & {
+          enabled: boolean;
+          error: string | null;
+        }
+      >("get_local_transcription_service_snapshot"),
+    (service) => {
+      state.serviceAddress = service.address;
+      state.serviceError = service.error || "";
+      if (!state.pending.serviceEnabled)
+        state.preferences.serviceEnabled = service.enabled;
+      state.jobs = [
+        ...new Map(
+          [...service.history.jobs, ...service.queue.jobs].map((job) => [
+            job.id,
+            job,
+          ]),
+        ).values(),
+      ]
+        .sort((left, right) => right.created_at_ms - left.created_at_ms)
+        .map(jobFromNative);
+    },
+    active,
+  );
+  const readService = serviceRead.refresh;
+  const gpuRead = createCoalescedRead(
+    async () => {
+      try {
+        return { status: await call<GpuMemoryStatus>("get_stt_memory_status") };
+      } catch {
+        return { status: undefined };
       }
-    >("get_local_transcription_service_snapshot");
-    state.serviceAddress = service.address;
-    state.serviceError = service.error || "";
-    if (!state.pending.serviceEnabled)
-      state.preferences.serviceEnabled = service.enabled;
-    state.jobs = [
-      ...new Map(
-        [...service.history.jobs, ...service.queue.jobs].map((j) => [j.id, j]),
-      ).values(),
-    ]
-      .sort((a, b) => b.created_at_ms - a.created_at_ms)
-      .map(jobFromNative);
-  }
-  async function readGpuMemory() {
-    try {
-      state.gpuMemory = await call<GpuMemoryStatus>("get_stt_memory_status");
-      state.gpuMemoryError = "";
-    } catch {
-      state.gpuMemory = undefined;
-      state.gpuMemoryError =
-        "Не удалось получить состояние видеопамяти. Проверка повторится автоматически.";
-    }
+    },
+    ({ status }) => {
+      state.gpuMemory = status;
+      state.gpuMemoryError = status
+        ? ""
+        : "Не удалось получить состояние видеопамяти. Проверка повторится автоматически.";
+    },
+    active,
+  );
+  const readGpuMemory = gpuRead.refresh;
+  function acceptGpuMemory(status: GpuMemoryStatus) {
+    gpuRead.invalidate();
+    if (!active()) return;
+    state.gpuMemory = status;
+    state.gpuMemoryError = "";
   }
   async function refresh() {
+    const ticket = ++refreshGeneration;
+    const current = () => active() && ticket === refreshGeneration;
+    if (!current()) return;
     await readModels();
+    if (!current()) return;
     await readSettings();
+    if (!current()) return;
     const results = await Promise.allSettled([
       readHistory(),
       readDevices(),
@@ -141,6 +195,7 @@ export function createNativeContext(state: WorkspaceState) {
       call<{ cuda: boolean; vulkan: boolean }>(
         "get_acceleration_capabilities",
       ).then((c) => {
+        if (!current()) return;
         state.accelerations = [
           { value: "auto", label: "Авто · рекомендуется" },
           { value: "cpu", label: "Процессор" },
@@ -149,15 +204,19 @@ export function createNativeContext(state: WorkspaceState) {
         ];
       }),
       call<WakeWordCapabilities>("get_wake_word_capabilities").then((c) => {
+        if (!current()) return;
         state.wakePhrases = c.supported_phrases;
       }),
       call<string>("get_wake_word_status").then((s) => {
+        if (!current()) return;
         state.wakeStatus = s;
       }),
       call<string>("get_recent_logs", { lines: 80 }).then((log) => {
+        if (!current()) return;
         state.logs = log.split("\n").reverse();
       }),
     ]);
+    if (!current()) return;
     for (const result of results)
       if (result.status === "rejected") report(result.reason);
   }
@@ -189,6 +248,16 @@ export function createNativeContext(state: WorkspaceState) {
     readDevices,
     readService,
     readGpuMemory,
+    acceptGpuMemory,
+    dispose() {
+      disposed = true;
+      settingsGeneration++;
+      devicesGeneration++;
+      refreshGeneration++;
+      [modelRead, historyRead, serviceRead, gpuRead].forEach((reader) =>
+        reader.dispose(),
+      );
+    },
   };
 }
 export type NativeContext = ReturnType<typeof createNativeContext>;

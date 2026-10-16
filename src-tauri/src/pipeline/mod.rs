@@ -25,6 +25,7 @@ use fono_core::{
 #[cfg(test)]
 mod capture_tests;
 pub mod completion;
+mod meter;
 mod processing_choice;
 pub mod scheduler;
 mod session_control;
@@ -57,6 +58,7 @@ pub struct Pipeline {
     scheduler: Arc<scheduler::SttScheduler>,
     session_settings: Mutex<Option<(u64, crate::types::Settings)>>,
     processing_frozen_for: AtomicU64,
+    meter_operation: AtomicU64,
 }
 
 impl Pipeline {
@@ -86,6 +88,7 @@ impl Pipeline {
             scheduler: Arc::new(scheduler::SttScheduler::default()),
             session_settings: Mutex::new(None),
             processing_frozen_for: AtomicU64::new(0),
+            meter_operation: AtomicU64::new(0),
         }
     }
 
@@ -515,6 +518,7 @@ pub fn set_state(handle: &AppHandle, state: &AppState, new: PipelineState) {
     state.set_pipeline_state(new);
     tracing::debug!("pipeline state -> {new:?}");
     crate::events::emit_pipeline_state(handle, new);
+    meter::sync(handle, new);
 
     sync_overlay_window(handle, new);
 }
@@ -543,6 +547,7 @@ pub fn set_state_for_operation(
     state.set_pipeline_state(new);
     tracing::debug!(operation = operation_id, "pipeline state -> {new:?}");
     crate::events::emit_pipeline_state(handle, new);
+    meter::sync(handle, new);
     // Publish under the capture fence, but never hold it across window dispatch.
     drop(_capture);
     sync_overlay_window(handle, new);
@@ -558,6 +563,7 @@ pub(crate) fn set_idle_if_no_operation(
     let committed = pipeline.while_idle(|| {
         state.set_pipeline_state(PipelineState::Idle);
         crate::events::emit_pipeline_state(handle, PipelineState::Idle);
+        meter::sync(handle, PipelineState::Idle);
     });
     if committed {
         sync_overlay_window(handle, PipelineState::Idle);
