@@ -172,8 +172,8 @@ impl AudioStream {
             let started = Instant::now();
             let mut losses = CaptureLossMonitor::new(initial_dropped);
             let mut mono = Vec::with_capacity(MAX_INTERLEAVED_SAMPLES);
-            let mut output = Vec::new();
             let mut resampler = StreamingResampler::new(rate, target_sample_rate);
+            let mut output = Vec::with_capacity(resampler.output_capacity(MAX_INTERLEAVED_SAMPLES));
             while !stop.load(Ordering::Acquire) {
                 let (newly_dropped, recent_dropped) =
                     losses.observe(worker_dropped.load(Ordering::Relaxed), started.elapsed());
