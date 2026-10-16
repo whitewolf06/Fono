@@ -39,9 +39,11 @@ Push-Location src-tauri
 try {
     cargo fmt --all --check
     cargo clippy --locked --workspace --all-targets --target-dir target-codex-review -- -D warnings
-    cargo check --locked -p fono --no-default-features --target-dir target-codex-review
-    cargo check --locked -p fono --no-default-features --features whisper-wake --target-dir target-codex-review
-    cargo check --locked -p fono --no-default-features --features sherpa-wake --target-dir target-codex-review
+    cargo check --locked -p fono --no-default-features --all-targets --target-dir target-codex-review
+    cargo check --locked -p fono --no-default-features --features wake-word --all-targets --target-dir target-codex-review
+    cargo check --locked -p fono --no-default-features --features sherpa-wake --all-targets --target-dir target-codex-review
+    cargo check --locked -p fono --no-default-features --features experimental-live --all-targets --target-dir target-codex-review
+    cargo check --locked -p fono --no-default-features --features experimental-live,sherpa-wake --all-targets --target-dir target-codex-review
     cargo check --locked -p fono --target-dir target-codex-review
     cargo deny --config deny.toml check
 } finally {
@@ -50,6 +52,13 @@ try {
 ```
 
 Wrapper собирает выбранные тесты и размещает закреплённые Sherpa/ONNX DLL рядом с executable. Одного `PATH` на Windows недостаточно: системный ONNX runtime может оказаться несовместимым. Подробности — [CI и ресурсы](fono-ci-updates.md), политика лицензий и advisories — [dependency-policy.md](dependency-policy.md).
+
+Обычная сборка включает `speech-vad`, а её dependency tree не содержит
+`fono-wake`. Feature `wake-word` проверяет совместимость без engine;
+`sherpa-wake` добавляет только исследовательские потоковые RU/EN backends.
+Устаревшие Whisper Experimental и KWS удалены. Эти compile-проверки и
+`experimental-live` не включают замороженные функции в интерфейсе и не заменяют
+проверку качества на голосе владельца.
 
 Тесты покрывают владение операциями и leases, stale/duplicate Stop и Cancel, ошибки LLM transport, отказ окна индикатора, readiness и protocol-3 worker fixtures. Они используют адаптеры и проверяют отдельные контракты; работа настоящего Whisper, микрофона и GPU требует desktop-проверки.
 

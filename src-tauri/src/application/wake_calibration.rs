@@ -74,7 +74,7 @@ pub async fn record_next(app: AppHandle) -> AppResult<WakeCalibrationStatus> {
             {
                 let _ = (config, samples);
                 Err::<[bool; 5], _>(fono_wake::WakeWordError::BackendNotCompiled(
-                    fono_wake::WakeWordBackend::SherpaOnnx,
+                    fono_wake::WakeWordBackend::SherpaStreamingRu,
                 ))
             }
         })

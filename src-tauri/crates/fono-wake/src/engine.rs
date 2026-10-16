@@ -203,26 +203,16 @@ fn build_engine(
     audio_hub: AudioHub,
 ) -> WakeWordResult<Option<Box<dyn WakeWordEngine>>> {
     validate_config(config)?;
-    #[cfg(not(any(feature = "whisper-wake", feature = "sherpa-wake")))]
+    #[cfg(not(feature = "sherpa-wake"))]
     let _ = audio_hub;
 
     match config.backend {
         WakeWordBackend::Disabled => Ok(None),
         WakeWordBackend::Mock => Ok(Some(Box::new(backend::MockBackend::new(config.clone())))),
-        WakeWordBackend::WhisperExperimental => {
-            #[cfg(feature = "whisper-wake")]
-            {
-                Ok(Some(Box::new(backend::WhisperExperimentalBackend::new(
-                    config.clone(),
-                    audio_hub,
-                ))))
-            }
-            #[cfg(not(feature = "whisper-wake"))]
+        WakeWordBackend::WhisperExperimental | WakeWordBackend::SherpaOnnx => {
             Err(crate::WakeWordError::BackendNotCompiled(config.backend))
         }
-        WakeWordBackend::SherpaOnnx
-        | WakeWordBackend::SherpaStreamingRu
-        | WakeWordBackend::SherpaStreamingEn => {
+        WakeWordBackend::SherpaStreamingRu | WakeWordBackend::SherpaStreamingEn => {
             #[cfg(feature = "sherpa-wake")]
             {
                 Ok(Some(Box::new(backend::SherpaOnnxBackend::new(

@@ -14,7 +14,6 @@ pub mod engine;
 pub mod error;
 pub mod event;
 pub mod models;
-mod phrases;
 #[cfg(feature = "sherpa-wake")]
 pub mod replay;
 #[cfg(feature = "sherpa-wake")]
@@ -24,8 +23,6 @@ pub mod test;
 pub use speech_vad::{RecordedSpeechDecision, SpeechVadDecision, StreamingSpeechVad};
 
 pub use audio_source::{AudioCursor, AudioHub, AudioPacket, AudioSubscription};
-#[cfg(feature = "whisper-wake")]
-pub use backend::test_whisper_with_samples;
 pub use callback::WakeCallback;
 pub use config::WakeWordConfig;
 pub use diag::Diagnostics;

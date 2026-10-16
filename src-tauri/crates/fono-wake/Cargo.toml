@@ -16,15 +16,9 @@ parking_lot = "0.12"
 crossbeam-channel = "0.5"
 cpal = "0.15"
 
-# Whisper backend
-whisper-rs = { version = "0.16", optional = true }
-
 # Sherpa-ONNX backend
 sherpa-onnx = { version = "1.13", optional = true, default-features = false, features = ["shared"] }
 
 [features]
-default = ["whisper-wake"]
-whisper-wake = ["dep:whisper-rs"]
+default = []
 sherpa-wake = ["dep:sherpa-onnx", "fono-audio/speech-vad"]
-cuda = ["whisper-rs?/cuda"]
-vulkan = ["whisper-rs?/vulkan"]

@@ -151,15 +151,3 @@ impl Drop for SherpaOnnxBackend {
         let _ = self.stop();
     }
 }
-pub(crate) fn map_sensitivity(s: f32) -> f32 {
-    0.5 + s.clamp(0.0, 1.0) * 3.5
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn clamps_sensitivity() {
-        assert_eq!(map_sensitivity(-1.0), 0.5);
-        assert_eq!(map_sensitivity(2.0), 4.0);
-    }
-}

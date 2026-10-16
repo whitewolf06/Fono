@@ -37,32 +37,15 @@ pub struct WakeWordCapabilities {
 
 pub fn capabilities_for_backend(backend: WakeWordBackend) -> WakeWordCapabilities {
     match backend {
-        WakeWordBackend::Disabled => WakeWordCapabilities {
+        WakeWordBackend::Disabled
+        | WakeWordBackend::WhisperExperimental
+        | WakeWordBackend::SherpaOnnx => WakeWordCapabilities {
             backend,
             supports_custom_phrase: false,
             supported_phrases: Vec::new(),
             includes_pre_roll: false,
             available_languages: vec!["ru".into(), "en".into()],
             supported_languages: Vec::new(),
-        },
-        WakeWordBackend::WhisperExperimental => WakeWordCapabilities {
-            backend,
-            supports_custom_phrase: true,
-            supported_phrases: Vec::new(),
-            includes_pre_roll: true,
-            available_languages: vec!["ru".into(), "en".into()],
-            supported_languages: vec!["ru".into(), "en".into()],
-        },
-        WakeWordBackend::SherpaOnnx => WakeWordCapabilities {
-            backend,
-            supports_custom_phrase: false,
-            supported_phrases: crate::phrases::SHERPA_SUPPORTED_PHRASES
-                .iter()
-                .map(|phrase| (*phrase).to_string())
-                .collect(),
-            includes_pre_roll: true,
-            available_languages: vec!["ru".into(), "en".into()],
-            supported_languages: vec!["en".into()],
         },
         WakeWordBackend::SherpaStreamingRu | WakeWordBackend::SherpaStreamingEn => {
             WakeWordCapabilities {
@@ -137,21 +120,16 @@ mod tests {
     use super::{capabilities_for_backend, WakeWordBackend};
 
     #[test]
-    fn sherpa_advertises_only_bundled_phrases() {
-        let capabilities = capabilities_for_backend(WakeWordBackend::SherpaOnnx);
-        assert!(!capabilities.supports_custom_phrase);
-        assert_eq!(
-            capabilities.supported_phrases,
-            ["hey fono", "okay fun", "рамзи"]
-        );
-        assert!(capabilities.includes_pre_roll);
-    }
-
-    #[test]
-    fn whisper_advertises_custom_phrase_and_pre_roll() {
-        let capabilities = capabilities_for_backend(WakeWordBackend::WhisperExperimental);
-        assert!(capabilities.supports_custom_phrase);
-        assert!(capabilities.supported_phrases.is_empty());
-        assert!(capabilities.includes_pre_roll);
+    fn retired_backends_advertise_no_detection_capabilities() {
+        for backend in [
+            WakeWordBackend::SherpaOnnx,
+            WakeWordBackend::WhisperExperimental,
+        ] {
+            let capabilities = capabilities_for_backend(backend);
+            assert!(!capabilities.supports_custom_phrase);
+            assert!(capabilities.supported_phrases.is_empty());
+            assert!(capabilities.supported_languages.is_empty());
+            assert!(!capabilities.includes_pre_roll);
+        }
     }
 }

@@ -49,8 +49,9 @@ pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestRepor
             config.phrase = "light up".into();
             (config.model_dir.join("test_wavs").join("0.wav"), false)
         }
-        fono_wake::WakeWordBackend::SherpaOnnx => {
-            (config.model_dir.join("test_wavs").join("0.wav"), true)
+        fono_wake::WakeWordBackend::SherpaOnnx
+        | fono_wake::WakeWordBackend::WhisperExperimental => {
+            return Err(fono_wake::WakeWordError::BackendNotCompiled(config.backend).into());
         }
         _ => {
             return Err(AppError::Config(

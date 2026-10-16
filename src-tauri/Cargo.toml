@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "fono"
-version = "0.7.8"
+version = "0.7.9"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -105,11 +105,10 @@ speech-vad = ["fono-audio/speech-vad"]
 wake-word = ["dep:fono-wake"]
 experimental-live = []
 # Встроенное GPU-ускорение через CUDA для явной сборки с CUDA Toolkit.
-cuda = ["whisper-rs/cuda", "fono-wake?/cuda"]
+cuda = ["whisper-rs/cuda"]
 # Встроенное GPU-ускорение через Vulkan для явной сборки с Vulkan SDK.
-vulkan = ["whisper-rs/vulkan", "fono-wake?/vulkan"]
+vulkan = ["whisper-rs/vulkan"]
 # Wake word backends
-whisper-wake = ["wake-word", "fono-wake/whisper-wake"]
 sherpa-wake = ["wake-word", "speech-vad", "fono-wake/sherpa-wake"]
 
 [profile.dev]

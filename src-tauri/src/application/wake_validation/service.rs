@@ -175,7 +175,7 @@ fn profile_for_validation(settings: &Settings) -> AppResult<&WakeCalibrationProf
 
 #[cfg(test)]
 mod tests {
-    use super::super::rules::{NEGATIVE_REQUIRED, POSITIVE_REQUIRED, SHERPA_MODEL_VERSION};
+    use super::super::rules::{NEGATIVE_REQUIRED, POSITIVE_REQUIRED, STREAMING_MODEL_VERSION};
     use super::*;
     use crate::types::WakeWordBackend;
 
@@ -184,9 +184,9 @@ mod tests {
         validation: Option<WakeCalibrationValidation>,
     ) -> WakeCalibrationProfile {
         WakeCalibrationProfile {
-            backend: WakeWordBackend::SherpaOnnx,
-            model_version: SHERPA_MODEL_VERSION.into(),
-            phrase: "рамзи".into(),
+            backend: WakeWordBackend::SherpaStreamingRu,
+            model_version: STREAMING_MODEL_VERSION.into(),
+            phrase: "эй фоно".into(),
             graph: crate::application::wake_calibration::profile_graph(settings),
             threshold: settings.wake_word_threshold,
             sensitivity: settings.wake_word_sensitivity,
@@ -202,9 +202,10 @@ mod tests {
     }
 
     #[test]
-    fn ramzi_listener_requires_a_current_successful_validation() {
+    fn streaming_listener_requires_a_current_successful_validation() {
         let mut settings = Settings {
-            wake_word: "рамзи".into(),
+            wake_backend: WakeWordBackend::SherpaStreamingRu,
+            wake_word: "эй фоно".into(),
             ..Settings::default()
         };
         assert!(ensure_profile_can_activate(&settings).is_err());

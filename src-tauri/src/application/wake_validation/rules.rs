@@ -11,8 +11,7 @@ const CLIPPING_PEAK: f32 = 0.985;
 const ACTIVE_SIGNAL: f32 = 0.02;
 const MIN_ACTIVE_MS: u64 = 300;
 #[cfg(test)]
-pub(super) const SHERPA_MODEL_VERSION: &str =
-    "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01";
+pub(super) const STREAMING_MODEL_VERSION: &str = fono_wake::models::RU_MODEL.directory;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct WakeProfileValidationStatus {
@@ -95,8 +94,7 @@ pub(super) fn requires_profile(settings: &Settings) -> bool {
     matches!(
         settings.wake_backend,
         WakeWordBackend::SherpaStreamingRu | WakeWordBackend::SherpaStreamingEn
-    ) || (settings.wake_backend == WakeWordBackend::SherpaOnnx
-        && settings.wake_word.trim().eq_ignore_ascii_case("рамзи"))
+    )
 }
 
 pub(super) fn profile_matches_settings(
@@ -147,13 +145,14 @@ mod tests {
     #[test]
     fn profile_matching_rejects_changed_sensitivity() {
         let mut settings = Settings {
-            wake_word: "рамзи".into(),
+            wake_backend: WakeWordBackend::SherpaStreamingRu,
+            wake_word: "эй фоно".into(),
             ..Settings::default()
         };
         let profile = WakeCalibrationProfile {
-            backend: WakeWordBackend::SherpaOnnx,
-            model_version: SHERPA_MODEL_VERSION.into(),
-            phrase: "рамзи".into(),
+            backend: WakeWordBackend::SherpaStreamingRu,
+            model_version: STREAMING_MODEL_VERSION.into(),
+            phrase: "эй фоно".into(),
             graph: crate::application::wake_calibration::profile_graph(&settings),
             threshold: settings.wake_word_threshold,
             sensitivity: settings.wake_word_sensitivity,

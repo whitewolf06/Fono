@@ -3,7 +3,6 @@ use crate::{
     error::{AppError, AppResult},
     events::ModelDownloadPhaseV1,
     state::{self, AppState},
-    types::WakeWordBackend,
 };
 use std::{path::Path, sync::atomic::Ordering};
 use tauri::{AppHandle, Manager};
@@ -12,12 +11,6 @@ const RECEIPT: &str = ".fono-model-manifest.json";
 
 pub fn is_kws_model_downloaded(app: &AppHandle) -> AppResult<bool> {
     let backend = app.state::<AppState>().settings().wake_backend;
-    if backend == WakeWordBackend::WhisperExperimental {
-        let settings = app.state::<AppState>().settings();
-        return Ok(state::models_dir()?
-            .join(settings.wake_word_model.filename())
-            .is_file());
-    }
     let Some(spec) = fono_wake::model_spec(backend) else {
         return Ok(false);
     };
@@ -26,19 +19,15 @@ pub fn is_kws_model_downloaded(app: &AppHandle) -> AppResult<bool> {
             .join("kws-models")
             .join(spec.directory),
         spec,
-        backend == WakeWordBackend::SherpaOnnx,
     ))
 }
-fn complete(dir: &Path, spec: &fono_wake::WakeModelSpec, legacy: bool) -> bool {
+fn complete(dir: &Path, spec: &fono_wake::WakeModelSpec) -> bool {
     let files_exist = spec
         .files
         .iter()
         .all(|file| std::fs::metadata(dir.join(file)).is_ok_and(|m| m.is_file() && m.len() > 0));
     if !files_exist {
         return false;
-    }
-    if legacy {
-        return true;
     }
     let Ok(bytes) = std::fs::read(dir.join(RECEIPT)) else {
         return false;
@@ -61,7 +50,7 @@ pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
     tokio::fs::create_dir_all(&base).await?;
     let target = base.join(spec.directory);
     if target.exists() {
-        return if complete(&target, &spec, backend == WakeWordBackend::SherpaOnnx) {
+        return if complete(&target, &spec) {
             Ok(())
         } else {
             Err(AppError::Config(format!(
@@ -123,7 +112,7 @@ pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
                 .map_err(|error| AppError::Internal(error.to_string()))?,
         )
         .await?;
-        if !complete(&model, &spec, false) {
+        if !complete(&model, &spec) {
             return Err(AppError::Config(
                 "В архиве нет необходимых файлов WakeWord-модели".into(),
             ));

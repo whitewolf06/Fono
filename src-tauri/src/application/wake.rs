@@ -98,8 +98,8 @@ pub(crate) async fn recognize_transient_samples(
     let settings = app.state::<AppState>().settings();
     let config = crate::settings_to_wake_config(&settings)?;
     let backend = match settings.wake_backend {
-        fono_wake::WakeWordBackend::WhisperExperimental => "Whisper Small",
-        fono_wake::WakeWordBackend::SherpaOnnx => "Sherpa-ONNX",
+        fono_wake::WakeWordBackend::WhisperExperimental
+        | fono_wake::WakeWordBackend::SherpaOnnx => "Retired",
         fono_wake::WakeWordBackend::SherpaStreamingRu => "Sherpa T-one (RU)",
         fono_wake::WakeWordBackend::SherpaStreamingEn => "Sherpa Zipformer (EN)",
         fono_wake::WakeWordBackend::Mock => "Mock",
@@ -117,11 +117,11 @@ pub(crate) async fn recognize_transient_samples(
     );
 
     let result = match settings.wake_backend {
-        fono_wake::WakeWordBackend::WhisperExperimental => {
-            recognize_whisper_sample(config, samples).await?
+        fono_wake::WakeWordBackend::WhisperExperimental
+        | fono_wake::WakeWordBackend::SherpaOnnx => {
+            return Err(fono_wake::WakeWordError::BackendNotCompiled(settings.wake_backend).into());
         }
-        fono_wake::WakeWordBackend::SherpaOnnx
-        | fono_wake::WakeWordBackend::SherpaStreamingRu
+        fono_wake::WakeWordBackend::SherpaStreamingRu
         | fono_wake::WakeWordBackend::SherpaStreamingEn => {
             recognize_sherpa_sample(config, samples).await?
         }
@@ -158,29 +158,6 @@ pub(crate) fn normalized_levels(samples: &[i16]) -> (f32, f32) {
         peak = peak.max(normalized.abs());
     }
     (((sum / samples.len().max(1) as f64) as f32).sqrt(), peak)
-}
-#[cfg(feature = "whisper-wake")]
-async fn recognize_whisper_sample(
-    config: fono_wake::WakeWordConfig,
-    samples: Vec<i16>,
-) -> AppResult<fono_wake::WakeWordTestResult> {
-    let activity = crate::application::updates::activity::lease()?;
-    Ok(tauri::async_runtime::spawn_blocking(move || {
-        let _activity = activity;
-        fono_wake::test_whisper_with_samples(&config, &samples)
-    })
-    .await
-    .map_err(|error| AppError::Internal(format!("wake test join: {error}")))??)
-}
-
-#[cfg(not(feature = "whisper-wake"))]
-async fn recognize_whisper_sample(
-    _config: fono_wake::WakeWordConfig,
-    _samples: Vec<i16>,
-) -> AppResult<fono_wake::WakeWordTestResult> {
-    Err(AppError::Internal(
-        "whisper-wake backend не собран в эту сборку".into(),
-    ))
 }
 #[cfg(feature = "sherpa-wake")]
 async fn recognize_sherpa_sample(

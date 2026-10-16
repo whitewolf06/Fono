@@ -4,6 +4,12 @@ pub fn validate_config(config: &WakeWordConfig) -> WakeWordResult<()> {
     if config.backend == WakeWordBackend::Disabled {
         return Ok(());
     }
+    if matches!(
+        config.backend,
+        WakeWordBackend::WhisperExperimental | WakeWordBackend::SherpaOnnx
+    ) {
+        return Err(WakeWordError::BackendNotCompiled(config.backend));
+    }
     if config.sample_rate == 0 || !config.threshold.is_finite() || !config.sensitivity.is_finite() {
         return Err(WakeWordError::Backend(
             "invalid wake audio rate or threshold".into(),
@@ -75,29 +81,19 @@ mod tests {
     }
 
     #[test]
-    fn sherpa_accepts_all_bundled_phrases() {
-        for phrase in crate::phrases::SHERPA_SUPPORTED_PHRASES {
+    fn retired_backends_reject_activation_without_loading_a_model() {
+        for backend in [
+            WakeWordBackend::SherpaOnnx,
+            WakeWordBackend::WhisperExperimental,
+        ] {
             let config = WakeWordConfig {
-                backend: WakeWordBackend::SherpaOnnx,
-                phrase: phrase.into(),
+                backend,
                 ..WakeWordConfig::default()
             };
-
             assert!(
-                validate_config(&config).is_ok(),
-                "{phrase} must be accepted"
+                matches!(validate_config(&config), Err(crate::WakeWordError::BackendNotCompiled(value)) if value == backend)
             );
         }
-    }
-
-    #[test]
-    fn whisper_accepts_a_custom_phrase() {
-        let config = WakeWordConfig {
-            backend: WakeWordBackend::WhisperExperimental,
-            phrase: "привет фоно".into(),
-            ..WakeWordConfig::default()
-        };
-        assert!(validate_config(&config).is_ok());
     }
 
     #[test]

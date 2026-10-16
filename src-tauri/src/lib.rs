@@ -30,7 +30,7 @@ pub mod verbose;
 use crate::state::AppState;
 use crate::types::PipelineState;
 #[cfg(feature = "wake-word")]
-use crate::types::{Settings, WakeWordBackend};
+use crate::types::Settings;
 use fono_audio::AudioHub;
 #[cfg(feature = "wake-word")]
 use fono_wake::{WakeWordConfig, WakeWordEvent, WakeWordHandle};
@@ -77,33 +77,14 @@ fn strip_leading_wake_phrase(transcript: &str, configured_phrase: &str) -> Strin
             .filter(|c| c.is_alphanumeric())
             .collect::<String>()
     };
-    let first = normalize_word(words[0]);
-    let second = words
-        .get(1)
-        .map(|word| normalize_word(word))
-        .unwrap_or_default();
-    let configured = configured_phrase.to_lowercase();
-    let matched = match configured.as_str() {
-        "okay fun" => {
-            matches!(first.as_str(), "okay" | "ok" | "okey" | "окей")
-                && matches!(second.as_str(), "fun" | "fan" | "фан" | "фэн")
-        }
-        "hey fono" => {
-            matches!(first.as_str(), "hey" | "hi" | "she" | "хей")
-                && matches!(
-                    second.as_str(),
-                    "fono" | "phono" | "phone" | "фоно" | "фона"
-                )
-        }
-        _ => {
-            let expected: Vec<String> = configured.split_whitespace().map(normalize_word).collect();
-            expected.len() == words.len()
-                && expected
-                    .iter()
-                    .zip(&words)
-                    .all(|(expected, actual)| expected == &normalize_word(actual))
-        }
-    };
+    let expected: Vec<String> = configured_phrase
+        .split_whitespace()
+        .map(normalize_word)
+        .collect();
+    let matched = expected
+        .iter()
+        .zip(&words)
+        .all(|(expected, actual)| !expected.is_empty() && expected == &normalize_word(actual));
     if !matched {
         return trimmed.to_string();
     }
@@ -458,20 +439,10 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// Builds a backend-specific wake word config from application settings.
 #[cfg(feature = "wake-word")]
 fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeWordConfig> {
-    let model_dir = match settings.wake_backend {
-        WakeWordBackend::SherpaOnnx => state::app_data_dir()?
-            .join("kws-models")
-            .join("sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"),
-        WakeWordBackend::WhisperExperimental => {
-            state::models_dir()?.join(settings.wake_word_model.filename())
-        }
-        backend => fono_wake::model_spec(backend)
-            .map(|spec| {
-                state::app_data_dir().map(|dir| dir.join("kws-models").join(spec.directory))
-            })
-            .transpose()?
-            .unwrap_or_default(),
-    };
+    let model_dir = fono_wake::model_spec(settings.wake_backend)
+        .map(|spec| state::app_data_dir().map(|dir| dir.join("kws-models").join(spec.directory)))
+        .transpose()?
+        .unwrap_or_default();
     Ok(WakeWordConfig {
         enabled: types::WAKE_WORD_AVAILABLE && settings.wake_word_enabled,
         backend: settings.wake_backend,
@@ -612,16 +583,16 @@ mod wake_command_tests {
     #[test]
     fn removes_only_leading_wake_phrase_from_dictation() {
         assert_eq!(
-            strip_leading_wake_phrase("okay fun, напиши привет", "okay fun"),
+            strip_leading_wake_phrase("ЭЙ ФОНО, напиши привет", "Эй Фоно"),
             "напиши привет"
         );
         assert_eq!(
-            strip_leading_wake_phrase("ok fan open telegram", "okay fun"),
-            "open telegram"
+            strip_leading_wake_phrase("эй фон open telegram", "Эй Фоно"),
+            "эй фон open telegram"
         );
         assert_eq!(
-            strip_leading_wake_phrase("просто okay fun внутри фразы", "okay fun"),
-            "просто okay fun внутри фразы"
+            strip_leading_wake_phrase("просто Эй Фоно внутри фразы", "Эй Фоно"),
+            "просто Эй Фоно внутри фразы"
         );
     }
 }

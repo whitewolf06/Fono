@@ -34,27 +34,8 @@ pub const EN_MODEL: WakeModelSpec = WakeModelSpec {
     ],
     license_url: "https://github.com/k2-fsa/icefall/blob/master/LICENSE",
 };
-pub const SILERO_VAD_URL: &str =
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx";
-pub const SILERO_VAD_SHA256: &str =
-    "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6";
-pub const KWS_MODEL: WakeModelSpec = WakeModelSpec {
-    directory: "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01",
-    archive_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2",
-    archive_sha256: "f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a",
-    archive_bytes: 17_626_723,
-    sample_rate: 16_000,
-    files: &[
-        "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-        "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-        "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-        "tokens.txt",
-    ],
-    license_url: "https://github.com/k2-fsa/icefall/blob/master/LICENSE",
-};
 pub fn model_spec(backend: WakeWordBackend) -> Option<&'static WakeModelSpec> {
     match backend {
-        WakeWordBackend::SherpaOnnx => Some(&KWS_MODEL),
         WakeWordBackend::SherpaStreamingRu => Some(&RU_MODEL),
         WakeWordBackend::SherpaStreamingEn => Some(&EN_MODEL),
         _ => None,
@@ -63,5 +44,21 @@ pub fn model_spec(backend: WakeWordBackend) -> Option<&'static WakeModelSpec> {
 pub fn model_version(backend: WakeWordBackend) -> &'static str {
     model_spec(backend)
         .map(|s| s.directory)
-        .unwrap_or("sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01")
+        .unwrap_or("retired")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retired_backends_have_no_downloadable_model_or_legacy_fallback() {
+        for backend in [
+            WakeWordBackend::SherpaOnnx,
+            WakeWordBackend::WhisperExperimental,
+        ] {
+            assert!(model_spec(backend).is_none());
+            assert_eq!(model_version(backend), "retired");
+        }
+    }
 }

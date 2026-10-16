@@ -37,6 +37,7 @@ fn replay_normalized(
 ) -> WakeWordResult<WakeReplayReport> {
     let mut config = config.clone();
     config.sample_rate = rate;
+    crate::validate_config(&config)?;
     let loading = std::time::Instant::now();
     let mut detector = DecoderSession::new(SherpaDetector::new(&config)?, rate);
     let model_load_ms = loading.elapsed().as_millis() as u64;

@@ -55,9 +55,7 @@ pub(super) fn assess_samples(samples: &[i16]) -> WakeCalibrationSampleResult {
 pub fn supports_setup(backend: WakeWordBackend) -> bool {
     matches!(
         backend,
-        WakeWordBackend::SherpaOnnx
-            | WakeWordBackend::SherpaStreamingRu
-            | WakeWordBackend::SherpaStreamingEn
+        WakeWordBackend::SherpaStreamingRu | WakeWordBackend::SherpaStreamingEn
     )
 }
 pub fn profile_graph(settings: &Settings) -> String {

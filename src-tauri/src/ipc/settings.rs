@@ -461,7 +461,7 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
         }
     }
     #[cfg(feature = "wake-word")]
-    {
+    if settings.wake_word_enabled {
         let wake_config = crate::settings_to_wake_config(settings)?;
         fono_wake::validate_config(&wake_config)
             .map_err(|error| AppError::Config(format!("Некорректная wake phrase: {error}")))?;
@@ -495,6 +495,7 @@ mod tests {
     #[test]
     fn settings_validation_rejects_unsupported_sherpa_phrase() {
         let settings = Settings {
+            wake_word_enabled: true,
             wake_backend: crate::types::WakeWordBackend::SherpaOnnx,
             wake_word: "привет фоно".into(),
             ..Settings::default()
@@ -504,7 +505,7 @@ mod tests {
     }
 
     #[test]
-    fn settings_validation_accepts_ramzi_sherpa_phrase() {
+    fn settings_validation_accepts_disabled_legacy_backend_settings() {
         let settings = Settings {
             wake_backend: crate::types::WakeWordBackend::SherpaOnnx,
             wake_word: "рамзи".into(),
@@ -512,6 +513,45 @@ mod tests {
         };
 
         assert!(validate_settings(&settings).is_ok());
+    }
+
+    #[test]
+    fn frozen_legacy_backend_profiles_round_trip_without_blocking_unrelated_saves() {
+        for backend in ["sherpa_onnx", "whisper_experimental"] {
+            let mut settings: Settings = serde_json::from_value(serde_json::json!({
+                "wake_backend": backend,
+                "wake_word_enabled": true,
+                "wake_word": "saved legacy phrase",
+                "wake_calibration_profile": {
+                    "backend": backend,
+                    "model_version": "saved-legacy-model",
+                    "phrase": "saved legacy phrase",
+                    "graph": "saved-profile-binding",
+                    "threshold": 0.5,
+                    "sensitivity": 0.5,
+                    "vad_threshold": 0.015,
+                    "completed_at": "2026-10-16T12:00:00Z",
+                    "accepted_samples": 5,
+                    "rejected_samples": 0,
+                    "average_rms": 0.1,
+                    "average_peak": 0.3,
+                    "average_active_ms": 800
+                }
+            }))
+            .unwrap();
+            let profile = serde_json::to_value(&settings.wake_calibration_profile).unwrap();
+            settings.enforce_wake_availability();
+            settings.autostart = !settings.autostart;
+            assert!(!settings.wake_word_enabled);
+            assert!(validate_settings(&settings).is_ok());
+            assert_eq!(settings.wake_word, "saved legacy phrase");
+            let saved: Settings =
+                serde_json::from_value(serde_json::to_value(settings).unwrap()).unwrap();
+            assert_eq!(
+                serde_json::to_value(saved.wake_calibration_profile).unwrap(),
+                profile
+            );
+        }
     }
 
     #[test]
