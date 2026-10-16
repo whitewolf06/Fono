@@ -192,18 +192,22 @@ fn menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             let paused = app.state::<AppState>().toggle_dictation_paused();
             request_refresh(app);
             if paused {
+                // Bind this click to its operation before queueing. A later
+                // Resume/start must never become this Pause request's target.
+                let target = app
+                    .state::<Pipeline>()
+                    .current_operation()
+                    .map(|operation| operation.id);
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    // Read at execution time, after any newer Resume action.
                     if !app.state::<AppState>().is_dictation_paused() {
                         return;
                     }
-                    let current = app.state::<Pipeline>().current_operation();
-                    let Some(current) = current else {
+                    let Some(target) = target else {
                         return;
                     };
                     if let Err(error) =
-                        crate::ipc::dictation::cancel_dictation(app.clone(), Some(current.id)).await
+                        crate::ipc::dictation::cancel_dictation(app.clone(), Some(target)).await
                     {
                         if !matches!(error, AppError::Cancelled(_)) {
                             tracing::warn!(%error, "pause cancellation failed");
@@ -211,7 +215,7 @@ fn menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
                                 &app,
                                 crate::events::ErrorCodeV1::Audio,
                                 error.user_message(),
-                                Some(current.id),
+                                Some(target),
                             );
                         }
                     }
