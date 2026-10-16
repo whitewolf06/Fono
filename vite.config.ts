@@ -58,8 +58,12 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      // Tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // Native targets and generated evidence are outside the frontend graph.
+      ignored: [
+        "**/src-tauri/**",
+        "**/build/**",
+        "**/tools/fono-setup/target*/**",
+      ],
     },
   },
 

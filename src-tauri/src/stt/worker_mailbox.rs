@@ -13,6 +13,7 @@ impl WorkerMailbox {
             && !self.busy.load(Ordering::Acquire)
             && !self.health_pending.load(Ordering::Acquire)
             && self.command_tx.is_empty()
+            && !self.fault.is_faulted()
     }
 
     pub(super) fn start(session: WorkerSession) -> Self {
@@ -27,9 +28,23 @@ impl WorkerMailbox {
         let alive = Arc::new(AtomicBool::new(true));
         let thread_busy = Arc::clone(&busy);
         let thread_alive = Arc::clone(&alive);
+        let fault = Arc::new(super::recovery::FaultSignal::default());
+        let owner_fault = fault.clone();
         let owner_thread = thread::spawn(move || {
             let mut session = session;
-            while let Ok(command) = command_rx.recv() {
+            loop {
+                let command = crossbeam_channel::select_biased! {
+                    recv(command_rx) -> command => match command {
+                        Ok(command) => command,
+                        Err(_) => break,
+                    },
+                    recv(session.stdout_rx) -> _output => {
+                        // Between requests any stdout line/EOF/error is a
+                        // protocol/transport fault. Shutdown suppresses first.
+                        owner_fault.fault();
+                        break;
+                    }
+                };
                 let keep_running = match command {
                     WorkerCommand::Window {
                         samples,
@@ -53,6 +68,13 @@ impl WorkerMailbox {
                         );
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = session.stdin_tx.is_some();
+                        if !keep_running {
+                            if matches!(&result, Err(AppError::Cancelled(_))) {
+                                owner_fault.suppress();
+                            } else {
+                                owner_fault.fault();
+                            }
+                        }
                         let _ = response_tx.send(result);
                         keep_running
                     }
@@ -69,6 +91,13 @@ impl WorkerMailbox {
                             session.transcribe_cancellable(&samples, &language, &cancellation);
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = session.stdin_tx.is_some();
+                        if !keep_running {
+                            if matches!(&result, Err(AppError::Cancelled(_))) {
+                                owner_fault.suppress();
+                            } else {
+                                owner_fault.fault();
+                            }
+                        }
                         let _ = response_tx.send(result);
                         keep_running
                     }
@@ -82,12 +111,14 @@ impl WorkerMailbox {
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = result.is_ok();
                         if !keep_running {
+                            owner_fault.fault();
                             session.shutdown();
                         }
                         let _ = response_tx.send(result);
                         keep_running
                     }
                     WorkerCommand::Shutdown { response_tx } => {
+                        owner_fault.suppress();
                         let status = session.shutdown();
                         let _ = response_tx.try_send(status);
                         false
@@ -114,7 +145,15 @@ impl WorkerMailbox {
             child,
             cleanup,
             transport_stopping,
+            fault,
         }
+    }
+
+    pub(super) fn arm_fault(&self, observer: super::recovery::FaultObserver) {
+        self.fault.arm(observer);
+    }
+    pub(super) fn is_faulted(&self) -> bool {
+        self.fault.is_faulted()
     }
 
     pub(super) fn compatible_with(
@@ -130,6 +169,7 @@ impl WorkerMailbox {
             && !self.closing.load(Ordering::Acquire)
             && !self.child.stopping.load(Ordering::Acquire)
             && !self.cleanup.is_pending()
+            && !self.fault.is_faulted()
     }
 
     pub(super) fn has_resources(&self) -> bool {
@@ -224,6 +264,7 @@ impl WorkerMailbox {
     }
 
     pub(super) fn shutdown(&self) -> WorkerCleanupStatus {
+        self.fault.suppress();
         if self.is_retired() {
             if let Some(owner) = self.owner_thread.lock().take() {
                 let _ = owner.join();

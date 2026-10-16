@@ -21,7 +21,7 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
             let gpu = matches!(*device, "CUDA" | "Vulkan") && session.has_resources();
             (gpu, gpu && exclusive(session) && session.is_idle())
         }
-        EngineState::Embedded { engine, device } => {
+        EngineState::Embedded { engine, device, .. } => {
             let gpu = matches!(*device, "CUDA" | "Vulkan");
             (gpu, gpu && exclusive(engine) && engine.try_lock().is_some())
         }
@@ -73,6 +73,9 @@ impl SttEngine {
                 return false;
             }
             previous = Some(std::mem::replace(&mut *state, EngineState::Empty));
+            // Intentional adaptive release invalidates queued crash tickets.
+            self.generation
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
             true
         });
         if let Some(EngineState::Worker { session, .. }) = previous.as_ref() {

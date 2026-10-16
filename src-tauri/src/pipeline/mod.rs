@@ -110,6 +110,7 @@ impl Pipeline {
     }
 
     pub fn shutdown(&self) -> Option<OperationEvent> {
+        self.stt.stop_recovery();
         let event = self.cancel();
         let _ = self.stop_recording();
         self.audio_owner.shutdown();

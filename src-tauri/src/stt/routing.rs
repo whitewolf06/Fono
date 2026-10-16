@@ -5,6 +5,8 @@ pub(super) enum EngineState {
     Embedded {
         engine: Arc<Mutex<EmbeddedEngine>>,
         device: &'static str,
+        model_path: String,
+        use_gpu: bool,
     },
     Worker {
         session: Arc<WorkerMailbox>,
@@ -43,12 +45,16 @@ pub(super) enum ActiveEngine {
 }
 
 impl EngineState {
-    pub(super) fn compatible(&mut self, model_path: &str, candidate: &EngineCandidate) -> bool {
+    pub(super) fn compatible(&self, model_path: &str, candidate: &EngineCandidate) -> bool {
         match (self, candidate) {
-            (Self::Embedded { engine, .. }, EngineCandidate::Embedded { use_gpu }) => {
-                let current = engine.lock();
-                current.model_path == model_path && current.use_gpu == *use_gpu
-            }
+            (
+                Self::Embedded {
+                    model_path: current,
+                    use_gpu: active_gpu,
+                    ..
+                },
+                EngineCandidate::Embedded { use_gpu },
+            ) => current == model_path && active_gpu == use_gpu,
             (Self::Worker { session, .. }, EngineCandidate::Worker { backend, path }) => {
                 session.compatible_with(model_path, *backend, path)
             }
@@ -121,8 +127,8 @@ impl ActiveEngine {
         result
     }
 
-    pub(super) fn is_worker(&self) -> bool {
-        matches!(self, Self::Worker(_))
+    pub(super) fn worker_faulted(&self) -> bool {
+        matches!(self, Self::Worker(session) if session.is_faulted())
     }
 
     pub(super) fn health(&self, device: String) -> SttHealth {

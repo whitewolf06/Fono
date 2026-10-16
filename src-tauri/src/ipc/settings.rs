@@ -96,7 +96,11 @@ pub async fn save_settings(
         }
     };
 
+    let mut prepared_recovery = None;
     if model_changed {
+        app.state::<crate::pipeline::Pipeline>()
+            .stt()
+            .reset_recovery_budget();
         if let Some(path) = persisted_settings.whisper_model_path.clone() {
             let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
             let acceleration = persisted_settings.acceleration;
@@ -106,7 +110,14 @@ pub async fn save_settings(
             let prepared = match tauri::async_runtime::spawn_blocking(move || {
                 let _activity = background_activity;
                 let _configuration = background_configuration;
-                stt.ensure_loaded(std::path::Path::new(&path), acceleration, &worker_paths)
+                stt.ensure_loaded(std::path::Path::new(&path), acceleration, &worker_paths)?;
+                Ok(
+                    stt.prepared_recovery_selection(&crate::stt::RecoverySelection {
+                        model_path: path.into(),
+                        acceleration,
+                        worker_paths,
+                    }),
+                )
             })
             .await
             {
@@ -115,9 +126,12 @@ pub async fn save_settings(
                     "model preparation join failed: {error}"
                 ))),
             };
-            if let Err(error) = prepared {
-                let _ = restore_profile_secrets(&previous_secrets);
-                return Err(error);
+            match prepared {
+                Ok(prepared) => prepared_recovery = prepared,
+                Err(error) => {
+                    let _ = restore_profile_secrets(&previous_secrets);
+                    return Err(error);
+                }
             }
         }
     }
@@ -198,6 +212,11 @@ pub async fn save_settings(
             )));
         }
     };
+    if let Some(prepared) = prepared_recovery {
+        app.state::<crate::pipeline::Pipeline>()
+            .stt()
+            .acknowledge_recovery_selection(prepared);
+    }
 
     if let Err(error) = delete_removed_profile_secrets(&old_settings, &persisted_settings) {
         tracing::error!(%error, "could not delete removed LLM profile credentials");

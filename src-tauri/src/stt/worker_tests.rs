@@ -284,6 +284,10 @@ fn mailbox_health_uses_the_owner_thread_protocol_session() {
 fn mailbox_cancellation_stops_a_hung_owner_session() {
     let fixture = WorkerFixture::create(":hang\r\ngoto hang");
     let mailbox = WorkerMailbox::start(fixture.start());
+    let (fault_tx, fault_rx) = bounded(1);
+    mailbox.arm_fault(Arc::new(move || {
+        let _ = fault_tx.try_send(());
+    }));
     let coordinator = Arc::new(OperationCoordinator::new());
     let operation = coordinator.start(OperationSource::Ui).unwrap();
     let cancellation = coordinator.cancellation(operation.id).unwrap();
@@ -306,6 +310,419 @@ fn mailbox_cancellation_stops_a_hung_owner_session() {
         thread::sleep(Duration::from_millis(20));
     }
     assert!(!mailbox.alive.load(Ordering::Acquire));
+    assert!(fault_rx.recv_timeout(Duration::from_millis(50)).is_err());
+}
+
+#[cfg(windows)]
+fn recovery_fixture(
+    after_load: &str,
+) -> (
+    WorkerFixture,
+    Arc<crate::stt::SttEngine>,
+    Arc<Mutex<Option<crate::stt::RecoverySelection>>>,
+) {
+    let fixture = WorkerFixture::create(after_load);
+    let model_path = fixture.directory.join("fixture-model.bin");
+    fs::write(&model_path, []).unwrap();
+    let selection = crate::stt::RecoverySelection {
+        model_path: model_path.clone(),
+        acceleration: crate::types::AccelerationMode::Cuda,
+        worker_paths: crate::stt::WorkerPaths {
+            cuda: Some(fixture.script.clone()),
+            vulkan: None,
+        },
+    };
+    let provider = Arc::new(Mutex::new(Some(selection.clone())));
+    let selected = provider.clone();
+    let engine = Arc::new(crate::stt::SttEngine::new());
+    engine
+        .enable_recovery_with_timing(
+            Arc::new(move || selected.lock().clone()),
+            crate::stt::recovery::Timing {
+                backoff: [
+                    Duration::from_millis(30),
+                    Duration::from_millis(60),
+                    Duration::from_millis(100),
+                ],
+                stable_window: Duration::from_secs(60),
+            },
+        )
+        .unwrap();
+    engine
+        .ensure_loaded(
+            &selection.model_path,
+            selection.acceleration,
+            &selection.worker_paths,
+        )
+        .unwrap();
+    (fixture, engine, provider)
+}
+
+#[cfg(windows)]
+fn kill_only_fixture_worker(engine: &crate::stt::SttEngine) {
+    let child = match &*engine.state.lock() {
+        crate::stt::EngineState::Worker { session, .. } => session.child.clone(),
+        _ => panic!("fake worker is not installed"),
+    };
+    child.kill().unwrap();
+}
+
+#[cfg(windows)]
+fn wait_for_fixture_state(check: impl Fn() -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while !check() {
+        assert!(
+            Instant::now() < deadline,
+            "fake worker state did not settle"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn idle_fixture_worker_eof_recovers_without_health_or_transcription_poll() {
+    let (_fixture, engine, _provider) = recovery_fixture(":hang\r\ngoto hang");
+    let old = engine.generation.load(Ordering::Acquire);
+    kill_only_fixture_worker(&engine);
+    wait_for_fixture_state(|| {
+        engine.generation.load(Ordering::Acquire) > old
+            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+    });
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn repeated_fixture_worker_crashes_stop_after_three_automatic_reloads() {
+    let (_fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+    for _ in 0..3 {
+        let old = engine.generation.load(Ordering::Acquire);
+        kill_only_fixture_worker(&engine);
+        wait_for_fixture_state(|| {
+            engine.generation.load(Ordering::Acquire) > old
+                && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+        });
+    }
+    let bounded = engine.generation.load(Ordering::Acquire);
+    kill_only_fixture_worker(&engine);
+    wait_for_fixture_state(
+        || matches!(engine.readiness(), crate::stt::SttReadiness::Failed { ref message } if message.contains("трёх")),
+    );
+    thread::sleep(Duration::from_millis(250));
+    assert_eq!(engine.generation.load(Ordering::Acquire), bounded);
+    // The explicit UI model-selection route resets this budget and calls
+    // ensure_loaded even when the selected model path has not changed.
+    let selected = provider.lock().clone().unwrap();
+    wait_for_fixture_state(|| match &*engine.state.lock() {
+        crate::stt::EngineState::Worker { session, .. } => session.is_retired(),
+        crate::stt::EngineState::Empty => true,
+        _ => false,
+    });
+    engine.reset_recovery_budget();
+    engine
+        .ensure_loaded(
+            &selected.model_path,
+            selected.acceleration,
+            &selected.worker_paths,
+        )
+        .unwrap();
+    let manual_generation = engine.generation.load(Ordering::Acquire);
+    kill_only_fixture_worker(&engine);
+    wait_for_fixture_state(|| {
+        engine.generation.load(Ordering::Acquire) > manual_generation
+            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+    });
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn stale_fixture_fault_cannot_reload_old_model_after_new_selection() {
+    let (fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+    let mut next = provider.lock().clone().unwrap();
+    next.model_path = fixture.directory.join("new-model.bin");
+    fs::write(&next.model_path, []).unwrap();
+    kill_only_fixture_worker(&engine);
+    *provider.lock() = Some(next.clone());
+    // Normal model selection serializes against recovery on the same load gate.
+    wait_for_fixture_state(|| !engine.cleanup.is_pending());
+    engine
+        .ensure_loaded(&next.model_path, next.acceleration, &next.worker_paths)
+        .unwrap();
+    let selected_generation = engine.generation.load(Ordering::Acquire);
+    thread::sleep(Duration::from_millis(250));
+    assert_eq!(
+        engine.generation.load(Ordering::Acquire),
+        selected_generation
+    );
+    assert!(
+        matches!(&*engine.state.lock(), crate::stt::EngineState::Worker { session, .. }
+        if session.model_path == next.model_path.to_string_lossy())
+    );
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn removed_selection_and_shutdown_cancel_queued_fixture_recovery() {
+    for shutdown in [false, true] {
+        let (_fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+        let old = engine.generation.load(Ordering::Acquire);
+        kill_only_fixture_worker(&engine);
+        if shutdown {
+            engine.stop_recovery();
+        } else {
+            *provider.lock() = None;
+        }
+        thread::sleep(Duration::from_millis(250));
+        assert_eq!(engine.generation.load(Ordering::Acquire), old);
+        engine.stop_recovery();
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn intentional_adaptive_release_does_not_trigger_fixture_recovery() {
+    let (_fixture, engine, _provider) = recovery_fixture(
+        "echo {\"type\":\"shutting_down\",\"protocol_version\":3,\"request_id\":\"shutdown-3\",\"backend\":\"cuda\"}\r\nexit /b 0"
+    );
+    let old = engine.generation.load(Ordering::Acquire);
+    assert!(engine.release_idle_gpu(old, |detach| detach()));
+    let released_generation = engine.generation.load(Ordering::Acquire);
+    thread::sleep(Duration::from_millis(250));
+    assert_eq!(
+        engine.generation.load(Ordering::Acquire),
+        released_generation
+    );
+    assert!(matches!(
+        &*engine.state.lock(),
+        crate::stt::EngineState::Empty
+    ));
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn stale_health_failure_cannot_overwrite_replacement_ready() {
+    let (fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+    let old = engine.state.lock().active().unwrap();
+    // The probe has retained this old identity; native cleanup can finish
+    // before its delayed error is delivered. Keep recovery out of this setup
+    // so only the explicit replacement publishes Ready.
+    engine.stop_recovery();
+    if let crate::stt::ActiveEngine::Worker(session) = &old {
+        session.shutdown();
+    }
+    wait_for_fixture_state(|| !engine.cleanup.is_pending());
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let observed = events.clone();
+    engine.set_readiness_observer(Arc::new(move |event| observed.lock().push(event)));
+    let mut next = provider.lock().clone().unwrap();
+    next.model_path = fixture.directory.join("replacement.bin");
+    fs::write(&next.model_path, []).unwrap();
+    *provider.lock() = Some(next.clone());
+    engine
+        .ensure_loaded(&next.model_path, next.acceleration, &next.worker_paths)
+        .unwrap();
+    assert!(matches!(
+        engine.readiness(),
+        crate::stt::SttReadiness::Ready { .. }
+    ));
+    // Deterministically deliver the old probe's failure after replacement Ready.
+    assert!(!engine.retire_failed_active(&old, "late old health failure".into()));
+    assert!(matches!(
+        engine.readiness(),
+        crate::stt::SttReadiness::Ready { .. }
+    ));
+    assert!(matches!(
+        events.lock().last(),
+        Some(crate::stt::SttReadiness::Ready { .. })
+    ));
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn health_fault_during_publication_is_armed_before_retirement_and_recovers() {
+    let (fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+    let mut next = provider.lock().clone().unwrap();
+    next.model_path = fixture.directory.join("publication-model.bin");
+    fs::write(&next.model_path, []).unwrap();
+    *provider.lock() = Some(next.clone());
+    let (entered_tx, entered_rx) = bounded(1);
+    let (continue_tx, continue_rx) = bounded(1);
+    *engine.before_recovery_arm.lock() = Some(Arc::new(move || {
+        entered_tx.send(()).unwrap();
+        continue_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    }));
+    let loader_engine = engine.clone();
+    let loader = thread::spawn(move || {
+        loader_engine.ensure_loaded(&next.model_path, next.acceleration, &next.worker_paths)
+    });
+    entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    let failed = engine.state.lock().active().unwrap();
+    let selected_generation = engine.generation.load(Ordering::Acquire);
+    kill_only_fixture_worker(&engine);
+    wait_for_fixture_state(|| failed.worker_faulted());
+    let retiring_engine = engine.clone();
+    let (retired_tx, retired_rx) = bounded(1);
+    let retirement = thread::spawn(move || {
+        let retired =
+            retiring_engine.retire_failed_active(&failed, "fixture health failure".into());
+        retired_tx.send(retired).unwrap();
+    });
+    // Publication must exclude retirement until the fault observer is armed.
+    let early_retirement = retired_rx.recv_timeout(Duration::from_millis(50));
+    continue_tx.send(()).unwrap();
+    let _ = loader.join().unwrap();
+    retirement.join().unwrap();
+    assert!(
+        early_retirement.is_err(),
+        "health retired an unarmed mailbox"
+    );
+    wait_for_fixture_state(|| {
+        engine.generation.load(Ordering::Acquire) > selected_generation
+            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+    });
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn persistence_ack_requeues_only_the_exact_current_fault() {
+    let (fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+    let old_selection = provider.lock().clone().unwrap();
+    let old_token = engine.prepared_recovery_selection(&old_selection).unwrap();
+    *provider.lock() = None;
+    kill_only_fixture_worker(&engine);
+    wait_for_fixture_state(|| match &*engine.state.lock() {
+        crate::stt::EngineState::Worker { session, .. } => session.is_retired(),
+        crate::stt::EngineState::Empty => true,
+        _ => false,
+    });
+    let mut next = old_selection;
+    next.model_path = fixture.directory.join("prepared-not-persisted.bin");
+    fs::write(&next.model_path, []).unwrap();
+    engine.reset_recovery_budget();
+    engine
+        .ensure_loaded(&next.model_path, next.acceleration, &next.worker_paths)
+        .unwrap();
+    let token = engine.prepared_recovery_selection(&next).unwrap();
+    let prepared_generation = engine.generation.load(Ordering::Acquire);
+    kill_only_fixture_worker(&engine);
+    wait_for_fixture_state(|| match &*engine.state.lock() {
+        crate::stt::EngineState::Worker { session, .. } => session.is_retired(),
+        crate::stt::EngineState::Empty => true,
+        _ => false,
+    });
+    // A failed/uncommitted settings transaction never acknowledges its prepare.
+    thread::sleep(Duration::from_millis(150));
+    assert_eq!(
+        engine.generation.load(Ordering::Acquire),
+        prepared_generation
+    );
+    assert!(!engine.acknowledge_recovery_selection(old_token));
+    assert_eq!(
+        engine.generation.load(Ordering::Acquire),
+        prepared_generation
+    );
+    // Successful persistence publishes the exact selection, then acknowledges
+    // its generation. The already-emitted/discarded fault must be recoverable.
+    *provider.lock() = Some(next.clone());
+    assert!(engine.acknowledge_recovery_selection(token.clone()));
+    wait_for_fixture_state(|| {
+        engine.generation.load(Ordering::Acquire) > prepared_generation
+            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+    });
+    assert!(!engine.acknowledge_recovery_selection(token));
+    assert!(
+        matches!(&*engine.state.lock(), crate::stt::EngineState::Worker { session, .. }
+        if session.model_path == next.model_path.to_string_lossy())
+    );
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn explicit_acceleration_change_replaces_compatible_worker_and_recovers_saved_selection() {
+    // This fixture has no request after Load until explicit cleanup. Do not
+    // model Shutdown with a cmd `set /p` counter: an independently delivered
+    // trailing newline could advance that counter without a third JSON frame.
+    let (_fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+    let mut selected = provider.lock().clone().unwrap();
+    for acceleration in [
+        crate::types::AccelerationMode::Auto,
+        crate::types::AccelerationMode::Cuda,
+    ] {
+        let old_generation = engine.generation.load(Ordering::Acquire);
+        engine
+            .ensure_loaded(
+                &selected.model_path,
+                selected.acceleration,
+                &selected.worker_paths,
+            )
+            .unwrap();
+        assert_eq!(
+            engine.generation.load(Ordering::Acquire),
+            old_generation,
+            "ordinary ensure must reuse exact selection"
+        );
+        // Retain the old probe's handle to exclude native teardown from the
+        // selection-publication assertion, then finish its cleanup explicitly.
+        let old = engine.state.lock().active().unwrap();
+        selected.acceleration = acceleration;
+        engine.reset_recovery_budget();
+        engine
+            .ensure_loaded(
+                &selected.model_path,
+                selected.acceleration,
+                &selected.worker_paths,
+            )
+            .unwrap();
+        assert!(
+            !engine.state.lock().contains(&old),
+            "changed acceleration reused a callback bound to old settings"
+        );
+        let prepared_generation = engine.generation.load(Ordering::Acquire);
+        assert!(prepared_generation > old_generation);
+        let prepared = engine.prepared_recovery_selection(&selected).unwrap();
+        if let crate::stt::ActiveEngine::Worker(session) = &old {
+            session.shutdown();
+        }
+        drop(old);
+        wait_for_fixture_state(|| !engine.cleanup.is_pending());
+        *provider.lock() = Some(selected.clone());
+        assert!(engine.acknowledge_recovery_selection(prepared));
+        kill_only_fixture_worker(&engine);
+        wait_for_fixture_state(|| {
+            engine.generation.load(Ordering::Acquire) > prepared_generation
+                && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+        });
+    }
+    engine.stop_recovery();
+}
+
+#[cfg(windows)]
+#[test]
+fn ordinary_wrong_operation_or_backend_retires_and_faults_the_protocol_worker() {
+    for (backend, operation) in [
+        ("cuda", "another-operation"),
+        ("vulkan", "dictation-transcribe-3"),
+    ] {
+        let fixture = WorkerFixture::create(&format!(
+            "echo {{\"type\":\"result\",\"protocol_version\":3,\"request_id\":\"transcribe-3\",\"operation_id\":\"{operation}\",\"backend\":\"{backend}\",\"text\":\"wrong result\",\"audio_secs\":0.1,\"transcribe_secs\":0.01}}\r\n:hang\r\ngoto hang"
+        ));
+        let mailbox = WorkerMailbox::start(fixture.start());
+        let (fault_tx, fault_rx) = bounded(1);
+        mailbox.arm_fault(Arc::new(move || {
+            let _ = fault_tx.try_send(());
+        }));
+        assert!(mailbox.transcribe(&[0; 160], "auto").is_err());
+        assert!(mailbox.is_faulted());
+        fault_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(!mailbox.compatible_with("fixture-model.bin", BackendKind::Cuda, &fixture.script));
+    }
 }
 
 #[cfg(windows)]

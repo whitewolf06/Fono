@@ -125,6 +125,7 @@ pub(super) struct WorkerMailbox {
     child: Arc<WorkerChild>,
     cleanup: Arc<WorkerCleanupSupervisor>,
     transport_stopping: Arc<AtomicBool>,
+    fault: Arc<super::recovery::FaultSignal>,
 }
 
 enum WorkerCommand {

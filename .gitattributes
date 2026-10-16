@@ -6,3 +6,4 @@ tools/fono-setup/Cargo.lock text eol=lf
 # Preserve upstream notice bytes and whitespace as supplied by their authors.
 licenses/dependency-notices.txt -text -whitespace
 licenses/upstream/*.txt -text -whitespace
+src-tauri/tests/fixtures/stt-quality/LICENSE-CC-BY-4.0.txt -text -whitespace

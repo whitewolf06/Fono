@@ -52,10 +52,20 @@ same old algorithm; current uses the production `StreamingResampler`. This deriv
 replay is useful for a controlled regression comparison, and **cannot establish
 quality on native 48 kHz speech**. The separate spectral test covers out-of-band
 alias rejection. At EOF both alternatives receive the same ten-millisecond zero
-extension and are trimmed to the original frame count. This preserves a delayed
+extension and are trimmed to the frozen legacy round-trip frame count, one
+16 kHz sample shorter than the source fixture. This preserves a delayed
 filter's tail without adding silence to the measured clip. Frozen legacy replay
 hashes ensure this boundary handling does not change the historical baseline.
 No samples or filter parameters are selected based on measured WER.
+
+The frozen linear reconstruction also attenuates the source baseband and creates
+spectral images. Selecting every third sample in the legacy round trip folds
+those images back and nearly recovers the original 16 kHz samples; the new
+low-pass removes the images. This instrumental effect is part of the measured
+difference. It cannot attribute a WER delta solely to performance on genuine
+48 kHz speech, and it does not waive a failed no-regression criterion. A future
+filter design needs an independent passband/stopband/latency specification and
+native wideband recordings rather than tuning to these twenty transcripts.
 
 The measured path is the shared **CPU protocol inference engine plus FIR replay**.
 It does not run the native VAD gate, Tauri IPC, microphone capture, or Windows

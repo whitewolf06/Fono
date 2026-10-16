@@ -72,7 +72,7 @@ fn acknowledged_shutdown_without_exit_is_force_killed_within_the_cleanup_bound()
 #[test]
 fn graceful_shutdown_reaps_a_successful_exit_without_force_killing() {
     let fixture = WorkerFixture::create(&format!(
-        "{SHUTDOWN_ACK}\r\n>\"%~dp0shutdown-acknowledged\" echo ready\r\nset /p barrier=\r\nexit /b 0"
+        "{SHUTDOWN_ACK}\r\n>\"%~dp0shutdown-acknowledged\" echo ready\r\n:await_release\r\nif not exist \"%~dp0shutdown-release\" goto await_release\r\nexit /b 0"
     ));
     let supervisor = Arc::new(WorkerCleanupSupervisor::default());
     let mut session = start_with_supervisor(&fixture, &supervisor);
@@ -83,6 +83,7 @@ fn graceful_shutdown_reaps_a_successful_exit_without_force_killing() {
         .expect("open fixture stdin")
         .clone();
     let acknowledged = fixture.directory.join("shutdown-acknowledged");
+    let release = fixture.directory.join("shutdown-release");
     // cmd can consume the JSON before the writer's newline syscall. Keep the
     // fixture alive until a FIFO barrier proves the entire shutdown frame was sent.
     let barrier = thread::spawn(move || {
@@ -101,6 +102,7 @@ fn graceful_shutdown_reaps_a_successful_exit_without_force_killing() {
             .recv_timeout(EOF_FIXTURE_TIMEOUT)
             .expect("writer acknowledges the shutdown FIFO barrier")
             .expect("shutdown frame reached open fixture stdin completely");
+        fs::write(release, []).expect("release graceful fixture after the complete FIFO write");
     });
     let started = Instant::now();
 
@@ -229,10 +231,11 @@ fn failed_force_kill_keeps_cleanup_pending_and_blocks_replacement_until_exit_is_
     assert!(matches!(previous_child.try_wait(), Ok(Some(_))));
     let mut replacement = start_with_supervisor(&fresh, &supervisor);
     assert!(fresh.directory.join("spawn-observed").exists());
-    assert!(matches!(
-        replacement.shutdown(),
-        WorkerCleanupStatus::Exited
-    ));
+    let replacement_child = Arc::clone(&replacement.child);
+    replacement.shutdown();
+    // A loaded Windows runner may return the safe Pending result while its
+    // native I/O threads finish; replacement remains fenced until confirmed.
+    wait_for_confirmed_cleanup(&replacement_child, &supervisor);
     assert!(!supervisor.is_pending());
     assert_session_is_terminated(&mut replacement);
 }

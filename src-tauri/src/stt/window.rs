@@ -3,7 +3,7 @@ use crate::types::Transcript;
 use fono_core::OperationCancellation;
 use fono_stt_protocol::{BackendKind, WindowTranscript};
 
-use super::{ActiveEngine, EngineState, SttEngine};
+use super::{ActiveEngine, SttEngine};
 
 pub(super) fn to_transcript(result: WindowTranscript) -> Transcript {
     Transcript {
@@ -61,14 +61,13 @@ impl SttEngine {
                 audio_start_sample,
             ),
         };
-        if result.is_err() && active.is_worker() && !matches!(result, Err(AppError::Cancelled(_))) {
-            let previous = {
-                let mut state = self.state.lock();
-                state
-                    .contains(&active)
-                    .then(|| std::mem::replace(&mut *state, EngineState::Empty))
-            };
-            drop(previous);
+        if result.is_err()
+            && active.worker_faulted()
+            && !matches!(result, Err(AppError::Cancelled(_)))
+        {
+            if let Err(error) = &result {
+                self.retire_failed_active(&active, error.user_message());
+            }
         }
         result
     }

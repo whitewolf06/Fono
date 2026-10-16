@@ -19,6 +19,20 @@ pub use whisper_download::download_whisper_model;
 /// typed STT readiness IPC remains the source of truth for a missing model or
 /// unavailable worker, and dictation still uses the same load gate.
 pub fn preload_configured_stt(app: AppHandle) {
+    let recovery_app = app.clone();
+    let recovery_workers = crate::stt::worker_paths_for_app(&app);
+    let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
+    if let Err(error) = stt.enable_recovery(std::sync::Arc::new(move || {
+        let settings = recovery_app.state::<AppState>().settings();
+        let (model_path, acceleration) = configured_stt_preload(&settings)?;
+        Some(crate::stt::RecoverySelection {
+            model_path,
+            acceleration,
+            worker_paths: recovery_workers.clone(),
+        })
+    })) {
+        tracing::warn!(%error, "STT recovery could not be enabled");
+    }
     let Ok(activity) = crate::application::updates::activity::lease() else {
         return;
     };
@@ -104,9 +118,7 @@ fn set_whisper_model_blocking(app: &AppHandle, state: &AppState, path: String) -
 
     let base = state.settings();
     let mut settings = base.clone();
-    if settings.whisper_model_path.as_deref() == Some(path.as_str()) {
-        return Ok(());
-    }
+    let same_selection = settings.whisper_model_path.as_deref() == Some(path.as_str());
 
     let _configuration = super::capture_configuration::reserve_configuration(|| {
         if app
@@ -125,10 +137,26 @@ fn set_whisper_model_blocking(app: &AppHandle, state: &AppState, path: String) -
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
     let acceleration = settings.acceleration;
     let worker_paths = crate::stt::worker_paths_for_app(app);
+    stt.reset_recovery_budget();
     stt.ensure_loaded(&model_path, acceleration, &worker_paths)?;
+    let prepared = stt.prepared_recovery_selection(&crate::stt::RecoverySelection {
+        model_path,
+        acceleration,
+        worker_paths,
+    });
+
+    if same_selection {
+        if let Some(prepared) = prepared {
+            stt.acknowledge_recovery_selection(prepared);
+        }
+        return Ok(());
+    }
 
     settings.whisper_model_path = Some(path);
     let settings = state.persist_settings_delta(&base, &settings)?;
+    if let Some(prepared) = prepared {
+        stt.acknowledge_recovery_selection(prepared);
+    }
     crate::events::emit_settings(app, &settings);
     tracing::info!(model = ?settings.whisper_model_path, "STT model selected and saved");
     Ok(())

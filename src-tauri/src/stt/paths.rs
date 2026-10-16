@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct WorkerPaths {
     pub cuda: Option<PathBuf>,
     pub vulkan: Option<PathBuf>,

@@ -10,7 +10,6 @@ use fono_core::OperationCancellation;
 
 pub(super) struct EmbeddedEngine {
     inference: InferenceState,
-    pub(super) model_path: String,
     pub(super) use_gpu: bool,
 }
 
@@ -23,11 +22,7 @@ impl EmbeddedEngine {
         let context = WhisperContext::new_with_params(&model_path, params)
             .map_err(|error| AppError::Stt(format!("WhisperContext: {error}")))?;
         let inference = InferenceState::new(Arc::new(context)).map_err(AppError::Stt)?;
-        Ok(Self {
-            inference,
-            model_path,
-            use_gpu,
-        })
+        Ok(Self { inference, use_gpu })
     }
 
     pub(super) fn device(&self) -> &'static str {

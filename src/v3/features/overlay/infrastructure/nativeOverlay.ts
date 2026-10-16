@@ -100,6 +100,7 @@ export function createNativeOverlay() {
   }
   const hydration = createOverlayHydration({
     disposed: () => disposed,
+    visible: visibility.visible,
     settings: (s) => {
       settings = s;
       applySettings();
@@ -213,7 +214,7 @@ export function createNativeOverlay() {
           ? call<PendingDictation | null>("get_pending_dictation")
           : Promise.resolve(state.pending),
       ]);
-      if (disposed) return;
+      if (disposed || !visibility.visible()) return;
       if (revision !== sessionRevision) return;
       if (v.operation_id > 0 && v.operation_id < operation) return;
       if (!pending.current(ticket)) return;

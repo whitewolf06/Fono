@@ -542,6 +542,110 @@ test("native hydration waits for event bindings and never overwrites newer setti
   }
 });
 
+test("overlay hidden while listeners settle defers hydration until one show resync", async () => {
+  const previousDocument = globalThis.document;
+  const previousAdd = globalThis.window.addEventListener;
+  const previousRemove = globalThis.window.removeEventListener;
+  const handlers = new Map();
+  const subscriptions = [];
+  globalThis.document = {
+    ...previousDocument,
+    visibilityState: "visible",
+    addEventListener: (name, handler) => handlers.set(name, handler),
+    removeEventListener: (name) => handlers.delete(name),
+  };
+  globalThis.window.addEventListener = (name, handler) =>
+    handlers.set(name, handler);
+  globalThis.window.removeEventListener = (name) => handlers.delete(name);
+  const baseline = invoke;
+  invoke = async (name, args) => {
+    if (name !== "plugin:event|listen") return baseline(name, args);
+    calls.push([name, args]);
+    const ready = deferred();
+    subscriptions.push(() => {
+      listeners.set(args.event, callbacks.get(args.handler));
+      ready.resolve(args.handler);
+    });
+    return ready.promise;
+  };
+  const overlay = createNativeOverlay();
+  try {
+    await flush();
+    assert.ok(subscriptions.length > 0);
+    globalThis.document.visibilityState = "hidden";
+    handlers.get("visibilitychange")();
+    subscriptions.forEach((ready) => ready());
+    await flush();
+    assert.deepEqual(
+      calls.filter(([name]) => name.startsWith("get_")),
+      [],
+      "late listener readiness must not start reads in a hidden overlay",
+    );
+    globalThis.document.visibilityState = "visible";
+    handlers.get("visibilitychange")();
+    handlers.get("focus")();
+    for (let index = 0; index < 4; index++) await flush();
+    for (const command of [
+      "get_settings",
+      "get_overlay_preview",
+      "get_pending_dictation",
+      "get_desktop_snapshot",
+    ])
+      assert.equal(
+        calls.filter(([name]) => name === command).length,
+        1,
+        `${command} should run once after show + focus`,
+      );
+  } finally {
+    subscriptions.forEach((ready) => ready());
+    overlay.dispose();
+    assert.equal(handlers.size, 0);
+    globalThis.document = previousDocument;
+    if (previousAdd) globalThis.window.addEventListener = previousAdd;
+    else delete globalThis.window.addEventListener;
+    if (previousRemove) globalThis.window.removeEventListener = previousRemove;
+    else delete globalThis.window.removeEventListener;
+    await flush();
+  }
+});
+
+test("overlay ignores a session snapshot that completes after the window hides", async () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { ...previousDocument, visibilityState: "visible" };
+  const snapshot = deferred();
+  const baseline = invoke;
+  invoke = async (name, args) => {
+    if (name !== "get_desktop_snapshot") return baseline(name, args);
+    calls.push([name, args]);
+    return snapshot.promise;
+  };
+  const overlay = createNativeOverlay();
+  try {
+    for (let index = 0; index < 4; index++) await flush();
+    assert.equal(
+      calls.filter(([name]) => name === "get_desktop_snapshot").length,
+      1,
+    );
+    globalThis.document.visibilityState = "hidden";
+    snapshot.resolve({
+      state: "listening",
+      operation_id: 73,
+      source: "hotkey",
+      level: 0.3,
+      last: null,
+    });
+    await flush();
+    assert.equal(overlay.state.sessionId, null);
+    assert.equal(overlay.state.phase, "idle");
+    assert.equal(overlay.state.level, 0);
+  } finally {
+    snapshot.resolve(null);
+    overlay.dispose();
+    globalThis.document = previousDocument;
+    await flush();
+  }
+});
+
 test("native terminal Close dismisses the overlay; only positive active session IDs can stop/cancel a capture", async () => {
   const overlay = createNativeOverlay();
   try {

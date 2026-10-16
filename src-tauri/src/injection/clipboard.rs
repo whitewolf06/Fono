@@ -406,20 +406,18 @@ impl Owner {
         };
         if pending.still_owned(unsafe { GetClipboardSequenceNumber() })
             && unsafe { GetClipboardOwner() }.ok() == Some(self.window)
+            && pending.backup.restore_open().is_err()
         {
-            if pending.backup.restore_open().is_err() {
-                // Partial restoration modified only our own locked clipboard.
-                // Record its new sequence while still holding OpenClipboard.
-                // The immutable master remains valid for a complete retry.
-                let retry = pending.record_own_partial_restore(
-                    unsafe { GetClipboardSequenceNumber() },
-                    unsafe { GetClipboardOwner() }.ok() == Some(self.window),
-                );
-                drop(opened);
-                if retry {
-                    self.retry_restore(pending);
-                }
-                return;
+            // Partial restoration modified only our own locked clipboard.
+            // Record its new sequence while still holding OpenClipboard.
+            // The immutable master remains valid for a complete retry.
+            let retry = pending.record_own_partial_restore(
+                unsafe { GetClipboardSequenceNumber() },
+                unsafe { GetClipboardOwner() }.ok() == Some(self.window),
+            );
+            drop(opened);
+            if retry {
+                self.retry_restore(pending);
             }
         }
         // A newer sequence belongs to the user, even if its text is identical.

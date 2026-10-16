@@ -21,6 +21,12 @@ import { createNativeUpdates } from "../features/updates";
 import type { PendingDictation } from "../shared/domain/processing";
 import { createNativeTrainer } from "../features/trainer/infrastructure/nativeTrainer";
 import { bindNativeVisibility } from "../shared/infrastructure/native/visibility";
+import { createCoalescedRead } from "../shared/infrastructure/native/coalescedRead";
+import type { BackendEventV1 } from "../shared/infrastructure/native/backendEvents";
+type NativeSttReadiness = Extract<
+  BackendEventV1,
+  { kind: "stt_readiness" }
+>["payload"]["readiness"];
 export function createNativeWorkspace(): Workspace {
   const state = reactive<WorkspaceState>({
     preferences: {
@@ -69,6 +75,21 @@ export function createNativeWorkspace(): Workspace {
   const trainer = createNativeTrainer(call, ctx.readHistory);
   const wake = nativeWake(ctx);
   let disposed = false;
+  let sttError = "";
+  function applySttReadiness(readiness: NativeSttReadiness) {
+    if (readiness.state === "failed") {
+      sttError = readiness.message;
+      ctx.report(sttError);
+    } else if (readiness.state === "ready") {
+      if (sttError && state.error === sttError) state.error = "";
+      sttError = "";
+    }
+  }
+  const sttReadiness = createCoalescedRead(
+    () => call<NativeSttReadiness>("get_stt_readiness"),
+    applySttReadiness,
+    () => !disposed && visibility.visible(),
+  );
   const releases: (() => void)[] = [];
   const subscriptions: Promise<void>[] = [];
   function bind<T>(channel: string, handler: (value: T) => void) {
@@ -141,6 +162,10 @@ export function createNativeWorkspace(): Workspace {
         case "gpu_memory_changed":
           ctx.acceptGpuMemory(event.payload);
           return;
+        case "stt_readiness":
+          sttReadiness.invalidate();
+          applySttReadiness(event.payload.readiness);
+          return;
         case "error":
           ctx.report(event.payload.message);
           void dictation.refresh().catch(ctx.report);
@@ -176,7 +201,7 @@ export function createNativeWorkspace(): Workspace {
     try {
       await Promise.all(subscriptions);
       if (disposed || !visibility.visible()) return;
-      await ctx.refresh();
+      await Promise.all([ctx.refresh(), sttReadiness.refresh()]);
       if (disposed || !visibility.visible()) return;
       await dictation.refresh();
       await wake.load();
@@ -291,6 +316,7 @@ export function createNativeWorkspace(): Workspace {
     },
     dispose() {
       disposed = true;
+      sttReadiness.dispose();
       ctx.dispose();
       dictation.dispose();
       visibility.dispose();

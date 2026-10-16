@@ -77,7 +77,9 @@ pub(crate) fn publish_if_changed(app: &AppHandle) {
     let status = status(app);
     let runtime = app.state::<SttMemoryRuntime>();
     let mut previous = runtime.published.lock();
-    if previous.as_ref() == Some(&status) { return; }
+    if previous.as_ref() == Some(&status) {
+        return;
+    }
     *previous = Some(status.clone());
     drop(previous);
     crate::events::emit_gpu_memory_changed(app, status);

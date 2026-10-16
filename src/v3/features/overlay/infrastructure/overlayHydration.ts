@@ -9,6 +9,7 @@ export interface NativeOverlayPreview {
 }
 interface Options {
   disposed: () => boolean;
+  visible: () => boolean;
   settings: (settings: Settings) => void;
   preview: (preview: NativeOverlayPreview | null) => void;
   pending: {
@@ -31,7 +32,7 @@ export function createOverlayHydration(options: Options) {
     },
     async load(readiness: Promise<unknown>[]) {
       await Promise.all(readiness);
-      if (options.disposed()) return;
+      if (options.disposed() || !options.visible()) return;
       const settingsTicket = settingsEpoch,
         previewTicket = previewEpoch,
         pendingTicket = options.pending.stamp();
@@ -40,7 +41,7 @@ export function createOverlayHydration(options: Options) {
         call<NativeOverlayPreview | null>("get_overlay_preview"),
         call<PendingDictation | null>("get_pending_dictation"),
       ]);
-      if (options.disposed()) return;
+      if (options.disposed() || !options.visible()) return;
       if (settingsEpoch === settingsTicket) options.settings(settings);
       if (previewEpoch === previewTicket) options.preview(preview);
       options.pending.apply(pending, pendingTicket);

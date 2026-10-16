@@ -26,7 +26,9 @@ pub use paths::{worker_paths_for_app, WorkerPaths};
 use routing::{ActiveEngine, EngineState, SttReadinessObserver};
 pub use routing::{SttHealth, SttReadiness};
 mod embedded;
+mod recovery;
 mod residency;
+pub use recovery::{RecoverySelection, RecoverySelectionProvider};
 mod window;
 use embedded::EmbeddedEngine;
 pub use fono_stt_protocol::{TimedSegment, WindowTranscript};
@@ -43,6 +45,9 @@ pub struct SttEngine {
     readiness_observer: Mutex<Option<SttReadinessObserver>>,
     generation: std::sync::atomic::AtomicU64,
     cleanup: Arc<WorkerCleanupSupervisor>,
+    recovery: Arc<recovery::RecoveryControl>,
+    #[cfg(test)]
+    before_recovery_arm: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
 impl SttEngine {
@@ -54,6 +59,9 @@ impl SttEngine {
             readiness_observer: Mutex::new(None),
             generation: std::sync::atomic::AtomicU64::new(0),
             cleanup: Arc::default(),
+            recovery: Arc::default(),
+            #[cfg(test)]
+            before_recovery_arm: Mutex::new(None),
         }
     }
 
@@ -63,6 +71,16 @@ impl SttEngine {
         acceleration: AccelerationMode,
         worker_paths: &WorkerPaths,
     ) -> AppResult<()> {
+        self.ensure_loaded_if(model_path, acceleration, worker_paths, None)
+    }
+
+    fn ensure_loaded_if(
+        &self,
+        model_path: &Path,
+        acceleration: AccelerationMode,
+        worker_paths: &WorkerPaths,
+        valid: Option<recovery::LoadFence<'_>>,
+    ) -> AppResult<()> {
         let _activity = crate::application::updates::activity::lease()?;
         if self.cleanup.is_pending() {
             return Err(worker_cleanup_busy());
@@ -70,14 +88,26 @@ impl SttEngine {
         if !model_path.exists() {
             tracing::warn!(path = %model_path.display(), "STT model file not found");
             let error = AppError::ModelFileMissing;
-            self.set_failed_readiness(&error);
+            self.load_readiness(
+                SttReadiness::Failed {
+                    message: error.user_message(),
+                },
+                valid,
+                valid.map_or(0, |fence| fence.generation),
+            )?;
             return Err(error);
         }
         let model_path_string = model_path.to_string_lossy().to_string();
         let candidates = worker_paths.candidates(acceleration);
         if candidates.is_empty() {
             let error = AppError::BackendUnavailable(error_backend(acceleration));
-            self.set_failed_readiness(&error);
+            self.load_readiness(
+                SttReadiness::Failed {
+                    message: error.user_message(),
+                },
+                valid,
+                valid.map_or(0, |fence| fence.generation),
+            )?;
             return Err(error);
         }
 
@@ -86,27 +116,53 @@ impl SttEngine {
         // ongoing transcription and device/status reads keep using the previous
         // engine until the replacement is fully prepared.
         let _load_gate = self.load_gate.lock();
+        if valid.is_some_and(|fence| !(fence.valid)(fence.generation)) {
+            return Err(AppError::Cancelled(
+                "STT recovery generation or selection changed".into(),
+            ));
+        }
         if self.cleanup.is_pending() {
             return Err(worker_cleanup_busy());
         }
         {
-            let mut state = self.state.lock();
-            if candidates
-                .iter()
-                .any(|candidate| state.compatible(&model_path_string, candidate))
-            {
-                self.set_readiness(SttReadiness::Ready {
-                    device: state.device(),
-                });
+            // Reusing an underlying CUDA candidate for Auto→CUDA would leave
+            // its crash observer bound to the old configured acceleration.
+            // Explicit selection changes prepare a new generation; ordinary
+            // requests with the exact selection retain the compatible runtime.
+            let exact_selection = self
+                .prepared_recovery_selection(&RecoverySelection {
+                    model_path: model_path.to_owned(),
+                    acceleration,
+                    worker_paths: worker_paths.clone(),
+                })
+                .is_some();
+            let compatible_device = {
+                let state = self.state.lock();
+                (exact_selection
+                    && candidates
+                        .iter()
+                        .any(|candidate| state.compatible(&model_path_string, candidate)))
+                .then(|| state.device())
+            };
+            if let Some(device) = compatible_device {
+                self.load_readiness(
+                    SttReadiness::Ready { device },
+                    valid,
+                    valid.map_or(0, |fence| fence.generation),
+                )?;
                 return Ok(());
             }
         }
-        self.set_readiness(SttReadiness::Loading);
+        self.load_readiness(
+            SttReadiness::Loading,
+            valid,
+            valid.map_or(0, |fence| fence.generation),
+        )?;
 
         let mut errors = Vec::new();
         for candidate in candidates {
             if self.cleanup.is_pending() {
-                return Err(self.pending_load_error());
+                return Err(self.pending_load_error(valid));
             }
             let loaded = match &candidate {
                 EngineCandidate::Embedded { use_gpu } => EmbeddedEngine::load(model_path, *use_gpu)
@@ -115,6 +171,8 @@ impl SttEngine {
                         EngineState::Embedded {
                             engine: Arc::new(Mutex::new(engine)),
                             device,
+                            model_path: model_path_string.clone(),
+                            use_gpu: *use_gpu,
                         }
                     }),
                 EngineCandidate::Worker { backend, path } => WorkerSession::start(
@@ -133,28 +191,59 @@ impl SttEngine {
             };
             match loaded {
                 Ok(loaded) => {
+                    let publication = self.recovery_publication();
+                    if valid.is_some_and(|fence| !(fence.valid)(fence.generation)) {
+                        drop(publication);
+                        drop(loaded);
+                        return Err(AppError::Cancelled(
+                            "STT recovery became stale while loading".into(),
+                        ));
+                    }
                     tracing::info!("STT backend selected: {}", loaded.device());
                     let device = loaded.device();
                     let previous = {
                         let mut state = self.state.lock();
                         std::mem::replace(&mut *state, loaded)
                     };
-                    self.generation
-                        .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+                    let generation = self
+                        .generation
+                        .fetch_add(1, std::sync::atomic::Ordering::AcqRel)
+                        + 1;
+                    self.arm_worker_recovery(
+                        generation,
+                        RecoverySelection {
+                            model_path: model_path.to_owned(),
+                            acceleration,
+                            worker_paths: worker_paths.clone(),
+                        },
+                    );
+                    // Arm while publication is fenced: a concurrent health
+                    // failure cannot retire the new mailbox before its latched
+                    // transport fault has a recovery observer.
+                    drop(publication);
                     // Worker shutdown and native model cleanup may block. They
                     // must happen after the routing state lock is released.
                     drop(previous);
                     if self.cleanup.is_pending() {
-                        return Err(self.pending_load_error());
+                        return Err(self.pending_load_error(valid.map(|fence| {
+                            recovery::LoadFence {
+                                generation,
+                                ..fence
+                            }
+                        })));
                     }
-                    self.set_readiness(SttReadiness::Ready {
-                        device: device.to_string(),
-                    });
+                    self.load_readiness(
+                        SttReadiness::Ready {
+                            device: device.to_string(),
+                        },
+                        valid,
+                        generation,
+                    )?;
                     return Ok(());
                 }
                 Err(error) => {
                     if self.cleanup.is_pending() {
-                        return Err(self.pending_load_error());
+                        return Err(self.pending_load_error(valid));
                     }
                     errors.push(error.to_string());
                     if acceleration != AccelerationMode::Auto {
@@ -166,7 +255,13 @@ impl SttEngine {
         tracing::error!(backend = acceleration_name(acceleration), errors = ?errors,
             "STT backend could not start");
         let error = AppError::BackendStartFailed(error_backend(acceleration));
-        self.set_failed_readiness(&error);
+        self.load_readiness(
+            SttReadiness::Failed {
+                message: error.user_message(),
+            },
+            valid,
+            valid.map_or(0, |fence| fence.generation),
+        )?;
         Err(error)
     }
 
@@ -202,15 +297,14 @@ impl SttEngine {
             Some(cancellation) => active.transcribe_cancellable(samples, language, cancellation),
             None => active.transcribe(samples, language),
         };
-        if result.is_err() && active.is_worker() && !matches!(result, Err(AppError::Cancelled(_))) {
-            tracing::warn!("STT worker session failed and will be restarted on the next operation");
-            let previous = {
-                let mut state = self.state.lock();
-                state
-                    .contains(&active)
-                    .then(|| std::mem::replace(&mut *state, EngineState::Empty))
-            };
-            drop(previous);
+        if result.is_err()
+            && active.worker_faulted()
+            && !matches!(result, Err(AppError::Cancelled(_)))
+        {
+            tracing::warn!("STT worker session failed; crash recovery has been notified");
+            if let Err(error) = &result {
+                self.retire_failed_active(&active, error.user_message());
+            }
         }
         result
     }
@@ -252,18 +346,27 @@ impl SttEngine {
 
         let health = active.health(device);
         if let SttHealth::Failed { message, .. } = &health {
-            let previous = {
-                let mut state = self.state.lock();
-                state
-                    .contains(&active)
-                    .then(|| std::mem::replace(&mut *state, EngineState::Empty))
-            };
-            drop(previous);
-            self.set_readiness(SttReadiness::Failed {
-                message: message.clone(),
-            });
+            self.retire_failed_active(&active, message.clone());
         }
         health
+    }
+
+    fn retire_failed_active(&self, active: &ActiveEngine, message: String) -> bool {
+        let previous = {
+            let _publication = self.recovery_publication();
+            let mut state = self.state.lock();
+            if !state.contains(active) {
+                return false;
+            }
+            let previous = std::mem::replace(&mut *state, EngineState::Empty);
+            drop(state);
+            // Identity and the Failed event share the same publication fence
+            // as replacement/Ready; an old probe can never overwrite new Ready.
+            self.set_readiness(SttReadiness::Failed { message });
+            previous
+        };
+        drop(previous);
+        true
     }
 
     fn set_readiness(&self, readiness: SttReadiness) {
@@ -274,15 +377,17 @@ impl SttEngine {
         }
     }
 
-    fn set_failed_readiness(&self, error: &AppError) {
-        self.set_readiness(SttReadiness::Failed {
-            message: error.user_message(),
-        });
-    }
-
-    fn pending_load_error(&self) -> AppError {
+    fn pending_load_error(&self, fence: Option<recovery::LoadFence<'_>>) -> AppError {
         let error = worker_cleanup_busy();
-        self.set_failed_readiness(&error);
+        if let Err(stale) = self.load_readiness(
+            SttReadiness::Failed {
+                message: error.user_message(),
+            },
+            fence,
+            fence.map_or(0, |fence| fence.generation),
+        ) {
+            return stale;
+        }
         error
     }
 

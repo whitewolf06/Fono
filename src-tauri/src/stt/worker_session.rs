@@ -154,7 +154,7 @@ impl WorkerSession {
                 request_id,
                 ..
             } if backend == self.backend && request_id == meta.request_id => Ok(()),
-            other => Err(AppError::Stt(format!(
+            other => Err(self.fail_request(format!(
                 "{} worker returned an unexpected health response: {other:?}",
                 backend_name(self.backend)
             ))),
@@ -221,7 +221,7 @@ impl WorkerSession {
                 "{} worker transcription failed: {message}",
                 backend_name(self.backend)
             ))),
-            other => Err(AppError::Stt(format!(
+            other => Err(self.fail_request(format!(
                 "{} worker returned an unexpected transcription result: {other:?}",
                 backend_name(self.backend)
             ))),

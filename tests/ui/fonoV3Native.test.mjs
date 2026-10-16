@@ -82,6 +82,9 @@ beforeEach(() => {
       return args.handler;
     }
     if (command === "get_settings") return structuredClone(rawDefaults);
+    if (command === "get_stt_readiness")
+      return { state: "ready", device: "cpu" };
+    if (command === "get_recent_logs") return "";
     if (command === "get_desktop_snapshot")
       return {
         state: "idle",
@@ -247,7 +250,8 @@ test("hidden workspace defers backend reads and coalesces show with focus into o
     addEventListener: (name, handler) => handlers.set(name, handler),
     removeEventListener: (name) => handlers.delete(name),
   };
-  globalThis.window.addEventListener = (name, handler) => handlers.set(name, handler);
+  globalThis.window.addEventListener = (name, handler) =>
+    handlers.set(name, handler);
   globalThis.window.removeEventListener = (name) => handlers.delete(name);
   const workspace = createNativeWorkspace();
   try {
@@ -294,6 +298,124 @@ test("hidden workspace defers backend reads and coalesces show with focus into o
     await flush();
   }
 });
+
+test("exhausted STT recovery is visible and Ready clears only its own error", async () => {
+  const workspace = createNativeWorkspace();
+  const exhausted =
+    "Не удалось восстановить распознавание после трёх сбоев. Проверьте ускорение или выберите модель заново";
+  try {
+    await workspace.refresh();
+    const emit = (readiness) =>
+      listeners.get("backend-event-v1")({
+        payload: {
+          schema_version: 1,
+          kind: "stt_readiness",
+          payload: { readiness },
+        },
+      });
+    const beforeEvents = calls.length;
+    emit({ state: "failed", message: exhausted });
+    assert.equal(workspace.state.error, exhausted);
+    assert.ok(workspace.state.logs.includes(exhausted));
+    emit({ state: "loading" });
+    assert.equal(workspace.state.error, exhausted);
+    emit({ state: "ready", device: "cuda" });
+    assert.equal(workspace.state.error, "");
+    emit({ state: "failed", message: exhausted });
+    workspace.state.error = "Не удалось сохранить настройки";
+    emit({ state: "ready", device: "cuda" });
+    assert.equal(workspace.state.error, "Не удалось сохранить настройки");
+    assert.equal(
+      calls.length,
+      beforeEvents,
+      "readiness events do not pull IPC",
+    );
+  } finally {
+    workspace.dispose();
+    await flush();
+  }
+});
+
+test("show reads a failure missed while hidden and Ready defeats an older Failed reply", async () => {
+  const previousDocument = globalThis.document;
+  const previousAdd = globalThis.window.addEventListener;
+  const previousRemove = globalThis.window.removeEventListener;
+  const handlers = new Map();
+  globalThis.document = {
+    ...previousDocument,
+    visibilityState: "hidden",
+    addEventListener: (name, handler) => handlers.set(name, handler),
+    removeEventListener: (name) => handlers.delete(name),
+  };
+  globalThis.window.addEventListener = (name, handler) =>
+    handlers.set(name, handler);
+  globalThis.window.removeEventListener = (name) => handlers.delete(name);
+  const exhausted =
+    "Не удалось восстановить распознавание после трёх сбоев. Проверьте ускорение или выберите модель заново";
+  const failed = { state: "failed", message: exhausted };
+  let readinessReads = 0;
+  let deferNext = false;
+  let resolveOld;
+  const oldRead = new Promise((resolve) => {
+    resolveOld = resolve;
+  });
+  const baseline = invoke;
+  invoke = async (command, args) => {
+    if (command !== "get_stt_readiness") return baseline(command, args);
+    calls.push([command, args]);
+    readinessReads++;
+    return deferNext ? oldRead : failed;
+  };
+  const workspace = createNativeWorkspace();
+  try {
+    await flush();
+    const emit = (readiness) =>
+      listeners.get("backend-event-v1")({
+        payload: {
+          schema_version: 1,
+          kind: "stt_readiness",
+          payload: { readiness },
+        },
+      });
+    const beforeHiddenEvent = calls.length;
+    emit(failed);
+    await flush();
+    assert.equal(workspace.state.error, "");
+    assert.equal(calls.length, beforeHiddenEvent);
+    assert.equal(readinessReads, 0);
+    globalThis.document.visibilityState = "visible";
+    handlers.get("visibilitychange")();
+    handlers.get("focus")();
+    for (let index = 0; index < 8; index++) await flush();
+    assert.equal(readinessReads, 1, "show + focus reads readiness once");
+    assert.equal(workspace.state.error, exhausted);
+    deferNext = true;
+    const refresh = workspace.refresh();
+    for (let index = 0; index < 8 && readinessReads < 2; index++) await flush();
+    assert.equal(readinessReads, 2);
+    emit({ state: "ready", device: "cuda" });
+    assert.equal(workspace.state.error, "");
+    resolveOld(failed);
+    await refresh;
+    assert.equal(workspace.state.error, "");
+    assert.equal(
+      readinessReads,
+      2,
+      "Ready retires the read without another pull",
+    );
+  } finally {
+    resolveOld(failed);
+    workspace.dispose();
+    assert.equal(handlers.size, 0);
+    globalThis.document = previousDocument;
+    if (previousAdd) globalThis.window.addEventListener = previousAdd;
+    else delete globalThis.window.addEventListener;
+    if (previousRemove) globalThis.window.removeEventListener = previousRemove;
+    else delete globalThis.window.removeEventListener;
+    await flush();
+  }
+});
+
 test("native patches preserve unrelated settings, key flags and overlay coordinates", () => {
   const raw = structuredClone(rawDefaults);
   raw.overlay_x = -1200;
