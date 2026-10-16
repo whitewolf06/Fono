@@ -24,7 +24,12 @@ impl ReportOutcome {
         match error {
             AppError::Cancelled(_) => Self::Cancelled,
             AppError::Audio(_) => Self::AudioError,
-            AppError::Stt(_) | AppError::ModelNotLoaded => Self::RecognitionError,
+            AppError::Stt(_)
+            | AppError::ModelNotLoaded
+            | AppError::ModelNotSelected
+            | AppError::ModelFileMissing
+            | AppError::BackendUnavailable(_)
+            | AppError::BackendStartFailed(_) => Self::RecognitionError,
             AppError::Llm(_) => Self::ProcessingError,
             AppError::Injection(_) => Self::InsertionError,
             _ => Self::InternalError,

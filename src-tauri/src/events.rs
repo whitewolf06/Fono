@@ -210,7 +210,19 @@ pub fn emit_error<R: Runtime>(
     message: impl Into<String>,
     operation_id: Option<u64>,
 ) {
-    let message = message.into();
+    let message = crate::error::safe_user_message(
+        match code {
+            ErrorCodeV1::Audio => crate::error::UserErrorCode::Audio,
+            ErrorCodeV1::Stt => crate::error::UserErrorCode::Stt,
+            ErrorCodeV1::Llm => crate::error::UserErrorCode::Llm,
+            ErrorCodeV1::Injection => crate::error::UserErrorCode::Injection,
+            ErrorCodeV1::Download => crate::error::UserErrorCode::Download,
+            ErrorCodeV1::Settings => crate::error::UserErrorCode::Settings,
+            ErrorCodeV1::Wake => crate::error::UserErrorCode::Wake,
+            ErrorCodeV1::Internal => crate::error::UserErrorCode::Internal,
+        },
+        &message.into(),
+    );
     emit_v1(
         handle,
         BackendEventV1::Error(ErrorEventV1 {

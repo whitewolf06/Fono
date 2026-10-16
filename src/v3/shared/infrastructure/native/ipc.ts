@@ -1,27 +1,28 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import {
+  NativeIpcError,
+  normalizeNativeEvent,
+  normalizeNativeResult,
+} from "./nativeErrors";
 export const isDesktop = isTauri;
 export async function call<T>(
   command: string,
   args?: Record<string, unknown>,
 ): Promise<T> {
   try {
-    return await invoke<T>(command, args);
+    return normalizeNativeResult(command, await invoke<T>(command, args)) as T;
   } catch (error) {
-    throw new Error(
-      typeof error === "string"
-        ? error
-        : error instanceof Error
-          ? error.message
-          : JSON.stringify(error),
-    );
+    throw new NativeIpcError(error);
   }
 }
 export async function subscribe<T>(
   channel: string,
   handler: (value: T) => void,
 ): Promise<UnlistenFn> {
-  return listen<T>(channel, (event) => handler(event.payload));
+  return listen<T>(channel, (event) =>
+    handler(normalizeNativeEvent(channel, event.payload) as T),
+  );
 }
 export async function playMicrophoneSample() {
   const samples = await call<number[]>("get_microphone_sample");

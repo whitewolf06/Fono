@@ -46,10 +46,15 @@ fn readiness_starts_unloaded_and_records_model_errors() {
         )
         .expect_err("missing model must fail before backend startup");
 
-    assert!(error.to_string().contains("model file not found"));
+    assert!(matches!(error, AppError::ModelFileMissing));
+    assert_eq!(
+        serde_json::to_value(&error).unwrap()["code"],
+        "model_missing"
+    );
     assert!(matches!(
         engine.readiness(),
-        SttReadiness::Failed { message } if message.contains("model file not found")
+        SttReadiness::Failed { message } if message.contains("Файл выбранной модели не найден")
+            && !message.contains("missing-model-for-readiness-test.bin")
     ));
 }
 

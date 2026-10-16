@@ -2,6 +2,154 @@
 
 use thiserror::Error;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UserErrorCode {
+    Busy,
+    Cancelled,
+    Audio,
+    Stt,
+    Llm,
+    Injection,
+    Io,
+    Json,
+    Config,
+    ModelNotLoaded,
+    ModelNotSelected,
+    ModelMissing,
+    BackendUnavailable,
+    BackendStartFailed,
+    Download,
+    Settings,
+    Wake,
+    Internal,
+}
+
+impl UserErrorCode {
+    fn key(self) -> &'static str {
+        match self {
+            Self::Busy => "busy",
+            Self::Cancelled => "cancelled",
+            Self::Audio => "audio",
+            Self::Stt => "stt",
+            Self::Llm => "llm",
+            Self::Injection => "injection",
+            Self::Io => "io",
+            Self::Json => "json",
+            Self::Config => "config",
+            Self::ModelNotLoaded => "model_not_loaded",
+            Self::ModelNotSelected => "model_not_selected",
+            Self::ModelMissing => "model_missing",
+            Self::BackendUnavailable => "backend_unavailable",
+            Self::BackendStartFailed => "backend_start_failed",
+            Self::Download => "download",
+            Self::Settings => "settings",
+            Self::Wake => "wake",
+            Self::Internal => "internal",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecognitionBackend {
+    Auto,
+    Cpu,
+    Cuda,
+    Vulkan,
+}
+
+impl RecognitionBackend {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "Авто",
+            Self::Cpu => "Процессор",
+            Self::Cuda => "CUDA",
+            Self::Vulkan => "Vulkan",
+        }
+    }
+}
+
+#[derive(Debug, Default, serde::Serialize)]
+pub struct UserErrorParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend: Option<RecognitionBackend>,
+}
+
+/// The IPC error contract contains no raw source error, path or arbitrary data.
+#[derive(Debug, serde::Serialize)]
+pub struct UserError {
+    pub code: UserErrorCode,
+    pub params: UserErrorParams,
+}
+
+#[derive(serde::Deserialize)]
+struct UserErrorCatalog {
+    messages: std::collections::BTreeMap<String, String>,
+    templates: std::collections::BTreeMap<String, String>,
+    details: Vec<String>,
+}
+
+fn catalog() -> Option<&'static UserErrorCatalog> {
+    static CATALOG: std::sync::OnceLock<Option<UserErrorCatalog>> = std::sync::OnceLock::new();
+    CATALOG
+        .get_or_init(|| {
+            serde_json::from_str(include_str!(
+                "../../src/v3/shared/infrastructure/native/userErrorCatalog.json"
+            ))
+            .ok()
+        })
+        .as_ref()
+}
+
+fn trusted_detail(raw: &str) -> Option<String> {
+    // Exact authored messages are allowlisted. Cyrillic text, a translated
+    // prefix, or a message with a secret/path appended does not grant trust.
+    let mut raw = raw.trim();
+    const LEGACY_PREFIXES: &[&str] = &[
+        "операция уже выполняется: ",
+        "операция отменена: ",
+        "аудио ошибка: ",
+        "ошибка whisper/stt: ",
+        "ошибка LLM: ",
+        "ошибка вставки текста: ",
+        "ошибка ввода-вывода: ",
+        "ошибка JSON: ",
+        "ошибка конфигурации: ",
+        "внутренняя ошибка: ",
+    ];
+    for _ in 0..3 {
+        let Some(detail) = LEGACY_PREFIXES
+            .iter()
+            .find_map(|prefix| raw.strip_prefix(prefix))
+        else {
+            break;
+        };
+        raw = detail.trim();
+    }
+    (raw.len() <= 1200 && catalog()?.details.iter().any(|allowed| allowed == raw))
+        .then(|| raw.to_owned())
+}
+
+/// Legacy events still carry text; use the same safe catalogue as IPC mapping.
+pub fn safe_user_message(code: UserErrorCode, raw: &str) -> String {
+    trusted_detail(raw).unwrap_or_else(|| default_user_message(code, None))
+}
+
+fn default_user_message(code: UserErrorCode, backend: Option<RecognitionBackend>) -> String {
+    if let (Some(catalog), Some(backend)) = (catalog(), backend) {
+        if let Some(template) = catalog.templates.get(code.key()) {
+            return template.replace("{backend}", backend.label());
+        }
+    }
+    catalog()
+        .and_then(|catalog| catalog.messages.get(code.key()))
+        .cloned()
+        .unwrap_or_else(|| "Не удалось выполнить действие. Перезапустите Fono.".into())
+}
+
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("операция уже выполняется: {0}")]
@@ -34,8 +182,65 @@ pub enum AppError {
     #[error("модель не загружена")]
     ModelNotLoaded,
 
+    #[error(
+        "Выберите модель распознавания в настройках. Если модели ещё нет, сначала загрузите её."
+    )]
+    ModelNotSelected,
+
+    #[error(
+        "Файл выбранной модели не найден. Загрузите модель или выберите другой файл в настройках."
+    )]
+    ModelFileMissing,
+
+    #[error("STT backend is not packaged: {0:?}")]
+    BackendUnavailable(RecognitionBackend),
+
+    #[error("STT backend could not start: {0:?}")]
+    BackendStartFailed(RecognitionBackend),
+
     #[error("внутренняя ошибка: {0}")]
     Internal(String),
+}
+
+impl AppError {
+    pub fn user_error(&self) -> UserError {
+        let (code, raw, backend) = match self {
+            Self::Busy(message) => (UserErrorCode::Busy, Some(message), None),
+            Self::Cancelled(message) => (UserErrorCode::Cancelled, Some(message), None),
+            Self::Audio(message) => (UserErrorCode::Audio, Some(message), None),
+            Self::Stt(message) => (UserErrorCode::Stt, Some(message), None),
+            Self::Llm(message) => (UserErrorCode::Llm, Some(message), None),
+            Self::Injection(message) => (UserErrorCode::Injection, Some(message), None),
+            Self::Config(message) => (UserErrorCode::Config, Some(message), None),
+            Self::Io(_) => (UserErrorCode::Io, None, None),
+            Self::Json(_) => (UserErrorCode::Json, None, None),
+            Self::ModelNotLoaded => (UserErrorCode::ModelNotLoaded, None, None),
+            Self::ModelNotSelected => (UserErrorCode::ModelNotSelected, None, None),
+            Self::ModelFileMissing => (UserErrorCode::ModelMissing, None, None),
+            Self::BackendUnavailable(backend) => {
+                (UserErrorCode::BackendUnavailable, None, Some(*backend))
+            }
+            Self::BackendStartFailed(backend) => {
+                (UserErrorCode::BackendStartFailed, None, Some(*backend))
+            }
+            Self::Internal(_) => (UserErrorCode::Internal, None, None),
+        };
+        UserError {
+            code,
+            params: UserErrorParams {
+                detail: raw.and_then(|raw| trusted_detail(raw)),
+                backend,
+            },
+        }
+    }
+
+    pub fn user_message(&self) -> String {
+        let error = self.user_error();
+        error
+            .params
+            .detail
+            .unwrap_or_else(|| default_user_message(error.code, error.params.backend))
+    }
 }
 
 impl From<anyhow::Error> for AppError {
@@ -81,8 +286,78 @@ impl From<fono_core::CoordinatorError> for AppError {
 
 impl serde::Serialize for AppError {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(self.to_string().as_ref())
+        serde::Serialize::serialize(&self.user_error(), s)
     }
 }
 
 pub type AppResult<T> = Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ipc_serialization_keeps_stable_codes_and_only_safe_parameters() {
+        let encoded =
+            serde_json::to_value(AppError::BackendUnavailable(RecognitionBackend::Cuda)).unwrap();
+        assert_eq!(
+            encoded,
+            serde_json::json!({"code":"backend_unavailable","params":{"backend":"cuda"}})
+        );
+        assert!(AppError::BackendUnavailable(RecognitionBackend::Cuda)
+            .user_message()
+            .contains("CUDA"));
+        let guidance = "Сначала завершите текущую диктовку";
+        assert_eq!(
+            serde_json::to_value(AppError::Busy(guidance.into())).unwrap(),
+            serde_json::json!({"code":"busy","params":{"detail":guidance}})
+        );
+        assert_eq!(AppError::Busy(guidance.into()).user_message(), guidance);
+    }
+
+    #[test]
+    fn source_errors_and_arbitrary_russian_details_never_reach_ipc() {
+        for error in [
+            AppError::Stt(r"model failed: C:\PRIVATE_PROFILE\model.bin sk-PRIVATE_KEY".into()),
+            AppError::Config("Включите обработку текста PRIVATE_KEY".into()),
+            AppError::Config("Секретная фраза пользователя PRIVATE_KEY".into()),
+            AppError::Internal("Сначала завершите текущую диктовку PRIVATE_KEY".into()),
+            AppError::Io(std::io::Error::other("PRIVATE_KEY /home/private/profile")),
+        ] {
+            let encoded = serde_json::to_string(&error).unwrap();
+            assert!(!encoded.contains("PRIVATE"));
+            assert!(!error.user_message().contains("PRIVATE"));
+            assert!(error
+                .user_message()
+                .chars()
+                .any(|value| ('А'..='я').contains(&value)));
+            assert_eq!(
+                serde_json::to_value(&error).unwrap()["params"],
+                serde_json::json!({})
+            );
+        }
+    }
+
+    #[test]
+    fn catalogue_is_valid_and_legacy_events_only_keep_exact_authored_guidance() {
+        let catalog = catalog().expect("shared UI error catalogue parses");
+        assert_eq!(catalog.messages.len(), 18);
+        let guidance = "Поле ввода изменилось перед подготовкой буфера обмена";
+        assert_eq!(
+            safe_user_message(UserErrorCode::Injection, guidance),
+            guidance
+        );
+        assert_ne!(
+            safe_user_message(
+                UserErrorCode::Injection,
+                &format!("{guidance}: PRIVATE_KEY")
+            ),
+            guidance
+        );
+        assert!(!safe_user_message(
+            UserErrorCode::Injection,
+            &format!("{guidance}: PRIVATE_KEY")
+        )
+        .contains("PRIVATE"));
+    }
+}

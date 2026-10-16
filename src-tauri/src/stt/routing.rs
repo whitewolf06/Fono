@@ -139,7 +139,7 @@ impl ActiveEngine {
                 MailboxHealth::Ready => SttHealth::Ready { device },
                 MailboxHealth::Failed(error) => SttHealth::Failed {
                     device,
-                    message: error.to_string(),
+                    message: error.user_message(),
                 },
             },
         }

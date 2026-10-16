@@ -27,11 +27,7 @@ async fn load(session: &Session) -> AppResult<bool> {
         .settings
         .whisper_model_path
         .as_deref()
-        .ok_or_else(|| {
-            AppError::Stt(
-                "Whisper model is not selected. Download and choose a model in settings.".into(),
-            )
-        })?;
+        .ok_or(AppError::ModelNotSelected)?;
     let path = std::path::PathBuf::from(path);
     let pipeline = session.app.state::<Pipeline>();
     let stt = pipeline.stt().clone();

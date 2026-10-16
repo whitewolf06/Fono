@@ -14,7 +14,7 @@ use tauri::AppHandle;
 #[cfg(not(debug_assertions))]
 use tauri::Manager;
 
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, RecognitionBackend};
 use crate::types::{AccelerationMode, Transcript};
 use fono_core::OperationCancellation;
 
@@ -68,17 +68,15 @@ impl SttEngine {
             return Err(worker_cleanup_busy());
         }
         if !model_path.exists() {
-            let error = AppError::Stt(format!("model file not found: {}", model_path.display()));
+            tracing::warn!(path = %model_path.display(), "STT model file not found");
+            let error = AppError::ModelFileMissing;
             self.set_failed_readiness(&error);
             return Err(error);
         }
         let model_path_string = model_path.to_string_lossy().to_string();
         let candidates = worker_paths.candidates(acceleration);
         if candidates.is_empty() {
-            let error = AppError::Stt(format!(
-                "{} backend is not packaged in this release",
-                acceleration_name(acceleration)
-            ));
+            let error = AppError::BackendUnavailable(error_backend(acceleration));
             self.set_failed_readiness(&error);
             return Err(error);
         }
@@ -165,11 +163,9 @@ impl SttEngine {
                 }
             }
         }
-        let error = AppError::Stt(format!(
-            "could not start {} backend: {}",
-            acceleration_name(acceleration),
-            errors.join("; ")
-        ));
+        tracing::error!(backend = acceleration_name(acceleration), errors = ?errors,
+            "STT backend could not start");
+        let error = AppError::BackendStartFailed(error_backend(acceleration));
         self.set_failed_readiness(&error);
         Err(error)
     }
@@ -280,7 +276,7 @@ impl SttEngine {
 
     fn set_failed_readiness(&self, error: &AppError) {
         self.set_readiness(SttReadiness::Failed {
-            message: error.to_string(),
+            message: error.user_message(),
         });
     }
 
@@ -316,6 +312,15 @@ fn acceleration_name(acceleration: AccelerationMode) -> &'static str {
         AccelerationMode::Cuda => "CUDA",
         AccelerationMode::Vulkan => "Vulkan",
         AccelerationMode::Cpu => "CPU",
+    }
+}
+
+fn error_backend(acceleration: AccelerationMode) -> RecognitionBackend {
+    match acceleration {
+        AccelerationMode::Auto => RecognitionBackend::Auto,
+        AccelerationMode::Cuda => RecognitionBackend::Cuda,
+        AccelerationMode::Vulkan => RecognitionBackend::Vulkan,
+        AccelerationMode::Cpu => RecognitionBackend::Cpu,
     }
 }
 
