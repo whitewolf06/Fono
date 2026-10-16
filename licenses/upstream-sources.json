@@ -1,0 +1,95 @@
+{
+  "reviewedOn": "2026-10-17",
+  "sources": [
+    {
+      "file": "licenses/upstream/whisper-openai-MIT.txt",
+      "url": "https://raw.githubusercontent.com/openai/whisper/v20250625/LICENSE",
+      "sha256": "b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d"
+    },
+    {
+      "file": "licenses/upstream/sherpa-onnx-1.13.4-APACHE-2.0.txt",
+      "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.13.4/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": "licenses/upstream/silero-vad-MIT.txt",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/master/LICENSE",
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
+    },
+    {
+      "file": "licenses/upstream/t-one-APACHE-2.0-notice.txt",
+      "url": "https://raw.githubusercontent.com/voicekit-team/T-one/main/LICENSE",
+      "sha256": "c8e6ecb86af681d9815d1ada7b1a7780ea5e5cb68a5df94fc800adab1a6ce027"
+    },
+    {
+      "file": "licenses/upstream/icefall-APACHE-2.0.txt",
+      "url": "https://raw.githubusercontent.com/k2-fsa/icefall/master/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": "licenses/upstream/onnxruntime-1.27.0-MIT.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.27.0/LICENSE",
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "file": "licenses/upstream/onnxruntime-1.27.0-ThirdPartyNotices.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.27.0/ThirdPartyNotices.txt",
+      "sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+    },
+    {
+      "file": "licenses/upstream/piper-phonemize-f3ff95a-MIT.txt",
+      "url": "https://raw.githubusercontent.com/csukuangfj/piper-phonemize/f3ff95afc03640bc1399e113e83361192a2fafb4/LICENSE.md",
+      "sha256": "13746d509d74e55ea2265fbef204bb7cdbf84a8315b0207e988326cb54387028"
+    },
+    {
+      "file": "licenses/upstream/espeak-ng-ed530aa-GPL-3.0.txt",
+      "url": "https://raw.githubusercontent.com/csukuangfj/espeak-ng/ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "file": "licenses/upstream/symphonia-0.5.5-MPL-2.0.txt",
+      "url": "https://raw.githubusercontent.com/pdeljanov/Symphonia/v0.5.5/LICENSE",
+      "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30"
+    },
+    {
+      "file": "licenses/upstream/webview2-rs-0.38.2-MIT.txt",
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
+    },
+    {
+      "file": "licenses/upstream/yarn-MIT.txt",
+      "url": "https://raw.githubusercontent.com/jquesnelle/yarn/master/LICENSE",
+      "sha256": "c3ec00ded224ebaaa673373961babc2d79f3081914897f3325cb7927a76234c1"
+    },
+    {
+      "file": "licenses/upstream/NVIDIA-CUDA-13.3.1-EULA.txt",
+      "url": "https://docs.nvidia.com/cuda/eula/index.html",
+      "sha256": "7771f1ef8e9300ba175cf58e9dcc1df55d9dd82d3fc960c4c6db0c66354e418c",
+      "origin": "Installed CUDA Toolkit 13.3.1 EULA.txt, last updated January 26 2026"
+    },
+    {
+      "file": "licenses/upstream/NVIDIA-CUDA-13.3.1-third-party.txt",
+      "url": "https://docs.nvidia.com/cuda/eula/index.html",
+      "sha256": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028",
+      "origin": "Installed CUDA Toolkit 13.3.1 LICENSE"
+    },
+    {
+      "file": "licenses/upstream/ggml-llamafile-MIT.txt",
+      "url": "https://github.com/ggml-org/whisper.cpp/blob/7695a5331230c585f5ce92291c4256973985ae5a/ggml/src/ggml-cpu/llamafile/sgemm.cpp",
+      "sha256": "7a5e15a60e6fbbf30c2e376d904dcda5e02fffe6473ecb465819393f3a547a0f",
+      "origin": "Complete original license header, lines 1-21"
+    },
+    {
+      "file": "licenses/upstream/wake-en-model-card.txt",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+      "sha256": "c914dd28e23310a6dd345ea10495003d3e4820d2ed987181e4c2d67e501b6b76",
+      "origin": "README distributed in locally present model pack"
+    },
+    {
+      "file": "licenses/upstream/wake-kws-model-card.txt",
+      "url": "https://www.modelscope.cn/models/pkufool/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01",
+      "sha256": "74e42d37d63acd2366b042151d576fcc0c4917a41de339414a37f1e79f4e80e2",
+      "origin": "README distributed in locally present model pack"
+    }
+  ]
+}

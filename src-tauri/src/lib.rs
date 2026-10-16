@@ -462,7 +462,7 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
 
 /// Запускает wake word детектор, если он включён в настройках.
 ///
-/// Использует выбранный backend (`sherpa-onnx` по умолчанию).
+/// Использует отдельно выбранный исследовательский streaming backend.
 /// При обнаружении wake-фразы стартует запись диктовки,
 /// по тишине (VAD) — STT (основной моделью) + вставка текста.
 #[cfg(feature = "wake-word")]

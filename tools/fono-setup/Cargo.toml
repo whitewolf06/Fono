@@ -3,6 +3,7 @@ members = ["."]
 resolver = "2"
 
 [package]
+license = "MIT"
 name = "fono-setup"
 version = "0.1.0"
 edition = "2021"

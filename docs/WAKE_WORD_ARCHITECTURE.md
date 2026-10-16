@@ -5,8 +5,8 @@
 `WAKE_WORD_AVAILABLE` в Rust и V3 остаются выключенными. Старое сохранённое
 включение приводится к `false`; фраза, параметры и профиль сохраняются.
 
-Основание — [план WakeWord, W-01](../improvement-plan/03-wake-word.md) и
-[выделение аудиослоя, ARC-02](../improvement-plan/01-refactoring-and-fixes.md).
+Основание — [первый этап improvement-plan, W-01 и ARC-02](improvement-stage-1.md).
+Подробные исходные пункты сохранены в связанных карточках Kvorum.
 Возврат функции требует отдельного решения по качеству детектора и ручной
 проверки голоса. Актуальная приёмка — в [STATUS.md](STATUS.md) и
 [fono-voice-reliability.md](fono-voice-reliability.md).

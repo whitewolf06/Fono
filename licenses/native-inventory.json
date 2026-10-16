@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "reviewedOn": "2026-10-17",
+  "scope": "Locally staged files, not proof of published installer contents. See THIRD_PARTY_NOTICES.md for licenses and unresolved native redistribution/source obligations.",
+  "sherpaArchive": {
+    "version": "1.13.4",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.4/sherpa-onnx-v1.13.4-win-x64-shared-MT-Release-lib.tar.bz2",
+    "sha256": "f923e5eacb6bca83914d89cb31afa579e11eeaff9af39f8ead82ad19f44b2c9f",
+    "downloadTimeoutSeconds": 120,
+    "directory": "sherpa-onnx-v1.13.4-win-x64-shared-MT-Release-lib"
+  },
+  "whisperCppSubmodule": "7695a5331230c585f5ce92291c4256973985ae5a",
+  "cudaToolkitVersion": "13.3.1",
+  "whiteUi": {
+    "name": "@whitelife-core/ui-kit",
+    "version": "0.6.0",
+    "declaredLicense": "MIT",
+    "copyrightNotice": "not supplied in installed package or checked upstream checkout"
+  },
+  "files": [
+    {
+      "file": "src-tauri/resources/sherpa-onnx/onnxruntime_providers_shared.dll",
+      "bytes": 104960,
+      "sha256": "190d10767c321f324d3785368a0b752d9c5a9e06cb5d4d97bb176f58bdb652f3",
+      "productVersion": "1.27.0",
+      "fileVersion": "1.27.0"
+    },
+    {
+      "file": "src-tauri/resources/sherpa-onnx/onnxruntime.dll",
+      "bytes": 17363968,
+      "sha256": "daa77083a45bf525da0dde9e87f85d8eb146f58f9c9aa7124ca84545e1c0f148",
+      "productVersion": "1.27.0",
+      "fileVersion": "1.27.0"
+    },
+    {
+      "file": "src-tauri/resources/sherpa-onnx/sherpa-onnx-c-api.dll",
+      "bytes": 4544512,
+      "sha256": "3db688ca9e6408c958f45986adc68ed9158522e28c7567b7ffee9312a553c777",
+      "productVersion": null,
+      "fileVersion": null
+    },
+    {
+      "file": "src-tauri/resources/sherpa-onnx/sherpa-onnx-cxx-api.dll",
+      "bytes": 258048,
+      "sha256": "3e8b308e9235a3e7398b2c89b43ebb7f813f216aade661b2f246d42656517777",
+      "productVersion": null,
+      "fileVersion": null
+    },
+    {
+      "file": "src-tauri/resources/stt-workers/cublas64_13.dll",
+      "bytes": 52697712,
+      "sha256": "8c6bac24474af29627ec96500025a5d410a1b7e8ffa00e1fe13b1781fc6b3ddc",
+      "productVersion": "6,14,11,1360",
+      "fileVersion": "6,14,11,1360"
+    },
+    {
+      "file": "src-tauri/resources/stt-workers/cublasLt64_13.dll",
+      "bytes": 463655536,
+      "sha256": "e323abd89e0f03c1db91a09d7aeb1928de08e1f86192cc713b335fefe3e368a9",
+      "productVersion": "6,14,11,1360",
+      "fileVersion": "6,14,11,1360"
+    },
+    {
+      "file": "src-tauri/resources/stt-workers/cudart64_13.dll",
+      "bytes": 551024,
+      "sha256": "b00ca6f53699120da815bf3e06e2e4285fae2f201235b883dcbb50eec51e2a2a",
+      "productVersion": "6,14,11,13030",
+      "fileVersion": "6,14,11,13030"
+    },
+    {
+      "file": "src-tauri/resources/stt-workers/fono-stt-cuda-worker.exe",
+      "bytes": 31652352,
+      "sha256": "1b932a7eb7683ad830267e208b3da3793c48332f5f12d72c86a735183969bb51",
+      "productVersion": null,
+      "fileVersion": null
+    },
+    {
+      "file": "src-tauri/resources/stt-workers/fono-stt-vulkan-worker.exe",
+      "bytes": 50104320,
+      "sha256": "5d0470ecfc216fe72b46e2bd73915d6483c4009d7505e1784e81f965ca9f2a5d",
+      "productVersion": null,
+      "fileVersion": null
+    },
+    {
+      "file": "src-tauri/resources/vad/silero_vad.onnx",
+      "bytes": 643854,
+      "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+      "productVersion": null,
+      "fileVersion": null
+    }
+  ],
+  "modelDefinitions": "src-tauri/crates/fono-wake/src/models.rs",
+  "whisperModelDefinitions": "src-tauri/src/types.rs"
+}

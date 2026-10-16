@@ -1,0 +1,8 @@
+# Inventory input hashes must survive a Windows/Linux checkout.
+package-lock.json text eol=lf
+src-tauri/Cargo.lock text eol=lf
+tools/fono-setup/Cargo.lock text eol=lf
+
+# Preserve upstream notice bytes and whitespace as supplied by their authors.
+licenses/dependency-notices.txt -text -whitespace
+licenses/upstream/*.txt -text -whitespace

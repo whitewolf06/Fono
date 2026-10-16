@@ -518,7 +518,10 @@ mod tests {
     #[test]
     fn frozen_legacy_backend_profiles_round_trip_without_blocking_unrelated_saves() {
         for backend in ["sherpa_onnx", "whisper_experimental"] {
-            let mut settings: Settings = serde_json::from_value(serde_json::json!({
+            // Persisted settings have already passed the independent LLM
+            // migration. Keep that valid baseline while replacing wake fields.
+            let mut snapshot = serde_json::to_value(Settings::default()).unwrap();
+            let legacy_wake = serde_json::json!({
                 "wake_backend": backend,
                 "wake_word_enabled": true,
                 "wake_word": "saved legacy phrase",
@@ -537,13 +540,18 @@ mod tests {
                     "average_peak": 0.3,
                     "average_active_ms": 800
                 }
-            }))
-            .unwrap();
+            });
+            snapshot
+                .as_object_mut()
+                .unwrap()
+                .extend(legacy_wake.as_object().unwrap().clone());
+            let mut settings: Settings = serde_json::from_value(snapshot).unwrap();
             let profile = serde_json::to_value(&settings.wake_calibration_profile).unwrap();
             settings.enforce_wake_availability();
             settings.autostart = !settings.autostart;
             assert!(!settings.wake_word_enabled);
-            assert!(validate_settings(&settings).is_ok());
+            let validation = validate_settings(&settings);
+            assert!(validation.is_ok(), "{validation:?}");
             assert_eq!(settings.wake_word, "saved legacy phrase");
             let saved: Settings =
                 serde_json::from_value(serde_json::to_value(settings).unwrap()).unwrap();
