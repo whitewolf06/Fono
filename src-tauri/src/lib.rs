@@ -183,7 +183,7 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             // Трей-иконка с меню
             setup_tray(app)?;
-            // Push-to-talk: Ctrl+Space (Pressed) → запись, (Released) → стоп + STT + вставка.
+            // Настраиваемые горячие клавиши диктовки: hold или toggle.
             setup_global_shortcut(app)?;
 
             // Закрытие окна настроек сворачивает его в трей, а не уничтожает.
@@ -199,7 +199,7 @@ pub fn run() {
                 });
             }
 
-            // Восстанавливаем позицию overlay-окна из настроек.
+            // Применяем сохранённые настройки и политику хранения аналитики.
             let settings = app.state::<AppState>().settings();
             crate::verbose::set_verbose(settings.verbose_logging);
             if let Err(error) = crate::history::apply_analytics_privacy_policy(
@@ -227,8 +227,7 @@ pub fn run() {
                 tracing::warn!(%error, "could not restore overlay position");
             }
 
-            // Wake word: запускаем, если включён в настройках.
-            // Загружает base-модель для транскрипции чанков (баланс скорости/точности).
+            // Сервис пробуждения проверяет доступность функции и её настройки.
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = start_wake_word_if_enabled(&handle).await {

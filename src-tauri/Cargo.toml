@@ -4,14 +4,14 @@ resolver = "2"
 
 [package]
 name = "fono"
-version = "0.7.1"
+version = "0.7.2"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
 rust-version = "1.75"
 publish = false
 
-# На Windows прячем консольное окно для release-сборки
+# Общая библиотека приложения для desktop entrypoint и native-проверок.
 [lib]
 name = "fono_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
