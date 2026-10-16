@@ -1,7 +1,7 @@
 //! Shared application audio entrypoint.
 //!
 //! Capture, format selection, channel mixing and resampling live in
-//! `fono-wake::audio_source`. `AudioHub` owns one physical stream and fans
+//! `fono-audio::audio_source`. `AudioHub` owns one physical stream and fans
 //! its mono 16 kHz PCM frames out to wake word and dictation subscribers.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -45,12 +45,12 @@ impl AudioCapture {
 
 /// Dictation's subscription to the process-wide physical input stream.
 pub struct AudioRecordingOwner {
-    audio_hub: fono_wake::AudioHub,
-    subscription: Mutex<Option<fono_wake::AudioSubscription>>,
+    audio_hub: fono_audio::AudioHub,
+    subscription: Mutex<Option<fono_audio::AudioSubscription>>,
 }
 
 impl AudioRecordingOwner {
-    pub fn new(audio_hub: fono_wake::AudioHub) -> Self {
+    pub fn new(audio_hub: fono_audio::AudioHub) -> Self {
         Self {
             audio_hub,
             subscription: Mutex::new(None),
@@ -132,7 +132,7 @@ impl AudioRecorder<RecordingWriter, AppError> for AudioRecordingOwner {
             .subscribe_packets_from(
                 device_id,
                 16_000,
-                fono_wake::AudioCursor { epoch, sample },
+                fono_audio::AudioCursor { epoch, sample },
                 move |packet| {
                     let sum: f64 = packet
                         .samples
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn owner_thread_shuts_down_without_an_active_stream() {
-        let owner = AudioRecordingOwner::new(fono_wake::AudioHub::new());
+        let owner = AudioRecordingOwner::new(fono_audio::AudioHub::new());
         drop(owner);
     }
 }

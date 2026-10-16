@@ -1,6 +1,6 @@
 use super::owner::run_owner;
 use super::{ring::SampleRing, AudioCursor, AudioPacket};
-use crate::error::{WakeWordError, WakeWordResult};
+use crate::error::{AudioError, AudioResult};
 use crossbeam_channel::{bounded, Sender};
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -49,7 +49,7 @@ struct HubInner {
 pub(super) enum Command {
     Ensure {
         config: AudioConfig,
-        response: Sender<WakeWordResult<()>>,
+        response: Sender<AudioResult<()>>,
     },
     StopIfUnused,
     Shutdown {
@@ -59,6 +59,7 @@ pub(super) enum Command {
 pub struct AudioSubscription {
     id: u64,
     inner: Arc<HubInner>,
+    capture_dropped_at_start: AtomicU64,
     worker: Option<JoinHandle<()>>,
 }
 
@@ -100,7 +101,7 @@ impl AudioHub {
         device_id: Option<&str>,
         sample_rate: u32,
         callback: F,
-    ) -> WakeWordResult<AudioSubscription>
+    ) -> AudioResult<AudioSubscription>
     where
         F: Fn(&[i16]) + Send + Sync + 'static,
     {
@@ -113,7 +114,7 @@ impl AudioHub {
         device_id: Option<&str>,
         sample_rate: u32,
         callback: F,
-    ) -> WakeWordResult<AudioSubscription>
+    ) -> AudioResult<AudioSubscription>
     where
         F: Fn(AudioPacket) + Send + Sync + 'static,
     {
@@ -127,7 +128,7 @@ impl AudioHub {
         sample_rate: u32,
         cursor: AudioCursor,
         callback: F,
-    ) -> WakeWordResult<AudioSubscription>
+    ) -> AudioResult<AudioSubscription>
     where
         F: Fn(AudioPacket) + Send + Sync + 'static,
     {
@@ -139,19 +140,18 @@ impl AudioHub {
         sample_rate: u32,
         cursor: Option<AudioCursor>,
         callback: F,
-    ) -> WakeWordResult<AudioSubscription>
+    ) -> AudioResult<AudioSubscription>
     where
         F: Fn(AudioPacket) + Send + Sync + 'static,
     {
+        let capture_dropped_at_start = self.inner.dropped.load(Ordering::Relaxed);
         let id = self.inner.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = bounded::<AudioPacket>(2048);
         // Reserve before Ensure so a second device cannot replace a live input.
         {
             let mut dispatch = self.inner.dispatch.lock();
             if dispatch.subscribers.len() >= Self::MAX_SUBSCRIBERS {
-                return Err(WakeWordError::Audio(
-                    "audio subscriber limit reached".into(),
-                ));
+                return Err(AudioError::Audio("audio subscriber limit reached".into()));
             }
             dispatch.subscribers.insert(id, tx.clone());
         }
@@ -164,13 +164,11 @@ impl AudioHub {
             .inner
             .commands
             .send(Command::Ensure { config, response })
-            .map_err(|_| WakeWordError::Audio("audio owner is unavailable".into()))
+            .map_err(|_| AudioError::Audio("audio owner is unavailable".into()))
             .and_then(|_| {
                 response_rx
                     .recv_timeout(Duration::from_secs(5))
-                    .map_err(|_| {
-                        WakeWordError::Audio("audio input initialization timed out".into())
-                    })?
+                    .map_err(|_| AudioError::Audio("audio input initialization timed out".into()))?
             });
         if let Err(error) = result {
             self.inner.dispatch.lock().subscribers.remove(&id);
@@ -186,7 +184,7 @@ impl AudioHub {
                     for packet in packets {
                         if tx.try_send(packet).is_err() {
                             dispatch.subscribers.remove(&id);
-                            return Err(WakeWordError::Audio(
+                            return Err(AudioError::Audio(
                                 "handoff queue capacity exceeded".into(),
                             ));
                         }
@@ -195,7 +193,7 @@ impl AudioHub {
                 Err(message) => {
                     dispatch.subscribers.remove(&id);
                     let _ = self.inner.commands.try_send(Command::StopIfUnused);
-                    return Err(WakeWordError::Audio(message));
+                    return Err(AudioError::Audio(message));
                 }
             }
         }
@@ -208,19 +206,20 @@ impl AudioHub {
         Ok(AudioSubscription {
             id,
             inner: self.inner.clone(),
+            capture_dropped_at_start: AtomicU64::new(capture_dropped_at_start),
             worker: Some(worker),
         })
     }
     pub fn cursor(&self) -> AudioCursor {
         self.inner.dispatch.lock().ring.cursor
     }
-    pub fn snapshot_since(&self, cursor: AudioCursor) -> WakeWordResult<Vec<AudioPacket>> {
+    pub fn snapshot_since(&self, cursor: AudioCursor) -> AudioResult<Vec<AudioPacket>> {
         self.inner
             .dispatch
             .lock()
             .ring
             .since(cursor)
-            .map_err(WakeWordError::Audio)
+            .map_err(AudioError::Audio)
     }
     pub fn diagnostics(&self) -> AudioHubDiagnostics {
         let dispatch = self.inner.dispatch.lock();
@@ -250,6 +249,28 @@ impl AudioHub {
 impl Default for AudioHub {
     fn default() -> Self {
         Self::new()
+    }
+}
+impl AudioSubscription {
+    /// Physical input packets lost while this subscription was active.
+    /// Read before dropping the subscription to preserve per-recording evidence.
+    /// Losses from earlier subscriptions are excluded; a counter reset rebases
+    /// this measurement instead of fabricating a large packet-loss count.
+    pub fn dropped_capture_packets(&self) -> u64 {
+        let baseline = self.capture_dropped_at_start.load(Ordering::Relaxed);
+        let current = self.inner.dropped.load(Ordering::Relaxed);
+        match super::capture_loss_delta(baseline, current) {
+            Some(count) => count,
+            None => {
+                let _ = self.capture_dropped_at_start.compare_exchange(
+                    baseline,
+                    current,
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                );
+                0
+            }
+        }
     }
 }
 impl Drop for HubInner {
@@ -287,5 +308,38 @@ mod tests {
         let hub = AudioHub::new();
         drop(hub.clone());
         assert!(hub.inner.thread.lock().is_some());
+    }
+
+    fn subscription_at(hub: &AudioHub, baseline: u64) -> AudioSubscription {
+        AudioSubscription {
+            id: 0,
+            inner: hub.inner.clone(),
+            capture_dropped_at_start: AtomicU64::new(baseline),
+            worker: None,
+        }
+    }
+
+    #[test]
+    fn subscription_capture_losses_exclude_previous_recordings() {
+        let hub = AudioHub::new();
+        hub.inner.dropped.store(12, Ordering::Relaxed);
+        let subscription = subscription_at(&hub, 12);
+        assert_eq!(subscription.dropped_capture_packets(), 0);
+        hub.inner.dropped.fetch_add(1, Ordering::Relaxed);
+        assert_eq!(subscription.dropped_capture_packets(), 1);
+        assert_eq!(hub.diagnostics().dropped_capture_packets, 13);
+    }
+
+    #[test]
+    fn subscription_capture_losses_handle_counter_wrap_and_reset() {
+        let hub = AudioHub::new();
+        let wrapped = subscription_at(&hub, u64::MAX - 1);
+        hub.inner.dropped.store(1, Ordering::Relaxed);
+        assert_eq!(wrapped.dropped_capture_packets(), 3);
+        let reset = subscription_at(&hub, 100);
+        hub.inner.dropped.store(0, Ordering::Relaxed);
+        assert_eq!(reset.dropped_capture_packets(), 0);
+        hub.inner.dropped.store(1, Ordering::Relaxed);
+        assert_eq!(reset.dropped_capture_packets(), 1);
     }
 }

@@ -34,7 +34,7 @@ pub(super) fn convert_to_i16(data: &cpal::Data, format: SampleFormat, output: &m
         SampleFormat::F32 => samples_to_i16::<f32, _>(bytes, output, |s| float_to_i16(s as f64)),
         SampleFormat::F64 => samples_to_i16::<f64, _>(bytes, output, float_to_i16),
         _ => {
-            tracing::warn!("fono-wake: unsupported sample format {format:?}");
+            tracing::warn!("fono-audio: unsupported sample format {format:?}");
         }
     }
 }
@@ -48,7 +48,7 @@ where
     }
     let sample_size = std::mem::size_of::<T>();
     if bytes.len() % sample_size != 0 {
-        tracing::warn!("fono-wake: misaligned audio bytes");
+        tracing::warn!("fono-audio: misaligned audio bytes");
     }
     // SAFETY: `align_to` never reinterprets the unaligned prefix/suffix. The
     // aligned middle is read only as `T: Copy`; the caller selects `T` from

@@ -2,7 +2,7 @@ use super::{
     convert::{convert_to_i16, mix_to_mono, sample_format_priority},
     resample::StreamingResampler,
 };
-use crate::error::{WakeWordError, WakeWordResult};
+use crate::error::{AudioError, AudioResult};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, SampleRate};
 use crossbeam_channel::bounded;
@@ -44,15 +44,7 @@ impl CaptureLossMonitor {
             self.recent.pop_front();
             self.recent_dropped -= count;
         }
-        let newly_dropped = if total_dropped >= self.observed {
-            total_dropped - self.observed
-        } else if self.observed - total_dropped > u64::MAX / 2 {
-            // Atomic fetch_add wraps; a small forward distance is still loss.
-            total_dropped.wrapping_sub(self.observed)
-        } else {
-            // A diagnostics reset is a new baseline, not an enormous overflow.
-            0
-        };
+        let newly_dropped = super::capture_loss_delta(self.observed, total_dropped).unwrap_or(0);
         self.observed = total_dropped;
         self.recent_dropped = self.recent_dropped.saturating_add(newly_dropped);
         // At most eight non-empty observations can survive before failure.
@@ -73,7 +65,7 @@ impl AudioStream {
         device_id: Option<&str>,
         target_sample_rate: u32,
         on_frames: F,
-    ) -> WakeWordResult<Self>
+    ) -> AudioResult<Self>
     where
         F: FnMut(&[i16]) + Send + 'static,
     {
@@ -91,23 +83,23 @@ impl AudioStream {
         mut on_frames: F,
         mut on_error: E,
         dropped: Arc<AtomicU64>,
-    ) -> WakeWordResult<Self>
+    ) -> AudioResult<Self>
     where
         F: FnMut(&[i16]) + Send + 'static,
         E: FnMut(String) + Send + 'static,
     {
         if target_sample_rate == 0 {
-            return Err(WakeWordError::Audio("zero sample rate".into()));
+            return Err(AudioError::Audio("zero sample rate".into()));
         }
         let host = cpal::default_host();
         let device = match device_id {
             Some(id) => host
                 .input_devices()?
                 .find(|d| d.name().ok().as_deref() == Some(id))
-                .ok_or_else(|| WakeWordError::Audio(format!("device not found: {id}")))?,
+                .ok_or_else(|| AudioError::Audio(format!("device not found: {id}")))?,
             None => host
                 .default_input_device()
-                .ok_or_else(|| WakeWordError::Audio("no default input device".into()))?,
+                .ok_or_else(|| AudioError::Audio("no default input device".into()))?,
         };
         let supported: Vec<_> = device.supported_input_configs()?.collect();
         let range = supported
@@ -127,7 +119,7 @@ impl AudioStream {
                     sample_format_priority(config.sample_format()),
                 )
             })
-            .ok_or_else(|| WakeWordError::Audio("no supported input config".into()))?;
+            .ok_or_else(|| AudioError::Audio("no supported input config".into()))?;
         let rate = target_sample_rate.clamp(range.min_sample_rate().0, range.max_sample_rate().0);
         let supported_config = (*range).with_sample_rate(SampleRate(rate));
         let channels = supported_config.channels() as usize;

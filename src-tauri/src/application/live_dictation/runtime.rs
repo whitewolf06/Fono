@@ -51,7 +51,7 @@ async fn drive(
             last_audio = std::time::Instant::now();
         }
         if pipeline.is_recording() {
-            if let Some(error) = app.state::<fono_wake::AudioHub>().diagnostics().last_error {
+            if let Some(error) = app.state::<fono_audio::AudioHub>().diagnostics().last_error {
                 return Err(AppError::Audio(format!("Поток микрофона прерван: {error}")));
             }
             if last_audio.elapsed().as_secs() >= 3 {

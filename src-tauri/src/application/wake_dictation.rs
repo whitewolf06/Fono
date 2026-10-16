@@ -13,7 +13,7 @@ use tauri::{AppHandle, Emitter, Manager};
 pub async fn run(
     app: &AppHandle,
     pre_roll: Vec<i16>,
-    cursor: Option<fono_wake::AudioCursor>,
+    cursor: Option<fono_audio::AudioCursor>,
 ) -> AppResult<()> {
     crate::types::ensure_wake_available()?;
     let settings = app.state::<AppState>().settings();
@@ -40,7 +40,7 @@ pub async fn run(
         if !pcm.is_empty() {
             last_audio = std::time::Instant::now();
         }
-        if let Some(error) = app.state::<fono_wake::AudioHub>().diagnostics().last_error {
+        if let Some(error) = app.state::<fono_audio::AudioHub>().diagnostics().last_error {
             let _ = super::dictation::stop_with_reason_for(
                 app.clone(),
                 operation,

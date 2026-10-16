@@ -26,7 +26,8 @@ pub mod verbose;
 
 use crate::state::AppState;
 use crate::types::{PipelineState, Settings, WakeWordBackend};
-use fono_wake::{AudioHub, WakeWordConfig, WakeWordEvent, WakeWordHandle};
+use fono_audio::AudioHub;
+use fono_wake::{WakeWordConfig, WakeWordEvent, WakeWordHandle};
 use tauri::{Manager, RunEvent, WindowEvent};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 

@@ -7,6 +7,7 @@ description = "Wake word subsystem for Fono"
 publish = false
 
 [dependencies]
+fono-audio = { version = "0.1.0", path = "../fono-audio", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
@@ -24,6 +25,6 @@ sherpa-onnx = { version = "1.13", optional = true, default-features = false, fea
 [features]
 default = ["whisper-wake"]
 whisper-wake = ["dep:whisper-rs"]
-sherpa-wake = ["dep:sherpa-onnx"]
+sherpa-wake = ["dep:sherpa-onnx", "fono-audio/speech-vad"]
 cuda = ["whisper-rs?/cuda"]
 vulkan = ["whisper-rs?/vulkan"]

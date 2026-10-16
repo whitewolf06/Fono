@@ -24,8 +24,7 @@ pub fn model_path(app: &AppHandle) -> AppResult<std::path::PathBuf> {
 }
 
 pub struct SpeechGate {
-    #[cfg(feature = "sherpa-wake")]
-    inner: fono_wake::StreamingSpeechVad,
+    inner: fono_audio::StreamingSpeechVad,
 }
 pub struct SpeechDecision {
     pub speaking: bool,
@@ -36,56 +35,25 @@ pub struct SpeechDecision {
 
 impl SpeechGate {
     pub fn new(app: &AppHandle) -> AppResult<Self> {
-        #[cfg(feature = "sherpa-wake")]
-        {
-            Ok(Self {
-                inner: fono_wake::StreamingSpeechVad::new(&model_path(app)?)?,
-            })
-        }
-        #[cfg(not(feature = "sherpa-wake"))]
-        {
-            let _ = app;
-            Err(AppError::Config(
-                "Речевой VAD отсутствует в этой сборке".into(),
-            ))
-        }
+        Ok(Self {
+            inner: fono_audio::StreamingSpeechVad::new(&model_path(app)?)?,
+        })
     }
     pub fn accept(&mut self, samples: &[i16]) -> SpeechDecision {
-        #[cfg(feature = "sherpa-wake")]
-        {
-            let state = self.inner.accept(samples);
-            SpeechDecision {
-                speaking: state.current_speech,
-                has_speech: state.has_speech,
-                last_speech: state.last_speech_sample.unwrap_or(0),
-                processed: state.processed_samples,
-            }
-        }
-        #[cfg(not(feature = "sherpa-wake"))]
-        {
-            let _ = samples;
-            SpeechDecision {
-                speaking: false,
-                has_speech: false,
-                last_speech: 0,
-                processed: 0,
-            }
+        let state = self.inner.accept(samples);
+        SpeechDecision {
+            speaking: state.current_speech,
+            has_speech: state.has_speech,
+            last_speech: state.last_speech_sample.unwrap_or(0),
+            processed: state.processed_samples,
         }
     }
 
     /// A completed capture needs a confirmed neural segment and sustained
     /// acoustic evidence. The streaming latch alone includes VAD hangover.
     pub fn recording_has_speech(&mut self, samples: &[i16], cancelled: impl Fn() -> bool) -> bool {
-        #[cfg(feature = "sherpa-wake")]
-        {
-            self.inner
-                .analyze_recording(samples, cancelled)
-                .is_some_and(|decision| decision.has_speech)
-        }
-        #[cfg(not(feature = "sherpa-wake"))]
-        {
-            let _ = (samples, cancelled);
-            false
-        }
+        self.inner
+            .analyze_recording(samples, cancelled)
+            .is_some_and(|decision| decision.has_speech)
     }
 }

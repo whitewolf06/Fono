@@ -25,6 +25,17 @@ pub enum WakeWordError {
     Io(#[from] std::io::Error),
 }
 
+impl From<fono_audio::AudioError> for WakeWordError {
+    fn from(error: fono_audio::AudioError) -> Self {
+        match error {
+            fono_audio::AudioError::ModelNotFound(path) => Self::ModelNotFound(path),
+            fono_audio::AudioError::ModelLoad(message) => Self::ModelLoad(message),
+            fono_audio::AudioError::Audio(message) => Self::Audio(message),
+            fono_audio::AudioError::Io(error) => Self::Io(error),
+        }
+    }
+}
+
 impl From<cpal::BuildStreamError> for WakeWordError {
     fn from(e: cpal::BuildStreamError) -> Self {
         WakeWordError::Audio(e.to_string())

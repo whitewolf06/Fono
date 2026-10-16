@@ -60,10 +60,10 @@ pub struct Pipeline {
 
 impl Pipeline {
     pub fn new() -> Self {
-        Self::new_with_audio_hub(fono_wake::AudioHub::new())
+        Self::new_with_audio_hub(fono_audio::AudioHub::new())
     }
 
-    pub fn new_with_audio_hub(audio_hub: fono_wake::AudioHub) -> Self {
+    pub fn new_with_audio_hub(audio_hub: fono_audio::AudioHub) -> Self {
         Self::new_with_audio_owner(Box::new(AudioRecordingOwner::new(audio_hub)))
     }
 

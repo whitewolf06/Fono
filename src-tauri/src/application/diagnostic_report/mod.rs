@@ -6,7 +6,8 @@ pub mod telemetry;
 mod tests;
 
 use crate::{application::service_control::ServiceControl, pipeline::Pipeline, state::AppState};
-use fono_wake::{AudioHub, WakeWordHandle};
+use fono_audio::AudioHub;
+use fono_wake::WakeWordHandle;
 use model::ReportSnapshot;
 use tauri::{AppHandle, Manager};
 

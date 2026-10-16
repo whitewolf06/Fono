@@ -1,6 +1,6 @@
 //! Streaming neural VAD. Every 512-sample window is inspected, including
 //! earlier windows in a packet that finishes in silence.
-use crate::{WakeWordError, WakeWordResult};
+use crate::{AudioError, AudioResult};
 use std::{collections::VecDeque, path::Path};
 mod recording;
 
@@ -34,9 +34,9 @@ pub struct StreamingSpeechVad {
     recorded: RecordedSpeechDecision,
 }
 impl StreamingSpeechVad {
-    pub fn new(model_path: &Path) -> WakeWordResult<Self> {
+    pub fn new(model_path: &Path) -> AudioResult<Self> {
         if !model_path.is_file() {
-            return Err(WakeWordError::ModelNotFound(model_path.to_owned()));
+            return Err(AudioError::ModelNotFound(model_path.to_owned()));
         }
         let config = sherpa_onnx::VadModelConfig {
             silero_vad: sherpa_onnx::SileroVadModelConfig {
@@ -53,7 +53,7 @@ impl StreamingSpeechVad {
             ..Default::default()
         };
         let detector = sherpa_onnx::VoiceActivityDetector::create(&config, 30.0)
-            .ok_or_else(|| WakeWordError::ModelLoad("could not initialize Silero VAD".into()))?;
+            .ok_or_else(|| AudioError::ModelLoad("could not initialize Silero VAD".into()))?;
         Ok(Self {
             detector,
             pending: VecDeque::new(),

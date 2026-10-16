@@ -1,10 +1,10 @@
 [workspace]
-members = [".", "crates/fono-core", "crates/fono-wake", "crates/fono-stt-protocol", "crates/fono-stt-worker"]
+members = [".", "crates/fono-core", "crates/fono-audio", "crates/fono-wake", "crates/fono-stt-protocol", "crates/fono-stt-worker"]
 resolver = "2"
 
 [package]
 name = "fono"
-version = "0.7.3"
+version = "0.7.4"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -31,6 +31,7 @@ tauri-plugin-global-shortcut = "2.0"
 fono-wake = { version = "0.1.0", path = "crates/fono-wake", default-features = false }
 fono-stt-protocol = { version = "0.1.0", path = "crates/fono-stt-protocol", features = ["inference"] }
 fono-core = { version = "0.1.0", path = "crates/fono-core" }
+fono-audio = { version = "0.1.0", path = "crates/fono-audio" }
 
 # Сериализация
 serde = { version = "1.0", features = ["derive"] }

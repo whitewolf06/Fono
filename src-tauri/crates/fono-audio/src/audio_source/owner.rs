@@ -2,7 +2,7 @@ use super::{
     hub::{AudioConfig, Command, SharedDispatch},
     AudioStream,
 };
-use crate::error::{WakeWordError, WakeWordResult};
+use crate::error::{AudioError, AudioResult};
 use crossbeam_channel::Receiver;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
@@ -25,7 +25,7 @@ pub(super) fn run_owner(
                 {
                     Ok(())
                 } else if active.is_some() && dispatch.lock().subscribers.len() > 1 {
-                    Err(WakeWordError::Audio(existing_error.unwrap_or_else(|| {
+                    Err(AudioError::Audio(existing_error.unwrap_or_else(|| {
                         "consumers requested different audio inputs".into()
                     })))
                 } else {
@@ -65,7 +65,7 @@ fn start_stream(
     dispatch: SharedDispatch,
     dropped: Arc<AtomicU64>,
     subscriber_dropped: Arc<AtomicU64>,
-) -> WakeWordResult<AudioStream> {
+) -> AudioResult<AudioStream> {
     let rate = config.sample_rate;
     let errors = dispatch.clone();
     AudioStream::start_with_errors(

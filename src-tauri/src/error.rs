@@ -50,6 +50,12 @@ impl From<tauri::Error> for AppError {
     }
 }
 
+impl From<fono_audio::AudioError> for AppError {
+    fn from(error: fono_audio::AudioError) -> Self {
+        AppError::Audio(error.to_string())
+    }
+}
+
 impl From<fono_wake::WakeWordError> for AppError {
     fn from(e: fono_wake::WakeWordError) -> Self {
         AppError::Audio(e.to_string())

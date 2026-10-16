@@ -1163,7 +1163,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fono"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1176,6 +1176,7 @@ dependencies = [
  "crossbeam-channel",
  "crossbeam-queue",
  "dirs 5.0.1",
+ "fono-audio",
  "fono-core",
  "fono-stt-protocol",
  "fono-wake",
@@ -1201,6 +1202,19 @@ dependencies = [
  "uuid",
  "whisper-rs",
  "windows 0.58.0",
+]
+
+[[package]]
+name = "fono-audio"
+version = "0.1.0"
+dependencies = [
+ "cpal",
+ "crossbeam-channel",
+ "parking_lot",
+ "serde",
+ "sherpa-onnx",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]
@@ -1237,6 +1251,7 @@ version = "0.1.0"
 dependencies = [
  "cpal",
  "crossbeam-channel",
+ "fono-audio",
  "parking_lot",
  "serde",
  "serde_json",
