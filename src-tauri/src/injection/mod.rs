@@ -7,15 +7,10 @@
 
 use std::time::Duration;
 
-#[cfg(windows)]
-use crossbeam_channel::{bounded, Sender};
-#[cfg(windows)]
-use once_cell::sync::Lazy;
-#[cfg(windows)]
-use parking_lot::Mutex;
-
 use crate::error::{AppError, AppResult};
 use crate::types::InjectionMode;
+#[cfg(windows)]
+mod clipboard;
 pub mod target;
 
 #[cfg(windows)]
@@ -40,11 +35,7 @@ pub fn inject_text(text: &str, mode: InjectionMode) -> AppResult<()> {
 
 #[cfg(windows)]
 pub fn copy_text(text: &str) -> AppResult<()> {
-    let mut clipboard =
-        arboard::Clipboard::new().map_err(|e| AppError::Injection(format!("clipboard: {e}")))?;
-    clipboard
-        .set_text(text.to_string())
-        .map_err(|e| AppError::Injection(format!("clipboard: {e}")))
+    clipboard::copy(text)
 }
 
 #[cfg(not(windows))]
@@ -153,7 +144,7 @@ fn inject_text_sendinput(text: &str) -> AppResult<()> {
 /// Кладёт текст в буфер обмена, эмулирует Ctrl+V, затем восстанавливает предыдущее содержимое.
 #[cfg(windows)]
 pub fn inject_via_clipboard(text: &str) -> AppResult<()> {
-    CLIPBOARD_WORKER.inject(text.to_owned(), None)
+    clipboard::inject(text, None)
 }
 
 #[cfg(windows)]
@@ -162,7 +153,7 @@ pub fn inject_via_clipboard_checked(
     target: target::TextTarget,
     cancel: fono_core::OperationCancellation,
 ) -> AppResult<()> {
-    CLIPBOARD_WORKER.inject(text.to_owned(), Some((target, cancel)))
+    clipboard::inject(text, Some((target, cancel)))
 }
 #[cfg(not(windows))]
 pub fn inject_via_clipboard_checked(
@@ -175,168 +166,9 @@ pub fn inject_via_clipboard_checked(
     ))
 }
 
-#[cfg(windows)]
-enum ClipboardCommand {
-    Inject {
-        text: String,
-        guard: Option<(target::TextTarget, fono_core::OperationCancellation)>,
-        response: Sender<AppResult<()>>,
-    },
-    Shutdown {
-        response: Sender<()>,
-    },
-}
-
-#[cfg(windows)]
-struct ClipboardInjectionWorker {
-    commands: Sender<ClipboardCommand>,
-    thread: Mutex<Option<std::thread::JoinHandle<()>>>,
-}
-
-#[cfg(windows)]
-impl ClipboardInjectionWorker {
-    fn new() -> Self {
-        let (commands, receiver) = bounded(4);
-        let thread = std::thread::spawn(move || {
-            while let Ok(command) = receiver.recv() {
-                match command {
-                    ClipboardCommand::Inject {
-                        text,
-                        guard,
-                        response,
-                    } => {
-                        let _ =
-                            response.send(inject_clipboard_on_owner_thread(&text, guard.as_ref()));
-                    }
-                    ClipboardCommand::Shutdown { response } => {
-                        let _ = response.send(());
-                        break;
-                    }
-                }
-            }
-        });
-        Self {
-            commands,
-            thread: Mutex::new(Some(thread)),
-        }
-    }
-
-    fn inject(
-        &self,
-        text: String,
-        guard: Option<(target::TextTarget, fono_core::OperationCancellation)>,
-    ) -> AppResult<()> {
-        let (response_tx, response_rx) = bounded(1);
-        self.commands
-            .send(ClipboardCommand::Inject {
-                text,
-                guard,
-                response: response_tx,
-            })
-            .map_err(|_| AppError::Injection("clipboard injection worker stopped".into()))?;
-        response_rx
-            .recv()
-            .map_err(|_| AppError::Injection("clipboard injection worker disconnected".into()))?
-    }
-
-    fn shutdown(&self) {
-        let (response_tx, response_rx) = bounded(1);
-        let _ = self.commands.send(ClipboardCommand::Shutdown {
-            response: response_tx,
-        });
-        let _ = response_rx.recv_timeout(Duration::from_secs(1));
-        if let Some(thread) = self.thread.lock().take() {
-            let _ = thread.join();
-        }
-    }
-}
-
-#[cfg(windows)]
-static CLIPBOARD_WORKER: Lazy<ClipboardInjectionWorker> = Lazy::new(ClipboardInjectionWorker::new);
-
-#[cfg(windows)]
-fn inject_clipboard_on_owner_thread(
-    text: &str,
-    guard: Option<&(target::TextTarget, fono_core::OperationCancellation)>,
-) -> AppResult<()> {
-    if guard.is_some_and(|(field, cancel)| cancel.is_cancelled() || !self::target::matches(field)) {
-        return Err(AppError::Injection(
-            "Поле ввода изменилось перед подготовкой буфера обмена".into(),
-        ));
-    }
-    let target = unsafe { GetForegroundWindow() };
-    if target.0.is_null() {
-        return Err(AppError::Injection("нет активного окна для ввода".into()));
-    }
-
-    let mut clipboard =
-        arboard::Clipboard::new().map_err(|e| AppError::Injection(format!("буфер обмена: {e}")))?;
-
-    let previous = if let Ok(text) = clipboard.get_text() {
-        ClipboardBackup::Text(text)
-    } else if let Ok(files) = clipboard.get().file_list() {
-        ClipboardBackup::Files(files)
-    } else if let Ok(image) = clipboard.get_image() {
-        ClipboardBackup::Image(image)
-    } else {
-        ClipboardBackup::Empty
-    };
-
-    // Кладём наш текст.
-    clipboard
-        .set_text(text.to_string())
-        .map_err(|e| AppError::Injection(format!("буфер обмена: {e}")))?;
-
-    // Эмулируем Ctrl+V.
-    if unsafe { GetForegroundWindow() } != target
-        || guard
-            .is_some_and(|(field, cancel)| cancel.is_cancelled() || !self::target::matches(field))
-    {
-        restore_clipboard(&mut clipboard, previous)?;
-        return Err(AppError::Injection(
-            "активное окно изменилось перед вставкой".into(),
-        ));
-    }
-    send_ctrl_v()?;
-
-    // Restore on the same bounded owner thread. Do not overwrite something the
-    // user copied while the target application was consuming Ctrl+V.
-    std::thread::sleep(Duration::from_millis(300));
-    if clipboard.get_text().ok().as_deref() == Some(text) {
-        restore_clipboard(&mut clipboard, previous)?;
-    }
-
-    tracing::info!("injected {} chars via clipboard", text.chars().count());
-    Ok(())
-}
-
-#[cfg(windows)]
-enum ClipboardBackup {
-    Text(String),
-    Files(Vec<std::path::PathBuf>),
-    Image(arboard::ImageData<'static>),
-    Empty,
-}
-
-#[cfg(windows)]
-fn restore_clipboard(
-    clipboard: &mut arboard::Clipboard,
-    previous: ClipboardBackup,
-) -> AppResult<()> {
-    let result = match previous {
-        ClipboardBackup::Text(text) => clipboard.set_text(text),
-        ClipboardBackup::Files(files) => clipboard.set().file_list(&files),
-        ClipboardBackup::Image(image) => clipboard.set_image(image),
-        ClipboardBackup::Empty => clipboard.clear(),
-    };
-    result.map_err(|error| AppError::Injection(format!("restore clipboard: {error}")))
-}
-
 pub fn shutdown() {
     #[cfg(windows)]
-    if let Some(worker) = Lazy::get(&CLIPBOARD_WORKER) {
-        worker.shutdown();
-    }
+    clipboard::shutdown();
 }
 
 #[cfg(windows)]
@@ -366,8 +198,6 @@ fn send_ctrl_v() -> AppResult<()> {
         }
     }
 
-    // Даём приложению время обработать вставку.
-    std::thread::sleep(Duration::from_millis(150));
     Ok(())
 }
 
