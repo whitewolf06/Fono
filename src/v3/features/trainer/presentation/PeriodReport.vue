@@ -218,8 +218,15 @@ watch(
             исходник, если он не сохранялся.
           </p>
           <p class="muted">
-            Проверяются последние {{ snapshot.historyLimit }} записей. Исходные
-            тексты хранятся до {{ snapshot.retentionDays }} дней.<template
+            <template v-if="snapshot.historyLimit != null"
+              >Проверяются последние
+              {{ snapshot.historyLimit }} записей.</template
+            >
+            <template v-else
+              >Проверяются все сохранённые записи за выбранный период.</template
+            >
+            Исходные тексты хранятся до
+            {{ snapshot.retentionDays }} дней.<template
               v-if="snapshot.coverageStart"
             >
               Доступная история — с

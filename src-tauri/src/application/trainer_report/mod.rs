@@ -18,9 +18,8 @@ use crate::{
     types::{DictationAnalysisStatus, DictationHistoryEntry, Settings, SpeechFindingKind},
 };
 
-pub const RULES_VERSION: &str = "speech-patterns-1";
+pub const RULES_VERSION: &str = "speech-patterns-2";
 const CACHE_SCHEMA_VERSION: u16 = 1;
-const HISTORY_LIMIT: u32 = 200;
 const MAX_EXAMPLES: usize = 3;
 const MAX_FRAGMENT_CHARS: usize = 120;
 
@@ -189,17 +188,14 @@ fn insert_ai(
     Ok(())
 }
 
-/// All callers that mutate history already hold its write lock.
-pub fn purge() -> AppResult<()> {
-    state::purge_trainer_cache_document()
-}
-
 /// Keep numerical historical evidence, but remove every personal fragment and its backup.
-pub(crate) fn invalidate_private_cache() -> AppResult<()> {
-    let mut cache = load_cache()?;
+pub(crate) fn invalidate_private_cache_at(directory: &std::path::Path) -> AppResult<()> {
+    let mut cache = match crate::history::storage::load_trainer_cache::<TrainerCache>(directory) {
+        Ok(Some(cache)) if cache.schema_version == CACHE_SCHEMA_VERSION => cache,
+        _ => TrainerCache::default(),
+    };
     sanitize_cache(&mut cache);
-    state::purge_trainer_cache_document()?;
-    state::save_trainer_cache_document(&cache)
+    crate::history::storage::save_trainer_cache(directory, &cache)
 }
 
 fn load_cache() -> AppResult<TrainerCache> {
@@ -463,7 +459,7 @@ fn build_snapshot(
             .collect(),
         session_ids: Vec::new(),
         insufficient_data: true,
-        history_limit: HISTORY_LIMIT,
+        history_limit: None,
         coverage_start: entries
             .iter()
             .map(|entry| entry.created_at)

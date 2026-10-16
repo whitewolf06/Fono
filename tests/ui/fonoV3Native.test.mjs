@@ -247,8 +247,8 @@ test("hidden workspace defers backend reads and coalesces show with focus into o
     addEventListener: (name, handler) => handlers.set(name, handler),
     removeEventListener: (name) => handlers.delete(name),
   };
-  window.addEventListener = (name, handler) => handlers.set(name, handler);
-  window.removeEventListener = (name) => handlers.delete(name);
+  globalThis.window.addEventListener = (name, handler) => handlers.set(name, handler);
+  globalThis.window.removeEventListener = (name) => handlers.delete(name);
   const workspace = createNativeWorkspace();
   try {
     await flush();
@@ -289,8 +289,8 @@ test("hidden workspace defers backend reads and coalesces show with focus into o
     workspace.dispose();
     assert.equal(handlers.size, 0);
     globalThis.document = document;
-    delete window.addEventListener;
-    delete window.removeEventListener;
+    delete globalThis.window.addEventListener;
+    delete globalThis.window.removeEventListener;
     await flush();
   }
 });

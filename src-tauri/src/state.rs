@@ -195,10 +195,6 @@ pub(crate) fn save_update_check_time(timestamp: u64) -> AppResult<()> {
     save_json_atomically(&app_data_dir()?.join("update-check-time.json"), &timestamp)
 }
 
-pub fn history_path() -> AppResult<std::path::PathBuf> {
-    Ok(app_data_dir()?.join("dictation-history.json"))
-}
-
 pub fn transcription_history_path() -> AppResult<std::path::PathBuf> {
     Ok(app_data_dir()?.join("transcription-history.json"))
 }
@@ -223,34 +219,52 @@ pub fn transcription_api_token() -> AppResult<String> {
     }
 }
 
-pub(crate) fn load_history_document<T>() -> AppResult<Vec<T>>
+/// Return the bytes of the validated migration source, not a possibly corrupt
+/// primary whose best-effort restoration from backup might fail.
+pub(crate) fn load_legacy_history_at<T>(path: &Path) -> AppResult<(Vec<T>, Option<Vec<u8>>)>
 where
     T: DeserializeOwned + Serialize,
 {
-    let path = history_path()?;
-    let Some((entries, legacy)) = load_versioned_json_with_backup(&path)? else {
-        return Ok(Vec::new());
-    };
-    if legacy {
-        save_versioned_json_atomically(&path, &entries)?;
+    fn decode<T: DeserializeOwned>(raw: &[u8]) -> AppResult<Vec<T>> {
+        let value: serde_json::Value = serde_json::from_slice(raw)?;
+        if value.get("schema_version").is_some() {
+            let document: VersionedDocument<Vec<T>> = serde_json::from_value(value)?;
+            if document.schema_version != PERSISTENCE_SCHEMA_VERSION {
+                return Err(AppError::Config("Unsupported legacy history schema".into()));
+            }
+            Ok(document.data)
+        } else {
+            Ok(serde_json::from_value(value)?)
+        }
     }
-    Ok(entries)
+    let primary = match fs::read(path) {
+        Ok(raw) => match decode(&raw) {
+            Ok(entries) => return Ok((entries, Some(raw))),
+            Err(error @ AppError::Config(_)) => return Err(error),
+            Err(error) => Some(error),
+        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => Some(error.into()),
+    };
+    match fs::read(backup_path(path)) {
+        Ok(raw) => {
+            let entries = decode(&raw)?;
+            tracing::warn!("recovering history from validated legacy backup");
+            Ok((entries, Some(raw)))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => match primary {
+            Some(error) => Err(error),
+            None => Ok((Vec::new(), None)),
+        },
+        Err(error) => Err(error.into()),
+    }
 }
 
-pub(crate) fn save_history_document<T>(entries: &[T]) -> AppResult<()>
-where
-    T: Serialize,
-{
-    save_versioned_json_atomically(&history_path()?, &entries)
+pub(crate) fn save_history_migration_backup(path: &Path, raw: &[u8]) -> AppResult<()> {
+    write_atomically(path, raw, false)
 }
 
-pub(crate) fn save_history_document_private<T>(entries: &[T]) -> AppResult<()>
-where
-    T: Serialize,
-{
-    save_versioned_json_privately(&history_path()?, &entries)
-}
-
+#[cfg(test)]
 fn save_versioned_json_privately<T>(path: &Path, value: &T) -> AppResult<()>
 where
     T: Serialize,
@@ -266,8 +280,12 @@ where
     remove_document_temporaries(path)
 }
 
-fn trainer_cache_path() -> AppResult<PathBuf> {
-    Ok(app_data_dir()?.join("trainer-report-cache.json"))
+pub(crate) fn load_legacy_trainer_cache_at(path: &Path) -> AppResult<Option<serde_json::Value>> {
+    load_json_with_backup(path)
+}
+
+pub(crate) fn delete_legacy_document(path: &Path) -> AppResult<()> {
+    delete_json_with_backup(path)
 }
 
 pub(crate) fn load_trainer_cache_document<T>() -> AppResult<Option<T>>
@@ -275,7 +293,7 @@ where
     T: DeserializeOwned + Serialize,
 {
     let _guard = PERSISTENCE_LOCK.lock();
-    load_json_with_backup(&trainer_cache_path()?)
+    crate::history::storage::load_trainer_cache(&app_data_dir()?)
 }
 
 pub(crate) fn save_trainer_cache_document<T>(cache: &T) -> AppResult<()>
@@ -283,12 +301,12 @@ where
     T: Serialize,
 {
     let _guard = PERSISTENCE_LOCK.lock();
-    save_json_atomically(&trainer_cache_path()?, cache)
+    crate::history::storage::save_trainer_cache(&app_data_dir()?, cache)
 }
 
 pub(crate) fn purge_trainer_cache_document() -> AppResult<()> {
     let _guard = PERSISTENCE_LOCK.lock();
-    delete_json_with_backup(&trainer_cache_path()?)
+    crate::history::storage::purge_trainer_cache(&app_data_dir()?)
 }
 
 fn delete_json_with_backup(path: &Path) -> AppResult<()> {

@@ -109,7 +109,7 @@ export function buildTrainerSnapshot(
     terms: [],
     sessionIds: [],
     insufficientData: true,
-    historyLimit: 200,
+    historyLimit: null,
     coverageStart:
       entries
         .map((entry) => Date.parse(entry.createdAt))

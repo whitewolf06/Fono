@@ -89,7 +89,7 @@ pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
 }
 #[tauri::command]
 pub async fn clear_speech_analytics() -> AppResult<()> {
-    super::blocking::run(|| crate::history::apply_analytics_privacy_policy(false, 0)).await
+    super::blocking::run(crate::history::clear_analytics).await
 }
 #[tauri::command]
 pub async fn recommend_speech(

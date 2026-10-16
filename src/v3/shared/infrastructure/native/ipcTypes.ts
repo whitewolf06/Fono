@@ -166,6 +166,7 @@ export interface Settings {
   text_correction_llm: LlmConsumerAssignment;
   speech_analysis_llm: SpeechLlmAssignment;
   history_enabled: boolean;
+  history_retention_days: number;
   /** Явное согласие на локальное хранение исходного текста для аналитики речи. */
   analytics_enabled: boolean;
   /** Приостанавливает сбор и анализ новых сессий тренера, не затрагивая уже сохранённые данные. */
@@ -370,6 +371,7 @@ export const DEFAULT_SETTINGS: Settings = {
     cloud_consent: false,
   },
   history_enabled: true,
+  history_retention_days: 365,
   analytics_enabled: false,
   speech_trainer_enabled: true,
   analytics_retention_days: 30,

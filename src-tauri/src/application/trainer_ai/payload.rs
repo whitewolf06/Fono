@@ -352,7 +352,7 @@ mod tests {
             }],
             session_ids: vec!["private-session-id".into()],
             insufficient_data: false,
-            history_limit: 200,
+            history_limit: None,
             coverage_start: Some("2026-10-12T00:00:00Z".into()),
             retention_days: 30,
         }

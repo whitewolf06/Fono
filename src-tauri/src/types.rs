@@ -517,6 +517,9 @@ pub struct Settings {
     pub speech_analysis_llm: SpeechLlmAssignment,
     #[serde(default = "default_history_enabled")]
     pub history_enabled: bool,
+    /// Retain the final dictation result for this many days, with no entry-count cap.
+    #[serde(default = "default_history_retention_days")]
+    pub history_retention_days: u16,
     /// Explicit consent for keeping the original transcript and processing
     /// metadata locally for future speech analytics. Disabled by default.
     #[serde(default)]
@@ -678,6 +681,7 @@ impl Default for Settings {
             text_correction_llm: LlmConsumerAssignment::default(),
             speech_analysis_llm: SpeechLlmAssignment::default(),
             history_enabled: default_history_enabled(),
+            history_retention_days: default_history_retention_days(),
             analytics_enabled: false,
             speech_trainer_enabled: default_speech_trainer_enabled(),
             analytics_retention_days: default_analytics_retention_days(),
@@ -811,6 +815,10 @@ fn default_history_enabled() -> bool {
 
 fn default_speech_trainer_enabled() -> bool {
     true
+}
+
+fn default_history_retention_days() -> u16 {
+    365
 }
 
 fn default_analytics_retention_days() -> u16 {

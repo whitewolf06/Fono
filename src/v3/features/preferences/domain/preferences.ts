@@ -45,6 +45,7 @@ export const defaults: Preferences = {
   overlayOpacity: 95,
   overlayPosition: "bottom",
   historyEnabled: true,
+  historyRetentionDays: 365,
   trainerEnabled: false,
   analyticsConsent: false,
   retentionDays: 30,
@@ -108,6 +109,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
   ],
   privacy: [
     "historyEnabled",
+    "historyRetentionDays",
     "trainerEnabled",
     "analyticsConsent",
     "retentionDays",

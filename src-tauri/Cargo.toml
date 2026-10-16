@@ -5,7 +5,7 @@ resolver = "2"
 [package]
 license = "MIT"
 name = "fono"
-version = "0.7.15"
+version = "0.7.16"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -39,6 +39,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 base64 = "0.22"
 sha2 = "0.10"
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
 
 # Асинхронность / ошибки
 regex = "1"

@@ -206,10 +206,7 @@ pub async fn save_settings(
         )));
     }
 
-    if let Err(error) = crate::history::apply_analytics_privacy_policy(
-        persisted_settings.analytics_enabled && persisted_settings.history_enabled,
-        persisted_settings.analytics_retention_days,
-    ) {
+    if let Err(error) = crate::history::maintain(&persisted_settings) {
         tracing::error!(%error, "could not apply dictation analytics privacy policy");
         return Err(AppError::Config(format!(
             "Настройки сохранены, но не удалось применить правила хранения аналитики: {error}"
@@ -406,6 +403,11 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
     {
         return Err(AppError::Config(
             "Параметры wake word должны быть конечными числами".into(),
+        ));
+    }
+    if !(1..=3650).contains(&settings.history_retention_days) {
+        return Err(AppError::Config(
+            "History retention must be between 1 and 3650 days".into(),
         ));
     }
     if !(1..=365).contains(&settings.analytics_retention_days) {

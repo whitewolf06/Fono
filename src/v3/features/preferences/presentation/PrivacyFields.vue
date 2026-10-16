@@ -37,6 +37,18 @@ async function clear(kind: "history" | "trainer") {
       name="historyEnabled"
       label="Сохранять историю диктовок"
       description="Последний результат текущей сессии доступен даже при выключенной истории."
+    /><SelectField
+      v-if="workspace.native"
+      id="historyRetentionDays"
+      v-model="draft.historyRetentionDays"
+      label="Срок хранения истории диктовок"
+      :options="[
+        { value: 7, label: '7 дней' },
+        { value: 30, label: '30 дней' },
+        { value: 90, label: '90 дней' },
+        { value: 365, label: '365 дней' },
+        { value: 3650, label: '10 лет' },
+      ]"
     /><PreferenceToggle
       name="trainerEnabled"
       label="Речевой тренер"
@@ -63,9 +75,10 @@ async function clear(kind: "history" | "trainer") {
       ]"
     />
     <div v-if="workspace.native" class="notice">
-      История хранится локально на компьютере. Итоговые тексты остаются до
-      ручного удаления. Исходные расшифровки и анализ удаляются по выбранному
-      сроку. Ключи подключений защищены хранилищем Windows.
+      История хранится локально на компьютере и удаляется по выбранному сроку.
+      Для исходных расшифровок и анализа действует отдельный срок; он не
+      продлевает хранение самой записи. Ключи подключений защищены хранилищем
+      Windows.
     </div>
     <div v-else class="notice">
       В этом браузерном макете сохраняются только демонстрационные настройки.

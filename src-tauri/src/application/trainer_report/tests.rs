@@ -483,7 +483,7 @@ fn low_sample_guard_and_period_cache_are_bounded_and_rules_drift_requires_refres
         let (report, _) =
             get_from_cache(&mut cache, &records, days, false, &settings(), now).unwrap();
         assert!(!report.snapshot.insufficient_data);
-        assert_eq!(report.snapshot.history_limit, 200);
+        assert_eq!(report.snapshot.history_limit, None);
         assert_eq!(report.snapshot.total_words, 102);
         assert_eq!(report.snapshot.daily.len(), days as usize);
     }
@@ -729,4 +729,24 @@ fn refresh_of_a_fresh_persisted_report_preserves_generation_time_and_ai_result()
     assert_eq!(refreshed.snapshot.fingerprint, first.current_fingerprint);
     assert_eq!(refreshed.ai_summary.unwrap().fingerprint, "ai-parameters");
     assert_eq!(serde_json::to_vec(&reopened).unwrap(), persisted);
+}
+
+#[test]
+fn ninety_day_snapshot_includes_every_session_beyond_the_old_two_hundred_cap() {
+    let now = date("2026-10-17T12:00:00Z");
+    let records = (0..540)
+        .map(|index| {
+            entry(
+                &format!("session-{index}"),
+                now - Duration::hours(index * 3),
+                "слово слово слово",
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut cache = TrainerCache::default();
+    let (report, _) = get_from_cache(&mut cache, &records, 90, true, &settings(), now).unwrap();
+    assert_eq!(report.snapshot.included_sessions, 540);
+    assert_eq!(report.snapshot.session_ids.len(), 540);
+    assert_eq!(report.snapshot.total_words, 1620);
+    assert_eq!(report.snapshot.history_limit, None);
 }

@@ -43,7 +43,7 @@ export interface TrainerSnapshot {
   daily: TrainerDay[];
   sessionIds: string[];
   insufficientData: boolean;
-  historyLimit: number;
+  historyLimit: number | null;
   coverageStart: string | null;
   retentionDays: number;
 }

@@ -74,7 +74,8 @@ pub struct TrainerSnapshot {
     pub daily: Vec<TrainerDay>,
     pub session_ids: Vec<String>,
     pub insufficient_data: bool,
-    pub history_limit: u32,
+    /// None means every retained entry is considered; old saved reports retain their historical cap.
+    pub history_limit: Option<u32>,
     pub coverage_start: Option<String>,
     pub retention_days: u16,
 }

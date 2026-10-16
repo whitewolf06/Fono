@@ -88,6 +88,7 @@ export interface Preferences {
   overlayOpacity: number;
   overlayPosition: string;
   historyEnabled: boolean;
+  historyRetentionDays: number;
   trainerEnabled: boolean;
   analyticsConsent: boolean;
   retentionDays: number;

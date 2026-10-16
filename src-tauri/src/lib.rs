@@ -214,12 +214,14 @@ pub fn run() {
             // Применяем сохранённые настройки и политику хранения аналитики.
             let settings = app.state::<AppState>().settings();
             crate::verbose::set_verbose(settings.verbose_logging);
-            if let Err(error) = crate::history::apply_analytics_privacy_policy(
-                settings.analytics_enabled && settings.history_enabled,
-                settings.analytics_retention_days,
-            ) {
+            let history_events = app.handle().clone();
+            crate::history::set_change_observer(std::sync::Arc::new(move || {
+                events::emit_history_changed(&history_events);
+            }));
+            if let Err(error) = crate::history::maintain(&settings) {
                 tracing::warn!(%error, "could not apply analytics privacy policy at startup");
             }
+            crate::history::start_maintenance(app.handle().clone());
             let readiness_events = app.handle().clone();
             app.state::<pipeline::Pipeline>()
                 .stt()
