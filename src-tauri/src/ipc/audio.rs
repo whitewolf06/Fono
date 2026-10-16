@@ -3,6 +3,7 @@ use crate::error::AppResult;
 use crate::types::DeviceInfo;
 
 #[tauri::command]
-pub fn list_audio_devices() -> AppResult<Vec<DeviceInfo>> {
-    AudioCapture::list_input_devices()
+pub async fn list_audio_devices() -> AppResult<Vec<DeviceInfo>> {
+    // CPAL creates and drops its WASAPI/COM objects on the same blocking thread.
+    super::blocking::run(AudioCapture::list_input_devices).await
 }

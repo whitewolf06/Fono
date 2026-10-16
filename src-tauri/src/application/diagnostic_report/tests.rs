@@ -1,6 +1,6 @@
 use super::{model::*, render::render, telemetry::ReportOutcome};
 use crate::types::{AccelerationMode, AiMode, InjectionMode, PipelineState, Settings};
-use fono_wake::{WakeWordBackend, WakeWordStatus};
+use crate::types::{WakeWordBackend, WakeWordStatus};
 
 fn snapshot() -> ReportSnapshot {
     ReportSnapshot {
@@ -108,11 +108,12 @@ fn absent_measurements_are_explicit_and_report_is_stable() {
 
 #[test]
 fn report_distinguishes_audio_duration_from_finish_and_stage_latencies() {
-    let last = super::telemetry::DictationMeasurement {
+    let mut last = super::telemetry::DictationMeasurement {
         operation: 7,
         source: fono_core::OperationSource::Hotkey,
         outcome: ReportOutcome::InsertionError,
         audio_ms: Some(10_000),
+        capture_dropped_packets: Some(5),
         finish_ms: 2500,
         capture_finish_ms: Some(100),
         model_load_ms: Some(1000),
@@ -122,9 +123,13 @@ fn report_distinguishes_audio_duration_from_finish_and_stage_latencies() {
     };
     let text = render(&snapshot(), Some(&last));
     assert!(text.contains("Длительность захваченного аудио: 10000 мс"));
+    assert!(text.contains("Потери пакетов захвата в этой диктовке: 5"));
     assert!(text.contains("После команды завершения до результата: 2500 мс"));
     assert!(text.contains("Ожидание и загрузка модели: 1000 мс"));
     assert!(text.contains("Ожидание и распознавание: 1300 мс"));
     assert!(text.contains("Обработка текста: не измерено"));
     assert!(text.contains("Результат: ошибка вставки"));
+    last.capture_dropped_packets = None;
+    let unknown = render(&snapshot(), Some(&last));
+    assert!(unknown.contains("Потери пакетов захвата в этой диктовке: не измерено"));
 }

@@ -29,6 +29,7 @@ pub(crate) async fn stop_with_reason(
     app: AppHandle,
     reason: DictationStopReason,
 ) -> AppResult<Transcript> {
+    #[cfg(feature = "experimental-live")]
     if crate::application::live_dictation::is_active(&app)
         || (app.state::<Pipeline>().operation_id() == 0
             && crate::application::live_dictation::snapshot(&app).is_some())
@@ -103,13 +104,13 @@ async fn stop_once(
     let mut diagnostic = DictationTailDiagnostic::new(operation, session.source, reason);
     let samples = {
         let _timer = report.stage(ReportStage::CaptureFinish);
-        capture::finish_samples(&session, &mut diagnostic)?
+        capture::finish_samples(&session, &mut diagnostic, report)?
     };
     let Some(samples) = samples else {
         return Ok(empty_transcript());
     };
     report.captured(diagnostic.captured_samples().unwrap_or(samples.len()));
-    let mut transcript = match recognition::run_measured(&session, samples, Some(report)).await {
+    let transcript = match recognition::run_measured(&session, samples, Some(report)).await {
         Ok(Some(transcript)) => transcript,
         Ok(None) => {
             diagnostic.stt_cancelled();
@@ -126,6 +127,9 @@ async fn stop_once(
         "transcript ready ({} chars)",
         transcript.text.chars().count()
     );
+    #[cfg(feature = "wake-word")]
+    let mut transcript = transcript;
+    #[cfg(feature = "wake-word")]
     if session.source == OperationSource::WakeWord {
         transcript.text =
             crate::strip_leading_wake_phrase(&transcript.text, &session.settings.wake_word);

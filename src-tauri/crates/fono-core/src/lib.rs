@@ -41,6 +41,12 @@ pub trait AudioCapturePort<Writer, Error>: Send + Sync {
 
     fn stop(&self) -> Result<(), Error>;
 
+    /// Numeric physical-capture loss for the current or just-stopped recording.
+    /// Adapters without this measurement must preserve unknown rather than zero.
+    fn dropped_capture_packets(&self) -> Option<u64> {
+        None
+    }
+
     fn shutdown(&self);
 }
 

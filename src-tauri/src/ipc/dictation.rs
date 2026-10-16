@@ -9,8 +9,9 @@ use crate::types::Transcript;
 use fono_core::OperationSource;
 
 #[tauri::command]
-pub fn start_dictation(app: AppHandle) -> AppResult<()> {
-    crate::application::dictation::start(app, OperationSource::Ui)
+pub async fn start_dictation(app: AppHandle) -> AppResult<()> {
+    super::blocking::run(move || crate::application::dictation::start(app, OperationSource::Ui))
+        .await
 }
 
 #[tauri::command]
@@ -19,6 +20,7 @@ pub async fn stop_dictation(app: AppHandle, session_id: Option<u64>) -> AppResul
         let operation = app
             .state::<Pipeline>()
             .requested_operation(Some(expected))?;
+        #[cfg(feature = "experimental-live")]
         if crate::application::live_dictation::is_active(&app) {
             return crate::application::live_dictation::finish_for(app, operation).await;
         }
@@ -65,6 +67,7 @@ pub async fn transcribe_test(
 pub fn confirm_dictation(app: AppHandle, session_id: Option<u64>) -> AppResult<()> {
     let pipeline = app.state::<Pipeline>();
     let operation = pipeline.requested_operation(session_id)?;
+    #[cfg(feature = "experimental-live")]
     if crate::application::live_dictation::is_active(&app) {
         tauri::async_runtime::spawn(async move {
             let _ = crate::application::live_dictation::finish_for(app, operation).await;
@@ -79,28 +82,36 @@ pub fn confirm_dictation(app: AppHandle, session_id: Option<u64>) -> AppResult<(
 }
 
 #[tauri::command]
-pub fn cancel_dictation(app: AppHandle, session_id: Option<u64>) -> AppResult<()> {
+pub async fn cancel_dictation(app: AppHandle, session_id: Option<u64>) -> AppResult<()> {
+    let activity = crate::application::updates::activity::lease()?;
     let pipeline = app.state::<Pipeline>();
     let operation = pipeline.requested_operation(session_id)?;
+    #[cfg(feature = "experimental-live")]
     if crate::application::live_dictation::is_active(&app) {
-        return if session_id.is_some() {
+        // Resolve identity before queueing: this request must never cancel a
+        // later session if teardown waits for another native operation.
+        return super::blocking::run_admitted(activity, move || {
             crate::application::live_dictation::cancel_for(&app, operation)
-        } else {
-            crate::application::live_dictation::cancel(&app)
-        };
+        })
+        .await;
     }
-    let state = app.state::<AppState>();
     if let Some(event) = pipeline.cancel_for(operation) {
         crate::events::emit_operation(&app, event);
     } else if session_id.is_some() {
         return Err(AppError::Cancelled("Диктовка отменена или заменена".into()));
     }
-    crate::application::dictation::workflow::cancelled(&app, operation);
-    let _ = pipeline.stop_recording_for(operation);
-    pipeline::set_idle_if_no_operation(&app, state.inner(), &pipeline);
-    crate::application::dictation::resume_wake_if_idle(&app);
-    tracing::info!("dictation cancelled by overlay");
-    Ok(())
+    // Fence late results immediately; native capture teardown may block.
+    super::blocking::run_admitted(activity, move || {
+        let state = app.state::<AppState>();
+        let pipeline = app.state::<Pipeline>();
+        crate::application::dictation::workflow::cancelled(&app, operation);
+        let _ = pipeline.stop_recording_for(operation);
+        pipeline::set_idle_if_no_operation(&app, state.inner(), &pipeline);
+        crate::application::dictation::resume_wake_if_idle(&app);
+        tracing::info!("dictation cancelled by overlay");
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -131,6 +142,7 @@ pub async fn update_overlay_processing_choice(
     crate::application::dictation::workflow::update_overlay_choice(app, request).await
 }
 
+#[cfg(feature = "experimental-live")]
 #[tauri::command]
 pub fn get_live_dictation(
     app: AppHandle,
@@ -138,6 +150,7 @@ pub fn get_live_dictation(
     crate::application::live_dictation::snapshot(&app)
 }
 
+#[cfg(feature = "experimental-live")]
 #[tauri::command]
 pub async fn resume_live_insertion(app: AppHandle) -> AppResult<()> {
     crate::application::live_dictation::resume(app).await

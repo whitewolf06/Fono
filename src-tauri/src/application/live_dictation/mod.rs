@@ -91,7 +91,7 @@ pub fn start(
     });
     *slot = Some(session.clone());
     drop(slot);
-    app.state::<fono_wake::WakeWordHandle>().pause();
+    crate::application::wake_runtime::pause(&app);
     pipeline::set_state_for_operation(
         &app,
         app.state::<AppState>().inner(),

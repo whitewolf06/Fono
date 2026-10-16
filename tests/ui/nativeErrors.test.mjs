@@ -109,6 +109,17 @@ test("unknown errors and arbitrary Cyrillic text cannot leak sources, secrets or
 });
 
 test("successful status snapshots sanitize embedded errors without modifying session text or HTTP job shape", async () => {
+  const backendGuidance =
+    "Ускорение «CUDA» недоступно в этой сборке. Выберите другое ускорение в настройках.";
+  invoke = async () => ({ state: "failed", message: backendGuidance });
+  assert.equal((await api.call("get_stt_readiness")).message, backendGuidance);
+  invoke = async () => ({
+    state: "failed",
+    message: `${backendGuidance} PRIVATE_KEY`,
+  });
+  assert.ok(
+    !(await api.call("get_stt_readiness")).message.includes("PRIVATE_KEY"),
+  );
   const pending = {
     sessionId: 24,
     originalText: "PRIVATE_TRANSCRIPT",

@@ -147,6 +147,13 @@ pub(super) fn render(snapshot: &ReportSnapshot, last: Option<&DictationMeasureme
         );
         let _ = writeln!(
             text,
+            "Потери пакетов захвата в этой диктовке: {}",
+            last.capture_dropped_packets
+                .map(|count| count.to_string())
+                .unwrap_or_else(|| "не измерено".into())
+        );
+        let _ = writeln!(
+            text,
             "После команды завершения до результата: {} мс",
             last.finish_ms
         );

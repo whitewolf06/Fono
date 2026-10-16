@@ -44,6 +44,7 @@ pub(crate) fn start_command_operation(app: AppHandle) -> AppResult<u64> {
 }
 
 pub(crate) fn ensure_capture_allowed(app: &AppHandle) -> AppResult<()> {
+    #[cfg(feature = "experimental-live")]
     if crate::application::live_dictation::is_active(app) {
         return Err(AppError::Busy("Живая диктовка ещё завершается".into()));
     }
@@ -67,12 +68,15 @@ fn start_configured(
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
     let settings = state.settings();
+    #[cfg(feature = "experimental-live")]
     if !force_standard
         && settings.dictation_mode == crate::types::DictationMode::Live
         && source != OperationSource::Diagnostics
     {
         return crate::application::live_dictation::start(app.clone(), source, pre_roll, cursor);
     }
+    #[cfg(not(feature = "experimental-live"))]
+    let _ = force_standard;
     let operation = pipeline
         .start_capture(
             settings.audio_device_id.as_deref(),
@@ -99,7 +103,7 @@ fn start_configured(
         || {
             pipeline
                 .while_operation(operation, || {
-                    app.state::<fono_wake::WakeWordHandle>().pause();
+                    crate::application::wake_runtime::pause(&app);
                 })
                 .is_some()
         },
@@ -167,16 +171,19 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64, command: bool) {
 pub(super) fn finish_samples(
     session: &Session,
     diagnostic: &mut DictationTailDiagnostic,
+    report: &crate::application::diagnostic_report::telemetry::ReportTrace,
 ) -> AppResult<Option<Vec<i16>>> {
     let pipeline = session.app.state::<Pipeline>();
     // Stop and drain the audio subscriber before loading a model.
-    let samples = pipeline
-        .stop_recording_for(session.operation)
-        .map_err(|error| {
-            diagnostic.emit();
-            session.error(crate::events::ErrorCodeV1::Audio, error.to_string());
-            error
-        })?;
+    let samples = pipeline.stop_recording_for(session.operation);
+    let capture_drops = pipeline.capture_dropped_packets_for(session.operation);
+    diagnostic.record_capture_drops(capture_drops);
+    report.capture_dropped_packets(capture_drops);
+    let samples = samples.map_err(|error| {
+        diagnostic.emit();
+        session.error(crate::events::ErrorCodeV1::Audio, error.to_string());
+        error
+    })?;
     let Some(samples) = samples else {
         diagnostic.stt_cancelled();
         return Ok(None);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, defineAsyncComponent } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import {
   useWorkspace,
@@ -13,6 +13,14 @@ import PendingDictationActions from "../../../shared/presentation/PendingDictati
 import { copyPendingText } from "../application/copyPendingText";
 import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
 import { dictationNotice } from "../../../shared/domain/dictationNotice";
+const liveCompiled =
+  typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+  __FONO_EXPERIMENTAL_LIVE__;
+const LiveRecordingStatus =
+  typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+  __FONO_EXPERIMENTAL_LIVE__
+    ? defineAsyncComponent(() => import("./LiveRecordingStatus.vue"))
+    : null;
 const { run } = useFeedback();
 const workspace = useWorkspace();
 const pending = computed(() => {
@@ -30,11 +38,6 @@ const status = computed(() =>
   liveMode.value && live.value
     ? liveStatus(live.value)
     : phaseLabels[workspace.state.phase],
-);
-const canResume = computed(
-  () =>
-    live.value?.phase === "listening" &&
-    ["paused_focus", "none"].includes(live.value.insertionState),
 );
 const recording = computed(() =>
   ["listening", "silence"].includes(workspace.state.phase),
@@ -114,39 +117,6 @@ async function copyPending(text: string, sessionId: number) {
         >Отмена</WlButton
       >
     </div>
-    <p v-if="liveMode && !recording && !working" class="live-notice">
-      Выберите поле в приложении и нажмите
-      {{ workspace.state.preferences.hotkey }}. Кнопка записи здесь выводит
-      текст в Fono.
-    </p>
-    <p
-      v-if="live && recording"
-      class="live-notice"
-      :class="{
-        warning: live.insertionState === 'failed' || live.lagMs > 4000,
-      }"
-      role="status"
-    >
-      {{
-        live.warning ||
-        (live.insertionState === "paused_focus"
-          ? "Поле изменилось. Распознавание продолжается, текст ждёт вставки."
-          : live.insertionState === "none"
-            ? "Выберите поле и нажмите «Продолжить вставку» в индикаторе. Или завершите и скопируйте текст."
-            : live.insertionState === "failed"
-              ? "Остаток текста сохранён. Проверьте последний фрагмент в поле перед ручным копированием. Автоматическая вставка остановлена."
-              : live.lagMs > 4000
-                ? "Аудио сохраняется, подтверждённые фрагменты появятся по порядку."
-                : "Паузы разделяют фразы. Завершите запись кнопкой или горячей клавишей.")
-      }}
-    </p>
-    <p v-if="canResume && !workspace.native" class="live-notice">
-      <WlButton
-        size="xs"
-        variant="ghost"
-        @click="run(() => workspace.dictation.resumeInsertion())"
-        >Продолжить вставку · демо</WlButton
-      >
-    </p>
+    <LiveRecordingStatus v-if="liveCompiled" />
   </section>
 </template>

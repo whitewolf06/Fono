@@ -26,9 +26,12 @@ export function createDictationPort(
   let timer: ReturnType<typeof setInterval> | undefined;
   const pending = createPendingWorkflow(state, delay, () => port.cancel());
   const liveWords =
-    "Сегодня мы проверим живую диктовку. Да, да, естественные повторы останутся. Подтверждённый текст появляется последовательно и больше не переписывается.".split(
-      " ",
-    );
+    typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+    __FONO_EXPERIMENTAL_LIVE__
+      ? "Сегодня мы проверим живую диктовку. Да, да, естественные повторы останутся. Подтверждённый текст появляется последовательно и больше не переписывается.".split(
+          " ",
+        )
+      : [];
   function stopTimer() {
     if (timer) clearInterval(timer);
     timer = undefined;
@@ -77,6 +80,8 @@ export function createDictationPort(
       state.recordingSource = "ui";
       snapshot = capturePreferences(state);
       state.live =
+        typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+        __FONO_EXPERIMENTAL_LIVE__ &&
         state.preferences.dictationMode === "live"
           ? {
               sessionId: "live-demo-" + Date.now(),
@@ -95,7 +100,11 @@ export function createDictationPort(
           0.08,
           (Math.sin(state.elapsed * 4) + Math.cos(state.elapsed * 2.4) + 2) / 4,
         );
-        if (state.live) {
+        if (
+          typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+          __FONO_EXPERIMENTAL_LIVE__ &&
+          state.live
+        ) {
           const count = Math.min(
             liveWords.length,
             Math.floor(state.elapsed * 1.5),
@@ -128,7 +137,11 @@ export function createDictationPort(
         preferences.processingTranslation !== "none"
           ? preferences.processingTranslation
           : null;
-      const live = state.live;
+      const live =
+        typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+        __FONO_EXPERIMENTAL_LIVE__
+          ? state.live
+          : null;
       state.phase = "transcribing";
       if (live) {
         live.phase = "draining";
@@ -209,7 +222,11 @@ export function createDictationPort(
     resolvePending: pending.resolve,
     cancel() {
       reset();
-      if (state.live) {
+      if (
+        typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+        __FONO_EXPERIMENTAL_LIVE__ &&
+        state.live
+      ) {
         state.live.phase = "cancelled";
         const available = [state.live.committedText, state.live.draftText]
           .filter(Boolean)
@@ -230,6 +247,11 @@ export function createDictationPort(
       state.error = "";
     },
     async resumeInsertion() {
+      if (!(
+        typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+        __FONO_EXPERIMENTAL_LIVE__
+      ))
+        return;
       if (!state.live || state.live.phase !== "listening")
         throw new Error("Живая диктовка уже завершена.");
       if (state.live.insertionState === "failed")

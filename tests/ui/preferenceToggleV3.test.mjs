@@ -19,6 +19,9 @@ before(async () => {
   server = await createServer({
     appType: "custom",
     configFile: "vite.config.ts",
+    // Exercise the compiled wake panel with its availability gate still false.
+    // Default feature gates are covered by optionalFeaturesV3.
+    define: { __FONO_WAKE_WORD__: true },
     cacheDir: "node_modules/.vite/preference-toggle-tests",
     optimizeDeps: { noDiscovery: true, include: [] },
     server: { hmr: false, middlewareMode: true },

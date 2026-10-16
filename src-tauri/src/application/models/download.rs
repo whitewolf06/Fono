@@ -28,6 +28,7 @@ pub(super) struct DownloadRegistration {
 
 impl DownloadRegistration {
     /// Blocking verification/extraction may outlive the owning IPC future.
+    #[cfg(feature = "wake-word")]
     pub(super) fn blocking_lease(
         &self,
     ) -> crate::application::updates::activity::ActivityLease<'static> {

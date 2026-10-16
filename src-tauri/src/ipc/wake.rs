@@ -223,10 +223,10 @@ pub fn get_wake_calibration_status(
 }
 
 #[tauri::command]
-pub fn start_wake_calibration(
+pub async fn start_wake_calibration(
     app: AppHandle,
 ) -> AppResult<crate::application::wake_calibration::WakeCalibrationStatus> {
-    crate::application::wake_calibration::start(&app)
+    super::blocking::run(move || crate::application::wake_calibration::start(&app)).await
 }
 
 #[tauri::command]
@@ -251,10 +251,10 @@ pub fn get_wake_profile_validation_status(
 }
 
 #[tauri::command]
-pub fn start_wake_profile_validation(
+pub async fn start_wake_profile_validation(
     app: AppHandle,
 ) -> AppResult<crate::application::wake_validation::WakeProfileValidationStatus> {
-    crate::application::wake_validation::start(&app)
+    super::blocking::run(move || crate::application::wake_validation::start(&app)).await
 }
 
 #[tauri::command]

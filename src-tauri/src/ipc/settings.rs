@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use tauri::{AppHandle, Emitter, Manager, State};
+#[cfg(feature = "wake-word")]
+use tauri::Emitter;
+use tauri::{AppHandle, Manager, State};
 mod wake;
 
 use crate::error::{AppError, AppResult};
@@ -22,9 +24,12 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
-pub fn get_acceleration_capabilities(app: AppHandle) -> AccelerationCapabilities {
-    let (cuda, vulkan) = crate::stt::worker_paths_for_app(&app).capabilities();
-    AccelerationCapabilities { cuda, vulkan }
+pub async fn get_acceleration_capabilities(app: AppHandle) -> AppResult<AccelerationCapabilities> {
+    super::blocking::run(move || {
+        let (cuda, vulkan) = crate::stt::worker_paths_for_app(&app).capabilities();
+        Ok(AccelerationCapabilities { cuda, vulkan })
+    })
+    .await
 }
 
 #[tauri::command]
@@ -33,8 +38,9 @@ pub fn get_stt_readiness(app: AppHandle) -> SttReadiness {
 }
 
 #[tauri::command]
-pub fn get_stt_health(app: AppHandle) -> SttHealth {
-    app.state::<crate::pipeline::Pipeline>().stt().health()
+pub async fn get_stt_health(app: AppHandle) -> AppResult<SttHealth> {
+    // Health can reap a failed native worker and release its process/model.
+    super::blocking::run(move || Ok(app.state::<crate::pipeline::Pipeline>().stt().health())).await
 }
 
 #[tauri::command]
@@ -67,8 +73,11 @@ pub async fn save_settings(
         )
     })?;
     let wake_settings_changed = wake::invalidate_changed(&mut settings, &old_settings);
+    #[cfg(not(feature = "wake-word"))]
+    let _ = wake_settings_changed;
     normalize_llm_profiles(&mut settings, &old_settings);
     validate_settings(&settings)?;
+    #[cfg(feature = "wake-word")]
     if settings.wake_word_enabled {
         crate::application::wake_validation::ensure_profile_can_activate(&settings)?;
     }
@@ -127,8 +136,10 @@ pub async fn save_settings(
         }
     }
 
+    #[cfg(feature = "wake-word")]
     let wake_reconfigured = old_settings.wake_word_enabled != persisted_settings.wake_word_enabled
         || (persisted_settings.wake_word_enabled && wake_settings_changed);
+    #[cfg(feature = "wake-word")]
     if wake_reconfigured {
         let config = match crate::settings_to_wake_config(&persisted_settings) {
             Ok(config) => config,
@@ -168,6 +179,7 @@ pub async fn save_settings(
                 let _ = crate::autostart::set_enabled(old_settings.autostart);
             }
             let secret_rollback = restore_profile_secrets(&previous_secrets);
+            #[cfg(feature = "wake-word")]
             if wake_reconfigured {
                 if let Ok(config) = crate::settings_to_wake_config(&old_settings) {
                     let _ = app
@@ -206,6 +218,7 @@ pub async fn save_settings(
 
     crate::verbose::set_verbose(persisted_settings.verbose_logging);
     crate::events::emit_settings(&app, &persisted_settings);
+    #[cfg(feature = "wake-word")]
     if wake_settings_changed {
         crate::events::emit_wake_status(&app, crate::events::WakeStatusV1::Paused);
         let _=app.emit("wake-word-configuration-invalidated",wake::WakeConfigurationInvalidated{
@@ -447,9 +460,12 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
             ));
         }
     }
-    let wake_config = crate::settings_to_wake_config(settings)?;
-    fono_wake::validate_config(&wake_config)
-        .map_err(|error| AppError::Config(format!("Некорректная wake phrase: {error}")))?;
+    #[cfg(feature = "wake-word")]
+    {
+        let wake_config = crate::settings_to_wake_config(settings)?;
+        fono_wake::validate_config(&wake_config)
+            .map_err(|error| AppError::Config(format!("Некорректная wake phrase: {error}")))?;
+    }
     Ok(())
 }
 
@@ -475,6 +491,7 @@ mod tests {
         assert!(validate_settings(&settings).is_err());
     }
 
+    #[cfg(feature = "wake-word")]
     #[test]
     fn settings_validation_rejects_unsupported_sherpa_phrase() {
         let settings = Settings {

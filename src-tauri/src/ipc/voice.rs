@@ -19,12 +19,16 @@ pub fn cancel_voice_command(state: State<'_, AppState>) {
 }
 
 #[tauri::command]
-pub fn confirm_voice_command(app: AppHandle) -> AppResult<String> {
+pub async fn confirm_voice_command(app: AppHandle) -> AppResult<String> {
+    let activity = crate::application::updates::activity::lease()?;
     let state = app.state::<AppState>();
     let proposal = state.take_pending_command_proposal()?;
-    crate::app_commands::execute(
-        &proposal.normalized_action,
-        &proposal.settings_snapshot.launch_apps,
-        proposal.settings_snapshot.volume_step,
-    )
+    super::blocking::run_admitted(activity, move || {
+        crate::app_commands::execute(
+            &proposal.normalized_action,
+            &proposal.settings_snapshot.launch_apps,
+            proposal.settings_snapshot.volume_step,
+        )
+    })
+    .await
 }

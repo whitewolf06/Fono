@@ -7,30 +7,44 @@ use crate::application::transcription_jobs::TranscriptionJob;
 use crate::error::AppResult;
 
 #[tauri::command]
-pub fn get_local_transcription_service_snapshot(app: AppHandle) -> ServiceStatus {
-    app.state::<ServiceControl>().snapshot()
+pub async fn get_local_transcription_service_snapshot(app: AppHandle) -> AppResult<ServiceStatus> {
+    // The snapshot includes persisted service history, not just queue memory.
+    super::blocking::run(move || Ok(app.state::<ServiceControl>().snapshot())).await
 }
 
 #[tauri::command]
-pub fn cancel_local_transcription_job(app: AppHandle, id: String) -> Option<TranscriptionJob> {
-    app.state::<ServiceControl>().cancel_job(&id)
+pub async fn cancel_local_transcription_job(
+    app: AppHandle,
+    id: String,
+) -> AppResult<Option<TranscriptionJob>> {
+    // A terminal job observer persists the cancellation before returning.
+    super::blocking::run(move || Ok(app.state::<ServiceControl>().cancel_job(&id))).await
 }
 
 #[tauri::command]
-pub fn clear_local_transcription_history(app: AppHandle) -> AppResult<()> {
-    crate::service_history::clear()?;
-    crate::events::emit_service_changed(&app);
-    Ok(())
+pub async fn clear_local_transcription_history(app: AppHandle) -> AppResult<()> {
+    super::blocking::run(move || {
+        crate::service_history::clear()?;
+        crate::events::emit_service_changed(&app);
+        Ok(())
+    })
+    .await
 }
 
 /// Copies the local REST bearer token without exposing it to the webview.
 #[tauri::command]
-pub fn copy_local_transcription_api_token() -> AppResult<()> {
-    let token = crate::state::transcription_api_token()?;
-    crate::injection::copy_text(&token)
+pub async fn copy_local_transcription_api_token() -> AppResult<()> {
+    super::blocking::run(|| {
+        let token = crate::state::transcription_api_token()?;
+        crate::injection::copy_text(&token)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn set_local_transcription_service_enabled(app: AppHandle, enabled: bool) -> AppResult<()> {
-    app.state::<ServiceControl>().set_enabled(&app, enabled)
+pub async fn set_local_transcription_service_enabled(
+    app: AppHandle,
+    enabled: bool,
+) -> AppResult<()> {
+    super::blocking::run(move || app.state::<ServiceControl>().set_enabled(&app, enabled)).await
 }

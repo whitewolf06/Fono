@@ -84,7 +84,7 @@ pub(super) fn complete(
             PipelineState::Idle,
             reason,
         );
-        app.state::<fono_wake::WakeWordHandle>().resume();
+        crate::application::wake_runtime::resume(app);
         if let Err(error) = &result {
             if !cancelled {
                 crate::events::emit_error(

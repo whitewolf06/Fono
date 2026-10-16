@@ -65,6 +65,7 @@ pub(super) struct DictationMeasurement {
     pub source: OperationSource,
     pub outcome: ReportOutcome,
     pub audio_ms: Option<u64>,
+    pub capture_dropped_packets: Option<u64>,
     pub finish_ms: u64,
     pub capture_finish_ms: Option<u64>,
     pub model_load_ms: Option<u64>,
@@ -122,6 +123,7 @@ impl ReportTrace {
                 source,
                 outcome: ReportOutcome::Interrupted,
                 audio_ms: None,
+                capture_dropped_packets: None,
                 finish_ms: 0,
                 capture_finish_ms: None,
                 model_load_ms: None,
@@ -140,6 +142,9 @@ impl ReportTrace {
     }
     pub fn captured(&self, samples: usize) {
         self.data.lock().audio_ms = Some((samples as u64).saturating_mul(1000) / 16_000);
+    }
+    pub fn capture_dropped_packets(&self, packets: Option<u64>) {
+        self.data.lock().capture_dropped_packets = packets;
     }
     pub fn outcome(&self, outcome: ReportOutcome) {
         self.data.lock().outcome = outcome;
@@ -191,6 +196,7 @@ mod tests {
             source: OperationSource::Hotkey,
             outcome: ReportOutcome::Completed,
             audio_ms: Some(5000),
+            capture_dropped_packets: None,
             finish_ms: 300,
             capture_finish_ms: None,
             model_load_ms: None,
@@ -204,9 +210,15 @@ mod tests {
         let mut store = ReportMeasurements::default();
         store.started(1);
         store.started(2);
-        store.complete(measurement(2));
-        store.complete(measurement(1));
-        assert_eq!(store.last.unwrap().operation, 2);
+        let mut latest = measurement(2);
+        latest.capture_dropped_packets = Some(0);
+        let mut old = measurement(1);
+        old.capture_dropped_packets = Some(12);
+        store.complete(latest);
+        store.complete(old);
+        let saved = store.last.unwrap();
+        assert_eq!(saved.operation, 2);
+        assert_eq!(saved.capture_dropped_packets, Some(0));
     }
     #[test]
     fn unfinished_new_operation_keeps_previous_completed_report() {

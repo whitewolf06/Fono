@@ -90,8 +90,11 @@ pub async fn preview_processing_text(
                     .into(),
             )
         })?;
+        let profile = profile.clone();
+        let model = settings.text_correction_llm.model.clone();
         let client =
-            LlmClient::from_profile(profile, settings.text_correction_llm.model.as_deref());
+            super::blocking::run(move || Ok(LlmClient::from_profile(&profile, model.as_deref())))
+                .await?;
         let result = client
             .process_preset(
                 &input.text,

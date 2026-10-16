@@ -13,7 +13,9 @@ pub mod feedback_form;
 pub(crate) mod gpu_memory;
 pub mod hotkeys;
 pub mod live_agreement;
+#[cfg(feature = "experimental-live")]
 pub mod live_dictation;
+#[cfg(feature = "experimental-live")]
 pub mod live_windows;
 pub mod local_transcription_service;
 pub mod models;
@@ -30,7 +32,12 @@ pub mod transcription_jobs;
 pub mod transcription_service;
 pub mod updates;
 pub mod voice_dictation;
+#[cfg(feature = "wake-word")]
 pub mod wake;
+#[cfg(feature = "wake-word")]
 pub mod wake_calibration;
+#[cfg(feature = "wake-word")]
 pub mod wake_dictation;
+pub(crate) mod wake_runtime;
+#[cfg(feature = "wake-word")]
 pub mod wake_validation;

@@ -6,7 +6,8 @@
 pub use crate::application::dictation::workflow::{
     ProcessingWorkflow, TextPreset, TranslationLanguage,
 };
-pub use fono_wake::WakeWordBackend;
+mod wake_compat;
+pub use wake_compat::{WakeWordBackend, WakeWordStatus};
 mod history_metadata;
 mod processing_prompts;
 mod wake_availability;

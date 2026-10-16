@@ -3,8 +3,8 @@ use crate::types::{
     AccelerationMode, AiMode, InjectionMode, LlmConnectionKind, PipelineState, Settings,
     WhisperModelSize,
 };
+use crate::types::{WakeWordBackend, WakeWordStatus};
 use fono_core::OperationSource;
-use fono_wake::{WakeWordBackend, WakeWordStatus};
 
 pub(super) struct ReportSnapshot {
     pub version: String,

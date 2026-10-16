@@ -44,6 +44,11 @@ export function nativeDictation(ctx: NativeContext) {
     }
   }
   function live(value: NativeLiveSnapshot | null) {
+    if (!(
+      typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+      __FONO_EXPERIMENTAL_LIVE__
+    ))
+      return;
     if (
       !value ||
       state.preferences.dictationMode !== "live" ||
@@ -202,6 +207,11 @@ export function nativeDictation(ctx: NativeContext) {
       if (currentOperation === operation) state.phase = "cancelled";
     },
     async resumeInsertion() {
+      if (!(
+        typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+        __FONO_EXPERIMENTAL_LIVE__
+      ))
+        return;
       if (!liveIsActive(state.live) || state.live?.phase !== "listening")
         throw new Error("Живая диктовка уже завершена.");
       if (state.live?.insertionState === "failed")

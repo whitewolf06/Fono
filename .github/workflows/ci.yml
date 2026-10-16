@@ -131,10 +131,15 @@ jobs:
           ./scripts/bootstrap-ci-resources.ps1 -ValidateOnly
           Push-Location src-tauri
           try {
-            cargo check --locked -p fono --no-default-features
+            $defaultTree = & cargo tree --locked -p fono --edges normal
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            cargo check --locked -p fono --no-default-features --features whisper-wake
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            cargo check --locked -p fono --no-default-features --features sherpa-wake
-            exit $LASTEXITCODE
+            if ($defaultTree -match '\bfono-wake v') {
+              throw 'Default Fono must not include the disabled WakeWord crate.'
+            }
+            foreach ($features in @('', 'wake-word', 'sherpa-wake', 'experimental-live', 'experimental-live,sherpa-wake')) {
+              $arguments = @('check', '--locked', '-p', 'fono', '--no-default-features')
+              if ($features) { $arguments += @('--features', $features) }
+              & cargo @arguments
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
           } finally { Pop-Location }

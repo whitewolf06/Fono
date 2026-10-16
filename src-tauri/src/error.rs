@@ -129,8 +129,23 @@ fn trusted_detail(raw: &str) -> Option<String> {
         };
         raw = detail.trim();
     }
-    (raw.len() <= 1200 && catalog()?.details.iter().any(|allowed| allowed == raw))
-        .then(|| raw.to_owned())
+    if raw.len() > 1200 {
+        return None;
+    }
+    let catalog = catalog()?;
+    let allowed = catalog.details.iter().any(|allowed| allowed == raw)
+        || catalog.messages.values().any(|allowed| allowed == raw)
+        || catalog.templates.values().any(|template| {
+            [
+                RecognitionBackend::Auto,
+                RecognitionBackend::Cpu,
+                RecognitionBackend::Cuda,
+                RecognitionBackend::Vulkan,
+            ]
+            .iter()
+            .any(|backend| template.replace("{backend}", backend.label()) == raw)
+        });
+    allowed.then(|| raw.to_owned())
 }
 
 /// Legacy events still carry text; use the same safe catalogue as IPC mapping.
@@ -261,6 +276,7 @@ impl From<fono_audio::AudioError> for AppError {
     }
 }
 
+#[cfg(feature = "wake-word")]
 impl From<fono_wake::WakeWordError> for AppError {
     fn from(e: fono_wake::WakeWordError) -> Self {
         AppError::Audio(e.to_string())
@@ -359,5 +375,20 @@ mod tests {
             &format!("{guidance}: PRIVATE_KEY")
         )
         .contains("PRIVATE"));
+        for (error, expected) in [
+            (
+                AppError::BackendUnavailable(RecognitionBackend::Cuda),
+                "Ускорение «CUDA» недоступно в этой сборке. Выберите другое ускорение в настройках.",
+            ),
+            (
+                AppError::BackendStartFailed(RecognitionBackend::Cpu),
+                "Не удалось запустить распознавание в режиме «Процессор». Проверьте модель и выбранное ускорение.",
+            ),
+        ] {
+            assert_eq!(error.user_message(), expected);
+            assert_eq!(safe_user_message(UserErrorCode::Stt, expected), expected);
+            assert!(!safe_user_message(UserErrorCode::Stt, &format!("{expected} PRIVATE_KEY"))
+                .contains("PRIVATE"));
+        }
     }
 }

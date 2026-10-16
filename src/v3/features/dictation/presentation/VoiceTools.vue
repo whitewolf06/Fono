@@ -44,26 +44,30 @@ const tools = computed<
         : "Подключите устройство",
       health: workspace.state.microphoneAvailable ? "ready" : "missing",
     },
-    {
-      title: "Пробуждение",
-      icon: "lightning",
-      panel: "wake",
-      value: p.wakePhrase,
-      health:
-        !WAKE_WORD_AVAILABLE || !p.wakeEnabled
-          ? "off"
-          : ["loading", "initializing"].includes(
-                workspace.state.wakeStatus || "",
-              )
-            ? "loading"
-            : workspace.state.wakeStatus === "missing_model" ||
-                workspace.state.wakeSetup?.verified === false
-              ? "missing"
-              : workspace.state.wakeStatus?.startsWith("error")
-                ? "error"
-                : "ready",
-      toggle: "wakeEnabled",
-    },
+    ...(typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__
+      ? [
+          {
+            title: "Пробуждение",
+            icon: "lightning" as const,
+            panel: "wake" as const,
+            value: p.wakePhrase,
+            health:
+              !WAKE_WORD_AVAILABLE || !p.wakeEnabled
+                ? ("off" as Health)
+                : ["loading", "initializing"].includes(
+                      workspace.state.wakeStatus || "",
+                    )
+                  ? "loading"
+                  : workspace.state.wakeStatus === "missing_model" ||
+                      workspace.state.wakeSetup?.verified === false
+                    ? "missing"
+                    : workspace.state.wakeStatus?.startsWith("error")
+                      ? "error"
+                      : "ready",
+            toggle: "wakeEnabled" as const,
+          },
+        ]
+      : []),
     {
       title: "Распознавание",
       icon: "message",

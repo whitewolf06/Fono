@@ -16,7 +16,7 @@ use crate::{
     },
     error::{AppError, AppResult},
     state::AppState,
-    types::{LlmConnectionKind, Settings, SpeechLlmDataScope},
+    types::{LlmConnectionKind, LlmProfile, Settings, SpeechLlmDataScope},
 };
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager};
@@ -166,11 +166,15 @@ pub(crate) async fn recommend_session(
     let profile = settings
         .speech_analysis_profile()
         .ok_or_else(|| AppError::Config("Выберите подключение тренера".into()))?;
-    let client =
-        crate::llm::LlmClient::from_profile(profile, settings.speech_analysis_llm.model.as_deref());
     let lease = activity::lease()?;
     let request = SessionRequest::begin(&id)?;
     let (original, analysis, source_fingerprint) = session_input(&id, &settings)?;
+    let client = client_for_profile(
+        profile,
+        settings.speech_analysis_llm.model.as_deref(),
+        &lease,
+    )
+    .await?;
     let task = tauri::async_runtime::spawn(async move {
         let _lease = lease;
         if app.state::<AppState>().settings_revision() != revision {
@@ -273,8 +277,12 @@ pub(crate) async fn analyze(
     let profile = settings
         .speech_analysis_profile()
         .ok_or_else(|| AppError::Config("Выберите подключение речевого тренера".into()))?;
-    let client =
-        crate::llm::LlmClient::from_profile(profile, settings.speech_analysis_llm.model.as_deref());
+    let client = client_for_profile(
+        profile,
+        settings.speech_analysis_llm.model.as_deref(),
+        &lease,
+    )
+    .await?;
     let profile_id = profile.id.clone();
     let profile_name = profile.name.clone();
     let model = client
@@ -331,6 +339,24 @@ pub(crate) async fn analyze(
     });
     task.await
         .map_err(|_| AppError::Internal("Не удалось завершить анализ отчёта".into()))?
+}
+
+async fn client_for_profile(
+    profile: &LlmProfile,
+    model: Option<&str>,
+    lease: &activity::ActivityLease<'static>,
+) -> AppResult<crate::llm::LlmClient> {
+    let profile = profile.clone();
+    let model = model.map(str::to_owned);
+    let lease = lease.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        // Keep update admission while the native keyring read actually runs,
+        // including when the surrounding IPC future has already been dropped.
+        let _lease = lease;
+        crate::llm::LlmClient::from_profile(&profile, model.as_deref())
+    })
+    .await
+    .map_err(|_| AppError::Internal("LLM client preparation task failed".into()))
 }
 
 #[cfg(test)]

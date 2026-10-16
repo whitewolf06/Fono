@@ -30,10 +30,21 @@ pub(super) async fn selected(
     if !session.transition(PipelineState::Processing, TerminalReason::Completed) {
         return Ok(None);
     }
-    let client = LlmClient::from_settings(&session.settings);
+    let process = async {
+        let client = client_for_settings(&session.settings).await?;
+        client
+            .process_preset(
+                &transcript.text,
+                preset,
+                language,
+                session.settings.processing_prompts.choice(preset),
+            )
+            .await
+    };
     tokio::select! {
-        result = client.process_preset(&transcript.text,preset,language,session.settings.processing_prompts.choice(preset)) => result.map(Some),
+        biased;
         _ = wait_for_cancellation(session.cancellation.clone()) => Ok(None),
+        result = process => result.map(Some),
     }
 }
 
@@ -54,17 +65,22 @@ pub(super) async fn process(
         }
         return None;
     }
-    let client = LlmClient::from_settings(&session.settings);
     let preset = super::workflow::effective_preset(&session.settings);
-    let process = client.process_preset(
-        &transcript.text,
-        preset,
-        super::workflow::effective_language(&session.settings),
-        session.settings.processing_prompts.choice(preset),
-    );
+    let process = async {
+        let client = client_for_settings(&session.settings).await?;
+        client
+            .process_preset(
+                &transcript.text,
+                preset,
+                super::workflow::effective_language(&session.settings),
+                session.settings.processing_prompts.choice(preset),
+            )
+            .await
+    };
     let result = tokio::select! {
-        result = process => Some(result),
+        biased;
         _ = wait_for_cancellation(session.cancellation.clone()) => None,
+        result = process => Some(result),
     };
     match result {
         None => {
@@ -92,4 +108,18 @@ pub(super) async fn process(
             Some(transcript.text.clone())
         }
     }
+}
+
+async fn client_for_settings(
+    settings: &crate::types::Settings,
+) -> crate::error::AppResult<LlmClient> {
+    let settings = settings.clone();
+    let lease = crate::application::updates::activity::lease()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        // Reading a native credential can outlive cancellation of the request.
+        let _lease = lease;
+        LlmClient::from_settings(&settings)
+    })
+    .await
+    .map_err(|_| crate::error::AppError::Internal("LLM client preparation task failed".into()))
 }

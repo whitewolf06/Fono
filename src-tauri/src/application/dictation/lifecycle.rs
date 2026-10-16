@@ -75,7 +75,7 @@ pub(super) struct OperationScope {
 impl OperationScope {
     pub fn new(app: AppHandle, operation: u64, pause_wake: bool) -> Self {
         if pause_wake {
-            app.state::<fono_wake::WakeWordHandle>().pause();
+            crate::application::wake_runtime::pause(&app);
         }
         Self {
             app,
@@ -128,11 +128,13 @@ impl Drop for OperationScope {
 }
 
 pub(crate) fn resume_wake_if_idle(app: &AppHandle) {
-    if !crate::application::live_dictation::is_active(app) {
-        app.state::<Pipeline>().while_idle(|| {
-            app.state::<fono_wake::WakeWordHandle>().resume();
-        });
+    #[cfg(feature = "experimental-live")]
+    if crate::application::live_dictation::is_active(app) {
+        return;
     }
+    app.state::<Pipeline>().while_idle(|| {
+        crate::application::wake_runtime::resume(app);
+    });
 }
 
 pub(super) fn emit_pipeline_error(app: &AppHandle, message: &str) {

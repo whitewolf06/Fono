@@ -5,13 +5,13 @@ use tauri::AppHandle;
 use crate::error::AppResult;
 
 #[tauri::command]
-pub fn clear_logs() -> AppResult<()> {
-    crate::application::diagnostics::clear_logs()
+pub async fn clear_logs() -> AppResult<()> {
+    super::blocking::run(crate::application::diagnostics::clear_logs).await
 }
 
 #[tauri::command]
-pub fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
-    crate::application::diagnostics::get_recent_logs(lines)
+pub async fn get_recent_logs(lines: Option<usize>) -> AppResult<String> {
+    super::blocking::run(move || crate::application::diagnostics::get_recent_logs(lines)).await
 }
 
 #[tauri::command]

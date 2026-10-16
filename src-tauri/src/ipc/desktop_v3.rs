@@ -74,7 +74,11 @@ pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
     {
         return Err(AppError::Config("Выберите модель обработки текста".into()));
     }
-    crate::llm::LlmClient::from_settings(&settings)
+    let client_settings = settings.clone();
+    let client =
+        super::blocking::run(move || Ok(crate::llm::LlmClient::from_settings(&client_settings)))
+            .await?;
+    client
         .process_preset(
             &text,
             preset,
@@ -84,8 +88,8 @@ pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
         .await
 }
 #[tauri::command]
-pub fn clear_speech_analytics() -> AppResult<()> {
-    crate::history::apply_analytics_privacy_policy(false, 0)
+pub async fn clear_speech_analytics() -> AppResult<()> {
+    super::blocking::run(|| crate::history::apply_analytics_privacy_policy(false, 0)).await
 }
 #[tauri::command]
 pub async fn recommend_speech(
@@ -118,18 +122,29 @@ pub struct SelectedModelMetadata {
     bytes: u64,
 }
 #[tauri::command]
-pub fn get_selected_model_metadata(app: AppHandle) -> Option<SelectedModelMetadata> {
-    let path = app.state::<AppState>().settings().whisper_model_path?;
-    let file = std::path::Path::new(&path);
-    let metadata = file.metadata().ok().filter(|m| m.is_file())?;
-    Some(SelectedModelMetadata {
-        filename: file.file_name()?.to_string_lossy().into_owned(),
-        path,
-        bytes: metadata.len(),
+pub async fn get_selected_model_metadata(
+    app: AppHandle,
+) -> AppResult<Option<SelectedModelMetadata>> {
+    let path = app.state::<AppState>().settings().whisper_model_path;
+    super::blocking::run(move || {
+        Ok(path.and_then(|path| {
+            let file = std::path::Path::new(&path);
+            let metadata = file.metadata().ok().filter(|m| m.is_file())?;
+            Some(SelectedModelMetadata {
+                filename: file.file_name()?.to_string_lossy().into_owned(),
+                path,
+                bytes: metadata.len(),
+            })
+        }))
     })
+    .await
 }
 #[tauri::command]
-pub fn remove_whisper_model(app: AppHandle, size: String) -> AppResult<()> {
+pub async fn remove_whisper_model(app: AppHandle, size: String) -> AppResult<()> {
+    super::blocking::run(move || remove_model(&app, &size)).await
+}
+
+fn remove_model(app: &AppHandle, size: &str) -> AppResult<()> {
     let settings = app.state::<AppState>().settings();
     let model = crate::application::models::list_whisper_models()?
         .into_iter()

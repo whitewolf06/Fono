@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, defineAsyncComponent } from "vue";
 import { WlField, WlInput, WlSlider } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import type { Preferences } from "../../../shared/domain/contracts";
-import NativeWakeSetup from "./NativeWakeSetup.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
@@ -12,6 +11,12 @@ import {
   WAKE_WORD_UNAVAILABLE,
   WAKE_WORD_ALTERNATIVE,
 } from "../../../shared/domain/wakeAvailability";
+const wakeCompiled =
+  typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__;
+const NativeWakeSetup =
+  typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__
+    ? defineAsyncComponent(() => import("./NativeWakeSetup.vue"))
+    : null;
 defineProps<{
   scope?: "wake" | "hotkey" | "command-hotkey";
   advanced?: boolean;
@@ -99,7 +104,9 @@ const phraseOptions = computed(() => {
     >
       <WlInput v-bind="field" v-model="draft.commandHotkey" />
     </WlField>
-    <template v-if="scope !== 'hotkey' && scope !== 'command-hotkey'">
+    <template
+      v-if="wakeCompiled && scope !== 'hotkey' && scope !== 'command-hotkey'"
+    >
       <p v-if="!WAKE_WORD_AVAILABLE" class="notice" role="status">
         {{ WAKE_WORD_UNAVAILABLE }}. {{ WAKE_WORD_ALTERNATIVE }}
       </p>

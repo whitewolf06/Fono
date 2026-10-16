@@ -7,13 +7,23 @@ interface NativeErrorParams {
   backend?: RecognitionBackend;
 }
 
-const details = new Set(catalog.details);
 const backendLabels: Record<RecognitionBackend, string> = {
   auto: "Авто",
   cpu: "Процессор",
   cuda: "CUDA",
   vulkan: "Vulkan",
 };
+// Native status/events may already contain the rendered user message. Trust
+// only the exact catalogue and its finite set of closed backend expansions.
+const details = new Set([
+  ...catalog.details,
+  ...Object.values(catalog.messages),
+  ...Object.values(catalog.templates).flatMap((template) =>
+    Object.values(backendLabels).map((label) =>
+      template.replace("{backend}", label),
+    ),
+  ),
+]);
 const legacyPrefixes: [string, NativeErrorCode][] = [
   ["операция уже выполняется: ", "busy"],
   ["операция отменена: ", "cancelled"],

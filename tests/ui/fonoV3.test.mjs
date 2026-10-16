@@ -15,6 +15,7 @@ before(async () => {
   server = await createServer({
     appType: "custom",
     configFile: "vite.config.ts",
+    define: { __FONO_EXPERIMENTAL_LIVE__: true },
     server: { hmr: false, middlewareMode: true },
   });
   ({ createMockWorkspace: createWorkspace } = await server.ssrLoadModule(

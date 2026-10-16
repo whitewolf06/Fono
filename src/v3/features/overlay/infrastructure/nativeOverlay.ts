@@ -122,6 +122,11 @@ export function createNativeOverlay() {
     state.error = error;
   });
   function applyLive(v: NativeLiveSnapshot | null) {
+    if (!(
+      typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+      __FONO_EXPERIMENTAL_LIVE__
+    ))
+      return;
     if (!v || (settings && settings.dictation_mode !== "live")) return;
     if (state.live && Number(v.session_id) < Number(state.live.sessionId))
       return;
@@ -151,15 +156,20 @@ export function createNativeOverlay() {
     state.level = Math.min(1, Math.max(0, v.audio_level));
     state.source = v.source;
   }
-  bind<NativeLiveSnapshot>("dictation-live", applyLive);
+  if (
+    typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+    __FONO_EXPERIMENTAL_LIVE__
+  )
+    bind<NativeLiveSnapshot>("dictation-live", applyLive);
   bind<PendingDictation | null>("pending-dictation", pending.apply);
   bind<Preview | null>("overlay-preview", hydration.previewChanged);
-  bind<{ remaining_ms: number; speaking: boolean }>(
-    "wake-dictation-countdown",
-    (v) => {
-      state.seconds = v.speaking ? 0 : Math.ceil(v.remaining_ms / 1000);
-    },
-  );
+  if (typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)
+    bind<{ remaining_ms: number; speaking: boolean }>(
+      "wake-dictation-countdown",
+      (v) => {
+        state.seconds = v.speaking ? 0 : Math.ceil(v.remaining_ms / 1000);
+      },
+    );
   void hydration.load(readiness).catch(fail);
   const window = getCurrentWindow();
   void window
@@ -178,7 +188,10 @@ export function createNativeOverlay() {
     try {
       const [v, live, dictation] = await Promise.all([
         call<NativeSnapshot>("get_desktop_snapshot"),
-        call<NativeLiveSnapshot | null>("get_live_dictation"),
+        typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+        __FONO_EXPERIMENTAL_LIVE__
+          ? call<NativeLiveSnapshot | null>("get_live_dictation")
+          : Promise.resolve(null),
         call<PendingDictation | null>("get_pending_dictation"),
       ]);
       if (disposed) return;
@@ -230,7 +243,11 @@ export function createNativeOverlay() {
       state.helpOpen = open;
     },
     drag: () => window.startDragging().catch(fail),
-    resume: () => call("resume_live_insertion").catch(fail),
+    resume: () =>
+      typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+      __FONO_EXPERIMENTAL_LIVE__
+        ? call("resume_live_insertion").catch(fail)
+        : Promise.resolve(),
     resolve: (request: Parameters<typeof pending.resolve>[0]) =>
       controls.resolve(request, pending.resolve).catch(fail),
     copy: pending.copy,

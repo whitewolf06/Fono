@@ -12,8 +12,11 @@ const SAMPLE_RATE_HZ: usize = 16_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DictationStopReason {
     Manual,
+    #[cfg(feature = "wake-word")]
     WakeSilence,
+    #[cfg(feature = "wake-word")]
     WakeConfirmed,
+    #[cfg(feature = "wake-word")]
     WakeTimeout,
 }
 
@@ -21,8 +24,11 @@ impl DictationStopReason {
     fn as_str(self) -> &'static str {
         match self {
             Self::Manual => "manual",
+            #[cfg(feature = "wake-word")]
             Self::WakeSilence => "wake_silence",
+            #[cfg(feature = "wake-word")]
             Self::WakeConfirmed => "wake_confirmed",
+            #[cfg(feature = "wake-word")]
             Self::WakeTimeout => "wake_timeout",
         }
     }
@@ -111,6 +117,7 @@ pub(crate) struct DictationTailDiagnostic {
     source: OperationSource,
     stop_reason: DictationStopReason,
     captured_samples: Option<usize>,
+    capture_dropped_packets: Option<u64>,
     vad: Option<VadMeasurement>,
     stt: SttOutcome,
     postprocessor: PostprocessorOutcome,
@@ -128,6 +135,7 @@ impl DictationTailDiagnostic {
             source,
             stop_reason,
             captured_samples: None,
+            capture_dropped_packets: None,
             vad: None,
             stt: SttOutcome::NotStarted,
             postprocessor: PostprocessorOutcome::NotReached,
@@ -137,6 +145,9 @@ impl DictationTailDiagnostic {
 
     pub(crate) fn record_capture(&mut self, samples: usize) {
         self.captured_samples = Some(samples);
+    }
+    pub(crate) fn record_capture_drops(&mut self, packets: Option<u64>) {
+        self.capture_dropped_packets = packets;
     }
     pub(crate) fn captured_samples(&self) -> Option<usize> {
         self.captured_samples
@@ -211,7 +222,9 @@ impl DictationTailDiagnostic {
     }
 
     fn first_suspected_layer(&self) -> Option<FirstSuspectedLayer> {
-        if self.captured_samples.map_or(true, |samples| samples == 0) {
+        if self.capture_dropped_packets.is_some_and(|count| count > 0)
+            || self.captured_samples.map_or(true, |samples| samples == 0)
+        {
             return Some(FirstSuspectedLayer::Capture);
         }
         if self
@@ -256,6 +269,7 @@ impl DictationTailDiagnostic {
             source = source_label(self.source),
             stop_reason = self.stop_reason.as_str(),
             captured_samples,
+            capture_dropped_packets = ?self.capture_dropped_packets,
             captured_ms = samples_to_ms(captured_samples),
             vad_applied = vad.applied,
             vad_detected_speech = vad.detected_speech,
@@ -322,11 +336,8 @@ mod tests {
 
     #[test]
     fn classifies_empty_capture_before_later_stages() {
-        let diagnostic = DictationTailDiagnostic::new(
-            8,
-            OperationSource::WakeWord,
-            DictationStopReason::WakeSilence,
-        );
+        let diagnostic =
+            DictationTailDiagnostic::new(8, OperationSource::WakeWord, DictationStopReason::Manual);
 
         assert_eq!(
             diagnostic.first_suspected_layer(),
@@ -347,5 +358,36 @@ mod tests {
             diagnostic.first_suspected_layer(),
             Some(FirstSuspectedLayer::Postprocessor)
         );
+    }
+
+    #[test]
+    fn measured_packet_loss_suspects_capture_even_when_audio_and_stt_are_nonempty() {
+        let mut diagnostic =
+            DictationTailDiagnostic::new(10, OperationSource::Hotkey, DictationStopReason::Manual);
+        diagnostic.record_capture(16_000);
+        diagnostic.record_capture_drops(Some(3));
+        diagnostic.skip_vad(16_000);
+        diagnostic.stt_succeeded(true);
+        diagnostic.postprocessor_succeeded(true);
+        assert_eq!(
+            diagnostic.first_suspected_layer(),
+            Some(FirstSuspectedLayer::Capture)
+        );
+    }
+
+    #[test]
+    fn unknown_or_zero_drops_do_not_claim_a_capture_failure() {
+        for dropped in [None, Some(0)] {
+            let mut diagnostic = DictationTailDiagnostic::new(
+                11,
+                OperationSource::Hotkey,
+                DictationStopReason::Manual,
+            );
+            diagnostic.record_capture(16_000);
+            diagnostic.record_capture_drops(dropped);
+            diagnostic.stt_succeeded(true);
+            diagnostic.postprocessor_skipped();
+            assert_eq!(diagnostic.first_suspected_layer(), None);
+        }
     }
 }

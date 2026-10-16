@@ -7,7 +7,7 @@ use crate::{
 use fono_core::{OperationSource, TerminalReason};
 use parking_lot::Mutex;
 use std::sync::{
-    atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering},
     Arc,
 };
 
@@ -16,6 +16,8 @@ struct CaptureProbe {
     writer: Mutex<Option<RecordingWriter>>,
     starts: AtomicUsize,
     stops: AtomicUsize,
+    capture_drops: AtomicU64,
+    capture_drops_measured: AtomicBool,
 }
 struct QueuedRecorder(Arc<CaptureProbe>);
 
@@ -29,6 +31,7 @@ impl AudioRecorder<RecordingWriter, AppError> for QueuedRecorder {
         maximum: usize,
     ) -> AppResult<()> {
         let sequence = self.0.starts.fetch_add(1, Ordering::SeqCst) + 1;
+        self.0.capture_drops.store(0, Ordering::SeqCst);
         writer.lock().append(&[sequence as i16], maximum);
         *self.0.writer.lock() = Some(writer);
         Ok(())
@@ -44,6 +47,13 @@ impl AudioRecorder<RecordingWriter, AppError> for QueuedRecorder {
     }
 
     fn shutdown(&self) {}
+
+    fn dropped_capture_packets(&self) -> Option<u64> {
+        self.0
+            .capture_drops_measured
+            .load(Ordering::SeqCst)
+            .then(|| self.0.capture_drops.load(Ordering::SeqCst))
+    }
 }
 
 fn fixture() -> (Pipeline, Arc<CaptureProbe>) {
@@ -101,6 +111,49 @@ fn stop_capture_drains_once_and_collect_keeps_the_final_packets() {
     assert!(pipeline.stop_recording_for(operation).unwrap().is_none());
     assert_eq!(probe.stops.load(Ordering::SeqCst), 1);
     pipeline.finish_operation(operation, TerminalReason::Completed);
+}
+
+#[test]
+fn capture_loss_is_frozen_at_stop_and_never_assigned_to_a_replacement_operation() {
+    let (pipeline, probe) = fixture();
+    probe.capture_drops_measured.store(true, Ordering::SeqCst);
+    let old = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    probe.capture_drops.store(7, Ordering::SeqCst);
+    pipeline.stop_recording_for(old).unwrap();
+    assert_eq!(pipeline.capture_dropped_packets_for(old), Some(7));
+    pipeline.cancel_for(old).unwrap();
+
+    let current = pipeline
+        .start_recording_from(None, OperationSource::Hotkey)
+        .unwrap();
+    assert_eq!(probe.capture_drops.load(Ordering::SeqCst), 0);
+    assert_eq!(pipeline.capture_dropped_packets_for(old), None);
+    assert_eq!(pipeline.capture_dropped_packets_for(current), None);
+    // A late Stop must neither stop this recording nor reuse the old count.
+    assert!(pipeline.stop_recording_for(old).unwrap().is_none());
+    probe.capture_drops.store(2, Ordering::SeqCst);
+    pipeline.stop_capture_for(current).unwrap();
+    assert_eq!(pipeline.capture_dropped_packets_for(current), Some(2));
+    // Later global loss and repeated Stop cannot rewrite this stopped session.
+    probe.capture_drops.store(99, Ordering::SeqCst);
+    pipeline.stop_capture_for(current).unwrap();
+    pipeline.stop_recording_for(current).unwrap();
+    assert_eq!(pipeline.capture_dropped_packets_for(current), Some(2));
+    assert_eq!(pipeline.capture_dropped_packets_for(old), None);
+    pipeline.finish_operation(current, TerminalReason::Completed);
+    assert_eq!(pipeline.capture_dropped_packets_for(current), None);
+}
+
+#[test]
+fn missing_capture_loss_measurement_is_unknown_instead_of_a_fabricated_zero() {
+    let (pipeline, _) = fixture();
+    let operation = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    pipeline.stop_recording_for(operation).unwrap();
+    assert_eq!(pipeline.capture_dropped_packets_for(operation), None);
 }
 
 #[test]

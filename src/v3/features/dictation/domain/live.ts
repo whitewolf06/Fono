@@ -1,14 +1,29 @@
 import type { LiveDictation, Phase } from "../../../shared/domain/contracts";
 
 export function liveIsActive(live: LiveDictation | null | undefined): boolean {
-  return !!live && ["listening", "draining"].includes(live.phase);
+  return (
+    typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+    __FONO_EXPERIMENTAL_LIVE__ &&
+    !!live &&
+    ["listening", "draining"].includes(live.phase)
+  );
 }
 
 export function livePhase(live: LiveDictation): Phase {
+  if (!(
+    typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+    __FONO_EXPERIMENTAL_LIVE__
+  ))
+    return "idle";
   return live.phase === "draining" ? "transcribing" : live.phase;
 }
 
 export function liveStatus(live: LiveDictation): string {
+  if (!(
+    typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+    __FONO_EXPERIMENTAL_LIVE__
+  ))
+    return "";
   if (live.phase === "draining") return "Завершаю оставшийся текст";
   if (live.phase === "done") return "Живая диктовка завершена";
   if (live.phase === "cancelled") return "Диктовка отменена · текст сохранён";

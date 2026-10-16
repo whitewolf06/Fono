@@ -1,12 +1,35 @@
 import type { WorkspaceState } from "../../../shared/domain/contracts";
 import type { WakePort, WakeSetupState } from "../../../shared/domain/wake";
 import { ensureWakeAvailable } from "../../../shared/domain/wakeAvailability";
+import { createFrozenWake } from "../../../shared/infrastructure/frozenWake";
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 export function createMockWake(
   state: WorkspaceState,
 ): WakePort & { resetDemo(): void } {
+  if (!(typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)) {
+    state.wakeSetup = {
+      modelReady: false,
+      profileReady: false,
+      verified: false,
+      active: false,
+      required: 5,
+      accepted: 0,
+      rejected: 0,
+      phrase: state.preferences.wakePhrase,
+      validation: {
+        active: false,
+        completed: false,
+        failed: false,
+        positivePassed: 0,
+        positiveRequired: 3,
+        silencePassed: false,
+        otherPhrasePassed: false,
+      },
+    };
+    return { ...createFrozenWake(), resetDemo() {} };
+  }
   let language = state.preferences.wakeLanguage;
   let generation = 0;
   const fresh = (): WakeSetupState => ({

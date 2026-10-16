@@ -18,6 +18,7 @@ pub(super) fn invalidate_changed(settings: &mut Settings, old: &Settings) -> boo
     }
     changed
 }
+#[cfg(feature = "wake-word")]
 #[derive(Clone, serde::Serialize)]
 pub(super) struct WakeConfigurationInvalidated {
     pub reason: &'static str,

@@ -7,8 +7,8 @@ use crate::state::AppState;
 use crate::types::WhisperModelInfo;
 
 #[tauri::command]
-pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
-    crate::application::models::list_whisper_models()
+pub async fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
+    super::blocking::run(crate::application::models::list_whisper_models).await
 }
 
 #[tauri::command]
@@ -16,11 +16,13 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
     crate::application::models::download_whisper_model(app, size).await
 }
 
+#[cfg(feature = "wake-word")]
 #[tauri::command]
-pub fn is_kws_model_downloaded(app: AppHandle) -> AppResult<bool> {
-    crate::application::models::is_kws_model_downloaded(&app)
+pub async fn is_kws_model_downloaded(app: AppHandle) -> AppResult<bool> {
+    super::blocking::run(move || crate::application::models::is_kws_model_downloaded(&app)).await
 }
 
+#[cfg(feature = "wake-word")]
 #[tauri::command]
 pub async fn download_kws_model(app: AppHandle) -> AppResult<()> {
     crate::application::models::download_kws_model(app).await

@@ -14,7 +14,7 @@ const releaseWorkflow = await read("../.github/workflows/prepare-update.yml");
 // This checks the deliberately small job contract without an npm YAML parser:
 // the test itself must run in an empty checkout before installing dependencies.
 function nativeJob(source) {
-  const jobs = [...source.matchAll(/^  ([a-z][\w-]*):\r?\n/gm)];
+  const jobs = [...source.matchAll(/^ {2}([a-z][\w-]*):\r?\n/gm)];
   const index = jobs.findIndex((match) => match[1] === "native");
   assert.notEqual(index, -1, "native job must exist");
   return source
@@ -24,15 +24,15 @@ function nativeJob(source) {
 
 function checkNativeContract(source) {
   const job = nativeJob(source);
-  assert.match(source, /^  pull_request:\r?\n    branches: \[main\]/m);
-  assert.doesNotMatch(source, /^  pull_request_target:/m);
+  assert.match(source, /^ {2}pull_request:\r?\n {4}branches: \[main\]/m);
+  assert.doesNotMatch(source, /^ {2}pull_request_target:/m);
   assert.doesNotMatch(
     source.split(/^jobs:/m)[0],
     /secrets\.|NODE_AUTH_TOKEN|WHITEUI_NPM_TOKEN/,
   );
-  assert.match(job, /^    runs-on: windows-2022$/m);
+  assert.match(job, /^ {4}runs-on: windows-2022$/m);
   assert.doesNotMatch(job, /^\s+(?:needs|if):/m);
-  assert.doesNotMatch(job, /^    (?:environment|uses):/m);
+  assert.doesNotMatch(job, /^ {4}(?:environment|uses):/m);
   assert.doesNotMatch(
     job,
     /secrets\.|NODE_AUTH_TOKEN|WHITEUI_NPM_TOKEN|npm\.pkg|\bnpm\s|\bnpx\s/,
@@ -52,7 +52,7 @@ function checkNativeContract(source) {
     /cargo clippy --locked --workspace --all-targets -- -D warnings\r?\n\s+exit \$LASTEXITCODE/,
   );
   const config = JSON.parse(
-    job.match(/^      TAURI_CONFIG: '([^']+)'$/m)?.[1] ?? "null",
+    job.match(/^ {6}TAURI_CONFIG: '([^']+)'$/m)?.[1] ?? "null",
   );
   assert.deepEqual(config, {
     build: { frontendDist: "../scripts/ci-native-frontend" },
@@ -130,5 +130,35 @@ test("native compile assets are inert and the real release frontend remains requ
   assert.match(
     releaseWorkflow,
     /node node_modules\/@tauri-apps\/cli\/tauri\.js build --ci/,
+  );
+});
+
+test("native checks keep default WakeWord absent and cover independent live/wake feature combinations", () => {
+  const job = nativeJob(workflow);
+  assert.match(job, /cargo tree --locked -p fono --edges normal/);
+  assert.match(job, /\$defaultTree -match '\\bfono-wake v'/);
+  const matrix = job.match(/foreach \(\$features in @\(([^)]+)\)\)/)?.[1];
+  assert.ok(matrix, "feature matrix must be explicit");
+  assert.deepEqual(
+    [...matrix.matchAll(/'([^']*)'/g)].map((match) => match[1]),
+    [
+      "",
+      "wake-word",
+      "sherpa-wake",
+      "experimental-live",
+      "experimental-live,sherpa-wake",
+    ],
+  );
+  assert.match(
+    job,
+    /\$arguments = @\('check', '--locked', '-p', 'fono', '--no-default-features'\)/,
+  );
+  assert.match(
+    job,
+    /if \(\$features\) \{ \$arguments \+= @\('--features', \$features\) \}/,
+  );
+  assert.match(
+    job,
+    /& cargo @arguments\r?\n\s+if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}/,
   );
 });

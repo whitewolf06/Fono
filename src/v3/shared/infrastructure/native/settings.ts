@@ -37,6 +37,8 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
         throw new Error("Сначала завершите текущую диктовку.");
       await ctx.save(patch);
       if (
+        typeof __FONO_WAKE_WORD__ !== "undefined" &&
+        __FONO_WAKE_WORD__ &&
         ["wakePhrase", "wakeLanguage", "wakeThreshold", "speechThreshold"].some(
           (key) => key in patch,
         )
@@ -59,6 +61,13 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
             await ctx.readService();
           });
         } else if (key === "wakeEnabled") {
+          if (!(
+            typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__
+          )) {
+            await ctx.save({ wakeEnabled: false });
+            state.wakeStatus = "off";
+            return;
+          }
           await ctx.serialize(async () => {
             await call(value ? "enable_wake_word" : "disable_wake_word");
             await ctx.readSettings();

@@ -39,6 +39,7 @@ const INITIAL_RECORDING_CAPACITY: usize = RECORDING_SAMPLE_RATE * 30;
 pub struct Pipeline {
     recording: Mutex<bool>,
     capture_operation: AtomicU64,
+    stopped_capture_drops: Mutex<Option<(u64, u64)>>,
     /// Arc-буфер накопленных сэмплов, разделяемый с аудио-callback'ом cpal.
     writer: Mutex<Option<RecordingWriter>>,
     /// Adapter for the physical CPAL subscription; production keeps stream
@@ -73,6 +74,7 @@ impl Pipeline {
         Self {
             recording: Mutex::new(false),
             capture_operation: AtomicU64::new(0),
+            stopped_capture_drops: Mutex::new(None),
             writer: Mutex::new(None),
             audio_owner,
             recording_limit_reached: Arc::new(AtomicBool::new(false)),
@@ -404,6 +406,7 @@ impl Pipeline {
         }
 
         *self.writer.lock() = Some(writer);
+        *self.stopped_capture_drops.lock() = None;
         self.capture_operation
             .store(operation.id, Ordering::Release);
         *recording = true;
@@ -434,6 +437,20 @@ impl Pipeline {
         Ok(self.stop_recording_for(operation)?.unwrap_or_default())
     }
 
+    /// Final capture loss belongs to exactly one still-current operation. A late
+    /// collector must never read the replacement recording's counter or old loss.
+    pub(crate) fn capture_dropped_packets_for(&self, operation: u64) -> Option<u64> {
+        let _capture = self.recording.lock();
+        if operation == 0 || self.operation_id() != operation {
+            return None;
+        }
+        self.stopped_capture_drops
+            .lock()
+            .as_ref()
+            .filter(|(owner, _)| *owner == operation)
+            .map(|(_, count)| *count)
+    }
+
     /// Physical capture stops immediately; its queued packets drain before the
     /// lock is released. The live decoder retains its writer for final windows.
     pub fn stop_capture_for(&self, operation: u64) -> AppResult<bool> {
@@ -455,6 +472,10 @@ impl Pipeline {
             return Ok(());
         }
         let stopped = self.audio_owner.stop();
+        *self.stopped_capture_drops.lock() = self
+            .audio_owner
+            .dropped_capture_packets()
+            .map(|count| (self.capture_operation.load(Ordering::Acquire), count));
         *recording = false;
         self.audio_level_bits
             .store(0.0f32.to_bits(), Ordering::Relaxed);

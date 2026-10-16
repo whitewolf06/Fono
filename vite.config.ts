@@ -34,6 +34,8 @@ function gitRevision() {
 export default defineConfig({
   plugins: [vue()],
   define: {
+    __FONO_WAKE_WORD__: process.env.VITE_FONO_WAKE_WORD === "1",
+    __FONO_EXPERIMENTAL_LIVE__: process.env.VITE_FONO_EXPERIMENTAL_LIVE === "1",
     __FONO_FRONTEND_BUILD__: JSON.stringify({
       version: packageVersion,
       revision: gitRevision(),

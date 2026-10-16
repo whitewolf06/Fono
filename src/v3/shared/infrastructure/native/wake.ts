@@ -2,6 +2,7 @@ import { call } from "./ipc";
 import type { NativeContext } from "./context";
 import type { WakePort } from "../../domain/wake";
 import { ensureWakeAvailable } from "../../domain/wakeAvailability";
+import { createFrozenWake } from "../frozenWake";
 import type {
   WakeCalibrationStatus,
   WakeProfileValidationStatus,
@@ -10,6 +11,8 @@ import type {
 } from "./ipcTypes";
 
 export function nativeWake(ctx: NativeContext): WakePort {
+  if (!(typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__))
+    return createFrozenWake();
   async function load() {
     const [setup, validation, modelReady, caps] = await Promise.all([
       call<WakeCalibrationStatus>("get_wake_calibration_status"),

@@ -21,7 +21,10 @@ export function createNativeSessionSync(handlers: Handlers) {
     const generation = ++requestGeneration;
     const [snapshot, live, pending] = await Promise.all([
       call<NativeSnapshot>("get_desktop_snapshot"),
-      call<NativeLiveSnapshot | null>("get_live_dictation"),
+      typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+      __FONO_EXPERIMENTAL_LIVE__
+        ? call<NativeLiveSnapshot | null>("get_live_dictation")
+        : Promise.resolve(null),
       call<PendingDictation | null>("get_pending_dictation"),
     ]);
     if (

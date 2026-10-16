@@ -1,4 +1,5 @@
 pub mod audio;
+mod blocking;
 pub mod desktop_v3;
 pub mod diagnostic_report;
 pub mod diagnostics;
@@ -16,4 +17,5 @@ pub mod text;
 pub mod trainer;
 pub mod updates;
 pub mod voice;
+#[cfg(feature = "wake-word")]
 pub mod wake;

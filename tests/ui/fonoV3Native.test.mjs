@@ -30,6 +30,7 @@ before(async () => {
   server = await createServer({
     appType: "custom",
     configFile: "vite.config.ts",
+    define: { __FONO_EXPERIMENTAL_LIVE__: true },
     server: { hmr: false, middlewareMode: true },
   });
   mapping = await server.ssrLoadModule(
@@ -261,7 +262,8 @@ test("unavailable native wake refuses activation before IPC; disabling remains s
   assert.equal(calls.length, 0);
   assert.equal(s.preferences.wakeEnabled, false);
   await port.toggle("wakeEnabled", false);
-  assert.equal(calls[0][0], "disable_wake_word");
+  assert.equal(calls[0][0], "get_settings");
+  assert.ok(!calls.some(([name]) => /wake_word|wake_calibration/.test(name)));
   assert.equal(s.pending.wakeEnabled, false);
 });
 
@@ -784,17 +786,13 @@ test("legacy and submitted live mode normalize to classic without changing saved
   assert.equal(mapped.dictationMode, "standard");
 });
 
-test("unavailable native wake retains language choices but refuses every capture and setup IPC", async () => {
+test("excluded native wake performs no discovery or capture IPC", async () => {
   const s = state(),
     port = nativeWake(createContext(s));
   await port.load();
-  assert.equal(s.wakeSetup.required, 5);
-  assert.equal(s.wakeSetup.validation.positiveRequired, 3);
-  assert.deepEqual(
-    s.wakeCapabilities.languages.map((l) => l.value),
-    ["ru", "en"],
-  );
-  calls.length = 0;
+  assert.equal(s.wakeSetup, undefined);
+  assert.equal(s.wakeCapabilities, undefined);
+  assert.equal(calls.length, 0);
   for (const action of [
     () => port.test(),
     () => port.download(),

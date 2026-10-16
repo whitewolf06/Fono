@@ -171,18 +171,20 @@ fn arm_preview_expiry(app: AppHandle, id: u64) {
 
 #[tauri::command]
 pub async fn reset_overlay_position(app: AppHandle) -> AppResult<()> {
+    let activity = crate::application::updates::activity::lease()?;
     // A later dismissal also invalidates a preview still waiting on persistence.
     let ticket = reserve_preview(&app.state::<OverlayRuntime>());
     let owned_app = app.clone();
     app.state::<OverlayRuntime>()
         .positions
         .run(async move {
+            let _activity = activity;
             let ui_app = owned_app.clone();
             let (x, y) = dispatch::run(owned_app.clone(), move || {
                 window_layout::place(&ui_app, &overlay_window(&ui_app)?, None)
             })
             .await?;
-            persist_position(&owned_app, x, y)?;
+            persist_position(&owned_app, x, y).await?;
             show_preview_ticket(owned_app, ticket, None).await
         })
         .await
@@ -238,14 +240,16 @@ async fn position_operation(
     app: &AppHandle,
     work: impl FnOnce(&AppHandle) -> AppResult<Option<(i32, i32)>> + Send + 'static,
 ) -> AppResult<()> {
+    let activity = crate::application::updates::activity::lease()?;
     let owned_app = app.clone();
     app.state::<OverlayRuntime>()
         .positions
         .run(async move {
+            let _activity = activity;
             let ui_app = owned_app.clone();
             let position = dispatch::run(owned_app.clone(), move || work(&ui_app)).await?;
             if let Some((x, y)) = position {
-                persist_position(&owned_app, x, y)?;
+                persist_position(&owned_app, x, y).await?;
             }
             Ok(())
         })
@@ -257,7 +261,18 @@ fn overlay_window(app: &AppHandle) -> AppResult<WebviewWindow> {
         .ok_or_else(|| AppError::Internal("Окно оверлея недоступно".into()))
 }
 
-fn persist_position(app: &AppHandle, x: i32, y: i32) -> AppResult<()> {
+async fn persist_position(app: &AppHandle, x: i32, y: i32) -> AppResult<()> {
+    let app = app.clone();
+    let activity = crate::application::updates::activity::lease()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        persist_position_blocking(&app, x, y)
+    })
+    .await
+    .map_err(|_| AppError::Internal("Не удалось сохранить положение индикатора".into()))?
+}
+
+fn persist_position_blocking(app: &AppHandle, x: i32, y: i32) -> AppResult<()> {
     let state = app.state::<AppState>();
     let base = state.settings();
     if base.overlay_x == Some(x) && base.overlay_y == Some(y) {

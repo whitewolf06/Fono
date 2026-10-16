@@ -33,7 +33,7 @@ fn main() {
     }
 
     println!("cargo:rerun-if-env-changed=PROFILE");
-    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SHERPA_WAKE");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SPEECH_VAD");
     println!("cargo:rerun-if-env-changed=FONO_PREPARING_RELEASE_RESOURCES");
     println!("cargo:rerun-if-env-changed=FONO_BUILD_REVISION");
     let channel_path =
@@ -84,12 +84,12 @@ fn main() {
     });
 
     stage_stt_workers(&layout);
-    if env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some() {
+    if env::var_os("CARGO_FEATURE_SPEECH_VAD").is_some() {
         speech_vad_resource::stage(&layout.manifest_dir, &layout.profile_dir);
     }
 
     if layout.is_release()
-        && env::var_os("CARGO_FEATURE_SHERPA_WAKE").is_some()
+        && env::var_os("CARGO_FEATURE_SPEECH_VAD").is_some()
         && !preparing_release_resources
     {
         validate_sherpa_runtime_manifest(&layout);

@@ -47,6 +47,7 @@ impl AudioCapture {
 pub struct AudioRecordingOwner {
     audio_hub: fono_audio::AudioHub,
     subscription: Mutex<Option<fono_audio::AudioSubscription>>,
+    stopped_capture_drops: Mutex<Option<u64>>,
 }
 
 impl AudioRecordingOwner {
@@ -54,6 +55,7 @@ impl AudioRecordingOwner {
         Self {
             audio_hub,
             subscription: Mutex::new(None),
+            stopped_capture_drops: Mutex::new(None),
         }
     }
 
@@ -87,13 +89,32 @@ impl AudioRecordingOwner {
                 }
             })
             .map_err(|error| AppError::Audio(error.to_string()))?;
-        *self.subscription.lock() = Some(subscription);
+        self.attach_subscription(subscription);
         Ok(())
     }
 
     pub fn stop(&self) -> AppResult<()> {
-        self.subscription.lock().take();
+        let mut current = self.subscription.lock();
+        if let Some(subscription) = current.take() {
+            *self.stopped_capture_drops.lock() = Some(subscription.dropped_capture_packets());
+            // Retain numeric evidence before Drop drains and removes the subscriber.
+            drop(subscription);
+        }
         Ok(())
+    }
+
+    fn attach_subscription(&self, subscription: fono_audio::AudioSubscription) {
+        let mut current = self.subscription.lock();
+        *self.stopped_capture_drops.lock() = None;
+        *current = Some(subscription);
+    }
+
+    fn dropped_capture_packets(&self) -> Option<u64> {
+        let current = self.subscription.lock();
+        current
+            .as_ref()
+            .map(fono_audio::AudioSubscription::dropped_capture_packets)
+            .or_else(|| *self.stopped_capture_drops.lock())
     }
 
     pub fn shutdown(&self) {
@@ -147,7 +168,7 @@ impl AudioRecorder<RecordingWriter, AppError> for AudioRecordingOwner {
                 },
             )
             .map_err(|e| AppError::Audio(e.to_string()))?;
-        *self.subscription.lock() = Some(subscription);
+        self.attach_subscription(subscription);
         Ok(())
     }
 
@@ -173,6 +194,10 @@ impl AudioRecorder<RecordingWriter, AppError> for AudioRecordingOwner {
         Self::stop(self)
     }
 
+    fn dropped_capture_packets(&self) -> Option<u64> {
+        Self::dropped_capture_packets(self)
+    }
+
     fn shutdown(&self) {
         Self::shutdown(self);
     }
@@ -185,6 +210,9 @@ mod tests {
     #[test]
     fn owner_thread_shuts_down_without_an_active_stream() {
         let owner = AudioRecordingOwner::new(fono_audio::AudioHub::new());
+        assert_eq!(owner.dropped_capture_packets(), None);
+        owner.stop().unwrap();
+        assert_eq!(owner.dropped_capture_packets(), None);
         drop(owner);
     }
 }

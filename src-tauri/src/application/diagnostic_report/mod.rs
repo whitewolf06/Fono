@@ -7,7 +7,6 @@ mod tests;
 
 use crate::{application::service_control::ServiceControl, pipeline::Pipeline, state::AppState};
 use fono_audio::AudioHub;
-use fono_wake::WakeWordHandle;
 use model::ReportSnapshot;
 use tauri::{AppHandle, Manager};
 
@@ -82,7 +81,7 @@ pub fn collect(app: &AppHandle) -> DiagnosticReport {
         audio_error: audio.last_error.is_some(),
         wake_enabled: settings.wake_word_enabled,
         wake_backend: settings.wake_backend,
-        wake_status: app.state::<WakeWordHandle>().status(),
+        wake_status: crate::application::wake_runtime::status(app),
         wake_calibrated: settings.wake_calibration_profile.is_some(),
         processing: settings.ai_mode,
         processing_connection: settings

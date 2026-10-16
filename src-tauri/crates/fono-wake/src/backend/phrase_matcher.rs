@@ -58,6 +58,7 @@ impl PhraseMatcher {
         (*count >= self.confirmations && sample.saturating_sub(*since) >= self.stable_samples)
             .then_some(end)
     }
+    #[cfg(feature = "sherpa-wake")]
     pub fn reset(&mut self) {
         self.candidate = None;
     }

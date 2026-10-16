@@ -77,18 +77,23 @@ export function createNativeWorkspace(): Workspace {
   }
   bind<NativeResult>("dictation-result", dictation.accept);
   bind<PendingDictation | null>("pending-dictation", dictation.pending);
-  bind<NativeLiveSnapshot>("dictation-live", dictation.live);
+  if (
+    typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
+    __FONO_EXPERIMENTAL_LIVE__
+  )
+    bind<NativeLiveSnapshot>("dictation-live", dictation.live);
   bind<string>("command-proposal", (proposal) => {
     state.commandProposal = proposal;
   });
   bind("settings-changed", () => void ctx.readSettings().catch(ctx.report));
-  bind<{ reason: string; message: string }>(
-    "wake-word-configuration-invalidated",
-    (event) => {
-      state.logs.unshift(event.message);
-      void wake.load().catch(ctx.report);
-    },
-  );
+  if (typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)
+    bind<{ reason: string; message: string }>(
+      "wake-word-configuration-invalidated",
+      (event) => {
+        state.logs.unshift(event.message);
+        void wake.load().catch(ctx.report);
+      },
+    );
   bind(
     "speech-analysis-changed",
     () => void ctx.readHistory().catch(ctx.report),
@@ -98,15 +103,17 @@ export function createNativeWorkspace(): Workspace {
     () => void ctx.readService().catch(ctx.report),
   );
   bind<string>("error", (message) => ctx.report(message));
-  bind<string>("wake-word-status", (status) => {
-    state.wakeStatus = status;
-  });
-  bind<{ remaining_ms: number; timeout_ms: number; speaking: boolean }>(
-    "wake-dictation-countdown",
-    (countdown) => {
-      state.countdown = countdown;
-    },
-  );
+  if (typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)
+    bind<string>("wake-word-status", (status) => {
+      state.wakeStatus = status;
+    });
+  if (typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)
+    bind<{ remaining_ms: number; timeout_ms: number; speaking: boolean }>(
+      "wake-dictation-countdown",
+      (countdown) => {
+        state.countdown = countdown;
+      },
+    );
   bind<{
     kind: string;
     payload: {

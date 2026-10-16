@@ -222,6 +222,16 @@ impl AudioStream {
     }
 }
 
+impl Drop for AudioStream {
+    fn drop(&mut self) {
+        self.stopped.store(true, Ordering::Release);
+        self.stream.take();
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,14 +283,5 @@ mod tests {
         let mut reset = CaptureLossMonitor::new(100);
         assert_eq!(reset.observe(0, Duration::ZERO), (0, 0));
         assert_eq!(reset.observe(1, Duration::from_millis(20)), (1, 1));
-    }
-}
-impl Drop for AudioStream {
-    fn drop(&mut self) {
-        self.stopped.store(true, Ordering::Release);
-        self.stream.take();
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
     }
 }

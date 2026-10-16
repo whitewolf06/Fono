@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "fono"
-version = "0.7.6"
+version = "0.7.7"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -28,10 +28,10 @@ tauri = { version = "2.1", features = ["tray-icon", "custom-protocol"] }
 tauri-plugin-global-shortcut = "2.0"
 
 # Wake word subsystem
-fono-wake = { version = "0.1.0", path = "crates/fono-wake", default-features = false }
+fono-wake = { version = "0.1.0", path = "crates/fono-wake", default-features = false, optional = true }
 fono-stt-protocol = { version = "0.1.0", path = "crates/fono-stt-protocol", features = ["inference"] }
 fono-core = { version = "0.1.0", path = "crates/fono-core" }
-fono-audio = { version = "0.1.0", path = "crates/fono-audio" }
+fono-audio = { version = "0.1.0", path = "crates/fono-audio", default-features = false }
 
 # Сериализация
 serde = { version = "1.0", features = ["derive"] }
@@ -62,6 +62,7 @@ tower = { version = "0.5", features = ["util"] }
 
 # Win32 API: SendInput для текст-инъекции
 [target.'cfg(windows)'.dependencies]
+tauri-plugin-single-instance = "=2.4.3"
 arboard = "3.4"
 windows = { version = "0.58", features = [
     "Win32_Foundation",
@@ -99,14 +100,17 @@ tauri-plugin-updater = "=2.12.0"
 [features]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so
 # a normal installer does not require CUDA/CUBLAS on the target machine.
-default = ["whisper-wake", "sherpa-wake"]
+default = ["speech-vad"]
+speech-vad = ["fono-audio/speech-vad"]
+wake-word = ["dep:fono-wake"]
+experimental-live = []
 # Встроенное GPU-ускорение через CUDA для явной сборки с CUDA Toolkit.
-cuda = ["whisper-rs/cuda", "fono-wake/cuda"]
+cuda = ["whisper-rs/cuda", "fono-wake?/cuda"]
 # Встроенное GPU-ускорение через Vulkan для явной сборки с Vulkan SDK.
-vulkan = ["whisper-rs/vulkan", "fono-wake/vulkan"]
+vulkan = ["whisper-rs/vulkan", "fono-wake?/vulkan"]
 # Wake word backends
-whisper-wake = ["fono-wake/whisper-wake"]
-sherpa-wake = ["fono-wake/sherpa-wake"]
+whisper-wake = ["wake-word", "fono-wake/whisper-wake"]
+sherpa-wake = ["wake-word", "speech-vad", "fono-wake/sherpa-wake"]
 
 [profile.dev]
 incremental = true

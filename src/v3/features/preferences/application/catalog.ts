@@ -216,3 +216,10 @@ if (LIVE_DICTATION_ENABLED)
     field: "dictationMode",
     keywords: "живая потоковая live streaming текст поэтапно",
   });
+
+if (!(typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)) {
+  const excluded = new Set(["wakePhrase", "silenceMs", "advanced"]);
+  for (let index = searchIndex.length - 1; index >= 0; index--) {
+    if (excluded.has(searchIndex[index].field)) searchIndex.splice(index, 1);
+  }
+}

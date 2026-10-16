@@ -1,5 +1,6 @@
 //! Speech model readiness and selection; downloads live in bounded adapters.
 mod download;
+#[cfg(feature = "wake-word")]
 mod wake_download;
 mod whisper_download;
 use crate::{
@@ -10,6 +11,7 @@ use crate::{
 pub use download::{cancel_download, has_active_downloads};
 use std::path::Path;
 use tauri::{AppHandle, Manager};
+#[cfg(feature = "wake-word")]
 pub use wake_download::{download_kws_model, is_kws_model_downloaded};
 pub use whisper_download::download_whisper_model;
 /// Starts a best-effort background preload of the model selected in persisted
@@ -78,15 +80,26 @@ pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
 /// Makes a downloaded model active only after the STT runtime has accepted it.
 /// This keeps persisted settings, the running engine and renderer events in
 /// sync, so a successful "Choose" action never leaves a draft-only selection.
-pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) -> AppResult<()> {
-    let _activity = crate::application::updates::activity::lease()?;
-    let _settings_transaction = crate::application::updates::settings_transaction(app).await;
+pub async fn set_whisper_model(app: &AppHandle, _state: &AppState, path: String) -> AppResult<()> {
+    let activity = crate::application::updates::activity::lease()?;
+    let settings_transaction = crate::application::updates::settings_transaction(app).await;
+    let owned_app = app.clone();
+    // All native and disk phases share one owned transaction. Dropping the IPC
+    // waiter cannot release admission or abandon settings after loading a model.
+    tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        let _settings_transaction = settings_transaction;
+        let state = owned_app.state::<AppState>();
+        set_whisper_model_blocking(&owned_app, state.inner(), path)
+    })
+    .await
+    .map_err(|_| AppError::Internal("model selection task failed".into()))?
+}
+
+fn set_whisper_model_blocking(app: &AppHandle, state: &AppState, path: String) -> AppResult<()> {
     let model_path = std::path::PathBuf::from(&path);
     if path.trim().is_empty() || !model_path.is_file() {
-        return Err(AppError::Config(format!(
-            "файл модели не найден: {}",
-            model_path.display()
-        )));
+        return Err(AppError::ModelFileMissing);
     }
 
     let base = state.settings();
@@ -112,16 +125,7 @@ pub async fn set_whisper_model(app: &AppHandle, state: &AppState, path: String) 
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
     let acceleration = settings.acceleration;
     let worker_paths = crate::stt::worker_paths_for_app(app);
-    let background_activity = _activity.clone();
-    let background_configuration = _configuration.clone();
-    let prepared = tauri::async_runtime::spawn_blocking(move || {
-        let _activity = background_activity;
-        let _configuration = background_configuration;
-        stt.ensure_loaded(&model_path, acceleration, &worker_paths)
-    })
-    .await
-    .map_err(|error| AppError::Stt(format!("model preparation join failed: {error}")))?;
-    prepared?;
+    stt.ensure_loaded(&model_path, acceleration, &worker_paths)?;
 
     settings.whisper_model_path = Some(path);
     let settings = state.persist_settings_delta(&base, &settings)?;

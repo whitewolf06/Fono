@@ -8,7 +8,9 @@
 - Frontend: locked `npm ci`, Vue typecheck, lint, актуальные Vue unit tests,
   проверки release scripts, форматирование, синхронизация версии и production build.
 - Windows: `cargo fmt`, тесты всего workspace, clippy с запретом предупреждений,
-  CPU / Whisper Wake / Sherpa Wake feature checks. Тесты протокола проверяют
+  CPU / WakeWord без engine / исследовательский Sherpa Wake и независимые/совместные
+  `experimental-live` feature checks. Default dependency tree отдельно проверяет
+  отсутствие `fono-wake`. Тесты протокола проверяют
   отмену, границы транспортных данных и lifecycle без реального GPU.
 - Rust core / protocol проверяются отдельным заданием без приватного npm-пакета.
 - Онлайн-установщик проверяется отдельным Windows job: Rust format/tests/strict

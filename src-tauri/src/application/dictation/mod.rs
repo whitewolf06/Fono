@@ -10,8 +10,9 @@ mod recognition;
 mod standard;
 pub(crate) mod workflow;
 
-pub(crate) use capture::{ensure_capture_allowed, start, start_with_audio};
-pub(crate) use capture::{start_command_operation, start_operation, start_with_audio_operation};
+#[cfg(feature = "wake-word")]
+pub(crate) use capture::{ensure_capture_allowed, start_with_audio_operation};
+pub(crate) use capture::{start, start_command_operation, start_operation, start_with_audio};
 #[cfg(test)]
 pub(crate) use diagnostic_sample::collect_samples;
 pub(crate) use diagnostic_sample::record_diagnostic_sample;

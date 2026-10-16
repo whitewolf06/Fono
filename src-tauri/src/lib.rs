@@ -18,16 +18,21 @@ mod overlay_geometry;
 pub mod pipeline;
 pub mod secrets;
 pub mod service_history;
+mod single_instance;
 pub mod speech_metrics;
 pub mod state;
 pub mod stt;
+mod tray;
 pub mod types;
 pub mod vad;
 pub mod verbose;
 
 use crate::state::AppState;
-use crate::types::{PipelineState, Settings, WakeWordBackend};
+use crate::types::PipelineState;
+#[cfg(feature = "wake-word")]
+use crate::types::{Settings, WakeWordBackend};
 use fono_audio::AudioHub;
+#[cfg(feature = "wake-word")]
 use fono_wake::{WakeWordConfig, WakeWordEvent, WakeWordHandle};
 use tauri::{Manager, RunEvent, WindowEvent};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -37,6 +42,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 /// Намеренно не пытаемся угадывать команды из обычного текста: системные
 /// действия должны требовать явного префикса «команда». Результат в нижнем
 /// регистре безопасен для текущего сопоставления окон и приложений.
+#[cfg(feature = "wake-word")]
 fn extract_wake_command(transcript: &str) -> Option<String> {
     let normalized = transcript.trim().to_lowercase();
     for prefix in ["команда", "выполни команду", "command"] {
@@ -57,6 +63,7 @@ fn extract_wake_command(transcript: &str) -> Option<String> {
 /// Removes only a leading wake phrase from the main dictation transcript.
 /// Audio pre-roll intentionally preserves the first user words; this textual
 /// guard prevents the detector phrase from leaking into the injected result.
+#[cfg(feature = "wake-word")]
 fn strip_leading_wake_phrase(transcript: &str, configured_phrase: &str) -> String {
     let trimmed = transcript.trim_start();
     let count = configured_phrase.split_whitespace().count();
@@ -163,32 +170,45 @@ fn init_tracing() {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     crash_log::install(|| state::app_data_dir().ok().map(|dir| dir.join("logs")));
-    init_tracing();
-    tracing::info!("Fono starting up…");
-
-    let app_state = state::AppState::new();
-    let audio_hub = AudioHub::new();
-    let pipeline = pipeline::Pipeline::new_with_audio_hub(audio_hub.clone());
-    let wake_word =
-        WakeWordHandle::new_with_audio_hub(WakeWordConfig::default(), audio_hub.clone());
-
+    let Ok(context) = single_instance::context(tauri::generate_context!()) else {
+        eprintln!("Не удалось подготовить изолированный профиль Fono.");
+        return;
+    };
+    let Ok(startup_gate) = single_instance::startup_gate(&context.config().identifier) else {
+        eprintln!("Не удалось дождаться запуска Fono. Повторите запуск приложения.");
+        return;
+    };
     let app = tauri::Builder::default()
+        .plugin(single_instance::plugin())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .manage(app_state)
-        .manage(crate::application::updates::UpdateService::default())
-        .manage(crate::application::gpu_memory::SttMemoryRuntime::default())
-        .manage(pipeline)
-        .manage(crate::application::live_dictation::LiveController::default())
-        .manage(crate::application::dictation::workflow::Runtime::default())
-        .manage(crate::application::dictation::ProcessingCaptureRuntime::default())
-        .manage(wake_word)
-        .manage(audio_hub)
-        .manage(crate::overlay::OverlayRuntime::default())
-        .manage(ipc::desktop_v3::DesktopSession::default())
-        .manage(crate::application::service_control::ServiceControl::default())
-        .manage(crate::application::wake_calibration::WakeCalibrationService::default())
-        .manage(crate::application::wake_validation::WakeProfileValidationService::default())
         .setup(|app| {
+            // Only the primary process may load settings and own services.
+            init_tracing();
+            tracing::info!("Fono starting up…");
+            let audio_hub = AudioHub::new();
+            app.manage(state::AppState::new());
+            app.manage(crate::application::updates::UpdateService::default());
+            app.manage(crate::application::gpu_memory::SttMemoryRuntime::default());
+            app.manage(pipeline::Pipeline::new_with_audio_hub(audio_hub.clone()));
+            #[cfg(feature = "experimental-live")]
+            app.manage(crate::application::live_dictation::LiveController::default());
+            app.manage(crate::application::dictation::workflow::Runtime::default());
+            app.manage(crate::application::dictation::ProcessingCaptureRuntime::default());
+            #[cfg(feature = "wake-word")]
+            app.manage(WakeWordHandle::new_with_audio_hub(
+                WakeWordConfig::default(),
+                audio_hub.clone(),
+            ));
+            app.manage(audio_hub);
+            app.manage(crate::overlay::OverlayRuntime::default());
+            app.manage(ipc::desktop_v3::DesktopSession::default());
+            app.manage(crate::application::service_control::ServiceControl::default());
+            #[cfg(feature = "wake-word")]
+            app.manage(crate::application::wake_calibration::WakeCalibrationService::default());
+            #[cfg(feature = "wake-word")]
+            app.manage(
+                crate::application::wake_validation::WakeProfileValidationService::default(),
+            );
             #[cfg(windows)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -238,13 +258,16 @@ pub fn run() {
                 tracing::warn!(%error, "could not restore overlay position");
             }
 
-            // Сервис пробуждения проверяет доступность функции и её настройки.
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = start_wake_word_if_enabled(&handle).await {
-                    tracing::error!("wake word start failed: {e:?}");
-                }
-            });
+            #[cfg(feature = "wake-word")]
+            {
+                // Сервис пробуждения проверяет доступность функции и её настройки.
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = start_wake_word_if_enabled(&handle).await {
+                        tracing::error!("wake word start failed: {e:?}");
+                    }
+                });
+            }
 
             crate::application::updates::check_on_startup(app.handle().clone());
 
@@ -262,7 +285,9 @@ pub fn run() {
             ipc::desktop_v3::remove_whisper_model,
             ipc::desktop_v3::get_selected_model_metadata,
             ipc::system::get_build_info,
+            #[cfg(feature = "experimental-live")]
             ipc::dictation::get_live_dictation,
+            #[cfg(feature = "experimental-live")]
             ipc::dictation::resume_live_insertion,
             ipc::dictation::start_dictation,
             ipc::dictation::stop_dictation,
@@ -301,7 +326,9 @@ pub fn run() {
             ipc::models::download_whisper_model,
             ipc::models::set_whisper_model,
             // kws wake word model
+            #[cfg(feature = "wake-word")]
             ipc::models::is_kws_model_downloaded,
+            #[cfg(feature = "wake-word")]
             ipc::models::download_kws_model,
             ipc::models::cancel_model_download,
             // llm
@@ -339,32 +366,48 @@ pub fn run() {
             ipc::diagnostics::clear_logs,
             ipc::diagnostics::test_microphone,
             // wake word
+            #[cfg(feature = "wake-word")]
             ipc::wake::get_wake_word_status,
+            #[cfg(feature = "wake-word")]
             ipc::wake::get_wake_word_capabilities,
+            #[cfg(feature = "wake-word")]
             ipc::wake::get_wake_word_diagnostics,
+            #[cfg(feature = "wake-word")]
             ipc::wake::test_wake_word_model,
+            #[cfg(feature = "wake-word")]
             ipc::wake::record_wake_word_sample,
+            #[cfg(feature = "wake-word")]
             ipc::wake::recognize_wake_word_sample,
+            #[cfg(feature = "wake-word")]
             ipc::wake::get_wake_calibration_status,
+            #[cfg(feature = "wake-word")]
             ipc::wake::start_wake_calibration,
+            #[cfg(feature = "wake-word")]
             ipc::wake::record_wake_calibration_sample,
+            #[cfg(feature = "wake-word")]
             ipc::wake::cancel_wake_calibration,
+            #[cfg(feature = "wake-word")]
             ipc::wake::get_wake_profile_validation_status,
+            #[cfg(feature = "wake-word")]
             ipc::wake::start_wake_profile_validation,
+            #[cfg(feature = "wake-word")]
             ipc::wake::record_wake_profile_validation_sample,
+            #[cfg(feature = "wake-word")]
             ipc::wake::enable_wake_word,
+            #[cfg(feature = "wake-word")]
             ipc::wake::disable_wake_word,
         ])
-        .build(tauri::generate_context!());
+        .build(context);
+    drop(startup_gate);
     let Ok(app) = app else {
         tracing::error!("Не удалось запустить Fono. Проверьте доступ к профилю приложения.");
         return;
     };
     app.run(|app, event| {
-            if matches!(event, RunEvent::ExitRequested { .. }) {
-                shutdown_app(app);
-            }
-        });
+        if matches!(event, RunEvent::ExitRequested { .. }) {
+            shutdown_app(app);
+        }
+    });
 }
 
 fn shutdown_app(app: &tauri::AppHandle) {
@@ -374,17 +417,25 @@ fn shutdown_app(app: &tauri::AppHandle) {
     if let Some(service) = app.try_state::<crate::application::service_control::ServiceControl>() {
         service.shutdown();
     }
-    let pipeline = app.state::<pipeline::Pipeline>();
-    if let Some(event) = pipeline.shutdown() {
-        events::emit_operation(app, event);
+    if let Some(pipeline) = app.try_state::<pipeline::Pipeline>() {
+        if let Some(event) = pipeline.shutdown() {
+            events::emit_operation(app, event);
+        }
     }
     injection::shutdown();
-    app.state::<WakeWordHandle>().stop();
-    app.state::<AudioHub>().shutdown();
+    #[cfg(feature = "wake-word")]
+    if let Some(wake) = app.try_state::<WakeWordHandle>() {
+        wake.stop();
+    }
+    if let Some(audio) = app.try_state::<AudioHub>() {
+        audio.shutdown();
+    }
     if let Some(overlay) = app.get_webview_window("overlay") {
         let _ = overlay.hide();
     }
-    pipeline::set_state(app, app.state::<AppState>().inner(), PipelineState::Idle);
+    if let Some(state) = app.try_state::<AppState>() {
+        pipeline::set_state(app, state.inner(), PipelineState::Idle);
+    }
 }
 
 /// Регистрирует глобальные горячие клавиши:
@@ -401,107 +452,11 @@ fn setup_global_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error:
 }
 
 fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri::menu::{MenuBuilder, MenuItemBuilder};
-    use tauri::tray::TrayIconBuilder;
-
-    let initial_wake = app.state::<AppState>().settings().wake_word_enabled;
-    let wake_label = if initial_wake {
-        "Выключить wake word"
-    } else {
-        "Включить wake word"
-    };
-
-    let show = MenuItemBuilder::with_id("show", "Открыть настройки").build(app)?;
-    let pause = MenuItemBuilder::with_id("pause", "Пауза").build(app)?;
-    let wake_word = MenuItemBuilder::with_id("wake_word", wake_label).build(app)?;
-    let quit = MenuItemBuilder::with_id("quit", "Выход").build(app)?;
-    let menu = MenuBuilder::new(app)
-        .item(&show)
-        .separator()
-        .item(&pause)
-        .separator()
-        .item(&wake_word)
-        .separator()
-        .item(&quit)
-        .build()?;
-
-    let pause_item = pause.clone();
-    let wake_item = wake_word.clone();
-    TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().ok_or("Иконка Fono отсутствует в сборке")?.clone())
-        .tooltip("Fono")
-        .menu(&menu)
-        .on_menu_event(move |app, event| match event.id.as_ref() {
-            "show" => {
-                if let Some(w) = app.get_webview_window("settings") {
-                    let _ = w.unminimize();
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
-            }
-            "pause" => {
-                let state = app.state::<AppState>();
-                let is_paused = state.toggle_dictation_paused();
-                if is_paused {
-                    if let Err(error) = ipc::dictation::cancel_dictation(app.clone(), None) {
-                        events::emit_error(
-                            app,
-                            events::ErrorCodeV1::Audio,
-                            error.to_string(),
-                            None,
-                        );
-                        tracing::warn!("pause cancellation failed: {error}");
-                    }
-                    let _ = pause_item.set_text("Resume");
-                    tracing::info!("dictation paused");
-                } else {
-                    let _ = pause_item.set_text("Pause");
-                    tracing::info!("dictation resumed");
-                }
-            }
-            "wake_word" => {
-                let app_clone = app.clone();
-                let wake_item_clone = wake_item.clone();
-                let is_enabled = app.state::<AppState>().settings().wake_word_enabled;
-                tauri::async_runtime::spawn(async move {
-                    let result = if is_enabled {
-                        ipc::wake::disable_wake_word(app_clone.clone()).await
-                    } else {
-                        ipc::wake::enable_wake_word(app_clone.clone()).await
-                    };
-                    match result {
-                        Ok(_) => {
-                            let new_label = if is_enabled {
-                                "Включить wake word"
-                            } else {
-                                "Выключить wake word"
-                            };
-                            let _ = wake_item_clone.set_text(new_label);
-                        }
-                        Err(e) => {
-                            tracing::warn!("tray wake word toggle failed: {e}");
-                            events::emit_error(
-                                &app_clone,
-                                events::ErrorCodeV1::Wake,
-                                e.to_string(),
-                                None,
-                            );
-                        }
-                    }
-                });
-            }
-            "quit" => {
-                tracing::info!("Quit requested from tray");
-                app.exit(0);
-            }
-            _ => {}
-        })
-        .build(app)?;
-
-    Ok(())
+    crate::tray::setup(app)
 }
 
 /// Builds a backend-specific wake word config from application settings.
+#[cfg(feature = "wake-word")]
 fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeWordConfig> {
     let model_dir = match settings.wake_backend {
         WakeWordBackend::SherpaOnnx => state::app_data_dir()?
@@ -539,6 +494,7 @@ fn settings_to_wake_config(settings: &Settings) -> crate::error::AppResult<WakeW
 /// Использует выбранный backend (`sherpa-onnx` по умолчанию).
 /// При обнаружении wake-фразы стартует запись диктовки,
 /// по тишине (VAD) — STT (основной моделью) + вставка текста.
+#[cfg(feature = "wake-word")]
 async fn start_wake_word_if_enabled(
     handle: &tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -628,6 +584,7 @@ async fn start_wake_word_if_enabled(
 
 /// Перезапускает wake word детектор (без изменения флага wake_word_enabled).
 /// Используется когда пользователь меняет настройки wake word "на лету".
+#[cfg(feature = "wake-word")]
 pub async fn restart_wake_word(handle: &tauri::AppHandle) -> Result<(), String> {
     let wake_handle = handle.state::<WakeWordHandle>();
     let settings = handle.state::<state::AppState>().settings();
@@ -635,7 +592,7 @@ pub async fn restart_wake_word(handle: &tauri::AppHandle) -> Result<(), String> 
     wake_handle.update_config(config).map_err(|e| e.to_string())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "wake-word"))]
 mod wake_command_tests {
     use super::{extract_wake_command, strip_leading_wake_phrase};
 
