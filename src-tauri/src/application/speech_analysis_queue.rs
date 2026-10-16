@@ -12,7 +12,7 @@ pub struct SpeechAnalysisQueue {
 }
 
 impl SpeechAnalysisQueue {
-    pub fn start(app: AppHandle) -> Self {
+    pub fn start(app: AppHandle) -> std::io::Result<Self> {
         let (sender, receiver) = unbounded::<String>();
         let event_app = app.clone();
         std::thread::Builder::new()
@@ -21,8 +21,7 @@ impl SpeechAnalysisQueue {
                 for session_id in receiver {
                     process_session(&event_app, &session_id);
                 }
-            })
-            .expect("speech analysis worker thread should start");
+            })?;
 
         let queue = Self { sender };
         match crate::history::pending_analysis_ids() {
@@ -33,7 +32,7 @@ impl SpeechAnalysisQueue {
             }
             Err(error) => tracing::warn!(%error, "could not restore pending speech analyses"),
         }
-        queue
+        Ok(queue)
     }
 
     pub fn enqueue(&self, session_id: String) {

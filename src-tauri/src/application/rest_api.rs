@@ -43,12 +43,16 @@ impl RestApiServer {
     }
 
     pub fn shutdown(&self) {
-        if let Some(sender) = self
-            .shutdown
-            .lock()
-            .expect("REST shutdown mutex poisoned")
-            .take()
-        {
+        let sender = {
+            // Recover only this idempotent shutdown token. Taking an Option
+            // cannot restart the server or repeat any user operation.
+            let mut shutdown = match self.shutdown.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            shutdown.take()
+        };
+        if let Some(sender) = sender {
             let _ = sender.send(());
         }
     }
@@ -432,6 +436,25 @@ mod tests {
     use crate::error::AppResult;
     use crate::types::Transcript;
     use axum::{body::Body, http::Request};
+
+    #[tokio::test]
+    async fn shutdown_still_signals_once_after_its_token_mutex_is_poisoned() {
+        let (sender, receiver) = oneshot::channel();
+        let server = Arc::new(RestApiServer {
+            address: loopback_addr(0),
+            shutdown: Mutex::new(Some(sender)),
+        });
+        let poisoned_server = Arc::clone(&server);
+        assert!(std::thread::spawn(move || {
+            let _guard = poisoned_server.shutdown.lock().unwrap();
+            panic!("poison only the shutdown token");
+        })
+        .join()
+        .is_err());
+        server.shutdown();
+        server.shutdown();
+        receiver.await.unwrap();
+    }
     use fono_core::OperationCancellation;
     use tower::ServiceExt;
 

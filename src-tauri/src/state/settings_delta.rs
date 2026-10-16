@@ -2,7 +2,10 @@
 //! lock through persistence and publication. Unrelated concurrent writers must
 //! never publish the entire stale snapshot they started from.
 use super::{save_settings, AppState};
-use crate::{error::AppResult, types::Settings};
+use crate::{
+    error::{AppError, AppResult},
+    types::Settings,
+};
 use std::sync::atomic::Ordering;
 
 impl AppState {
@@ -39,13 +42,13 @@ fn merge_delta(latest: &Settings, base: &Settings, candidate: &Settings) -> AppR
     let mut latest_json = serde_json::to_value(latest)?;
     let base_fields = base_json
         .as_object()
-        .expect("Settings serializes as object");
+        .ok_or_else(|| AppError::Internal("Некорректная структура настроек".into()))?;
     let candidate_fields = candidate_json
         .as_object()
-        .expect("Settings serializes as object");
+        .ok_or_else(|| AppError::Internal("Некорректная структура настроек".into()))?;
     let latest_fields = latest_json
         .as_object_mut()
-        .expect("Settings serializes as object");
+        .ok_or_else(|| AppError::Internal("Некорректная структура настроек".into()))?;
     for key in base_fields.keys().chain(candidate_fields.keys()) {
         if base_fields.get(key) == candidate_fields.get(key) {
             continue;

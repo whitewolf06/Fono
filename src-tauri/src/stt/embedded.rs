@@ -58,11 +58,10 @@ impl EmbeddedEngine {
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
         let backend = self.backend();
+        let signals: Vec<_> = cancellation.atomic_signals().collect();
         let result = self
             .inference
-            .transcribe(samples, language, None, 0, backend, false, &|| {
-                cancellation.is_cancelled()
-            });
+            .transcribe(samples, language, None, 0, backend, false, &signals);
         result.map(super::window::to_transcript).map_err(|message| {
             if cancellation.is_cancelled() {
                 AppError::Cancelled(message)
@@ -81,6 +80,7 @@ impl EmbeddedEngine {
         audio_start_sample: u64,
     ) -> AppResult<WindowTranscript> {
         let backend = self.backend();
+        let signals: Vec<_> = cancellation.atomic_signals().collect();
         self.inference
             .transcribe(
                 samples,
@@ -89,7 +89,7 @@ impl EmbeddedEngine {
                 audio_start_sample,
                 backend,
                 true,
-                &|| cancellation.is_cancelled(),
+                &signals,
             )
             .map_err(|message| {
                 if cancellation.is_cancelled() {

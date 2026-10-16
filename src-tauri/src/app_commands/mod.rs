@@ -110,7 +110,9 @@ pub fn switch_to_window(query: &str) -> AppResult<String> {
         unsafe {
             let _ = EnumWindows(Some(enum_windows_proc), LPARAM(&vec as *const _ as isize));
         }
-        vec.into_inner().unwrap()
+        // Poisoned enumeration must fail before activating an external window.
+        vec.into_inner()
+            .map_err(|_| AppError::Internal("Не удалось прочитать список доступных окон".into()))?
     };
 
     if candidates.is_empty() {

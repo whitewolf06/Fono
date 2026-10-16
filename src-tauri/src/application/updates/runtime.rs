@@ -109,14 +109,14 @@ fn finish_install(
     service: &UpdateService,
     install: impl FnOnce() -> Result<(), ()>,
 ) -> AppResult<()> {
-    // A panicking installer callback must finalize the UI and keep the
-    // reservation sealed if shutdown had already started.
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(install)) {
-        Ok(Ok(())) => Ok(()),
-        _ if service.shutdown_started.load(Ordering::Acquire) => Err(service.fail(
+    // Installation failures are ordinary errors. With panic=abort a panic is
+    // fatal and is recorded by the synchronous crash hook; it cannot recover.
+    match install() {
+        Ok(()) => Ok(()),
+        Err(()) if service.shutdown_started.load(Ordering::Acquire) => Err(service.fail(
             "Установщик не запустился после завершения компонентов. Перезапустите Fono и повторите установку.",
         )),
-        _ => Err(service.fail(
+        Err(()) => Err(service.fail(
             "Не удалось запустить проверенный установщик. Повторите установку позже.",
         )),
     }
@@ -149,9 +149,7 @@ fn ensure_idle(app: &AppHandle) -> AppResult<()> {
             "Сначала завершите текущую диктовку или задачу распознавания.".into(),
         ));
     }
-    if crate::application::wake_calibration::status(app).active
-        || crate::application::wake_validation::status(app).active
-    {
+    if crate::application::wake_runtime::is_configuring(app) {
         return Err(AppError::Busy(
             "Сначала завершите настройку или проверку фразы пробуждения.".into(),
         ));

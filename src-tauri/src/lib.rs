@@ -6,6 +6,7 @@ pub mod app_commands;
 pub mod application;
 pub mod audio;
 mod autostart;
+mod crash_log;
 pub mod error;
 pub mod events;
 pub mod history;
@@ -127,8 +128,16 @@ fn init_tracing() {
         .rotation(rolling::Rotation::DAILY)
         .filename_prefix("fono.log")
         .max_log_files(14)
-        .build(&log_dir)
-        .unwrap_or_else(|error| panic!("cannot initialize bounded file logging: {error}"));
+        .build(&log_dir);
+    let Ok(file_appender) = file_appender else {
+        // A read-only/full profile must not prevent dictation from starting.
+        let _ = tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt::layer().with_target(false).with_file(false))
+            .try_init();
+        tracing::warn!("file logging unavailable; using console logging");
+        return;
+    };
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     // guard нужно держать вечно — отдадим в leak, чтобы не дропнуть.
     std::mem::forget(guard);
@@ -153,6 +162,7 @@ fn init_tracing() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    crash_log::install(|| state::app_data_dir().ok().map(|dir| dir.join("logs")));
     init_tracing();
     tracing::info!("Fono starting up…");
 
@@ -162,7 +172,7 @@ pub fn run() {
     let wake_word =
         WakeWordHandle::new_with_audio_hub(WakeWordConfig::default(), audio_hub.clone());
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(app_state)
         .manage(crate::application::updates::UpdateService::default())
@@ -222,7 +232,7 @@ pub fn run() {
             app.manage(
                 crate::application::speech_analysis_queue::SpeechAnalysisQueue::start(
                     app.handle().clone(),
-                ),
+                )?,
             );
             if let Err(error) = crate::overlay::restore_position(app.handle(), &settings) {
                 tracing::warn!(%error, "could not restore overlay position");
@@ -345,9 +355,12 @@ pub fn run() {
             ipc::wake::enable_wake_word,
             ipc::wake::disable_wake_word,
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building Fono")
-        .run(|app, event| {
+        .build(tauri::generate_context!());
+    let Ok(app) = app else {
+        tracing::error!("Не удалось запустить Fono. Проверьте доступ к профилю приложения.");
+        return;
+    };
+    app.run(|app, event| {
             if matches!(event, RunEvent::ExitRequested { .. }) {
                 shutdown_app(app);
             }
@@ -415,7 +428,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let pause_item = pause.clone();
     let wake_item = wake_word.clone();
     TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(app.default_window_icon().ok_or("Иконка Fono отсутствует в сборке")?.clone())
         .tooltip("Fono")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {

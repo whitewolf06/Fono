@@ -143,6 +143,12 @@ pub struct OperationCancellation {
 }
 
 impl OperationCancellation {
+    /// Atomic observations for native cancellation callbacks. Consumers must
+    /// only load these signals; cancellation remains owned by this token.
+    pub fn atomic_signals(&self) -> impl Iterator<Item = &AtomicBool> {
+        std::iter::once(self.cancelled.as_ref()).chain(self.linked.iter().map(Arc::as_ref))
+    }
+
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
             || self
@@ -428,10 +434,16 @@ mod tests {
         let first = OperationCancellation::default();
         let second = OperationCancellation::default();
         let combined = first.combined_with(&second);
+        assert!(!combined
+            .atomic_signals()
+            .any(|signal| signal.load(Ordering::Acquire)));
 
         second.cancel();
 
         assert!(combined.is_cancelled());
+        assert!(combined
+            .atomic_signals()
+            .any(|signal| signal.load(Ordering::Acquire)));
     }
 
     #[test]

@@ -28,7 +28,12 @@ fn word_count(text: &str) -> usize {
 /// Keep Unicode lexical words intact, even when a UTF-8 budget cuts a prefix.
 fn prefix(text: &str, maximum_characters: usize) -> &str {
     static WORD: OnceLock<regex::Regex> = OnceLock::new();
-    let words = WORD.get_or_init(|| regex::Regex::new(r"[\p{L}\p{M}\p{N}_]+").unwrap());
+    // This fixed expression is compiled and exercised by the payload tests;
+    // neither the regex syntax nor its options come from user input.
+    let words = WORD.get_or_init(|| {
+        regex::Regex::new(r"[\p{L}\p{M}\p{N}_]+")
+            .expect("fixed Unicode lexical-word expression is valid")
+    });
     let mut end = text
         .char_indices()
         .nth(maximum_characters)
@@ -51,18 +56,41 @@ fn fits(payload: &Value) -> AppResult<bool> {
     Ok(serde_json::to_vec(payload)?.len() <= MAX_PAYLOAD_BYTES)
 }
 
-fn push_text(payload: &mut Value, text: &str) {
-    let sample = &mut payload["textSample"];
-    let texts = sample["originalTexts"].as_array_mut().unwrap();
-    texts.push(json!(text));
-    sample["sharedSessions"] = json!(texts.len());
+fn array_field<'a>(value: &'a mut Value, key: &str) -> AppResult<&'a mut Vec<Value>> {
+    value
+        .get_mut(key)
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| AppError::Internal("Некорректная структура контекста тренера".into()))
 }
 
-fn pop_text(payload: &mut Value) {
-    let sample = &mut payload["textSample"];
-    let texts = sample["originalTexts"].as_array_mut().unwrap();
+fn replace_last_pattern(payload: &mut Value, pattern: Value) -> AppResult<()> {
+    let last = array_field(payload, "findings")?
+        .last_mut()
+        .ok_or_else(|| {
+            AppError::Internal("В контексте тренера отсутствует текущий паттерн".into())
+        })?;
+    *last = pattern;
+    Ok(())
+}
+
+fn push_text(payload: &mut Value, text: &str) -> AppResult<()> {
+    let sample = payload
+        .get_mut("textSample")
+        .ok_or_else(|| AppError::Internal("В контексте тренера отсутствует выборка".into()))?;
+    let texts = array_field(sample, "originalTexts")?;
+    texts.push(json!(text));
+    sample["sharedSessions"] = json!(texts.len());
+    Ok(())
+}
+
+fn pop_text(payload: &mut Value) -> AppResult<()> {
+    let sample = payload
+        .get_mut("textSample")
+        .ok_or_else(|| AppError::Internal("В контексте тренера отсутствует выборка".into()))?;
+    let texts = array_field(sample, "originalTexts")?;
     texts.pop();
     sample["sharedSessions"] = json!(texts.len());
+    Ok(())
 }
 
 /// Preflight and HTTP submission use this identical, bounded JSON builder.
@@ -167,24 +195,20 @@ pub(crate) fn prepare(
             });
             let mut pattern_included = false;
             if term_index < MAX_PATTERNS {
-                let items = payload["findings"].as_array_mut().unwrap();
+                let items = array_field(&mut payload, "findings")?;
                 items.push(pattern.clone());
                 if fits(&payload)? {
                     pattern_included = true;
                     context.patterns_shared += 1;
                 } else {
-                    payload["findings"].as_array_mut().unwrap().pop();
+                    array_field(&mut payload, "findings")?.pop();
                 }
             }
             for (example_index, example) in term.examples.iter().enumerate() {
                 let mut included = false;
                 if pattern_included && example_index < MAX_EXAMPLES_PER_PATTERN {
-                    pattern["examples"]
-                        .as_array_mut()
-                        .unwrap()
-                        .push(json!(example.fragment));
-                    let items = payload["findings"].as_array_mut().unwrap();
-                    *items.last_mut().unwrap() = pattern.clone();
+                    array_field(&mut pattern, "examples")?.push(json!(example.fragment));
+                    replace_last_pattern(&mut payload, pattern.clone())?;
                     if fits(&payload)? {
                         included = true;
                         context.examples_shared += 1;
@@ -194,12 +218,8 @@ pub(crate) fn prepare(
                             context.shared_words += word_count(&example.fragment);
                         }
                     } else {
-                        pattern["examples"].as_array_mut().unwrap().pop();
-                        *payload["findings"]
-                            .as_array_mut()
-                            .unwrap()
-                            .last_mut()
-                            .unwrap() = pattern.clone();
+                        array_field(&mut pattern, "examples")?.pop();
+                        replace_last_pattern(&mut payload, pattern.clone())?;
                     }
                 }
                 if !included {
@@ -239,9 +259,9 @@ pub(crate) fn prepare(
             let mut high = text.chars().count().min(MAX_SHARED_CHARS);
             while low < high {
                 let middle = low + (high - low).div_ceil(2);
-                push_text(&mut payload, prefix(text, middle));
+                push_text(&mut payload, prefix(text, middle))?;
                 let included = fits(&payload)?;
-                pop_text(&mut payload);
+                pop_text(&mut payload)?;
                 if included {
                     low = middle;
                 } else {
@@ -252,7 +272,7 @@ pub(crate) fn prepare(
             if excerpt.is_empty() {
                 continue;
             }
-            push_text(&mut payload, excerpt);
+            push_text(&mut payload, excerpt)?;
             context.shared_sessions += 1;
             context.shared_characters += excerpt.chars().count();
             context.shared_words += word_count(excerpt);

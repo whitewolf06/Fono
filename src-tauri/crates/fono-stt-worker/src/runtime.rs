@@ -135,7 +135,7 @@ fn transcribe(
         audio_start_sample,
         backend(),
         timed,
-        &|| cancelled.load(Ordering::Acquire),
+        &[cancelled],
     ) {
         Ok(transcript) => transcript,
         Err(message) => {

@@ -2,10 +2,11 @@
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fono_core::OperationCancellation;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::application::transcription_contract::{
@@ -105,7 +106,7 @@ pub struct TranscriptionJobWorker {
 }
 
 impl TranscriptionJobWorker {
-    pub fn start(jobs: Arc<dyn TranscriptionJobs>) -> Self {
+    pub fn start(jobs: Arc<dyn TranscriptionJobs>) -> std::io::Result<Self> {
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let stopped_for_thread = Arc::clone(&stopped);
         let jobs_for_thread = Arc::clone(&jobs);
@@ -117,9 +118,8 @@ impl TranscriptionJobWorker {
                         std::thread::sleep(Duration::from_millis(25));
                     }
                 }
-            })
-            .expect("start transcription job worker");
-        Self { stopped, jobs }
+            })?;
+        Ok(Self { stopped, jobs })
     }
 
     pub fn shutdown(&self) {
@@ -160,6 +160,8 @@ pub struct TranscriptionJobQueue<R, G> {
     interactive: G,
     capacity: usize,
     next_id: AtomicU64,
+    // Only owned data/atomic mutations happen under this nonpoisoning lock.
+    // Runtime and observer callbacks always execute after dropping the guard.
     state: Mutex<QueueState>,
     observer: Option<JobObserver>,
 }
@@ -194,7 +196,7 @@ where
         let _update_admission = crate::application::updates::activity::begin().map_err(|_| {
             TranscriptionServiceError::Busy("application update is installing".into())
         })?;
-        let mut state = self.state.lock().expect("job queue mutex poisoned");
+        let mut state = self.state.lock();
         if state.pending.len() >= self.capacity {
             return Err(TranscriptionServiceError::Busy(
                 "transcription queue is full".into(),
@@ -202,7 +204,7 @@ where
         }
         let id = format!(
             "tr_{:016x}",
-            self.next_id.fetch_add(1, Ordering::Relaxed) + 1
+            self.next_id.fetch_add(1, Ordering::Relaxed).wrapping_add(1)
         );
         let job = TranscriptionJob::queued(id.clone(), request.language.clone());
         state.pending.push_back(id.clone());
@@ -220,16 +222,11 @@ where
     }
 
     pub fn get(&self, id: &str) -> Option<TranscriptionJob> {
-        self.state
-            .lock()
-            .expect("job queue mutex poisoned")
-            .jobs
-            .get(id)
-            .cloned()
+        self.state.lock().jobs.get(id).cloned()
     }
 
     pub fn cancel(&self, id: &str) -> Option<TranscriptionJob> {
-        let mut state = self.state.lock().expect("job queue mutex poisoned");
+        let mut state = self.state.lock();
         let cancellation = state.work.get(id)?.cancellation.clone();
         cancellation.cancel();
         state.pending.retain(|pending| pending != id);
@@ -247,7 +244,7 @@ where
     }
 
     pub fn cancel_all(&self) {
-        let mut state = self.state.lock().expect("job queue mutex poisoned");
+        let mut state = self.state.lock();
         state.pending.clear();
         let active_ids: Vec<_> = state.work.keys().cloned().collect();
         let mut cancelled_jobs = Vec::new();
@@ -280,7 +277,7 @@ where
             return None;
         }
         let (id, request, cancellation, preparing) = {
-            let mut state = self.state.lock().expect("job queue mutex poisoned");
+            let mut state = self.state.lock();
             let id = state.pending.pop_front()?;
             let (request, cancellation) = {
                 let work = state.work.get(&id)?;
@@ -296,14 +293,14 @@ where
         };
         self.notify(&preparing);
         let transcribing = {
-            let mut state = self.state.lock().expect("job queue mutex poisoned");
+            let mut state = self.state.lock();
             let job = state.jobs.get_mut(&id)?;
             job.state = JobState::Transcribing;
             job.clone()
         };
         self.notify(&transcribing);
         let outcome = self.service.transcribe_cancellable(request, cancellation);
-        let mut state = self.state.lock().expect("job queue mutex poisoned");
+        let mut state = self.state.lock();
         let job = state.jobs.get_mut(&id)?;
         if job.state == JobState::Cancelled {
             let cancelled = job.clone();
@@ -334,7 +331,7 @@ where
     }
 
     pub fn snapshot(&self) -> TranscriptionQueueSnapshot {
-        let state = self.state.lock().expect("job queue mutex poisoned");
+        let state = self.state.lock();
         let mut snapshot = TranscriptionQueueSnapshot {
             capacity: self.capacity,
             jobs: state.jobs.values().rev().cloned().collect(),

@@ -32,7 +32,7 @@ impl Engine {
     fn batch(&mut self, samples: &[i16], language: &str) -> Result<WindowTranscript, String> {
         match self {
             Self::Embedded(engine, backend) => {
-                engine.transcribe(samples, language, None, 0, *backend, false, &|| false)
+                engine.transcribe(samples, language, None, 0, *backend, false, &[])
             }
             Self::Worker(worker) => worker.batch(samples, language),
         }
@@ -46,7 +46,7 @@ impl Engine {
     ) -> Result<WindowTranscript, String> {
         match self {
             Self::Embedded(engine, backend) => {
-                engine.transcribe(samples, language, context, start, *backend, true, &|| false)
+                engine.transcribe(samples, language, context, start, *backend, true, &[])
             }
             Self::Worker(worker) => worker.window(samples, language, start, context),
         }

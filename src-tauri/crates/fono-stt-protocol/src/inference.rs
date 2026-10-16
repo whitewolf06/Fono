@@ -1,7 +1,9 @@
 //! Shared CPU/CUDA inference with owned reusable state and bounded PCM scratch.
 use std::ffi::c_void;
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Instant;
 
 use whisper_rs::{WhisperContext, WhisperState};
@@ -15,7 +17,15 @@ use crate::{words_from_pieces, BackendKind, TimedPiece, TimedSegment, WindowTran
 /// return. The callback does not mutate a Whisper context, leak an Arc, or unwind
 /// into C. Do not use whisper-rs 0.16's leaking safe callback helper here.
 struct AbortGuard<'a> {
-    check: &'a (dyn Fn() -> bool + Sync),
+    signals: &'a [&'a AtomicBool],
+}
+
+impl AbortGuard<'_> {
+    fn cancelled(&self) -> bool {
+        self.signals
+            .iter()
+            .any(|signal| signal.load(Ordering::Acquire))
+    }
 }
 
 unsafe extern "C" fn abort_callback(data: *mut c_void) -> bool {
@@ -24,7 +34,9 @@ unsafe extern "C" fn abort_callback(data: *mut c_void) -> bool {
     }
     // SAFETY: attach passes a live, immovable stack guard for the duration of full.
     let guard = unsafe { &*data.cast::<AbortGuard<'_>>() };
-    catch_unwind(AssertUnwindSafe(|| (guard.check)())).unwrap_or(true)
+    // This boundary executes only atomic loads, never an arbitrary Rust
+    // closure. It cannot panic even when the release profile uses abort.
+    guard.cancelled()
 }
 
 pub struct InferenceState {
@@ -53,7 +65,7 @@ impl InferenceState {
         audio_start_sample: u64,
         backend: BackendKind,
         timed: bool,
-        cancelled: &(dyn Fn() -> bool + Sync),
+        cancellation_signals: &[&AtomicBool],
     ) -> Result<WindowTranscript, String> {
         if language.contains('\0') || context.is_some_and(|text| text.contains('\0')) {
             return Err("language/context contains a null byte".into());
@@ -65,7 +77,10 @@ impl InferenceState {
             .map(|text| self.context.tokenize(text, text.len().max(1)))
             .transpose()
             .map_err(|error| error.to_string())?;
-        if cancelled() {
+        let guard = AbortGuard {
+            signals: cancellation_signals,
+        };
+        if guard.cancelled() {
             return Err("cancelled".into());
         }
         self.pcm.clear();
@@ -88,7 +103,6 @@ impl InferenceState {
         if let Some(tokens) = &prompt_tokens {
             params.set_tokens(tokens);
         }
-        let guard = AbortGuard { check: cancelled };
         // SAFETY: no mutable context access; guard outlives synchronous full.
         unsafe {
             params.set_abort_callback(Some(abort_callback));
@@ -97,7 +111,7 @@ impl InferenceState {
         }
         let started = Instant::now();
         let result = self.state.full(params, &self.pcm);
-        if cancelled() {
+        if guard.cancelled() {
             return Err("cancelled".into());
         }
         result.map_err(|error| error.to_string())?;
@@ -190,14 +204,20 @@ impl InferenceState {
 mod tests {
     use super::*;
     #[test]
-    fn abort_guard_propagates_cancel_and_catches_panic() {
-        let check = || true;
-        let guard = AbortGuard { check: &check };
-        assert!(unsafe { abort_callback((&guard as *const AbortGuard<'_>).cast_mut().cast()) });
-        let panics = || -> bool {
-            panic!("fixture");
-        };
-        let guard = AbortGuard { check: &panics };
-        assert!(unsafe { abort_callback((&guard as *const AbortGuard<'_>).cast_mut().cast()) });
+    fn abort_guard_observes_primary_and_linked_atomic_cancellation() {
+        let primary = AtomicBool::new(false);
+        let linked = AtomicBool::new(false);
+        let signals = [&primary, &linked];
+        let guard = AbortGuard { signals: &signals };
+        let callback_data = (&guard as *const AbortGuard<'_>).cast_mut().cast();
+        assert!(!unsafe { abort_callback(callback_data) });
+        linked.store(true, Ordering::Release);
+        assert!(unsafe { abort_callback(callback_data) });
+        linked.store(false, Ordering::Release);
+        primary.store(true, Ordering::Release);
+        assert!(unsafe { abort_callback(callback_data) });
+        assert!(unsafe { abort_callback(std::ptr::null_mut()) });
+        let guard = AbortGuard { signals: &[] };
+        assert!(!unsafe { abort_callback((&guard as *const AbortGuard<'_>).cast_mut().cast()) });
     }
 }

@@ -322,9 +322,13 @@ impl HistoryRepository {
             }) else {
                 return Ok(None);
             };
+            let (Some(original_text), Some(analysis)) = (&entry.original_text, &entry.analysis)
+            else {
+                return Ok(None);
+            };
             Ok(Some((
-                entry.original_text.clone().unwrap(),
-                entry.analysis.clone().unwrap(),
+                original_text.clone(),
+                analysis.clone(),
                 self.recommendation_fingerprint(entry)?,
             )))
         })

@@ -38,12 +38,12 @@ async fn dropped_install_await_keeps_exclusivity_and_finalizes_a_failure() {
 }
 
 #[test]
-fn installer_panic_after_shutdown_finalizes_an_actionable_error() {
+fn installer_error_after_shutdown_finalizes_an_actionable_error() {
     let service = UpdateService::default();
     service.transition(UpdatePhase::Installing, "installing");
     let result = finish_install(&service, || {
         service.shutdown_started.store(true, Ordering::Release);
-        panic!("simulated installer panic");
+        Err(())
     });
     assert!(result.is_err());
     assert_eq!(service.snapshot(false).phase, UpdatePhase::Error);

@@ -29,21 +29,18 @@ pub fn start(app: &AppHandle) -> AppResult<WakeProfileValidationStatus> {
         ));
     }
     let threshold = profile_for_validation(&settings)?.threshold;
-    settings
-        .wake_calibration_profile
-        .as_mut()
-        .expect("validated profile exists")
-        .validation = None;
+    let profile = settings.wake_calibration_profile.as_mut().ok_or_else(|| {
+        AppError::Config("Сначала настройте и проверьте фразу пробуждения".into())
+    })?;
+    profile.validation = None;
     let settings = state.persist_settings_delta(&base, &settings)?;
     crate::events::emit_settings(app, &settings);
     let service = app.state::<WakeProfileValidationService>();
+    let profile = settings.wake_calibration_profile.as_ref().ok_or_else(|| {
+        AppError::Config("Профиль фразы изменился во время подготовки проверки".into())
+    })?;
     service.begin(threshold);
-    service.bind_profile(
-        settings
-            .wake_calibration_profile
-            .as_ref()
-            .expect("validated profile exists"),
-    );
+    service.bind_profile(profile);
     Ok(status(app))
 }
 

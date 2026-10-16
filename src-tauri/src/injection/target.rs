@@ -22,7 +22,7 @@ pub struct AppendResult {
 }
 
 pub fn capture() -> AppResult<TextTarget> {
-    platform::capture().ok_or_else(|| {
+    platform::capture()?.ok_or_else(|| {
         AppError::Injection(
             "Выберите доступное текстовое поле в другом приложении и нажмите горячую клавишу"
                 .into(),
@@ -30,7 +30,9 @@ pub fn capture() -> AppResult<TextTarget> {
     })
 }
 pub fn matches(target: &TextTarget) -> bool {
-    platform::capture().as_ref() == Some(target)
+    // An unavailable probe always blocks insertion; it must never authorize a
+    // retry using stale focus identity.
+    platform::capture().ok().flatten().as_ref() == Some(target)
 }
 
 pub fn append(
@@ -62,8 +64,8 @@ pub fn append(
 #[cfg(not(windows))]
 mod platform {
     use super::*;
-    pub fn capture() -> Option<TextTarget> {
-        None
+    pub fn capture() -> AppResult<Option<TextTarget>> {
+        Ok(None)
     }
     pub fn append(_: &TextTarget, _: &str, _: &OperationCancellation) -> AppResult<AppendResult> {
         Err(AppError::Injection(
@@ -95,7 +97,7 @@ mod platform {
             GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, GUITHREADINFO,
         },
     };
-    static PROBE: Lazy<Sender<Sender<Option<TextTarget>>>> = Lazy::new(|| {
+    static PROBE: Lazy<std::io::Result<Sender<Sender<Option<TextTarget>>>>> = Lazy::new(|| {
         let (tx, rx) = bounded::<Sender<Option<TextTarget>>>(1);
         std::thread::Builder::new()
             .name("fono-focus-owner".into())
@@ -113,15 +115,21 @@ mod platform {
                 if initialized {
                     windows::Win32::System::Com::CoUninitialize();
                 }
-            })
-            .expect("focus owner thread");
-        tx
+            })?;
+        Ok(tx)
     });
 
-    pub fn capture() -> Option<TextTarget> {
+    pub fn capture() -> AppResult<Option<TextTarget>> {
+        let probe = PROBE.as_ref().map_err(|_| {
+            AppError::Injection(
+                "Не удалось запустить проверку поля ввода. Перезапустите Fono".into(),
+            )
+        })?;
         let (tx, rx) = bounded(1);
-        PROBE.try_send(tx).ok()?;
-        rx.recv_timeout(Duration::from_millis(100)).ok().flatten()
+        if probe.try_send(tx).is_err() {
+            return Ok(None);
+        }
+        Ok(rx.recv_timeout(Duration::from_millis(100)).ok().flatten())
     }
 
     unsafe fn query(automation: &IUIAutomation) -> Option<TextTarget> {

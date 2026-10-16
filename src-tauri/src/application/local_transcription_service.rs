@@ -51,7 +51,7 @@ impl LocalTranscriptionService {
             })),
         );
         let jobs: Arc<dyn TranscriptionJobs> = queue;
-        let worker = TranscriptionJobWorker::start(Arc::clone(&jobs));
+        let worker = TranscriptionJobWorker::start(Arc::clone(&jobs))?;
         let token = crate::state::transcription_api_token()?;
         let upload_dir = crate::state::app_data_dir()?.join("transcription-uploads");
         let port = configured_port(std::env::var("FONO_API_PORT").ok())?;
