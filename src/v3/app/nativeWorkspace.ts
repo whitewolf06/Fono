@@ -20,6 +20,7 @@ import { createNativeDiagnosticReport } from "../features/diagnostic-report";
 import { createNativeUpdates } from "../features/updates";
 import type { PendingDictation } from "../shared/domain/processing";
 import { createNativeTrainer } from "../features/trainer/infrastructure/nativeTrainer";
+import { bindNativeVisibility } from "../shared/infrastructure/native/visibility";
 export function createNativeWorkspace(): Workspace {
   const state = reactive<WorkspaceState>({
     preferences: {
@@ -52,7 +53,8 @@ export function createNativeWorkspace(): Workspace {
     onboardingStep: 0,
     testSignal: 0,
   });
-  const ctx = createNativeContext(state);
+  const visibility = bindNativeVisibility(() => void refresh());
+  const ctx = createNativeContext(state, visibility.visible);
   const updates = createNativeUpdates(
     __FONO_FRONTEND_BUILD__.version,
     call,
@@ -61,6 +63,7 @@ export function createNativeWorkspace(): Workspace {
         await action();
         await ctx.readSettings();
       }),
+    visibility.visible,
   );
   const dictation = nativeDictation(ctx);
   const trainer = createNativeTrainer(call, ctx.readHistory);
@@ -81,7 +84,9 @@ export function createNativeWorkspace(): Workspace {
     );
   }
   bind<NativeResult>("dictation-result", dictation.accept);
-  bind<PendingDictation | null>("pending-dictation", dictation.pending);
+  bind<PendingDictation | null>("pending-dictation", (value) => {
+    if (visibility.visible()) dictation.pending(value);
+  });
   if (
     typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
     __FONO_EXPERIMENTAL_LIVE__
@@ -115,7 +120,7 @@ export function createNativeWorkspace(): Workspace {
     );
   subscriptions.push(
     subscribeBackend((event) => {
-      if (disposed) return;
+      if (disposed || !visibility.visible()) return;
       switch (event.kind) {
         case "audio_level":
           dictation.level(event.payload);
@@ -170,10 +175,12 @@ export function createNativeWorkspace(): Workspace {
   async function refresh() {
     try {
       await Promise.all(subscriptions);
-      if (disposed) return;
+      if (disposed || !visibility.visible()) return;
       await ctx.refresh();
+      if (disposed || !visibility.visible()) return;
       await dictation.refresh();
       await wake.load();
+      await updates.refresh();
       state.scenario = "normal";
     } catch (error) {
       ctx.report(error);
@@ -286,6 +293,7 @@ export function createNativeWorkspace(): Workspace {
       disposed = true;
       ctx.dispose();
       dictation.dispose();
+      visibility.dispose();
       void trainer.cancelPeriod().catch(ctx.report);
       updates.dispose();
       releases.forEach((release) => release());

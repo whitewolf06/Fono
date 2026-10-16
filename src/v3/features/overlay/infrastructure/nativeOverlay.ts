@@ -21,6 +21,7 @@ import type {
 import { createPendingOverlay } from "./pendingOverlay";
 import { createOverlayControls } from "./overlayControls";
 import { bindOverlayLayout } from "./overlayLayout";
+import { bindNativeVisibility } from "../../../shared/infrastructure/native/visibility";
 import {
   createOverlayHydration,
   type NativeOverlayPreview as Preview,
@@ -51,6 +52,12 @@ export function createNativeOverlay() {
   const pending = createPendingOverlay(state, () => disposed);
   const releases: (() => void)[] = [];
   const readiness: Promise<unknown>[] = [];
+  const visibility = bindNativeVisibility(() => {
+    void hydration
+      .load(readiness)
+      .then(() => refreshSession(false))
+      .catch(fail);
+  });
   let moveTimer: ReturnType<typeof setTimeout> | undefined;
   let sessionRevision = 0;
   let queued = false;
@@ -187,7 +194,7 @@ export function createNativeOverlay() {
     .then((release) => (disposed ? release() : releases.push(release)))
     .catch(fail);
   async function refreshSession(readPending = true) {
-    if (disposed) return;
+    if (disposed || !visibility.visible()) return;
     if (polling) {
       queued = true;
       return;
@@ -251,7 +258,7 @@ export function createNativeOverlay() {
   }
   readiness.push(
     subscribeBackend((event) => {
-      if (disposed) return;
+      if (disposed || !visibility.visible()) return;
       if (event.kind === "audio_level") {
         if (
           event.payload.operation_id !== operation ||
@@ -270,10 +277,11 @@ export function createNativeOverlay() {
       .then((release) => (disposed ? release() : releases.push(release)))
       .catch(fail),
   );
-  void hydration
-    .load(readiness)
-    .then(() => refreshSession(false))
-    .catch(fail);
+  if (visibility.visible())
+    void hydration
+      .load(readiness)
+      .then(() => refreshSession(false))
+      .catch(fail);
   return {
     state,
     processing: controls.state,
@@ -322,6 +330,7 @@ export function createNativeOverlay() {
     },
     dispose() {
       disposed = true;
+      visibility.dispose();
       clearTimeout(moveTimer);
       controls.dispose();
       releaseLayout();

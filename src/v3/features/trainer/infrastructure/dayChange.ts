@@ -8,11 +8,24 @@ export function observeTrainerDay(
   },
 ): () => void {
   let day = new Date(now()).toISOString().slice(0, 10);
-  return schedule(() => {
+  const tick = () => {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden"
+    )
+      return;
     const next = new Date(now()).toISOString().slice(0, 10);
     if (next !== day) {
       day = next;
       handler();
     }
-  });
+  };
+  const release = schedule(tick);
+  if (typeof document !== "undefined")
+    document.addEventListener?.("visibilitychange", tick);
+  return () => {
+    release();
+    if (typeof document !== "undefined")
+      document.removeEventListener?.("visibilitychange", tick);
+  };
 }

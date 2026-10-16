@@ -7,6 +7,7 @@ export function createNativeUpdates(
   version: string,
   transport = call,
   settingsTransaction?: (action: () => Promise<void>) => Promise<void>,
+  visible: () => boolean = () => true,
 ): UpdatesPort {
   const state = reactive<UpdateStatus>({
     phase: "idle",
@@ -25,7 +26,7 @@ export function createNativeUpdates(
     Object.assign(state, { nextVersion: null, totalBytes: null }, value);
   }
   function refresh(): Promise<void> {
-    if (disposed) return Promise.resolve();
+    if (disposed || !visible()) return Promise.resolve();
     const ticket = revision;
     if (pendingRead?.revision === ticket) return pendingRead.promise;
     const id = ++readSequence;

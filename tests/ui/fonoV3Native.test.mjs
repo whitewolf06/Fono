@@ -237,6 +237,63 @@ test("native workspace has no steady idle IPC and audio events are operation-sco
     await flush();
   }
 });
+
+test("hidden workspace defers backend reads and coalesces show with focus into one resync", async () => {
+  const handlers = new Map();
+  const document = globalThis.document;
+  globalThis.document = {
+    ...document,
+    visibilityState: "hidden",
+    addEventListener: (name, handler) => handlers.set(name, handler),
+    removeEventListener: (name) => handlers.delete(name),
+  };
+  window.addEventListener = (name, handler) => handlers.set(name, handler);
+  window.removeEventListener = (name) => handlers.delete(name);
+  const workspace = createNativeWorkspace();
+  try {
+    await flush();
+    const reads = () =>
+      calls
+        .filter(([name]) => !name.startsWith("plugin:"))
+        .map(([name]) => name);
+    assert.deepEqual(reads(), []);
+    const emit = (kind, payload) =>
+      listeners.get("backend-event-v1")({
+        payload: { schema_version: 1, kind, payload },
+      });
+    emit("history_changed", null);
+    emit("service", null);
+    emit("pipeline_state", { state: "listening" });
+    listeners.get("pending-dictation")({ payload: null });
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    assert.deepEqual(reads(), []);
+    globalThis.document.visibilityState = "visible";
+    handlers.get("visibilitychange")();
+    handlers.get("focus")();
+    for (let n = 0; n < 8; n++) await flush();
+    assert.equal(
+      reads().filter((name) => name === "get_desktop_snapshot").length,
+      1,
+    );
+    assert.equal(
+      reads().filter((name) => name === "get_dictation_history").length,
+      1,
+    );
+    assert.equal(workspace.state.scenario, "normal");
+    globalThis.document.visibilityState = "hidden";
+    const before = reads().length;
+    emit("history_changed", null);
+    await flush();
+    assert.equal(reads().length, before);
+  } finally {
+    workspace.dispose();
+    assert.equal(handlers.size, 0);
+    globalThis.document = document;
+    delete window.addEventListener;
+    delete window.removeEventListener;
+    await flush();
+  }
+});
 test("native patches preserve unrelated settings, key flags and overlay coordinates", () => {
   const raw = structuredClone(rawDefaults);
   raw.overlay_x = -1200;
