@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "established_at": "2026-10-16T22:40:46.540Z",
+  "source_revision": "cf53d2542fe2892a4881e625474a475f14afe6bb",
+  "corpus": "fono-fleurs-smoke-v1",
+  "corpus_manifest_sha256": "bd83645181c0a9db009312b34d3a5f4cdc5c3abbd95965803e1f3302df695c3d",
+  "model": {
+    "basename": "ggml-tiny.bin",
+    "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1"
+  },
+  "hardware": {
+    "platform": "win32",
+    "architecture": "x64",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+    "logical_cpus": 16
+  },
+  "profile": "debug",
+  "method": "Frozen pre-PERF-04 linear downsampling of identical derived 48 kHz public FLEURS replay. Shared CPU InferenceState, explicit locale, Greedy best_of 1, up to 8 threads.",
+  "summary": {
+    "word_errors": 85,
+    "reference_words": 450,
+    "character_errors": 207,
+    "reference_characters": 2846,
+    "warm_seconds": 88.52321990000002,
+    "audio_seconds": 235.35875,
+    "wer": 0.18888888888888888,
+    "cer": 0.07273366127898806,
+    "rtf": 0.3761203690111373
+  },
+  "by_language": {
+    "ru": {
+      "word_errors": 62,
+      "reference_words": 205,
+      "character_errors": 146,
+      "reference_characters": 1463,
+      "warm_seconds": 52.8322488,
+      "audio_seconds": 133.479375,
+      "wer": 0.3024390243902439,
+      "cer": 0.09979494190020506,
+      "rtf": 0.39580833218615236
+    },
+    "en": {
+      "word_errors": 23,
+      "reference_words": 245,
+      "character_errors": 61,
+      "reference_characters": 1383,
+      "warm_seconds": 35.6909711,
+      "audio_seconds": 101.87937499999998,
+      "wer": 0.09387755102040816,
+      "cer": 0.044107013738250184,
+      "rtf": 0.3503257759482722
+    }
+  },
+  "cold": {
+    "errors": {
+      "cer": 0.010101010101010102,
+      "character_errors": 1,
+      "reference_characters": 99,
+      "reference_words": 19,
+      "wer": 0.05263157894736842,
+      "word_errors": 1
+    },
+    "id": "en-01",
+    "seconds": 0.4407265
+  },
+  "model_load_seconds": 0.1096234,
+  "replay_hashes": [
+    {
+      "id": "en-01",
+      "sha256": "da21bea3c7801e6174be9f4e186fc5f02f73065d7001ddcc7c4069d97b70c4c3"
+    },
+    {
+      "id": "en-02",
+      "sha256": "020dda4652fea97564701bea42015be52d32e5be805c1fd3c57aaa2ad8607ccc"
+    },
+    {
+      "id": "en-03",
+      "sha256": "47ac8b6f0c1c56de6d98a98e28205225f60bc28094adc8241eeb0acea35f6c7e"
+    },
+    {
+      "id": "en-04",
+      "sha256": "bdefa726c96030ef53eba6ffbab9f1d67de4ccc163179f47a6e1372cdb79bf67"
+    },
+    {
+      "id": "en-05",
+      "sha256": "a9a81e649ba46256d00f039de737e8788bc9547b3952e9683068c91697f5f39e"
+    },
+    {
+      "id": "en-06",
+      "sha256": "174477b8296d8579e81303986ce6708bca8117b8ed6c015e9c7d44b4339fa0a3"
+    },
+    {
+      "id": "en-07",
+      "sha256": "9db33b8770959426eee5e08e28e7ef3c3087da2ac174852de81f48f3533014f8"
+    },
+    {
+      "id": "en-08",
+      "sha256": "313b6c92c950a84274a1fb64dd61bb867130a5f42a573a4692bd14fa01f194f7"
+    },
+    {
+      "id": "en-09",
+      "sha256": "97da18de272404493546224411a36836a2474851ef012243e1aa63109b9f44bd"
+    },
+    {
+      "id": "en-10",
+      "sha256": "d07dfc0785a6514f85489d0fcd44b45f5bb9775600a6b984ebcfafb27d949b41"
+    },
+    {
+      "id": "ru-01",
+      "sha256": "91c566e4ba1af9ec2f68e1a835811c56955775cf6ba8ca50e98dccb028560b1e"
+    },
+    {
+      "id": "ru-02",
+      "sha256": "765cdd55a32791f8b2076290192a7a97fb562ea616b7dce74f3fdc57fa1ee0f0"
+    },
+    {
+      "id": "ru-03",
+      "sha256": "70cf5475552fad6c573c862b7d111c570850145b95bbc25ab5e10fe06e56fafd"
+    },
+    {
+      "id": "ru-04",
+      "sha256": "e2e2077909459ce6d464499fded7209b3b7468957278de1ec16bb38343780834"
+    },
+    {
+      "id": "ru-05",
+      "sha256": "6681f672c62c7ae19c6d2a4b153d1a708dea0cf497f0b07c8796fd21825f03c5"
+    },
+    {
+      "id": "ru-06",
+      "sha256": "d3e8babe135e67c1ed6040e4268ad2a9ef74d6f188132a5cf4cabe136901caff"
+    },
+    {
+      "id": "ru-07",
+      "sha256": "ce9cc8213845252bd8947b84e9a5f2c012abe2481b361b5d60a72fa8f495ba27"
+    },
+    {
+      "id": "ru-08",
+      "sha256": "6192ec54d102d9923239b24956eb3eb86d17c3fa1fbefbb78cf7a8c37294e6a1"
+    },
+    {
+      "id": "ru-09",
+      "sha256": "e6ea11c5923f042ed694efa62980060d2075425d52208522f98df11368841bce"
+    },
+    {
+      "id": "ru-10",
+      "sha256": "757c35c1c26264eff3b2d95edf3c468f0b3a779094ad028069f61858ac10ec72"
+    }
+  ]
+}

@@ -38,6 +38,7 @@ pub fn errors(reference: &str, hypothesis: &str) -> serde_json::Value {
     let actual_chars: Vec<_> = hypothesis.chars().collect();
     serde_json::json!({
         "word_errors": distance(&expected_words, &actual_words), "reference_words": expected_words.len(),
+        "character_errors": distance(&expected_chars, &actual_chars), "reference_characters": expected_chars.len(),
         "wer": if expected_words.is_empty() { None } else { Some(distance(&expected_words, &actual_words) as f64 / expected_words.len() as f64) },
         "cer": if expected_chars.is_empty() { None } else { Some(distance(&expected_chars, &actual_chars) as f64 / expected_chars.len() as f64) },
     })
