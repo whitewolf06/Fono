@@ -1,15 +1,34 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { createEventHub } from "./eventHub";
+import { isBackendEventV1, type BackendEventV1 } from "./backendEvents";
 import {
   NativeIpcError,
   normalizeNativeEvent,
   normalizeNativeResult,
 } from "./nativeErrors";
 export const isDesktop = isTauri;
+const commandCounts = new Map<string, number>();
+const events = createEventHub(async (channel, handler) =>
+  listen(channel, (event) =>
+    handler(normalizeNativeEvent(channel, event.payload)),
+  ),
+);
+/** Development-only numeric counters; arguments and session text are never kept. */
+export const ipcDebugCounters = {
+  snapshot: () => ({
+    invocations: [...commandCounts.values()].reduce((sum, n) => sum + n, 0),
+    commands: Object.fromEntries(commandCounts),
+    channels: events.channelCount(),
+  }),
+  reset: () => commandCounts.clear(),
+};
 export async function call<T>(
   command: string,
   args?: Record<string, unknown>,
 ): Promise<T> {
+  if (import.meta.env.DEV)
+    commandCounts.set(command, (commandCounts.get(command) || 0) + 1);
   try {
     return normalizeNativeResult(command, await invoke<T>(command, args)) as T;
   } catch (error) {
@@ -20,9 +39,12 @@ export async function subscribe<T>(
   channel: string,
   handler: (value: T) => void,
 ): Promise<UnlistenFn> {
-  return listen<T>(channel, (event) =>
-    handler(normalizeNativeEvent(channel, event.payload) as T),
-  );
+  return events.subscribe(channel, handler);
+}
+export function subscribeBackend(handler: (event: BackendEventV1) => void) {
+  return subscribe<unknown>("backend-event-v1", (value) => {
+    if (isBackendEventV1(value)) handler(value);
+  });
 }
 export async function playMicrophoneSample() {
   const samples = await call<number[]>("get_microphone_sample");
