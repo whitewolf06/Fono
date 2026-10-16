@@ -1,5 +1,6 @@
 //! Deferred dictation owns its operation and updater lease until a user action.
 mod actions;
+mod destination;
 mod insertion;
 mod overlay_choice;
 mod overlay_dismissal;
@@ -49,7 +50,7 @@ struct PendingData {
 #[derive(Default)]
 pub(crate) struct Runtime {
     store: Mutex<Store<PendingData>>,
-    capture_target: Mutex<Option<(u64, Option<TextTarget>)>>,
+    capture_target: Mutex<destination::DestinationSlot>,
     flush: overlay_flush::FlushRuntime,
 }
 
@@ -80,15 +81,15 @@ pub(crate) fn capture_target(app: &AppHandle, operation: u64, source: OperationS
     };
     // A late capture probe must not overwrite the target of a new operation.
     app.state::<Pipeline>().while_operation(operation, || {
-        *app.state::<Runtime>().capture_target.lock() = Some((operation, target));
+        app.state::<Runtime>()
+            .capture_target
+            .lock()
+            .install(operation, target);
     });
 }
 pub(super) fn clear_target(app: &AppHandle, operation: u64) {
     let runtime = app.state::<Runtime>();
-    let mut slot = runtime.capture_target.lock();
-    if slot.as_ref().is_some_and(|(id, _)| *id == operation) {
-        *slot = None;
-    }
+    runtime.capture_target.lock().clear(operation);
 }
 
 pub(super) async fn insert_captured(session: &Session, text: &str) -> AppResult<()> {
@@ -97,10 +98,15 @@ pub(super) async fn insert_captured(session: &Session, text: &str) -> AppResult<
         .state::<Runtime>()
         .capture_target
         .lock()
-        .as_ref()
-        .filter(|(id, _)| *id == session.operation)
-        .and_then(|(_, target)| target.clone());
+        .target(session.operation);
     insertion::insert(session, target.as_ref(), text).await
+}
+
+/// Explicit reinsertion never chooses the current foreground as a new target.
+/// The ordinary checked insertion owns the same one-shot destination claim.
+pub(crate) async fn reinsert(app: AppHandle, operation: u64, text: String) -> AppResult<()> {
+    let session = Session::current(&app, operation)?;
+    insert_captured(&session, &text).await
 }
 
 pub(super) fn block_insertion(app: &AppHandle, operation: u64, error: String, result: String) {
@@ -125,12 +131,7 @@ pub(super) fn enqueue(
 ) -> AppResult<bool> {
     let activity = Arc::new(activity::lease()?);
     let runtime = session.app.state::<Runtime>();
-    let target = runtime
-        .capture_target
-        .lock()
-        .as_ref()
-        .filter(|(id, _)| *id == session.operation)
-        .and_then(|(_, target)| target.clone());
+    let target = runtime.capture_target.lock().target(session.operation);
     let unavailable = !copy_only && session.source != OperationSource::Ui && target.is_none();
     let created_at = chrono::Utc::now();
     let snapshot = PendingDictation {

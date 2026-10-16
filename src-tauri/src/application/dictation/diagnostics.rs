@@ -48,6 +48,16 @@ pub(crate) async fn transcribe_test(
     // Pause only after successful capture acquisition. A failed concurrent start
     // must not resume the wake pause owned by another dictation.
     let mut scope = OperationScope::new(app.clone(), operation, true);
+    if inject.unwrap_or(false) {
+        let capture_app = app.clone();
+        let activity = crate::application::updates::activity::lease()?;
+        tokio::task::spawn_blocking(move || {
+            let _activity = activity;
+            super::workflow::capture_target(&capture_app, operation, OperationSource::Diagnostics);
+        })
+        .await
+        .map_err(|_| AppError::Injection("diagnostic destination capture failed".into()))?;
+    }
     pipeline::set_state_for_operation(
         &app,
         app.state::<AppState>().inner(),
@@ -116,9 +126,7 @@ async fn run(
         if !session.transition(PipelineState::Injecting, TerminalReason::Completed) {
             return Ok(empty_transcript());
         }
-        if let Err(error) =
-            crate::injection::inject_text(&final_text, session.settings.injection_mode)
-        {
+        if let Err(error) = super::workflow::insert_captured(&session, &final_text).await {
             session.error(
                 crate::events::ErrorCodeV1::Injection,
                 format!("Вставка текста: {error}"),
