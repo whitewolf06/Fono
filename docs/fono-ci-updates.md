@@ -20,23 +20,41 @@ Rust должен соответствовать `src-tauri/rust-toolchain.toml`
 `package.json` и lockfile.
 
 Автоматические задания используют обычные `ubuntu-24.04` / `windows-2022` hosted
-runners. Обычный CI не сохраняет artifacts или cache: frontend повторно
-собирается в Windows job. Ручной signed-update artifact хранится сутки.
+runners. Обычный CI не сохраняет artifacts или cache. Windows CPU job
+использует отдельный статический HTML для компиляции Tauri; настоящий frontend
+собирается и проверяется в frontend job. Ручной signed-update artifact хранится сутки.
 Перед его запуском проверьте доступное место и настройки бюджета
 [Actions/Packages](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 Workflow не меняет настройки оплаты аккаунта.
 
 ## Приватный UI Kit
 
-Frontend и native job требуют repository secret `WHITEUI_NPM_TOKEN`
+Frontend job требует repository secret `WHITEUI_NPM_TOKEN`
 с `read:packages` и доступом к `@whitelife-core/ui-kit`. Реестр задаёт `.npmrc`;
 `setup-node` пишет ссылку на переменную `NODE_AUTH_TOKEN` во временный npm config.
 Значение токена не записывается в репозиторий и не выводится в лог.
 
-Для внешних fork frontend/native job пропускаются: секрет не передаётся чужому
-коду. Core/protocol и online installer job выполняются. Полная проверка такого PR
-проводится после проверки изменений в доверенной ветке. `pull_request_target` не используется.
+Для внешних fork frontend job пропускается: секрет не передаётся чужому
+коду. Windows native, core/protocol и online installer job выполняются независимо.
+Полная проверка frontend такого PR проводится после проверки изменений в доверенной
+ветке. `pull_request_target` не используется.
 Отсутствующий токен в доверенной ветке — явная ошибка, а не успешная проверка.
+
+У native job нет зависимости от frontend job, установки npm-пакетов и доступа к
+секретам. Для `tauri::generate_context!()` нужен каталог frontend: основной crate
+включает `custom-protocol`, поэтому Cargo встраивает файлы даже при CPU-тестах.
+В этом job `TAURI_CONFIG` указывает на `scripts/ci-native-frontend/v3.html` —
+статический HTML без скриптов и сетевых запросов. Он нужен только для компиляции;
+тесты не запускают интерфейс и не подтверждают его работу. Исходная конфигурация
+Tauri и signed-update workflow по-прежнему требуют настоящий `dist` и полный
+набор release-ресурсов.
+
+Перед native-проверками выполняется `node --test scripts/ci-workflow.test.mjs`.
+Тест не требует npm-зависимостей и проверяет, что native job не получает fork gate,
+зависимость от frontend или токен, а тесты приложения и строгий workspace Clippy
+остаются обязательными. Регрессии в этих условиях проверяются изменёнными копиями
+workflow. Это локальная проверка контракта; фактический запуск на fork PR и красный
+check после намеренно сломанного теста приложения нужно подтвердить в GitHub Actions.
 
 ## Воспроизводимые native resources
 
