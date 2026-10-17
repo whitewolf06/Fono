@@ -187,18 +187,20 @@ export function createMockTrainer(
     getReport,
     async analyzePeriod(input) {
       if (running) throw new Error("Дождитесь завершения текущего разбора.");
-      const report = await getReport(input.days);
-      if (report.snapshot.fingerprint !== input.fingerprint || report.stale)
-        throw new Error("Данные изменились. Обновите отчёт.");
-      if (report.aiDisabledReason) throw new Error(report.aiDisabledReason);
-      const scope = input.shareText
-        ? report.aiConfiguration.dataScope
-        : "metrics_only";
-      const identity = aiFingerprint(report.snapshot, scope);
-      if (report.aiSummary?.fingerprint === identity) return report;
+      // Match native: reserve the request before its first asynchronous step.
       const current = ++operation;
       running = true;
       try {
+        const report = await getReport(input.days);
+        if (current !== operation) throw new Error("Разбор отменён.");
+        if (report.snapshot.fingerprint !== input.fingerprint || report.stale)
+          throw new Error("Данные изменились. Обновите отчёт.");
+        if (report.aiDisabledReason) throw new Error(report.aiDisabledReason);
+        const scope = input.shareText
+          ? report.aiConfiguration.dataScope
+          : "metrics_only";
+        const identity = aiFingerprint(report.snapshot, scope);
+        if (report.aiSummary?.fingerprint === identity) return report;
         await wait();
         if (current !== operation) throw new Error("Разбор отменён.");
         const fresh = await getReport(input.days);

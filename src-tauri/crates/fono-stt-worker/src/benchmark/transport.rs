@@ -123,6 +123,7 @@ impl Worker {
             context: context.map(str::to_owned),
             audio_start_sample: start,
             samples_i16_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+            decoding: fono_stt_protocol::DecodingOptions::default(),
         })? {
             WorkerResponse::WindowResult { transcript, .. } => Ok(transcript),
             _ => Err("worker did not return a window result".into()),
@@ -139,6 +140,7 @@ impl Worker {
             model_path: self.model.clone(),
             language: language.into(),
             samples_i16_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+            decoding: fono_stt_protocol::DecodingOptions::default(),
         })? {
             WorkerResponse::Result {
                 text,

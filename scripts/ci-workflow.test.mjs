@@ -293,3 +293,37 @@ test("native checks keep default WakeWord absent and cover independent live/wake
     /& cargo @arguments\r?\n\s+if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}/,
   );
 });
+
+test("public quality CI measures neural boundaries and decoding with verified CPU runtime", async () => {
+  const quality = await read("../.github/workflows/stt-quality.yml");
+  assert.match(quality, /src-tauri\/src\/application\/speech_gate\.rs/);
+  assert.match(quality, /src-tauri\/src\/vad\/\*\*/);
+  assert.match(quality, /scripts\/stage4-quality\*/);
+  assert.match(quality, /bootstrap-ci-resources\.ps1/);
+  assert.match(
+    quality,
+    /--no-default-features --features fono-audio\/speech-vad/,
+  );
+  assert.match(quality, /--example resample-wav --example trim-vad-wav/);
+  assert.match(
+    quality,
+    /native-test-runtime\.mjs build\/stt-quality\/tools\.jsonl/,
+  );
+  assert.match(
+    quality,
+    /node scripts\/stage4-quality\.mjs --runner .* --trimmer .* --report build\/stt-quality\/stage4-report\.json/,
+  );
+  assert.match(
+    quality,
+    /name: Compare neural boundaries and explicit decoding policies\s+if: \$\{\{ !cancelled\(\) \}\}/,
+    "collect independent stage-4 evidence even when the earlier resampler gate fails",
+  );
+  assert.match(
+    quality,
+    /path: \|\s+build\/stt-quality\/report\.json\s+build\/stt-quality\/stage4-report\.json/,
+  );
+  assert.doesNotMatch(
+    quality,
+    /InstallGpuSdks|secrets\.|pull_request_target|npm\.pkg\.github/,
+  );
+});

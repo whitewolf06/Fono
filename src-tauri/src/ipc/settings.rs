@@ -155,7 +155,7 @@ pub async fn save_settings(
         || (persisted_settings.wake_word_enabled && wake_settings_changed);
     #[cfg(feature = "wake-word")]
     if wake_reconfigured {
-        let config = match crate::settings_to_wake_config(&persisted_settings) {
+        let config = match crate::application::wake::settings_to_wake_config(&persisted_settings) {
             Ok(config) => config,
             Err(error) => {
                 let _ = restore_profile_secrets(&previous_secrets);
@@ -195,7 +195,8 @@ pub async fn save_settings(
             let secret_rollback = restore_profile_secrets(&previous_secrets);
             #[cfg(feature = "wake-word")]
             if wake_reconfigured {
-                if let Ok(config) = crate::settings_to_wake_config(&old_settings) {
+                if let Ok(config) = crate::application::wake::settings_to_wake_config(&old_settings)
+                {
                     let _ = app
                         .state::<fono_wake::WakeWordHandle>()
                         .update_config(config);
@@ -225,7 +226,7 @@ pub async fn save_settings(
         )));
     }
 
-    if let Err(error) = crate::history::maintain(&persisted_settings) {
+    if let Err(error) = crate::history::for_app(&app).maintain(&persisted_settings) {
         tracing::error!(%error, "could not apply dictation analytics privacy policy");
         return Err(AppError::Config(format!(
             "Настройки сохранены, но не удалось применить правила хранения аналитики: {error}"
@@ -242,7 +243,7 @@ pub async fn save_settings(
             message:"Настройки пробуждения изменились. Фраза выключена: настройте и проверьте её заново.",
         });
     }
-    crate::pipeline::sync_overlay_window(&app, state.pipeline_state());
+    crate::pipeline::sync_overlay_window(&app, app.state::<crate::pipeline::Pipeline>().state());
     tracing::info!(
         "settings saved: model={:?}, lang={}",
         persisted_settings.whisper_model_path,
@@ -399,6 +400,10 @@ pub async fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
+    settings
+        .decoding_options()
+        .validate()
+        .map_err(AppError::Config)?;
     settings.processing_prompts.validate()?;
     crate::application::personal_dictionary::validate(&settings.personal_dictionary_entries)?;
     crate::overlay::validate_appearance(settings.overlay_scale, settings.overlay_opacity)?;
@@ -483,7 +488,7 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
     }
     #[cfg(feature = "wake-word")]
     if settings.wake_word_enabled {
-        let wake_config = crate::settings_to_wake_config(settings)?;
+        let wake_config = crate::application::wake::settings_to_wake_config(settings)?;
         fono_wake::validate_config(&wake_config)
             .map_err(|error| AppError::Config(format!("Некорректная wake phrase: {error}")))?;
     }
@@ -503,6 +508,25 @@ fn restore_shortcuts(app: &AppHandle, settings: &Settings) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decoding_preferences_accept_fast_legacy_and_bounded_opt_in_values() {
+        let mut settings = Settings::default();
+        assert_eq!(
+            settings.whisper_decoding,
+            crate::types::DecodingStrategy::Fast
+        );
+        assert_eq!(settings.whisper_threads, None);
+        for threads in [Some(1), Some(8), None] {
+            settings.whisper_threads = threads;
+            settings.whisper_decoding = crate::types::DecodingStrategy::Accurate;
+            assert!(validate_settings(&settings).is_ok());
+        }
+        for threads in [0, 9, 255] {
+            settings.whisper_threads = Some(threads);
+            assert!(validate_settings(&settings).is_err());
+        }
+    }
 
     #[test]
     fn settings_validation_rejects_duplicate_hotkeys() {

@@ -33,6 +33,7 @@ onUnmounted(overlay.dispose);
     <OverlayPreview
       :preferences="overlay.state.preferences"
       :phase="phase"
+      :outcome="overlay.state.dictationOutcome"
       :level="overlay.state.level"
       :seconds="overlay.state.seconds"
       :elapsed="overlay.state.elapsed"

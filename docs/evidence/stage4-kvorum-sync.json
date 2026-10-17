@@ -1,0 +1,1008 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "version": "0.7.24",
+  "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+  "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+  "scope_mode": "server_resolved",
+  "server_ready": true,
+  "verified_at_utc": "2026-10-17T22:44:44.652Z",
+  "server_writes_performed": true,
+  "comments_created_and_read_back": 20,
+  "status_updates_confirmed_and_read_back": 12,
+  "confirmations_confirmed_and_read_back": 32,
+  "stage_tasks_in_review": [
+    "FONO-86",
+    "FONO-90",
+    "FONO-91",
+    "FONO-92",
+    "FONO-93",
+    "FONO-94",
+    "FONO-95",
+    "FONO-96",
+    "FONO-100",
+    "FONO-101",
+    "FONO-102",
+    "FONO-103",
+    "FONO-104",
+    "FONO-105"
+  ],
+  "parent_tasks_in_progress": [
+    "FONO-47",
+    "FONO-50",
+    "FONO-51",
+    "FONO-52",
+    "FONO-53"
+  ],
+  "ci03": {
+    "key": "FONO-108",
+    "status": "in_review"
+  },
+  "manual_acceptance": false,
+  "owner_acceptance": false,
+  "tasks_marked_done": false,
+  "acceptance_scope": "Evidence recorded for review only. Browser matrix remains blocked_partial; remote CI, microphone/hotkey/overlay, external input, GPU quality, soak, installer and owner Windows acceptance remain open.",
+  "lineage": {
+    "ready": {
+      "path": "build/checks/stage4-kvorum-final-ready.json",
+      "sha256": "c2f443361090d90845841d6ad911e4163bedf67e08ca1b9e575cef34b2d9a7d4"
+    },
+    "executions": {
+      "path": "build/checks/stage4-kvorum-final-executions.json",
+      "sha256": "126091c600a0192abc02d963fbaa6d8d50b5888668942f90cae9f87bc89b456c"
+    },
+    "bootstrap": {
+      "path": "build/checks/stage4-kvorum-final-confirm-bootstrap.json",
+      "sha256": "671704f7253904987b532d09cac6c991bfbb8eb18c7176fa0e650e9ff24d919c"
+    },
+    "source_evidence": [
+      {
+        "path": "docs/evidence/stage4-native-final.json",
+        "sha256": "6357d51993adbbed3b1716dc96212832dbbc7e4ce57d0010bde6fa5698291735"
+      },
+      {
+        "path": "docs/evidence/stage4-frontend.json",
+        "sha256": "9a349f6142162f957b5368038de2cf51d406c04041f1b1d544aafd4bf338e17e"
+      },
+      {
+        "path": "docs/evidence/stage4-scripts.json",
+        "sha256": "0610178091712fba31c9931f8ed8d764136b1ddf3c066905a875e3a9e9e624a5"
+      },
+      {
+        "path": "docs/evidence/stage4-quality.json",
+        "sha256": "8ed24dc9eff54c6db99f89736e3d1f1f1df12eb4884e32ac16524eaab3bd903c"
+      },
+      {
+        "path": "docs/evidence/stage4-worker-architecture.json",
+        "sha256": "4ed3f2bd81bd698618476663371a6c725ee9a59ed6b6ef61fee6383a19e23ffc"
+      },
+      {
+        "path": "docs/evidence/stage4-browser.json",
+        "sha256": "ed0a0c6508b8b076b38b37929384e203cd9aa5585d9eea9c019222b2b7655292"
+      }
+    ]
+  },
+  "records": [
+    {
+      "key": "FONO-91",
+      "alias": "ARC-04",
+      "task_id": "8d939ec0-fbc7-48de-8189-5b967f9bd653",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-91/arc-04-ok-empty-transcript",
+      "comment_id": "6c3de194-4451-4acf-bdfd-d9ddc37ca024",
+      "comment_created_at_server": "2026-10-17T22:37:03.041560Z",
+      "content_sha256": "9a71da6ccda75450b9e962838f48748f535f85f40c1cfadc72f00ba9a159ad5b",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-86",
+      "alias": "STAB-05",
+      "task_id": "bd16855b-7586-4c71-ae17-9d127c4be1dd",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-86/stab-05",
+      "comment_id": "57cbe63c-27c5-41b1-8554-644e96e59f04",
+      "comment_created_at_server": "2026-10-17T22:37:29.780267Z",
+      "content_sha256": "4b1e97461e2c3995b7b08b8df9475555aaf12fb79cb3ca5edba98b5db7ea0248",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-90",
+      "alias": "ARC-03",
+      "task_id": "bc66def8-2334-4b0b-bf41-47c4a503ac3c",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-90/arc-03",
+      "comment_id": "c6750a97-a977-4055-9e4d-70d32df1941a",
+      "comment_created_at_server": "2026-10-17T22:37:56.510286Z",
+      "content_sha256": "d482041e95413b0e1f3d7644f11f6e475c18738c2709fa9b574ff7ed2b0259d4",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-92",
+      "alias": "ARC-05",
+      "task_id": "b598ef8a-b676-4337-97f4-bc9e98af9fe8",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-92/arc-05-lib-rs",
+      "comment_id": "2f0450f2-ce81-41e0-be35-3301445f6b34",
+      "comment_created_at_server": "2026-10-17T22:38:23.022368Z",
+      "content_sha256": "127b24ce6fc13d2a81c863d48f7e2088b2c744d3f80ada2880b3fbac7d2e6817",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-93",
+      "alias": "ARC-06",
+      "task_id": "164c001d-ed33-42e5-84aa-8aee73ffb5dc",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-93/arc-06",
+      "comment_id": "2e400937-9291-4128-972b-b0d7c709748b",
+      "comment_created_at_server": "2026-10-17T22:38:49.959285Z",
+      "content_sha256": "1816cbdf7fb6ea89a824e39ef20e869d2946862d51fcfcf0728a67084b370e99",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-94",
+      "alias": "ARC-07",
+      "task_id": "c94bcbdc-52dc-4016-88c3-d8d95384b654",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-94/arc-07",
+      "comment_id": "4e4273b6-10a3-479e-b30a-09a15319091e",
+      "comment_created_at_server": "2026-10-17T22:39:16.470008Z",
+      "content_sha256": "55831184181618acc44563b602eee13a1b8f89d94887352c2dd69ca8507c70a2",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-95",
+      "alias": "ARC-08",
+      "task_id": "5f937e94-f4b5-456d-8d1c-cd4801c4d535",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-95/arc-08-worker-rust-c",
+      "comment_id": "62acefe0-2ba4-4580-b3a2-31b4cb85ae1f",
+      "comment_created_at_server": "2026-10-17T22:39:43.219774Z",
+      "content_sha256": "6bbaa4ee6c9c34e2680fbff376bcbca125b916cd2c515cadfb93d5a04ef8932b",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-96",
+      "alias": "ARC-09",
+      "task_id": "6ab413b4-01da-4e34-a6fb-79131aacb92e",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-96/arc-09-vad",
+      "comment_id": "e3ddc615-2607-43e3-993b-be750eb12376",
+      "comment_created_at_server": "2026-10-17T22:40:09.921056Z",
+      "content_sha256": "8782eb182f79f2c08b2e48a726d9d27d4fd5ef1e2548dacf197e95f1cea1149f",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-100",
+      "alias": "CODE-04",
+      "task_id": "9c251ba8-bcb7-4264-8284-f237f8e24977",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-100/code-04-llm",
+      "comment_id": "5ccbe733-e864-4e0b-b7c9-c7a05099cf36",
+      "comment_created_at_server": "2026-10-17T22:40:37.145322Z",
+      "content_sha256": "de6095fd3754e2c41fc3ecfd5fb0ac097f38a7ea8cbf260b651e4efc862196a7",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-101",
+      "alias": "CODE-05",
+      "task_id": "ccdafa70-79cf-4b78-ac9a-c3f928ba43e7",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-101/code-05-whisper",
+      "comment_id": "9f967816-9b5e-40d9-b369-968440bde620",
+      "comment_created_at_server": "2026-10-17T22:41:07.688451Z",
+      "content_sha256": "c4fb12fb140d0714b749583fab17995f68b5c6c2a8e9db924e4e3adf862c94c6",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-102",
+      "alias": "CODE-06",
+      "task_id": "6fadad3b-32d4-4a72-835d-65aa8a8e7d0e",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-102/code-06",
+      "comment_id": "9f55baa1-91e6-44aa-9a42-42668826de47",
+      "comment_created_at_server": "2026-10-17T22:41:34.997533Z",
+      "content_sha256": "fc45fd981db4150601c0d8110b9db657d0c620b02a5403ced8c3cdc52b4af65c",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-103",
+      "alias": "FE-01",
+      "task_id": "0ab002a8-3008-4a95-84cf-c525c974790b",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-103/fe-01",
+      "comment_id": "2c84f555-87d6-4963-aa34-d08c7806f27e",
+      "comment_created_at_server": "2026-10-17T22:42:01.851711Z",
+      "content_sha256": "ff6ba3429296b5679656f96715bfce4ab315be464258e1ad765ba9f92cd921d4",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    },
+    {
+      "key": "FONO-104",
+      "alias": "FE-02",
+      "task_id": "29e1bf26-ac22-47c1-94b1-4889cde16771",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-104/fe-02",
+      "comment_id": "6f98663f-3c8d-4db4-b260-ad4071f057f8",
+      "comment_created_at_server": "2026-10-17T22:42:18.542667Z",
+      "content_sha256": "d9c7b927b9c509a7f8474697a8496652b2ba1cae4385e6e6e8990becee9ba220",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": true
+    },
+    {
+      "key": "FONO-105",
+      "alias": "FE-03",
+      "task_id": "218ed2e6-9cdb-4914-b8dc-8a688013ef99",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-105/fe-03",
+      "comment_id": "9c1a6440-3c9c-4598-a341-6b93968105dd",
+      "comment_created_at_server": "2026-10-17T22:42:44.922869Z",
+      "content_sha256": "cf7a95ae0b7e50c674570dad5d528c84cab417817087e28c9aa59d783d718eef",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    },
+    {
+      "key": "FONO-51",
+      "alias": "S-ARC",
+      "task_id": "f610e332-d2f5-4ad1-81ae-c9c18880092c",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-51/fono-rust-lifecycle",
+      "comment_id": "75699fea-8737-4865-95f5-3e75fb4a310b",
+      "comment_created_at_server": "2026-10-17T22:43:01.435159Z",
+      "content_sha256": "a141df40f46c010815707aba7f1a3457a655f58ffd1245768ba3ba14e3d589d7",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    },
+    {
+      "key": "FONO-52",
+      "alias": "S-CODE",
+      "task_id": "c43e93da-ce07-451b-b35a-82940c187653",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-52/fono",
+      "comment_id": "32f15094-5d9f-4765-a803-9fcb32dcdd47",
+      "comment_created_at_server": "2026-10-17T22:43:17.942023Z",
+      "content_sha256": "23879dda57858af48ce63003a4411c28388be0100d4d10f8a9c4dd3be23dea65",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    },
+    {
+      "key": "FONO-53",
+      "alias": "S-FE",
+      "task_id": "fc03386f-48db-4596-b0fb-08debfbc4180",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-53/fono-vue-v3",
+      "comment_id": "e0169ecf-417c-4552-8ad0-52ccc18a06ad",
+      "comment_created_at_server": "2026-10-17T22:43:34.517258Z",
+      "content_sha256": "31487907157bec34ab867e0dbb90ed7b1d831d1b063c5da3d0b337555953009b",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    },
+    {
+      "key": "FONO-50",
+      "alias": "S-STAB",
+      "task_id": "0e91cc58-f836-4f6b-8b45-d68d0356a9db",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-50/fono",
+      "comment_id": "505b65c3-3bb2-490e-8096-eaee509df55b",
+      "comment_created_at_server": "2026-10-17T22:43:51.011485Z",
+      "content_sha256": "de4ce0dc5ae5481179d94c669986701150494ccce17b864ca7d04e424b9c6445",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    },
+    {
+      "key": "FONO-47",
+      "alias": "EPIC",
+      "task_id": "85eafd57-86b8-4e09-8eab-2cb3bbb300d4",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-47/fono-improvement-plan",
+      "comment_id": "9c37dd73-03a1-40c1-8dcd-d733bb59bd09",
+      "comment_created_at_server": "2026-10-17T22:44:07.719436Z",
+      "content_sha256": "3250299f9128f01e077a7f1fa29afd8849e22cf84720cf40661d54932a3d4078",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    },
+    {
+      "key": "FONO-108",
+      "alias": "CI-03",
+      "task_id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-108/ci-03-stt",
+      "comment_id": "3e327b74-1ba7-4786-bc5e-1d6d4fd07fd5",
+      "comment_created_at_server": "2026-10-17T22:44:24.287913Z",
+      "content_sha256": "7607b873cd55108a947080e3aa9a32d7af66739e65c3f5f08cc592dd22724459",
+      "comment_readback_verified": true,
+      "final_status_readback_verified": true,
+      "status_update_confirmed": false
+    }
+  ],
+  "status_updates": [
+    {
+      "key": "FONO-91",
+      "task_id": "8d939ec0-fbc7-48de-8189-5b967f9bd653",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "28263fef-1643-4216-9ac8-0aebb6d551e5",
+      "updated_at_server": "2026-10-17T22:37:16.386774",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-86",
+      "task_id": "bd16855b-7586-4c71-ae17-9d127c4be1dd",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "ad9bf272-1084-4919-a749-1ab7b1b8e13a",
+      "updated_at_server": "2026-10-17T22:37:43.046715",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-90",
+      "task_id": "bc66def8-2334-4b0b-bf41-47c4a503ac3c",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "ae4eeebc-30bd-49d2-b723-75adad07b89c",
+      "updated_at_server": "2026-10-17T22:38:09.865994",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-92",
+      "task_id": "b598ef8a-b676-4337-97f4-bc9e98af9fe8",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "f3500b75-8ef1-4551-a1de-4f6bd2427da1",
+      "updated_at_server": "2026-10-17T22:38:36.496331",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-93",
+      "task_id": "164c001d-ed33-42e5-84aa-8aee73ffb5dc",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "6258ddb8-e76f-4799-a8ce-c3f57234830d",
+      "updated_at_server": "2026-10-17T22:39:03.278337",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-94",
+      "task_id": "c94bcbdc-52dc-4016-88c3-d8d95384b654",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "7045e020-a13d-4f2c-b4db-b09b6be29042",
+      "updated_at_server": "2026-10-17T22:39:29.803264",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-95",
+      "task_id": "5f937e94-f4b5-456d-8d1c-cd4801c4d535",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "29bd045a-c726-476c-a4e9-aae66f2b7673",
+      "updated_at_server": "2026-10-17T22:39:56.574648",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-96",
+      "task_id": "6ab413b4-01da-4e34-a6fb-79131aacb92e",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "3e11b304-f3e8-42ec-b6d7-30d79339ea23",
+      "updated_at_server": "2026-10-17T22:40:23.815386",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-100",
+      "task_id": "9c251ba8-bcb7-4264-8284-f237f8e24977",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "e9618d42-c24b-4644-b7f9-234f64429530",
+      "updated_at_server": "2026-10-17T22:40:50.754995",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-101",
+      "task_id": "ccdafa70-79cf-4b78-ac9a-c3f928ba43e7",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "45cff390-3623-45e4-a58d-79b40a2f98b8",
+      "updated_at_server": "2026-10-17T22:41:21.107918",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-102",
+      "task_id": "6fadad3b-32d4-4a72-835d-65aa8a8e7d0e",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "511adeda-d11f-4faf-94fe-4a6ee308d45d",
+      "updated_at_server": "2026-10-17T22:41:48.572008",
+      "readback_verified": true
+    },
+    {
+      "key": "FONO-104",
+      "task_id": "29e1bf26-ac22-47c1-94b1-4889cde16771",
+      "from": "in_progress",
+      "to": "in_review",
+      "proposal_id": "c737e8f2-6512-4445-8fc3-adfc8e829b00",
+      "updated_at_server": "2026-10-17T22:42:31.847255",
+      "readback_verified": true
+    }
+  ],
+  "operation_receipts": [
+    {
+      "key": "FONO-91",
+      "kind": "comment",
+      "proposal_id": "001c50b3-5d9a-4a77-85e4-77a691e9ed07",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-91-comment-confirm.json",
+        "sha256": "f55275d3a9bc1f3ac690958070ab59eb2b3171442e7c08c9357df50b9390989b"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-91-comment-readback-task.json",
+        "sha256": "dd43e080262fc51fd003ecb622b44c0c092736d733de888b6486daa03bf66e19"
+      },
+      "matches": true,
+      "comment_id": "6c3de194-4451-4acf-bdfd-d9ddc37ca024",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-91-comment-readback-comment.json",
+        "sha256": "a9ac7e2f5a5a9e3679a15a0eaf8444848ad3717f52d5201c9639e11c74ede3ff"
+      }
+    },
+    {
+      "key": "FONO-91",
+      "kind": "status",
+      "proposal_id": "28263fef-1643-4216-9ac8-0aebb6d551e5",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-91-status-confirm.json",
+        "sha256": "d9da5946e903bb4418dd713749a9d636f2eade8b0b65d3f745dc16eb447bfb7a"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-91-status-readback-task.json",
+        "sha256": "29b7cb2c79d0cbfd4afd339634b366fccba8a5f0e48388fb6a249bf6319b5371"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-86",
+      "kind": "comment",
+      "proposal_id": "9660ac7b-0ad7-4e2e-ac54-7d992e04d388",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-86-comment-confirm.json",
+        "sha256": "f9944fd9df59cf02a57a242ed05786c893bda13e0c81f10c4e06f4cd0cc33a3b"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-86-comment-readback-task.json",
+        "sha256": "a819c058a819432e4a302eda72d62a5415b4ae6593ea0edf66f2b04832ab62b8"
+      },
+      "matches": true,
+      "comment_id": "57cbe63c-27c5-41b1-8554-644e96e59f04",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-86-comment-readback-comment.json",
+        "sha256": "6638dbec84abe351d406429c67a77109ae62ef4ef044575047053e86aabf2b10"
+      }
+    },
+    {
+      "key": "FONO-86",
+      "kind": "status",
+      "proposal_id": "ad9bf272-1084-4919-a749-1ab7b1b8e13a",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-86-status-confirm.json",
+        "sha256": "e8a6750c0c011370a430bce26e1f21d385887765c7486e2024c97db422ba8469"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-86-status-readback-task.json",
+        "sha256": "0160bd6c24dd95ac2b5a6add57acf6b3e344de12dae53f93f24c4f79b774c6c2"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-90",
+      "kind": "comment",
+      "proposal_id": "af3ab40c-fbeb-4308-9523-acdf352cc556",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-90-comment-confirm.json",
+        "sha256": "e18a985b9a679b8178d9dea1be245f9d08434ec44e99ab79da5a8397fcf841f0"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-90-comment-readback-task.json",
+        "sha256": "aea540d3e823bec2f62bbb77c3edd10ce3822e776424a32d06c12003ddbe358a"
+      },
+      "matches": true,
+      "comment_id": "c6750a97-a977-4055-9e4d-70d32df1941a",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-90-comment-readback-comment.json",
+        "sha256": "de7d2010604a3d2803994d4bceae8a16a680a57b171cbef2ed31a97604458413"
+      }
+    },
+    {
+      "key": "FONO-90",
+      "kind": "status",
+      "proposal_id": "ae4eeebc-30bd-49d2-b723-75adad07b89c",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-90-status-confirm.json",
+        "sha256": "e5b8e06aa968faebcc6a5474ecbe0da8780462017cfe364db6fc882cd771d812"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-90-status-readback-task.json",
+        "sha256": "537df62161dfdc2154ef5f238b6399bdda83fcf3cdff2870256b8d7f942c08df"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-92",
+      "kind": "comment",
+      "proposal_id": "3c1c0c3f-4df2-4d25-9880-1864ad79a727",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-92-comment-confirm.json",
+        "sha256": "c6565b69e2908b984512479471a9a8e5d2b26352a5f630d0a774422266471c6c"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-92-comment-readback-task.json",
+        "sha256": "95d447f0f2de57572f7b069247486989bda7e62e7911bf9a412307128d4287fb"
+      },
+      "matches": true,
+      "comment_id": "2f0450f2-ce81-41e0-be35-3301445f6b34",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-92-comment-readback-comment.json",
+        "sha256": "48dfe297a2f4b0eb137422a5b600b581804862c4adde9949e10689eb278bf8d3"
+      }
+    },
+    {
+      "key": "FONO-92",
+      "kind": "status",
+      "proposal_id": "f3500b75-8ef1-4551-a1de-4f6bd2427da1",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-92-status-confirm.json",
+        "sha256": "2c03ff683f4d7bf7ffa06c0bc996d2c3913f47a4c8a781c42894950a2a9f04e8"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-92-status-readback-task.json",
+        "sha256": "0e5cce73bfe2d1140ed88180c5f2cc4190b11a4417662fe7dcefc57772104560"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-93",
+      "kind": "comment",
+      "proposal_id": "e0313da1-bc4b-4626-958c-0869f329d495",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-93-comment-confirm.json",
+        "sha256": "ea7f49320a997b7c12ee53f251f583883421059b72869c60bc2ba3ef27337c7b"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-93-comment-readback-task.json",
+        "sha256": "e4820538d914e37b072dce45873cebbb85922c70b26fc0ef22d5c6e11c250360"
+      },
+      "matches": true,
+      "comment_id": "2e400937-9291-4128-972b-b0d7c709748b",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-93-comment-readback-comment.json",
+        "sha256": "0a2d97226ac18b29aaeda5b3535bcbcd6cc9cc20b198293e42c22d3189111abe"
+      }
+    },
+    {
+      "key": "FONO-93",
+      "kind": "status",
+      "proposal_id": "6258ddb8-e76f-4799-a8ce-c3f57234830d",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-93-status-confirm.json",
+        "sha256": "d92cec008b5e17adbd1e3aaa1db675e438d9f51ee75cc64f0ed394b78e306b0c"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-93-status-readback-task.json",
+        "sha256": "378176358ed401386e6e1871554203743d702558bf6b56aa60c0ce54f1c82d27"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-94",
+      "kind": "comment",
+      "proposal_id": "1bc8c018-8abd-4a3f-a47e-e9275a01e3fb",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-94-comment-confirm.json",
+        "sha256": "4f5e7763b4f6d58d05ab07629574b7b36ece54650ac6085ef719f8b615e4b107"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-94-comment-readback-task.json",
+        "sha256": "7c0098a3c38b06a9cbe34eb3cd4045c726a4283b3fcaf01188eb6ed518d41679"
+      },
+      "matches": true,
+      "comment_id": "4e4273b6-10a3-479e-b30a-09a15319091e",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-94-comment-readback-comment.json",
+        "sha256": "0431c15cf0ae7594d46d6e20b9b9f8f8dd2b3be6980e7ce232fbe6cbc5f3a5ea"
+      }
+    },
+    {
+      "key": "FONO-94",
+      "kind": "status",
+      "proposal_id": "7045e020-a13d-4f2c-b4db-b09b6be29042",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-94-status-confirm.json",
+        "sha256": "7d866da3aa92d41a42761634f8f1c6b4b73a2fcdf9a4ad357c484676a4dd248c"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-94-status-readback-task.json",
+        "sha256": "92912c8e4e22823914949eadbc8609c187a9509e32a97a2b447037d9aad72e55"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-95",
+      "kind": "comment",
+      "proposal_id": "b7de14c5-6f65-4ae9-8595-a587eb0ca7f7",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-95-comment-confirm.json",
+        "sha256": "14eb53c1ff5ab1f305a47e7ea941cc62b7ca1af224ab7494bf55b0c0f04a06b1"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-95-comment-readback-task.json",
+        "sha256": "398c0223926511c3e49cf6705c40a228a3b285d7e1e810f7cededdbd38a48ec9"
+      },
+      "matches": true,
+      "comment_id": "62acefe0-2ba4-4580-b3a2-31b4cb85ae1f",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-95-comment-readback-comment.json",
+        "sha256": "94a79b92bdd6825f823a296ef07c69b9942c1d5a5d5bba3aa197fa3c1c3d0ecf"
+      }
+    },
+    {
+      "key": "FONO-95",
+      "kind": "status",
+      "proposal_id": "29bd045a-c726-476c-a4e9-aae66f2b7673",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-95-status-confirm.json",
+        "sha256": "feb881dfc6ab840eef2926bab33074aae01ccf4f5a23463fe122a76629adb1ad"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-95-status-readback-task.json",
+        "sha256": "924379d9f67416fd6eac5b1b99e0d453e97b16c4d37fd698f45cb8ee85787694"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-96",
+      "kind": "comment",
+      "proposal_id": "fa316fa0-2cb6-4b7e-9c96-b571352f1c05",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-96-comment-confirm.json",
+        "sha256": "ad37d9724a69e458f7f6f199ef4bafeed71053eb2d0c2c38198c91217d0699dd"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-96-comment-readback-task.json",
+        "sha256": "cfb6ecb61a192b64318457af4094222f2dd3d167f2769a0cfe68540ddd76e1a9"
+      },
+      "matches": true,
+      "comment_id": "e3ddc615-2607-43e3-993b-be750eb12376",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-96-comment-readback-comment.json",
+        "sha256": "9d74692a86c4794c1350a66e91ead33d56c6facee73a703907b6cd51e92598ea"
+      }
+    },
+    {
+      "key": "FONO-96",
+      "kind": "status",
+      "proposal_id": "3e11b304-f3e8-42ec-b6d7-30d79339ea23",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-96-status-confirm.json",
+        "sha256": "58cf97e794e4ed3757371e94031b6c96b5c8ae4ce989ba6b2a386daf55982a06"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-96-status-readback-task.json",
+        "sha256": "95a341d461ea66d4e482a2151396eaf139198791081e400c7147255de1aa1635"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-100",
+      "kind": "comment",
+      "proposal_id": "0b4f1f0c-ef28-4bea-8da0-ac980c7fabdb",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-100-comment-confirm.json",
+        "sha256": "0b6d2dbdd440b8eb708847de0172b27e001d27082a18ff4fedd48fff177f8c4e"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-100-comment-readback-task.json",
+        "sha256": "55b9f4cb7b65899bfdec383896c374d7a304d8a474678c961f7aa8188f655a47"
+      },
+      "matches": true,
+      "comment_id": "5ccbe733-e864-4e0b-b7c9-c7a05099cf36",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-100-comment-readback-comment.json",
+        "sha256": "8e6c54476ed98284c38573c7b01b6d528d6b27352f2372129858b01c44edc8a9"
+      }
+    },
+    {
+      "key": "FONO-100",
+      "kind": "status",
+      "proposal_id": "e9618d42-c24b-4644-b7f9-234f64429530",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-100-status-confirm.json",
+        "sha256": "82a624db9859b5d66f239bbba7407bec0ea97c947c9631ca00bb5e76ac19d0e8"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-100-status-readback-task.json",
+        "sha256": "00fced102922b65cae57f5bcd462423d8f7cea8df5105d25eb022383accd0356"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-101",
+      "kind": "comment",
+      "proposal_id": "54428210-d1a4-4cde-aeb8-03cca0d1ecc4",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-101-comment-confirm.json",
+        "sha256": "d5c713e43b1bf09f4eb422900d57cdde65555721b24a2e59585ae96c8426b5ac"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-101-comment-readback-task.json",
+        "sha256": "8ee4551fa9afede4d5c05acd208e247f682c130b63798938e538e4334afca068"
+      },
+      "matches": true,
+      "comment_id": "9f967816-9b5e-40d9-b369-968440bde620",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-101-comment-readback-comment.json",
+        "sha256": "ccb04c4eca918bf80679c744843285b6278b5c7f9b2941d0931ec1b2ddccfa87"
+      }
+    },
+    {
+      "key": "FONO-101",
+      "kind": "status",
+      "proposal_id": "45cff390-3623-45e4-a58d-79b40a2f98b8",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-101-status-confirm.json",
+        "sha256": "eb4b167fd69ed0d4979df991ce07d95de3663936623809fe306e5b978c1e90c4"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-101-status-readback-task.json",
+        "sha256": "67e65cffa0c51587544bb86301cabec495ad1f6156e1ab99f2519096a8213b7c"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-102",
+      "kind": "comment",
+      "proposal_id": "1b02004c-00e3-495e-a4d4-1273e98091e5",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-102-comment-confirm.json",
+        "sha256": "fc4e2ac9fb7b358e5d2b17169919e3c12d92277f89146e66f973c6d5760fba83"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-102-comment-readback-task.json",
+        "sha256": "8b4baa5fdb5fd00d8a7f22ca3d5adc846ae0edddab83eea9012957f58610e015"
+      },
+      "matches": true,
+      "comment_id": "9f55baa1-91e6-44aa-9a42-42668826de47",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-102-comment-readback-comment.json",
+        "sha256": "9cebfcb9df3fc50d53a6c0bf3a35c65b3e257df58dd52cc3fedcc0e483773ede"
+      }
+    },
+    {
+      "key": "FONO-102",
+      "kind": "status",
+      "proposal_id": "511adeda-d11f-4faf-94fe-4a6ee308d45d",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-102-status-confirm.json",
+        "sha256": "b9f766f8f837e2cb88be4781997a83746c261ee21f49a33c4efb0494740d0543"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-102-status-readback-task.json",
+        "sha256": "5baa16ea5dc3db90ada657b71efc00ac8118903da04f1def7f437240baa9d29b"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-103",
+      "kind": "comment",
+      "proposal_id": "811d433d-3379-4334-a615-71044f388d13",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-103-comment-confirm.json",
+        "sha256": "e1f5ea2c60768da9e312f8a377d806f294fd14bb762c81c31968852a3f6a0fe3"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-103-comment-readback-task.json",
+        "sha256": "580f39a6682e3da3f2cc82c9a71d936b9fe06c905c71e78e3c09cebfaf59bb84"
+      },
+      "matches": true,
+      "comment_id": "2c84f555-87d6-4963-aa34-d08c7806f27e",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-103-comment-readback-comment.json",
+        "sha256": "bd99ab0583a3c145d41ed3977667528d7603becfa47491734834bb3f53257b52"
+      }
+    },
+    {
+      "key": "FONO-104",
+      "kind": "comment",
+      "proposal_id": "a840ccb9-5747-4af4-a4da-58549e81ff52",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-104-comment-confirm.json",
+        "sha256": "1b871a96297a9304f4aada2d366d63ef496359b368c51e2c31ce1c08324cfdc5"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-104-comment-readback-task.json",
+        "sha256": "335c082092115a720e85153d203dfa3ab35b0320b76c658b1822408142bf4a52"
+      },
+      "matches": true,
+      "comment_id": "6f98663f-3c8d-4db4-b260-ad4071f057f8",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-104-comment-readback-comment.json",
+        "sha256": "50b533c35142bf3ec96bf04e297bf1c50e53de68ead37459cb0c7e61fd375bac"
+      }
+    },
+    {
+      "key": "FONO-104",
+      "kind": "status",
+      "proposal_id": "c737e8f2-6512-4445-8fc3-adfc8e829b00",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-104-status-confirm.json",
+        "sha256": "7e98c4900cc93cad5e1063727b84cbabf443cbc3b54d3106788bdc0c879c095d"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-104-status-readback-task.json",
+        "sha256": "23b726611df819675c213192dfcc537d28425376a791ad94f04cb5b171e27c12"
+      },
+      "matches": true
+    },
+    {
+      "key": "FONO-105",
+      "kind": "comment",
+      "proposal_id": "5b893446-c8b8-4219-926b-92424c404b78",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-105-comment-confirm.json",
+        "sha256": "af9e788f5af858861ac8ceec725492ec468560f5d061d7b474c1e612e7af2194"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-105-comment-readback-task.json",
+        "sha256": "28992492428be63bc10d50a5cd65bbad34333ec109128474e839dc6efdbb95cf"
+      },
+      "matches": true,
+      "comment_id": "9c1a6440-3c9c-4598-a341-6b93968105dd",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-105-comment-readback-comment.json",
+        "sha256": "3905ea81a499b1ae773501770d55ca7bf4c723232e4b15a27a4e2be136e8943c"
+      }
+    },
+    {
+      "key": "FONO-51",
+      "kind": "comment",
+      "proposal_id": "f69deb66-b9a3-467e-8658-f2d2f4d859c5",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-51-comment-confirm.json",
+        "sha256": "f354f41f42f31200ee022f7c2233ba1f9d90660477494497baf286c3b3df55fb"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-51-comment-readback-task.json",
+        "sha256": "0be5c6253bdfd0dee5d40dea0d2e9cc60ee1ac834b8db690a5a100ac19e395de"
+      },
+      "matches": true,
+      "comment_id": "75699fea-8737-4865-95f5-3e75fb4a310b",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-51-comment-readback-comment.json",
+        "sha256": "42de0dface01bb35770dbaebfaa1b711e224dd04b548c77d5c62aa136ab53d7a"
+      }
+    },
+    {
+      "key": "FONO-52",
+      "kind": "comment",
+      "proposal_id": "459f7dc1-dbc0-4fe9-b023-8fa02c4ae2b3",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-52-comment-confirm.json",
+        "sha256": "a39badee1feaea81b293b1cf6575bfa0c72fc5ea8a0eb1c3bb1f6383d115d1da"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-52-comment-readback-task.json",
+        "sha256": "ac81364640d9541eeb25db67e5582a68bd3735e6ed0f187bda4a7d26fe6175a9"
+      },
+      "matches": true,
+      "comment_id": "32f15094-5d9f-4765-a803-9fcb32dcdd47",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-52-comment-readback-comment.json",
+        "sha256": "f0a97a180ea6697b3d13147d13847d3a7b640ab5817087679b77749acff65ba3"
+      }
+    },
+    {
+      "key": "FONO-53",
+      "kind": "comment",
+      "proposal_id": "e5e84963-1432-4430-bb0c-5cc34f80f950",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-53-comment-confirm.json",
+        "sha256": "4e5d5e106cf20b81fbe11ee6d70e29782588e7086dc269b2d2e9a02150df6e7e"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-53-comment-readback-task.json",
+        "sha256": "821cac635934fb050c2beae8f6f5f99d322652f84239f80488e2e72a9a7d83e2"
+      },
+      "matches": true,
+      "comment_id": "e0169ecf-417c-4552-8ad0-52ccc18a06ad",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-53-comment-readback-comment.json",
+        "sha256": "3e03f144cb4cc9311794f4680e1ffcc055ef18551499ac8e0c9ea32552137405"
+      }
+    },
+    {
+      "key": "FONO-50",
+      "kind": "comment",
+      "proposal_id": "045e3647-ba20-4e08-8846-3423363e1fa9",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-50-comment-confirm.json",
+        "sha256": "5526c5f49b5160efbee80cff34b2ff452882ca4494e1dbc46aa1e424a610a815"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-50-comment-readback-task.json",
+        "sha256": "dfc7c9a1dda85e625804ca0031af253f34c621bfe6776687d0be416a8f92a190"
+      },
+      "matches": true,
+      "comment_id": "505b65c3-3bb2-490e-8096-eaee509df55b",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-50-comment-readback-comment.json",
+        "sha256": "29844fb092c68cdf47da41970f2072d11f64fe95a17a6025b8fcd2ecff690427"
+      }
+    },
+    {
+      "key": "FONO-47",
+      "kind": "comment",
+      "proposal_id": "2ce3d2b9-47c3-45c7-bad2-c270edc81ba0",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-47-comment-confirm.json",
+        "sha256": "e6efad7ec36917160871e8f5c8319dfd211697482d1e013ccee4fde8a444081a"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-47-comment-readback-task.json",
+        "sha256": "8632c37edaa472ad08e72e1e6f131fd985558ce3b5d85915b0cdf408af6f63c5"
+      },
+      "matches": true,
+      "comment_id": "9c37dd73-03a1-40c1-8dcd-d733bb59bd09",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-47-comment-readback-comment.json",
+        "sha256": "0623dd3fee84fc6b1ad0f382c8fd6e1652c1ccdbb14f53e53c221d4defa8c56d"
+      }
+    },
+    {
+      "key": "FONO-108",
+      "kind": "comment",
+      "proposal_id": "cb2c60c0-6f90-4a67-90ea-91b65c588d44",
+      "confirmation": {
+        "path": "build/checks/stage4-kvorum-final-FONO-108-comment-confirm.json",
+        "sha256": "42660c22d7238f0a0898117e84f331ad07e09c9e277f66c16f9f98cd0737eaa8"
+      },
+      "task_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-108-comment-readback-task.json",
+        "sha256": "6c44a30613ffdc84fee7625a69abbb4f951bc6ea1d9bb055c6baea0c299e80dd"
+      },
+      "matches": true,
+      "comment_id": "3e327b74-1ba7-4786-bc5e-1d6d4fd07fd5",
+      "comment_readback": {
+        "path": "build/checks/stage4-kvorum-final-FONO-108-comment-readback-comment.json",
+        "sha256": "3afd5c11ce74995cdc6993482fde9c89b8ff4cd75906b41b26bf483d1a210d4a"
+      }
+    }
+  ],
+  "timing_note": "verified_at_utc is the local receipt-finalization time. Comment/task timestamps retain the exact server strings; comments may have been read before their later status transition. Final status uses the confirmed transition readback when one exists."
+}

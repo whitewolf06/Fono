@@ -38,6 +38,13 @@ export function preferencesFromNative(
       "",
     language: s.language,
     acceleration: s.acceleration,
+    whisperDecoding: s.whisper_decoding === "accurate" ? "accurate" : "fast",
+    whisperThreads:
+      Number.isInteger(s.whisper_threads) &&
+      Number(s.whisper_threads) >= 1 &&
+      Number(s.whisper_threads) <= 8
+        ? s.whisper_threads!
+        : null,
     gpuModelResidency: availableGpuModelResidency(s.gpu_model_residency),
     dictionaryEnabled: s.personal_dictionary_enabled ?? false,
     dictionaryEntries: (s.personal_dictionary_entries ?? []).map((entry) => ({
@@ -125,6 +132,8 @@ export function applyPreferences(
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",
+    whisperDecoding: "whisper_decoding",
+    whisperThreads: "whisper_threads",
     gpuModelResidency: "gpu_model_residency",
     dictionaryEnabled: "personal_dictionary_enabled",
     wakeEnabled: "wake_word_enabled",

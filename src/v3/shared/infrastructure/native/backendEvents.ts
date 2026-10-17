@@ -1,7 +1,12 @@
 import type { PipelineState, Settings } from "./ipcTypes";
 import type { GpuMemoryStatus } from "../../domain/gpuMemory";
+import {
+  isDictationOutcomeEvent,
+  type DictationOutcomeEvent,
+} from "../../domain/dictationOutcome";
 
 interface Payloads {
+  dictation_outcome: DictationOutcomeEvent;
   operation: {
     kind: "phase_changed" | "finished";
     id: number;
@@ -51,6 +56,7 @@ export type BackendEventV1 = {
 }[keyof Payloads];
 
 const kinds = new Set<keyof Payloads>([
+  "dictation_outcome",
   "operation",
   "pipeline_state",
   "pipeline_mode",
@@ -73,6 +79,8 @@ export function isBackendEventV1(value: unknown): value is BackendEventV1 {
     envelope.schema_version === 1 &&
     typeof envelope.kind === "string" &&
     kinds.has(envelope.kind as keyof Payloads) &&
-    "payload" in envelope
+    "payload" in envelope &&
+    (envelope.kind !== "dictation_outcome" ||
+      isDictationOutcomeEvent(envelope.payload))
   );
 }

@@ -61,6 +61,7 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                 ));
             }
             let settings = self.app.state::<AppState>().settings();
+            let decoding = settings.decoding_options();
             let model_path = settings
                 .whisper_model_path
                 .ok_or(AppError::ModelNotLoaded)?;
@@ -81,13 +82,14 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                             settings.acceleration,
                             &worker_paths,
                         )?;
-                        stt.transcribe_window(
+                        stt.transcribe_window_with_options(
                             window,
                             language,
                             context,
                             worker_operation_id,
                             &permit.cancellation,
                             start,
+                            decoding,
                         )
                     })();
                     let preempted =

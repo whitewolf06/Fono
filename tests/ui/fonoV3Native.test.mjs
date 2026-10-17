@@ -250,6 +250,56 @@ test("native workspace has no steady idle IPC and audio events are operation-sco
   }
 });
 
+test("a delayed outcome queues one latest session read instead of losing an in-flight successor snapshot", async () => {
+  const workspace = createNativeWorkspace();
+  let finishSnapshot;
+  try {
+    await workspace.refresh();
+    await flush();
+    const baseline = invoke;
+    let reads = 0;
+    const successor = {
+      state: "listening",
+      operation_id: 10,
+      source: "hotkey",
+      level: 0,
+      last: null,
+    };
+    const first = new Promise((resolve) => {
+      finishSnapshot = resolve;
+    });
+    invoke = async (command, args) =>
+      command === "get_desktop_snapshot"
+        ? ++reads === 1
+          ? first
+          : successor
+        : baseline(command, args);
+    const emit = (kind, payload) =>
+      listeners.get("backend-event-v1")({
+        payload: { schema_version: 1, kind, payload },
+      });
+    emit("pipeline_state", { state: "listening" });
+    await flush();
+    assert.equal(reads, 1);
+    emit("dictation_outcome", { operation_id: 9, outcome: "cancelled" });
+    finishSnapshot(successor);
+    for (let n = 0; n < 8; n++) await flush();
+    assert.equal(
+      reads,
+      2,
+      "one queued latest read follows the invalidated reply",
+    );
+    assert.equal(workspace.state.phase, "listening");
+    assert.equal(workspace.state.dictationOutcome, undefined);
+    emit("audio_level", { operation_id: 10, level: 0.06, elapsed_ms: 4100 });
+    assert.equal(workspace.state.audioLevel, 0.48);
+  } finally {
+    finishSnapshot?.(null);
+    workspace.dispose();
+    await flush();
+  }
+});
+
 test("hidden workspace defers backend reads and coalesces show with focus into one resync", async () => {
   const handlers = new Map();
   const document = globalThis.document;

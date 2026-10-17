@@ -150,6 +150,7 @@ impl WorkerSession {
             stderr_thread: Some(stderr_thread),
             next_request_id: 0,
             timeouts,
+            supports_decoding_options: false,
         };
         let hello_meta = worker.next_meta("hello", None);
         match worker.request(&WorkerRequest::Hello { meta: hello_meta })? {
@@ -165,7 +166,7 @@ impl WorkerSession {
                 && capabilities.supports_cancel
                 && capabilities.supports_token_timestamps
                 && capabilities.maximum_request_bytes >= MAX_REQUEST_FRAME_BYTES
-                && capabilities.maximum_response_bytes >= MAX_RESPONSE_FRAME_BYTES => {}
+                && capabilities.maximum_response_bytes >= MAX_RESPONSE_FRAME_BYTES => { worker.supports_decoding_options = capabilities.supports_decoding_options; }
             other => {
                 return Err(AppError::Stt(format!(
                     "{} worker returned an unexpected handshake: {other:?}",
@@ -211,16 +212,35 @@ impl WorkerSession {
 
     #[cfg(test)]
     pub(super) fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
-        self.transcribe_with_cancellation(samples, language, None)
+        self.transcribe_with_cancellation(samples, language, None, fono_stt_protocol::DecodingOptions::default())
     }
 
+    fn validate_decoding(&self, decoding: fono_stt_protocol::DecodingOptions) -> AppResult<()> {
+        decoding.validate().map_err(AppError::Config)?;
+        if !decoding.is_default() && !self.supports_decoding_options {
+            return Err(AppError::Config("Worker does not support the selected Whisper decoding options; rebuild or update the worker".into()));
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
     pub(super) fn transcribe_cancellable(
         &mut self,
         samples: &[i16],
         language: &str,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
-        self.transcribe_with_cancellation(samples, language, Some(cancellation))
+        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default())
+    }
+
+    pub(super) fn transcribe_cancellable_with_options(
+        &mut self,
+        samples: &[i16],
+        language: &str,
+        cancellation: &OperationCancellation,
+        decoding: fono_stt_protocol::DecodingOptions,
+    ) -> AppResult<Transcript> {
+        self.transcribe_with_cancellation(samples, language, Some(cancellation), decoding)
     }
 
     fn transcribe_with_cancellation(
@@ -228,7 +248,9 @@ impl WorkerSession {
         samples: &[i16],
         language: &str,
         cancellation: Option<&OperationCancellation>,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<Transcript> {
+        self.validate_decoding(decoding)?;
         let meta = self.next_meta("transcribe", None);
         let request_id = meta.request_id.clone();
         let operation_id = format!("dictation-{request_id}");
@@ -241,6 +263,7 @@ impl WorkerSession {
                 model_path: self.model_path.clone(),
                 language: language.into(),
                 samples_i16_base64: encode_samples_i16_base64(samples),
+                decoding,
             },
             cancellation,
         )?;

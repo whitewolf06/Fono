@@ -65,6 +65,19 @@ Transport — JSON Lines через `stdin`/`stdout`; `stderr` использу�
 token timestamps и допустимые размеры frames. `load` выполняется
 после handshake; одного `ready` недостаточно для готовности модели.
 
+Настройки декодирования передаются отдельным необязательным полем `decoding`.
+Старый запрос сохраняет прежние параметры конкретного backend: Rust CPU/CUDA
+использует Greedy `best_of=1`, C++ Vulkan — Greedy `best_of=5`. Эта разница
+существовала до настройки декодирования; без сравнительного GPU-прогона
+она сохранена. Число потоков выбирается автоматически в пределах 1–8.
+Точный режим включает Beam Search 5;
+число потоков можно задать явно от 1 до 8. Выбор берётся из снимка настроек
+конкретной операции. Улучшение WER точным режимом требует измерения на корпусе.
+Capability `supports_decoding_options` сохраняет совместимость protocol 3:
+worker без неё принимает прежний режим, а нестандартный выбор отклоняется
+клиентом до отправки запроса. В точном режиме обе реализации сохраняют
+vendor fallback `greedy.best_of=-1`, как `whisper-rs 0.16` при Beam Search.
+
 ## Lifecycle и scheduling
 
 Worker mailbox принадлежит выделенному owner thread. Длительное распознавание
@@ -90,6 +103,20 @@ API работает ограниченными окнами и уступает
 проверяют handshake каждого поставляемого worker и закрытый manifest
 его EXE/DLL. Runtime DLL CUDA поставляются рядом с worker; CUDA Toolkit
 и Vulkan SDK нужны машине сборки. Пользователю нужны совместимые драйверы.
+
+В ARC-08 проверен Rust/Vulkan-кандидат. Вложенный `vulkan-shaders-gen`
+не собрался с MSBuild из каталога Cargo: `FileTracker FTK1011` на пути
+CompilerId длиной 264 символа. Повтор в Developer Shell дал ту же ошибку.
+Rust-зависимость содержит whisper.cpp 1.8.3, C++-путь — 1.9.1; сравнение
+качества без выравнивания исходников некорректно. До подготовленной замены
+сохраняется C++ Vulkan worker. Команды, обоснование и альтернативы —
+[ADR 0002](adr/0002-vulkan-cpp-worker.md).
+
+Один `scripts/worker-contract.mjs` запускается против обоих EXE через
+`verify-stt-workers.ps1`. Он проверяет handshake, health, отказ неверной версии,
+ошибки аудио/JSON, точную границу frame с LF, восстановление, idle cancel
+и shutdown. Прогон не загружает модель и не подтверждает отмену активного
+inference или качество на реальной GPU.
 
 Инструкции сборки — [development.md](development.md), native resources
 и CI — [fono-ci-updates.md](fono-ci-updates.md). Handshake, unit tests

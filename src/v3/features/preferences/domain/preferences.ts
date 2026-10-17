@@ -4,6 +4,7 @@ import type {
   QuickPanel,
 } from "../../../shared/domain/contracts";
 import { validateWakePhrase } from "./wakePhrase";
+import { message } from "../../../shared/domain/messages";
 import { validateDictionary } from "../../../shared/domain/personalDictionary";
 import {
   emptyProcessingPrompts,
@@ -15,6 +16,8 @@ export const defaults: Preferences = {
   model: "small",
   language: "ru",
   acceleration: "auto",
+  whisperDecoding: "fast",
+  whisperThreads: null,
   gpuModelResidency: "resident",
   dictionaryEnabled: false,
   dictionaryEntries: [],
@@ -64,6 +67,8 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "model",
     "language",
     "acceleration",
+    "whisperDecoding",
+    "whisperThreads",
     "gpuModelResidency",
     "dictionaryEntries",
   ],
@@ -119,7 +124,14 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
 export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
   microphone: ["microphone"],
   wake: ["wakePhrase", "wakeLanguage", "silenceMs"],
-  recognition: ["model", "language", "acceleration", "gpuModelResidency"],
+  recognition: [
+    "model",
+    "language",
+    "acceleration",
+    "gpuModelResidency",
+    "whisperDecoding",
+    "whisperThreads",
+  ],
   processing: [
     "processingMode",
     "processingTrigger",
@@ -160,6 +172,15 @@ export const profiles = [
   { value: "cloud", label: "В облаке · OpenAI (демо)" },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  if (!["fast", "accurate"].includes(p.whisperDecoding))
+    return message("decoding.invalidMode");
+  if (
+    p.whisperThreads !== null &&
+    (!Number.isInteger(p.whisperThreads) ||
+      p.whisperThreads < 1 ||
+      p.whisperThreads > 8)
+  )
+    return message("decoding.invalidThreads");
   if (!["resident", "adaptive"].includes(p.gpuModelResidency))
     return "Выберите режим хранения модели в видеопамяти.";
   if (typeof p.overlayQuickProcessing !== "boolean")

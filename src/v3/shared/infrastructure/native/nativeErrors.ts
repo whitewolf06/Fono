@@ -1,4 +1,6 @@
 import catalog from "./userErrorCatalog.json";
+import { createMessageDictionary } from "../../domain/messages";
+const errorMessage = createMessageDictionary(catalog.messages);
 
 export type NativeErrorCode = keyof typeof catalog.messages;
 type RecognitionBackend = "auto" | "cpu" | "cuda" | "vulkan";
@@ -114,7 +116,7 @@ function message(code: NativeErrorCode, params: NativeErrorParams): string {
     const template = catalog.templates[code as keyof typeof catalog.templates];
     return template.replace("{backend}", backendLabels[params.backend]);
   }
-  return catalog.messages[code];
+  return errorMessage(code);
 }
 
 export class NativeIpcError extends Error {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { message } from "../domain/messages";
 import { computed } from "vue";
 import type { OverlayProcessingChoice } from "../domain/processing";
 import {
@@ -22,9 +23,11 @@ const effectiveLanguage = computed(() =>
     <div
       class="processing-choice-row"
       role="group"
-      aria-label="Стиль обработки"
+      :aria-label="message('processing.styleLabel')"
     >
-      <span class="processing-choice-label">Стиль</span>
+      <span class="processing-choice-label">{{
+        message("processing.style")
+      }}</span>
       <div class="processing-choice-options">
         <button
           type="button"
@@ -36,16 +39,22 @@ const effectiveLanguage = computed(() =>
           :title="option.label"
           @click="$emit('change', { ...choice, preset: option.value })"
         >
-          {{ option.value === "formal" ? "Деловой" : option.label }}
+          {{
+            option.value === "formal"
+              ? message("processing.formal")
+              : option.label
+          }}
         </button>
       </div>
     </div>
     <div
       class="processing-choice-row"
       role="group"
-      aria-label="Перевод после обработки"
+      :aria-label="message('processing.translationLabel')"
     >
-      <span class="processing-choice-label">Перевод</span>
+      <span class="processing-choice-label">{{
+        message("processing.translation")
+      }}</span>
       <div class="processing-choice-options">
         <button
           type="button"
@@ -65,13 +74,17 @@ const effectiveLanguage = computed(() =>
             })
           "
         >
-          {{ option.value === "none" ? "Нет" : option.value.toUpperCase() }}
+          {{
+            option.value === "none"
+              ? message("processing.none")
+              : option.value.toUpperCase()
+          }}
         </button>
       </div>
     </div>
     <small v-if="remember" class="processing-choice-note" role="status">
       {{
-        saving ? "Сохраняю выбор…" : "Выбор сохраняется для следующих диктовок"
+        saving ? message("processing.saving") : message("processing.remembered")
       }}
     </small>
   </div>

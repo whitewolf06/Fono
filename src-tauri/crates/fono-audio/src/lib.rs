@@ -6,6 +6,8 @@
 
 pub mod audio_source;
 pub mod error;
+pub mod speech_boundaries;
+pub use speech_boundaries::{recorded_speech_bounds, RecordedSpeechDecision, SpeechBounds};
 #[cfg(feature = "speech-vad")]
 pub mod speech_vad;
 
@@ -14,4 +16,4 @@ pub use audio_source::{
 };
 pub use error::{AudioError, AudioResult};
 #[cfg(feature = "speech-vad")]
-pub use speech_vad::{RecordedSpeechDecision, SpeechVadDecision, StreamingSpeechVad};
+pub use speech_vad::{SpeechVadDecision, StreamingSpeechVad};

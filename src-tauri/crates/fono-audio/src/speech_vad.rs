@@ -1,5 +1,6 @@
 //! Streaming neural VAD. Every 512-sample window is inspected, including
 //! earlier windows in a packet that finishes in silence.
+pub use crate::RecordedSpeechDecision;
 use crate::{AudioError, AudioResult};
 use std::{collections::VecDeque, path::Path};
 mod recording;
@@ -15,14 +16,6 @@ pub struct SpeechVadDecision {
     pub has_speech: bool,
     pub last_speech_sample: Option<u64>,
     pub processed_samples: u64,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct RecordedSpeechDecision {
-    pub has_speech: bool,
-    pub first_speech_sample: Option<u64>,
-    pub last_speech_sample: Option<u64>,
-    pub inspected_samples: u64,
 }
 
 pub struct StreamingSpeechVad {

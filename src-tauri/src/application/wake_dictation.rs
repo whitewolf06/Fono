@@ -132,14 +132,8 @@ pub fn propose_command(app: &AppHandle, operation: u64, command: String) {
         None,
     );
     let _ = app.emit("command-proposal", proposal.original_text);
-    pipeline::set_state_for_operation(
-        app,
-        state.inner(),
-        &pipeline,
-        operation,
-        PipelineState::Idle,
-        TerminalReason::Completed,
-    );
+    // The ordinary Stop owner atomically settles this operation after proposal
+    // creation, so Cancel and the published outcome share the same claim.
     if let Some(window) = app.get_webview_window("settings") {
         let _ = window.unminimize();
         let _ = window.show();

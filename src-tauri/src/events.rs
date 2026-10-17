@@ -1,7 +1,7 @@
 //! Versioned backend events and channels consumed by the current UI.
 
 use serde::Serialize;
-use tauri::{Emitter, Runtime};
+use tauri::{Emitter, Manager, Runtime};
 
 use crate::stt::SttReadiness;
 use crate::types::{PipelineState, Settings};
@@ -21,6 +21,7 @@ pub struct EventEnvelopeV1<T> {
 #[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
 pub enum BackendEventV1 {
     Operation(OperationEvent),
+    DictationOutcome(DictationOutcomeEventV1),
     PipelineState(PipelineStateEventV1),
     PipelineMode(PipelineModeV1),
     Wake(WakeEventV1),
@@ -37,6 +38,12 @@ pub enum BackendEventV1 {
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct PipelineStateEventV1 {
     pub state: PipelineState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct DictationOutcomeEventV1 {
+    pub operation_id: u64,
+    pub outcome: crate::application::dictation::DictationOutcomeKind,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -155,6 +162,23 @@ pub fn emit_operation<R: Runtime>(handle: &tauri::AppHandle<R>, event: Operation
     emit_v1(handle, BackendEventV1::Operation(event));
 }
 
+pub(crate) fn emit_dictation_outcome<R: Runtime>(
+    handle: &tauri::AppHandle<R>,
+    operation_id: u64,
+    outcome: crate::application::dictation::DictationOutcomeKind,
+) {
+    let event = DictationOutcomeEventV1 {
+        operation_id,
+        outcome,
+    };
+    if let Some(session) = handle.try_state::<crate::ipc::desktop_v3::DesktopSession>() {
+        if !session.record_outcome(event) {
+            return;
+        }
+    }
+    emit_v1(handle, BackendEventV1::DictationOutcome(event));
+}
+
 pub fn emit_pipeline_state<R: Runtime>(handle: &tauri::AppHandle<R>, state: PipelineState) {
     emit_v1(
         handle,
@@ -262,6 +286,25 @@ pub fn emit_error<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn outcome_event_contains_only_the_captured_operation_and_typed_status() {
+        let encoded = serde_json::to_value(EventEnvelopeV1 {
+            schema_version: SCHEMA_VERSION,
+            event: BackendEventV1::DictationOutcome(DictationOutcomeEventV1 {
+                operation_id: 17,
+                outcome: crate::application::dictation::DictationOutcomeKind::NoSpeech,
+            }),
+        })
+        .unwrap();
+        assert_eq!(
+            encoded,
+            serde_json::json!({
+                "schema_version": 1, "kind": "dictation_outcome",
+                "payload": {"operation_id": 17, "outcome": "no_speech"}
+            })
+        );
+    }
 
     #[test]
     fn event_envelope_is_versioned_and_typed() {

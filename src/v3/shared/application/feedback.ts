@@ -1,3 +1,4 @@
+import { message } from "../domain/messages";
 import { ref } from "vue";
 import { useWlToast } from "@whitelife-core/ui-kit";
 export function useFeedback() {
@@ -16,7 +17,7 @@ export function useFeedback() {
       return true;
     } catch (e) {
       error.value =
-        e instanceof Error ? e.message : "Не удалось выполнить действие.";
+        e instanceof Error ? e.message : message("common.actionFailed");
       toast.err(error.value);
       return false;
     } finally {

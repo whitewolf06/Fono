@@ -1,0 +1,1788 @@
+{
+  "schema": 1,
+  "generated_at": "2026-10-17T21:55:32.370Z",
+  "corpus": "fono-fleurs-smoke-v1",
+  "license": "CC-BY-4.0",
+  "corpus_manifest_sha256": "bd83645181c0a9db009312b34d3a5f4cdc5c3abbd95965803e1f3302df695c3d",
+  "model": {
+    "basename": "ggml-tiny.bin",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+    "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
+  },
+  "vad_model_sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+  "binaries": {
+    "runner_sha256": "a058a14263ca25d175f64c535243aafe7b772df83ffa7779bbee1ff648533d40",
+    "trimmer_sha256": "93babc6487a4df1e78b9598419380bf895e715b7fb2e6f5c5fa6142962cc0d22"
+  },
+  "hardware": {
+    "platform": "win32",
+    "architecture": "x64",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+    "logical_cpus": 16
+  },
+  "basis": "Original fixed 16 kHz public WAVs. No resampler change/reconstruction; this does not resolve PERF-04's earlier WER regression or native wideband acceptance.",
+  "default_policy": "fast/automatic threads retained; accurate is explicit beam-5 opt-in, without a general quality guarantee",
+  "boundaries": [
+    {
+      "id": "en-01",
+      "has_speech": true,
+      "input_samples": 168960,
+      "first_speech_sample": 19072,
+      "last_speech_sample": 152096,
+      "leading_trimmed_samples": 0,
+      "output_samples": 168960,
+      "pre_roll_samples": 32000,
+      "output_sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+    },
+    {
+      "id": "en-02",
+      "has_speech": true,
+      "input_samples": 140160,
+      "first_speech_sample": 5248,
+      "last_speech_sample": 140160,
+      "leading_trimmed_samples": 0,
+      "output_samples": 140160,
+      "pre_roll_samples": 32000,
+      "output_sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+    },
+    {
+      "id": "en-03",
+      "has_speech": true,
+      "input_samples": 183360,
+      "first_speech_sample": 6272,
+      "last_speech_sample": 174112,
+      "leading_trimmed_samples": 0,
+      "output_samples": 183360,
+      "pre_roll_samples": 32000,
+      "output_sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+    },
+    {
+      "id": "en-04",
+      "has_speech": true,
+      "input_samples": 92160,
+      "first_speech_sample": 9344,
+      "last_speech_sample": 92160,
+      "leading_trimmed_samples": 0,
+      "output_samples": 92160,
+      "pre_roll_samples": 32000,
+      "output_sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+    },
+    {
+      "id": "en-05",
+      "has_speech": true,
+      "input_samples": 69120,
+      "first_speech_sample": 3712,
+      "last_speech_sample": 60960,
+      "leading_trimmed_samples": 0,
+      "output_samples": 69120,
+      "pre_roll_samples": 32000,
+      "output_sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+    },
+    {
+      "id": "en-06",
+      "has_speech": true,
+      "input_samples": 182720,
+      "first_speech_sample": 2688,
+      "last_speech_sample": 182720,
+      "leading_trimmed_samples": 0,
+      "output_samples": 182720,
+      "pre_roll_samples": 32000,
+      "output_sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+    },
+    {
+      "id": "en-07",
+      "has_speech": true,
+      "input_samples": 172800,
+      "first_speech_sample": 13440,
+      "last_speech_sample": 120352,
+      "leading_trimmed_samples": 0,
+      "output_samples": 172800,
+      "pre_roll_samples": 32000,
+      "output_sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+    },
+    {
+      "id": "en-08",
+      "has_speech": true,
+      "input_samples": 111360,
+      "first_speech_sample": 19584,
+      "last_speech_sample": 111360,
+      "leading_trimmed_samples": 0,
+      "output_samples": 111360,
+      "pre_roll_samples": 32000,
+      "output_sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+    },
+    {
+      "id": "en-09",
+      "has_speech": true,
+      "input_samples": 176640,
+      "first_speech_sample": 10368,
+      "last_speech_sample": 176640,
+      "leading_trimmed_samples": 0,
+      "output_samples": 176640,
+      "pre_roll_samples": 32000,
+      "output_sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+    },
+    {
+      "id": "en-10",
+      "has_speech": true,
+      "input_samples": 332800,
+      "first_speech_sample": 14976,
+      "last_speech_sample": 325152,
+      "leading_trimmed_samples": 0,
+      "output_samples": 332800,
+      "pre_roll_samples": 32000,
+      "output_sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+    },
+    {
+      "id": "ru-01",
+      "has_speech": true,
+      "input_samples": 270720,
+      "first_speech_sample": 35968,
+      "last_speech_sample": 239136,
+      "leading_trimmed_samples": 3968,
+      "output_samples": 266752,
+      "pre_roll_samples": 32000,
+      "output_sha256": "cee9fad4034713ab8e4fbc9102deda7148c57d9540fb441003ca5540cc2fd02d"
+    },
+    {
+      "id": "ru-02",
+      "has_speech": true,
+      "input_samples": 184320,
+      "first_speech_sample": 38016,
+      "last_speech_sample": 160800,
+      "leading_trimmed_samples": 6016,
+      "output_samples": 178304,
+      "pre_roll_samples": 32000,
+      "output_sha256": "7b6985cfe5855d4ec4675e5683bb485bdb1292c98a68d1b4c80e4207faccf5d4"
+    },
+    {
+      "id": "ru-03",
+      "has_speech": true,
+      "input_samples": 138240,
+      "first_speech_sample": 32384,
+      "last_speech_sample": 118816,
+      "leading_trimmed_samples": 384,
+      "output_samples": 137856,
+      "pre_roll_samples": 32000,
+      "output_sha256": "2c60eb8aa36185034e7663c249abbc6ad9a9e8ac6a2dbf0e2e0587539657f487"
+    },
+    {
+      "id": "ru-04",
+      "has_speech": true,
+      "input_samples": 126720,
+      "first_speech_sample": 26240,
+      "last_speech_sample": 116256,
+      "leading_trimmed_samples": 0,
+      "output_samples": 126720,
+      "pre_roll_samples": 32000,
+      "output_sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+    },
+    {
+      "id": "ru-05",
+      "has_speech": true,
+      "input_samples": 311040,
+      "first_speech_sample": 33408,
+      "last_speech_sample": 304160,
+      "leading_trimmed_samples": 1408,
+      "output_samples": 309632,
+      "pre_roll_samples": 32000,
+      "output_sha256": "27748db61c8a7cf824843ca7a769e06a142bf958ac38c2530fbbf22421312401"
+    },
+    {
+      "id": "ru-06",
+      "has_speech": true,
+      "input_samples": 167040,
+      "first_speech_sample": 16000,
+      "last_speech_sample": 148512,
+      "leading_trimmed_samples": 0,
+      "output_samples": 167040,
+      "pre_roll_samples": 32000,
+      "output_sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+    },
+    {
+      "id": "ru-07",
+      "has_speech": true,
+      "input_samples": 115200,
+      "first_speech_sample": 9344,
+      "last_speech_sample": 94240,
+      "leading_trimmed_samples": 0,
+      "output_samples": 115200,
+      "pre_roll_samples": 32000,
+      "output_sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+    },
+    {
+      "id": "ru-08",
+      "has_speech": true,
+      "input_samples": 432000,
+      "first_speech_sample": 34432,
+      "last_speech_sample": 417312,
+      "leading_trimmed_samples": 2432,
+      "output_samples": 429568,
+      "pre_roll_samples": 32000,
+      "output_sha256": "4ef8cc576eae7b03e84b2536de6130345a1a0cd8e4585c3293d4dc505349eafb"
+    },
+    {
+      "id": "ru-09",
+      "has_speech": true,
+      "input_samples": 184320,
+      "first_speech_sample": 28800,
+      "last_speech_sample": 162336,
+      "leading_trimmed_samples": 0,
+      "output_samples": 184320,
+      "pre_roll_samples": 32000,
+      "output_sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+    },
+    {
+      "id": "ru-10",
+      "has_speech": true,
+      "input_samples": 206080,
+      "first_speech_sample": 12928,
+      "last_speech_sample": 206080,
+      "leading_trimmed_samples": 0,
+      "output_samples": 206080,
+      "pre_roll_samples": 32000,
+      "output_sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+    }
+  ],
+  "variants": {
+    "original_fast": {
+      "backend": "cpu",
+      "cold": {
+        "errors": {
+          "cer": 0.010101010101010102,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "reference_words": 19,
+          "wer": 0.05263157894736842,
+          "word_errors": 1
+        },
+        "id": "en-01",
+        "seconds": 0.6165218
+      },
+      "decoding": {
+        "strategy": "fast",
+        "threads": null
+      },
+      "entries": [
+        {
+          "audio_seconds": 10.56,
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "id": "en-01",
+          "language": "en",
+          "rtf": 0.040242206439393934,
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "warm_seconds": 0.4249577
+        },
+        {
+          "audio_seconds": 8.76,
+          "errors": {
+            "cer": 0.10185185185185185,
+            "character_errors": 11,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "id": "en-02",
+          "language": "en",
+          "rtf": 0.048672716894977174,
+          "text": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence.",
+          "warm_seconds": 0.426373
+        },
+        {
+          "audio_seconds": 11.46,
+          "errors": {
+            "cer": 0.06451612903225806,
+            "character_errors": 12,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.18181818181818182,
+            "word_errors": 6
+          },
+          "id": "en-03",
+          "language": "en",
+          "rtf": 0.03980384816753926,
+          "text": "To the north and with an easy reach is a romantic and fascinating town of Sinatra, which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron.",
+          "warm_seconds": 0.4561521
+        },
+        {
+          "audio_seconds": 5.76,
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "id": "en-04",
+          "language": "en",
+          "rtf": 0.060879583333333334,
+          "text": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "warm_seconds": 0.3506664
+        },
+        {
+          "audio_seconds": 4.32,
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "id": "en-05",
+          "language": "en",
+          "rtf": 0.08247488425925925,
+          "text": "Many people don't think about them as senators because they have feathers and can fly.",
+          "warm_seconds": 0.3562915
+        },
+        {
+          "audio_seconds": 11.42,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-06",
+          "language": "en",
+          "rtf": 0.03325589316987741,
+          "text": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "warm_seconds": 0.3797823
+        },
+        {
+          "audio_seconds": 10.8,
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-07",
+          "language": "en",
+          "rtf": 0.03931219444444444,
+          "text": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "warm_seconds": 0.4245717
+        },
+        {
+          "audio_seconds": 6.96,
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-08",
+          "language": "en",
+          "rtf": 0.09403793103448276,
+          "text": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "warm_seconds": 0.654504
+        },
+        {
+          "audio_seconds": 11.04,
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "id": "en-09",
+          "language": "en",
+          "rtf": 0.03633949275362319,
+          "text": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "warm_seconds": 0.401188
+        },
+        {
+          "audio_seconds": 20.8,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-10",
+          "language": "en",
+          "rtf": 0.03184225480769231,
+          "text": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+          "warm_seconds": 0.6623189
+        },
+        {
+          "audio_seconds": 16.92,
+          "errors": {
+            "cer": 0.05844155844155844,
+            "character_errors": 9,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "id": "ru-01",
+          "language": "ru",
+          "rtf": 0.043455094562647754,
+          "text": "В древнем китай использовали уникальный способ обозначения передов времени. Каждый этап китай или каждое семья находившаяся у власти. Были особо династии.",
+          "warm_seconds": 0.7352602
+        },
+        {
+          "audio_seconds": 11.52,
+          "errors": {
+            "cer": 0.030303030303030304,
+            "character_errors": 3,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.14285714285714285,
+            "word_errors": 2
+          },
+          "id": "ru-02",
+          "language": "ru",
+          "rtf": 0.05131894965277777,
+          "text": "Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы.",
+          "warm_seconds": 0.5911943
+        },
+        {
+          "audio_seconds": 8.64,
+          "errors": {
+            "cer": 0.02666666666666667,
+            "character_errors": 2,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.1,
+            "word_errors": 1
+          },
+          "id": "ru-03",
+          "language": "ru",
+          "rtf": 0.0486655787037037,
+          "text": "Во всех научных вопросах включая психологию, были приняты взгляды рестотеля.",
+          "warm_seconds": 0.4204706
+        },
+        {
+          "audio_seconds": 7.92,
+          "errors": {
+            "cer": 0.04918032786885246,
+            "character_errors": 6,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.17647058823529413,
+            "word_errors": 3
+          },
+          "id": "ru-04",
+          "language": "ru",
+          "rtf": 0.06067473484848485,
+          "text": "В различных местах Рима были установлены большей, телевизионные экраны, с помощью которых люди могли наблюдать с ремонией.",
+          "warm_seconds": 0.4805439
+        },
+        {
+          "audio_seconds": 19.44,
+          "errors": {
+            "cer": 0.06334841628959276,
+            "character_errors": 14,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.34615384615384615,
+            "word_errors": 9
+          },
+          "id": "ru-05",
+          "language": "ru",
+          "rtf": 0.04446508230452675,
+          "text": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления стани после урогана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "warm_seconds": 0.8644012
+        },
+        {
+          "audio_seconds": 10.44,
+          "errors": {
+            "cer": 0.0975609756097561,
+            "character_errors": 12,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.3,
+            "word_errors": 6
+          },
+          "id": "ru-06",
+          "language": "ru",
+          "rtf": 0.0676188601532567,
+          "text": "В 1990 году он был добавлен в список в Семерного наследия, находящаяся под огроза из опасности со стороны писков пустыни.",
+          "warm_seconds": 0.7059409
+        },
+        {
+          "audio_seconds": 7.2,
+          "errors": {
+            "cer": 0.13793103448275862,
+            "character_errors": 12,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.5,
+            "word_errors": 6
+          },
+          "id": "ru-07",
+          "language": "ru",
+          "rtf": 0.06053461111111111,
+          "text": "Соклассной ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "warm_seconds": 0.4358492
+        },
+        {
+          "audio_seconds": 27,
+          "errors": {
+            "cer": 0.09090909090909091,
+            "character_errors": 26,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.2631578947368421,
+            "word_errors": 10
+          },
+          "id": "ru-08",
+          "language": "ru",
+          "rtf": 0.027983725925925927,
+          "text": "Но для женщин использования блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "warm_seconds": 0.7555606
+        },
+        {
+          "audio_seconds": 11.52,
+          "errors": {
+            "cer": 0.29931972789115646,
+            "character_errors": 44,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.52,
+            "word_errors": 13
+          },
+          "id": "ru-09",
+          "language": "ru",
+          "rtf": 0.048349184027777777,
+          "text": "Только мутации в клетках зародашего линии могут передаваться далее, где это может привести гиблик леток или раку.",
+          "warm_seconds": 0.5569826
+        },
+        {
+          "audio_seconds": 12.88,
+          "errors": {
+            "cer": 0.12080536912751678,
+            "character_errors": 18,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.2727272727272727,
+            "word_errors": 6
+          },
+          "id": "ru-10",
+          "language": "ru",
+          "rtf": 0.047340263975155276,
+          "text": "Не оскверняйте это место нася или выцироповое графить на объекты вокруг. Не оскверняйте это место нася или выцироповое графить на объекты вокруг.",
+          "warm_seconds": 0.6097426
+        }
+      ],
+      "model_load_seconds": 0.1225726,
+      "schema": 1,
+      "threads": 8,
+      "summary": {
+        "word_errors": 85,
+        "reference_words": 450,
+        "character_errors": 207,
+        "reference_characters": 2846,
+        "warm_seconds": 10.6927517,
+        "audio_seconds": 235.35999999999996,
+        "wer": 0.18888888888888888,
+        "cer": 0.07273366127898806,
+        "rtf": 0.045431473912304565
+      },
+      "by_language": {
+        "ru": {
+          "word_errors": 62,
+          "reference_words": 205,
+          "character_errors": 146,
+          "reference_characters": 1463,
+          "warm_seconds": 6.1559461,
+          "audio_seconds": 133.48,
+          "wer": 0.3024390243902439,
+          "cer": 0.09979494190020506,
+          "rtf": 0.04611886499850165
+        },
+        "en": {
+          "word_errors": 23,
+          "reference_words": 245,
+          "character_errors": 61,
+          "reference_characters": 1383,
+          "warm_seconds": 4.5368056,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.09387755102040816,
+          "cer": 0.044107013738250184,
+          "rtf": 0.044530875539850814
+        }
+      }
+    },
+    "original_accurate": {
+      "backend": "cpu",
+      "cold": {
+        "errors": {
+          "cer": 0.010101010101010102,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "reference_words": 19,
+          "wer": 0.05263157894736842,
+          "word_errors": 1
+        },
+        "id": "en-01",
+        "seconds": 0.65755
+      },
+      "decoding": {
+        "strategy": "accurate",
+        "threads": null
+      },
+      "entries": [
+        {
+          "audio_seconds": 10.56,
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "id": "en-01",
+          "language": "en",
+          "rtf": 0.055375445075757576,
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "warm_seconds": 0.5847647
+        },
+        {
+          "audio_seconds": 8.76,
+          "errors": {
+            "cer": 0.07407407407407407,
+            "character_errors": 8,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.23809523809523808,
+            "word_errors": 5
+          },
+          "id": "en-02",
+          "language": "en",
+          "rtf": 0.07146142694063927,
+          "text": "All now is alongside the world's safe for you, always begin with a capital letter, even in the middle of a sentence.",
+          "warm_seconds": 0.6260021
+        },
+        {
+          "audio_seconds": 11.46,
+          "errors": {
+            "cer": 0.026881720430107527,
+            "character_errors": 5,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.12121212121212122,
+            "word_errors": 4
+          },
+          "id": "en-03",
+          "language": "en",
+          "rtf": 0.05387321989528795,
+          "text": "To the north and with an easy reach is the romantic and fascinating town of Sintra and which was made famous to foreigners after a glowing account of its splendor is recorded by Lord Byron.",
+          "warm_seconds": 0.6173871
+        },
+        {
+          "audio_seconds": 5.76,
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "id": "en-04",
+          "language": "en",
+          "rtf": 0.07906836805555556,
+          "text": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "warm_seconds": 0.4554338
+        },
+        {
+          "audio_seconds": 4.32,
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "id": "en-05",
+          "language": "en",
+          "rtf": 0.11069680555555554,
+          "text": "Many people don't think about them as senators because they have feathers and can fly.",
+          "warm_seconds": 0.4782102
+        },
+        {
+          "audio_seconds": 11.42,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-06",
+          "language": "en",
+          "rtf": 0.047231751313485115,
+          "text": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "warm_seconds": 0.5393866
+        },
+        {
+          "audio_seconds": 10.8,
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-07",
+          "language": "en",
+          "rtf": 0.05799502777777778,
+          "text": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "warm_seconds": 0.6263463
+        },
+        {
+          "audio_seconds": 6.96,
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-08",
+          "language": "en",
+          "rtf": 0.06682277298850575,
+          "text": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "warm_seconds": 0.4650865
+        },
+        {
+          "audio_seconds": 11.04,
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "id": "en-09",
+          "language": "en",
+          "rtf": 0.056745090579710146,
+          "text": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "warm_seconds": 0.6264658
+        },
+        {
+          "audio_seconds": 20.8,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-10",
+          "language": "en",
+          "rtf": 0.0766525576923077,
+          "text": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times.",
+          "warm_seconds": 1.5943732000000002
+        },
+        {
+          "audio_seconds": 16.92,
+          "errors": {
+            "cer": 0.5324675324675324,
+            "character_errors": 82,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.6666666666666666,
+            "word_errors": 14
+          },
+          "id": "ru-01",
+          "language": "ru",
+          "rtf": 0.12802505910165482,
+          "text": "В древнем китай использовали уникальный способ обозначения передов времени.",
+          "warm_seconds": 2.166184
+        },
+        {
+          "audio_seconds": 11.52,
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.07142857142857142,
+            "word_errors": 1
+          },
+          "id": "ru-02",
+          "language": "ru",
+          "rtf": 0.22628909722222224,
+          "text": "Мадагаскар намного больше других и является самобытным континентом в то, что касается дикой природы.",
+          "warm_seconds": 2.6068504
+        },
+        {
+          "audio_seconds": 8.64,
+          "errors": {
+            "cer": 0.4266666666666667,
+            "character_errors": 32,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.4,
+            "word_errors": 4
+          },
+          "id": "ru-03",
+          "language": "ru",
+          "rtf": 0.20637291666666668,
+          "text": "Во всех научных вопросах включая психологию.",
+          "warm_seconds": 1.7830620000000001
+        },
+        {
+          "audio_seconds": 7.92,
+          "errors": {
+            "cer": 0.03278688524590164,
+            "character_errors": 4,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.11764705882352941,
+            "word_errors": 2
+          },
+          "id": "ru-04",
+          "language": "ru",
+          "rtf": 0.2624688005050505,
+          "text": "В различных местах Рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать с ремонией.",
+          "warm_seconds": 2.0787529
+        },
+        {
+          "audio_seconds": 19.44,
+          "errors": {
+            "cer": 0.04524886877828054,
+            "character_errors": 10,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.2692307692307692,
+            "word_errors": 7
+          },
+          "id": "ru-05",
+          "language": "ru",
+          "rtf": 0.11922799897119339,
+          "text": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления зданий после урагана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "warm_seconds": 2.3177923
+        },
+        {
+          "audio_seconds": 10.44,
+          "errors": {
+            "cer": 0.13821138211382114,
+            "character_errors": 17,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.35,
+            "word_errors": 7
+          },
+          "id": "ru-06",
+          "language": "ru",
+          "rtf": 0.09093568965517242,
+          "text": "В 1990 году он был добавлен в список семерного наследия, находящаяся по-дого раза из опасности со стороны писков пустыни.",
+          "warm_seconds": 0.9493686
+        },
+        {
+          "audio_seconds": 7.2,
+          "errors": {
+            "cer": 0.10344827586206896,
+            "character_errors": 9,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.4166666666666667,
+            "word_errors": 5
+          },
+          "id": "ru-07",
+          "language": "ru",
+          "rtf": 0.16500643055555553,
+          "text": "Согласно ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "warm_seconds": 1.1880462999999999
+        },
+        {
+          "audio_seconds": 27,
+          "errors": {
+            "cer": 0.06993006993006994,
+            "character_errors": 20,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.21052631578947367,
+            "word_errors": 8
+          },
+          "id": "ru-08",
+          "language": "ru",
+          "rtf": 0.059701985185185186,
+          "text": "Но длижащее использование блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "warm_seconds": 1.6119536
+        },
+        {
+          "audio_seconds": 11.52,
+          "errors": {
+            "cer": 0.06802721088435375,
+            "character_errors": 10,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.24,
+            "word_errors": 6
+          },
+          "id": "ru-09",
+          "language": "ru",
+          "rtf": 0.06684717013888888,
+          "text": "Только мутации в клетках зародашего линии могут передаваться далее детям, в то время как мутация где-то еще могут привести гиблик леток или раку.",
+          "warm_seconds": 0.7700794
+        },
+        {
+          "audio_seconds": 12.88,
+          "errors": {
+            "cer": 0.174496644295302,
+            "character_errors": 26,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.45454545454545453,
+            "word_errors": 10
+          },
+          "id": "ru-10",
+          "language": "ru",
+          "rtf": 0.07752371894409937,
+          "text": "Не оскверняйте на мясом нася или выцараповой графить на объекты вокруг. Не оскверняйте на мясом нася или выцараповой графить на объекты вокруг.",
+          "warm_seconds": 0.9985055
+        }
+      ],
+      "model_load_seconds": 0.1052826,
+      "schema": 1,
+      "threads": 8,
+      "summary": {
+        "word_errors": 84,
+        "reference_words": 450,
+        "character_errors": 262,
+        "reference_characters": 2846,
+        "warm_seconds": 23.0840513,
+        "audio_seconds": 235.35999999999996,
+        "wer": 0.18666666666666668,
+        "cer": 0.09205903021784961,
+        "rtf": 0.09807975569340587
+      },
+      "by_language": {
+        "ru": {
+          "word_errors": 64,
+          "reference_words": 205,
+          "character_errors": 211,
+          "reference_characters": 1463,
+          "warm_seconds": 16.470595,
+          "audio_seconds": 133.48,
+          "wer": 0.3121951219512195,
+          "cer": 0.1442241968557758,
+          "rtf": 0.12339372939766258
+        },
+        "en": {
+          "word_errors": 20,
+          "reference_words": 245,
+          "character_errors": 51,
+          "reference_characters": 1383,
+          "warm_seconds": 6.613456299999999,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.08163265306122448,
+          "cer": 0.0368763557483731,
+          "rtf": 0.06491417648213585
+        }
+      }
+    },
+    "neural_fast": {
+      "backend": "cpu",
+      "cold": {
+        "errors": {
+          "cer": 0.010101010101010102,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "reference_words": 19,
+          "wer": 0.05263157894736842,
+          "word_errors": 1
+        },
+        "id": "en-01",
+        "seconds": 0.486293
+      },
+      "decoding": {
+        "strategy": "fast",
+        "threads": null
+      },
+      "entries": [
+        {
+          "audio_seconds": 10.56,
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "id": "en-01",
+          "language": "en",
+          "rtf": 0.0408783428030303,
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "warm_seconds": 0.4316753
+        },
+        {
+          "audio_seconds": 8.76,
+          "errors": {
+            "cer": 0.10185185185185185,
+            "character_errors": 11,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "id": "en-02",
+          "language": "en",
+          "rtf": 0.05028958904109589,
+          "text": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence.",
+          "warm_seconds": 0.4405368
+        },
+        {
+          "audio_seconds": 11.46,
+          "errors": {
+            "cer": 0.06451612903225806,
+            "character_errors": 12,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.18181818181818182,
+            "word_errors": 6
+          },
+          "id": "en-03",
+          "language": "en",
+          "rtf": 0.05238448516579407,
+          "text": "To the north and with an easy reach is a romantic and fascinating town of Sinatra, which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron.",
+          "warm_seconds": 0.6003262
+        },
+        {
+          "audio_seconds": 5.76,
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "id": "en-04",
+          "language": "en",
+          "rtf": 0.33641350694444444,
+          "text": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "warm_seconds": 1.9377418
+        },
+        {
+          "audio_seconds": 4.32,
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "id": "en-05",
+          "language": "en",
+          "rtf": 0.29198402777777777,
+          "text": "Many people don't think about them as senators because they have feathers and can fly.",
+          "warm_seconds": 1.261371
+        },
+        {
+          "audio_seconds": 11.42,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-06",
+          "language": "en",
+          "rtf": 0.11007845008756567,
+          "text": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "warm_seconds": 1.2570959
+        },
+        {
+          "audio_seconds": 10.8,
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-07",
+          "language": "en",
+          "rtf": 0.10361430555555554,
+          "text": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "warm_seconds": 1.1190345
+        },
+        {
+          "audio_seconds": 6.96,
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-08",
+          "language": "en",
+          "rtf": 0.060319727011494254,
+          "text": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "warm_seconds": 0.4198253
+        },
+        {
+          "audio_seconds": 11.04,
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "id": "en-09",
+          "language": "en",
+          "rtf": 0.038628288043478266,
+          "text": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "warm_seconds": 0.4264563
+        },
+        {
+          "audio_seconds": 20.8,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-10",
+          "language": "en",
+          "rtf": 0.03216007211538461,
+          "text": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+          "warm_seconds": 0.6689295
+        },
+        {
+          "audio_seconds": 16.672,
+          "errors": {
+            "cer": 0.07792207792207792,
+            "character_errors": 12,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.3333333333333333,
+            "word_errors": 7
+          },
+          "id": "ru-01",
+          "language": "ru",
+          "rtf": 0.03081184620921305,
+          "text": "В древнем китай использовали уникальный способ обозначения передов времени. Каждый тапки Тае или каждое семья, находившаяся у власти. Были особо династии.",
+          "warm_seconds": 0.5136951
+        },
+        {
+          "audio_seconds": 11.144,
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.07142857142857142,
+            "word_errors": 1
+          },
+          "id": "ru-02",
+          "language": "ru",
+          "rtf": 0.037194517229002154,
+          "text": "Мадагаскар намного больше других и является самобытным континентом в то, что касается дикой природы.",
+          "warm_seconds": 0.4144957
+        },
+        {
+          "audio_seconds": 8.616,
+          "errors": {
+            "cer": 0.02666666666666667,
+            "character_errors": 2,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.1,
+            "word_errors": 1
+          },
+          "id": "ru-03",
+          "language": "ru",
+          "rtf": 0.04386698003714021,
+          "text": "Во всех научных вопросах включая психологию, были приняты взгляды рестотеля.",
+          "warm_seconds": 0.3779579
+        },
+        {
+          "audio_seconds": 7.92,
+          "errors": {
+            "cer": 0.04918032786885246,
+            "character_errors": 6,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.17647058823529413,
+            "word_errors": 3
+          },
+          "id": "ru-04",
+          "language": "ru",
+          "rtf": 0.06114272727272728,
+          "text": "В различных местах Рима были установлены большей, телевизионные экраны, с помощью которых люди могли наблюдать с ремонией.",
+          "warm_seconds": 0.4842504
+        },
+        {
+          "audio_seconds": 19.352,
+          "errors": {
+            "cer": 0.06787330316742081,
+            "character_errors": 15,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.38461538461538464,
+            "word_errors": 10
+          },
+          "id": "ru-05",
+          "language": "ru",
+          "rtf": 0.03648857482430756,
+          "text": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления станей после урогана Катрина, который некоторые фескальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "warm_seconds": 0.7061269
+        },
+        {
+          "audio_seconds": 10.44,
+          "errors": {
+            "cer": 0.0975609756097561,
+            "character_errors": 12,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.3,
+            "word_errors": 6
+          },
+          "id": "ru-06",
+          "language": "ru",
+          "rtf": 0.06758939655172415,
+          "text": "В 1990 году он был добавлен в список в Семерного наследия, находящаяся под огроза из опасности со стороны писков пустыни.",
+          "warm_seconds": 0.7056333
+        },
+        {
+          "audio_seconds": 7.2,
+          "errors": {
+            "cer": 0.13793103448275862,
+            "character_errors": 12,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.5,
+            "word_errors": 6
+          },
+          "id": "ru-07",
+          "language": "ru",
+          "rtf": 0.06583543055555556,
+          "text": "Соклассной ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "warm_seconds": 0.4740151
+        },
+        {
+          "audio_seconds": 26.848,
+          "errors": {
+            "cer": 0.06293706293706294,
+            "character_errors": 18,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.2631578947368421,
+            "word_errors": 10
+          },
+          "id": "ru-08",
+          "language": "ru",
+          "rtf": 0.03949213349225268,
+          "text": "Но для женщин использования блогов может дать учащимся возможность стать более аналитичными и критичными. Путем активного отклика на Интернет материалы. Учащийся могут определять свою полицию с контекстей, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы. Поролег 2002.",
+          "warm_seconds": 1.0602848
+        },
+        {
+          "audio_seconds": 11.52,
+          "errors": {
+            "cer": 0.29931972789115646,
+            "character_errors": 44,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.52,
+            "word_errors": 13
+          },
+          "id": "ru-09",
+          "language": "ru",
+          "rtf": 0.06391232638888888,
+          "text": "Только мутации в клетках зародашего линии могут передаваться далее, где это может привести гиблик леток или раку.",
+          "warm_seconds": 0.73627
+        },
+        {
+          "audio_seconds": 12.88,
+          "errors": {
+            "cer": 0.12080536912751678,
+            "character_errors": 18,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.2727272727272727,
+            "word_errors": 6
+          },
+          "id": "ru-10",
+          "language": "ru",
+          "rtf": 0.04570322981366459,
+          "text": "Не оскверняйте это место нася или выцироповое графить на объекты вокруг. Не оскверняйте это место нася или выцироповое графить на объекты вокруг.",
+          "warm_seconds": 0.5886576
+        }
+      ],
+      "model_load_seconds": 0.1089145,
+      "schema": 1,
+      "threads": 8,
+      "summary": {
+        "word_errors": 86,
+        "reference_words": 450,
+        "character_errors": 201,
+        "reference_characters": 2846,
+        "warm_seconds": 14.624379399999999,
+        "audio_seconds": 234.47199999999995,
+        "wer": 0.19111111111111112,
+        "cer": 0.07062543921293044,
+        "rtf": 0.06237153860588898
+      },
+      "by_language": {
+        "ru": {
+          "word_errors": 63,
+          "reference_words": 205,
+          "character_errors": 140,
+          "reference_characters": 1463,
+          "warm_seconds": 6.061386800000001,
+          "audio_seconds": 132.592,
+          "wer": 0.3073170731707317,
+          "cer": 0.09569377990430622,
+          "rtf": 0.04571457403161579
+        },
+        "en": {
+          "word_errors": 23,
+          "reference_words": 245,
+          "character_errors": 61,
+          "reference_characters": 1383,
+          "warm_seconds": 8.5629926,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.09387755102040816,
+          "cer": 0.044107013738250184,
+          "rtf": 0.08404978994895956
+        }
+      }
+    },
+    "neural_accurate": {
+      "backend": "cpu",
+      "cold": {
+        "errors": {
+          "cer": 0.010101010101010102,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "reference_words": 19,
+          "wer": 0.05263157894736842,
+          "word_errors": 1
+        },
+        "id": "en-01",
+        "seconds": 0.6040167
+      },
+      "decoding": {
+        "strategy": "accurate",
+        "threads": null
+      },
+      "entries": [
+        {
+          "audio_seconds": 10.56,
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "id": "en-01",
+          "language": "en",
+          "rtf": 0.05759328598484849,
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "warm_seconds": 0.6081851
+        },
+        {
+          "audio_seconds": 8.76,
+          "errors": {
+            "cer": 0.07407407407407407,
+            "character_errors": 8,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.23809523809523808,
+            "word_errors": 5
+          },
+          "id": "en-02",
+          "language": "en",
+          "rtf": 0.06625977168949772,
+          "text": "All now is alongside the world's safe for you, always begin with a capital letter, even in the middle of a sentence.",
+          "warm_seconds": 0.5804356
+        },
+        {
+          "audio_seconds": 11.46,
+          "errors": {
+            "cer": 0.026881720430107527,
+            "character_errors": 5,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.12121212121212122,
+            "word_errors": 4
+          },
+          "id": "en-03",
+          "language": "en",
+          "rtf": 0.06276438045375218,
+          "text": "To the north and with an easy reach is the romantic and fascinating town of Sintra and which was made famous to foreigners after a glowing account of its splendor is recorded by Lord Byron.",
+          "warm_seconds": 0.7192798
+        },
+        {
+          "audio_seconds": 5.76,
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "id": "en-04",
+          "language": "en",
+          "rtf": 0.13418364583333334,
+          "text": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "warm_seconds": 0.7728978
+        },
+        {
+          "audio_seconds": 4.32,
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "id": "en-05",
+          "language": "en",
+          "rtf": 0.16795631944444445,
+          "text": "Many people don't think about them as senators because they have feathers and can fly.",
+          "warm_seconds": 0.7255713
+        },
+        {
+          "audio_seconds": 11.42,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-06",
+          "language": "en",
+          "rtf": 0.09836332749562171,
+          "text": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "warm_seconds": 1.1233092
+        },
+        {
+          "audio_seconds": 10.8,
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-07",
+          "language": "en",
+          "rtf": 0.08841455555555555,
+          "text": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "warm_seconds": 0.9548772
+        },
+        {
+          "audio_seconds": 6.96,
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "id": "en-08",
+          "language": "en",
+          "rtf": 0.1226062787356322,
+          "text": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "warm_seconds": 0.8533397
+        },
+        {
+          "audio_seconds": 11.04,
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "id": "en-09",
+          "language": "en",
+          "rtf": 0.08076614130434782,
+          "text": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "warm_seconds": 0.8916582
+        },
+        {
+          "audio_seconds": 20.8,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-10",
+          "language": "en",
+          "rtf": 0.08088385576923077,
+          "text": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times.",
+          "warm_seconds": 1.6823842
+        },
+        {
+          "audio_seconds": 16.672,
+          "errors": {
+            "cer": 0.5324675324675324,
+            "character_errors": 82,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.6666666666666666,
+            "word_errors": 14
+          },
+          "id": "ru-01",
+          "language": "ru",
+          "rtf": 0.09919222048944337,
+          "text": "В древнем китай использовали уникальный способ обозначения передов времени.",
+          "warm_seconds": 1.6537327
+        },
+        {
+          "audio_seconds": 11.144,
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.07142857142857142,
+            "word_errors": 1
+          },
+          "id": "ru-02",
+          "language": "ru",
+          "rtf": 0.06248408111988514,
+          "text": "Мадагаскар намного больше других и является самобытным континентом в то, что касается дикой природы.",
+          "warm_seconds": 0.6963226
+        },
+        {
+          "audio_seconds": 8.616,
+          "errors": {
+            "cer": 0.4266666666666667,
+            "character_errors": 32,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.4,
+            "word_errors": 4
+          },
+          "id": "ru-03",
+          "language": "ru",
+          "rtf": 0.2289772051996286,
+          "text": "Во всех научных вопросах включая психологию.",
+          "warm_seconds": 1.9728676
+        },
+        {
+          "audio_seconds": 7.92,
+          "errors": {
+            "cer": 0.03278688524590164,
+            "character_errors": 4,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.11764705882352941,
+            "word_errors": 2
+          },
+          "id": "ru-04",
+          "language": "ru",
+          "rtf": 0.1589556313131313,
+          "text": "В различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать с ремонией.",
+          "warm_seconds": 1.2589286
+        },
+        {
+          "audio_seconds": 19.352,
+          "errors": {
+            "cer": 0.08144796380090498,
+            "character_errors": 18,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.4230769230769231,
+            "word_errors": 11
+          },
+          "id": "ru-05",
+          "language": "ru",
+          "rtf": 0.132177557875155,
+          "text": "Причиной дебатов в столе разногласия относительно затратно оказания материальной поддержки и восстановления станей после урагана Катрина, который некоторые фескальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "warm_seconds": 2.5579001
+        },
+        {
+          "audio_seconds": 10.44,
+          "errors": {
+            "cer": 0.13821138211382114,
+            "character_errors": 17,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.35,
+            "word_errors": 7
+          },
+          "id": "ru-06",
+          "language": "ru",
+          "rtf": 0.16774330459770115,
+          "text": "В 1990 году он был добавлен в список семерного наследия, находящаяся по-дого раза из опасности со стороны писков пустыни.",
+          "warm_seconds": 1.7512401
+        },
+        {
+          "audio_seconds": 7.2,
+          "errors": {
+            "cer": 0.08045977011494253,
+            "character_errors": 7,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.4166666666666667,
+            "word_errors": 5
+          },
+          "id": "ru-07",
+          "language": "ru",
+          "rtf": 0.08957187500000001,
+          "text": "Согласно ядерному управлению Епонии на заводе были обнаружены радиоактивной цези иют.",
+          "warm_seconds": 0.6449175
+        },
+        {
+          "audio_seconds": 26.848,
+          "errors": {
+            "cer": 0.08391608391608392,
+            "character_errors": 24,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.2894736842105263,
+            "word_errors": 11
+          },
+          "id": "ru-08",
+          "language": "ru",
+          "rtf": 0.045380132598331346,
+          "text": "Но для жаще использования блогов может дать учащимся возможность стать более аналитичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию с контекстей, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "warm_seconds": 1.2183658
+        },
+        {
+          "audio_seconds": 11.52,
+          "errors": {
+            "cer": 0.05442176870748299,
+            "character_errors": 8,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.24,
+            "word_errors": 6
+          },
+          "id": "ru-09",
+          "language": "ru",
+          "rtf": 0.08035325520833334,
+          "text": "Только мутации в клетках зародашевой линии могут передаваться далее детям, в то время как мутация где-то еще могут привести гиблик леток или раку.",
+          "warm_seconds": 0.9256695
+        },
+        {
+          "audio_seconds": 12.88,
+          "errors": {
+            "cer": 0.12080536912751678,
+            "character_errors": 18,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.2727272727272727,
+            "word_errors": 6
+          },
+          "id": "ru-10",
+          "language": "ru",
+          "rtf": 0.05753718167701863,
+          "text": "Не оскверняйте это место нася или выцироповое графить на объекты вокруг. Не оскверняйте это место нася или выцироповое графить на объекты вокруг.",
+          "warm_seconds": 0.7410789
+        }
+      ],
+      "model_load_seconds": 0.1123772,
+      "schema": 1,
+      "threads": 8,
+      "summary": {
+        "word_errors": 87,
+        "reference_words": 450,
+        "character_errors": 262,
+        "reference_characters": 2846,
+        "warm_seconds": 22.332961500000003,
+        "audio_seconds": 234.47199999999995,
+        "wer": 0.19333333333333333,
+        "cer": 0.09205903021784961,
+        "rtf": 0.09524788247637248
+      },
+      "by_language": {
+        "ru": {
+          "word_errors": 67,
+          "reference_words": 205,
+          "character_errors": 211,
+          "reference_characters": 1463,
+          "warm_seconds": 13.4210234,
+          "audio_seconds": 132.592,
+          "wer": 0.32682926829268294,
+          "cer": 0.1442241968557758,
+          "rtf": 0.10122046126463133
+        },
+        "en": {
+          "word_errors": 20,
+          "reference_words": 245,
+          "character_errors": 51,
+          "reference_characters": 1383,
+          "warm_seconds": 8.9119381,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.08163265306122448,
+          "cer": 0.0368763557483731,
+          "rtf": 0.08747485374950925
+        }
+      }
+    }
+  },
+  "comparisons": {
+    "neural_vs_original_fast": {
+      "maximum_wer_regression": 0,
+      "wer_delta": 0.0022222222222222365,
+      "cer_delta": -0.0021082220660576245,
+      "no_wer_regression": false,
+      "passed": false
+    },
+    "accurate_vs_fast_original": {
+      "maximum_wer_regression": 0,
+      "wer_delta": -0.0022222222222222088,
+      "cer_delta": 0.019325368938861553,
+      "no_wer_regression": true,
+      "passed": true
+    },
+    "accurate_vs_fast_neural": {
+      "maximum_wer_regression": 0,
+      "wer_delta": 0.0022222222222222088,
+      "cer_delta": 0.021433591004919178,
+      "no_wer_regression": false,
+      "passed": false
+    }
+  }
+}

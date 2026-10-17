@@ -69,17 +69,21 @@
     },
     {
       "file": "src-tauri/resources/stt-workers/fono-stt-cuda-worker.exe",
-      "bytes": 31652352,
-      "sha256": "1b932a7eb7683ad830267e208b3da3793c48332f5f12d72c86a735183969bb51",
+      "bytes": 31662080,
+      "sha256": "b137c7fd82fea62bbe50c86364f4eb1861c3615cce77c8fa5a9ff77cbf2acbf6",
       "productVersion": null,
-      "fileVersion": null
+      "fileVersion": null,
+      "reviewedOn": "2026-10-18",
+      "evidence": "docs/evidence/stage4-worker-architecture.json"
     },
     {
       "file": "src-tauri/resources/stt-workers/fono-stt-vulkan-worker.exe",
-      "bytes": 50104320,
-      "sha256": "5d0470ecfc216fe72b46e2bd73915d6483c4009d7505e1784e81f965ca9f2a5d",
+      "bytes": 50108416,
+      "sha256": "614775923ad8bc1de1afeab19494c3a148934b7c1684adb2d32ef3d20a722fb8",
       "productVersion": null,
-      "fileVersion": null
+      "fileVersion": null,
+      "reviewedOn": "2026-10-18",
+      "evidence": "docs/evidence/stage4-worker-architecture.json"
     },
     {
       "file": "src-tauri/resources/vad/silero_vad.onnx",

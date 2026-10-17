@@ -1,12 +1,12 @@
 //! One owner finalizes a recording. Concurrent stop callers await that result.
 use crate::{
+    application::dictation::DictationOutcome,
     error::{AppError, AppResult},
-    types::Transcript,
 };
 use parking_lot::Mutex;
 use tokio::sync::watch;
 
-type ResultValue = Option<Result<Transcript, String>>;
+type ResultValue<T = DictationOutcome> = Option<Result<T, String>>;
 
 #[derive(Default)]
 pub struct CompletionGate(Mutex<Option<(u64, watch::Sender<ResultValue>)>>);
@@ -36,7 +36,7 @@ impl CompletionGate {
 }
 
 impl FinishTicket {
-    pub fn complete(self, result: &AppResult<Transcript>) {
+    pub fn complete(self, result: &AppResult<DictationOutcome>) {
         self.0
             .send_replace(Some(result.as_ref().cloned().map_err(ToString::to_string)));
     }
@@ -51,7 +51,7 @@ impl Drop for FinishTicket {
     }
 }
 
-pub async fn wait(mut receiver: watch::Receiver<ResultValue>) -> AppResult<Transcript> {
+pub async fn wait<T: Clone>(mut receiver: watch::Receiver<ResultValue<T>>) -> AppResult<T> {
     loop {
         if let Some(result) = receiver.borrow().clone() {
             return result.map_err(AppError::Internal);
@@ -75,18 +75,22 @@ mod tests {
         let FinishClaim::Waiting(waiter) = gate.claim(4).unwrap() else {
             panic!()
         };
-        ticket.complete(&Ok(Transcript {
+        ticket.complete(&Ok(DictationOutcome::Completed(crate::types::Transcript {
             text: "результат".into(),
             detected_language: None,
             transcribe_secs: None,
             audio_secs: None,
             device: None,
-        }));
-        assert_eq!(wait(waiter).await.unwrap().text, "результат");
+        })));
+        assert!(
+            matches!(wait(waiter).await.unwrap(), DictationOutcome::Completed(t) if t.text == "результат")
+        );
         let FinishClaim::Waiting(waiter) = gate.claim(0).unwrap() else {
             panic!()
         };
-        assert_eq!(wait(waiter).await.unwrap().text, "результат");
+        assert!(
+            matches!(wait(waiter).await.unwrap(), DictationOutcome::Completed(t) if t.text == "результат")
+        );
     }
     #[tokio::test]
     async fn dropped_owner_does_not_leave_waiters_hanging() {
@@ -99,5 +103,35 @@ mod tests {
         };
         drop(ticket);
         assert!(wait(waiter).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn duplicate_stop_preserves_terminal_and_deferred_outcomes() {
+        for outcome in [
+            DictationOutcome::NoSpeech,
+            DictationOutcome::Cancelled,
+            DictationOutcome::Superseded,
+            DictationOutcome::Deferred(crate::types::Transcript {
+                text: "ожидает решения".into(),
+                detected_language: None,
+                transcribe_secs: None,
+                audio_secs: None,
+                device: None,
+            }),
+        ] {
+            let gate = CompletionGate::default();
+            let FinishClaim::Owner(ticket) = gate.claim(4).unwrap() else {
+                panic!()
+            };
+            let FinishClaim::Waiting(waiter) = gate.claim(4).unwrap() else {
+                panic!()
+            };
+            let expected = serde_json::to_value(&outcome).unwrap();
+            ticket.complete(&Ok(outcome));
+            assert_eq!(
+                serde_json::to_value(wait(waiter).await.unwrap()).unwrap(),
+                expected
+            );
+        }
     }
 }

@@ -1,8 +1,8 @@
 //! Idempotent ordinary stop publishes raw text before optional processing.
 use super::{
-    capture, empty_transcript,
+    capture,
     lifecycle::{OperationScope, Session},
-    postprocess, recognition,
+    postprocess, recognition, DictationOutcome,
 };
 use crate::{
     application::{
@@ -21,20 +21,22 @@ use fono_core::{OperationSource, TerminalReason};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
-pub(crate) async fn stop(app: AppHandle) -> AppResult<Transcript> {
+pub(crate) async fn stop(app: AppHandle) -> AppResult<DictationOutcome> {
     super::stop_with_reason(app, DictationStopReason::Manual).await
 }
 
 pub(crate) async fn stop_with_reason(
     app: AppHandle,
     reason: DictationStopReason,
-) -> AppResult<Transcript> {
+) -> AppResult<DictationOutcome> {
     #[cfg(feature = "experimental-live")]
     if crate::application::live_dictation::is_active(&app)
         || (app.state::<Pipeline>().operation_id() == 0
             && crate::application::live_dictation::snapshot(&app).is_some())
     {
-        return crate::application::live_dictation::finish(app).await;
+        return crate::application::live_dictation::finish(app)
+            .await
+            .map(DictationOutcome::Completed);
     }
     let pipeline = app.state::<Pipeline>();
     let operation = pipeline.operation_id();
@@ -46,14 +48,20 @@ pub(crate) async fn stop_with_reason_for(
     app: AppHandle,
     operation: u64,
     reason: DictationStopReason,
-) -> AppResult<Transcript> {
+) -> AppResult<DictationOutcome> {
     if !app.state::<Pipeline>().is_operation_active(operation) {
-        return Ok(empty_transcript());
+        return Ok(DictationOutcome::interrupted(
+            &app.state::<Pipeline>(),
+            operation,
+        ));
     }
     stop_operation(app, operation, reason, false).await
 }
 
-pub(crate) async fn stop_overlay_for(app: AppHandle, operation: u64) -> AppResult<Transcript> {
+pub(crate) async fn stop_overlay_for(
+    app: AppHandle,
+    operation: u64,
+) -> AppResult<DictationOutcome> {
     stop_operation(app, operation, DictationStopReason::Manual, true).await
 }
 
@@ -62,7 +70,7 @@ async fn stop_operation(
     operation: u64,
     reason: DictationStopReason,
     copy_only: bool,
-) -> AppResult<Transcript> {
+) -> AppResult<DictationOutcome> {
     let pipeline = app.state::<Pipeline>();
     match pipeline.completion.claim(operation)? {
         FinishClaim::Waiting(receiver) => wait(receiver).await,
@@ -74,19 +82,21 @@ async fn stop_operation(
                 .map(|item| item.source)
                 .unwrap_or(OperationSource::Ui);
             let report = Arc::new(ReportTrace::begin(operation, source));
-            let result = stop_once(&app, operation, reason, &report, copy_only).await;
-            report.outcome(match &result {
-                Ok(transcript)
-                    if transcript.text.is_empty() && pipeline.is_operation_active(operation) =>
-                {
-                    ReportOutcome::Empty
-                }
-                Ok(transcript) if transcript.text.is_empty() => ReportOutcome::Cancelled,
-                Ok(_) => ReportOutcome::Completed,
-                Err(error) => ReportOutcome::from_error(error),
-            });
-            scope.complete(&result);
+            let mut result = stop_once(
+                &app,
+                operation,
+                reason,
+                &report,
+                copy_only,
+                scope.settlement_receipt(),
+            )
+            .await;
+            scope.complete_outcome(&mut result);
+            report.outcome(ReportOutcome::from_dictation_result(&result));
             drop(scope);
+            if let Ok(outcome) = &result {
+                crate::events::emit_dictation_outcome(&app, operation, outcome.kind());
+            }
             ticket.complete(&result);
             result
         }
@@ -99,22 +109,31 @@ async fn stop_once(
     reason: DictationStopReason,
     report: &Arc<ReportTrace>,
     copy_only: bool,
-) -> AppResult<Transcript> {
-    let session = Session::current(app, operation)?;
-    let mut diagnostic = DictationTailDiagnostic::new(operation, session.source, reason);
-    let samples = {
-        let _timer = report.stage(ReportStage::CaptureFinish);
-        capture::finish_samples(&session, &mut diagnostic, report)?
+    receipt: super::SettlementReceipt,
+) -> AppResult<DictationOutcome> {
+    let session = match Session::current(app, operation) {
+        Ok(session) => session,
+        Err(crate::error::AppError::Cancelled(_)) => {
+            return Ok(DictationOutcome::interrupted(
+                &app.state::<Pipeline>(),
+                operation,
+            ))
+        }
+        Err(error) => return Err(error),
     };
-    let Some(samples) = samples else {
-        return Ok(empty_transcript());
+    let diagnostic = DictationTailDiagnostic::new(operation, session.source, reason);
+    let (samples, mut diagnostic) =
+        capture::finish_samples_async(session.clone(), diagnostic, report.clone()).await?;
+    let samples = match samples {
+        capture::CapturedSamples::Speech(samples) => samples,
+        capture::CapturedSamples::Finished(outcome) => return Ok(outcome),
     };
     report.captured(diagnostic.captured_samples().unwrap_or(samples.len()));
     let transcript = match recognition::run_measured(&session, samples, Some(report)).await {
         Ok(Some(transcript)) => transcript,
         Ok(None) => {
             diagnostic.stt_cancelled();
-            return Ok(empty_transcript());
+            return Ok(session.interrupted());
         }
         Err(error) => {
             diagnostic.stt_failed();
@@ -131,15 +150,17 @@ async fn stop_once(
     let mut transcript = transcript;
     #[cfg(feature = "wake-word")]
     if session.source == OperationSource::WakeWord {
-        transcript.text =
-            crate::strip_leading_wake_phrase(&transcript.text, &session.settings.wake_word);
-        if let Some(command) = crate::extract_wake_command(&transcript.text) {
+        transcript.text = crate::application::wake::strip_leading_wake_phrase(
+            &transcript.text,
+            &session.settings.wake_word,
+        );
+        if let Some(command) = crate::application::wake::extract_wake_command(&transcript.text) {
             crate::application::wake_dictation::propose_command(app, operation, command);
-            return Ok(transcript);
+            return Ok(DictationOutcome::Deferred(transcript));
         }
     }
     if transcript.text.trim().is_empty() {
-        return Ok(transcript);
+        return Ok(DictationOutcome::NoSpeech);
     }
     let history_id = crate::history::next_id();
     let pipeline = app.state::<Pipeline>();
@@ -149,7 +170,7 @@ async fn stop_once(
         })
         .is_none()
     {
-        return Ok(empty_transcript());
+        return Ok(session.interrupted());
     }
     if !copy_only
         && session.source != OperationSource::Hotkey
@@ -163,7 +184,7 @@ async fn stop_once(
             None,
             false,
         )?;
-        return Ok(transcript);
+        return Ok(DictationOutcome::Deferred(transcript));
     }
     let processed = {
         let _timer = report.stage(ReportStage::Processing);
@@ -192,11 +213,11 @@ async fn stop_once(
             if copy_only {
                 super::workflow::preview_result(app, operation, transcript.text.clone());
             }
-            return Ok(transcript);
+            return Ok(DictationOutcome::Deferred(transcript));
         }
     };
     let Some(final_text) = processed else {
-        return Ok(empty_transcript());
+        return Ok(session.interrupted());
     };
     if session.settings.ai_mode == crate::types::AiMode::Off {
         diagnostic.postprocessor_skipped();
@@ -209,7 +230,7 @@ async fn stop_once(
     );
     let history_timings = report.history_timings();
     if !session.active("before injection") {
-        return Ok(empty_transcript());
+        return Ok(session.interrupted());
     }
     crate::vlog!(
         "dictation final text ready ({} chars)",
@@ -221,7 +242,7 @@ async fn stop_once(
         })
         .is_none()
     {
-        return Ok(empty_transcript());
+        return Ok(session.interrupted());
     }
     if copy_only {
         super::workflow::enqueue(
@@ -233,21 +254,21 @@ async fn stop_once(
             true,
         )?;
         super::workflow::preview_result(app, operation, final_text.clone());
-        return Ok(Transcript {
+        return Ok(DictationOutcome::Deferred(Transcript {
             text: final_text,
             ..transcript
-        });
+        }));
     }
     let insertion = if session.source != OperationSource::Ui {
         if !session.transition(PipelineState::Injecting, TerminalReason::Completed) {
-            return Ok(empty_transcript());
+            return Ok(session.interrupted());
         }
         // Preflight is fenced; native SendInput/clipboard must remain outside
         // the capture lock so cancellation can stop an operation promptly.
         if pipeline.while_operation(operation, || !session.cancellation.is_cancelled())
             != Some(true)
         {
-            return Ok(empty_transcript());
+            return Ok(session.interrupted());
         }
         let _timer = report.stage(ReportStage::Insertion);
         super::workflow::insert_captured(&session, &final_text).await
@@ -255,7 +276,7 @@ async fn stop_once(
         Ok(())
     };
     if !session.active("ordinary insertion returned") {
-        return Ok(empty_transcript());
+        return Ok(session.interrupted());
     }
     if let Err(error) = insertion {
         session.error(crate::events::ErrorCodeV1::Injection, error.to_string());
@@ -268,29 +289,32 @@ async fn stop_once(
             false,
         )?;
         super::workflow::block_insertion(app, operation, error.to_string(), final_text.clone());
-        return Ok(Transcript {
+        return Ok(DictationOutcome::Deferred(Transcript {
             text: final_text,
             ..transcript
-        });
+        }));
     }
-    if pipeline
-        .while_operation(operation, || {
-            dictation_result::archive_with_metadata(
-                app,
-                &session.settings,
-                history_id,
-                &transcript,
-                &final_text,
-                operation,
-                history_timings,
-            );
-        })
-        .is_none()
+    let archive_settings = session.settings.clone();
+    let archive_transcript = transcript.clone();
+    let archive_text = final_text.clone();
+    if dictation_result::commit_for_operation(app.clone(), operation, receipt, move |app| {
+        dictation_result::archive_with_metadata(
+            app,
+            &archive_settings,
+            history_id,
+            &archive_transcript,
+            &archive_text,
+            operation,
+            history_timings,
+        );
+    })
+    .await?
+    .is_none()
     {
-        return Ok(empty_transcript());
+        return Ok(session.interrupted());
     }
-    Ok(Transcript {
+    Ok(DictationOutcome::Completed(Transcript {
         text: final_text,
         ..transcript
-    })
+    }))
 }

@@ -15,6 +15,8 @@ const persistedKeys: (keyof Preferences)[] = [
   "model",
   "language",
   "acceleration",
+  "whisperDecoding",
+  "whisperThreads",
   "gpuModelResidency",
   "dictionaryEnabled",
   "wakeEnabled",
@@ -57,6 +59,16 @@ export function readPreferences(): Preferences {
     const safe: Record<string, unknown> = {};
     for (const key of persistedKeys) {
       const value = (raw as Record<string, unknown>)[key];
+      if (key === "whisperThreads") {
+        safe[key] =
+          typeof value === "number" &&
+          Number.isInteger(value) &&
+          value >= 1 &&
+          value <= 8
+            ? value
+            : null;
+        continue;
+      }
       if (
         typeof value === typeof defaults[key] &&
         (typeof value !== "string" || value.length < 100)
@@ -75,6 +87,7 @@ export function readPreferences(): Preferences {
       safe.wakeLanguage = defaults.wakeLanguage;
     for (const [key, values] of Object.entries({
       gpuModelResidency: ["resident", "adaptive"],
+      whisperDecoding: ["fast", "accurate"],
       hotkeyMode: ["hold", "toggle"],
       processingMode: ["raw", "clean", "format", "task", "formal"],
       processingTrigger: ["automatic", "manual"],

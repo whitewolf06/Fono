@@ -13,6 +13,7 @@ import PendingDictationActions from "../../../shared/presentation/PendingDictati
 import { copyPendingText } from "../application/copyPendingText";
 import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
 import { dictationNotice } from "../../../shared/domain/dictationNotice";
+import { message } from "../../../shared/domain/messages";
 const liveCompiled =
   typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
   __FONO_EXPERIMENTAL_LIVE__;
@@ -35,9 +36,11 @@ const liveMode = computed(
   () => workspace.state.preferences.dictationMode === "live",
 );
 const status = computed(() =>
-  liveMode.value && live.value
-    ? liveStatus(live.value)
-    : phaseLabels[workspace.state.phase],
+  workspace.state.dictationOutcome === "no_speech"
+    ? message("dictation.noSpeech")
+    : liveMode.value && live.value
+      ? liveStatus(live.value)
+      : phaseLabels[workspace.state.phase],
 );
 const recording = computed(() =>
   ["listening", "silence"].includes(workspace.state.phase),

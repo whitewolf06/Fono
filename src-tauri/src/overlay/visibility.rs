@@ -19,7 +19,7 @@ impl Snapshot {
 fn read(app: &AppHandle) -> Snapshot {
     let state = app.state::<AppState>();
     Snapshot {
-        phase: state.pipeline_state(),
+        phase: app.state::<crate::pipeline::Pipeline>().state(),
         enabled: state.settings().overlay_enabled,
         pending: crate::application::dictation::workflow::has_pending(app),
         preview: super::has_preview(app),

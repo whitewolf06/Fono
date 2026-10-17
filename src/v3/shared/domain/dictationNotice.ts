@@ -1,3 +1,4 @@
+import { message } from "./messages";
 export interface DictationNotice {
   kind: "insertion" | "copy" | "processing" | "other";
   title: string;
@@ -18,15 +19,15 @@ export function dictationNotice(
   )
     return {
       kind: "copy",
-      title: "Не удалось скопировать",
-      hint: "Текст остаётся доступным. Попробуйте скопировать ещё раз.",
+      title: message("notice.copyTitle"),
+      hint: message("notice.copyHint"),
       details,
     };
   if (context.insertionBlocked || /вставк[аиу]|поле для вставки/i.test(details))
     return {
       kind: "insertion",
-      title: "Вставка остановлена",
-      hint: "Скопируйте текст. Перед вставкой проверьте поле: часть текста могла уже вставиться.",
+      title: message("notice.insertionTitle"),
+      hint: message("notice.insertionHint"),
       details,
     };
   if (
@@ -35,16 +36,16 @@ export function dictationNotice(
   )
     return {
       kind: "processing",
-      title: "Не удалось обработать текст",
-      hint: "Исходный текст доступен для копирования или повторной обработки.",
+      title: message("notice.processingTitle"),
+      hint: message("notice.processingHint"),
       details,
     };
   return {
     kind: "other",
-    title: "Не удалось завершить действие",
+    title: message("notice.otherTitle"),
     hint: context.hasText
-      ? "Текст доступен для копирования. Причина — в подробностях."
-      : "Посмотрите причину в подробностях и попробуйте ещё раз.",
+      ? message("notice.hasTextHint")
+      : message("notice.otherHint"),
     details,
   };
 }

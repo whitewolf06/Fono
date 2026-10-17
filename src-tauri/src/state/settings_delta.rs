@@ -108,7 +108,6 @@ mod tests {
     fn isolated_state(settings: Settings) -> AppState {
         AppState {
             settings: Mutex::new(settings),
-            pipeline_state: Mutex::new(crate::types::PipelineState::Idle),
             dictation_paused: Mutex::new(false),
             settings_version: AtomicU64::new(1),
             next_command_proposal_id: AtomicU64::new(1),

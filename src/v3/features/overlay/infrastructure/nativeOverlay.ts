@@ -1,4 +1,9 @@
 import { reactive } from "vue";
+import type {
+  DictationOutcomeEvent,
+  DictationOutcomeKind,
+} from "../../../shared/domain/dictationOutcome";
+import type { NativeDictationOutcome } from "../../../shared/infrastructure/native/dictationContracts";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Settings } from "../../../shared/infrastructure/native/ipcTypes";
 import type { Phase, LiveDictation } from "../../../shared/domain/contracts";
@@ -31,6 +36,7 @@ export function createNativeOverlay() {
   const state = reactive({
     preferences: { ...defaults },
     phase: "idle" as Phase,
+    dictationOutcome: undefined as DictationOutcomeKind | undefined,
     level: 0,
     seconds: 0,
     elapsed: 0,
@@ -50,6 +56,28 @@ export function createNativeOverlay() {
     started = Date.now(),
     operation = -1;
   const pending = createPendingOverlay(state, () => disposed);
+  function outcome(value: DictationOutcomeEvent) {
+    if (
+      disposed ||
+      value.operation_id <
+        Math.max(operation, state.pending?.sessionId || 0, state.sessionId || 0)
+    )
+      return;
+    if (
+      value.operation_id === operation &&
+      ["cancelled", "superseded"].includes(state.dictationOutcome || "") &&
+      !["cancelled", "superseded"].includes(value.outcome)
+    )
+      return;
+    operation = value.operation_id;
+    state.dictationOutcome = value.outcome;
+    if (["no_speech", "cancelled", "superseded"].includes(value.outcome)) {
+      pending.retire(value.operation_id);
+      state.phase = value.outcome === "cancelled" ? "cancelled" : "idle";
+      state.error = "";
+      state.level = 0;
+    }
+  }
   const releases: (() => void)[] = [];
   const readiness: Promise<unknown>[] = [];
   const visibility = bindNativeVisibility(() => {
@@ -221,6 +249,14 @@ export function createNativeOverlay() {
       state.sessionId = v.operation_id > 0 ? v.operation_id : null;
       pending.observeOperation(v.operation_id);
       pending.apply(dictation, ticket);
+      // Pending and snapshot are separate native reads. A terminal snapshot
+      // retires an adjacent older pending value before it can take ownership.
+      if (
+        v.outcome &&
+        (v.operation_id === 0 || v.operation_id === v.outcome.operation_id) &&
+        ["no_speech", "cancelled", "superseded"].includes(v.outcome.outcome)
+      )
+        outcome(v.outcome);
       if (state.pending) {
         operation = Math.max(operation, state.pending.sessionId);
         applySettings();
@@ -233,6 +269,7 @@ export function createNativeOverlay() {
       }
       if (v.operation_id > 0 && operation !== v.operation_id) {
         operation = v.operation_id;
+        state.dictationOutcome = undefined;
         state.error = "";
         started = Date.now();
         state.seconds = 0;
@@ -246,6 +283,11 @@ export function createNativeOverlay() {
             : v.state;
       state.level = Math.min(1, v.level * 8);
       state.elapsed = Math.floor((Date.now() - started) / 1000);
+      if (
+        v.outcome &&
+        (v.operation_id === 0 || v.operation_id === v.outcome.operation_id)
+      )
+        outcome(v.outcome);
       applySettings();
     } catch (error) {
       if (pending.current(ticket)) fail(error);
@@ -260,7 +302,11 @@ export function createNativeOverlay() {
   readiness.push(
     subscribeBackend((event) => {
       if (disposed || !visibility.visible()) return;
-      if (event.kind === "audio_level") {
+      if (event.kind === "dictation_outcome") {
+        sessionRevision++;
+        outcome(event.payload);
+        void refreshSession();
+      } else if (event.kind === "audio_level") {
         if (
           event.payload.operation_id !== operation ||
           state.phase !== "listening"
@@ -309,7 +355,12 @@ export function createNativeOverlay() {
           state.preview && state.phase === "idle"
             ? call("dismiss_dictation_overlay")
             : sessionId !== null && sessionId > 0
-              ? call("finish_overlay_dictation", { sessionId })
+              ? call<NativeDictationOutcome>("finish_overlay_dictation", {
+                  sessionId,
+                }).then((result) => {
+                  if (result && state.sessionId === sessionId)
+                    outcome({ operation_id: sessionId, outcome: result.kind });
+                })
               : Promise.resolve(),
         )
         .catch(fail);

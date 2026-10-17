@@ -93,14 +93,25 @@ impl EngineState {
 }
 
 impl ActiveEngine {
-    pub(super) fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
+    pub(super) fn transcribe(
+        &self,
+        samples: &[i16],
+        language: &str,
+        decoding: fono_stt_protocol::DecodingOptions,
+    ) -> AppResult<Transcript> {
         match self {
-            Self::Embedded(engine) => {
-                engine
-                    .lock()
-                    .transcribe(samples, language, &OperationCancellation::default())
-            }
-            Self::Worker(session) => session.transcribe(samples, language),
+            Self::Embedded(engine) => engine.lock().transcribe(
+                samples,
+                language,
+                &OperationCancellation::default(),
+                decoding,
+            ),
+            Self::Worker(session) => session.transcribe_cancellable_with_options(
+                samples,
+                language,
+                &OperationCancellation::default(),
+                decoding,
+            ),
         }
     }
 
@@ -109,6 +120,7 @@ impl ActiveEngine {
         samples: &[i16],
         language: &str,
         cancellation: &OperationCancellation,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<Transcript> {
         if cancellation.is_cancelled() {
             return Err(AppError::Cancelled(
@@ -116,10 +128,17 @@ impl ActiveEngine {
             ));
         }
         let result = match self {
-            Self::Embedded(engine) => engine.lock().transcribe(samples, language, cancellation),
-            Self::Worker(session) => {
-                session.transcribe_cancellable(samples, language, cancellation)
+            Self::Embedded(engine) => {
+                engine
+                    .lock()
+                    .transcribe(samples, language, cancellation, decoding)
             }
+            Self::Worker(session) => session.transcribe_cancellable_with_options(
+                samples,
+                language,
+                cancellation,
+                decoding,
+            ),
         };
         if cancellation.is_cancelled() {
             return Err(AppError::Cancelled("STT request cancelled".into()));

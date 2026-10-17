@@ -13,6 +13,7 @@ pub mod dictation_result;
 pub mod dictation_tail_diagnostics;
 pub mod feedback_form;
 pub(crate) mod gpu_memory;
+pub(crate) mod history_events;
 pub mod hotkeys;
 pub mod live_agreement;
 #[cfg(feature = "experimental-live")]

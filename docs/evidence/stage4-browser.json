@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "version": "0.7.24",
+  "checked_date": "2026-10-18",
+  "scope": "Vue V3 browser mock only; no native Fono, microphone, hotkey, external insertion, GPU or installer validation",
+  "status": "blocked_partial",
+  "browser": "Chrome extension through cua_repl",
+  "url": "http://127.0.0.1:1420/v3.html",
+  "server": {
+    "command": "npm.cmd run dev:ui -- --host 127.0.0.1 --port 1420 --strictPort",
+    "pid": 72220,
+    "session_id": 28664,
+    "http_status": 200,
+    "stopped_after_check": true,
+    "note": "Sandbox loopback access was denied. The authorized own development server was restarted outside AppContainer; no proxy, VPN or firewall settings were changed."
+  },
+  "matrix": [
+    {
+      "width": 720,
+      "height": 560,
+      "viewport_override_applied": true,
+      "home": "visually inspected screenshot; responsive icon navigation and main controls rendered",
+      "trainer": "DOM inspected after navigation: overview, UTC period, metrics, chart, selected day, ranking and all three tabs present; screenshot capture failed",
+      "settings_audio_decoding": "not_checked",
+      "trainer_ai_dictations_filter_actions": "not_checked",
+      "overlay_preview": "not_checked",
+      "no_speech": "not_checked",
+      "visual_matrix_passed": false
+    },
+    {
+      "width": 900,
+      "height": 720,
+      "status": "not_checked",
+      "visual_matrix_passed": false
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "status": "not_checked",
+      "visual_matrix_passed": false
+    }
+  ],
+  "blocker": {
+    "first_failure": "Chrome Page.captureScreenshot timed out after trainer navigation",
+    "recovery_attempts": "Fresh tab binding timed out and reset the CUA kernel twice. Subsequent cua.getState and cua.listBrowsers both returned no connected browser.",
+    "viewport_reset": "not_possible_after_browser_connection_was_lost",
+    "created_tab_id": "1740279050",
+    "tab_marked_persistent": false
+  },
+  "remaining": [
+    "Reconnect the supported browser surface and reset the previous temporary viewport override.",
+    "Complete actual visual and interaction checks at all three dimensions for trainer overview, day chart, AI consent, dictations, term filtering and sorting.",
+    "Check settings/audio fast/accurate and automatic/explicit thread controls, save and restore defaults in the mock.",
+    "Check browser overlay preview; no-speech presentation if a supported mock scenario is available."
+  ],
+  "interpretation": "This receipt records a partial browser attempt. Builds, SSR and contract tests do not replace the incomplete visual matrix or native Windows owner acceptance."
+}

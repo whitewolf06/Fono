@@ -289,7 +289,7 @@ fn refresh_on_ui(app: &AppHandle) -> AppResult<()> {
     let paused = state.is_dictation_paused();
     let appearance = Appearance {
         status: status(
-            state.pipeline_state(),
+            app.state::<Pipeline>().state(),
             paused,
             &app.state::<Pipeline>().stt().readiness(),
         ),

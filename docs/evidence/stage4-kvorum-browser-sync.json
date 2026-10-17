@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "version": "0.7.24",
+  "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+  "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+  "scope_mode": "server_resolved",
+  "verified_at_utc": "2026-10-17T22:59:53.088Z",
+  "comments_created_and_read_back": 6,
+  "status_changes": 0,
+  "tasks_marked_done": false,
+  "owner_acceptance": false,
+  "browser_evidence": {
+    "path": "docs/evidence/stage4-browser-final.json",
+    "sha256": "f192bac0e05f6af9b95418ede170bb55b768f78f8f3f4760dde8660b634a6d7c",
+    "status": "partial_visual_matrix"
+  },
+  "historical_core_receipt": "docs/evidence/stage4-kvorum-sync.json",
+  "acceptance_scope": "Trainer passed browser mock at three requested sizes; settings passed 720x560, 900x720 and a wide recovery tab. Overlay visual 720x560/1440x900, settings at confirmed 1440x900 and no-speech browser scenario remain open. Native/owner/remote CI acceptance remains open.",
+  "local_raw_receipt": "build/checks/stage4-kvorum-browser-raw.json",
+  "records": [
+    {
+      "key": "FONO-86",
+      "task_id": "bd16855b-7586-4c71-ae17-9d127c4be1dd",
+      "proposal_id": "c56b0012-f76f-496c-b5d5-40878298f427",
+      "comment_id": "a46e464e-2ac0-4f23-91e8-a06a5d9ba909",
+      "confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "user_confirmation_required": false,
+      "readback_matches": true,
+      "content": "Этап 4 — browser mock после восстановления Chrome/CUA (v0.7.24)\n\nSTAB-05: после восстановления соединения тренер проверен в browser mock на 720×560, 900×720 и 1440×900; настройки — на 720×560, 900×720 и широком recovery tab 2560×1271. Overlay на 900×720 проверен визуально и через безопасные переключатели обработки/перевода; отмена возвращает состояние ожидания. На 720×560 состояние ожидания прочитано через DOM, но screenshot завершился transport timeout; overlay и настройки на подтверждённых 1440×900 и no-speech в браузере не проверены. Явные no_speech/cancelled/superseded и защита следующей сессии подтверждаются contract tests, а проверка реального аудио, окон и клавиш остаётся у владельца.\n\nEvidence: `docs/evidence/stage4-browser-final.json`; общий отчёт: `docs/improvement-stage-4.md`. Это дополнение к предыдущему комментарию, без закрытия задачи."
+    },
+    {
+      "key": "FONO-101",
+      "task_id": "ccdafa70-79cf-4b78-ac9a-c3f928ba43e7",
+      "proposal_id": "0bf2c9ef-eeb6-4812-8358-df0e2caa051b",
+      "comment_id": "4fa6223b-5e22-4104-91ec-14087a7147bc",
+      "confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "user_confirmation_required": false,
+      "readback_matches": true,
+      "content": "Этап 4 — browser mock после восстановления Chrome/CUA (v0.7.24)\n\nCODE-05: в browser mock проверены сохранение и восстановление fast/accurate и числа потоков 1/8/auto, включая компактные 720×560 и 900×720. Сначала старый демопрофиль блокировал сохранение из-за legacy Wake-параметров; штатный «Сбросить демо» восстановил валидный профиль, после чего проверки прошли. Исходники не менялись. Это проверка mock настроек; качество GPU/CPU, микрофон и смена настроек между реальными сессиями требуют native-приёмки.\n\nEvidence: `docs/evidence/stage4-browser-final.json`; общий отчёт: `docs/improvement-stage-4.md`. Это дополнение к предыдущему комментарию, без закрытия задачи."
+    },
+    {
+      "key": "FONO-102",
+      "task_id": "6fadad3b-32d4-4a72-835d-65aa8a8e7d0e",
+      "proposal_id": "f5a9a84b-08c1-4bde-a6ac-7fda15f0a888",
+      "comment_id": "8ec327fa-187f-465b-9932-8b9938476b71",
+      "confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "user_confirmation_required": false,
+      "readback_matches": true,
+      "content": "Этап 4 — browser mock после восстановления Chrome/CUA (v0.7.24)\n\nCODE-06: тренер визуально проверен на 720×560, 900×720 и 1440×900: overview, дни 0/3, count/density, переход фильтра в диктовки, сортировка и выбор исходника. Проверены периоды 7/30/90; AI consent сохраняется при переключении вкладки и сбрасывается при изменении периода. AI-анализ не запускался. Ограничения Chrome/CUA остались в отдельном overlay preview, а не в выполненной матрице тренера.\n\nEvidence: `docs/evidence/stage4-browser-final.json`; общий отчёт: `docs/improvement-stage-4.md`. Это дополнение к предыдущему комментарию, без закрытия задачи."
+    },
+    {
+      "key": "FONO-104",
+      "task_id": "29e1bf26-ac22-47c1-94b1-4889cde16771",
+      "proposal_id": "9b20efee-af66-4797-8f76-bb7b4637e33d",
+      "comment_id": "d62232a3-f828-448e-829b-ee326f31ace6",
+      "confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "user_confirmation_required": false,
+      "readback_matches": true,
+      "content": "Этап 4 — browser mock после восстановления Chrome/CUA (v0.7.24)\n\nFE-02: русский каталог и новые подписи визуально проверены в тренере на 720×560, 900×720 и 1440×900; в настройках — на 720×560 и 900×720; в overlay — на 900×720. Переключатели обработки, стиля и перевода работают в browser mock. No-speech, настройки и overlay на подтверждённых 1440×900 и визуальная проверка overlay 720×560 остаются открытыми после capture timeout Chrome/CUA; реальные native ошибки и Windows-сценарии проверяет владелец. Полный RU/EN и переключение языка интерфейса по-прежнему относятся к F-10.\n\nEvidence: `docs/evidence/stage4-browser-final.json`; общий отчёт: `docs/improvement-stage-4.md`. Это дополнение к предыдущему комментарию, без закрытия задачи."
+    },
+    {
+      "key": "FONO-53",
+      "task_id": "fc03386f-48db-4596-b0fb-08debfbc4180",
+      "proposal_id": "43b57ff5-d099-4c41-9bfe-c0bc80317b71",
+      "comment_id": "fa327f76-e007-4ef5-89e5-880e4eddc7f1",
+      "confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "user_confirmation_required": false,
+      "readback_matches": true,
+      "content": "Этап 4 — browser mock после восстановления Chrome/CUA (v0.7.24)\n\nFrontend этапа 4: тренер в browser mock прошёл матрицу 720×560, 900×720, 1440×900. Настройки проверены на 720×560 и 900×720, дополнительно — на широком recovery tab 2560×1271. Проверены фильтры, сортировка, выбор диктовки, состояние consent, сохранение fast/accurate и 1/8/auto threads. Overlay визуально пройден на 900×720; 720×560 подтверждён только DOM состояния ожидания, screenshot заблокирован transport timeout. Overlay и настройки на подтверждённых 1440×900 и no-speech в браузере не проверены. Исторический blocked_partial receipt сохранён; новый receipt уточняет выполненный объём. Native Windows/микрофон/клавиши/внешняя вставка/GPU и приёмка владельца остаются открытыми.\n\nEvidence: `docs/evidence/stage4-browser-final.json`; общий отчёт: `docs/improvement-stage-4.md`. Это дополнение к предыдущему комментарию, без закрытия задачи."
+    },
+    {
+      "key": "FONO-47",
+      "task_id": "85eafd57-86b8-4e09-8eab-2cb3bbb300d4",
+      "proposal_id": "0ff6b434-0b1e-42df-a0c9-54a66773625c",
+      "comment_id": "7ba1268f-651d-4353-979c-a09ac044e386",
+      "confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "user_confirmation_required": false,
+      "readback_matches": true,
+      "content": "Этап 4 — browser mock после восстановления Chrome/CUA (v0.7.24)\n\nДополнение к результату этапа 4: тренер в browser mock проверен на всех трёх размерах — 720×560, 900×720, 1440×900. Настройки прошли 720×560 и 900×720, дополнительно — широкий recovery tab 2560×1271. Overlay визуально и через безопасные controls проверен на 900×720; на 720×560 прочитано состояние ожидания, затем capture timeout. Overlay и настройки на подтверждённых 1440×900 и no-speech в браузере не проверены. Исходники после автоматических 273 UI и 561 default/561 CPU native tests не менялись. Все 14 задач этапа остаются in_review, родители in_progress; приёмка владельца, удалённый CI, Windows/GPU/soak/installer остаются открытыми.\n\nEvidence: `docs/evidence/stage4-browser-final.json`; общий отчёт: `docs/improvement-stage-4.md`. Это дополнение к предыдущему комментарию, без закрытия задачи."
+    }
+  ]
+}

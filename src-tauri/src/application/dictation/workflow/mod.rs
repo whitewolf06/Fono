@@ -63,7 +63,7 @@ pub(crate) fn has_pending(app: &AppHandle) -> bool {
 pub(crate) fn is_busy(app: &AppHandle) -> bool {
     has_pending(app)
 }
-pub(super) fn retains(app: &AppHandle, operation: u64) -> bool {
+pub(crate) fn retains(app: &AppHandle, operation: u64) -> bool {
     app.state::<Runtime>()
         .store
         .lock()

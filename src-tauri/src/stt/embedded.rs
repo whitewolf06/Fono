@@ -51,12 +51,13 @@ impl EmbeddedEngine {
         samples: &[i16],
         language: &str,
         cancellation: &OperationCancellation,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<Transcript> {
         let backend = self.backend();
         let signals: Vec<_> = cancellation.atomic_signals().collect();
-        let result = self
-            .inference
-            .transcribe(samples, language, None, 0, backend, false, &signals);
+        let result = self.inference.transcribe_with_options(
+            samples, language, None, 0, backend, false, &signals, decoding,
+        );
         result.map(super::window::to_transcript).map_err(|message| {
             if cancellation.is_cancelled() {
                 AppError::Cancelled(message)
@@ -73,11 +74,12 @@ impl EmbeddedEngine {
         context: Option<&str>,
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<WindowTranscript> {
         let backend = self.backend();
         let signals: Vec<_> = cancellation.atomic_signals().collect();
         self.inference
-            .transcribe(
+            .transcribe_with_options(
                 samples,
                 language,
                 context,
@@ -85,6 +87,7 @@ impl EmbeddedEngine {
                 backend,
                 true,
                 &signals,
+                decoding,
             )
             .map_err(|message| {
                 if cancellation.is_cancelled() {

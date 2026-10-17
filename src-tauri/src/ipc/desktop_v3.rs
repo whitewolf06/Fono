@@ -13,6 +13,74 @@ use tauri::{AppHandle, Emitter, Manager, State};
 pub struct DesktopSession {
     pub last: Mutex<Option<LastDictation>>,
     pub microphone_sample: Mutex<Vec<i16>>,
+    pub outcome: Mutex<Option<crate::events::DictationOutcomeEventV1>>,
+}
+
+impl DesktopSession {
+    /// A late result cannot replace a newer session or reverse cancellation.
+    pub(crate) fn record_outcome(&self, outcome: crate::events::DictationOutcomeEventV1) -> bool {
+        use crate::application::dictation::DictationOutcomeKind;
+        let mut last = self.outcome.lock();
+        if last.as_ref().is_some_and(|previous| {
+            previous.operation_id > outcome.operation_id
+                || (previous.operation_id == outcome.operation_id
+                    && matches!(
+                        previous.outcome,
+                        DictationOutcomeKind::Cancelled | DictationOutcomeKind::Superseded
+                    )
+                    && previous.outcome != outcome.outcome)
+        }) {
+            return false;
+        }
+        *last = Some(outcome);
+        true
+    }
+}
+
+#[cfg(test)]
+mod outcome_tests {
+    use super::DesktopSession;
+    use crate::{
+        application::dictation::DictationOutcomeKind as Kind,
+        events::DictationOutcomeEventV1 as Event,
+    };
+
+    #[test]
+    fn snapshot_retains_outcome_without_content_and_fences_late_results() {
+        let session = DesktopSession::default();
+        assert!(session.record_outcome(Event {
+            operation_id: 1,
+            outcome: Kind::Deferred
+        }));
+        assert!(session.record_outcome(Event {
+            operation_id: 1,
+            outcome: Kind::Completed
+        }));
+        assert!(session.record_outcome(Event {
+            operation_id: 2,
+            outcome: Kind::Cancelled
+        }));
+        assert!(!session.record_outcome(Event {
+            operation_id: 1,
+            outcome: Kind::NoSpeech
+        }));
+        assert!(!session.record_outcome(Event {
+            operation_id: 2,
+            outcome: Kind::Completed
+        }));
+        assert_eq!(
+            *session.outcome.lock(),
+            Some(Event {
+                operation_id: 2,
+                outcome: Kind::Cancelled
+            })
+        );
+        assert!(session.record_outcome(Event {
+            operation_id: 3,
+            outcome: Kind::NoSpeech
+        }));
+        assert!(session.last.lock().is_none());
+    }
 }
 #[derive(Clone, Serialize)]
 pub struct LastDictation {
@@ -29,16 +97,19 @@ pub struct DesktopSnapshot {
     last: Option<LastDictation>,
     operation_id: u64,
     source: Option<fono_core::OperationSource>,
+    outcome: Option<crate::events::DictationOutcomeEventV1>,
 }
 #[tauri::command]
 pub fn get_desktop_snapshot(app: AppHandle) -> DesktopSnapshot {
     let pipeline = app.state::<Pipeline>();
+    let operation = pipeline.current_operation();
     DesktopSnapshot {
-        state: app.state::<AppState>().pipeline_state(),
+        state: Pipeline::project_state(operation.as_ref()),
         level: pipeline.current_level().clamp(0.0, 1.0),
         last: app.state::<DesktopSession>().last.lock().clone(),
-        operation_id: pipeline.operation_id(),
-        source: pipeline.current_operation().map(|o| o.source),
+        operation_id: operation.as_ref().map_or(0, |operation| operation.id),
+        source: operation.map(|operation| operation.source),
+        outcome: *app.state::<DesktopSession>().outcome.lock(),
     }
 }
 pub fn publish_result(app: &AppHandle, result: LastDictation) {
@@ -88,8 +159,8 @@ pub async fn improve_text(app: AppHandle, text: String) -> AppResult<String> {
         .await
 }
 #[tauri::command]
-pub async fn clear_speech_analytics() -> AppResult<()> {
-    super::blocking::run(crate::history::clear_analytics).await
+pub async fn clear_speech_analytics(app: AppHandle) -> AppResult<()> {
+    super::blocking::run(move || crate::history::for_app(&app).clear_analytics()).await
 }
 #[tauri::command]
 pub async fn recommend_speech(

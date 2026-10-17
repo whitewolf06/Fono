@@ -6,6 +6,8 @@ mod tests;
 
 pub use model::*;
 
+pub(crate) use crate::history::source::{eligible, source_fingerprint};
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Duration, SecondsFormat, Utc};
@@ -78,11 +80,12 @@ impl Period {
 
 /// Opening a saved report never reruns its analytics or its AI layer.
 pub(crate) fn get_with_sources(
+    repository: &crate::history::HistoryRepository,
     days: u32,
     refresh: bool,
     settings: &Settings,
 ) -> AppResult<(TrainerSnapshotState, Vec<DictationHistoryEntry>)> {
-    crate::history::with_trainer_entries(settings, |entries| {
+    repository.with_trainer_entries(settings, |entries| {
         let now = Utc::now();
         let mut cache = load_cache()?;
         let (report, sources, changed) =
@@ -113,11 +116,12 @@ fn get_from_cache_with_sources(
 
 /// Called immediately before submitting a consented payload; it does not refresh a stale report.
 pub fn analysis_input(
+    repository: &crate::history::HistoryRepository,
     days: u32,
     fingerprint: &str,
     settings: &Settings,
 ) -> AppResult<(TrainerSnapshot, Vec<DictationHistoryEntry>)> {
-    crate::history::with_trainer_entries(settings, |entries| {
+    repository.with_trainer_entries(settings, |entries| {
         let now = Utc::now();
         let period = Period::new(days, now)?;
         let cache = load_cache()?;
@@ -145,12 +149,13 @@ pub fn analysis_input(
 
 /// The source comparison and persistence are atomic against deletion/exclusion/analysis updates.
 pub fn save_ai(
+    repository: &crate::history::HistoryRepository,
     days: u32,
     expected_current_fp: &str,
     summary: TrainerAiSummary,
     settings: &Settings,
 ) -> AppResult<()> {
-    crate::history::with_trainer_entries(settings, |entries| {
+    repository.with_trainer_entries(settings, |entries| {
         let now = Utc::now();
         let period = Period::new(days, now)?;
         let mut cache = load_cache()?;
@@ -294,25 +299,6 @@ fn get_from_cache(
     ))
 }
 
-pub(crate) fn eligible(
-    entry: &DictationHistoryEntry,
-    settings: &Settings,
-    now: DateTime<Utc>,
-) -> bool {
-    settings.history_enabled
-        && settings.analytics_enabled
-        && settings.speech_trainer_enabled
-        && entry.analytics_included
-        && entry.analysis_status == DictationAnalysisStatus::Ready
-        && entry.analysis.is_some()
-        && entry
-            .original_text
-            .as_ref()
-            .is_some_and(|text| !text.trim().is_empty())
-        && now.signed_duration_since(entry.created_at)
-            < Duration::days(i64::from(settings.analytics_retention_days))
-}
-
 fn eligible_sources(
     entries: &[DictationHistoryEntry],
     period: Period,
@@ -330,18 +316,6 @@ fn eligible_sources(
             .then(left.id.cmp(&right.id))
     });
     sources
-}
-
-/// Hash only source facts; AI results and report generation time cannot invalidate local metrics.
-pub(crate) fn source_fingerprint(entry: &DictationHistoryEntry) -> AppResult<String> {
-    hash_serialized(&(
-        &entry.id,
-        entry.created_at,
-        entry.analytics_included,
-        entry.analysis_status,
-        &entry.original_text,
-        &entry.analysis,
-    ))
 }
 
 fn fingerprint_for(

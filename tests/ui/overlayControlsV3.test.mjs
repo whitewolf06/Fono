@@ -646,6 +646,97 @@ test("overlay ignores a session snapshot that completes after the window hides",
   }
 });
 
+test("a terminal outcome cannot clear a successor pending event that arrived before its capture snapshot", async () => {
+  const overlay = createNativeOverlay();
+  try {
+    for (let index = 0; index < 4; index++) await flush();
+    listeners.get("pending-dictation")({ payload: pending(10) });
+    listeners.get("backend-event-v1")({
+      payload: {
+        schema_version: 1,
+        kind: "dictation_outcome",
+        payload: { operation_id: 9, outcome: "cancelled" },
+      },
+    });
+    assert.equal(overlay.state.pending.sessionId, 10);
+    assert.equal(overlay.state.phase, "awaiting_action");
+    assert.equal(overlay.state.dictationOutcome, undefined);
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("overlay hydration honors terminal snapshot even when the adjacent pending read is older", async () => {
+  const baseline = invoke;
+  invoke = async (name, args) =>
+    name === "get_pending_dictation"
+      ? pending(9)
+      : name === "get_desktop_snapshot"
+        ? {
+            state: "idle",
+            operation_id: 0,
+            level: 0,
+            source: null,
+            last: null,
+            outcome: { operation_id: 9, outcome: "cancelled" },
+          }
+        : baseline(name, args);
+  const overlay = createNativeOverlay();
+  try {
+    for (let index = 0; index < 4; index++) await flush();
+    assert.equal(overlay.state.pending, null);
+    assert.equal(overlay.state.dictationOutcome, "cancelled");
+    assert.equal(overlay.state.phase, "cancelled");
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("a delayed outcome queues one overlay follow-up while the successor snapshot is in flight", async () => {
+  const overlay = createNativeOverlay();
+  const first = deferred();
+  try {
+    for (let index = 0; index < 4; index++) await flush();
+    const baseline = invoke;
+    let reads = 0;
+    const successor = {
+      state: "listening",
+      operation_id: 10,
+      source: "hotkey",
+      level: 0,
+      last: null,
+    };
+    invoke = async (name, args) =>
+      name === "get_desktop_snapshot"
+        ? ++reads === 1
+          ? first.promise
+          : successor
+        : baseline(name, args);
+    const emit = (kind, payload) =>
+      listeners.get("backend-event-v1")({
+        payload: { schema_version: 1, kind, payload },
+      });
+    emit("pipeline_state", { state: "listening" });
+    await flush();
+    assert.equal(reads, 1);
+    emit("dictation_outcome", { operation_id: 9, outcome: "cancelled" });
+    first.resolve(successor);
+    for (let index = 0; index < 8; index++) await flush();
+    assert.equal(reads, 2, "outcomes coalesce behind the active session read");
+    assert.equal(overlay.state.sessionId, 10);
+    assert.equal(overlay.state.phase, "listening");
+    assert.equal(overlay.state.dictationOutcome, undefined);
+    emit("audio_level", { operation_id: 10, level: 0.06, elapsed_ms: 4100 });
+    assert.equal(overlay.state.level, 0.48);
+  } finally {
+    first.resolve(null);
+    overlay.dispose();
+    await flush();
+  }
+});
+
 test("native terminal Close dismisses the overlay; only positive active session IDs can stop/cancel a capture", async () => {
   const overlay = createNativeOverlay();
   try {

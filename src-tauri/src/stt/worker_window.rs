@@ -46,6 +46,7 @@ impl WorkerSession {
         self.cancel_request()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn transcribe_window(
         &mut self,
         samples: &[i16],
@@ -54,7 +55,9 @@ impl WorkerSession {
         operation_id: u64,
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<WindowTranscript> {
+        self.validate_decoding(decoding)?;
         let meta = self.next_meta("window", Some(operation_id.to_string()));
         let response = self.request_with_cancellation(
             &WorkerRequest::TranscribeWindow {
@@ -64,6 +67,7 @@ impl WorkerSession {
                 context: context.map(str::to_owned),
                 audio_start_sample,
                 samples_i16_base64: encode_samples_i16_base64(samples),
+                decoding,
             },
             Some(cancellation),
         )?;
@@ -85,6 +89,7 @@ impl WorkerSession {
 }
 
 impl WorkerMailbox {
+    #[allow(clippy::too_many_arguments)]
     pub(in crate::stt) fn transcribe_window(
         &self,
         samples: &[i16],
@@ -93,6 +98,7 @@ impl WorkerMailbox {
         operation_id: u64,
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<WindowTranscript> {
         if cancellation.is_cancelled() {
             return Err(AppError::Cancelled("window cancelled before queue".into()));
@@ -103,6 +109,7 @@ impl WorkerMailbox {
             WorkerCommand::Window {
                 samples: samples.to_vec(),
                 language: language.into(),
+                decoding,
                 context: context.map(str::to_owned),
                 operation_id,
                 cancellation: cancellation.clone(),

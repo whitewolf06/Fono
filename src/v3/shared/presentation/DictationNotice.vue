@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { message } from "../domain/messages";
 import { watch, ref } from "vue";
 import type { DictationNotice } from "../domain/dictationNotice";
 import AppIcon from "./AppIcon.vue";
@@ -29,7 +30,7 @@ watch(
       :open="expanded"
       @toggle="expanded = ($event.target as HTMLDetailsElement).open"
     >
-      <summary>Подробнее</summary>
+      <summary>{{ message("common.details") }}</summary>
       <p>{{ notice.details }}</p>
     </details>
   </div>

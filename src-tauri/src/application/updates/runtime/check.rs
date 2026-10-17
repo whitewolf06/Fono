@@ -92,7 +92,7 @@ impl UpdateService {
             })
             .on_before_exit(move || {
                 shutdown_started.store(true, Ordering::Release);
-                crate::shutdown_app(&shutdown_app);
+                crate::app_runtime::shutdown(&shutdown_app);
                 shutdown_app.cleanup_before_exit();
             })
             .build()

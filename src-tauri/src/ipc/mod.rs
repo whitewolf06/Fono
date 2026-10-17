@@ -20,3 +20,6 @@ pub mod updates;
 pub mod voice;
 #[cfg(feature = "wake-word")]
 pub mod wake;
+
+mod registry;
+pub(crate) use registry::handler;

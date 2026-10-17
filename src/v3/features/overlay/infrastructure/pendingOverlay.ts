@@ -4,6 +4,8 @@ import type {
   PendingDictationRequest,
 } from "../../../shared/domain/processing";
 import { call } from "../../../shared/infrastructure/native/ipc";
+import type { DictationOutcomeKind } from "../../../shared/domain/dictationOutcome";
+import type { NativeDictationOutcome } from "../../../shared/infrastructure/native/dictationContracts";
 
 interface PendingState {
   pending: PendingDictation | null;
@@ -12,6 +14,7 @@ interface PendingState {
   level: number;
   error: string;
   copying?: boolean;
+  dictationOutcome?: DictationOutcomeKind;
 }
 
 /** Events win over older poll replies; retired sessions cannot reappear. */
@@ -46,6 +49,8 @@ export function createPendingOverlay(
       )
         return;
       latestSession = value.sessionId;
+      if (previousSession !== value.sessionId)
+        state.dictationOutcome = undefined;
       state.pending = value;
       state.phase = value.phase;
       state.source = value.source;
@@ -68,6 +73,12 @@ export function createPendingOverlay(
     if (state.pending) apply(null);
     latestSession = id;
   }
+  function retire(id: number) {
+    if (id < latestSession) return;
+    latestSession = id;
+    retiredSession = Math.max(retiredSession, id);
+    apply(null);
+  }
   async function resolve(request: PendingDictationRequest) {
     if (
       disposed() ||
@@ -84,14 +95,18 @@ export function createPendingOverlay(
       state.phase = "processing";
     }
     try {
-      await call("resolve_pending_dictation", { request });
+      const result = await call<NativeDictationOutcome>(
+        "resolve_pending_dictation",
+        { request },
+      );
       if (
         disposed() ||
         ownAction !== action ||
         state.pending?.sessionId !== request.sessionId
       )
         return;
-      if (request.action === "process_preview") {
+      if (result) state.dictationOutcome = result.kind;
+      if (request.action === "process_preview" || result?.kind === "deferred") {
         const value = await call<PendingDictation | null>(
           "get_pending_dictation",
         );
@@ -102,7 +117,12 @@ export function createPendingOverlay(
           apply(value);
       } else {
         apply(null);
-        state.phase = request.action === "cancel" ? "cancelled" : "done";
+        state.phase =
+          result?.kind === "no_speech" || result?.kind === "superseded"
+            ? "idle"
+            : result?.kind === "cancelled" || request.action === "cancel"
+              ? "cancelled"
+              : "done";
       }
     } catch (error) {
       if (
@@ -151,5 +171,5 @@ export function createPendingOverlay(
         state.copying = false;
     }
   }
-  return { stamp, current, apply, observeOperation, resolve, copy };
+  return { stamp, current, apply, observeOperation, retire, resolve, copy };
 }

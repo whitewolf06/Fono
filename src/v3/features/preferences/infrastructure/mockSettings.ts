@@ -19,14 +19,24 @@ const wait = (ms: number) =>
 export function createSettingsPort(state: WorkspaceState): SettingsPort {
   async function save(patch: Partial<WorkspaceState["preferences"]>) {
     if (patch.wakeEnabled) ensureWakeAvailable();
-    if (
-      patch.dictationMode &&
-      ["listening", "silence", "transcribing", "processing"].includes(
-        state.phase,
+    const guardCapture = () => {
+      if (
+        ["dictationMode", "whisperDecoding", "whisperThreads"].some(
+          (key) => key in patch,
+        ) &&
+        [
+          "listening",
+          "silence",
+          "transcribing",
+          "processing",
+          "awaiting_action",
+        ].includes(state.phase)
       )
-    )
-      throw new Error("Сначала завершите текущую диктовку.");
+        throw new Error("Сначала завершите текущую диктовку.");
+    };
+    guardCapture();
     await wait(420);
+    guardCapture();
     if (state.scenario === "save-error")
       throw new Error(
         "Не удалось сохранить. Изменения остались в форме — попробуйте ещё раз после восстановления соединения.",

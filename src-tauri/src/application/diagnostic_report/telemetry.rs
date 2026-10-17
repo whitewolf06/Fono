@@ -9,8 +9,10 @@ use std::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReportOutcome {
     Completed,
-    Empty,
+    Deferred,
+    NoSpeech,
     Cancelled,
+    Superseded,
     AudioError,
     RecognitionError,
     ProcessingError,
@@ -19,6 +21,19 @@ pub enum ReportOutcome {
     Interrupted,
 }
 impl ReportOutcome {
+    pub fn from_dictation_result(
+        result: &crate::error::AppResult<crate::application::dictation::DictationOutcome>,
+    ) -> Self {
+        use crate::application::dictation::DictationOutcome;
+        match result {
+            Ok(DictationOutcome::Completed(_)) => Self::Completed,
+            Ok(DictationOutcome::Deferred(_)) => Self::Deferred,
+            Ok(DictationOutcome::NoSpeech) => Self::NoSpeech,
+            Ok(DictationOutcome::Cancelled) => Self::Cancelled,
+            Ok(DictationOutcome::Superseded) => Self::Superseded,
+            Err(error) => Self::from_error(error),
+        }
+    }
     pub fn from_error(error: &crate::error::AppError) -> Self {
         use crate::error::AppError;
         match error {
@@ -38,8 +53,10 @@ impl ReportOutcome {
     pub(super) fn label(self) -> &'static str {
         match self {
             Self::Completed => "завершено",
-            Self::Empty => "нет распознанного текста",
+            Self::Deferred => "ожидает решения пользователя",
+            Self::NoSpeech => "речь не обнаружена",
             Self::Cancelled => "отменено",
+            Self::Superseded => "заменено новой операцией",
             Self::AudioError => "ошибка аудио",
             Self::RecognitionError => "ошибка распознавания",
             Self::ProcessingError => "ошибка обработки текста",
@@ -147,7 +164,17 @@ impl ReportTrace {
         self.data.lock().capture_dropped_packets = packets;
     }
     pub fn outcome(&self, outcome: ReportOutcome) {
-        self.data.lock().outcome = outcome;
+        let mut data = self.data.lock();
+        if matches!(
+            data.outcome,
+            ReportOutcome::Cancelled | ReportOutcome::Superseded
+        ) && !matches!(
+            outcome,
+            ReportOutcome::Cancelled | ReportOutcome::Superseded
+        ) {
+            return;
+        }
+        data.outcome = outcome;
     }
     /// Snapshot immediately after final text generation, before insertion.
     pub fn history_timings(&self) -> crate::types::DictationTimingMeasurements {
@@ -190,6 +217,30 @@ fn duration_ms(duration: Duration) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn diagnostic_outcome_uses_domain_decision_instead_of_transcript_length() {
+        use crate::application::dictation::DictationOutcome;
+        let empty = crate::types::Transcript {
+            text: String::new(),
+            detected_language: None,
+            transcribe_secs: None,
+            audio_secs: None,
+            device: None,
+        };
+        for (outcome, expected) in [
+            (
+                DictationOutcome::Completed(empty.clone()),
+                ReportOutcome::Completed,
+            ),
+            (DictationOutcome::Deferred(empty), ReportOutcome::Deferred),
+            (DictationOutcome::NoSpeech, ReportOutcome::NoSpeech),
+            (DictationOutcome::Cancelled, ReportOutcome::Cancelled),
+            (DictationOutcome::Superseded, ReportOutcome::Superseded),
+        ] {
+            assert_eq!(ReportOutcome::from_dictation_result(&Ok(outcome)), expected);
+        }
+    }
     fn measurement(operation: u64) -> DictationMeasurement {
         DictationMeasurement {
             operation,

@@ -1,4 +1,4 @@
-//! Capture setup, safety limit and leading-only VAD for ordinary dictation.
+//! Capture setup, safety limit and one neural speech decision for dictation.
 use super::{
     lifecycle::{emit_pipeline_error, Session},
     stop_with_reason_for,
@@ -12,6 +12,25 @@ use crate::{
 };
 use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Manager};
+
+/// Capture drain, neural model I/O and offline VAD belong to an admitted worker.
+/// Dropping the IPC waiter cannot release update admission before this work ends.
+pub(super) async fn finish_samples_async(
+    session: Session,
+    mut diagnostic: DictationTailDiagnostic,
+    report: std::sync::Arc<crate::application::diagnostic_report::telemetry::ReportTrace>,
+) -> AppResult<(CapturedSamples, DictationTailDiagnostic)> {
+    let activity = crate::application::updates::activity::lease()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        let _timer = report
+            .stage(crate::application::diagnostic_report::telemetry::ReportStage::CaptureFinish);
+        let samples = finish_samples(&session, &mut diagnostic, &report)?;
+        Ok((samples, diagnostic))
+    })
+    .await
+    .map_err(|_| AppError::Internal("capture completion task failed".into()))?
+}
 
 pub(crate) fn start(app: AppHandle, source: OperationSource) -> AppResult<()> {
     super::start_with_audio(app, source, &[], None)
@@ -168,11 +187,16 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64, command: bool) {
     });
 }
 
+pub(super) enum CapturedSamples {
+    Speech(Vec<i16>),
+    Finished(super::DictationOutcome),
+}
+
 pub(super) fn finish_samples(
     session: &Session,
     diagnostic: &mut DictationTailDiagnostic,
     report: &crate::application::diagnostic_report::telemetry::ReportTrace,
-) -> AppResult<Option<Vec<i16>>> {
+) -> AppResult<CapturedSamples> {
     let pipeline = session.app.state::<Pipeline>();
     // Stop and drain the audio subscriber before loading a model.
     let samples = pipeline.stop_recording_for(session.operation);
@@ -186,7 +210,7 @@ pub(super) fn finish_samples(
     })?;
     let Some(samples) = samples else {
         diagnostic.stt_cancelled();
-        return Ok(None);
+        return Ok(CapturedSamples::Finished(session.interrupted()));
     };
     diagnostic.record_capture(samples.len());
     if pipeline.recording_limit_reached() {
@@ -194,27 +218,39 @@ pub(super) fn finish_samples(
     }
     if !session.active("after recording") {
         diagnostic.stt_cancelled();
-        return Ok(None);
+        return Ok(CapturedSamples::Finished(session.interrupted()));
     }
     if samples.is_empty() {
-        return Ok(None);
+        return Ok(CapturedSamples::Finished(super::DictationOutcome::NoSpeech));
     }
     let mut speech_gate = crate::application::speech_gate::SpeechGate::new(&session.app)?;
-    if !speech_gate.recording_has_speech(&samples, || session.cancellation.is_cancelled()) {
+    let Some(speech) =
+        speech_gate.analyze_recording(&samples, || session.cancellation.is_cancelled())
+    else {
+        return Ok(CapturedSamples::Finished(session.interrupted()));
+    };
+    if !speech.has_speech {
         tracing::debug!(
             operation = session.operation,
             captured_samples = samples.len(),
             "dictation skipped: no confirmed speech in capture"
         );
-        return Ok(None);
+        return Ok(CapturedSamples::Finished(
+            if session.cancellation.is_cancelled() || !session.active("speech validation stopped") {
+                session.interrupted()
+            } else {
+                super::DictationOutcome::NoSpeech
+            },
+        ));
     }
     if !session.active("after speech validation") {
         diagnostic.stt_cancelled();
-        return Ok(None);
+        return Ok(CapturedSamples::Finished(session.interrupted()));
     }
     let captured_samples = samples.len();
-    // Only leading silence may be removed. Wake handoff keeps its exact boundary.
-    let (trimmed, vad) = crate::vad::trim_leading_silence_with_result(&samples);
+    // Preserve the complete onset and tail after measured trimming regressions.
+    // Wake handoff continues to keep its exact original buffer.
+    let (trimmed, vad) = crate::vad::prepare_recording_with_result(&samples, &speech);
     let samples = if session.source == OperationSource::WakeWord {
         diagnostic.skip_vad(captured_samples);
         samples
@@ -224,11 +260,11 @@ pub(super) fn finish_samples(
         trimmed
     };
     if samples.is_empty() {
-        return Ok(None);
+        return Ok(CapturedSamples::Finished(super::DictationOutcome::NoSpeech));
     }
     if !session.transition(PipelineState::Transcribing, TerminalReason::Completed) {
         diagnostic.stt_cancelled();
-        return Ok(None);
+        return Ok(CapturedSamples::Finished(session.interrupted()));
     }
-    Ok(Some(samples))
+    Ok(CapturedSamples::Speech(samples))
 }

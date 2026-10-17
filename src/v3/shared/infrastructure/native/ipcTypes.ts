@@ -137,6 +137,8 @@ export interface Settings {
   clean_prompt: string | null;
   /** Предпочтительный backend ускорения Whisper */
   acceleration: AccelerationMode;
+  whisper_decoding?: "fast" | "accurate";
+  whisper_threads?: number | null;
   /** Хранение модели Whisper в видеопамяти; отсутствует у старых настроек. */
   gpu_model_residency?: "resident" | "adaptive";
   /** Способ вставки текста в активное окно */
@@ -337,6 +339,8 @@ export const DEFAULT_SETTINGS: Settings = {
   overlay_y: null,
   clean_prompt: null,
   acceleration: "auto",
+  whisper_decoding: "fast",
+  whisper_threads: null,
   gpu_model_residency: "resident",
   injection_mode: "sendinput",
   command_hotkey: "Ctrl+Shift+Space",

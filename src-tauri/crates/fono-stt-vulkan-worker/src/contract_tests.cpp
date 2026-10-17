@@ -1,8 +1,16 @@
 #include "timestamps.hpp"
 #include "pcm.hpp"
+#include "decoding.hpp"
 #include <cassert>
 
 int main() {
+    const auto legacy = decoding_options(nlohmann::json::object());
+    assert(legacy && !legacy->accurate && legacy->threads >= 1 && legacy->threads <= 8);
+    const auto accurate = decoding_options({{"decoding", {{"strategy", "accurate"}, {"threads", 3}}}});
+    assert(accurate && accurate->accurate && accurate->threads == 3);
+    for (const auto invalid : {0, 9}) { assert(!decoding_options({{"decoding", {{"threads", invalid}}}})); }
+    assert(!decoding_options({{"decoding", {{"strategy", "guess"}}}}));
+    assert(!decoding_options({{"decoding", {{"threads", 1.5}}}}));
     const std::string text = u8" да, да музыка";
     std::vector<TimedPiece> pieces;
     for (size_t i = 0; i < text.size(); ++i) { pieces.push_back({text.substr(i, 1), 100 + i, 101 + i}); }

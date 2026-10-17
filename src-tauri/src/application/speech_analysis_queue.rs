@@ -24,7 +24,7 @@ impl SpeechAnalysisQueue {
             })?;
 
         let queue = Self { sender };
-        match crate::history::pending_analysis_ids() {
+        match crate::history::for_app(&app).pending_analysis_ids() {
             Ok(ids) => {
                 for id in ids {
                     queue.enqueue(id);
@@ -47,7 +47,7 @@ fn process_session(app: &AppHandle, session_id: &str) {
         // Pending sessions are restored at the next start after installation.
         return;
     };
-    let original_text = match crate::history::pending_analysis_input(session_id) {
+    let original_text = match crate::history::for_app(app).pending_analysis_input(session_id) {
         Ok(Some(text)) => text,
         Ok(None) => return,
         Err(error) => {
@@ -57,7 +57,7 @@ fn process_session(app: &AppHandle, session_id: &str) {
     };
     let analysis = crate::speech_metrics::analyze_russian_speech(&original_text);
 
-    match crate::history::complete_analysis(session_id, analysis) {
+    match crate::history::for_app(app).complete_analysis(session_id, analysis) {
         Ok(true) => {
             generate_llm_recommendation(app, session_id);
             let _ = app.emit("speech-analysis-changed", session_id.to_owned());
@@ -65,7 +65,8 @@ fn process_session(app: &AppHandle, session_id: &str) {
         Ok(false) => {}
         Err(error) => {
             tracing::warn!(%error, session_id, "could not save speech analysis");
-            let _ = crate::history::mark_analysis_failed(session_id, "storage_unavailable");
+            let _ = crate::history::for_app(app)
+                .mark_analysis_failed(session_id, "storage_unavailable");
         }
     }
 }
@@ -88,12 +89,13 @@ fn generate_llm_recommendation(app: &AppHandle, session_id: &str) {
         return;
     };
     let Ok(Some((original_text, analysis, source_fingerprint))) =
-        crate::history::recommendation_input(session_id, &settings)
+        crate::history::for_app(app).recommendation_input(session_id, &settings)
     else {
         return;
     };
     let Some(profile) = settings.speech_analysis_profile() else {
         fail_current_recommendation(
+            app,
             &state,
             &request,
             revision,
@@ -105,6 +107,7 @@ fn generate_llm_recommendation(app: &AppHandle, session_id: &str) {
     };
     if profile.connection == LlmConnectionKind::Cloud && !assignment.cloud_consent {
         fail_current_recommendation(
+            app,
             &state,
             &request,
             revision,
@@ -141,7 +144,7 @@ fn generate_llm_recommendation(app: &AppHandle, session_id: &str) {
     }
     match result {
         Ok(recommendation) => {
-            if let Err(error) = crate::history::complete_recommendation_if_current(
+            if let Err(error) = crate::history::for_app(app).complete_recommendation_if_current(
                 session_id,
                 &source_fingerprint,
                 recommendation,
@@ -152,7 +155,7 @@ fn generate_llm_recommendation(app: &AppHandle, session_id: &str) {
         }
         Err(error) => {
             tracing::warn!(%error, session_id, "LLM speech recommendation failed");
-            let _ = crate::history::mark_recommendation_failed_if_current(
+            let _ = crate::history::for_app(app).mark_recommendation_failed_if_current(
                 session_id,
                 &source_fingerprint,
                 "llm_request_failed",
@@ -163,6 +166,7 @@ fn generate_llm_recommendation(app: &AppHandle, session_id: &str) {
 }
 
 fn fail_current_recommendation(
+    app: &AppHandle,
     state: &crate::state::AppState,
     request: &crate::application::trainer_ai::SessionRequest,
     revision: u64,
@@ -172,7 +176,7 @@ fn fail_current_recommendation(
 ) {
     let current = state.settings.lock();
     if !request.token.is_cancelled() && state.settings_revision() == revision {
-        let _ = crate::history::mark_recommendation_failed_if_current(
+        let _ = crate::history::for_app(app).mark_recommendation_failed_if_current(
             session_id,
             source_fingerprint,
             reason,

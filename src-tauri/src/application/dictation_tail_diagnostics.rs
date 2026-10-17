@@ -160,7 +160,9 @@ impl DictationTailDiagnostic {
         vad: &VadResult,
         retained_trailing_samples: usize,
     ) {
-        let applied = vad.has_speech && vad.end_sample > vad.start_sample;
+        let applied = vad.has_speech
+            && vad.end_sample > vad.start_sample
+            && (vad.start_sample > 0 || vad.end_sample < input_samples);
         self.vad = Some(VadMeasurement {
             applied,
             detected_speech: vad.has_speech,
@@ -332,6 +334,26 @@ mod tests {
         assert_eq!(vad.trailing_before_samples, 4_000);
         assert_eq!(vad.trailing_after_samples, 4_000);
         assert_eq!(diagnostic.first_suspected_layer(), None);
+    }
+
+    #[test]
+    fn confirmed_full_capture_does_not_claim_that_trimming_was_applied() {
+        let mut diagnostic =
+            DictationTailDiagnostic::new(8, OperationSource::Hotkey, DictationStopReason::Manual);
+        let decision = fono_audio::RecordedSpeechDecision {
+            has_speech: true,
+            first_speech_sample: Some(4_800),
+            last_speech_sample: Some(8_000),
+            inspected_samples: 16_000,
+        };
+        let bounds = fono_audio::recorded_speech_bounds(16_000, &decision);
+        diagnostic.record_capture(16_000);
+        diagnostic.record_vad(16_000, 16_000, &bounds, 8_000);
+        let measurement = diagnostic.vad.unwrap();
+        assert!(measurement.detected_speech);
+        assert!(!measurement.applied);
+        assert_eq!(measurement.trailing_before_samples, 8_000);
+        assert_eq!(measurement.trailing_after_samples, 8_000);
     }
 
     #[test]

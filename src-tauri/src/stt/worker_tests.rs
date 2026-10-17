@@ -25,6 +25,28 @@ const TEST_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
 // barrier/controller needs scheduling headroom during parallel workspace gates.
 const EOF_FIXTURE_TIMEOUT: Duration = Duration::from_secs(5);
 
+#[cfg(windows)]
+#[test]
+fn old_worker_rejects_nondefault_decoding_before_consuming_a_request() {
+    let fixture = WorkerFixture::create("echo {\"type\":\"pong\",\"protocol_version\":3,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang");
+    let mut session = fixture.start();
+    let error = session
+        .transcribe_cancellable_with_options(
+            &[0; 160],
+            "auto",
+            &OperationCancellation::default(),
+            fono_stt_protocol::DecodingOptions {
+                strategy: fono_stt_protocol::DecodingStrategy::Accurate,
+                threads: None,
+            },
+        )
+        .unwrap_err();
+    assert!(matches!(error, AppError::Config(_)));
+    assert_eq!(session.next_request_id, 2);
+    session.ping().unwrap();
+    assert!(session.stdin_tx.is_some());
+}
+
 struct WorkerFixture {
     directory: PathBuf,
     script: PathBuf,
@@ -148,6 +170,7 @@ fn base64_transport_measurement_for_typical_recording_lengths() {
             model_path: "model.bin".into(),
             language: "auto".into(),
             samples_i16_base64: encoded,
+            decoding: fono_stt_protocol::DecodingOptions::default(),
         };
         let json = serde_json::to_string(&request).expect("serialize measurement request");
         println!(
@@ -171,6 +194,7 @@ fn maximum_recording_fits_the_versioned_transport_frame() {
         model_path: "model.bin".into(),
         language: "auto".into(),
         samples_i16_base64: encoded,
+        decoding: fono_stt_protocol::DecodingOptions::default(),
     };
     let json = serde_json::to_string(&request).expect("serialize maximum request");
     assert!(json.len() <= MAX_REQUEST_FRAME_BYTES);

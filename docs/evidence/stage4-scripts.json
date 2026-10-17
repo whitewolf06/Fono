@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "version": "0.7.24",
+  "checked_at": "2026-10-17T22:12:36.960Z",
+  "all_passed": true,
+  "steps": [
+    {
+      "name": "release-working-tree",
+      "exit_code": 0,
+      "log": "build/checks/stage4-final-release-working-tree.log",
+      "sha256": "0098779de24dd5c2dfac11a1ecb6bcdcc2c2c9863fa2161f2eb2ca0a6fa4257c",
+      "tests": 48,
+      "passed": 48,
+      "failed": 0
+    },
+    {
+      "name": "release-committed-scope",
+      "exit_code": 0,
+      "log": "build/checks/stage4-final-release-committed-scope.log",
+      "sha256": "7bf8caf50cbcaa811f0e386d84237b98e8114c9b48f6567cdb31faa70261bbf7",
+      "tests": 28,
+      "passed": 28,
+      "failed": 0
+    },
+    {
+      "name": "quality-contracts",
+      "exit_code": 0,
+      "log": "build/checks/stage4-final-quality-contracts.log",
+      "sha256": "c0f55d04c74e3964f1e2ef14b0c875620b244a7758e55d6cd45899c9cbe99ed9",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "name": "workers-contract",
+      "exit_code": 0,
+      "log": "build/checks/stage4-final-workers-contract.log",
+      "sha256": "2f1503f51c67fec18967c7de6908f5f2bfbcd420526dc0701a83abd37641f727",
+      "process_contracts": [
+        {
+          "backend": "cuda",
+          "protocol_version": 3,
+          "cases": [
+            "handshake_and_capabilities",
+            "health",
+            "version_rejected",
+            "odd_pcm_rejected",
+            "invalid_base64_rejected",
+            "accurate_options_accepted_before_pcm_validation",
+            "threads_0_rejected_before_model_load",
+            "threads_9_rejected_before_model_load",
+            "cancel_control_has_no_reply",
+            "malformed_json_rejected",
+            "maximum_wire_frame_accepted_by_transport",
+            "oversized_wire_frame_rejected",
+            "frame_recovery",
+            "graceful_shutdown"
+          ],
+          "passed": true,
+          "scope": "process framing/control; no model load, inference, microphone or GPU quality acceptance"
+        },
+        {
+          "backend": "vulkan",
+          "protocol_version": 3,
+          "cases": [
+            "handshake_and_capabilities",
+            "health",
+            "version_rejected",
+            "odd_pcm_rejected",
+            "invalid_base64_rejected",
+            "accurate_options_accepted_before_pcm_validation",
+            "threads_0_rejected_before_model_load",
+            "threads_9_rejected_before_model_load",
+            "cancel_control_has_no_reply",
+            "malformed_json_rejected",
+            "maximum_wire_frame_accepted_by_transport",
+            "oversized_wire_frame_rejected",
+            "frame_recovery",
+            "graceful_shutdown"
+          ],
+          "passed": true,
+          "scope": "process framing/control; no model load, inference, microphone or GPU quality acceptance"
+        }
+      ]
+    },
+    {
+      "name": "rust-format",
+      "exit_code": 0,
+      "log": "build/checks/stage4-final-rust-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "scope": "Local script/CI contracts and process protocol only. No model load, GPU inference, installer, publication, installation or remote Actions execution.",
+  "owner_working_tree_scope": "Working-tree npm test:release includes 20 pre-existing owner cache tests. The 28-test committed release-script selection is also verified separately. Owner cache files/hooks are not part of the stage-4 commit.",
+  "workflow_sources": [
+    {
+      "path": ".github/workflows/stt-quality.yml",
+      "sha256": "2cd8a5f146e83882eeb4c71e6df241911b2ba2454269ef1892303494bc66fbb4"
+    },
+    {
+      "path": "scripts/ci-workflow.test.mjs",
+      "sha256": "9543e5889406271432b5d6e107e722e31a19a98614eb591d47f36e8b6d260e9d"
+    },
+    {
+      "path": "scripts/stt-quality.test.mjs",
+      "sha256": "a49a7667ddac1aff961ed088b2629fae6c31eb71182590bf49bb17d8bceb98e1"
+    },
+    {
+      "path": "scripts/stage4-quality.mjs",
+      "sha256": "1aaf1073ee40c1ef9822f8f4c35e4706277103b984c9a60ff51312fda1f95308"
+    },
+    {
+      "path": "scripts/worker-contract.mjs",
+      "sha256": "a211cbf2aa7e9a8d7a24cf0ab1821ccd3317c637c92e844a962f33f0503d61d5"
+    }
+  ]
+}

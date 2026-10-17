@@ -2,10 +2,10 @@
 
 use tauri::{AppHandle, Manager};
 
+use crate::application::dictation::DictationOutcome;
 use crate::error::{AppError, AppResult};
 use crate::pipeline::{self, Pipeline};
 use crate::state::AppState;
-use crate::types::Transcript;
 use fono_core::OperationSource;
 
 #[tauri::command]
@@ -15,14 +15,23 @@ pub async fn start_dictation(app: AppHandle) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub async fn stop_dictation(app: AppHandle, session_id: Option<u64>) -> AppResult<Transcript> {
+pub async fn stop_dictation(
+    app: AppHandle,
+    session_id: Option<u64>,
+) -> AppResult<DictationOutcome> {
     if let Some(expected) = session_id {
-        let operation = app
-            .state::<Pipeline>()
-            .requested_operation(Some(expected))?;
+        let operation = expected;
+        if !app.state::<Pipeline>().is_operation_active(operation) {
+            return Ok(DictationOutcome::interrupted(
+                &app.state::<Pipeline>(),
+                operation,
+            ));
+        }
         #[cfg(feature = "experimental-live")]
         if crate::application::live_dictation::is_active(&app) {
-            return crate::application::live_dictation::finish_for(app, operation).await;
+            return crate::application::live_dictation::finish_for(app, operation)
+                .await
+                .map(DictationOutcome::Completed);
         }
         return crate::application::dictation::stop_with_reason_for(
             app,
@@ -36,10 +45,17 @@ pub async fn stop_dictation(app: AppHandle, session_id: Option<u64>) -> AppResul
 
 /// Clicking the check icon produces a copyable result and never inserts it.
 #[tauri::command]
-pub async fn finish_overlay_dictation(app: AppHandle, session_id: u64) -> AppResult<Transcript> {
-    let operation = app
-        .state::<Pipeline>()
-        .requested_operation(Some(session_id))?;
+pub async fn finish_overlay_dictation(
+    app: AppHandle,
+    session_id: u64,
+) -> AppResult<DictationOutcome> {
+    let operation = session_id;
+    if !app.state::<Pipeline>().is_operation_active(operation) {
+        return Ok(DictationOutcome::interrupted(
+            &app.state::<Pipeline>(),
+            operation,
+        ));
+    }
     crate::application::dictation::stop_overlay_for(app, operation).await
 }
 #[tauri::command]
@@ -59,7 +75,7 @@ pub async fn transcribe_test(
     app: AppHandle,
     duration_ms: u64,
     inject: Option<bool>,
-) -> AppResult<Transcript> {
+) -> AppResult<DictationOutcome> {
     crate::application::dictation::transcribe_test(app, duration_ms, inject).await
 }
 
@@ -108,6 +124,11 @@ pub async fn cancel_dictation(app: AppHandle, session_id: Option<u64>) -> AppRes
         let _ = pipeline.stop_recording_for(operation);
         pipeline::set_idle_if_no_operation(&app, state.inner(), &pipeline);
         crate::application::dictation::resume_wake_if_idle(&app);
+        crate::events::emit_dictation_outcome(
+            &app,
+            operation,
+            crate::application::dictation::DictationOutcomeKind::Cancelled,
+        );
         tracing::info!("dictation cancelled by overlay");
         Ok(())
     })
@@ -130,7 +151,7 @@ pub fn get_pending_dictation(
 pub async fn resolve_pending_dictation(
     app: AppHandle,
     request: crate::application::dictation::workflow::PendingRequest,
-) -> AppResult<Option<Transcript>> {
+) -> AppResult<DictationOutcome> {
     crate::application::dictation::workflow::resolve(app, request).await
 }
 

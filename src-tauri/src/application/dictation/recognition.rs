@@ -68,12 +68,18 @@ pub(super) async fn run_measured(
     let stt = pipeline.stt().clone();
     let scheduler = pipeline.scheduler();
     let language = session.settings.language.clone();
+    let decoding = session.settings.decoding_options();
     let cancellation = session.cancellation.clone();
     let activity = crate::application::updates::activity::lease()?;
     let task = tauri::async_runtime::spawn_blocking(move || {
         let _activity = activity;
         let permit = scheduler.acquire(true, &cancellation)?;
-        stt.transcribe_cancellable(&samples, &language, permit.cancellation.clone())
+        stt.transcribe_cancellable_with_options(
+            &samples,
+            &language,
+            permit.cancellation.clone(),
+            decoding,
+        )
     });
     let result = await_task(task, session.cancellation.clone(), "transcribe").await?;
     if !session.active("after transcription") {

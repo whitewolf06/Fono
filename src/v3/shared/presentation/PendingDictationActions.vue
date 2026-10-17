@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { message } from "../domain/messages";
 import { computed, ref, watch } from "vue";
 import type {
   PendingDictation,
@@ -73,10 +74,10 @@ const notice = computed(() =>
     <p v-else class="pending-title" role="status">
       {{
         pending.phase === "processing"
-          ? "Обрабатываю текст"
+          ? message("pending.processing")
           : pending.copyOnly
-            ? "Текст готов"
-            : "Выберите действие с текстом"
+            ? message("pending.ready")
+            : message("pending.choose")
       }}
     </p>
     <p class="pending-text" :title="pending.resultText ?? pending.originalText">
@@ -93,22 +94,26 @@ const notice = computed(() =>
       :remember="rememberChoice"
       @change="choose"
     />
-    <div class="pending-footer" role="group" aria-label="Действия с диктовкой">
+    <div
+      class="pending-footer"
+      role="group"
+      :aria-label="message('pending.actions')"
+    >
       <button
         v-if="!pending.copyOnly && !pending.insertionBlocked"
         type="button"
         class="dictation-action dictation-action--insert"
         :title="
           pending.source === 'ui'
-            ? 'Оставить исходный текст в Fono'
-            : 'Вставить исходный текст без обработки'
+            ? message('pending.keepOriginal')
+            : message('pending.insertOriginal')
         "
         :disabled="
           pending.phase === 'processing' || pending.insertionBlocked || saving
         "
         @click="resolve('insert_raw')"
       >
-        Исходный
+        {{ message("pending.original") }}
       </button>
       <button
         v-if="
@@ -129,10 +134,12 @@ const notice = computed(() =>
       >
         {{
           pending.phase === "processing"
-            ? "Обработка…"
+            ? message("pending.working")
             : effectiveLanguage
-              ? "Обработать · " + effectiveLanguage.toUpperCase()
-              : "Обработать"
+              ? message("pending.processLanguage", {
+                  language: effectiveLanguage.toUpperCase(),
+                })
+              : message("pending.process")
         }}
       </button>
       <button
@@ -140,10 +147,10 @@ const notice = computed(() =>
         class="dictation-action"
         :title="
           pending.copyOnly
-            ? 'Копировать текст и закрыть индикатор'
-            : 'Копировать текст'
+            ? message('pending.copyClose')
+            : message('common.copyText')
         "
-        aria-label="Копировать текст"
+        :aria-label="message('common.copyText')"
         :disabled="pending.phase === 'processing' || saving"
         @click="
           emit(
@@ -154,22 +161,24 @@ const notice = computed(() =>
         "
       >
         <AppIcon name="copy" :size="14" />
-        <span v-if="pending.copyOnly || pending.insertionBlocked"
-          >Копировать</span
-        >
+        <span v-if="pending.copyOnly || pending.insertionBlocked">{{
+          message("common.copy")
+        }}</span>
       </button>
       <button
         type="button"
         class="dictation-action overlay-cancel"
         :title="
           pending.copyOnly || pending.insertionBlocked
-            ? 'Закрыть без копирования'
-            : 'Отменить диктовку'
+            ? message('pending.closeWithoutCopy')
+            : message('pending.cancel')
         "
         @click="resolve('cancel')"
       >
         <AppIcon name="x" :size="14" />{{
-          pending.copyOnly || pending.insertionBlocked ? "Закрыть" : "Отмена"
+          pending.copyOnly || pending.insertionBlocked
+            ? message("common.close")
+            : message("common.cancel")
         }}
       </button>
     </div>

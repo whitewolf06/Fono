@@ -1,4 +1,8 @@
-import type { PipelineState } from "./ipcTypes";
+import type { PipelineState, Transcript } from "./ipcTypes";
+import type {
+  DictationOutcomeKind,
+  DictationOutcomeEvent,
+} from "../../domain/dictationOutcome";
 import type { LiveDictation } from "../../domain/contracts";
 
 export interface NativeResult {
@@ -8,7 +12,11 @@ export interface NativeResult {
   created_at: string;
   audio_secs: number;
 }
+export type NativeDictationOutcome =
+  | { kind: "completed" | "deferred"; transcript: Transcript }
+  | { kind: Exclude<DictationOutcomeKind, "completed" | "deferred"> };
 export interface NativeSnapshot {
+  outcome?: DictationOutcomeEvent | null;
   state: PipelineState;
   level: number;
   last: NativeResult | null;

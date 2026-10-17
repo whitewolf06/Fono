@@ -95,8 +95,10 @@ pub(super) fn validate_setup(settings: &Settings) -> AppResult<()> {
             "Настройка фразы доступна для локальных Sherpa-движков".into(),
         ));
     }
-    fono_wake::validate_config(&crate::settings_to_wake_config(settings)?)
-        .map_err(|e| AppError::Config(e.to_string()))
+    fono_wake::validate_config(&crate::application::wake::settings_to_wake_config(
+        settings,
+    )?)
+    .map_err(|e| AppError::Config(e.to_string()))
 }
 
 #[cfg(test)]

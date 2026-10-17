@@ -3,6 +3,7 @@
 #include "json.hpp"
 #include "pcm.hpp"
 #include "timestamps.hpp"
+#include "decoding.hpp"
 #include <atomic>
 #include <chrono>
 #include <cctype>
@@ -52,6 +53,8 @@ inline json transcribe(const json & request, std::optional<LoadedModel> & loaded
     const auto start = request.value("audio_start_sample", uint64_t{0});
     const auto language = request.value("language", "auto");
     const auto context = request.contains("context") && request["context"].is_string() ? request["context"].get<std::string>() : "";
+    const auto decoding = decoding_options(request);
+    if (!decoding) { return worker_error(id, "decoding", "unsupported Whisper decoding options", operation); }
     if (language.find('\0') != std::string::npos || context.find('\0') != std::string::npos) { return worker_error(id, "transcribe", "language/context contains a null byte", operation); }
     std::string audio_error;
     const auto samples = decode_pcm_i16_base64(request.value("samples_i16_base64", ""), audio_error);
@@ -61,8 +64,14 @@ inline json transcribe(const json & request, std::optional<LoadedModel> & loaded
     if (!ensure_model(request.value("model_path", ""), loaded)) { return worker_error(id, "model_load", "could not load Whisper model", operation); }
     loaded->pcm.clear();
     for (const auto sample : *samples) { loaded->pcm.push_back(static_cast<float>(sample) / 32768.0f); }
-    auto params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-    params.n_threads = std::max(1u, std::min(8u, std::thread::hardware_concurrency()));
+    auto params = whisper_full_default_params(decoding->accurate ? WHISPER_SAMPLING_BEAM_SEARCH : WHISPER_SAMPLING_GREEDY);
+    // Preserve the Vulkan backend's legacy Greedy best_of=5. Beam Search
+    // keeps the vendor's greedy fallback=-1, matching whisper-rs FullParams.
+    if (decoding->accurate) {
+        params.beam_search.beam_size = 5;
+        params.beam_search.patience = -1.0f;
+    }
+    params.n_threads = decoding->threads;
     params.no_context = true; params.single_segment = !timed;
     params.print_progress = false; params.print_realtime = false;
     params.print_timestamps = false; params.print_special = false;
@@ -111,7 +120,7 @@ inline json transcribe(const json & request, std::optional<LoadedModel> & loaded
 inline std::pair<json, bool> handle(const json & request, std::optional<LoadedModel> & loaded, std::atomic_bool & cancelled) {
     const auto id = request.value("request_id", "unparsed");
     const auto type = request.value("type", "");
-    if (type == "hello") { return {{{"type", "ready"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", id}, {"backend", "vulkan"}, {"capabilities", {{"protocol_version", PROTOCOL_VERSION}, {"supports_health", true}, {"supports_shutdown", true}, {"supports_window", true}, {"supports_cancel", true}, {"supports_token_timestamps", true}, {"maximum_request_bytes", MAX_REQUEST_FRAME_BYTES}, {"maximum_response_bytes", MAX_RESPONSE_FRAME_BYTES}}}}, false}; }
+    if (type == "hello") { return {{{"type", "ready"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", id}, {"backend", "vulkan"}, {"capabilities", {{"protocol_version", PROTOCOL_VERSION}, {"supports_health", true}, {"supports_shutdown", true}, {"supports_window", true}, {"supports_cancel", true}, {"supports_token_timestamps", true}, {"supports_decoding_options", true}, {"maximum_request_bytes", MAX_REQUEST_FRAME_BYTES}, {"maximum_response_bytes", MAX_RESPONSE_FRAME_BYTES}}}}, false}; }
     if (type == "ping") { return {{{"type", "pong"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", id}, {"backend", "vulkan"}}, false}; }
     if (type == "load") {
         if (!ensure_model(request.value("model_path", ""), loaded)) { return {worker_error(id, "model_load", "could not load Whisper model"), false}; }

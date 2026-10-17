@@ -39,7 +39,7 @@ pub async fn test_wake_word_model(app: AppHandle) -> AppResult<WakeWordTestRepor
     let activity = crate::application::updates::activity::lease()?;
     crate::application::dictation::ensure_capture_allowed(&app)?;
     let settings = app.state::<AppState>().settings();
-    let mut config = crate::settings_to_wake_config(&settings)?;
+    let mut config = crate::application::wake::settings_to_wake_config(&settings)?;
     let (wav_path, builtin) = match config.backend {
         fono_wake::WakeWordBackend::SherpaStreamingRu => {
             config.phrase = "приедет бригада".into();
@@ -156,7 +156,7 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
         }
     });
 
-    let mut config = crate::settings_to_wake_config(&settings)?;
+    let mut config = crate::application::wake::settings_to_wake_config(&settings)?;
     config.enabled = true;
     wake_handle.update_config(config)?;
 
@@ -165,7 +165,8 @@ pub async fn enable_wake_word(app: AppHandle) -> AppResult<()> {
     let updated = match state.persist_settings_delta(&settings, &updated) {
         Ok(updated) => updated,
         Err(error) => {
-            if let Ok(config) = crate::settings_to_wake_config(&state.settings()) {
+            if let Ok(config) = crate::application::wake::settings_to_wake_config(&state.settings())
+            {
                 let _ = wake_handle.update_config(config);
             }
             return Err(error);
@@ -190,7 +191,8 @@ pub async fn disable_wake_word(app: AppHandle) -> AppResult<()> {
     let updated = match state.persist_settings_delta(&previous, &updated) {
         Ok(updated) => updated,
         Err(error) => {
-            if let Ok(config) = crate::settings_to_wake_config(&state.settings()) {
+            if let Ok(config) = crate::application::wake::settings_to_wake_config(&state.settings())
+            {
                 let _ = wake_handle.update_config(config);
             }
             return Err(error);

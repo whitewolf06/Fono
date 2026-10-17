@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { message } from "../domain/messages";
 import type { Health } from "../domain/contracts";
 defineProps<{ health: Health; label?: string }>();
 const labels: Record<Health, string> = {
-  ready: "Готово",
-  off: "Выключено",
-  missing: "Нужна настройка",
-  loading: "Загрузка",
-  error: "Ошибка",
+  ready: message("health.ready"),
+  off: message("health.off"),
+  missing: message("health.missing"),
+  loading: message("health.loading"),
+  error: message("health.error"),
 };
 </script>
 <template>

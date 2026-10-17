@@ -39,7 +39,7 @@ foreach ($backend in $Backends) {
         if ($response.type -ne 'ready' -or $response.protocol_version -ne $protocolVersion -or $response.request_id -ne 'release-verification' -or $response.backend -ne $backend) {
             throw "$backend worker is incompatible with STT protocol $protocolVersion; rebuild workers"
         }
-        foreach ($capability in @('supports_window', 'supports_cancel', 'supports_token_timestamps', 'supports_health', 'supports_shutdown')) {
+        foreach ($capability in @('supports_window', 'supports_cancel', 'supports_token_timestamps', 'supports_health', 'supports_shutdown', 'supports_decoding_options')) {
             if (!$response.capabilities.$capability) { throw "$backend worker lacks $capability" }
         }
         if ($response.capabilities.protocol_version -ne $protocolVersion -or $response.capabilities.maximum_request_bytes -lt 16777216 -or $response.capabilities.maximum_response_bytes -lt 1048576) {
@@ -53,4 +53,9 @@ foreach ($backend in $Backends) {
         }
         $process.Dispose()
     }
+}
+
+foreach ($backend in $Backends) {
+    & node (Join-Path $PSScriptRoot 'worker-contract.mjs') (Join-Path $WorkersDirectory "fono-stt-$backend-worker.exe") $backend
+    if ($LASTEXITCODE -ne 0) { throw "$backend worker failed the shared process contract" }
 }

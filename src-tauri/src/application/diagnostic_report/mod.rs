@@ -60,7 +60,7 @@ pub fn collect(app: &AppHandle) -> DiagnosticReport {
         },
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
-        phase: state.pipeline_state(),
+        phase: pipeline.state(),
         paused: state.is_dictation_paused(),
         model: model::model_label(&settings),
         model_available: settings

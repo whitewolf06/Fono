@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import type { DictationOutcomeKind } from "../../../shared/domain/dictationOutcome";
+import { message } from "../../../shared/domain/messages";
 import type {
   Phase,
   Preferences,
@@ -16,6 +18,7 @@ const props = withDefaults(
   defineProps<{
     preferences: Preferences;
     phase?: Phase;
+    outcome?: DictationOutcomeKind;
     level?: number;
     seconds?: number;
     interactive?: boolean;
@@ -65,15 +68,17 @@ const indicator = computed<IndicatorState>(() => {
       : error
         ? "error"
         : "ready"
-    : ["listening", "silence", "idle"].includes(props.phase)
-      ? "recording"
-      : props.phase === "transcribing"
-        ? "transcribing"
-        : props.phase === "processing"
-          ? "processing"
-          : props.phase === "error"
-            ? "error"
-            : "closed";
+    : props.outcome === "no_speech" || props.outcome === "superseded"
+      ? "closed"
+      : ["listening", "silence", "idle"].includes(props.phase)
+        ? "recording"
+        : props.phase === "transcribing"
+          ? "transcribing"
+          : props.phase === "processing"
+            ? "processing"
+            : props.phase === "error"
+              ? "error"
+              : "closed";
   return {
     phase,
     sessionId: pending?.sessionId ?? 0,
@@ -84,9 +89,11 @@ const indicator = computed<IndicatorState>(() => {
     insertionBlocked: pending?.insertionBlocked ?? false,
     copying: props.copying ?? false,
     status:
-      props.phase === "silence" && !pending
-        ? `Пауза · ${props.seconds} с`
-        : undefined,
+      props.outcome === "no_speech"
+        ? message("dictation.noSpeech")
+        : props.phase === "silence" && !pending
+          ? `Пауза · ${props.seconds} с`
+          : undefined,
     postprocessingOn:
       choice.value.processingEnabled ?? props.preferences.processingEnabled,
     translationOn:

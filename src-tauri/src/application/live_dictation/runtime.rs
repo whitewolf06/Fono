@@ -20,7 +20,24 @@ pub(super) async fn run(app: AppHandle, session: Arc<LiveSession>, mut gate: Spe
         // A final hypothesis can append more than one bounded insertion chunk.
         insertion::drain(&app, &session).await;
     }
-    terminal::complete(&app, &session, &agreement, result);
+    // Persistence and physical audio teardown belong to a blocking owner. Its
+    // lease survives a dropped async waiter until this existing flow finishes.
+    let activity = crate::application::updates::activity::cleanup_lease();
+    let terminal_app = app.clone();
+    let terminal_session = session.clone();
+    let task = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        terminal::complete(&terminal_app, &terminal_session, &agreement, result);
+    });
+    if task.await.is_err() {
+        tracing::error!(
+            operation = session.operation,
+            "live terminal worker did not complete"
+        );
+        session
+            .completion
+            .send_replace(Some(Err("Не удалось завершить диктовку".into())));
+    }
 }
 
 async fn drive(

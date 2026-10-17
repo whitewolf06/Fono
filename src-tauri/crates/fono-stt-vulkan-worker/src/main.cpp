@@ -26,7 +26,11 @@ bool limited_line(std::string & line, bool & exceeded) {
     bool consumed = false;
     while (std::cin.get(character)) {
         consumed = true;
-        if (character == '\n') { break; }
+        if (character == '\n') {
+            // MAX_REQUEST_FRAME_BYTES is the complete wire frame, including LF.
+            if (line.size() >= MAX_REQUEST_FRAME_BYTES) { exceeded = true; }
+            break;
+        }
         if (line.size() == MAX_REQUEST_FRAME_BYTES) { exceeded = true; }
         if (!exceeded) { line.push_back(character); }
     }

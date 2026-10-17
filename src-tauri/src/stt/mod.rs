@@ -279,7 +279,12 @@ impl SttEngine {
     }
 
     pub fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
-        self.transcribe_internal(samples, language, None)
+        self.transcribe_internal(
+            samples,
+            language,
+            None,
+            fono_stt_protocol::DecodingOptions::default(),
+        )
     }
 
     pub fn transcribe_cancellable(
@@ -288,7 +293,31 @@ impl SttEngine {
         language: &str,
         cancellation: OperationCancellation,
     ) -> AppResult<Transcript> {
-        self.transcribe_internal(samples, language, Some(&cancellation))
+        self.transcribe_internal(
+            samples,
+            language,
+            Some(&cancellation),
+            fono_stt_protocol::DecodingOptions::default(),
+        )
+    }
+
+    pub fn transcribe_with_options(
+        &self,
+        samples: &[i16],
+        language: &str,
+        decoding: fono_stt_protocol::DecodingOptions,
+    ) -> AppResult<Transcript> {
+        self.transcribe_internal(samples, language, None, decoding)
+    }
+
+    pub fn transcribe_cancellable_with_options(
+        &self,
+        samples: &[i16],
+        language: &str,
+        cancellation: OperationCancellation,
+        decoding: fono_stt_protocol::DecodingOptions,
+    ) -> AppResult<Transcript> {
+        self.transcribe_internal(samples, language, Some(&cancellation), decoding)
     }
 
     fn transcribe_internal(
@@ -296,7 +325,9 @@ impl SttEngine {
         samples: &[i16],
         language: &str,
         cancellation: Option<&OperationCancellation>,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<Transcript> {
+        decoding.validate().map_err(AppError::Config)?;
         if self.cleanup.is_pending() {
             return Err(worker_cleanup_busy());
         }
@@ -307,8 +338,10 @@ impl SttEngine {
         // global engine-state mutex.
         let active = self.state.lock().active().ok_or(AppError::ModelNotLoaded)?;
         let result = match cancellation {
-            Some(cancellation) => active.transcribe_cancellable(samples, language, cancellation),
-            None => active.transcribe(samples, language),
+            Some(cancellation) => {
+                active.transcribe_cancellable(samples, language, cancellation, decoding)
+            }
+            None => active.transcribe(samples, language, decoding),
         };
         if result.is_err()
             && active.worker_faulted()

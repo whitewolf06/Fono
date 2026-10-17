@@ -70,7 +70,18 @@ Wrapper собирает выбранные тесты и размещает з�
 
 После `npm run prepare:release-resources` закрытый manifest ресурсов дополнительно проверяется командой `cargo check --locked -p fono --release` из `src-tauri`. Эта проверка не создаёт installer и не подтверждает установку.
 
-## UI в браузере
+### Общий process contract workers
+
+-
+
++После штатной пересборки `npm run build:workers` один набор проверок запускается против обоих EXE. Его можно повторить без загрузки модели: + +`powershell
++./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-workers -Backends @('cuda', 'vulkan')
++./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-base -Backends @('vulkan')
++` + +`scripts/worker-contract.mjs` проверяет protocol/capabilities, health, неверную версию, PCM/base64/JSON, optional decoding options и число потоков, границу wire frame с LF, восстановление, idle cancel без отдельного ответа и shutdown. Idle cancel не подтверждает остановку активного inference. Модель, GPU и установленное приложение в этом наборе не проверяются. Изменение protocol contract требует пересборки workers; старый worker без `supports_decoding_options` должен отклонять нестандартный выбор до отправки запроса. +
++### Качество STT и решение об обрезке +
++Сравнивайте одинаковые pinned model/corpus и явно выбранные decoding options. Фиксируйте WER и CER отдельно; небольшое снижение WER не означает общего улучшения. Учитывайте результаты по языкам, полный PCM и каждый эксперимент с обрезкой. Измерения готовых 16 кГц WAV не заменяют проверку ресемплера или личного голоса. +
++В [четвёртом этапе](improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для решения о речи и диагностики границ, а в STT передаёт полный PCM. [Финальный quality JSON](evidence/stage4-quality.json) содержит исходные и итоговые варианты; [150 мс](evidence/stage4-quality-preroll-150ms.json) и [2 с](evidence/stage4-quality-preroll-2s.json) сохраняют отрицательные результаты. Эти прогоны не закрывают прежний PERF-04 и Windows/GPU-приёмку. +
++## UI в браузере
 
 На размерах 720×560, 900×720 и 1440×900 проверьте страницы из [карты маршрутов](frontend-architecture.md):
 

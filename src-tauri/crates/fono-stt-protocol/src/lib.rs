@@ -6,7 +6,9 @@ pub const PROTOCOL_VERSION: u16 = 3;
 pub const MAX_REQUEST_FRAME_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_RESPONSE_FRAME_BYTES: usize = 1024 * 1024;
 
+mod decoding;
 mod timestamps;
+pub use decoding::{DecodingOptions, DecodingStrategy};
 pub use timestamps::{words_from_pieces, TimedPiece, TimedSegment, WindowTranscript};
 #[cfg(feature = "inference")]
 pub mod inference;
@@ -48,6 +50,8 @@ pub struct WorkerCapabilities {
     pub supports_cancel: bool,
     #[serde(default)]
     pub supports_token_timestamps: bool,
+    #[serde(default)]
+    pub supports_decoding_options: bool,
     pub maximum_request_bytes: usize,
     pub maximum_response_bytes: usize,
 }
@@ -61,6 +65,7 @@ impl Default for WorkerCapabilities {
             supports_window: true,
             supports_cancel: true,
             supports_token_timestamps: true,
+            supports_decoding_options: true,
             maximum_request_bytes: MAX_REQUEST_FRAME_BYTES,
             maximum_response_bytes: MAX_RESPONSE_FRAME_BYTES,
         }
@@ -90,6 +95,8 @@ pub enum WorkerRequest {
         language: String,
         /// PCM i16 little-endian encoded as base64.
         samples_i16_base64: String,
+        #[serde(default, skip_serializing_if = "DecodingOptions::is_default")]
+        decoding: DecodingOptions,
     },
     TranscribeWindow {
         #[serde(flatten)]
@@ -99,6 +106,8 @@ pub enum WorkerRequest {
         context: Option<String>,
         audio_start_sample: u64,
         samples_i16_base64: String,
+        #[serde(default, skip_serializing_if = "DecodingOptions::is_default")]
+        decoding: DecodingOptions,
     },
     /// Sent independently while inference is active. The cancelled target returns
     /// an Error with code `cancelled`; this control frame has no separate reply.
@@ -225,6 +234,7 @@ mod tests {
             model_path: "model.bin".into(),
             language: "auto".into(),
             samples_i16_base64: "AAE=".into(),
+            decoding: DecodingOptions::default(),
         };
         let json = serde_json::to_string(&request).unwrap();
         let decoded = serde_json::from_str::<WorkerRequest>(&json).unwrap();
@@ -271,6 +281,7 @@ mod tests {
             context: Some("Fono".into()),
             audio_start_sample: 16000,
             samples_i16_base64: "AAA=".into(),
+            decoding: DecodingOptions::default(),
         };
         let json = serde_json::to_string(&request).unwrap();
         let decoded: WorkerRequest = serde_json::from_str(&json).unwrap();
@@ -293,5 +304,21 @@ mod tests {
                 .request_id,
             "cancel-2"
         );
+    }
+
+    #[test]
+    fn additive_decoding_fields_preserve_protocol_three_legacy_requests() {
+        let legacy = r#"{"type":"transcribe","protocol_version":3,"request_id":"old","model_path":"m","language":"ru","samples_i16_base64":"AAA="}"#;
+        let request: WorkerRequest = serde_json::from_str(legacy).unwrap();
+        assert!(
+            matches!(request, WorkerRequest::Transcribe { decoding, .. } if decoding.is_default())
+        );
+        assert!(serde_json::to_value(request)
+            .unwrap()
+            .get("decoding")
+            .is_none());
+        let capabilities: WorkerCapabilities = serde_json::from_str(r#"{"protocol_version":3,"supports_health":true,"supports_shutdown":true,"maximum_request_bytes":16777216,"maximum_response_bytes":1048576}"#).unwrap();
+        assert!(!capabilities.supports_decoding_options);
+        assert!(WorkerCapabilities::default().supports_decoding_options);
     }
 }

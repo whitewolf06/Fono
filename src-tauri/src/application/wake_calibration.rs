@@ -47,7 +47,7 @@ pub async fn record_next(app: AppHandle) -> AppResult<WakeCalibrationStatus> {
     let mut result = rules::assess_samples(&recorded.samples);
     let mut hits = [false; 5];
     if result.accepted {
-        let config = match crate::settings_to_wake_config(&settings) {
+        let config = match crate::application::wake::settings_to_wake_config(&settings) {
             Ok(config) => config,
             Err(error) => {
                 service.failed(id);

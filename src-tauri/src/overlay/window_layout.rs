@@ -16,7 +16,7 @@ use super::{OverlayDimensions, OverlayRuntime};
 
 pub(super) fn apply(app: &AppHandle, window: &WebviewWindow) -> AppResult<OverlayDimensions> {
     let settings = app.state::<AppState>().settings();
-    let phase = app.state::<AppState>().pipeline_state();
+    let phase = app.state::<crate::pipeline::Pipeline>().state();
     let preview = if phase == PipelineState::Idle {
         *app.state::<OverlayRuntime>().preview.lock()
     } else {

@@ -49,6 +49,7 @@ impl WorkerMailbox {
                     WorkerCommand::Window {
                         samples,
                         language,
+                        decoding,
                         context,
                         operation_id,
                         cancellation,
@@ -65,6 +66,7 @@ impl WorkerMailbox {
                             operation_id,
                             &cancellation,
                             audio_start_sample,
+                            decoding,
                         );
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = session.stdin_tx.is_some();
@@ -81,6 +83,7 @@ impl WorkerMailbox {
                     WorkerCommand::Transcribe {
                         samples,
                         language,
+                        decoding,
                         cancellation,
                         response_tx,
                         activity,
@@ -88,7 +91,7 @@ impl WorkerMailbox {
                         let _activity = activity;
                         thread_busy.store(true, Ordering::Release);
                         let result =
-                            session.transcribe_cancellable(&samples, &language, &cancellation);
+                            session.transcribe_cancellable_with_options(&samples, &language, &cancellation, decoding);
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = session.stdin_tx.is_some();
                         if !keep_running {
@@ -187,15 +190,27 @@ impl WorkerMailbox {
                 .map_or(true, JoinHandle::is_finished)
     }
 
+    #[cfg(test)]
     pub(super) fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
         self.transcribe_cancellable(samples, language, &OperationCancellation::default())
     }
 
+    #[cfg(test)]
     pub(super) fn transcribe_cancellable(
         &self,
         samples: &[i16],
         language: &str,
         cancellation: &OperationCancellation,
+    ) -> AppResult<Transcript> {
+        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default())
+    }
+
+    pub(super) fn transcribe_cancellable_with_options(
+        &self,
+        samples: &[i16],
+        language: &str,
+        cancellation: &OperationCancellation,
+        decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<Transcript> {
         if cancellation.is_cancelled() {
             return Err(AppError::Cancelled(
@@ -208,6 +223,7 @@ impl WorkerMailbox {
             WorkerCommand::Transcribe {
                 samples: samples.to_vec(),
                 language: language.into(),
+                decoding,
                 cancellation: cancellation.clone(),
                 response_tx,
                 activity,

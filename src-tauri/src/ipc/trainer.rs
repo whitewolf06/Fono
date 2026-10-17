@@ -16,7 +16,7 @@ pub async fn get_trainer_report(
         let _lease = lease;
         let state = app.state::<AppState>();
         let settings = state.settings.lock();
-        trainer_ai::report(days, refresh, &settings)
+        trainer_ai::report(&crate::history::for_app(&app), days, refresh, &settings)
     })
     .await
     .map_err(|_| AppError::Internal("Не удалось построить локальный отчёт".into()))?

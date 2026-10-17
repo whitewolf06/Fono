@@ -78,8 +78,13 @@ pub(crate) fn ai_fingerprint(
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
-pub(crate) fn report(days: u32, refresh: bool, settings: &Settings) -> AppResult<TrainerReport> {
-    let (state, sources) = trainer_report::get_with_sources(days, refresh, settings)?;
+pub(crate) fn report(
+    repository: &crate::history::HistoryRepository,
+    days: u32,
+    refresh: bool,
+    settings: &Settings,
+) -> AppResult<TrainerReport> {
+    let (state, sources) = trainer_report::get_with_sources(repository, days, refresh, settings)?;
     let configuration = configuration(settings);
     let scope = state
         .ai_summary
@@ -168,7 +173,8 @@ pub(crate) async fn recommend_session(
         .ok_or_else(|| AppError::Config("Выберите подключение тренера".into()))?;
     let lease = activity::lease()?;
     let request = SessionRequest::begin(&id)?;
-    let (original, analysis, source_fingerprint) = session_input(&id, &settings)?;
+    let (original, analysis, source_fingerprint) =
+        session_input(&crate::history::for_app(&app), &id, &settings)?;
     let client = client_for_profile(
         profile,
         settings.speech_analysis_llm.model.as_deref(),
@@ -195,7 +201,7 @@ pub(crate) async fn recommend_session(
         let current = state.settings.lock();
         if request.token.is_cancelled()
             || state.settings_revision() != revision
-            || session_input(&id, &current)?.2 != source_fingerprint
+            || session_input(&crate::history::for_app(&app), &id, &current)?.2 != source_fingerprint
         {
             return Err(AppError::Cancelled(
                 "Диктовка или настройки изменились. Результат отклонён".into(),
@@ -208,10 +214,11 @@ pub(crate) async fn recommend_session(
 }
 
 fn session_input(
+    repository: &crate::history::HistoryRepository,
     id: &str,
     settings: &Settings,
 ) -> AppResult<(String, crate::types::SpeechSessionAnalysis, String)> {
-    crate::history::with_trainer_entries(settings, |entries| {
+    repository.with_trainer_entries(settings, |entries| {
         let entry = entries
             .iter()
             .find(|entry| {
@@ -246,7 +253,7 @@ pub(crate) async fn analyze(
             requests::source_epoch(),
         )
     };
-    let current = report(days, false, &settings)?;
+    let current = report(&crate::history::for_app(&app), days, false, &settings)?;
     if current.stale || current.current_fingerprint != fingerprint {
         return Err(AppError::Cancelled(
             "Данные периода изменились. Обновите локальный отчёт".into(),
@@ -264,13 +271,18 @@ pub(crate) async fn analyze(
         .as_ref()
         .is_some_and(|summary| summary.fingerprint == identity)
     {
-        return report(days, false, &settings);
+        return report(&crate::history::for_app(&app), days, false, &settings);
     }
 
     // The detached job owns admission until its HTTP future and local commit
     // actually finish, including the local context preparation above.
     let request = requests::PeriodRequest::begin(request_id, days)?;
-    let (snapshot, sources) = trainer_report::analysis_input(days, &fingerprint, &settings)?;
+    let (snapshot, sources) = trainer_report::analysis_input(
+        &crate::history::for_app(&app),
+        days,
+        &fingerprint,
+        &settings,
+    )?;
     let prepared = payload::prepare(&snapshot, &sources, scope)?;
     let input = prepared.input;
     let context = prepared.context;
@@ -333,8 +345,14 @@ pub(crate) async fn analyze(
                     })
                     .collect(),
             };
-            trainer_report::save_ai(days, &fingerprint, summary, &settings)?;
-            report(days, false, &settings)
+            trainer_report::save_ai(
+                &crate::history::for_app(&app),
+                days,
+                &fingerprint,
+                summary,
+                &settings,
+            )?;
+            report(&crate::history::for_app(&app), days, false, &settings)
         })
     });
     task.await

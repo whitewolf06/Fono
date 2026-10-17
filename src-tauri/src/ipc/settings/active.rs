@@ -7,6 +7,8 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
     let capture_changed = previous.dictation_mode != next.dictation_mode
         || previous.audio_device_id != next.audio_device_id
         || previous.whisper_model_path != next.whisper_model_path
+        || previous.whisper_decoding != next.whisper_decoding
+        || previous.whisper_threads != next.whisper_threads
         || previous.acceleration != next.acceleration
         || previous.gpu_model_residency != next.gpu_model_residency
         || previous.hotkey != next.hotkey
@@ -30,6 +32,20 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decoding_strategy_and_thread_changes_apply_only_between_sessions() {
+        let previous = Settings::default();
+        assert!(validate(true, &previous, &previous).is_ok());
+        let mut next = previous.clone();
+        next.whisper_decoding = crate::types::DecodingStrategy::Accurate;
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
+        next = previous.clone();
+        next.whisper_threads = Some(2);
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
+    }
 
     #[test]
     fn gpu_residency_changes_apply_between_capture_sessions() {

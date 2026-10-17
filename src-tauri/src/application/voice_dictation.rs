@@ -1,4 +1,5 @@
 //! Explicit command dictation retains the ordinary capture and scheduler rules.
+use crate::application::dictation::DictationOutcome;
 use crate::{application, pipeline, stt, types::PipelineState};
 use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Emitter, Manager};
@@ -30,8 +31,8 @@ pub(crate) async fn run(
     app: &tauri::AppHandle,
     operation: u64,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use crate::error::AppError;
     use crate::pipeline::completion::{wait, FinishClaim};
-    use crate::{error::AppError, types::Transcript};
     let pipeline = app.state::<pipeline::Pipeline>();
     if !pipeline.is_operation_active(operation) {
         return Ok(());
@@ -45,16 +46,13 @@ pub(crate) async fn run(
             let result = run_once(app, operation).await;
             let completion = result
                 .as_ref()
-                .map(|_| Transcript {
-                    text: String::new(),
-                    detected_language: None,
-                    transcribe_secs: None,
-                    audio_secs: None,
-                    device: None,
-                })
+                .cloned()
                 .map_err(|error| AppError::Internal(error.to_string()));
             ticket.complete(&completion);
-            result
+            if let Ok(outcome) = &completion {
+                crate::events::emit_dictation_outcome(app, operation, outcome.kind());
+            }
+            result.map(|_| ())
         }
     }
 }
@@ -62,7 +60,7 @@ pub(crate) async fn run(
 async fn run_once(
     app: &tauri::AppHandle,
     operation: u64,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<DictationOutcome, Box<dyn std::error::Error + Send + Sync>> {
     let activity = crate::application::updates::activity::lease()?;
     let state = app.state::<crate::state::AppState>();
     let pipeline = app.state::<pipeline::Pipeline>();
@@ -79,7 +77,7 @@ async fn run_once(
     };
     let samples = match pipeline.stop_recording_for(operation) {
         Ok(Some(samples)) => samples,
-        Ok(None) => return Ok(()),
+        Ok(None) => return Ok(DictationOutcome::interrupted(&pipeline, operation)),
         Err(error) => {
             let _ = pipeline::set_state_for_operation(
                 app,
@@ -94,7 +92,7 @@ async fn run_once(
     };
     if !pipeline.is_operation_active(operation) {
         tracing::info!("voice command discarded because dictation was cancelled or replaced");
-        return Ok(());
+        return Ok(DictationOutcome::interrupted(&pipeline, operation));
     }
     if samples.is_empty() {
         let _ = pipeline::set_state_for_operation(
@@ -105,22 +103,28 @@ async fn run_once(
             PipelineState::Idle,
             TerminalReason::Completed,
         );
-        return Ok(());
+        return Ok(DictationOutcome::NoSpeech);
     }
 
-    let mut gate = super::speech_gate::SpeechGate::new(app)?;
-    if !gate.recording_has_speech(&samples, || cancellation.is_cancelled()) {
+    let (samples, speech) =
+        super::speech_gate::analyze_recording(app.clone(), samples, cancellation.clone()).await?;
+    if !speech.is_some_and(|decision| decision.has_speech) {
+        let outcome = if speech.is_none() || !pipeline.is_operation_active(operation) {
+            DictationOutcome::interrupted(&pipeline, operation)
+        } else {
+            DictationOutcome::NoSpeech
+        };
         pipeline::set_state_for_operation(
             app,
             state.inner(),
             &pipeline,
             operation,
             PipelineState::Idle,
-            TerminalReason::Completed,
+            outcome.terminal_reason(),
         );
-        return Ok(());
+        return Ok(outcome);
     }
-    let (samples, _) = crate::vad::trim_leading_silence_with_result(&samples);
+    let (samples, _) = crate::vad::prepare_recording_with_result(&samples, &speech.unwrap());
     if samples.is_empty() {
         let _ = pipeline::set_state_for_operation(
             app,
@@ -130,7 +134,7 @@ async fn run_once(
             PipelineState::Idle,
             TerminalReason::Completed,
         );
-        return Ok(());
+        return Ok(DictationOutcome::NoSpeech);
     }
 
     // Загружаем основную whisper-модель.
@@ -152,7 +156,7 @@ async fn run_once(
             _ = application::dictation::wait_for_cancellation(cancellation.clone()) => None,
         };
         let Some(load_result) = load_result else {
-            return Ok(());
+            return Ok(DictationOutcome::interrupted(&pipeline, operation));
         };
         if let Err(error) = load_result.map_err(|error| format!("model load join: {error}"))? {
             let _ = pipeline::set_state_for_operation(
@@ -185,24 +189,30 @@ async fn run_once(
         PipelineState::Transcribing,
         TerminalReason::Completed,
     ) {
-        return Ok(());
+        return Ok(DictationOutcome::interrupted(&pipeline, operation));
     }
     let stt = pipeline.stt().clone();
     let language = settings.language.clone();
+    let decoding = settings.decoding_options();
     let stt_cancellation = cancellation.clone();
     let scheduler = pipeline.scheduler();
     let background_activity = activity.clone();
     let transcribe = tauri::async_runtime::spawn_blocking(move || {
         let _activity = background_activity;
         let permit = scheduler.acquire(true, &stt_cancellation)?;
-        stt.transcribe_cancellable(&samples, &language, permit.cancellation.clone())
+        stt.transcribe_cancellable_with_options(
+            &samples,
+            &language,
+            permit.cancellation.clone(),
+            decoding,
+        )
     });
     let transcript = tokio::select! {
         result = transcribe => Some(result),
         _ = application::dictation::wait_for_cancellation(cancellation) => None,
     };
     let Some(transcript) = transcript else {
-        return Ok(());
+        return Ok(DictationOutcome::interrupted(&pipeline, operation));
     };
     let transcript = transcript.map_err(|e| format!("transcribe join: {e}"))??;
 
@@ -210,7 +220,7 @@ async fn run_once(
         tracing::info!(
             "voice command transcript discarded because dictation was cancelled or replaced"
         );
-        return Ok(());
+        return Ok(DictationOutcome::interrupted(&pipeline, operation));
     }
 
     tracing::info!(
@@ -231,7 +241,7 @@ async fn run_once(
         expires_at = %proposal.expires_at,
         "voice command proposal created"
     );
-    let _ = app.emit("command-proposal", transcript.text);
+    let _ = app.emit("command-proposal", transcript.text.clone());
     if let Some(settings_window) = app.get_webview_window("settings") {
         let _ = settings_window.unminimize();
         let _ = settings_window.show();
@@ -245,5 +255,5 @@ async fn run_once(
         PipelineState::Idle,
         TerminalReason::Completed,
     );
-    Ok(())
+    Ok(DictationOutcome::Deferred(transcript))
 }

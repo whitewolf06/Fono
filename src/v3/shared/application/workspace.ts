@@ -1,3 +1,4 @@
+import { message } from "../domain/messages";
 import { inject, type InjectionKey } from "vue";
 import type { Workspace } from "../domain/contracts";
 export const workspaceKey: InjectionKey<Workspace> = Symbol("fono-workspace");
@@ -7,13 +8,13 @@ export function useWorkspace(): Workspace {
   return workspace;
 }
 export const phaseLabels = {
-  idle: "Готов слушать",
-  listening: "Слушаю вас",
-  silence: "Жду продолжения",
-  transcribing: "Распознаю речь",
-  processing: "Привожу текст в порядок",
-  awaiting_action: "Выберите действие с текстом",
-  done: "Текст готов",
-  cancelled: "Запись отменена",
-  error: "Нужна ваша помощь",
+  idle: message("phase.idle"),
+  listening: message("phase.listening"),
+  silence: message("phase.silence"),
+  transcribing: message("phase.transcribing"),
+  processing: message("phase.processing"),
+  awaiting_action: message("phase.awaiting_action"),
+  done: message("phase.done"),
+  cancelled: message("phase.cancelled"),
+  error: message("phase.error"),
 };

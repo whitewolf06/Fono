@@ -11,7 +11,9 @@ use whisper_rs::{WhisperContext, WhisperState};
 #[path = "inference_options.rs"]
 mod options;
 
-use crate::{words_from_pieces, BackendKind, TimedPiece, TimedSegment, WindowTranscript};
+use crate::{
+    words_from_pieces, BackendKind, DecodingOptions, TimedPiece, TimedSegment, WindowTranscript,
+};
 
 /// Lives on the caller's stack until synchronous `full` and all native workers
 /// return. The callback does not mutate a Whisper context, leak an Arc, or unwind
@@ -67,6 +69,31 @@ impl InferenceState {
         timed: bool,
         cancellation_signals: &[&AtomicBool],
     ) -> Result<WindowTranscript, String> {
+        self.transcribe_with_options(
+            samples,
+            language,
+            context,
+            audio_start_sample,
+            backend,
+            timed,
+            cancellation_signals,
+            DecodingOptions::default(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn transcribe_with_options(
+        &mut self,
+        samples: &[i16],
+        language: &str,
+        context: Option<&str>,
+        audio_start_sample: u64,
+        backend: BackendKind,
+        timed: bool,
+        cancellation_signals: &[&AtomicBool],
+        decoding: DecodingOptions,
+    ) -> Result<WindowTranscript, String> {
+        decoding.validate()?;
         if language.contains('\0') || context.is_some_and(|text| text.contains('\0')) {
             return Err("language/context contains a null byte".into());
         }
@@ -86,12 +113,8 @@ impl InferenceState {
         self.pcm.clear();
         self.pcm
             .extend(samples.iter().map(|sample| *sample as f32 / 32768.0));
-        let mut params = options::language_params(language)?;
-        params.set_n_threads(
-            std::thread::available_parallelism()
-                .map_or(4, |count| count.get())
-                .clamp(1, 8) as i32,
-        );
+        let mut params = options::language_params(language, decoding.strategy)?;
+        params.set_n_threads(decoding.effective_threads());
         params.set_print_progress(false);
         params.set_print_realtime(false);
         params.set_print_timestamps(false);

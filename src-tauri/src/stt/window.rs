@@ -32,6 +32,29 @@ impl SttEngine {
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
     ) -> AppResult<WindowTranscript> {
+        self.transcribe_window_with_options(
+            samples,
+            language,
+            context,
+            operation_id,
+            cancellation,
+            audio_start_sample,
+            fono_stt_protocol::DecodingOptions::default(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn transcribe_window_with_options(
+        &self,
+        samples: &[i16],
+        language: &str,
+        context: Option<&str>,
+        operation_id: u64,
+        cancellation: &OperationCancellation,
+        audio_start_sample: u64,
+        decoding: fono_stt_protocol::DecodingOptions,
+    ) -> AppResult<WindowTranscript> {
+        decoding.validate().map_err(AppError::Config)?;
         if self.cleanup.is_pending() {
             return Err(super::worker_cleanup_busy());
         }
@@ -51,6 +74,7 @@ impl SttEngine {
                 context,
                 cancellation,
                 audio_start_sample,
+                decoding,
             ),
             ActiveEngine::Worker(session) => session.transcribe_window(
                 samples,
@@ -59,6 +83,7 @@ impl SttEngine {
                 operation_id,
                 cancellation,
                 audio_start_sample,
+                decoding,
             ),
         };
         if result.is_err()

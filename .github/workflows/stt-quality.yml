@@ -8,8 +8,12 @@ on:
       - "src-tauri/crates/fono-stt-protocol/**"
       - "src-tauri/crates/fono-stt-worker/**"
       - "src-tauri/src/stt/**"
+      - "src-tauri/src/application/speech_gate.rs"
+      - "src-tauri/src/application/dictation/capture.rs"
+      - "src-tauri/src/vad/**"
       - "src-tauri/tests/fixtures/stt-quality/**"
       - "scripts/stt-quality*"
+      - "scripts/stage4-quality*"
       - "scripts/prepare-stt-quality-corpus.py"
       - ".github/workflows/stt-quality.yml"
   workflow_dispatch:
@@ -37,18 +41,33 @@ jobs:
       - name: Verify public corpus hashes and quality gate
         shell: pwsh
         run: node --test scripts/stt-quality.test.mjs
+      - name: Prepare verified CPU speech VAD runtime
+        shell: pwsh
+        run: ./scripts/bootstrap-ci-resources.ps1
       - name: Build offline CPU tools without private frontend or GPU
         working-directory: src-tauri
         shell: pwsh
-        run: cargo build --locked --release --no-default-features -p fono-audio --example resample-wav -p fono-stt-worker --bin fono-stt-quality
+        run: |
+          New-Item -ItemType Directory -Force ../build/stt-quality | Out-Null
+          cargo build --locked --release --no-default-features --features fono-audio/speech-vad -p fono-audio --example resample-wav --example trim-vad-wav -p fono-stt-worker --bin fono-stt-quality --message-format=json > ../build/stt-quality/tools.jsonl
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Stage verified VAD DLLs beside the emitted CPU tools
+        shell: pwsh
+        run: node scripts/native-test-runtime.mjs build/stt-quality/tools.jsonl $env:SHERPA_ONNX_LIB_DIR $env:CARGO_TARGET_DIR
       - name: Compare legacy and current resampling with pinned public model
         shell: pwsh
         run: node scripts/stt-quality.mjs --target src-tauri/target-codex-review/release --download-model
+      - name: Compare neural boundaries and explicit decoding policies
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: node scripts/stage4-quality.mjs --runner src-tauri/target-codex-review/release/fono-stt-quality.exe --trimmer src-tauri/target-codex-review/release/examples/trim-vad-wav.exe --report build/stt-quality/stage4-report.json
       - name: Save numerical quality evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: stt-quality-cpu
-          path: build/stt-quality/report.json
+          path: |
+            build/stt-quality/report.json
+            build/stt-quality/stage4-report.json
           if-no-files-found: warn
           retention-days: 30

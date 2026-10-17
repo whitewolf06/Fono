@@ -1,8 +1,11 @@
 //! Optional local canonical spelling for the final ordinary dictation result.
-//! This is one deterministic replacement pass, never a model prompt or a
-//! command recognizer. Original transcripts and dictionary entries stay intact.
+//! Canonicalization is one deterministic replacement pass, never a command
+//! recognizer. GlossarySnapshot prepares the bounded F-03 contract without
+//! sending terms to any model. Original transcripts and entries stay intact.
+mod glossary;
 mod replacements;
 mod validation;
+pub use glossary::{GlossarySnapshot, WhisperGlossaryPrompt};
 
 #[cfg(test)]
 use crate::types::PersonalDictionaryEntry;

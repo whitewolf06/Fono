@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "version": "0.7.24",
+  "checked_date": "2026-10-18",
+  "status": "partial_visual_matrix",
+  "scope": "Frozen Vue V3 browser mock through the supported CUA Chrome extension only. No native Fono, microphone, global hotkey, external insertion, clipboard writes, GPU, AI service or installer validation.",
+  "historical_receipts_preserved": [
+    "docs/evidence/stage4-browser.json",
+    "docs/evidence/stage4-frontend.json"
+  ],
+  "url": "http://127.0.0.1:1420/v3.html",
+  "browser": {
+    "surface": "Chrome extension through cua_repl",
+    "browser_id": "1",
+    "own_tab_ids": ["1740279066", "1740279069"],
+    "recovery": "The first own tab lost its debugger connection. A fresh own tab in the same already-selected browser restored supported DOM interaction and screenshot capture. No CLI browser automation, profile access or direct CDP fallback was used.",
+    "screenshots": "Actual screenshots were visually inspected in CUA tool outputs. The supported screenshot methods returned pixels without a local saved path; no screenshot files were fabricated.",
+    "paint_note": "Several screenshots immediately after actions showed the previous paint. A fresh authoritative DOM/AX result and a subsequent capture were used to inspect the settled UI."
+  },
+  "server": {
+    "command": "npm.cmd run dev:ui -- --host 127.0.0.1 --port 1420 --strictPort",
+    "started_only_after_port_free_check": true,
+    "pid": 67576,
+    "session_id": 30468,
+    "stopped_with_own_session_ctrl_c_and_batch_confirmation": true,
+    "shutdown_exit_code": 1,
+    "shutdown_exit_explanation": "Intentional Ctrl+C termination of the npm.cmd development server.",
+    "final_port1420_listener_count": 0,
+    "final_own_pid_running": false
+  },
+  "environment_preparation": {
+    "legacy_demo_issue": "Previously persisted browser demo preferences combined a Latin wake phrase with Russian wake language. Saving unrelated demo preferences was rejected by whole-preference validation. Wake controls are currently hidden.",
+    "resolution": "Used the existing Scenarios > Reset demo button, then the ordinary local trainer consent dialog. No application state or browser storage was injected through JavaScript.",
+    "verification": "After reset, accurate/1, accurate/8 and fast/automatic preferences saved successfully. AI preferences also saved and switches applied without the previous validation error.",
+    "classification": "Legacy browser demo data limitation; not evidence of a native settings regression. No source change was made."
+  },
+  "matrix": [
+    {
+      "width": 1440,
+      "height": 900,
+      "viewport_override_applied": true,
+      "dom_geometry": { "innerWidth": 1440, "innerHeight": 900, "clientWidth": 1430, "scrollWidth": 1430 },
+      "trainer_overview": "pass: screenshots inspected, four summary cards, day chart, ranking and tabs rendered without overlap or horizontal page overflow",
+      "trainer_day_chart_periods": "pass: 7/30/90-day reports; count/density units; selected empty day and populated day; explicit zero-day explanation",
+      "trainer_dictations_filter_sort": "pass: marker filtering, show all, duration sorting, selection change and original-text highlighting inspected in the first own tab before recovery",
+      "trainer_ai": "pass: numeric-only default; explicit original-text consent; consent survives tab switch and resets on period change; request composition changes; no Analyze action submitted",
+      "settings_audio_decoding": "not_repeated_at_confirmed_1440_geometry_after_tab_recovery; settings interactions additionally completed at 2560x1271, 900x720 and 720x560",
+      "overlay_preview": "not_checked_at_this_size"
+    },
+    {
+      "width": 900,
+      "height": 720,
+      "viewport_override_applied": true,
+      "dom_geometry": { "innerWidth": 900, "innerHeight": 720, "clientWidth": 890, "scrollWidth": 890 },
+      "trainer_overview": "pass: screenshot inspected with icon navigation, stacked chart/ranking and readable summary",
+      "trainer_day_chart": "pass: density view and selected empty day show zero counts and explanation",
+      "trainer_dictations_filter_sort": "pass: marker filter opens matching dictation; clear restores all; longest-text sorting selected; master/detail screenshot inspected",
+      "trainer_ai": "pass: checked explicit consent and original-text request composition visually inspected; no analysis submitted",
+      "settings_audio_decoding": "pass: accurate mode and eight threads saved; fast/automatic restored; dropdown, hints and clean footer inspected",
+      "overlay_preview": "pass: actual detailed/compact screenshot; recording quick controls; postprocessing off disables style and translation; on enables style selection; raw style and German translation selected; translation toggled; cancel closes preview; no clipboard or insertion action invoked"
+    },
+    {
+      "width": 720,
+      "height": 560,
+      "viewport_override_applied": true,
+      "dom_geometry": { "innerWidth": 720, "innerHeight": 560, "clientWidth": 710, "scrollWidth": 710 },
+      "trainer_overview": "pass: actual compact screenshot inspected; chart and controls fit; scrolling remains available",
+      "trainer_day_chart": "pass: combobox selects populated day; count view restored from density",
+      "trainer_dictations_filter_sort": "pass: repeat-marker filter selects Plans; clear, duration sort and Product selection work; original transcript screenshot inspected with highlighted markers and metadata",
+      "trainer_ai": "pass: consent retained across tabs; unchecked again; compact consent warning and request panel screenshot inspected; no analysis submitted",
+      "settings_audio_decoding": "pass: fast/accurate dropdown visually inspected; accurate/one-thread save completed; footer settled without validation error; defaults subsequently restored at 900x720",
+      "overlay_preview": "partial: supported Choose action scenario produced ready original text and copy/close controls in DOM; attempted screenshot capture timed out before visual confirmation; no copy or insertion invoked"
+    }
+  ],
+  "additional_settings_verification": {
+    "actual_width": 2560,
+    "actual_height": 1271,
+    "reason": "A newly created recovery tab initially used default browser sizing; the explicit 1440x900 override was reapplied before the final trainer matrix.",
+    "procedures": [
+      "Default fast and automatic threads visible.",
+      "Accurate plus one thread saved and confirmed clean.",
+      "Eight threads saved and confirmed.",
+      "Fast plus automatic restored and confirmed clean.",
+      "Extra trainer AI switch enabled; original-text scope saved; later switched off and metrics-only scope restored through UI."
+    ]
+  },
+  "no_speech": {
+    "status": "not_checked",
+    "reason": "No no-speech scenario was exposed by the inspected supported Scenarios or Overlay controls. No hidden application state was injected to create one."
+  },
+  "findings": [],
+  "transport_limitations": [
+    "Intermittent CUA input-command timeouts were followed by fresh state reads; actions that had already completed were not blindly repeated.",
+    "Final compact overlay screenshot timed out in Page.captureScreenshot. Remaining visual overlay sizes were stopped after this renewed transport blocker."
+  ],
+  "cleanup": {
+    "viewport_reset": "succeeded through the supported viewport.reset API",
+    "current_own_tab_1740279069": "closed successfully; absent from final own-tab inventory",
+    "old_own_tab_1740279066": "still listed after current-tab closure; explicit close/rebind failed because debugger was detached; tab was never marked persistent and remains eligible for automatic ephemeral-tab cleanup",
+    "server": "stopped; port 1420 has zero listeners; own PID 67576 is absent",
+    "user_tabs_and_native_application": "not controlled"
+  },
+  "remaining": [
+    "Visually inspect browser overlay preview at 1440x900 and complete the 720x560 screenshot when the supported browser capture connection is stable.",
+    "Repeat settings/audio screenshot at confirmed 1440x900 if a strict per-page three-size matrix is required; controls and save/restore passed at 720x560 and 900x720 plus the default wide recovery tab.",
+    "Confirm automatic cleanup of the detached unmarked first own tab if it remains visible after this browser session ends.",
+    "Native Windows microphone, hotkey, overlay focus, external-field behavior and owner acceptance remain separate manual checks."
+  ],
+  "interpretation": "This final supplemental browser receipt supersedes the earlier blocked attempt for the procedures explicitly passed here. It does not claim the remaining overlay visual cells, no-speech browser scenario or native owner acceptance passed. Source, dist and previous evidence files were unchanged by this QA."
+}

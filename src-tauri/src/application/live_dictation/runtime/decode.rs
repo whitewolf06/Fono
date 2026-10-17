@@ -40,18 +40,20 @@ pub(super) async fn window(
     let stt = app.state::<Pipeline>().stt().clone();
     let scheduler = app.state::<Pipeline>().scheduler();
     let language = session.settings.language.clone();
+    let decoding = session.settings.decoding_options();
     let operation = session.operation;
     let cancellation = session.cancellation.clone();
     let task = tauri::async_runtime::spawn_blocking(move || {
         let _activity = activity;
         let permit = scheduler.acquire(true, &cancellation)?;
-        stt.transcribe_window(
+        stt.transcribe_window_with_options(
             &samples,
             &language,
             None,
             operation,
             &permit.cancellation,
             from,
+            decoding,
         )
     });
     tokio::select! {

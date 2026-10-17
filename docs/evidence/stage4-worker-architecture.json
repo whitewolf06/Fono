@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-10-18",
+  "plan_item": "ARC-08",
+  "decision": "retain_cpp_vulkan_and_rust_cuda_until_reproducible_equivalent_candidate",
+  "experiment": {
+    "working_directory": "src-tauri",
+    "initial_command": "$env:LIBCLANG_PATH='C:/Program Files/LLVM/bin'; cargo build --locked -p fono-stt-worker --bin fono-stt-worker --release --features vulkan --target-dir target-codex-review",
+    "initial_cargo_result": "interrupted; stdout log is not a completed compilation verdict",
+    "repeat_command": "cmake --build target-codex-review/release/build/whisper-rs-sys-10a4d8d8bf24a3cb/out/build --target install --config Release --parallel 4 --verbose",
+    "repeat_contexts": [
+      "ordinary Windows token",
+      "Launch-VsDevShell -Arch amd64 -HostArch amd64 -SkipAutomaticLocation"
+    ],
+    "repeat_result": "both failed during nested vulkan-shaders-gen compiler identification",
+    "observed_error_code": "FileTracker FTK1011",
+    "top_level_messages": [
+      "No CMAKE_C_COMPILER could be found",
+      "No CMAKE_CXX_COMPILER could be found"
+    ],
+    "compiler_configure_log": "src-tauri/target-codex-review/release/build/whisper-rs-sys-10a4d8d8bf24a3cb/out/build/ggml/src/ggml-vulkan/vulkan-shaders-gen-prefix/src/vulkan-shaders-gen-build/CMakeFiles/CMakeConfigureLog.yaml",
+    "compiler_configure_log_sha256": "db670e30a3b743415997e9a7dd016f7ede4737413f7fa84d084b8a112e4f448d",
+    "failed_tracking_file": "CompilerIdC/Debug/CompilerIdC.tlog/link-rc.read.1.tlog",
+    "observed_absolute_tracking_path_characters": 264,
+    "parent_compilers_detected": true,
+    "ggml_vulkan_cache": "ON",
+    "toolchain": {
+      "visual_studio": "18 2026",
+      "msbuild": "18.5.4",
+      "msvc": "19.50.35730.0",
+      "cmake": "4.3.4",
+      "vulkan_sdk": "1.4.350.0"
+    },
+    "rust_binding": "whisper-rs-sys 0.15.0",
+    "rust_bundled_whisper_cpp": "1.8.3",
+    "cpp_vendor_whisper_cpp": "1.9.1",
+    "rust_vulkan_inference_performed": false,
+    "logs": [
+      {
+        "path": "build/checks/stage4-rust-vulkan-build.log",
+        "sha256": "50aaeb14c9f0b42ef44d0fc11b3e069e15efac27de84f4f6398656cbe1581440"
+      },
+      {
+        "path": "build/checks/stage4-rust-vulkan-cmake.log",
+        "sha256": "6ae2a487db52aaf711dd64509c5e3eca91349b88606dcc6aa20d5616a5a1f5e1"
+      },
+      {
+        "path": "build/checks/stage4-rust-vulkan-cmake-devshell.log",
+        "sha256": "fa98604984873cbce8f4cd9f4a91b1975165486a7602c5c54d67a7f8db310890"
+      }
+    ]
+  },
+  "shared_process_contract": {
+    "script": "scripts/worker-contract.mjs",
+    "runner": "scripts/verify-stt-workers.ps1",
+    "implementations": [
+      "Rust CUDA",
+      "C++ Vulkan"
+    ],
+    "status": "passed",
+    "checks": [
+      "handshake_and_capabilities",
+      "health",
+      "version_rejected",
+      "odd_pcm_rejected",
+      "invalid_base64_rejected",
+      "accurate_options_accepted_before_pcm_validation",
+      "threads_0_rejected_before_model_load",
+      "threads_9_rejected_before_model_load",
+      "cancel_control_has_no_reply",
+      "malformed_json_rejected",
+      "maximum_wire_frame_accepted_by_transport",
+      "oversized_wire_frame_rejected",
+      "frame_recovery",
+      "graceful_shutdown"
+    ],
+    "model_load": false,
+    "active_inference_cancellation_proven": false,
+    "gpu_quality_acceptance": false,
+    "results": [
+      {
+        "backend": "cuda",
+        "protocol_version": 3,
+        "cases": [
+          "handshake_and_capabilities",
+          "health",
+          "version_rejected",
+          "odd_pcm_rejected",
+          "invalid_base64_rejected",
+          "accurate_options_accepted_before_pcm_validation",
+          "threads_0_rejected_before_model_load",
+          "threads_9_rejected_before_model_load",
+          "cancel_control_has_no_reply",
+          "malformed_json_rejected",
+          "maximum_wire_frame_accepted_by_transport",
+          "oversized_wire_frame_rejected",
+          "frame_recovery",
+          "graceful_shutdown"
+        ],
+        "passed": true,
+        "scope": "process framing/control; no model load, inference, microphone or GPU quality acceptance"
+      },
+      {
+        "backend": "vulkan",
+        "protocol_version": 3,
+        "cases": [
+          "handshake_and_capabilities",
+          "health",
+          "version_rejected",
+          "odd_pcm_rejected",
+          "invalid_base64_rejected",
+          "accurate_options_accepted_before_pcm_validation",
+          "threads_0_rejected_before_model_load",
+          "threads_9_rejected_before_model_load",
+          "cancel_control_has_no_reply",
+          "malformed_json_rejected",
+          "maximum_wire_frame_accepted_by_transport",
+          "oversized_wire_frame_rejected",
+          "frame_recovery",
+          "graceful_shutdown"
+        ],
+        "passed": true,
+        "scope": "process framing/control; no model load, inference, microphone or GPU quality acceptance"
+      }
+    ],
+    "artifacts": [
+      {
+        "backend": "cuda",
+        "path": "src-tauri/resources/stt-workers/fono-stt-cuda-worker.exe",
+        "bytes": 31662080,
+        "sha256": "b137c7fd82fea62bbe50c86364f4eb1861c3615cce77c8fa5a9ff77cbf2acbf6"
+      },
+      {
+        "backend": "vulkan",
+        "path": "src-tauri/resources/stt-workers/fono-stt-vulkan-worker.exe",
+        "bytes": 50108416,
+        "sha256": "614775923ad8bc1de1afeab19494c3a148934b7c1684adb2d32ef3d20a722fb8"
+      }
+    ],
+    "official_build": {
+      "requested_command": "npm run build:workers -- --SkipCuda",
+      "effective_script": "scripts/build-stt-workers.ps1 with both backend build paths; npm wrapper did not forward SkipCuda",
+      "exit_code": 0,
+      "log": "build/checks/stage4-workers-vulkan-final-build.log",
+      "sha256": "1bb59e30f6f8ed6cd372deacd1bc20660e4264232a9eeee63a004d18c65035a9",
+      "cases_per_backend_at_build_time": 14
+    },
+    "verification_repeat": {
+      "command": "scripts/verify-stt-workers.ps1 invoked by official worker build",
+      "exit_code": 0,
+      "log": "build/checks/stage4-workers-vulkan-final-build.log",
+      "sha256": "1bb59e30f6f8ed6cd372deacd1bc20660e4264232a9eeee63a004d18c65035a9",
+      "cases_per_backend": 14
+    },
+    "initial_build": {
+      "command": "npm run build:workers",
+      "exit_code": 1,
+      "compilation_succeeded": true,
+      "verification_failure": "CUDA hello exceeded the unchanged 5000 ms deadline on its first launch; cause not established. Direct contract, official verifier and complete cached build all passed on repeat.",
+      "log": "build/checks/stage4-workers-build.log"
+    },
+    "cases_per_implementation": 14,
+    "base_resource_staging": {
+      "command": "python scripts/cuda-package.py stage-base --workers src-tauri/resources/stt-workers --output src-tauri/resources/stt-base",
+      "exit_code": 0,
+      "log": "build/checks/stage4-release-resources-final.log",
+      "files": [
+        {
+          "path": "src-tauri/resources/stt-base/fono-stt-vulkan-worker.exe",
+          "bytes": 50108416,
+          "sha256": "614775923ad8bc1de1afeab19494c3a148934b7c1684adb2d32ef3d20a722fb8"
+        }
+      ],
+      "verification": {
+        "exit_code": 0,
+        "log": "build/checks/stage4-base-worker-verify-final.log",
+        "sha256": "d41f20fb4df75ce7bdbd14a9b584ec86d07517eaed2e833aa6cfc7321577510a",
+        "results": [
+          {
+            "backend": "vulkan",
+            "protocol_version": 3,
+            "cases": [
+              "handshake_and_capabilities",
+              "health",
+              "version_rejected",
+              "odd_pcm_rejected",
+              "invalid_base64_rejected",
+              "accurate_options_accepted_before_pcm_validation",
+              "threads_0_rejected_before_model_load",
+              "threads_9_rejected_before_model_load",
+              "cancel_control_has_no_reply",
+              "malformed_json_rejected",
+              "maximum_wire_frame_accepted_by_transport",
+              "oversized_wire_frame_rejected",
+              "frame_recovery",
+              "graceful_shutdown"
+            ],
+            "passed": true,
+            "scope": "process framing/control; no model load, inference, microphone or GPU quality acceptance"
+          }
+        ]
+      },
+      "full_prepare_release_resources_run": false,
+      "installer_build": false,
+      "signing": false,
+      "publication": false,
+      "installation": false
+    },
+    "protocol_script_sha256": "a211cbf2aa7e9a8d7a24cf0ab1821ccd3317c637c92e844a962f33f0503d61d5",
+    "final_verification_after_format": {
+      "command": "npm run test:workers:contract",
+      "exit_code": 0,
+      "log": "build/checks/stage4-final-workers-contract.log",
+      "sha256": "2f1503f51c67fec18967c7de6908f5f2bfbcd420526dc0701a83abd37641f727",
+      "cases_per_backend": 14,
+      "results": [
+        {
+          "backend": "cuda",
+          "protocol_version": 3,
+          "cases": [
+            "handshake_and_capabilities",
+            "health",
+            "version_rejected",
+            "odd_pcm_rejected",
+            "invalid_base64_rejected",
+            "accurate_options_accepted_before_pcm_validation",
+            "threads_0_rejected_before_model_load",
+            "threads_9_rejected_before_model_load",
+            "cancel_control_has_no_reply",
+            "malformed_json_rejected",
+            "maximum_wire_frame_accepted_by_transport",
+            "oversized_wire_frame_rejected",
+            "frame_recovery",
+            "graceful_shutdown"
+          ],
+          "passed": true,
+          "scope": "process framing/control; no model load, inference, microphone or GPU quality acceptance"
+        },
+        {
+          "backend": "vulkan",
+          "protocol_version": 3,
+          "cases": [
+            "handshake_and_capabilities",
+            "health",
+            "version_rejected",
+            "odd_pcm_rejected",
+            "invalid_base64_rejected",
+            "accurate_options_accepted_before_pcm_validation",
+            "threads_0_rejected_before_model_load",
+            "threads_9_rejected_before_model_load",
+            "cancel_control_has_no_reply",
+            "malformed_json_rejected",
+            "maximum_wire_frame_accepted_by_transport",
+            "oversized_wire_frame_rejected",
+            "frame_recovery",
+            "graceful_shutdown"
+          ],
+          "passed": true,
+          "scope": "process framing/control; no model load, inference, microphone or GPU quality acceptance"
+        }
+      ]
+    }
+  },
+  "future_hypotheses": [
+    "Ninja generator",
+    "shorter build path"
+  ],
+  "acceptance_boundaries": [
+    "No Rust Vulkan artifact was published.",
+    "No performance, binary size or WER equivalence is claimed.",
+    "Historical reason for the original C++ implementation remains unproven."
+  ],
+  "decoding_policy": {
+    "fast_rust_cpu_cuda_greedy_best_of": 1,
+    "fast_cpp_vulkan_greedy_best_of": 5,
+    "accurate_beam_size": 5,
+    "accurate_vendor_greedy_fallback": -1,
+    "legacy_backend_defaults_preserved": true,
+    "gpu_quality_equivalence_claimed": false,
+    "sources": [
+      "src-tauri/vendor/whisper.cpp/src/whisper.cpp:6017",
+      "whisper-rs 0.16.0 src/whisper_params.rs:57"
+    ]
+  },
+  "native_inventory_refresh": {
+    "file": "licenses/native-inventory.json",
+    "sha256": "61a30a9f6693662837ae526a3bb3a853a83c6c538d77d950100515187feeb529",
+    "scope": "Only the two resources/stt-workers EXE records: measured size/hash, per-entry reviewedOn=2026-10-18 and evidence path. All other records and top-level metadata unchanged. Top-level reviewedOn remains the original 2026-10-17 inventory review.",
+    "retained_release_executable_marked_rebuilt": false,
+    "producer_tests": {
+      "command": "python scripts/cuda-package.test.py",
+      "context": "ordinary Windows token",
+      "exit_code": 0,
+      "passed": 12,
+      "skipped": 1,
+      "skip_reason": "Symbolic link creation privilege unavailable; Windows junction case passed.",
+      "log": "build/checks/stage4-worker-inventory-producer-tests-normal-token.log",
+      "sha256": "2d5d521da5b2df5c1018beb2a0c473103e4b62f45a0af573be787767a0558b60",
+      "initial_appcontainer_run": "Junction fixture creation denied by Windows; repeated under ordinary token without test/source modifications."
+    }
+  }
+}

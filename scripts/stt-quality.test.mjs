@@ -92,7 +92,7 @@ test("public quality CI runs forks without frontend secrets and retains failure 
     /cargo build --locked --release --no-default-features/,
   );
   assert.match(workflow, /if: always\(\)/);
-  assert.match(workflow, /path: build\/stt-quality\/report.json/);
+  assert.match(workflow, /path: \|\s+build\/stt-quality\/report\.json/);
 });
 
 test("historical baseline fixes corpus references and the CPU model identity", () => {

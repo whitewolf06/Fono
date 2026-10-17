@@ -70,14 +70,16 @@ impl SpeechGate {
         }
     }
 
-    /// A completed capture needs a confirmed neural segment and sustained
-    /// acoustic evidence. The streaming latch alone includes VAD hangover.
-    pub fn recording_has_speech(&mut self, samples: &[i16], cancelled: impl Fn() -> bool) -> bool {
+    /// Preserve the neural segment boundaries used by both admission and trimming.
+    /// None means cancellation; a completed silence decision is a distinct value.
+    pub fn analyze_recording(
+        &mut self,
+        samples: &[i16],
+        cancelled: impl Fn() -> bool,
+    ) -> Option<fono_audio::RecordedSpeechDecision> {
         #[cfg(feature = "speech-vad")]
         {
-            self.inner
-                .analyze_recording(samples, cancelled)
-                .is_some_and(|decision| decision.has_speech)
+            self.inner.analyze_recording(samples, cancelled)
         }
         #[cfg(not(feature = "speech-vad"))]
         {
@@ -85,4 +87,26 @@ impl SpeechGate {
             match self.unavailable {}
         }
     }
+
+    pub fn recording_has_speech(&mut self, samples: &[i16], cancelled: impl Fn() -> bool) -> bool {
+        self.analyze_recording(samples, cancelled)
+            .is_some_and(|decision| decision.has_speech)
+    }
+}
+
+/// Offline model access and neural analysis never occupy an async IPC worker.
+pub(crate) async fn analyze_recording(
+    app: AppHandle,
+    samples: Vec<i16>,
+    cancellation: fono_core::OperationCancellation,
+) -> AppResult<(Vec<i16>, Option<fono_audio::RecordedSpeechDecision>)> {
+    let activity = crate::application::updates::activity::lease()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        let mut gate = SpeechGate::new(&app)?;
+        let decision = gate.analyze_recording(&samples, || cancellation.is_cancelled());
+        Ok((samples, decision))
+    })
+    .await
+    .map_err(|_| AppError::Internal("speech validation task failed".into()))?
 }

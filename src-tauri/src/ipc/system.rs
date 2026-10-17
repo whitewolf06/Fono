@@ -23,11 +23,12 @@ pub fn get_build_info() -> BuildInfo {
 
 #[tauri::command]
 pub async fn get_dictation_history(
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> AppResult<Vec<DictationHistoryEntry>> {
     let settings = state.settings();
     super::blocking::run(move || {
-        crate::history::list(
+        crate::history::for_app(&app).list(
             settings.analytics_enabled && settings.history_enabled,
             settings.analytics_retention_days,
         )
@@ -36,13 +37,13 @@ pub async fn get_dictation_history(
 }
 
 #[tauri::command]
-pub async fn clear_dictation_history() -> AppResult<()> {
-    super::blocking::run(crate::history::clear).await
+pub async fn clear_dictation_history(app: AppHandle) -> AppResult<()> {
+    super::blocking::run(move || crate::history::for_app(&app).clear()).await
 }
 
 #[tauri::command]
-pub async fn delete_dictation_history_entry(id: String) -> AppResult<()> {
-    super::blocking::run(move || crate::history::delete(&id)).await
+pub async fn delete_dictation_history_entry(app: AppHandle, id: String) -> AppResult<()> {
+    super::blocking::run(move || crate::history::for_app(&app).delete(&id)).await
 }
 
 #[tauri::command]
@@ -52,7 +53,7 @@ pub async fn set_dictation_history_entry_analytics_included(
     included: bool,
 ) -> AppResult<bool> {
     super::blocking::run(move || {
-        let found = crate::history::set_analytics_included(&id, included)?;
+        let found = crate::history::for_app(&app).set_analytics_included(&id, included)?;
         if !found {
             return Ok(false);
         }
@@ -73,12 +74,19 @@ pub async fn set_dictation_history_entry_analytics_included(
 }
 
 #[tauri::command]
-pub async fn get_speech_session_analysis(id: String) -> AppResult<Option<SpeechSessionAnalysis>> {
-    super::blocking::run(move || crate::history::session_analysis(&id)).await
+pub async fn get_speech_session_analysis(
+    app: AppHandle,
+    id: String,
+) -> AppResult<Option<SpeechSessionAnalysis>> {
+    super::blocking::run(move || crate::history::for_app(&app).session_analysis(&id)).await
 }
 
 #[tauri::command]
-pub async fn get_speech_period_report(from: String, to: String) -> AppResult<SpeechPeriodReport> {
+pub async fn get_speech_period_report(
+    app: AppHandle,
+    from: String,
+    to: String,
+) -> AppResult<SpeechPeriodReport> {
     let from = parse_period_boundary(&from, "from")?;
     let to = parse_period_boundary(&to, "to")?;
     if from > to {
@@ -86,7 +94,7 @@ pub async fn get_speech_period_report(from: String, to: String) -> AppResult<Spe
             "Начало периода не может быть позже конца".into(),
         ));
     }
-    super::blocking::run(move || crate::history::period_report(from, to)).await
+    super::blocking::run(move || crate::history::for_app(&app).period_report(from, to)).await
 }
 
 fn parse_period_boundary(value: &str, field: &str) -> AppResult<chrono::DateTime<chrono::Utc>> {

@@ -81,6 +81,11 @@ export function createNativeWorkspace(): Workspace {
   const trainer = createNativeTrainer(call, ctx.readHistory);
   const wake = nativeWake(ctx);
   let disposed = false;
+  const sessionRead = createCoalescedRead(
+    () => dictation.refresh(),
+    () => {},
+    () => !disposed && visibility.visible(),
+  );
   let sttError = "";
   function applySttReadiness(readiness: NativeSttReadiness) {
     if (readiness.state === "failed") {
@@ -149,12 +154,16 @@ export function createNativeWorkspace(): Workspace {
     subscribeBackend((event) => {
       if (disposed || !visibility.visible()) return;
       switch (event.kind) {
+        case "dictation_outcome":
+          dictation.outcome(event.payload);
+          void sessionRead.refresh().catch(ctx.report);
+          return;
         case "audio_level":
           dictation.level(event.payload);
           return;
         case "pipeline_state":
         case "pipeline_mode":
-          void dictation.refresh().catch(ctx.report);
+          void sessionRead.refresh().catch(ctx.report);
           return;
         case "settings":
           void ctx.readSettings().catch(ctx.report);
@@ -174,7 +183,7 @@ export function createNativeWorkspace(): Workspace {
           return;
         case "error":
           ctx.report(event.payload.message);
-          void dictation.refresh().catch(ctx.report);
+          void sessionRead.refresh().catch(ctx.report);
           return;
       }
       if (event.kind !== "model_download") return;
@@ -209,7 +218,7 @@ export function createNativeWorkspace(): Workspace {
       if (disposed || !visibility.visible()) return;
       await Promise.all([ctx.refresh(), sttReadiness.refresh()]);
       if (disposed || !visibility.visible()) return;
-      await dictation.refresh();
+      await sessionRead.refresh();
       await wake.load();
       await updates.refresh();
       await cudaPackages.refresh();
@@ -324,6 +333,7 @@ export function createNativeWorkspace(): Workspace {
     },
     dispose() {
       disposed = true;
+      sessionRead.dispose();
       sttReadiness.dispose();
       ctx.dispose();
       dictation.dispose();

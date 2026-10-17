@@ -1,6 +1,6 @@
 import type { NativeContext } from "./context";
 import type { DictationPort, Phase } from "../../domain/contracts";
-import type { Transcript } from "./ipcTypes";
+import type { DictationOutcomeEvent } from "../../domain/dictationOutcome";
 import { call } from "./ipc";
 import { createNativeSessionSync } from "./sessionSync";
 import { createNativeResultObserver } from "./sessionResult";
@@ -10,7 +10,11 @@ import {
   livePhase,
 } from "../../../features/dictation";
 import type { PendingDictation } from "../../domain/processing";
-import type { NativeSnapshot, NativeLiveSnapshot } from "./dictationContracts";
+import type {
+  NativeSnapshot,
+  NativeLiveSnapshot,
+  NativeDictationOutcome,
+} from "./dictationContracts";
 export type {
   NativeResult,
   NativeSnapshot,
@@ -21,6 +25,7 @@ export function nativeDictation(ctx: NativeContext) {
   let revision = 0;
   let started = 0;
   let currentOperation = -1;
+  let retiredOutcome = 0;
   let completed = false;
   const retiredSessions = new Set<string>();
   const accept = createNativeResultObserver(ctx, retiredSessions, () => {
@@ -34,10 +39,48 @@ export function nativeDictation(ctx: NativeContext) {
     live,
     snapshot,
   });
+  function outcome(value: DictationOutcomeEvent) {
+    if (
+      value.operation_id < currentOperation ||
+      value.operation_id <= retiredOutcome
+    )
+      return;
+    if (
+      value.operation_id === currentOperation &&
+      ["cancelled", "superseded"].includes(state.dictationOutcome || "") &&
+      !["cancelled", "superseded"].includes(value.outcome)
+    )
+      return;
+    currentOperation = value.operation_id;
+    state.dictationOutcome = value.outcome;
+    if (["no_speech", "cancelled", "superseded"].includes(value.outcome)) {
+      completed = false;
+      state.phase = value.outcome === "cancelled" ? "cancelled" : "idle";
+      state.error = "";
+      state.audioLevel = 0;
+      if (
+        state.pendingDictation &&
+        state.pendingDictation.sessionId <= value.operation_id
+      )
+        state.pendingDictation = null;
+    }
+  }
   function pending(value: PendingDictation | null) {
     if (value && value.sessionId < currentOperation) return;
+    if (
+      value &&
+      value.sessionId === currentOperation &&
+      ["no_speech", "cancelled", "superseded"].includes(
+        state.dictationOutcome || "",
+      )
+    )
+      return;
     state.pendingDictation = value;
     if (value) {
+      if (value.sessionId > currentOperation) {
+        state.dictationOutcome = undefined;
+        completed = false;
+      }
       currentOperation = value.sessionId;
       state.phase = value.phase;
       state.error = value.error || "";
@@ -107,17 +150,30 @@ export function nativeDictation(ctx: NativeContext) {
       currentOperation = value.operation_id;
       started = Date.now();
       completed = false;
+      // A shown window may first observe the successor during transcription.
+      // Terminal outcome guards belong to the previous operation, not its id.
+      state.dictationOutcome = undefined;
+      if (
+        state.pendingDictation &&
+        state.pendingDictation.sessionId < value.operation_id
+      )
+        state.pendingDictation = null;
+      state.error = "";
       if (value.state === "listening") {
-        if (
-          state.pendingDictation &&
-          state.pendingDictation.sessionId < value.operation_id
-        )
-          state.pendingDictation = null;
-        state.error = "";
         revision++;
       }
     }
     if (value.last) accept(value.last);
+    // Adjacent getters may return an older pending record after native has
+    // already settled it. Apply the matching terminal snapshot before its
+    // pending early-return; a successor's larger id still wins in outcome().
+    if (
+      value.outcome &&
+      (value.operation_id === 0 ||
+        value.outcome.operation_id === value.operation_id) &&
+      ["no_speech", "cancelled", "superseded"].includes(value.outcome.outcome)
+    )
+      outcome(value.outcome);
     if (
       state.pendingDictation &&
       value.operation_id <= state.pendingDictation.sessionId
@@ -144,6 +200,12 @@ export function nativeDictation(ctx: NativeContext) {
               state.recordingSource === "wake_word"
             ? "silence"
             : (value.state as Phase);
+    if (
+      value.outcome &&
+      (value.operation_id === 0 ||
+        value.outcome.operation_id === value.operation_id)
+    )
+      outcome(value.outcome);
   }
   const port: DictationPort = {
     async resolvePending(request) {
@@ -156,11 +218,15 @@ export function nativeDictation(ctx: NativeContext) {
       );
       sync.invalidate();
       try {
-        // This IPC returns Transcript, without LastDictation's id/date/original.
-        // The session event/snapshot is the authority for the displayed result.
-        await call<Transcript | null>("resolve_pending_dictation", { request });
+        // LastDictation events/snapshots remain the authority for result text.
+        const result = await call<NativeDictationOutcome>(
+          "resolve_pending_dictation",
+          { request },
+        );
         if (currentOperation !== request.sessionId) return;
         await sync.refresh();
+        if (currentOperation === request.sessionId && result)
+          outcome({ operation_id: request.sessionId, outcome: result.kind });
       } catch (error) {
         if (
           currentOperation === request.sessionId &&
@@ -186,18 +252,23 @@ export function nativeDictation(ctx: NativeContext) {
         return;
       revision++;
       sync.invalidate();
+      retiredOutcome = Math.max(retiredOutcome, currentOperation);
       completed = false;
       state.error = "";
+      state.dictationOutcome = undefined;
       if (state.live) retiredSessions.add(state.live.sessionId);
       state.live = null;
       await call("start_dictation");
     },
     async finish() {
-      await call(
+      const operation = currentOperation;
+      const result = await call<NativeDictationOutcome>(
         state.recordingSource === "wake_word"
           ? "confirm_dictation"
           : "stop_dictation",
       );
+      if (operation === currentOperation && result)
+        outcome({ operation_id: operation, outcome: result.kind });
     },
     async cancel() {
       revision++;
@@ -273,6 +344,7 @@ export function nativeDictation(ctx: NativeContext) {
     refresh: sync.refresh,
     accept: observe(accept),
     snapshot: observe(snapshot),
+    outcome: observe(outcome),
     level(value: { operation_id: number; level: number; elapsed_ms: number }) {
       if (
         value.operation_id !== currentOperation ||

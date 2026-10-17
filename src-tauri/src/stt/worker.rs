@@ -97,6 +97,7 @@ pub(super) struct WorkerSession {
     stderr_thread: Option<JoinHandle<()>>,
     next_request_id: u64,
     timeouts: WorkerTimeouts,
+    supports_decoding_options: bool,
 }
 
 enum WorkerOutput {
@@ -132,6 +133,7 @@ enum WorkerCommand {
     Window {
         samples: Vec<i16>,
         language: String,
+        decoding: fono_stt_protocol::DecodingOptions,
         context: Option<String>,
         operation_id: u64,
         cancellation: OperationCancellation,
@@ -142,6 +144,7 @@ enum WorkerCommand {
     Transcribe {
         samples: Vec<i16>,
         language: String,
+        decoding: fono_stt_protocol::DecodingOptions,
         cancellation: OperationCancellation,
         response_tx: Sender<AppResult<Transcript>>,
         activity: crate::application::updates::activity::ActivityLease<'static>,

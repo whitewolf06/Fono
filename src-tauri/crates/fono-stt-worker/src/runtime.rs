@@ -53,6 +53,7 @@ pub(crate) fn handle(
             model_path,
             language,
             samples_i16_base64,
+            decoding,
         } => transcribe(
             meta,
             &model_path,
@@ -61,6 +62,7 @@ pub(crate) fn handle(
             0,
             false,
             &samples_i16_base64,
+            decoding,
             loaded,
             cancelled,
         ),
@@ -71,6 +73,7 @@ pub(crate) fn handle(
             context,
             audio_start_sample,
             samples_i16_base64,
+            decoding,
         } => transcribe(
             meta,
             &model_path,
@@ -79,6 +82,7 @@ pub(crate) fn handle(
             audio_start_sample,
             true,
             &samples_i16_base64,
+            decoding,
             loaded,
             cancelled,
         ),
@@ -111,9 +115,13 @@ fn transcribe(
     audio_start_sample: u64,
     timed: bool,
     encoded: &str,
+    decoding: fono_stt_protocol::DecodingOptions,
     loaded: &mut Loaded,
     cancelled: &AtomicBool,
 ) -> WorkerResponse {
+    if let Err(message) = decoding.validate() {
+        return error(meta, "decoding", message);
+    }
     let samples = match decode_i16(encoded) {
         Ok(samples) => samples,
         Err(message) => return error(meta, "audio", message),
@@ -128,7 +136,7 @@ fn transcribe(
         Ok(inference) => inference,
         Err(message) => return error(meta, "model_load", message),
     };
-    let transcript = match inference.transcribe(
+    let transcript = match inference.transcribe_with_options(
         &samples,
         language,
         context,
@@ -136,6 +144,7 @@ fn transcribe(
         backend(),
         timed,
         &[cancelled],
+        decoding,
     ) {
         Ok(transcript) => transcript,
         Err(message) => {
@@ -235,6 +244,7 @@ mod tests {
             context: None,
             audio_start_sample: 16000,
             samples_i16_base64: "AAA=".into(),
+            decoding: fono_stt_protocol::DecodingOptions::default(),
         };
         let (response, _) = handle(request, &mut None, &AtomicBool::new(true));
         assert!(matches!(response, WorkerResponse::Error { code, .. } if code == "cancelled"));

@@ -1,0 +1,407 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "version": "0.7.24",
+  "checked_date": "2026-10-18",
+  "scope": "Vue V3 TypeScript, lint, Node contract/SSR tests and production frontend asset build. This is not native microphone, hotkey, external insertion, real GPU, installer or owner acceptance evidence.",
+  "status": "automated_frontend_gates_passed_browser_matrix_incomplete",
+  "baseline_commit": "039d659ef9142cfa91ebc0304d1a4b1e04ef9e94",
+  "gates": [
+    {
+      "gate": "build",
+      "command": "npm.cmd run build",
+      "log": "build/checks/stage4-ui-review-build.log",
+      "log_sha256": "228d44836436ca6d4dd4a1e2bad980c8bb0fee69cfd72ce4eed7c499dd59a3ce",
+      "started_at_utc": "2026-10-17T22:12:27.2895528Z",
+      "finished_at_utc": "2026-10-17T22:12:46.8792827Z",
+      "duration_seconds": 19.5897299,
+      "exit_code": 0,
+      "log_indicates_pass": true,
+      "individual_exit_code_recorded": true,
+      "vite_duration_seconds": 6.05
+    },
+    {
+      "gate": "typecheck",
+      "command": "npm.cmd run typecheck:v3",
+      "log": "build/checks/stage4-ui-review-typecheck.log",
+      "log_sha256": "a5ac1e9835fe81ed4de7944c00e95c2517b0975af809f2d17e25b2ca3726cc59",
+      "started_at_utc": "2026-10-17T22:12:46.9847882Z",
+      "finished_at_utc": "2026-10-17T22:12:55.5068744Z",
+      "duration_seconds": 8.5220862,
+      "exit_code": 0,
+      "log_indicates_pass": true,
+      "individual_exit_code_recorded": true
+    },
+    {
+      "gate": "lint",
+      "command": "npm.cmd run lint",
+      "log": "build/checks/stage4-ui-review-lint.log",
+      "log_sha256": "f3dfb6ff5bbde0e478bb1444e77b7b83cffd7c1dadb808ae8dbb80a94214c7a9",
+      "started_at_utc": "2026-10-17T22:12:55.5203883Z",
+      "finished_at_utc": "2026-10-17T22:13:06.5759900Z",
+      "duration_seconds": 11.0556017,
+      "exit_code": 0,
+      "log_indicates_pass": true,
+      "individual_exit_code_recorded": true
+    },
+    {
+      "gate": "version",
+      "command": "npm.cmd run version:check",
+      "log": "build/checks/stage4-ui-review-version.log",
+      "log_sha256": "ea43742d28272bc94b8e8b3640ddca42d75da3838a59aa0b088367a4a9de896d",
+      "started_at_utc": "2026-10-17T22:13:06.5978481Z",
+      "finished_at_utc": "2026-10-17T22:13:08.6171543Z",
+      "duration_seconds": 2.0193062,
+      "exit_code": 0,
+      "log_indicates_pass": true,
+      "individual_exit_code_recorded": true,
+      "verified_app_version": "0.7.24"
+    },
+    {
+      "gate": "format",
+      "command": "npm.cmd run format:check",
+      "log": "build/checks/stage4-ui-review-format.log",
+      "log_sha256": "98e30b535e420c5fde6f482e27938fe4b2073e3b5908d196d0e06596bc2d0caa",
+      "started_at_utc": "2026-10-17T22:13:08.6441896Z",
+      "finished_at_utc": "2026-10-17T22:13:15.4110649Z",
+      "duration_seconds": 6.7668753,
+      "exit_code": 0,
+      "log_indicates_pass": true,
+      "individual_exit_code_recorded": true,
+      "completed_output": "All matched files use Prettier code style!"
+    },
+    {
+      "gate": "ui_contracts",
+      "command": "npm.cmd run test:v3",
+      "log": "build/checks/stage4-ui-review-ui_contracts.log",
+      "log_sha256": "5ca75ef659ed12841d8ec7c005226161984cbb44fb1ca4ab855227947943715e",
+      "started_at_utc": "2026-10-17T22:13:15.4254997Z",
+      "finished_at_utc": "2026-10-17T22:15:22.2152294Z",
+      "duration_seconds": 126.7897297,
+      "exit_code": 0,
+      "log_indicates_pass": true,
+      "individual_exit_code_recorded": true,
+      "counts": {
+        "tests": 273,
+        "suites": 0,
+        "pass": 273,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "test_runner_duration_ms": 125807.1467
+    }
+  ],
+  "coverage": {
+    "FE-01": "Existing shared event hub retained; typed backend-event-v1 subscription, shared listen/dispose/reconnect checks remain in nativeEventHub.test.mjs. Added typed operation-scoped dictation_outcome metadata.",
+    "FE-02": {
+      "dictionary_renderer": "src/v3/shared/domain/messages.ts",
+      "russian_dictionary": "src/v3/shared/domain/ruMessages.ts",
+      "native_error_catalog": "src/v3/shared/infrastructure/native/userErrorCatalog.json",
+      "behavior": "Common component defaults, phase labels and feedback/notice errors use typed dictionaries; missing keys and required parameters raise diagnostic errors. Existing Russian wording and native error privacy allowlist remain intact. English and locale selection are outside this stage."
+    },
+    "FE-03": "Hidden idle window and stale reads remain guarded; existing native workspace tests verify no steady idle IPC and one resync for show/focus. These are adapter tests, not a running native Windows UI measurement.",
+    "CODE-06": {
+      "component_lines": {
+        "PeriodReport.vue": 171,
+        "TrainerPage.vue": 247,
+        "DailyChart.vue": 124,
+        "PeriodReportSummary.vue": 276,
+        "PeriodTerms.vue": 178,
+        "PeriodAi.vue": 298,
+        "TrainerDictations.vue": 242,
+        "DailyChartPlot.vue": 205,
+        "DailyChartBreakdown.vue": 190
+      },
+      "shared_contract_test": "tests/ui/frontendStage4.test.mjs",
+      "contract_scope": "Same business fixtures run through mock trainer and actual createNativeTrainer with a strict invoke fixture. This checks port behavior and command/argument translation; fixture backend is mockTrainer, so it does not execute or prove Rust/LLM behavior. Immediate duplicate reservation race in mock trainer was fixed."
+    },
+    "CODE-05": "Typed fast/accurate and automatic/1..8 thread preferences, legacy defaults, native mapping, safe browser demo persistence and AudioFields controls. Fast/automatic remains the default; no accuracy improvement claim. Save guard rechecks after asynchronous mock persistence delay.",
+    "STAB-05": "Explicit completed/deferred/no_speech/cancelled/superseded adapters; neutral no-speech status, terminal snapshot hydration and old-operation/adjacent-pending response fences. Final review regressions cover a successor first observed during transcription, stale pending/error cleanup, and one coalesced latest resync after delayed outcome metadata."
+  },
+  "browser_matrix": {
+    "receipt": "docs/evidence/stage4-browser.json",
+    "status": "blocked_partial",
+    "all_required_sizes_passed": false,
+    "actual_observation": "720x560 home screenshot visually inspected and trainer DOM inspected. Required trainer interactions, settings/audio decoding controls, overlay and the 900x720/1440x900 visual matrix remain unchecked after the supported Chrome browser connection was lost.",
+    "temporary_viewport_reset": "Pending browser reconnection; see browser receipt.",
+    "own_dev_server_stopped": true
+  },
+  "source_snapshot": {
+    "scope": "Changed or newly added src/v3/** and tests/ui/** files relative to baseline_commit, including final frozen implementation and tests. package.json and unrelated owner files are outside this snapshot.",
+    "file_count": 45,
+    "sha256": "f8164431668e475f267b945842cb0a03f90f1c4224765d6e266f6252da2058f7",
+    "algorithm": "SHA256 of UTF-8 records sorted by path; each record is path + U+0000 + file SHA256 + LF. Individual SHA256 values use exact file bytes.",
+    "files": [
+      {
+        "path": "src/v3/app/nativeWorkspace.ts",
+        "bytes": 11191,
+        "sha256": "d2ee2f6c5e671a53cce696839b06a9b0b418548453f87c76e2c23e768b3b72f5"
+      },
+      {
+        "path": "src/v3/features/dictation/presentation/RecordControl.vue",
+        "bytes": 4136,
+        "sha256": "3b0814130adf10e5f81f5bbf3d88776b564df0fdfe8e0d2dd1e5793ab8164194"
+      },
+      {
+        "path": "src/v3/features/overlay/infrastructure/nativeOverlay.ts",
+        "bytes": 13123,
+        "sha256": "71d709bb52699a9398eb5afdf73c391d698c50f7aa2e13be1fc4c518b744d150"
+      },
+      {
+        "path": "src/v3/features/overlay/infrastructure/pendingOverlay.ts",
+        "bytes": 5451,
+        "sha256": "0ce224a17097f6c9cddc2527095a65a1b560a5d6e2645729a4f7abf42263942d"
+      },
+      {
+        "path": "src/v3/features/overlay/presentation/NativeOverlay.vue",
+        "bytes": 1829,
+        "sha256": "79ca011346de29bd8bb06dbf356a3128f9f554a2cc3f33e318eaf814d22937d7"
+      },
+      {
+        "path": "src/v3/features/overlay/presentation/OverlayPreview.vue",
+        "bytes": 5094,
+        "sha256": "6ae1a0f8c65d1357737623bc621697db9412d5a9dde500f4567c743bfac2f468"
+      },
+      {
+        "path": "src/v3/features/preferences/domain/preferences.ts",
+        "bytes": 7622,
+        "sha256": "a1c0292098c00b5516dfe1f15a85b1dcac312c3221f3b1eaa84d737f20f83d00"
+      },
+      {
+        "path": "src/v3/features/preferences/infrastructure/mockSettings.ts",
+        "bytes": 6609,
+        "sha256": "03238c66a976576b341925d1f6883cea738971dd23dc5aa1709d829877676e20"
+      },
+      {
+        "path": "src/v3/features/preferences/presentation/AudioFields.vue",
+        "bytes": 4260,
+        "sha256": "23b18a67a3561a9fb909cab75e482022fa2231b6a335f209baa44fa05ed4a7cf"
+      },
+      {
+        "path": "src/v3/features/preferences/presentation/DecodingFields.vue",
+        "bytes": 1497,
+        "sha256": "402fa408e4abc32c8b263f037ead00b1d52b38b3591449d6ee78f5027e3454d5"
+      },
+      {
+        "path": "src/v3/features/trainer/application/reportFormat.ts",
+        "bytes": 444,
+        "sha256": "296a0e3a46a7994934c95ea88f22ba87cd7e5a80912b0989c6d23d4d7d221796"
+      },
+      {
+        "path": "src/v3/features/trainer/infrastructure/mockTrainer.ts",
+        "bytes": 9697,
+        "sha256": "af832a43c14ae8c962e9896c9141f21be100f2b2c13a4f4baf8ae7381c24523d"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/DailyChart.vue",
+        "bytes": 3488,
+        "sha256": "d95525fe9c252f0ae2b1acd4e03206a76e6807c14ebb72127ae3a90c1e4544e2"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/DailyChartBreakdown.vue",
+        "bytes": 5281,
+        "sha256": "76c1c531de94db5a80e82b98a076640a0c98f3c0a2a92887975d9767e3c93ad6"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/DailyChartPlot.vue",
+        "bytes": 5720,
+        "sha256": "45ddf78bc1df874c5d2245915eea68d62c00d30ba2c299e963e66c3e864280d1"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/PeriodAi.vue",
+        "bytes": 8953,
+        "sha256": "10139c867432f35c61b83619500c6793acc1264bc2f46008070b7f8976f29002"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/PeriodReport.vue",
+        "bytes": 4418,
+        "sha256": "62036b8f28970a23f5b4b798bbbe926cc57fad7597d808022ed5157bb9dfef47"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/PeriodReportSummary.vue",
+        "bytes": 8430,
+        "sha256": "7478ede95cdd5f26a507f150349af3c4754795c1375dbd4878469c12bb27d7fe"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/PeriodTerms.vue",
+        "bytes": 5474,
+        "sha256": "0327188373377476aa5605dcd5db75b49ca3220ab6e2c83fe29e943a7130d408"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/TrainerDictations.vue",
+        "bytes": 7588,
+        "sha256": "c3023c866a0d21f861370e6b167a8ae605057574e4e69d872f440c364cf44891"
+      },
+      {
+        "path": "src/v3/features/trainer/presentation/TrainerPage.vue",
+        "bytes": 8115,
+        "sha256": "4e540297058ff36920cae399c45666bed6e8f858c3a12e970eb510dd0c58acfa"
+      },
+      {
+        "path": "src/v3/shared/application/feedback.ts",
+        "bytes": 716,
+        "sha256": "9b2a1bebddce03a5027dc275592ee5d020f0fa195424d65efeff8ec375ddb752"
+      },
+      {
+        "path": "src/v3/shared/application/workspace.ts",
+        "bytes": 794,
+        "sha256": "bfb86ed2203cf4045cbc696ec2da1971dc33faf742818cbdeae879b0d4eca854"
+      },
+      {
+        "path": "src/v3/shared/domain/contracts.ts",
+        "bytes": 8632,
+        "sha256": "5468b077ff254b90689e542b1a19122056b98b6db3cf796ab0304fba11dc07d2"
+      },
+      {
+        "path": "src/v3/shared/domain/dictationNotice.ts",
+        "bytes": 1470,
+        "sha256": "462454755b70bfdaa2c1ba9853622732797ff6fa810013dfe2ed3decbc06b067"
+      },
+      {
+        "path": "src/v3/shared/domain/dictationOutcome.ts",
+        "bytes": 629,
+        "sha256": "3a735eddc9e4b5cc93c192ed2d6361425cdd5af75293a4caba5ef4d332491cc5"
+      },
+      {
+        "path": "src/v3/shared/domain/messages.ts",
+        "bytes": 1135,
+        "sha256": "f39f467b1a0b1b25340e8b8e461c7929fd4741b037653f76fe10b954d2439e37"
+      },
+      {
+        "path": "src/v3/shared/domain/ruMessages.ts",
+        "bytes": 5059,
+        "sha256": "85eeb23ce2109e11a1f3bb8a8165eae0b7220d1ef5a34ee3786379f98e7abc68"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/browser.ts",
+        "bytes": 7216,
+        "sha256": "c76137f654943baef3ac97e43cad2e0652b870a4c261ffaa40d7d49d8ed6fd4f"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/native/backendEvents.ts",
+        "bytes": 2419,
+        "sha256": "43fbbedc347dd355e91b908ad152952f6be08c5b0ec329b31a9db6ec81bedf4e"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/native/dictation.ts",
+        "bytes": 12290,
+        "sha256": "4c610d395b78339153387c84f71965024a6cbba89117a3c46facdff417a7e6ef"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/native/dictationContracts.ts",
+        "bytes": 1097,
+        "sha256": "d0d92d3af5f573bbf7caa9915305d0b80c7662e722c2f0adcd10cbecf93e49c8"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/native/ipcTypes.ts",
+        "bytes": 17474,
+        "sha256": "4546c63fff1c2f6206534695267d01ec340c3675b67ef241e6e0520dbb86a4f7"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/native/mapping.ts",
+        "bytes": 11911,
+        "sha256": "ded892e603a5e1d52c5c01aa1a56d73b20a061c561b414c2d9bfb3205dc6238c"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/native/nativeErrors.ts",
+        "bytes": 7622,
+        "sha256": "6a16595cb1649fa3922e5aa9fa1a8a28da59b6acf19a37bbe81ec26c44f3a12a"
+      },
+      {
+        "path": "src/v3/shared/infrastructure/native/settings.ts",
+        "bytes": 6844,
+        "sha256": "c03f27b6bca766cd7c9645afcd1c60a63995ceb9e167ce00a221c950702f3c31"
+      },
+      {
+        "path": "src/v3/shared/presentation/DictationNotice.vue",
+        "bytes": 1086,
+        "sha256": "de18e641ecc26e265fd192f96119a7b84324d9118fe76f9c8c92eb3daaab2ed2"
+      },
+      {
+        "path": "src/v3/shared/presentation/PageLoadState.vue",
+        "bytes": 1460,
+        "sha256": "fe5a592c5ca8ac88284d8be0a91ed7df6e301432dc407feafb5d2e4064a7ca9d"
+      },
+      {
+        "path": "src/v3/shared/presentation/PendingDictationActions.vue",
+        "bytes": 5692,
+        "sha256": "1ef5bc997ae742be1741e5b437ad97eac65849174ed7441bf38bea16924656f1"
+      },
+      {
+        "path": "src/v3/shared/presentation/ProcessingChoiceControls.vue",
+        "bytes": 2798,
+        "sha256": "f61008f4cc3eb43a468d1c0d8ba05eabe6cc2d36873de46d9c418c71977058bb"
+      },
+      {
+        "path": "src/v3/shared/presentation/StatusDot.vue",
+        "bytes": 570,
+        "sha256": "856118a14ddc0db662ed2e1e8b32b8d850b07761780f8b8258ccebab53bd3294"
+      },
+      {
+        "path": "tests/ui/fonoV3Native.test.mjs",
+        "bytes": 40648,
+        "sha256": "a66df3f0d14046201cd728e69cf70a59b4c3523161c51b4eead3f1dfddecbcd1"
+      },
+      {
+        "path": "tests/ui/frontendStage4.test.mjs",
+        "bytes": 11537,
+        "sha256": "654c69e1b285adcf836558a9b40f44f89a387e0b7f145eee4ea0335ffc61c8c8"
+      },
+      {
+        "path": "tests/ui/overlayControlsV3.test.mjs",
+        "bytes": 31826,
+        "sha256": "5e35b5dfd9c885b9ddd0b9318bc2a85dda799b82dfe52e58f223375b49ffa915"
+      },
+      {
+        "path": "tests/ui/pendingNative.test.mjs",
+        "bytes": 15889,
+        "sha256": "078e9320eda0feb34ff2c3e083ead3a347bad2d16e52044dd31f3aa09637e608"
+      }
+    ]
+  },
+  "limitations": [
+    "The full browser visual matrix is incomplete; automated gates do not replace it.",
+    "The final release/native test rerun is tracked separately by root and is not asserted by this frontend receipt.",
+    "The older stage4-ui-test-release.log is not final release acceptance evidence.",
+    "No Kvorum mutation or Git commit was performed by this evidence-writing step."
+  ],
+  "verification": {
+    "driver": "build/checks/run-stage4-frontend-review.ps1",
+    "metadata": "build/checks/stage4-ui-review-results.json",
+    "metadata_sha256": "06f0a93eda78f4c50a090d4ee81440b47cea84c598285ec87cf91394ba9007c1",
+    "exec_session": 3619,
+    "aggregate_exit_code": 0,
+    "all_steps_passed": true,
+    "completed_at_utc": "2026-10-17T22:15:22.2589682Z",
+    "gate_order": [
+      "build",
+      "typecheck",
+      "lint",
+      "version",
+      "format",
+      "ui_contracts"
+    ],
+    "note": "Build ran first to finish writing dist before native release checks. Full UI tests ran last. Individual gate exit codes, timestamps and log hashes were recorded by the driver."
+  },
+  "resolved_review_findings": [
+    {
+      "priority": "P1",
+      "problem": "A successor first observed during transcription inherited the previous cancellation outcome, rejecting its new pending text.",
+      "fix": "Reset prior outcome, stale pending state and session error for every newly observed operation id, independently of phase.",
+      "regression": "cancelled8 -> snapshot9/transcribing -> pending9 -> deferred9; original pending text remains available. Also covers missed cancel/listening with a previous pending error.",
+      "test": "tests/ui/pendingNative.test.mjs"
+    },
+    {
+      "priority": "P2",
+      "problem": "Delayed metadata outcome invalidated an in-flight successor snapshot without guaranteeing a fresh read.",
+      "fix": "Main session reads share a coalesced read queue; every metadata outcome requests one latest follow-up. Overlay uses its existing polling/queued drain for the same follow-up. No idle polling was added.",
+      "regression": "Delayed cancelled9 while snapshot10 is in flight results in exactly two reads and a live operation10 receiving audio levels.",
+      "tests": [
+        "tests/ui/fonoV3Native.test.mjs",
+        "tests/ui/overlayControlsV3.test.mjs"
+      ]
+    }
+  ]
+}

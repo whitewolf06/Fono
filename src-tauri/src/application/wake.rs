@@ -1,5 +1,12 @@
 //! Application use case for recording and recognizing diagnostic wake samples.
 
+mod lifecycle;
+mod text;
+pub use lifecycle::restart;
+
+pub(crate) use lifecycle::{settings_to_wake_config, start_if_enabled};
+pub(crate) use text::{extract_wake_command, strip_leading_wake_phrase};
+
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use tauri::{AppHandle, Manager};
@@ -96,7 +103,7 @@ pub(crate) async fn recognize_transient_samples(
     let _activity = crate::application::updates::activity::lease()?;
     super::dictation::ensure_capture_allowed(app)?;
     let settings = app.state::<AppState>().settings();
-    let config = crate::settings_to_wake_config(&settings)?;
+    let config = crate::application::wake::settings_to_wake_config(&settings)?;
     let backend = match settings.wake_backend {
         fono_wake::WakeWordBackend::WhisperExperimental
         | fono_wake::WakeWordBackend::SherpaOnnx => "Retired",

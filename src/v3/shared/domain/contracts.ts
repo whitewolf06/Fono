@@ -14,6 +14,7 @@ import type {
   ProcessingPreviewInput,
   ProcessingPreviewResult,
 } from "./processing";
+import type { DictationOutcomeKind } from "./dictationOutcome";
 export type Phase =
   | "idle"
   | "listening"
@@ -58,6 +59,8 @@ export interface Preferences {
   model: string;
   language: string;
   acceleration: string;
+  whisperDecoding: "fast" | "accurate";
+  whisperThreads: number | null;
   gpuModelResidency: GpuModelResidency;
   dictionaryEnabled: boolean;
   dictionaryEntries: PersonalDictionaryEntry[];
@@ -212,6 +215,7 @@ export interface WorkspaceState {
   jobs: ServiceJob[];
   profiles: ConnectionProfile[];
   phase: Phase;
+  dictationOutcome?: DictationOutcomeKind;
   audioLevel: number;
   elapsed: number;
   error: string;

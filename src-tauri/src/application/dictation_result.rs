@@ -5,6 +5,37 @@ use crate::types::{
 };
 use tauri::{AppHandle, Manager};
 
+/// Own durable result effects on a blocking worker. Admission survives a dropped
+/// IPC waiter; the original operation is checked after queueing, under the same
+/// fence as cancellation/replacement. No lock is held across this await.
+pub(crate) async fn commit_for_operation<T: Send + 'static>(
+    app: AppHandle,
+    operation: u64,
+    receipt: crate::application::dictation::SettlementReceipt,
+    commit: impl FnOnce(&AppHandle) -> T + Send + 'static,
+) -> crate::error::AppResult<Option<T>> {
+    let activity = crate::application::updates::activity::lease()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        let result = app.state::<crate::pipeline::Pipeline>().commit_terminal(
+            operation,
+            || commit(&app),
+            |event| {
+                receipt.commit(operation);
+                crate::pipeline::publish_terminal_claim(&app, event);
+            },
+        );
+        if result.is_some() {
+            crate::pipeline::sync_overlay_window(&app, crate::types::PipelineState::Idle);
+        }
+        result
+    })
+    .await
+    .map_err(|_| {
+        crate::error::AppError::Internal("Не удалось завершить сохранение диктовки".into())
+    })
+}
+
 pub fn publish(app: &AppHandle, id: &str, transcript: &Transcript, text: &str) {
     crate::ipc::desktop_v3::publish_result(
         app,
@@ -114,7 +145,7 @@ pub fn archive_session(app: &AppHandle, settings: &Settings, record: SessionArch
         recommendation: None,
         recommendation_error: None,
     };
-    match crate::history::append(
+    match crate::history::for_app(app).append(
         entry,
         settings.analytics_enabled,
         settings.analytics_retention_days,

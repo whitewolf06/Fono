@@ -15,6 +15,8 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
         [
           "dictationMode",
           "gpuModelResidency",
+          "whisperDecoding",
+          "whisperThreads",
           "hotkey",
           "hotkeyMode",
           "commandHotkey",
