@@ -4,7 +4,7 @@
   },
   "bundle": {
     "resources": {
-      "resources/stt-workers/*": null
+      "resources/stt-base/fono-stt-vulkan-worker.exe": null
     }
   }
 }

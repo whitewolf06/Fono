@@ -3,6 +3,7 @@ import { openProjectSite } from "../shared/infrastructure/browser";
 import { createBrowserFeedbackChannel } from "../features/feedback";
 import { createMockDiagnosticReport } from "../features/diagnostic-report";
 import { createMockUpdates } from "../features/updates";
+import { createMockCudaPackages } from "../features/cuda-packages/infrastructure/mockCudaPackages";
 import { LIVE_DICTATION_ENABLED } from "../shared/domain/dictationMode";
 import { createMockTrainer } from "../features/trainer/infrastructure/mockTrainer";
 import type {
@@ -91,6 +92,7 @@ export function createMockWorkspace(): Workspace {
   const dictation = createDictationPort(state);
   const trainer = createMockTrainer(state);
   const updates = createMockUpdates(__FONO_FRONTEND_BUILD__.version);
+  const cudaPackages = createMockCudaPackages();
   const wake = createMockWake(state);
   let disposed = false;
   let jobTicks = 0;
@@ -185,6 +187,7 @@ export function createMockWorkspace(): Workspace {
     report: createMockDiagnosticReport(state),
     feedback: createBrowserFeedbackChannel(),
     updates,
+    cudaPackages,
     state,
     wake,
     dictation,
@@ -268,6 +271,7 @@ export function createMockWorkspace(): Workspace {
       disposed = true;
       trainer.dispose();
       updates.dispose();
+      cudaPackages.dispose();
       clearInterval(jobsTimer);
       dictation.dispose();
     },

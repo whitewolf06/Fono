@@ -14,6 +14,8 @@ chosen LLM connection.
 - Local Whisper recognition with CPU, CUDA and Vulkan backends. GPU inference
   runs in separate worker processes; the selected mode and actual backend are
   recorded separately.
+- CPU and Vulkan ship in the base package. Install the separately signed CUDA
+  package from audio settings; Auto uses Vulkan/CPU until it is installed.
 - Optional cleanup, formatting, task and formal styles; editable system prompts.
   In toggle mode, change the style or translation in the indicator while recording.
 - A local dictionary, session history and a speech trainer for reviewing recurring
@@ -55,16 +57,16 @@ imply that a matching release has been published.
 
 ## Build a CPU development copy
 
-**Current source-install limitation:** frontend dependencies still require read
-access to `@whitelife-core/ui-kit@0.6.0` on GitHub Packages. Keep npm credentials
-in your user configuration, outside Git. Opening this dependency is tracked in
-OSS-02; do not assume `npm ci` is anonymous yet.
+Frontend dependencies install anonymously from the public npm registry. The
+exact original WhiteUI 0.6.0 tarball is included in [vendor/whiteui](vendor/whiteui/README.md);
+its hash and origin are recorded there. No npm token or private package access
+is required.
 
 1. On Windows x64, install Node.js 22, the pinned Rust toolchain, MSVC C++ Build
    Tools and Windows SDK, CMake, LLVM/libclang, PowerShell 7 and Python 3.12+.
    WebView2 is needed for the native window; `curl.exe` is used by the bootstrap.
 2. Clone `https://github.com/whitewolf06/fono.git` and open its directory.
-3. Run `npm ci` with the package access described above.
+3. Run `npm ci`; the lockfile includes the local WhiteUI archive.
 4. Run `npm run dev:cpu`. It obtains SHA256-pinned speech-VAD resources and
    compiles embedded CPU Whisper; CUDA/Vulkan SDKs and GPU workers are not needed.
 5. Download/select a small Whisper model. For the first dictation, select

@@ -4,3 +4,6 @@ resources/sherpa-onnx/*.dll
 # Release-time STT workers and the CUDA runtime they ship with.
 resources/stt-workers/*.exe
 resources/stt-workers/*.dll
+
+# Exact base-only staging; CUDA remains outside the Tauri resource map.
+resources/stt-base/*.exe

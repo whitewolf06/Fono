@@ -34,14 +34,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22.23.3"
-          registry-url: https://npm.pkg.github.com
-          scope: "@whitelife-core"
+          registry-url: https://registry.npmjs.org
       - name: Install locked frontend dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.WHITEUI_NPM_TOKEN }}
         shell: pwsh
         run: |
-          if (!$env:NODE_AUTH_TOKEN) { throw 'Set WHITEUI_NPM_TOKEN with read:packages access.' }
           npm ci
           exit $LASTEXITCODE
       - name: Validate channel configuration
@@ -54,7 +50,7 @@ jobs:
       - name: Frontend gates
         shell: pwsh
         run: |
-          foreach ($command in @('typecheck:v3', 'lint', 'test:v3', 'format:check', 'build')) {
+          foreach ($command in @('typecheck:v3', 'lint', 'test:v3', 'test:cpu', 'docs:check', 'format:check', 'build')) {
             npm run $command
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -72,7 +68,7 @@ jobs:
         working-directory: src-tauri
         env:
           # GPU workers are built by beforeBuildCommand after these CPU gates.
-          TAURI_CONFIG: '{"bundle":{"resources":{"resources/stt-workers/*":null}}}'
+          TAURI_CONFIG: '{"bundle":{"resources":{"resources/stt-base/fono-stt-vulkan-worker.exe":null}}}'
         shell: pwsh
         run: |
           cargo fmt --all --check

@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "stage": 3,
+  "appVersion": "0.7.23",
+  "projectId": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+  "spaceId": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+  "scopeMode": "server_resolved",
+  "serverReady": true,
+  "verifiedAtUtc": "2026-10-17T12:26:59.903Z",
+  "serverWritesPerformed": true,
+  "commentsCreatedAndReadBack": 11,
+  "taskStatusTransitionsConfirmed": 13,
+  "acceptanceStatus": "No task marked done; release, remote CI and owner Windows/GPU acceptance remain separate.",
+  "snapshotNote": "Read-back snapshot before the local source commit; comment IDs remain stable when the local commit reference is added afterward.",
+  "records": [
+    {
+      "key": "FONO-72",
+      "task_id": "ee886a18-adde-487f-a0af-e739b5fccad6",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-72/oss-02-npm",
+      "readback_verified": true,
+      "comment_id": "f0caaf37-2236-47a4-bf63-b822a172ea06",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-73",
+      "task_id": "eed6522e-b69a-4c6c-bc05-8603f3bc9610",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-73/oss-03-cpu-only",
+      "readback_verified": true,
+      "comment_id": "71731445-a38c-4e8e-a4d1-6a92d8e0bddc",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-74",
+      "task_id": "5c794c5a-3a04-4f9c-9847-0e6e5f4d6a3b",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-74/oss-04-readme",
+      "readback_verified": true,
+      "comment_id": "0c660887-c1dd-4851-bacc-2ad9d1b5018d",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-75",
+      "task_id": "504c6818-f88a-4661-a1f1-3636efb7ffce",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-75/oss-05",
+      "readback_verified": true,
+      "comment_id": "3d04a82b-2a5d-46e4-b40d-53c8ab6da473",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-107",
+      "task_id": "b8348117-a008-4912-ae0c-08843f04f72e",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-107/ci-02-ui-oss-02",
+      "readback_verified": true,
+      "comment_id": "c0ef968c-4cbb-4bb1-8129-00f7bdcb6e78",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-110",
+      "task_id": "5447bf1d-67c3-4421-932f-cf249205cbc0",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-110/doc-01",
+      "readback_verified": true,
+      "comment_id": "34b2865c-3813-43fc-8b92-d7e0c789bf6b",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-111",
+      "task_id": "9d18150e-cb89-4dc0-b2cc-57433405077b",
+      "status": "in_review",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-111/doc-02",
+      "readback_verified": true,
+      "comment_id": "a3e227b4-bd04-4dfe-bcfa-7c18341073f0",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-47",
+      "task_id": "85eafd57-86b8-4e09-8eab-2cb3bbb300d4",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-47/fono-improvement-plan",
+      "readback_verified": true,
+      "comment_id": "7620347a-c370-4fae-97f8-e36eaaf691cb",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-48",
+      "task_id": "093ff982-b328-4441-bac9-c6bf50b21261",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-48/fono",
+      "readback_verified": true,
+      "comment_id": "583bec18-56cd-4165-ae98-abe6b831ef2b",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-55",
+      "task_id": "e92b37f7-0c73-405e-829b-b24a89ba486c",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-55/fono",
+      "readback_verified": true,
+      "comment_id": "eaefb4b1-a544-4be1-b7b0-d134093ece17",
+      "comment_readback_verified": true
+    },
+    {
+      "key": "FONO-54",
+      "task_id": "5acda590-5934-4b78-8efb-ccb39340d032",
+      "status": "in_progress",
+      "url": "https://kvorum.gorbach-dev.ru/tasks/FONO-54/fono-pr-stt",
+      "readback_verified": true,
+      "comment_id": "2b384dc6-da99-4642-949e-0e0a162e78b9",
+      "comment_readback_verified": true
+    }
+  ]
+}

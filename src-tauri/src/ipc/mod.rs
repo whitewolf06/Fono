@@ -1,5 +1,6 @@
 pub mod audio;
 mod blocking;
+pub mod cuda_packages;
 pub mod desktop_v3;
 pub mod diagnostic_report;
 pub mod diagnostics;

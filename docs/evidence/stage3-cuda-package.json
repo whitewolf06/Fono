@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "appVersion": "0.7.23",
+  "protocolVersion": 3,
+  "purpose": "fono-cuda",
+  "status": "unsigned-local-review-artifact",
+  "signed": false,
+  "published": false,
+  "workerExecuted": false,
+  "gpuInferenceExecuted": false,
+  "archive": {
+    "relativePath": "build/checks/stage3-cuda-0.7.23/fono-cuda-0.7.23-windows-x86_64.tar.bz2",
+    "bytes": 409019734,
+    "sha256": "8c9419e57981bd06b1df6ae0e2dffa6b800fab3e2585edef0ee7b789bdf0a695",
+    "files": 10,
+    "notices": 6,
+    "fullMemberSizeAndHashVerification": "passed"
+  },
+  "baseWorker": {
+    "source": "src-tauri/resources/stt-base/fono-stt-vulkan-worker.exe",
+    "bundledDestination": "resources/stt-workers/fono-stt-vulkan-worker.exe",
+    "bytes": 50104320,
+    "sha256": "5d0470ecfc216fe72b46e2bd73915d6483c4009d7505e1784e81f965ca9f2a5d",
+    "resourceMapping": "exact-file-no-worker-glob",
+    "cudaIncluded": false,
+    "sherpaAndVadRetained": true
+  },
+  "provenance": {
+    "cudaToolkitVersion": "13.3.1",
+    "cudaDllsMatchReviewedNativeInventory": true,
+    "nvidiaNoticeBytesMatchUpstreamSourceHashes": true,
+    "manifestSnapshot": "stage3-cuda-manifest-unsigned.json"
+  },
+  "tests": {
+    "producerPython": { "passed": 12, "skipped": 1, "failed": 0 },
+    "skipReason": "Windows symbolic-link creation privilege unavailable; real directory junction output rejection passed separately in the same suite",
+    "signingAndResourceNode": { "passed": 4, "failed": 0 },
+    "baseBuildSupportRust": { "passed": 4, "failed": 0 }
+  },
+  "independentWindowsSealProbe": {
+    "outsideAppContainer": true,
+    "scope": "Own random build/checks fixture; no application data",
+    "ownerRightsMask": "0x001300A9",
+    "beforeSealChildCreationAllowed": true,
+    "sealedExtraDllCreationDenied": true,
+    "ownerCannotRestorePermissiveDacl": true,
+    "guardedKnownFileWriteAndDeleteDenied": true,
+    "existingPayloadReadable": true,
+    "parentStateWritable": true,
+    "fixtureCleanupAfterGuardDrop": "passed",
+    "cleanupRequiresFullParentAcl": false,
+    "harness": "build/checks/stage3-payload-seal-probe.ps1",
+    "nativeBackendTests": "Reported separately by the native test runner"
+  },
+  "limitsOfEvidence": [
+    "No release signing key was opened and no official signature exists",
+    "No base installer was built or measured by the package tooling checks",
+    "The real CUDA/Vulkan worker was not launched by these checks",
+    "Package installation, inference, Auto fallback and recovery on Windows remain separate acceptance"
+  ]
+}

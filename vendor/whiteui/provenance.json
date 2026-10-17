@@ -1,0 +1,719 @@
+{
+  "schema": 1,
+  "package": "@whitelife-core/ui-kit",
+  "version": "0.6.0",
+  "status": "vendored original published tarball; activated as the Fono dependency",
+  "original": {
+    "resolved": "https://npm.pkg.github.com/download/@whitelife-core/ui-kit/0.6.0/b7f7cfc7c3080de94bd24b7cc5c7492df6745bc1",
+    "integrity": "sha512-3/WmboDH6iUNE3B0e4/kjbzg9dYyeOySpdpQpCXGxizMLxelZb9YbFdgZxgD6fYsxpv0+OHCo6fg8x0Ym1EfbA==",
+    "sha256": "e0aabc07070a54eae56cfb810f120b3ebdcb12f34e1313a1eecc073c5dfaab65",
+    "compressed_bytes": 134150,
+    "files": 95,
+    "expanded_bytes": 955347
+  },
+  "source": {
+    "original_repository": "https://github.com/whitelife-core/whiteui",
+    "tag": "v0.6.0",
+    "commit": "2fa5232000ab20349e35703ffd8fe7f5a0188167",
+    "tracked_blob_comparisons": 8,
+    "generated_distribution_files": 87,
+    "rebuilt": false
+  },
+  "license": {
+    "declared_spdx": "MIT",
+    "notice_files_in_original": [],
+    "complete_notice_at_tag": false,
+    "current_gavia_notice_applied": false,
+    "owner_deferred_notice": true
+  },
+  "files": [
+    {
+      "path": "styles/base.css",
+      "bytes": 108251,
+      "sha256": "31953790560780f349f727f94f5b1a1fc694c653ff5c8208982d05b9b9415dce",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/styles/base.css",
+      "source_sha256": "31953790560780f349f727f94f5b1a1fc694c653ff5c8208982d05b9b9415dce",
+      "source_byte_equal": true
+    },
+    {
+      "path": "themes/graphite.css",
+      "bytes": 18926,
+      "sha256": "3ce2641c7c5006eb58718a00c9d261deeeac72fa0df887445a2f86493b9d55da",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/themes/graphite.css",
+      "source_sha256": "3ce2641c7c5006eb58718a00c9d261deeeac72fa0df887445a2f86493b9d55da",
+      "source_byte_equal": true
+    },
+    {
+      "path": "themes/newspaper.css",
+      "bytes": 18967,
+      "sha256": "725043e823f72f7888c207710003ca0858ea3d159e959fd5414283b505c00ef8",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/themes/newspaper.css",
+      "source_sha256": "725043e823f72f7888c207710003ca0858ea3d159e959fd5414283b505c00ef8",
+      "source_byte_equal": true
+    },
+    {
+      "path": "styles/primitives.css",
+      "bytes": 3472,
+      "sha256": "1a21b12b1e32e9c5d89dba63486c61267dd630a799bac055b0a49bf23890cbc7",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/styles/primitives.css",
+      "source_sha256": "1a21b12b1e32e9c5d89dba63486c61267dd630a799bac055b0a49bf23890cbc7",
+      "source_byte_equal": true
+    },
+    {
+      "path": "styles/reset.css",
+      "bytes": 1500,
+      "sha256": "d7e52cbff790fe683230909740c846fbf4543e3441fcdfae75845865532e22a8",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/styles/reset.css",
+      "source_sha256": "d7e52cbff790fe683230909740c846fbf4543e3441fcdfae75845865532e22a8",
+      "source_byte_equal": true
+    },
+    {
+      "path": "themes/white.css",
+      "bytes": 19225,
+      "sha256": "64c6db056a2f222d162a59c055aec6f1fbb4241a6e151f6d93410c133f8be0ba",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/themes/white.css",
+      "source_sha256": "64c6db056a2f222d162a59c055aec6f1fbb4241a6e151f6d93410c133f8be0ba",
+      "source_byte_equal": true
+    },
+    {
+      "path": "dist/index.js",
+      "bytes": 350813,
+      "sha256": "058c9134992ff5ac9b8d7287df0d7376e8d54c4ca4081d89fd0e289f94e49ea9",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/design-tokens.json",
+      "bytes": 121467,
+      "sha256": "f747700e6fd90e4d7da0573a25da4aa03bdbc90d95b64513bdee0a1670cdf6b9",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest.json",
+      "bytes": 83034,
+      "sha256": "a15790e92a469b559585189fc075f4e4fcd7b93b49b61da9a5ee7cffb58e5da8",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "package.json",
+      "bytes": 1639,
+      "sha256": "1e041f4f5651d8eb0761630b10dec495c2b0345d2ef8adf116634bb9671f267e",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/package.json",
+      "source_sha256": "c59aba65d97c6ff587385cec9266cd3bd9aff4e0ae8c83b256588264c5482fe2",
+      "source_byte_equal": false,
+      "source_json_semantic_equal": true
+    },
+    {
+      "path": "README.md",
+      "bytes": 13828,
+      "sha256": "667d18d3f3c3c0dfa09f96fe2fea41b4b7042b2ecbeec5dd17e31694f29e40a3",
+      "installed_byte_equal": true,
+      "source_blob": "packages/ui-kit/README.md",
+      "source_sha256": "667d18d3f3c3c0dfa09f96fe2fea41b4b7042b2ecbeec5dd17e31694f29e40a3",
+      "source_byte_equal": true
+    },
+    {
+      "path": "dist/manifest/actions.d.ts",
+      "bytes": 79,
+      "sha256": "3d2153afb7a5b071853d4ca82713e74fd23a352380c494465ea64b5d421be374",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/utils/anchoredOverlay.d.ts",
+      "bytes": 526,
+      "sha256": "a6fa27f90558bf57f4cbf8c4a39580318224fde099ff3a1fc6996df296dabc48",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/utils/bodyScrollLock.d.ts",
+      "bytes": 220,
+      "sha256": "1cdd237020cd42ec793fb8a10388ef03e13a5254f066c7ed84963162fcbb29d7",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/composites.d.ts",
+      "bytes": 82,
+      "sha256": "e04cdf3320c699b13a593a6492f00b485313e80eef6c228de3b5c33500dee243",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/config.d.ts",
+      "bytes": 1555,
+      "sha256": "6d7503943e1436b2215e4756607b25c06d19c9b8119dbe3e0a80c93eca307f12",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/services/confirmation.d.ts",
+      "bytes": 548,
+      "sha256": "b68093a7b6609c873d37739912298440c02a18f0a53b422e7fd286d664c4da87",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/containers.d.ts",
+      "bytes": 82,
+      "sha256": "e862f77c30e1d65a6d6124433237e31f0e4b92da3718fac877c029a3cf4418bc",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/data.d.ts",
+      "bytes": 76,
+      "sha256": "aca1a3c3e131f580569fafb26b714cf9f2933d1d83f0884fdd098567f6b39302",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/feedback.d.ts",
+      "bytes": 80,
+      "sha256": "e20a3f4f6c5d647fdd46887403791932d94d4cc69822f98b341fdd3854b958a8",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/icons.generated.d.ts",
+      "bytes": 619,
+      "sha256": "8915a0866da615c0b6b4e92a39c0e010da4774d62286af76f9c0630681f5b845",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/index.d.ts",
+      "bytes": 2904,
+      "sha256": "f356b4c9194d02dcf270c93c4bbd15b38f0c74848426703cc0916ab9a81a5d35",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/design-system/index.d.ts",
+      "bytes": 529,
+      "sha256": "134ddd4775347cdb7fed1a7d979bc649d8c4f258da47ca9739461458449563ef",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/index.d.ts",
+      "bytes": 797,
+      "sha256": "5dc8488119828cce9adb1e2e78cf659e0fd7bcf78ab000abe3137d2108bff7ee",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/index.d.ts",
+      "bytes": 1067,
+      "sha256": "63c75359ed9bba034214aab099c791846ffdcdf7a94d8ce39999e3ac83c013f9",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/utils/inputAttrs.d.ts",
+      "bytes": 520,
+      "sha256": "2b7522ef5655e13b79f9c0277357a3bb4053678cfa55c5561b161775f43ba0fb",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/inputs.d.ts",
+      "bytes": 78,
+      "sha256": "ebc482b623847d181005f51a04d81121f8e893740e0dd4a557ed0f7db04281b0",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/locale.d.ts",
+      "bytes": 476,
+      "sha256": "dd8916fe6bcfd2628edeaba1a2adfb1f808ddb6fd1c265d23f1f83306426e708",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/utils/merge.d.ts",
+      "bytes": 359,
+      "sha256": "d7bc7886954ec9ccdc8bf59406407de0e84c76c28c3d06bbc5581eec2a871ba6",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/misc.d.ts",
+      "bytes": 76,
+      "sha256": "288d2ba9b73d427bbf61811b3d4fbbd0b47dff7f03253fd23ac8f9a413d558d9",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/navigation.d.ts",
+      "bytes": 82,
+      "sha256": "b56f191b111a4b1f56670e9c1147539cd4d68660c8c92bfa38253cd91eda4901",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/utils/options.d.ts",
+      "bytes": 476,
+      "sha256": "8a2e6b7b80002f0ec2d0dd1eab110d3295c999b3a9505252f7777ad7cab71afd",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/utils/overlayLifecycle.d.ts",
+      "bytes": 841,
+      "sha256": "e866dc1210e378ae45be504313c17f1ba600439590b22d9628b2f38eb5a3a071",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/utils/overlayTransition.d.ts",
+      "bytes": 313,
+      "sha256": "c6a58809c11e9a295de2d605b7f67d557170abace807712c5d70845ce1569ece",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/theme.d.ts",
+      "bytes": 894,
+      "sha256": "3b6c0192794f563a9c7d479f381541d241d3d292b04d9a105edd16e25e9f233a",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/services/toast.d.ts",
+      "bytes": 592,
+      "sha256": "a251e7bb41a3a4aaa84c5d7eb6d77e95d3ebf439813d654d3f8cb124ea220336",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/design-system/tokens.generated.d.ts",
+      "bytes": 134252,
+      "sha256": "f174915a1ba6e3939bff3f88289ab3a83af33b34a104462ea50901c95c1dca38",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/directives/tooltip.d.ts",
+      "bytes": 271,
+      "sha256": "63054bbf92bf2798240bc210706dcc1df96fc7b9b71478a7b0247850d14be16d",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/design-system/types.d.ts",
+      "bytes": 995,
+      "sha256": "014e499659b661ad9f288b8cc1aa6e348215da2111d28b2c1c471eef1ac9187c",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/types.d.ts",
+      "bytes": 1839,
+      "sha256": "88c258a13b2c4e639f8dffd52c2d62df9b00c72894dce967a3d4eac0c9661e72",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/types.d.ts",
+      "bytes": 4218,
+      "sha256": "2a7c192efa764d909cf0286c8c24cbfc96bfe3c74b033a1b4cae067df7eaa393",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/composables/useWlConfirm.d.ts",
+      "bytes": 456,
+      "sha256": "7202ae940c300991144d6fe5f2540f8ef2d22d9e79754c0d4c3f99f32610f8e7",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/composables/useWlToast.d.ts",
+      "bytes": 334,
+      "sha256": "6a82bd7054ba8dd3d9606b1d7f9d5c9c39aeacb8117148e3d7b1c1aa4e66dcc7",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/manifest/values.d.ts",
+      "bytes": 1638,
+      "sha256": "2da0ed323004bab8640d933463875ef6ac497d6ffb7111faa7895045d55974d6",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlAccordion.vue.d.ts",
+      "bytes": 1178,
+      "sha256": "478663c10562408a4ca9d501645b476e71deab07b8292ed190bba32a61e3ce29",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlAlert.vue.d.ts",
+      "bytes": 1140,
+      "sha256": "e01afc8cf14356e43c26a9a201291fdb9520fc01d6e7dd279a4de865fcb48bf7",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlAutocomplete.vue.d.ts",
+      "bytes": 1493,
+      "sha256": "ef8f3ce97c70ef49e84f2a76f2dd2ae1aae1219997975611aee186799281269a",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlAvatar.vue.d.ts",
+      "bytes": 1008,
+      "sha256": "f73674e50f5e62d09e2189740a59ffb8fdb9ca961146360068d7e814f5c992d1",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlBadge.vue.d.ts",
+      "bytes": 578,
+      "sha256": "de1ae820f4c5a64cbcc0489238665e6d9650da26007c98ef7ea6e95439e6ea4f",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlBreadcrumbs.vue.d.ts",
+      "bytes": 514,
+      "sha256": "73307bd14f6517cb37d248a097d9c1dde78536f89a2a974c375ddc98530e8b80",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlButton.vue.d.ts",
+      "bytes": 1386,
+      "sha256": "1720c9fb5b4573d43ddbe4880bb9430b0b4b898ced316e61f948338efd89db1a",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlButtonGroup.vue.d.ts",
+      "bytes": 814,
+      "sha256": "0cfc3f6c1ca71ee41aa6268b099c9334966c31d3e8e58ee18b4fd62cd4d5f827",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlCalendar.vue.d.ts",
+      "bytes": 837,
+      "sha256": "6856aa2ab677474862087cf76859ea8741f2483b807724d7d7b6983050d9d562",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlCard.vue.d.ts",
+      "bytes": 985,
+      "sha256": "084ebccb719d18f4b42dd09fda9365a1a3678d8a8e22d4e8542ecb66f549e146",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlCheckbox.vue.d.ts",
+      "bytes": 1153,
+      "sha256": "3cf4d6f4e1eaf828456a5bf69b9b82799a734b608a1ac85c3ad96780f5af8660",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlChip.vue.d.ts",
+      "bytes": 1118,
+      "sha256": "8265378ceaa83d898585e98d92adcf6fcd1e1554892d11e18569478cbe5f3cdc",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlColorPicker.vue.d.ts",
+      "bytes": 1127,
+      "sha256": "c8217169874010475e751fbe3bef96ef522b77365e9911d718d79c710aac0002",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlCommandPalette.vue.d.ts",
+      "bytes": 2843,
+      "sha256": "5cfaad88d98d4b5e2884d4ba76a6780bd6133cdcfbce2950be151f664cf76056",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlConfirmDialog.vue.d.ts",
+      "bytes": 461,
+      "sha256": "990db83b0506d46422fe890ce41311a924272e1840398e9c3e2336b78dc20656",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlDatePicker.vue.d.ts",
+      "bytes": 1031,
+      "sha256": "ff05ea3c6e4e295f75b4969fb5e5e60853342d9f78359b7984ee6c7a5bbb95e7",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlDialog.vue.d.ts",
+      "bytes": 1694,
+      "sha256": "4302b144a4e985e32c1ff81b2baa51829ff32325d16f81de564e166c64b53dea",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlDivider.vue.d.ts",
+      "bytes": 824,
+      "sha256": "7feaca717387685450fa62254e04f86f5b35a3bad78c0c41ad494b7645249a47",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlDrawer.vue.d.ts",
+      "bytes": 1666,
+      "sha256": "ef5c0291ccd765438614cd8e4f813958f491a35a0198a405471fe56792eb2c48",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlEmpty.vue.d.ts",
+      "bytes": 954,
+      "sha256": "50ef0a46715a4372f7e35ccd74c055f5dc3bf678499292daaf57af192ef3de19",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlField.vue.d.ts",
+      "bytes": 1132,
+      "sha256": "4174a61c38e2e5de5ca7b8fde2a8a4d086904cda8b2c4486b067e8dcabedc0fc",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlFileUpload.vue.d.ts",
+      "bytes": 990,
+      "sha256": "13a6768e2f7c5ced67c9124ebb78f259b770530bddcd61f5a2aee7ed0ef70721",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlFilterBar.vue.d.ts",
+      "bytes": 2576,
+      "sha256": "c749f33a2895d843f2208ae654b1b3fa5d578b928444d63445afb71b05848390",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlIcon.vue.d.ts",
+      "bytes": 886,
+      "sha256": "74b7debb1ec31bd92751a3eab8cb5f8776f05dda18ba4e3188a2afbb6caf3ec5",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlIconButton.vue.d.ts",
+      "bytes": 1303,
+      "sha256": "956fc19933678a9832357e5d2fe57e4f0939ac2399acdc4a44b1c3b8d153152e",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlInput.vue.d.ts",
+      "bytes": 1322,
+      "sha256": "b518e6313052115aec2bac2790dd090fe326fc2d095dc69d67a31cf15516cce3",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlMenu.vue.d.ts",
+      "bytes": 870,
+      "sha256": "83c37d31a1713bbc650c011b4a0189b4f295e4db552c7471dd492e8f18d61932",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlMultiSelect.vue.d.ts",
+      "bytes": 1320,
+      "sha256": "b6d483f65637a11a9300c91792db67d5180dfc889a6d7439306a892e7d1c9f40",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlNavItem.vue.d.ts",
+      "bytes": 1164,
+      "sha256": "b679ec901d495af411a5d7a36c8accde70d564fb97722ad1b8aaace1d0f8f2a5",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlNumberInput.vue.d.ts",
+      "bytes": 1037,
+      "sha256": "e473f604f772e0e07359e3763d8fbd059555defaaa5986723588d1dd1c3fa38b",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlPageHeader.vue.d.ts",
+      "bytes": 1293,
+      "sha256": "f0ee044966bffe2ee5dce48538f546ddb47b384ae08ac80f8f35985907deed98",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlPagination.vue.d.ts",
+      "bytes": 713,
+      "sha256": "fc3d5003b5cb2e23d8c5b07abdfb0dd3656f63417aa814f6f2f97e5ad5133ec3",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlPasswordInput.vue.d.ts",
+      "bytes": 867,
+      "sha256": "0a7ae5f970b6e87c3bea25322f21e0597f518acc900c017148a0b5b006ace1f6",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlPill.vue.d.ts",
+      "bytes": 912,
+      "sha256": "0a12cc497198b2c7b1eb4a7acbe2831f7448feb4427a2f24747dea1b9b374aa8",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlPopover.vue.d.ts",
+      "bytes": 1290,
+      "sha256": "b6e962e33237eaf344f6f8dc13223d080f753f5ff7da9fe5397443467bc9d0e8",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlProgress.vue.d.ts",
+      "bytes": 647,
+      "sha256": "5f899f4ade09d2287f052dee3e131007c98f0a5cd1c3c3ddf9c06fd67c75338b",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlRadio.vue.d.ts",
+      "bytes": 1135,
+      "sha256": "8530fa372196947e43474138ec1048142a3ef76d0e3e2ebf24e10bba024649fc",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSegmented.vue.d.ts",
+      "bytes": 790,
+      "sha256": "81b95e2c42f4320583e4ea9c0a75712032fd2d72927884469a865b36fdfcf9b5",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSelect.vue.d.ts",
+      "bytes": 1106,
+      "sha256": "1f1be3a53e93a9d6bf7ef5456c9790e2d96a964cb4576a3e5bdb587a56e56d57",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSidebar.vue.d.ts",
+      "bytes": 2766,
+      "sha256": "638e5d6c73c3d10754a515c69f023dd517a4e2c161dd224109cabca9b4f6bfe6",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSkeleton.vue.d.ts",
+      "bytes": 588,
+      "sha256": "58f97328f9cdc64561dec87343406dc1d0956e1b8c4481efc0a637a776063fef",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSlider.vue.d.ts",
+      "bytes": 753,
+      "sha256": "801654f051f0e2a98648c79dacfd4c618362e53afb5d9e5b0ad55c3fb4241020",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSpinner.vue.d.ts",
+      "bytes": 549,
+      "sha256": "212a4ddf5e949bed8bcf673028f29403eb4ead34c2951f19aa3f8c8735f60429",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlStatCard.vue.d.ts",
+      "bytes": 1034,
+      "sha256": "538fd4d6508411f8c5b79625fe258881400a825c24ec8e507a46f63fd91a555f",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSteps.vue.d.ts",
+      "bytes": 508,
+      "sha256": "5b529e49a0f2cb8cc597b8831fc05452e82b2a255d923105aef63e4f74aecec9",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlSwitch.vue.d.ts",
+      "bytes": 1186,
+      "sha256": "3edae11c6b90ae74927f9f10c85b95ff93d42cfe95d3f3d023c9d20bd0ebc921",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlTable.vue.d.ts",
+      "bytes": 1223,
+      "sha256": "d53a4f4754a60ca0a0026077b6c4b3628a4ef3ceb3501a785989285b3e2e0997",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlTabs.vue.d.ts",
+      "bytes": 1146,
+      "sha256": "2cfb598aaa83e27e8028c34332066af5bd63483642c8172f622c91a08e35f4c5",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlTag.vue.d.ts",
+      "bytes": 1127,
+      "sha256": "392f3b5c2238f39bdb01007f9a2e1c4a93a417680f46fbb4062a7cb1f5d76493",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlTextarea.vue.d.ts",
+      "bytes": 853,
+      "sha256": "b882dbacc22e30eb51b8c05eb183a8d796a486a179ac2c34952e181c0f2866ff",
+      "installed_byte_equal": true,
+      "source_blob": null
+    },
+    {
+      "path": "dist/components/WlToast.vue.d.ts",
+      "bytes": 461,
+      "sha256": "990db83b0506d46422fe890ce41311a924272e1840398e9c3e2336b78dc20656",
+      "installed_byte_equal": true,
+      "source_blob": null
+    }
+  ],
+  "decision": {
+    "date": "2026-10-17",
+    "owner_authorized_vendoring": true,
+    "version": "retain exact 0.6.0",
+    "notice": "Owner identifies WhiteUI as their library and defers adding missing license/copyright text to a later version; preserve this archive as-is."
+  }
+}

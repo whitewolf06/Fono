@@ -54,7 +54,6 @@ jobs:
 
   frontend:
     name: Frontend V3 and release scripts
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -64,16 +63,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22.23.3"
-          registry-url: https://npm.pkg.github.com
-          scope: "@whitelife-core"
+          registry-url: https://registry.npmjs.org
       - name: Install locked dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.WHITEUI_NPM_TOKEN }}
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::Set WHITEUI_NPM_TOKEN with read:packages access to @whitelife-core/ui-kit."
-            exit 1
-          fi
           npm ci
       - name: Typecheck, lint, tests and formatting
         run: |
@@ -81,6 +73,8 @@ jobs:
           npm run lint
           npm run test:v3
           npm run test:release
+          npm run test:cpu
+          npm run docs:check
           npm run format:check
           npx prettier --check '.github/workflows/*.yml' 'scripts/*release*.mjs' scripts/update-manifest.mjs scripts/ci-native-dependencies.json src-tauri/update-channel.json tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs docs/fono-ci-updates.md docs/fono-quality-enhancements.md
           npm run version:check
@@ -97,7 +91,7 @@ jobs:
       # compile fixture needs no npm packages and does not exercise the real UI.
       # JSON Merge Patch removes only GPU workers; pinned Sherpa/VAD stay real.
       # This job never builds a release; the signed-update workflow uses dist.
-      TAURI_CONFIG: '{"build":{"frontendDist":"../scripts/ci-native-frontend"},"bundle":{"resources":{"resources/stt-workers/*":null}}}'
+      TAURI_CONFIG: '{"build":{"frontendDist":"../scripts/ci-native-frontend"},"bundle":{"resources":{"resources/stt-base/fono-stt-vulkan-worker.exe":null}}}'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -115,6 +109,12 @@ jobs:
         timeout-minutes: 10
         shell: pwsh
         run: ./scripts/bootstrap-ci-resources.ps1
+      - name: Verify CUDA package and safe base staging
+        shell: pwsh
+        run: python scripts/cuda-package.test.py
+      - name: Verify CPU contributor launcher on Windows
+        shell: pwsh
+        run: node --test scripts/dev-cpu.test.mjs
       - name: Test and lint native workspace
         working-directory: src-tauri
         shell: pwsh

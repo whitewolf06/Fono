@@ -4,14 +4,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[path = "build_support/base_workers.rs"]
+mod base_worker_manifest;
 #[path = "build_support/vad.rs"]
 mod speech_vad_resource;
 #[path = "build_support/stt_workers.rs"]
 mod stt_worker_check;
-
-const REQUIRED_STT_WORKERS: &[&str] = &["fono-stt-cuda-worker.exe", "fono-stt-vulkan-worker.exe"];
-
-const REQUIRED_CUDA_RUNTIME_PREFIXES: &[&str] = &["cublas64_", "cublasLt64_", "cudart64_"];
 
 const SHERPA_RUNTIME_DLLS: &[&str] = &[
     "onnxruntime.dll",
@@ -203,7 +201,7 @@ fn required_absolute_path(name: &str) -> Result<PathBuf, String> {
 /// hard error. Debug/test builds can run with the in-process CPU backend, so an
 /// absent worker directory is reported but does not block normal development.
 fn stage_stt_workers(layout: &BuildLayout) {
-    let source_dir = layout.manifest_dir.join("resources").join("stt-workers");
+    let source_dir = layout.manifest_dir.join("resources").join("stt-base");
     let destination_dir = layout.profile_dir.join("resources").join("stt-workers");
 
     println!("cargo:rerun-if-changed={}", source_dir.display());
@@ -219,7 +217,7 @@ fn stage_stt_workers(layout: &BuildLayout) {
         return;
     }
 
-    let files = runtime_files(&source_dir).unwrap_or_else(|error| {
+    let files = base_worker_manifest::files(&source_dir).unwrap_or_else(|error| {
         build_problem(
             layout.is_release(),
             format!(
@@ -231,7 +229,6 @@ fn stage_stt_workers(layout: &BuildLayout) {
     });
 
     if layout.is_release() {
-        validate_release_worker_manifest(&source_dir, &files);
         stt_worker_check::validate(&layout.manifest_dir, &source_dir).unwrap_or_else(|error| {
             panic!("incompatible release STT workers: {error}; run npm run build:workers");
         });
@@ -286,51 +283,6 @@ fn runtime_files(directory: &Path) -> std::io::Result<Vec<PathBuf>> {
     }
     files.sort();
     Ok(files)
-}
-
-fn validate_release_worker_manifest(source_dir: &Path, files: &[PathBuf]) {
-    let names: Vec<&str> = files
-        .iter()
-        .filter_map(|path| path.file_name().and_then(OsStr::to_str))
-        .collect();
-
-    let mut missing = Vec::new();
-    for required in REQUIRED_STT_WORKERS {
-        if !names.contains(required) {
-            missing.push((*required).to_string());
-        }
-    }
-    for prefix in REQUIRED_CUDA_RUNTIME_PREFIXES {
-        if !names.iter().any(|name| name.starts_with(prefix)) {
-            missing.push(format!("{prefix}*.dll"));
-        }
-    }
-
-    let unexpected: Vec<&str> = names
-        .iter()
-        .copied()
-        .filter(|name| {
-            !REQUIRED_STT_WORKERS.contains(name)
-                && !REQUIRED_CUDA_RUNTIME_PREFIXES
-                    .iter()
-                    .any(|prefix| name.starts_with(prefix))
-        })
-        .collect();
-
-    if !missing.is_empty() {
-        panic!(
-            "incomplete release STT worker manifest in {}: missing {}",
-            source_dir.display(),
-            missing.join(", ")
-        );
-    }
-    if !unexpected.is_empty() {
-        panic!(
-            "release STT worker manifest in {} contains unexpected runtime files: {}",
-            source_dir.display(),
-            unexpected.join(", ")
-        );
-    }
 }
 
 /// The release-preparation script owns source-tree staging. `build.rs` only

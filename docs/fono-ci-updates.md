@@ -6,7 +6,8 @@
 `codex/**`, PR в `main` и вручную. Workflow содержит четыре задания:
 
 - Frontend: locked `npm ci`, Vue typecheck, lint, актуальные Vue unit tests,
-  проверки release scripts, форматирование, синхронизация версии и production build.
+  проверки release scripts и CPU launcher, локальных ссылок документации,
+  форматирование, синхронизация версии и production build.
 - Windows: `cargo fmt`, тесты всего workspace, clippy с запретом предупреждений,
   CPU / WakeWord без engine / исследовательский Sherpa Wake и независимые/совместные
   `experimental-live` feature checks. Default dependency tree отдельно проверяет
@@ -14,7 +15,7 @@
   отмену, границы транспортных данных и lifecycle без реального GPU.
 - Rust core / protocol проверяются отдельным заданием без приватного npm-пакета.
 - Онлайн-установщик проверяется отдельным Windows job: Rust format/tests/strict
-  Clippy и release EXE со статическим CRT. Приватный UI Kit не нужен;
+  Clippy и release EXE со статическим CRT. UI Kit этому job не нужен;
   загрузчик и NSIS не запускаются. Инструкции: [online-installer.md](online-installer.md).
 
 Actions привязаны к commit SHA. Версии Node и Rust закреплены в workflow;
@@ -29,18 +30,17 @@ runners. Обычный CI не сохраняет artifacts или cache. Windo
 [Actions/Packages](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 Workflow не меняет настройки оплаты аккаунта.
 
-## Приватный UI Kit
+## Анонимная установка frontend
 
-Frontend job требует repository secret `WHITEUI_NPM_TOKEN`
-с `read:packages` и доступом к `@whitelife-core/ui-kit`. Реестр задаёт `.npmrc`;
-`setup-node` пишет ссылку на переменную `NODE_AUTH_TOKEN` во временный npm config.
-Значение токена не записывается в репозиторий и не выводится в лог.
+Оригинальный `@whitelife-core/ui-kit@0.6.0` включён локальным архивом
+в [vendor/whiteui](../vendor/whiteui/README.md). Остальные зависимости закреплены
+в lockfile и загружаются из публичного npm. `npm ci` не требует WhiteUI-токена.
 
-Для внешних fork frontend job пропускается: секрет не передаётся чужому
-коду. Windows native, core/protocol и online installer job выполняются независимо.
-Полная проверка frontend такого PR проводится после проверки изменений в доверенной
-ветке. `pull_request_target` не используется.
-Отсутствующий токен в доверенной ветке — явная ошибка, а не успешная проверка.
+Frontend job запускается и для внешних fork PR: secrets, проверки владельца
+репозитория и `pull_request_target` не используются. Actions checkout не
+сохраняет credentials. Контракт проверяет локальный архив, его SHA256/SHA512,
+источник зависимости и отсутствие скрытого условия, которое пропускает fork.
+Реальный запуск GitHub Actions остаётся отдельной проверкой после push.
 
 У native job нет зависимости от frontend job, установки npm-пакетов и доступа к
 секретам. Для `tauri::generate_context!()` нужен каталог frontend: основной crate
@@ -143,8 +143,8 @@ Updater signing защищает обновление; это отдельная
    `.pub` файла Tauri signer; при смене ключа нужны согласование и миграция уже
    установленных клиентов.
 3. Environment secrets: `TAURI_SIGNING_PRIVATE_KEY` — содержимое приватного ключа;
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — пароль, если задан. Токен WhiteUI также
-   должен быть доступен этому workflow. Ключи не генерируются задачей CI.
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — пароль, если задан. WhiteUI-токен не нужен.
+   Ключи не генерируются задачей CI.
 4. Прочитать версию из `package.json`, запустить workflow на `main` и указать
    `download_base`: будущий HTTPS каталог installer этой версии. Например,
    для версии `X.Y.Z` —

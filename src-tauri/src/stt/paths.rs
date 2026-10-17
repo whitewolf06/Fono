@@ -4,6 +4,8 @@ use super::*;
 pub struct WorkerPaths {
     pub cuda: Option<PathBuf>,
     pub vulkan: Option<PathBuf>,
+    // Keep verified file handles alive through worker start and recovery.
+    pub(crate) cuda_package: Option<crate::application::cuda_packages::VerifiedPackage>,
     // Protocol fixtures inject their own cmd processes, never GPU inference.
     #[cfg(test)]
     allow_fake_workers: bool,
@@ -20,10 +22,17 @@ impl WorkerPaths {
         let nested = resource_dir.join("resources").join("stt-workers");
         let direct = resource_dir.join("stt-workers");
         Self {
-            cuda: worker_if_present(nested.join("fono-stt-cuda-worker.exe"))
-                .or_else(|| worker_if_present(direct.join("fono-stt-cuda-worker.exe"))),
+            // CUDA is installed only from a separately signed package. A
+            // stale DLL/executable in bundled resources is never executable.
+            cuda: None,
             vulkan: worker_if_present(nested.join("fono-stt-vulkan-worker.exe"))
-                .or_else(|| worker_if_present(direct.join("fono-stt-vulkan-worker.exe"))),
+                .or_else(|| worker_if_present(direct.join("fono-stt-vulkan-worker.exe")))
+                .or_else(|| {
+                    worker_if_present(
+                        resource_dir.join("resources/stt-base/fono-stt-vulkan-worker.exe"),
+                    )
+                }),
+            cuda_package: None,
             #[cfg(test)]
             allow_fake_workers: false,
         }
@@ -56,12 +65,14 @@ impl WorkerPaths {
                     candidates.push(EngineCandidate::Worker {
                         backend: BackendKind::Cuda,
                         path: path.clone(),
+                        package: self.cuda_package.clone().map(Box::new),
                     });
                 }
                 if let Some(path) = self.vulkan.as_ref() {
                     candidates.push(EngineCandidate::Worker {
                         backend: BackendKind::Vulkan,
                         path: path.clone(),
+                        package: None,
                     });
                 }
                 if embedded_gpu {
@@ -76,6 +87,7 @@ impl WorkerPaths {
                     candidates.push(EngineCandidate::Worker {
                         backend: BackendKind::Cuda,
                         path: path.clone(),
+                        package: self.cuda_package.clone().map(Box::new),
                     });
                 }
                 if cfg!(feature = "cuda") {
@@ -89,6 +101,7 @@ impl WorkerPaths {
                     candidates.push(EngineCandidate::Worker {
                         backend: BackendKind::Vulkan,
                         path: path.clone(),
+                        package: None,
                     });
                 }
                 if cfg!(feature = "vulkan") {
@@ -115,12 +128,30 @@ impl WorkerPaths {
         Self {
             cuda,
             vulkan,
+            cuda_package: None,
             allow_fake_workers: true,
         }
     }
 }
 
 pub fn worker_paths_for_app(app: &AppHandle) -> WorkerPaths {
+    let mut paths = bundled_worker_paths(app);
+    if !cfg!(feature = "cpu-only") {
+        // The cache owns locked, fully verified files. It is initialized on a
+        // blocking thread and replaced atomically with the durable pointer;
+        // status/dictation callers never hash a 500 MiB payload on UI threads.
+        if let Some(package) = app
+            .try_state::<crate::application::cuda_packages::CudaPackageService>()
+            .and_then(|service| service.verified_active())
+        {
+            paths.cuda = Some(package.worker_path().to_owned());
+            paths.cuda_package = Some(package);
+        }
+    }
+    paths
+}
+
+fn bundled_worker_paths(app: &AppHandle) -> WorkerPaths {
     #[cfg(debug_assertions)]
     {
         let _ = app;
@@ -147,8 +178,14 @@ fn worker_if_present(path: PathBuf) -> Option<PathBuf> {
 }
 
 pub(super) enum EngineCandidate {
-    Embedded { use_gpu: bool },
-    Worker { backend: BackendKind, path: PathBuf },
+    Embedded {
+        use_gpu: bool,
+    },
+    Worker {
+        backend: BackendKind,
+        path: PathBuf,
+        package: Option<Box<crate::application::cuda_packages::VerifiedPackage>>,
+    },
 }
 
 #[cfg(all(test, feature = "cpu-only"))]

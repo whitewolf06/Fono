@@ -2,6 +2,9 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+$pythonCommand = Get-Command python.exe -CommandType Application -All -ErrorAction SilentlyContinue |
+    Where-Object { $_.Source -notmatch '[\\/]WindowsApps[\\/]' } | Select-Object -First 1
+if (!$pythonCommand) { throw 'A real Python 3.12+ executable on PATH is required for exact base-resource staging.' }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $tauriRoot = Join-Path $repoRoot 'src-tauri'
@@ -21,7 +24,8 @@ function Invoke-Native([string]$File, [string[]]$Arguments) {
     }
 }
 
-& (Join-Path $PSScriptRoot 'build-stt-workers.ps1')
+& (Join-Path $PSScriptRoot 'build-stt-workers.ps1') -SkipCuda
+Invoke-Native $pythonCommand.Source @((Join-Path $PSScriptRoot 'cuda-package.py'), 'stage-base', '--workers', (Join-Path $tauriRoot 'resources\stt-workers'), '--output', (Join-Path $tauriRoot 'resources\stt-base'))
 
 New-Item -ItemType Directory -Path $sherpaDir -Force | Out-Null
 Get-ChildItem -LiteralPath $sherpaDir -File |
@@ -65,6 +69,6 @@ if ($missing.Count -gt 0 -or $unexpected.Count -gt 0) {
 }
 
 Write-Host "Release resources prepared: STT workers and Sherpa runtime manifest."
-& (Join-Path $PSScriptRoot 'verify-stt-workers.ps1')
+& (Join-Path $PSScriptRoot 'verify-stt-workers.ps1') -WorkersDirectory (Join-Path $tauriRoot 'resources\stt-base') -Backends @('vulkan')
 
 & (Join-Path $PSScriptRoot 'clean-legacy-release-artifacts.ps1')

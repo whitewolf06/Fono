@@ -300,6 +300,7 @@ export interface Workspace {
   report: DiagnosticReportPort;
   feedback: import("../../features/feedback/domain/channel").FeedbackChannelPort;
   updates: UpdatesPort;
+  cudaPackages: import("./cudaPackages").CudaPackagesPort;
   openProjectSite(): Promise<void>;
   copy(text: string): Promise<void>;
   scenario(value: Scenario): void;

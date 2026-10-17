@@ -112,6 +112,15 @@ beforeEach(() => {
         monitoring: "disabled",
         message: "",
       };
+    if (command === "get_cuda_package_status")
+      return {
+        phase: "not_installed",
+        operation_id: null,
+        downloaded_bytes: 0,
+        total_bytes: null,
+        installed_revision: null,
+        message: "CUDA не установлена",
+      };
     if (command === "get_update_status")
       return {
         phase: "idle",

@@ -1,0 +1,110 @@
+{
+  "source": {
+    "head": "0b976090b0d1c83ea214f06b2cf6f52fb135be74",
+    "origin": "git archive HEAD plus scoped vendoring/CI/docs patches; no user cache changes; updated exact Vulkan base resource configuration",
+    "anonymous": true,
+    "host_credentials_or_cache_mounted": false,
+    "source_dependency_changed_in_container": false,
+    "image": "node:22.23.3-bookworm-slim@sha256:efd0ab5780c2d9ab1f0f869571a00d5edb17793bff4cce4a2792e3eb0ffc7562"
+  },
+  "runtime": {
+    "node": "v22.23.3",
+    "npm": "10.9.9",
+    "platform": "linux",
+    "os": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+    "userconfig_empty": true
+  },
+  "whiteui_version": "0.6.0",
+  "whiteui_sha256": "e0aabc07070a54eae56cfb810f120b3ebdcb12f34e1313a1eecc073c5dfaab65",
+  "manifests_unchanged": true,
+  "steps": [
+    {
+      "name": "npm-ci",
+      "exit_code": 0,
+      "seconds": 4.401
+    },
+    {
+      "name": "typecheck-v3",
+      "exit_code": 0,
+      "seconds": 4.379
+    },
+    {
+      "name": "lint",
+      "exit_code": 0,
+      "seconds": 4.105
+    },
+    {
+      "name": "test-v3",
+      "exit_code": 0,
+      "seconds": 47.26
+    },
+    {
+      "name": "test-release",
+      "exit_code": 0,
+      "seconds": 0.576
+    },
+    {
+      "name": "test-cpu",
+      "exit_code": 0,
+      "seconds": 0.181
+    },
+    {
+      "name": "format-check",
+      "exit_code": 0,
+      "seconds": 3.418
+    },
+    {
+      "name": "version-check",
+      "exit_code": 0,
+      "seconds": 0.133
+    },
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 9.842
+    },
+    {
+      "name": "docs-check",
+      "exit_code": 0,
+      "seconds": 0.124
+    }
+  ],
+  "all_steps_passed": true,
+  "github_actions_executed": false,
+  "tested_scope": "Production WhiteUI vendoring and anonymous frontend bootstrap before the complete CUDA runtime/UI integration",
+  "counts": {
+    "ui": {
+      "pass": 239,
+      "fail": 0,
+      "skipped": 0
+    },
+    "release_scripts": {
+      "pass": 23,
+      "fail": 0,
+      "skipped": 0
+    },
+    "cpu_launcher_on_linux": {
+      "pass": 1,
+      "fail": 0,
+      "skipped": 9,
+      "note": "Windows PowerShell/Python cases require the separate Windows job"
+    }
+  },
+  "scope": {
+    "github_actions_executed": false,
+    "rust_or_native_audio_executed": false,
+    "whiteui_license_notice_added": false,
+    "owner_defers_notice_to_later_version": true,
+    "source_dependency_changed_inside_container": false,
+    "host_credentials_or_npm_cache_mounted": false
+  },
+  "source_inputs": {
+    "package.json": "d6f0d424a70acae6cfb9c62837c0b6d982775b29ae30bdfa4ca867f480e60497",
+    "package-lock.json": "4f24d52f8f3ea01a23d3ee082ec2d63cf17b75e640079b63c50672a48dc317dd",
+    ".npmrc": "3a951f66e7e0f3e2dd1832473a871357c4a507b51100636b73bcf6ff0dd78b6c",
+    ".github/workflows/ci.yml": "60b1e7c7519cdee6a8eefa7d387651b7a74ef47bd686521069db18555940e739",
+    "scripts/ci-workflow.test.mjs": "1f4ab5d37709e89c1d8d43785f7ccc84cb7ed49e36092a6029d7103f02d5f6b2",
+    "src-tauri/tauri.conf.json": "52e1e616be1784267078e0b33586d6ffa92663c8f03f996e90b12d9cbc77c7c7",
+    "src-tauri/tauri.cpu.conf.json": "84e9fb2ca77f2522b2041da4dd7e367d9fff5f26b39684a81703efe93f8c485f"
+  }
+}

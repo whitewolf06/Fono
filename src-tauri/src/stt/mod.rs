@@ -11,7 +11,6 @@ use fono_stt_protocol::BackendKind;
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::AppHandle;
-#[cfg(not(debug_assertions))]
 use tauri::Manager;
 
 use crate::error::{AppError, AppResult, RecognitionBackend};
@@ -23,6 +22,15 @@ mod routing;
 mod worker;
 use paths::EngineCandidate;
 pub use paths::{worker_paths_for_app, WorkerPaths};
+
+/// Probe only a package whose signature/files are already locked and verified.
+/// The shared session code performs the same strict hello as inference, and
+/// its supervisor retains both package guards and admission through cleanup.
+pub(crate) fn probe_cuda_worker(
+    package: &crate::application::cuda_packages::VerifiedPackage,
+) -> AppResult<()> {
+    worker::WorkerSession::probe(package.worker_path().to_owned(), Some(package.clone()))
+}
 use routing::{ActiveEngine, EngineState, SttReadinessObserver};
 pub use routing::{SttHealth, SttReadiness};
 mod embedded;
@@ -175,11 +183,16 @@ impl SttEngine {
                             use_gpu: *use_gpu,
                         }
                     }),
-                EngineCandidate::Worker { backend, path } => WorkerSession::start(
+                EngineCandidate::Worker {
+                    backend,
+                    path,
+                    package,
+                } => WorkerSession::start(
                     path.clone(),
                     *backend,
                     model_path,
                     Arc::clone(&self.cleanup),
+                    package.as_deref().cloned(),
                 )
                 .map(|worker| {
                     let device = worker.device();
@@ -320,6 +333,25 @@ impl SttEngine {
 
     pub fn readiness(&self) -> SttReadiness {
         self.readiness.lock().clone()
+    }
+
+    /// An idle configuration transaction failed after replacing its runtime,
+    /// and restoring the previous selection also failed. Retire that
+    /// unpublished engine rather than leaving it usable behind an old pointer.
+    pub(crate) fn reject_prepared_selection(&self, message: &str) {
+        let _load = self.load_gate.lock();
+        let previous = {
+            let _publication = self.recovery_publication();
+            let previous = std::mem::replace(&mut *self.state.lock(), EngineState::Empty);
+            self.generation
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            self.set_readiness(SttReadiness::Failed {
+                message: message.into(),
+            });
+            previous
+        };
+        // Child/supervisor retains package guards and cleanup admission.
+        drop(previous);
     }
 
     /// Registers a process-local sink for readiness transitions. The current

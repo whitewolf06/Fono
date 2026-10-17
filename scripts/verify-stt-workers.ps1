@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param([string]$WorkersDirectory)
+param(
+    [string]$WorkersDirectory,
+    [ValidateSet('cuda', 'vulkan')][string[]]$Backends = @('cuda', 'vulkan')
+)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -9,7 +12,7 @@ $protocolSource = Get-Content -LiteralPath (Join-Path $repoRoot 'src-tauri\crate
 if ($protocolSource -notmatch 'PROTOCOL_VERSION:\s*u16\s*=\s*(\d+)') { throw 'Cannot read STT protocol version.' }
 $protocolVersion = [int]$Matches[1]
 
-foreach ($backend in @('cuda', 'vulkan')) {
+foreach ($backend in $Backends) {
     $executable = Join-Path $WorkersDirectory "fono-stt-$backend-worker.exe"
     if (!(Test-Path -LiteralPath $executable -PathType Leaf)) { throw "Missing $backend worker: $executable" }
     $start = New-Object Diagnostics.ProcessStartInfo

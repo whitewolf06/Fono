@@ -11,6 +11,9 @@ pub(super) fn worker_cleanup_busy() -> AppError {
 
 pub(super) struct WorkerChild {
     process: Mutex<Child>,
+    // File and directory sharing guards outlive every process/IO owner,
+    // including deferred cleanup after a failed handshake or load.
+    _package: Option<crate::application::cuda_packages::VerifiedPackage>,
     stopping: AtomicBool,
     #[cfg(test)]
     kill_count: AtomicUsize,
@@ -19,9 +22,10 @@ pub(super) struct WorkerChild {
 }
 
 impl WorkerChild {
-    fn new(child: Child) -> Self {
+    fn new(child: Child, package: Option<crate::application::cuda_packages::VerifiedPackage>) -> Self {
         Self {
             process: Mutex::new(child),
+            _package: package,
             stopping: AtomicBool::new(false),
             #[cfg(test)]
             kill_count: AtomicUsize::new(0),
@@ -196,10 +200,14 @@ fn bounded_join(mut handles: Vec<JoinHandle<()>>, deadline: Instant) -> Vec<Join
     }
 }
 
-fn terminate_unstarted_child(child: Child, cleanup: &Arc<WorkerCleanupSupervisor>) {
+fn terminate_unstarted_child(
+    child: Child,
+    cleanup: &Arc<WorkerCleanupSupervisor>,
+    package: Option<crate::application::cuda_packages::VerifiedPackage>,
+) {
     let activity = Some(crate::application::updates::activity::cleanup_lease());
     let _fence = cleanup.begin();
-    let child = Arc::new(WorkerChild::new(child));
+    let child = Arc::new(WorkerChild::new(child, package));
     if !child.force_exit(Instant::now() + FORCE_EXIT_TIMEOUT) {
         cleanup.retire(child, Vec::new(), Arc::new(AtomicBool::new(true)), activity);
     }

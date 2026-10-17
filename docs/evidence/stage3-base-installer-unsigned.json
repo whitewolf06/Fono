@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "kind": "unsigned-local-base-nsis-size-qualification",
+  "status": "size-budget-passed",
+  "appVersion": "0.7.23",
+  "sourceBaseHead": "0b976090b0d1c83ea214f06b2cf6f52fb135be74",
+  "sourceScope": "The base HEAD identifies the checkout baseline; qualification includes the prepared v0.7.23 working-tree changes before their final commit.",
+  "artifact": {
+    "path": "build/checks/stage3b-unsigned-base/Fono_0.7.23_x64-setup.UNSIGNED.LOCAL.exe",
+    "bytes": 19767220,
+    "sha256": "815117628eabd10128154a31bbb65b1a183c14a9b5ee89c52b4b3a0537826a85"
+  },
+  "sizeBudget": {
+    "unit": "decimal bytes",
+    "thresholdBytesExclusive": 100000000,
+    "measuredBytes": 19767220,
+    "passed": true
+  },
+  "generatedNsisScript": {
+    "path": "src-tauri/target-codex-review/release/nsis/x64/installer.nsi",
+    "bytes": 32429,
+    "sha256": "08ee940dd9fe9c2e43f93dc2c7657c14408c2de2384f4eb6ee3b3cccaf29b32b"
+  },
+  "sourceResources": [
+    {
+      "path": "src-tauri/resources/whisper/README.txt",
+      "bytes": 300,
+      "sha256": "f316fc74ba8863d925e11ee96bbfc8300dfc367ce2aa3eba1cc2431fb027c611"
+    },
+    {
+      "path": "src-tauri/resources/stt-base/fono-stt-vulkan-worker.exe",
+      "bytes": 50104320,
+      "sha256": "5d0470ecfc216fe72b46e2bd73915d6483c4009d7505e1784e81f965ca9f2a5d"
+    },
+    {
+      "path": "src-tauri/resources/sherpa-onnx/onnxruntime.dll",
+      "bytes": 17363968,
+      "sha256": "daa77083a45bf525da0dde9e87f85d8eb146f58f9c9aa7124ca84545e1c0f148"
+    },
+    {
+      "path": "src-tauri/resources/sherpa-onnx/onnxruntime_providers_shared.dll",
+      "bytes": 104960,
+      "sha256": "190d10767c321f324d3785368a0b752d9c5a9e06cb5d4d97bb176f58bdb652f3"
+    },
+    {
+      "path": "src-tauri/resources/sherpa-onnx/sherpa-onnx-c-api.dll",
+      "bytes": 4544512,
+      "sha256": "3db688ca9e6408c958f45986adc68ed9158522e28c7567b7ffee9312a553c777"
+    },
+    {
+      "path": "src-tauri/resources/sherpa-onnx/sherpa-onnx-cxx-api.dll",
+      "bytes": 258048,
+      "sha256": "3e8b308e9235a3e7398b2c89b43ebb7f813f216aade661b2f246d42656517777"
+    },
+    {
+      "path": "src-tauri/resources/vad/silero_vad.onnx",
+      "bytes": 643854,
+      "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+    }
+  ],
+  "resourcesVerifiedAgainstPreflight": true,
+  "resourcesRehashedWhenExportingEvidence": true,
+  "preservedOriginalArtifacts": [
+    {
+      "path": "src-tauri/target/release/bundle/nsis/Fono_0.7.0_x64-setup.exe",
+      "bytes": 416595958,
+      "sha256": "6b0671701a6c9fd014eb017f349ec4c6045ff65ccbf059a85a1f24d6ca7912f9"
+    },
+    {
+      "path": "src-tauri/target/release/bundle/nsis/Fono_0.7.0_x64-setup.exe.sig",
+      "bytes": 432,
+      "sha256": "494617210b4f34f763d538a3aa8d68be09651eab3d6c4ecc0525ec76a76480fe"
+    },
+    {
+      "path": "src-tauri/target/release/fono.exe",
+      "bytes": 19462144,
+      "sha256": "f47dbafe2cc2a95270af64c0e456f6b229bba327c2ae24d4f7dc78e97da912ce"
+    }
+  ],
+  "originalArtifactsUnchangedDuringBuild": true,
+  "preparedResourcesUnchangedDuringBuild": true,
+  "buildMode": {
+    "cliVersion": "2.11.5",
+    "noSignArgument": true,
+    "updaterArtifactsRequested": false,
+    "authenticodeStatus": "NotSigned",
+    "signingAttempted": false
+  },
+  "execution": {
+    "installerExecuted": false,
+    "applicationExecuted": false,
+    "microphoneRecorded": false,
+    "published": false
+  },
+  "builder": {
+    "path": "build/checks/stage3b-build-unsigned-base.ps1",
+    "sha256": "745beed6b514ad88b68dbdc83f3c54a705fc9cd922c30a9604841eb57d01db6c"
+  },
+  "inputRecords": [
+    "build/checks/stage3b-unsigned-base-preflight.json",
+    "build/checks/stage3b-unsigned-base-result.json"
+  ],
+  "limitsOfEvidence": [
+    "This is a locally built unsigned NSIS, not a published updater asset.",
+    "Size qualification and installer script resource checks do not confirm installation or GPU operation on a clean Windows device."
+  ]
+}

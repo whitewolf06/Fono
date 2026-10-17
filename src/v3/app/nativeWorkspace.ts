@@ -18,6 +18,7 @@ import { nativeCommands } from "../features/commands/infrastructure/nativeComman
 import { createNativeFeedbackChannel } from "../features/feedback";
 import { createNativeDiagnosticReport } from "../features/diagnostic-report";
 import { createNativeUpdates } from "../features/updates";
+import { createNativeCudaPackages } from "../features/cuda-packages/infrastructure/nativeCudaPackages";
 import type { PendingDictation } from "../shared/domain/processing";
 import { createNativeTrainer } from "../features/trainer/infrastructure/nativeTrainer";
 import { bindNativeVisibility } from "../shared/infrastructure/native/visibility";
@@ -72,6 +73,11 @@ export function createNativeWorkspace(): Workspace {
     visibility.visible,
   );
   const dictation = nativeDictation(ctx);
+  const cudaPackages = createNativeCudaPackages(
+    call,
+    ctx.refresh,
+    visibility.visible,
+  );
   const trainer = createNativeTrainer(call, ctx.readHistory);
   const wake = nativeWake(ctx);
   let disposed = false;
@@ -206,6 +212,7 @@ export function createNativeWorkspace(): Workspace {
       await dictation.refresh();
       await wake.load();
       await updates.refresh();
+      await cudaPackages.refresh();
       state.scenario = "normal";
     } catch (error) {
       ctx.report(error);
@@ -218,6 +225,7 @@ export function createNativeWorkspace(): Workspace {
     report: createNativeDiagnosticReport(),
     feedback: createNativeFeedbackChannel(),
     updates,
+    cudaPackages,
     state,
     refresh,
     wake,
@@ -322,6 +330,7 @@ export function createNativeWorkspace(): Workspace {
       visibility.dispose();
       void trainer.cancelPeriod().catch(ctx.report);
       updates.dispose();
+      cudaPackages.dispose();
       releases.forEach((release) => release());
     },
   };

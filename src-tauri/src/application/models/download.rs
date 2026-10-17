@@ -37,6 +37,7 @@ impl DownloadRegistration {
 
     pub(super) fn begin(id: String) -> AppResult<Self> {
         let activity = crate::application::updates::activity::lease()?;
+        let _configuration = crate::application::capture_configuration::begin_capture()?;
         let mut active = ACTIVE_DOWNLOADS.lock();
         if active.contains_key(&id) {
             return Err(AppError::Busy(format!(

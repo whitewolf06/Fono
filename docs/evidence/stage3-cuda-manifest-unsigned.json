@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "purpose": "fono-cuda",
+  "app_version": "0.7.23",
+  "protocol_version": 3,
+  "platform": "windows-x86_64",
+  "revision": 1,
+  "archive": {
+    "name": "fono-cuda-0.7.23-windows-x86_64.tar.bz2",
+    "size": 409019734,
+    "sha256": "8c9419e57981bd06b1df6ae0e2dffa6b800fab3e2585edef0ee7b789bdf0a695"
+  },
+  "files": [
+    {
+      "path": "DEPENDENCY-NOTICES.txt",
+      "size": 1422786,
+      "sha256": "90cf5df8290ff817d76b740b59f185a965ac70cfd8d70aa9b20f29073dfc597e"
+    },
+    {
+      "path": "FONO-LICENSE.txt",
+      "size": 1074,
+      "sha256": "a3ed794dc596e8c6cfe1e39dae27d33648bcf08425bff6ce46b6f556d6d3ee27"
+    },
+    {
+      "path": "NVIDIA-CUDA-EULA.txt",
+      "size": 69791,
+      "sha256": "7771f1ef8e9300ba175cf58e9dcc1df55d9dd82d3fc960c4c6db0c66354e418c"
+    },
+    {
+      "path": "NVIDIA-CUDA-third-party.txt",
+      "size": 68070,
+      "sha256": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028"
+    },
+    {
+      "path": "THIRD-PARTY-NOTICES.txt",
+      "size": 601,
+      "sha256": "278d8dd8da986c1c8c894663149906c1964cc521bdbd486a7f9602b034965363"
+    },
+    {
+      "path": "WHISPER-CPP-LICENSE.txt",
+      "size": 1078,
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+    },
+    {
+      "path": "cublas64_13.dll",
+      "size": 52697712,
+      "sha256": "8c6bac24474af29627ec96500025a5d410a1b7e8ffa00e1fe13b1781fc6b3ddc"
+    },
+    {
+      "path": "cublasLt64_13.dll",
+      "size": 463655536,
+      "sha256": "e323abd89e0f03c1db91a09d7aeb1928de08e1f86192cc713b335fefe3e368a9"
+    },
+    {
+      "path": "cudart64_13.dll",
+      "size": 551024,
+      "sha256": "b00ca6f53699120da815bf3e06e2e4285fae2f201235b883dcbb50eec51e2a2a"
+    },
+    {
+      "path": "fono-stt-cuda-worker.exe",
+      "size": 31652352,
+      "sha256": "1b932a7eb7683ad830267e208b3da3793c48332f5f12d72c86a735183969bb51"
+    }
+  ],
+  "notices": [
+    "THIRD-PARTY-NOTICES.txt",
+    "NVIDIA-CUDA-EULA.txt",
+    "NVIDIA-CUDA-third-party.txt",
+    "FONO-LICENSE.txt",
+    "WHISPER-CPP-LICENSE.txt",
+    "DEPENDENCY-NOTICES.txt"
+  ]
+}

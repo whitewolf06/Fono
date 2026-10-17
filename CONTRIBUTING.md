@@ -16,7 +16,10 @@ Fono is a Windows x64 Tauri application with a Vue 3 frontend. Start with the
 - **GPU or packaging:** use the separate prerequisites and resource preparation
   in the development guide. A normal contribution does not require an installer.
 
-Dependency installation follows `package-lock.json`. Do not commit npm tokens,
+Dependency installation follows `package-lock.json` and uses the public npm
+registry without credentials. The original WhiteUI **0.6.0** archive is included
+in [vendor/whiteui](vendor/whiteui/README.md), with its origin and hashes. Fork
+pull requests run the frontend checks without secrets. Do not commit npm tokens,
 API credentials, signing keys, audio models, Cargo targets or local profiles.
 Read [dependency-policy.md](docs/dependency-policy.md) before changing packages
 or vendored components. Keep the effective WhiteUI version at **0.6.0**.

@@ -26,6 +26,7 @@ import PrivacyFields from "./PrivacyFields.vue";
 import DiagnosticsPanel from "./DiagnosticsPanel.vue";
 import DictionaryFields from "./DictionaryFields.vue";
 import { UpdatesPanel } from "../../updates";
+import CudaPackagePanel from "../../cuda-packages/presentation/CudaPackagePanel.vue";
 import { useWorkspace } from "../../../shared/application/workspace";
 const workspace = useWorkspace();
 const route = useRoute();
@@ -145,7 +146,8 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
           <UpdatesPanel :unsaved="dirty" />
         </div>
         <template v-else-if="section === 'audio'"
-          ><AudioFields v-model="draft" /><DictionaryFields
+          ><AudioFields v-model="draft" /><CudaPackagePanel
+            :unsaved="dirty" /><DictionaryFields
             v-model="draft" /><ModelManager
         /></template>
         <ActivationFields

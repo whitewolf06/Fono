@@ -196,6 +196,10 @@ where
         let _update_admission = crate::application::updates::activity::begin().map_err(|_| {
             TranscriptionServiceError::Busy("application update is installing".into())
         })?;
+        let _configuration =
+            crate::application::capture_configuration::begin_capture().map_err(|_| {
+                TranscriptionServiceError::Busy("speech configuration is changing".into())
+            })?;
         let mut state = self.state.lock();
         if state.pending.len() >= self.capacity {
             return Err(TranscriptionServiceError::Busy(
@@ -273,6 +277,7 @@ where
     /// loop; interactive dictation deliberately leaves the batch job queued.
     pub fn run_next(&self) -> Option<TranscriptionJob> {
         let _activity = crate::application::updates::activity::lease().ok()?;
+        let configuration = crate::application::capture_configuration::begin_capture().ok()?;
         if self.interactive.is_active() {
             return None;
         }
@@ -291,6 +296,7 @@ where
             job.started_at_ms = Some(now_epoch_ms());
             (id, request, cancellation, job.clone())
         };
+        drop(configuration);
         self.notify(&preparing);
         let transcribing = {
             let mut state = self.state.lock();

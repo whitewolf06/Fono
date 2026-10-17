@@ -72,4 +72,9 @@ try {
 }
 
 Write-Host "STT workers prepared in $workersDir"
-& (Join-Path $PSScriptRoot 'verify-stt-workers.ps1') -WorkersDirectory $workersDir
+$backends = @()
+if (!$SkipCuda) { $backends += 'cuda' }
+if (!$SkipVulkan) { $backends += 'vulkan' }
+if ($backends.Count -gt 0) {
+    & (Join-Path $PSScriptRoot 'verify-stt-workers.ps1') -WorkersDirectory $workersDir -Backends $backends
+}

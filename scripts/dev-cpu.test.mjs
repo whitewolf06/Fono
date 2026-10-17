@@ -425,6 +425,7 @@ test("CPU Tauri patch removes GPU resources and retains real Sherpa/VAD and nati
   for (const [key, value] of Object.entries(resources))
     if (value === null) delete resources[key];
   assert.equal(resources["resources/stt-workers/*"], undefined);
+  assert.equal(resources["resources/stt-base/fono-stt-vulkan-worker.exe"], undefined);
   assert.equal(resources["resources/sherpa-onnx/*.dll"], "");
   assert.equal(resources["resources/vad/*.onnx"], "resources/vad/");
   assert.equal(resources["resources/whisper/*"], "resources/whisper/");

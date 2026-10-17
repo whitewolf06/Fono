@@ -20,7 +20,6 @@ pub use whisper_download::download_whisper_model;
 /// unavailable worker, and dictation still uses the same load gate.
 pub fn preload_configured_stt(app: AppHandle) {
     let recovery_app = app.clone();
-    let recovery_workers = crate::stt::worker_paths_for_app(&app);
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
     if let Err(error) = stt.enable_recovery(std::sync::Arc::new(move || {
         let settings = recovery_app.state::<AppState>().settings();
@@ -28,7 +27,8 @@ pub fn preload_configured_stt(app: AppHandle) {
         Some(crate::stt::RecoverySelection {
             model_path,
             acceleration,
-            worker_paths: recovery_workers.clone(),
+            // An optional package may have been installed since startup.
+            worker_paths: crate::stt::worker_paths_for_app(&recovery_app),
         })
     })) {
         tracing::warn!(%error, "STT recovery could not be enabled");

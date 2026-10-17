@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "version": "0.7.23",
+  "base_HEAD": "0b976090b0d1c83ea214f06b2cf6f52fb135be74",
+  "verified_at_utc": "2026-10-17T11:56:11.826Z",
+  "target_directory": "src-tauri/target-codex-review",
+  "toolchain": {
+    "cargo": "cargo 1.96.1 (356927216 2026-06-26)",
+    "rustc": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "test_harness": {
+    "test_threads": 4,
+    "include_ignored": true,
+    "windows_token": "normal Windows token outside AppContainer; real DACL/junction fixtures",
+    "production_timeouts_changed": false,
+    "tests_skipped_or_weakened": false
+  },
+  "environment": {
+    "GGML_CUDA": "OFF",
+    "GGML_VULKAN": "OFF",
+    "WHISPER_CUDA": "OFF",
+    "WHISPER_VULKAN": "OFF",
+    "LIBCLANG_PATH": "LLVM installation bin directory",
+    "CARGO_PROFILE_DEV_DEBUG": null,
+    "CARGO_PROFILE_TEST_DEBUG": null,
+    "debug_symbols": "Cargo.toml/default profile; no env override",
+    "test_data_directory": "build/checks/stage3b-native-profile",
+    "api_port": 41081,
+    "default_debug_tauri_config": {
+      "build": {
+        "frontendDist": "../scripts/ci-native-frontend"
+      },
+      "bundle": {
+        "resources": {
+          "resources/stt-base/fono-stt-vulkan-worker.exe": null
+        }
+      }
+    },
+    "cpu_debug_tauri_config": "src-tauri/tauri.cpu.conf.json plus build.frontendDist=../scripts/ci-native-frontend",
+    "cpu_release_tauri_config": "src-tauri/tauri.cpu.conf.json; actual dist and pinned VAD/Sherpa resources",
+    "default_release_tauri_config": "unset; actual dist and staged base Vulkan resource"
+  },
+  "results": {
+    "default": {
+      "passed": 527,
+      "failed": 0,
+      "ignored": 0,
+      "app_tests": 453,
+      "public_wav_vad_test_passed": true,
+      "parent_directory_regressions_passed": true,
+      "log": "build/checks/stage3b-default-native.log",
+      "log_sha256": "c2ef539d66f24529ed012beb6b8406fd4507953d9979a5e0a5a147365c9e61de"
+    },
+    "cpu": {
+      "passed": 527,
+      "failed": 0,
+      "ignored": 0,
+      "app_tests": 453,
+      "public_wav_vad_test_passed": true,
+      "parent_directory_regressions_passed": true,
+      "log": "build/checks/stage3b-cpu-native.log",
+      "log_sha256": "d3f19b6371c93da00d534a60c532bf5f1c2e053bc5399f028c030ff58c5e23db"
+    }
+  },
+  "focused_cuda_module": {
+    "passed": 30,
+    "failed": 0,
+    "ignored": 0,
+    "log": "build/checks/stage3b-focused-cuda-parent-guards.log",
+    "log_sha256": "22331e30bf02af408f77efcc5c146b3dec637b0de0f2d1ff25e4facaa69a3281"
+  },
+  "windows_directory_guard": {
+    "access_mask": "0xa0",
+    "directory_share_mode": 3,
+    "signed_file_share_mode": 1,
+    "promotion_probe": "build/checks/stage3-directory-promotion-probe.json",
+    "promotion_probe_sha256": "f9c1ad2dae23efc7733b4b4eeee1bddcb529938c3964b611eceeb425ea565816",
+    "promotion": {
+      "mask": "0xa0",
+      "share": 3,
+      "ancestorsOpened": true,
+      "rootRenameBlocked": true,
+      "stagingRenameBlocked": true,
+      "uuidRenameBlocked": true,
+      "payloadRenameBlocked": true,
+      "slotsRenameBlocked": true,
+      "leafGuardsClosed": true,
+      "promotionSucceeded": true,
+      "promotionError": 0,
+      "sealedPayloadPreventsExtraDll": true,
+      "cleanupSucceeded": true
+    },
+    "share_read_only_control": {
+      "share_mode": 1,
+      "promotion_succeeded": false,
+      "error": 32
+    },
+    "probe": "build/checks/stage3-directory-guard-probe.json",
+    "probe_sha256": "29e978024a3cc7d866696a6ff53c96afa306888e221a4a64b21c60dbfdc7b763",
+    "attribute_only_control": {
+      "mask": "0x80",
+      "rename_blocked": false
+    },
+    "protected_directories": [
+      {
+        "level": "empty_uuid",
+        "opened": true,
+        "openError": 0,
+        "renameBlocked": true,
+        "renameError": 32,
+        "childCreationAllowed": true
+      },
+      {
+        "level": "staging_before_archive",
+        "opened": true,
+        "openError": 0,
+        "renameBlocked": true,
+        "renameError": 32,
+        "childCreationAllowed": true
+      },
+      {
+        "level": "package_root_before_archive",
+        "opened": true,
+        "openError": 0,
+        "renameBlocked": true,
+        "renameError": 32,
+        "childCreationAllowed": true
+      }
+    ],
+    "profile_ancestors_open": true,
+    "profile_ancestors_checked": 5,
+    "child_creation_allowed": true
+  },
+  "public_fixture": {
+    "id": "ru-01",
+    "path": "src-tauri/tests/fixtures/stt-quality/ru-01.wav",
+    "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed",
+    "sample_rate": 16000,
+    "samples": 270720,
+    "corpus": "fono-fleurs-smoke-v1",
+    "license": "CC-BY-4.0",
+    "source_card": "https://huggingface.co/datasets/google/fleurs/blob/437d9e667fa3a2a08a1957f810bf2c3b5050d221/README.md",
+    "vad_model": {
+      "path": "src-tauri/resources/vad/silero_vad.onnx",
+      "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+    }
+  },
+  "gates": [
+    {
+      "name": "format",
+      "exit_code": 0,
+      "seconds": 1.317,
+      "log": "build/checks/stage3b-format.log",
+      "command": "cargo fmt --manifest-path src-tauri/Cargo.toml --all; cargo fmt --manifest-path src-tauri/Cargo.toml --all --check"
+    },
+    {
+      "name": "bootstrap",
+      "exit_code": 0,
+      "seconds": 4.673,
+      "log": "build/checks/stage3b-bootstrap.log",
+      "command": "./scripts/bootstrap-ci-resources.ps1"
+    },
+    {
+      "name": "default-native",
+      "exit_code": 0,
+      "seconds": 165.545,
+      "log": "build/checks/stage3b-default-native.log",
+      "command": "./scripts/test-native.ps1 -CargoArguments @('--locked','--offline','--workspace','--all-targets') -TestArguments @('--include-ignored','--test-threads=4')"
+    },
+    {
+      "name": "default-clippy",
+      "exit_code": 0,
+      "seconds": 28.622,
+      "log": "build/checks/stage3b-default-clippy.log",
+      "command": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --offline --workspace --all-targets -- -D warnings"
+    },
+    {
+      "name": "cpu-native",
+      "exit_code": 0,
+      "seconds": 80.468,
+      "log": "build/checks/stage3b-cpu-native.log",
+      "command": "./scripts/test-native.ps1 -CargoArguments @('--locked','--offline','--workspace','--all-targets','--no-default-features','--features','fono/cpu-only') -TestArguments @('--include-ignored','--test-threads=4')"
+    },
+    {
+      "name": "cpu-clippy",
+      "exit_code": 0,
+      "seconds": 8.16,
+      "log": "build/checks/stage3b-cpu-clippy.log",
+      "command": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --offline --workspace --all-targets --no-default-features --features fono/cpu-only -- -D warnings"
+    },
+    {
+      "name": "feature-empty",
+      "exit_code": 0,
+      "seconds": 5.796,
+      "log": "build/checks/stage3b-feature-empty.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline -p fono --all-targets --no-default-features"
+    },
+    {
+      "name": "feature-wake-word",
+      "exit_code": 0,
+      "seconds": 5.548,
+      "log": "build/checks/stage3b-feature-wake-word.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline -p fono --all-targets --no-default-features --features wake-word"
+    },
+    {
+      "name": "feature-sherpa-wake",
+      "exit_code": 0,
+      "seconds": 5.494,
+      "log": "build/checks/stage3b-feature-sherpa-wake.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline -p fono --all-targets --no-default-features --features sherpa-wake"
+    },
+    {
+      "name": "feature-experimental-live",
+      "exit_code": 0,
+      "seconds": 5.206,
+      "log": "build/checks/stage3b-feature-experimental-live.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline -p fono --all-targets --no-default-features --features experimental-live"
+    },
+    {
+      "name": "feature-experimental-live-sherpa-wake",
+      "exit_code": 0,
+      "seconds": 5.813,
+      "log": "build/checks/stage3b-feature-experimental-live-sherpa-wake.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline -p fono --all-targets --no-default-features --features experimental-live,sherpa-wake"
+    },
+    {
+      "name": "feature-cpu-only",
+      "exit_code": 0,
+      "seconds": 5.069,
+      "log": "build/checks/stage3b-feature-cpu-only.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline -p fono --all-targets --no-default-features --features cpu-only"
+    },
+    {
+      "name": "cpu-release-check",
+      "exit_code": 0,
+      "seconds": 37.269,
+      "log": "build/checks/stage3b-cpu-release-check.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline --release -p fono --no-default-features --features cpu-only"
+    },
+    {
+      "name": "default-release-check",
+      "exit_code": 0,
+      "seconds": 11.038,
+      "log": "build/checks/stage3b-default-release-check.log",
+      "command": "cargo check --manifest-path src-tauri/Cargo.toml --locked --offline --release -p fono"
+    }
+  ],
+  "post_fix_format_check": {
+    "command": "cargo fmt --manifest-path src-tauri/Cargo.toml --all --check",
+    "exit_code": 0,
+    "seconds": 2.393,
+    "log": "build/checks/stage3b-format-final.log"
+  },
+  "source_hash_algorithm": "SHA256 of final working-tree file bytes used by Cargo above base_HEAD",
+  "source_files_sha256": {
+    "src-tauri/Cargo.lock": "37cf535f419856f11d40904acf0ea1cd556e6694dd3c518c5ebf3847d6997190",
+    "src-tauri/Cargo.toml": "f182c7af25c675cb967382d2490e9916c312b1f2db1532216ee781fc09ace31b",
+    "src-tauri/build.rs": "5777726f65dfb656272123cafdd56991e477e1d3347459cdbe048fd6c6990f4c",
+    "src-tauri/build_support/base_workers.rs": "e937109d728d75c4f7d6bb80d14b504b5af250480f4d90e7a544abcd61d16fe8",
+    "src-tauri/build_support/stt_workers.rs": "8bde34a184c5bcb14b2fbce60f32a2889f5f95957301f90f6292d93253cef89d",
+    "src-tauri/src/application/cuda_activation.rs": "648a975928cddbda34b175f436fe5aa176311a05866c0251543602440f326ff7",
+    "src-tauri/src/application/cuda_packages/download.rs": "508009074180a3c533b4040f2bc34987be90a0929b1514ce464b7afe0d4bc83a",
+    "src-tauri/src/application/cuda_packages/fixtures/security.json": "41d1a7b72c386fc30ecf49bec184852f6c7b30ae11d35f60ab87497b039fe8b3",
+    "src-tauri/src/application/cuda_packages/manifest.rs": "fee4deb791fbd72eaf650760d3c36908a398f74b4af84525a61cde976df2f226",
+    "src-tauri/src/application/cuda_packages/mod.rs": "0b8458210f014a244b7265f4bb20917c538f8ff8abd80fd024f834b64b517808",
+    "src-tauri/src/application/cuda_packages/sealing.rs": "ce53dbbbcb6a2bf7fa9b4e8a6333314520f3f5bf7f6e54258eb4ee7b0e30c919",
+    "src-tauri/src/application/cuda_packages/storage.rs": "afc882a81c76faad6523e4b410dbc98a314250507855e7715179d48107d8c64f",
+    "src-tauri/src/application/cuda_packages/tests.rs": "299357dcf9d266c539c12e5d3abc976d77278ae74485eee6a51183c759688d61",
+    "src-tauri/src/application/mod.rs": "44457312c9eb5c75dfbfe55ec762b619a93ff65fa8d9cc1d9912ffed76b9ff94",
+    "src-tauri/src/application/models.rs": "12920d7097227a32aa4279c534c023e2a27eec4c553ebdce4f0075fa42b51cb7",
+    "src-tauri/src/application/models/download.rs": "babc70a3c867ce04192fb1af9913e841ffa067df6b5971eab08f58e0cefccc46",
+    "src-tauri/src/application/transcription_jobs.rs": "255fcbe4cbbb55bbd903dad0214aefbe447239355e9779b8dba80ac704171353",
+    "src-tauri/src/ipc/cuda_packages.rs": "299f38dea6be5d9a1cd0e1274f36c4d129cd8c5a084b0265a17c9695216e5416",
+    "src-tauri/src/ipc/mod.rs": "f94d7aa0162f9c843833bfb63745c7dfabb9dd65ea9963f93d8dfcce8145fc2a",
+    "src-tauri/src/lib.rs": "2746578ca7cfcdfe89cb23716eb25a33b029f2e2105d8d6bb4ebe8319f7711f9",
+    "src-tauri/src/stt/mod.rs": "21e3dd9fedf633b6ff620a61603ec478dbb715fa5cef636861880635541eacb8",
+    "src-tauri/src/stt/paths.rs": "7fa91bf02325edf3c088b9972468430f0b3ca1ad1686932b380dd05deb0d5d8c",
+    "src-tauri/src/stt/routing.rs": "0dc2be8c59cd6d4afd0956e2e2b60e1817c006eea918b73525e8a6093c310c18",
+    "src-tauri/src/stt/worker_cleanup.rs": "c7eb35fde4cdb48c942aadc2b227ea4cc5eea3f6d7bc7d1aa37d4147761b99e5",
+    "src-tauri/src/stt/worker_session.rs": "32c748705f6bc659d1006d00ec780e5a0a770656f1ffeeedad97e1dffa2b2fef",
+    "src-tauri/src/stt/worker_tests.rs": "480c1e5570a6991d55a201bccd9c7434df8bb99e3f560852be762b2e92548fee",
+    "src-tauri/tauri.conf.json": "02cec9ab5a842651080116cfd1a48815a0eb4ec3f74a18ebc6ea6ce9bd727456",
+    "src-tauri/tauri.cpu.conf.json": "84e9fb2ca77f2522b2041da4dd7e367d9fff5f26b39684a81703efe93f8c485f",
+    "src-tauri/update-channel.json": "1e66e7e4a7c5ff5e0821d21854ffc7d01d2bd95a1d971ddd298e1a66e4f76719"
+  },
+  "diagnostic_attempts": [
+    {
+      "log": "build/checks/stage3b-default-native-attempt3-parent-read-attributes.log",
+      "reason": "the new staging UUID rename regression exposed that FILE_READ_ATTRIBUTES alone does not deny directory rename; no assertion weakened"
+    },
+    {
+      "log": "build/checks/stage3b-focused-attempt1-traverse-promote.log",
+      "reason": "FILE_TRAVERSE with directory share READ exposed a promotion failure; directory share READ|WRITE preserves rename protection and permits own publication; focused module and all fourteen gates rerun after the implementation fix"
+    },
+    {
+      "log": "build/checks/stage3b-before-parent-guards/",
+      "reason": "the earlier fourteen passing gates preceded the parent-directory guard fix and are retained only as a diagnostic slice"
+    },
+    {
+      "log": "build/checks/stage3b-default-native-attempt1-dist-race.log",
+      "reason": "parallel frontend build removed dist assets during compilation; final debug gates use the stable CI compile fixture"
+    },
+    {
+      "log": "build/checks/stage3b-default-native-attempt2-parallel-timeout.log",
+      "reason": "existing 1-second cmd-worker fixture handshake timed out under unconstrained test parallelism; entire suite rerun with four test threads without changing timeouts or tests"
+    },
+    {
+      "log": "build/checks/stage3b-default-clippy-attempt1-single-element-loop.log",
+      "reason": "single-element build-support loop replaced with direct Vulkan handshake"
+    },
+    {
+      "log": "build/checks/stage3b-default-clippy-attempt2-large-enum.log",
+      "reason": "large EngineCandidate variant fixed with optional boxed package; full default suite rerun afterward"
+    }
+  ],
+  "scope": {
+    "native_app_launched": false,
+    "microphone_recorded": false,
+    "gpu_inference_executed": false,
+    "installer_installed": false,
+    "production_private_signing_key_read": false,
+    "release_published": false,
+    "owner_windows_acceptance_performed": false,
+    "release_checks": "Cargo check only, no Fono application executable or installer produced; default build-support may perform a no-model worker protocol hello"
+  },
+  "all_steps_passed": true
+}

@@ -169,6 +169,9 @@ pub fn run() {
             let audio_hub = AudioHub::new();
             app.manage(state::AppState::new());
             app.manage(crate::application::updates::UpdateService::default());
+            app.manage(crate::application::cuda_packages::CudaPackageService::new(
+                crate::application::cuda_packages::package_root()?,
+            ));
             app.manage(crate::application::gpu_memory::SttMemoryRuntime::default());
             app.manage(pipeline::Pipeline::new_with_audio_hub(audio_hub.clone()));
             #[cfg(feature = "experimental-live")]
@@ -228,7 +231,6 @@ pub fn run() {
                 .set_readiness_observer(std::sync::Arc::new(move |readiness| {
                     events::emit_stt_readiness(&readiness_events, readiness);
                 }));
-            crate::application::models::preload_configured_stt(app.handle().clone());
             app.state::<crate::application::service_control::ServiceControl>()
                 .initialize(app.handle().clone());
             crate::application::gpu_memory::start(app.handle().clone());
@@ -253,6 +255,20 @@ pub fn run() {
             }
 
             crate::application::updates::check_on_startup(app.handle().clone());
+            let cuda_app = app.handle().clone();
+            if let Ok(activity) = crate::application::updates::activity::lease() {
+                tauri::async_runtime::spawn_blocking(move || {
+                    let _activity = activity;
+                    if cuda_app
+                        .state::<crate::application::cuda_packages::CudaPackageService>()
+                        .refresh_installed()
+                        .is_err()
+                    {
+                        tracing::warn!("could not verify an installed CUDA package");
+                    }
+                    crate::application::models::preload_configured_stt(cuda_app);
+                });
+            }
 
             Ok(())
         })
@@ -340,6 +356,9 @@ pub fn run() {
             ipc::diagnostics::get_recent_logs,
             ipc::diagnostic_report::get_diagnostic_report,
             ipc::updates::get_update_status,
+            ipc::cuda_packages::get_cuda_package_status,
+            ipc::cuda_packages::install_cuda_package,
+            ipc::cuda_packages::cancel_cuda_package,
             ipc::updates::check_for_updates,
             ipc::updates::install_update,
             ipc::updates::cancel_update_download,

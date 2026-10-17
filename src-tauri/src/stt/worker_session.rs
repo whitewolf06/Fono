@@ -4,13 +4,15 @@ impl WorkerSession {
         backend: BackendKind,
         model_path: &Path,
         cleanup: Arc<WorkerCleanupSupervisor>,
+        package: Option<crate::application::cuda_packages::VerifiedPackage>,
     ) -> AppResult<Self> {
-        Self::start_with_timeouts_and_supervisor(
+        Self::start_owned(
             path,
             backend,
             model_path,
             PRODUCTION_TIMEOUTS,
             cleanup,
+            package,
         )
     }
 
@@ -30,6 +32,7 @@ impl WorkerSession {
         )
     }
 
+    #[cfg(test)]
     fn start_with_timeouts_and_supervisor(
         path: PathBuf,
         backend: BackendKind,
@@ -37,10 +40,61 @@ impl WorkerSession {
         timeouts: WorkerTimeouts,
         cleanup: Arc<WorkerCleanupSupervisor>,
     ) -> AppResult<Self> {
+        Self::start_owned(path, backend, model_path, timeouts, cleanup, None)
+    }
+
+    fn start_owned(
+        path: PathBuf,
+        backend: BackendKind,
+        model_path: &Path,
+        timeouts: WorkerTimeouts,
+        cleanup: Arc<WorkerCleanupSupervisor>,
+        package: Option<crate::application::cuda_packages::VerifiedPackage>,
+    ) -> AppResult<Self> {
+        let mut worker = Self::connect(path, backend, model_path, timeouts, cleanup, package)?;
+        let load_meta = worker.next_meta("load", None);
+        match worker.request(&WorkerRequest::Load {
+            meta: load_meta,
+            model_path: worker.model_path.clone(),
+        })? {
+            WorkerResponse::ModelLoaded { backend: actual, .. } if actual == backend => {}
+            WorkerResponse::Error { message, .. } => {
+                return Err(AppError::Stt(format!(
+                    "{} worker could not load model: {message}", backend_name(backend)
+                )))
+            }
+            other => return Err(AppError::Stt(format!(
+                "{} worker returned an unexpected load result: {other:?}", backend_name(backend)
+            ))),
+        }
+        tracing::info!("{} worker loaded the Whisper model", backend_name(backend));
+        Ok(worker)
+    }
+
+    fn connect(
+        path: PathBuf,
+        backend: BackendKind,
+        model_path: &Path,
+        timeouts: WorkerTimeouts,
+        cleanup: Arc<WorkerCleanupSupervisor>,
+        package: Option<crate::application::cuda_packages::VerifiedPackage>,
+    ) -> AppResult<Self> {
         if cleanup.is_pending() {
             return Err(worker_cleanup_busy());
         }
+        if let Some(package) = package.as_ref() {
+            if path != package.worker_path() {
+                return Err(AppError::Config("CUDA package worker path differs from its verified manifest".into()));
+            }
+            // Signed files and ancestors remain locked. Directory handles do
+            // not prevent adding a new child; reject unexpected DLLs again at
+            // the last boundary before Windows resolves the worker imports.
+            package.validate_layout()?;
+        }
         let mut command = Command::new(&path);
+        if package.is_some() {
+            command.current_dir(path.parent().ok_or_else(|| AppError::Config("CUDA package directory is unavailable".into()))?);
+        }
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -61,18 +115,18 @@ impl WorkerSession {
             ))
         })?;
         let Some(stdin) = child.stdin.take() else {
-            terminate_unstarted_child(child, &cleanup);
+            terminate_unstarted_child(child, &cleanup, package);
             return Err(AppError::Stt("worker stdin is unavailable".into()));
         };
         let Some(stdout) = child.stdout.take() else {
-            terminate_unstarted_child(child, &cleanup);
+            terminate_unstarted_child(child, &cleanup, package);
             return Err(AppError::Stt("worker stdout is unavailable".into()));
         };
         let Some(stderr) = child.stderr.take() else {
-            terminate_unstarted_child(child, &cleanup);
+            terminate_unstarted_child(child, &cleanup, package);
             return Err(AppError::Stt("worker stderr is unavailable".into()));
         };
-        let child = Arc::new(WorkerChild::new(child));
+        let child = Arc::new(WorkerChild::new(child, package));
         let transport_stopping = Arc::new(AtomicBool::new(false));
         let (stdout_rx, stdout_thread) =
             spawn_stdout_reader(stdout, Arc::clone(&transport_stopping));
@@ -105,6 +159,8 @@ impl WorkerSession {
                 ..
             } if actual == backend
                 && capabilities.protocol_version == PROTOCOL_VERSION
+                && capabilities.supports_health
+                && capabilities.supports_shutdown
                 && capabilities.supports_window
                 && capabilities.supports_cancel
                 && capabilities.supports_token_timestamps
@@ -117,29 +173,21 @@ impl WorkerSession {
                 )))
             }
         }
-        let load_meta = worker.next_meta("load", None);
-        match worker.request(&WorkerRequest::Load {
-            meta: load_meta,
-            model_path: worker.model_path.clone(),
-        })? {
-            WorkerResponse::ModelLoaded {
-                backend: actual, ..
-            } if actual == backend => {}
-            WorkerResponse::Error { message, .. } => {
-                return Err(AppError::Stt(format!(
-                    "{} worker could not load model: {message}",
-                    backend_name(backend)
-                )))
-            }
-            other => {
-                return Err(AppError::Stt(format!(
-                    "{} worker returned an unexpected load result: {other:?}",
-                    backend_name(backend)
-                )))
-            }
-        }
-        tracing::info!("{} worker loaded the Whisper model", backend_name(backend));
         Ok(worker)
+    }
+
+    pub(super) fn probe(
+        path: PathBuf,
+        package: Option<crate::application::cuda_packages::VerifiedPackage>,
+    ) -> AppResult<()> {
+        let mut worker = Self::connect(
+            path, BackendKind::Cuda, Path::new(""), PRODUCTION_TIMEOUTS,
+            Arc::default(), package,
+        )?;
+        if worker.shutdown() != WorkerCleanupStatus::Exited {
+            return Err(worker_cleanup_busy());
+        }
+        Ok(())
     }
 
     pub(super) fn device(&self) -> &'static str {

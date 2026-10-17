@@ -3,6 +3,8 @@
 pub mod audio_ingest;
 pub(crate) mod capture_configuration;
 pub mod command_proposal;
+pub(crate) mod cuda_activation;
+pub mod cuda_packages;
 pub mod desktop_transcription_runtime;
 pub mod diagnostic_report;
 pub mod diagnostics;

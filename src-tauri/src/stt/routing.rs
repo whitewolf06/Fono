@@ -55,7 +55,7 @@ impl EngineState {
                 },
                 EngineCandidate::Embedded { use_gpu },
             ) => current == model_path && active_gpu == use_gpu,
-            (Self::Worker { session, .. }, EngineCandidate::Worker { backend, path }) => {
+            (Self::Worker { session, .. }, EngineCandidate::Worker { backend, path, .. }) => {
                 session.compatible_with(model_path, *backend, path)
             }
             _ => false,

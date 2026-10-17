@@ -1,0 +1,32 @@
+{
+  "mode": "browser mock",
+  "microphone": false,
+  "native_runtime": false,
+  "checks": [
+    {
+      "cudaText": "NVIDIA CUDA\n\nCUDA загружается отдельно. До установки в режиме «Авто» работает Vulkan или процессор.\n\nДемонстрационная загрузка отменена.\n\nСкачать и установить CUDA\nОбновить состояние\nБраузерный макет: демонстрация без загрузки файлов и доступа к видеокарте.",
+      "height": 560,
+      "scrollWidth": 710,
+      "viewportWidth": 710,
+      "width": 720
+    },
+    {
+      "cudaText": "NVIDIA CUDA\n\nCUDA загружается отдельно. До установки в режиме «Авто» работает Vulkan или процессор.\n\nДемонстрационная загрузка отменена.\n\nСкачать и установить CUDA\nОбновить состояние\nБраузерный макет: демонстрация без загрузки файлов и доступа к видеокарте.",
+      "height": 720,
+      "scrollWidth": 890,
+      "viewportWidth": 890,
+      "width": 900
+    },
+    {
+      "cudaText": "NVIDIA CUDA\n\nCUDA загружается отдельно. До установки в режиме «Авто» работает Vulkan или процессор.\n\nДемонстрационная загрузка отменена.\n\nСкачать и установить CUDA\nОбновить состояние\nБраузерный макет: демонстрация без загрузки файлов и доступа к видеокарте.",
+      "height": 900,
+      "scrollWidth": 1430,
+      "viewportWidth": 1430,
+      "width": 1440
+    }
+  ],
+  "console_errors": [],
+  "explicit_demo_install": true,
+  "cancel_and_retry": true,
+  "unsaved_draft_blocks_install": true
+}

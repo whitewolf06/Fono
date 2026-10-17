@@ -18,15 +18,12 @@ pub fn validate(manifest: &Path, directory: &Path) -> Result<(), String> {
         .ok_or("cannot read STT protocol version")?
         .parse()
         .map_err(|error| format!("protocol version: {error}"))?;
-    for backend in ["cuda", "vulkan"] {
-        handshake(
-            &directory.join(format!("fono-stt-{backend}-worker.exe")),
-            directory,
-            backend,
-            version,
-        )?;
-    }
-    Ok(())
+    handshake(
+        &directory.join("fono-stt-vulkan-worker.exe"),
+        directory,
+        "vulkan",
+        version,
+    )
 }
 
 fn handshake(path: &Path, directory: &Path, backend: &str, version: u16) -> Result<(), String> {

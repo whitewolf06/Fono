@@ -4,11 +4,11 @@
   "inputs": [
     {
       "file": "package-lock.json",
-      "sha256": "c157ba2925e1151992590952f28ce4e9ce9b10a38e65272e9df993dbe51949ba"
+      "sha256": "f198a15fd1de6267e6c3276dec0ed877e20a9a5c9b41d650bb07ea60b89722c7"
     },
     {
       "file": "src-tauri/Cargo.lock",
-      "sha256": "1faef907f8c4a05ff855db91d6d9a2a361d4f0924dbb37610435fa7bd6f2a391"
+      "sha256": "37cf535f419856f11d40904acf0ea1cd556e6694dd3c518c5ebf3847d6997190"
     },
     {
       "file": "tools/fono-setup/Cargo.lock",

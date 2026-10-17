@@ -84,6 +84,42 @@ fn assert_session_is_terminated(session: &mut WorkerSession) {
 }
 
 #[test]
+fn package_probe_requires_strict_hello_without_loading_a_model() {
+    let fixture = WorkerFixture::create("");
+    let ready = "{\"type\":\"ready\",\"protocol_version\":3,\"request_id\":\"hello-1\",\"backend\":\"cuda\",\"capabilities\":{\"protocol_version\":3,\"supports_health\":true,\"supports_shutdown\":true,\"supports_window\":true,\"supports_cancel\":true,\"supports_token_timestamps\":true,\"maximum_request_bytes\":16777216,\"maximum_response_bytes\":1048576}}";
+    let script = format!(
+        "@echo off\r\nset /p request=\r\necho {ready}\r\nset /p request=\r\necho {{\"type\":\"shutting_down\",\"protocol_version\":3,\"request_id\":\"shutdown-2\",\"backend\":\"cuda\"}}\r\nexit /b 0\r\n"
+    );
+    fs::write(&fixture.script, &script).unwrap();
+    WorkerSession::probe(fixture.script.clone(), None)
+        .expect("probe sends hello then shutdown, never load");
+    fs::write(
+        &fixture.script,
+        script.replace("\"supports_cancel\":true", "\"supports_cancel\":false"),
+    )
+    .unwrap();
+    assert!(WorkerSession::probe(fixture.script.clone(), None).is_err());
+}
+
+#[test]
+fn rejected_uncommitted_runtime_retires_worker_and_publishes_failed_readiness() {
+    let fixture = WorkerFixture::create(":hang\r\nset /p ignored=\r\ngoto hang");
+    let engine = crate::stt::SttEngine::new();
+    *engine.state.lock() = crate::stt::routing::EngineState::Worker {
+        session: Arc::new(WorkerMailbox::start(fixture.start())),
+        device: "CUDA",
+    };
+    let generation = engine.generation.load(std::sync::atomic::Ordering::Acquire);
+    engine.reject_prepared_selection("installation rolled back");
+    assert!(matches!(
+        engine.readiness(),
+        crate::stt::SttReadiness::Failed { .. }
+    ));
+    assert!(!engine.is_loaded());
+    assert!(engine.generation.load(std::sync::atomic::Ordering::Acquire) > generation);
+}
+
+#[test]
 fn response_reader_enforces_limit_and_recovers_at_next_line() {
     let mut input = Cursor::new(b"response-too-long\nok\n");
 

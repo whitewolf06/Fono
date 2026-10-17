@@ -1,0 +1,129 @@
+{
+  "source": {
+    "tree": "8c6beeb82e1fc6d97e0fa753718888bb8f48d3ed",
+    "origin": "git archive exact prepared Git index tree; no working-tree overlays or source modifications",
+    "archive_sha256": "fec1ce6e35ee439412293b06fcbe95fd365db113ca2f42a10dc2c044f027cb2a",
+    "source_file_count": 752,
+    "source_file_manifest_sha256": "150c95850bdaee716f31ffe6ebd6d2213efc07f5192513e8e26e7986dcda6312",
+    "source_file_manifest": "SOURCE-FILES.json",
+    "image": "node:22.23.3-bookworm-slim@sha256:efd0ab5780c2d9ab1f0f869571a00d5edb17793bff4cce4a2792e3eb0ffc7562",
+    "anonymous": true,
+    "host_credentials_or_cache_mounted": false,
+    "source_dependency_changed_in_container": false
+  },
+  "runtime": {
+    "node": "v22.23.3",
+    "npm": "10.9.9",
+    "platform": "linux",
+    "architecture": "x64",
+    "os": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+    "userconfig_empty": true,
+    "globalconfig_empty": true,
+    "credential_like_environment_names": []
+  },
+  "whiteui_version": "0.6.0",
+  "whiteui_sha256": "e0aabc07070a54eae56cfb810f120b3ebdcb12f34e1313a1eecc073c5dfaab65",
+  "all_original_source_files_unchanged": true,
+  "manifests_unchanged": true,
+  "counts": {
+    "ui": {
+      "tests": 247,
+      "pass": 247,
+      "fail": 0,
+      "skipped": 0
+    },
+    "release_scripts": {
+      "tests": 27,
+      "pass": 27,
+      "fail": 0,
+      "skipped": 0
+    },
+    "cpu_launcher_on_linux": {
+      "tests": 10,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 9
+    }
+  },
+  "steps": [
+    {
+      "name": "npm-ci",
+      "exit_code": 0,
+      "seconds": 7.16
+    },
+    {
+      "name": "typecheck-v3",
+      "exit_code": 0,
+      "seconds": 5.888
+    },
+    {
+      "name": "lint",
+      "exit_code": 0,
+      "seconds": 4.71
+    },
+    {
+      "name": "test-v3",
+      "exit_code": 0,
+      "seconds": 50.005
+    },
+    {
+      "name": "test-release",
+      "exit_code": 0,
+      "seconds": 0.545
+    },
+    {
+      "name": "test-cpu",
+      "exit_code": 0,
+      "seconds": 0.174
+    },
+    {
+      "name": "format-check",
+      "exit_code": 0,
+      "seconds": 3.577
+    },
+    {
+      "name": "version-check",
+      "exit_code": 0,
+      "seconds": 0.129
+    },
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 9.338
+    },
+    {
+      "name": "docs-check",
+      "exit_code": 0,
+      "seconds": 0.127
+    }
+  ],
+  "all_steps_passed": true,
+  "logs_directory": "build/checks/stage3b-linux-final",
+  "container_removed_after_run": true,
+  "source_scope_note": "Exact prepared Git index tree before the later Rust single-element-loop Clippy cleanup and native-CI CUDA producer test gate. Native Rust and amended CI contract/Python validation are reported separately.",
+  "linux_cpu_skip_note": "Nine Windows PowerShell launcher cases are intentionally unavailable on Linux; they require the separate real Windows launcher gate.",
+  "source_inputs": {
+    "package.json": "2a6915bda02d3f31407917554a8ec5daf115e61f2c7a18f68ea5c9d7ceac7961",
+    "package-lock.json": "f198a15fd1de6267e6c3276dec0ed877e20a9a5c9b41d650bb07ea60b89722c7",
+    ".npmrc": "3a951f66e7e0f3e2dd1832473a871357c4a507b51100636b73bcf6ff0dd78b6c",
+    ".github/workflows/ci.yml": "60b1e7c7519cdee6a8eefa7d387651b7a74ef47bd686521069db18555940e739",
+    ".github/workflows/prepare-update.yml": "cd55e4bb4ad751eb9b3d5fc2958f24c9d85f5f8ebc0b2f34d6630130042ab776",
+    "scripts/ci-workflow.test.mjs": "9c8ae5b8e1fbac1c42a4540c2ba29372ffada7d6632ae8e7614c8a7c26651bb2",
+    "scripts/sign-cuda-package.mjs": "b6a4232b4e899f2725a7a966a716a0cb46fd67ab5676df6d4722b6c0aff85e73",
+    "scripts/sign-cuda-package.test.mjs": "bd44dcd2ece46695787778e1a58d83cfd4e8511c65f88fdeec62c29e717a2986",
+    "src-tauri/tauri.conf.json": "02cec9ab5a842651080116cfd1a48815a0eb4ec3f74a18ebc6ea6ce9bd727456",
+    "src-tauri/tauri.cpu.conf.json": "84e9fb2ca77f2522b2041da4dd7e367d9fff5f26b39684a81703efe93f8c485f",
+    "vendor/whiteui/whitelife-core-ui-kit-0.6.0.tgz": "e0aabc07070a54eae56cfb810f120b3ebdcb12f34e1313a1eecc073c5dfaab65"
+  },
+  "scope": {
+    "exact_prepared_tree": true,
+    "github_actions_executed": false,
+    "native_rust_or_audio_executed": false,
+    "installer_built": false,
+    "official_signing_key_accessed": false,
+    "windows_launcher_cases_executed": false,
+    "source_dependency_changed_inside_container": false,
+    "host_credentials_or_npm_cache_mounted": false,
+    "owner_defers_whiteui_notice_to_later_version": true
+  }
+}

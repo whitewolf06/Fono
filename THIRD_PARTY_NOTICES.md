@@ -58,9 +58,12 @@ python scripts/license-inventory.test.py
 | audiopus / audiopus_sys           | 0.2.0 / 0.1.8           | ISC для bindings; bundled Opus сохраняет собственный BSD-style `COPYING`, включённый в собранные notices                                                                                                                                                              |
 | WebView2 Rust bindings            | webview2-com 0.38.2     | MIT; [notice точного исходного commit crate](licenses/upstream/webview2-rs-0.38.2-MIT.txt). Это не лицензия Microsoft WebView2 Runtime                                                                                                                                |
 
-WhiteUI остаётся приватным GitHub Packages-пакетом. Этот аудит не публикует его
-исходники, не подтверждает авторские права на него и не делает `npm ci` доступным
-без токена. Открытая сборка относится к OSS-02.
+По решению владельца точный оригинальный tarball WhiteUI 0.6.0 включён в
+`vendor/whiteui`; `npm ci` больше не требует доступа к GitHub Packages.
+[Provenance пакета](vendor/whiteui/README.md) фиксирует исходные байты и хэши.
+Владелец подтвердил, что это его библиотека, и поручил оставить LICENSE/copyright
+как есть до её отдельного обновления. Полный notice в эту версию не добавлялся;
+состояние лицензионного инвентаря остаётся прежним.
 
 ## Native-библиотеки и GPU
 

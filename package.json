@@ -1,6 +1,6 @@
 {
   "name": "fono",
-  "version": "0.7.22",
+  "version": "0.7.23",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
@@ -25,16 +25,17 @@
     "typecheck:v3": "vue-tsc --noEmit -p tsconfig.v3.json",
     "format:v3": "prettier --write \"src/v3/**/*.{ts,vue,css}\"",
     "format:check": "prettier --check \"src/v3/**/*.{ts,vue,css}\" eslint.config.js README.md \"docs/**/*.md\" AGENTS.md",
-    "test:v3": "node --test --test-concurrency=1 tests/ui/fonoV3.test.mjs tests/ui/fonoV3Native.test.mjs tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs tests/ui/preferenceToggleV3.test.mjs tests/ui/voiceWave.test.mjs tests/ui/trainerV3.test.mjs tests/ui/trainerPeriod.test.mjs tests/ui/trainerPeriodUi.test.mjs tests/ui/trainerChart.test.mjs tests/ui/trainerHighlights.test.mjs tests/ui/pendingDictationV3.test.mjs tests/ui/pendingNative.test.mjs tests/ui/processingPreferences.test.mjs tests/ui/overlayProcessingChoiceV3.test.mjs tests/ui/overlayControlsV3.test.mjs tests/ui/feedbackChannel.test.mjs tests/ui/nativeErrors.test.mjs tests/ui/optionalFeaturesV3.test.mjs tests/ui/nativeEventHub.test.mjs tests/ui/nativeReads.test.mjs",
-    "test:release": "node --test scripts/release-support.test.mjs scripts/update-release.test.mjs scripts/native-test-runtime.test.mjs scripts/ci-workflow.test.mjs",
+    "test:v3": "node --test --test-concurrency=1 tests/ui/fonoV3.test.mjs tests/ui/fonoV3Native.test.mjs tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs tests/ui/preferenceToggleV3.test.mjs tests/ui/voiceWave.test.mjs tests/ui/trainerV3.test.mjs tests/ui/trainerPeriod.test.mjs tests/ui/trainerPeriodUi.test.mjs tests/ui/trainerChart.test.mjs tests/ui/trainerHighlights.test.mjs tests/ui/pendingDictationV3.test.mjs tests/ui/pendingNative.test.mjs tests/ui/processingPreferences.test.mjs tests/ui/overlayProcessingChoiceV3.test.mjs tests/ui/overlayControlsV3.test.mjs tests/ui/feedbackChannel.test.mjs tests/ui/nativeErrors.test.mjs tests/ui/optionalFeaturesV3.test.mjs tests/ui/nativeEventHub.test.mjs tests/ui/nativeReads.test.mjs tests/ui/cudaPackages.test.mjs",
+    "test:release": "node --test scripts/release-support.test.mjs scripts/update-release.test.mjs scripts/native-test-runtime.test.mjs scripts/ci-workflow.test.mjs scripts/sign-cuda-package.test.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "docs:check": "node scripts/check-doc-links.mjs",
     "dev:cpu": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev-cpu.ps1",
-    "test:cpu": "node --test scripts/dev-cpu.test.mjs"
+    "test:cpu": "node --test scripts/dev-cpu.test.mjs",
+    "package:cuda": "python scripts/cuda-package.py prepare --workers src-tauri/resources/stt-workers --output build/cuda-package"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",
-    "@whitelife-core/ui-kit": "0.6.0",
+    "@whitelife-core/ui-kit": "file:vendor/whiteui/whitelife-core-ui-kit-0.6.0.tgz",
     "vue": "^3.5.13",
     "vue-router": "4.6.3"
   },
