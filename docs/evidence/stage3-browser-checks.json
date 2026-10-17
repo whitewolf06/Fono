@@ -1,0 +1,71 @@
+{
+  "checks": [
+    {
+      "documentWidth": 710,
+      "height": 560,
+      "mainScrollWidth": 644,
+      "mainWidth": 644,
+      "page": "home",
+      "width": 720
+    },
+    {
+      "documentWidth": 710,
+      "height": 560,
+      "page": "processing",
+      "width": 720
+    },
+    {
+      "documentWidth": 710,
+      "height": 560,
+      "mainScrollWidth": 644,
+      "mainWidth": 644,
+      "page": "trainer",
+      "width": 720
+    },
+    {
+      "documentWidth": 890,
+      "height": 720,
+      "mainScrollWidth": 824,
+      "mainWidth": 824,
+      "page": "home",
+      "width": 900
+    },
+    {
+      "documentWidth": 890,
+      "height": 720,
+      "page": "processing",
+      "width": 900
+    },
+    {
+      "documentWidth": 890,
+      "height": 720,
+      "mainScrollWidth": 824,
+      "mainWidth": 824,
+      "page": "trainer",
+      "width": 900
+    },
+    {
+      "documentWidth": 1440,
+      "height": 900,
+      "mainScrollWidth": 1188,
+      "mainWidth": 1188,
+      "page": "home",
+      "width": 1440
+    },
+    {
+      "documentWidth": 1440,
+      "height": 900,
+      "page": "processing",
+      "width": 1440
+    },
+    {
+      "documentWidth": 1430,
+      "height": 900,
+      "mainScrollWidth": 1188,
+      "mainWidth": 1188,
+      "page": "trainer",
+      "width": 1440
+    }
+  ],
+  "logs": []
+}

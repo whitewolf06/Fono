@@ -11,6 +11,35 @@ $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'ci-native-depende
 $workRoot = Join-Path $repoRoot 'build\ci-dependencies'
 $requiredDlls = @('onnxruntime.dll', 'onnxruntime_providers_shared.dll', 'sherpa-onnx-c-api.dll', 'sherpa-onnx-cxx-api.dll')
 
+function Assert-RepositoryPath([string]$Path) {
+    $root = [IO.Path]::GetFullPath($repoRoot).TrimEnd('\', '/')
+    $resolved = [IO.Path]::GetFullPath($Path)
+    $prefix = $root + [IO.Path]::DirectorySeparatorChar
+    if ($resolved -ne $root -and !$resolved.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Native dependency path must stay inside the checkout.'
+    }
+    $components = @($root)
+    $current = $root
+    if ($resolved -ne $root) {
+        foreach ($component in ([IO.Path]::GetRelativePath($root, $resolved) -split '[\\/]')) {
+            $current = Join-Path $current $component
+            $components += $current
+        }
+    }
+    foreach ($component in $components) {
+        try {
+            $attributes = [IO.File]::GetAttributes($component)
+        } catch {
+            $cause = $_.Exception.GetBaseException()
+            if ($cause -is [IO.FileNotFoundException] -or $cause -is [IO.DirectoryNotFoundException]) { continue }
+            throw
+        }
+        if ($attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw 'Native dependency path contains a reparse point; refusing linked cache or resource paths.'
+        }
+    }
+}
+
 function Assert-Checksum([string]$Path, [string]$Expected) {
     if (!(Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Missing resource: $Path" }
     if ((Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Expected) {
@@ -36,16 +65,19 @@ function Get-VerifiedDownload($Dependency) {
     $uri = [Uri]$Dependency.url
     $fileName = [IO.Path]::GetFileName($uri.AbsolutePath)
     $destination = Join-Path $workRoot $fileName
+    Assert-RepositoryPath $destination
     if (Test-Path -LiteralPath $destination -PathType Leaf) {
         Write-Host "Verifying cached dependency: $fileName"
         Assert-Checksum $destination $Dependency.sha256
         return $destination
     }
     $partial = "$destination.part"
+    Assert-RepositoryPath $partial
     $attemptLimit = 3
     for ($attempt = 1; $attempt -le $attemptLimit; $attempt++) {
         $watch = [Diagnostics.Stopwatch]::StartNew()
         try {
+            Assert-RepositoryPath $partial
             Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
             Write-Host "Downloading $fileName (attempt $attempt/$attemptLimit, total limit $($Dependency.downloadTimeoutSeconds)s)."
             # PowerShell TimeoutSec bounds connection setup only; curl max-time also bounds the response body.
@@ -54,10 +86,12 @@ function Get-VerifiedDownload($Dependency) {
             $downloadBytes = (Get-Item -LiteralPath $partial).Length
             Write-Host "Downloaded ${fileName}: $downloadBytes bytes in $([Math]::Round($watch.Elapsed.TotalSeconds, 1))s; verifying SHA-256."
             Assert-Checksum $partial $Dependency.sha256
+            Assert-RepositoryPath $destination
             Move-Item -LiteralPath $partial -Destination $destination -Force
             Write-Host "Verified dependency: $fileName ($([Math]::Round($watch.Elapsed.TotalSeconds, 1))s)."
             return $destination
         } catch {
+            Assert-RepositoryPath $partial
             Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
             Write-Warning "$fileName attempt $attempt/$attemptLimit failed after $([Math]::Round($watch.Elapsed.TotalSeconds, 1))s: $($_.Exception.Message)"
             if ($attempt -eq $attemptLimit) { throw }
@@ -76,6 +110,19 @@ function Set-BuildEnvironment([string]$Name, [string]$Value) {
 function Add-BuildPath([string]$Directory) {
     $env:PATH = "$Directory;$env:PATH"
     if ($env:GITHUB_PATH) { Add-Content -LiteralPath $env:GITHUB_PATH -Value $Directory -Encoding utf8 }
+}
+
+function Open-SherpaCacheLock([string]$Path) {
+    Assert-RepositoryPath $Path
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    while ($true) {
+        try {
+            return [IO.File]::Open($Path, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+        } catch [IO.IOException] {
+            if ([DateTime]::UtcNow -ge $deadline) { throw 'Sherpa cache preparation is already active; try again after it finishes.' }
+            Start-Sleep -Milliseconds 200
+        }
+    }
 }
 
 function Invoke-HiddenInstaller([string]$File, [string[]]$Arguments) {
@@ -130,6 +177,11 @@ $expectedVersion = [regex]::Escape($manifest.sherpa.version)
 if ($cargoLock -notmatch "name = `"sherpa-onnx-sys`"\r?\nversion = `"$expectedVersion`"") {
     throw 'Sherpa lock version changed: update CI dependency URL and SHA-256 together.'
 }
+$resourceDestination = Join-Path $repoRoot 'src-tauri\resources\sherpa-onnx'
+Assert-RepositoryPath $workRoot
+Assert-RepositoryPath $resourceDestination
+foreach ($name in $requiredDlls) { Assert-RepositoryPath (Join-Path $resourceDestination $name) }
+Assert-RepositoryPath (Join-Path $repoRoot $manifest.vad.path)
 Assert-Checksum (Join-Path $repoRoot $manifest.vad.path) $manifest.vad.sha256
 if ($ValidateOnly) {
     foreach ($dependency in @($manifest.sherpa, $manifest.cuda, $manifest.vulkan)) {
@@ -150,39 +202,37 @@ if (!$pythonCommand) { throw 'A real Python 3.12+ executable on PATH is required
 $pythonExecutable = $pythonCommand.Source
 Write-Host "Using Python archive helper: $pythonExecutable (60-second process limit)."
 Write-Host 'Checking archive extraction security fixtures.'
+Assert-RepositoryPath (Join-Path $repoRoot 'build\ci-archive-tests')
 Invoke-PythonArchiveCommand @((Join-Path $PSScriptRoot 'extract-ci-archive.test.py'))
+Assert-RepositoryPath $workRoot
 New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
-$archive = Get-VerifiedDownload $manifest.sherpa
-$extractionRoot = Join-Path $workRoot ("sherpa-unpacked-" + [Guid]::NewGuid().ToString('N'))
-Write-Host 'Validating and extracting the verified Sherpa archive with Python stdlib.'
+Assert-DownloadSpec $manifest.sherpa
+$extractionRoot = Join-Path $workRoot ("sherpa-verified-" + $manifest.sherpa.sha256)
+Assert-RepositoryPath $extractionRoot
+$cacheLock = Open-SherpaCacheLock "$extractionRoot.lock"
 try {
-    Invoke-PythonArchiveCommand @((Join-Path $PSScriptRoot 'extract-ci-archive.py'), '--archive', $archive, '--destination', $extractionRoot, '--root', $manifest.sherpa.directory, '--sha256', $manifest.sherpa.sha256)
+    $archive = Get-VerifiedDownload $manifest.sherpa
+    Write-Host 'Validating the pinned Sherpa archive and its reusable cache with Python stdlib.'
+    Invoke-PythonArchiveCommand @((Join-Path $PSScriptRoot 'extract-ci-archive.py'), '--archive', $archive, '--destination', $extractionRoot, '--root', $manifest.sherpa.directory, '--sha256', $manifest.sherpa.sha256, '--reuse')
     $libDir = Join-Path $extractionRoot "$($manifest.sherpa.directory)\lib"
-    $destination = Join-Path $repoRoot 'src-tauri\resources\sherpa-onnx'
     foreach ($name in @($requiredDlls) + @('sherpa-onnx-c-api.lib', 'onnxruntime.lib')) {
         if (!(Test-Path -LiteralPath (Join-Path $libDir $name) -PathType Leaf)) { throw "Missing Sherpa library: $name" }
     }
-    New-Item -ItemType Directory -Path $destination -Force | Out-Null
+    Assert-RepositoryPath $resourceDestination
+    New-Item -ItemType Directory -Path $resourceDestination -Force | Out-Null
     Write-Host 'Staging verified Sherpa DLLs.'
     foreach ($name in $requiredDlls) {
-        Copy-Item -LiteralPath (Join-Path $libDir $name) -Destination (Join-Path $destination $name) -Force
+        $resourcePath = Join-Path $resourceDestination $name
+        Assert-RepositoryPath $resourcePath
+        Copy-Item -LiteralPath (Join-Path $libDir $name) -Destination $resourcePath -Force
     }
     Set-BuildEnvironment 'SHERPA_ONNX_LIB_DIR' $libDir
     Add-BuildPath $libDir
     Write-Host "Verified Sherpa $($manifest.sherpa.version) runtime prepared from its official archive."
-} catch {
-    $resolvedWorkRoot = [IO.Path]::GetFullPath($workRoot).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-    $resolvedExtractionRoot = [IO.Path]::GetFullPath($extractionRoot)
-    if (!$resolvedExtractionRoot.StartsWith($resolvedWorkRoot, [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'Refusing to clean an extraction directory outside the CI work root.'
-    }
-    if (Test-Path -LiteralPath $resolvedExtractionRoot) {
-        if ((Get-Item -LiteralPath $resolvedExtractionRoot).Attributes -band [IO.FileAttributes]::ReparsePoint) {
-            throw 'Refusing to clean a linked extraction directory.'
-        }
-        Remove-Item -LiteralPath $resolvedExtractionRoot -Recurse -Force
-    }
-    throw
+} finally {
+    # The cache is immutable after creation and may be used by another live
+    # native process. Verification failures never replace or delete its files.
+    $cacheLock.Dispose()
 }
 
 if ($InstallGpuSdks) {
@@ -197,6 +247,7 @@ if ($InstallGpuSdks) {
     Add-BuildPath (Join-Path $cudaRoot 'bin\x64')
 
     $vulkanRoot = Join-Path $workRoot "vulkan-$($manifest.vulkan.version)"
+    Assert-RepositoryPath $vulkanRoot
     $vulkanInstaller = Get-VerifiedDownload $manifest.vulkan
     Invoke-HiddenInstaller $vulkanInstaller @('--root', "`"$vulkanRoot`"", '--accept-licenses', '--default-answer', '--confirm-command', 'install', 'copy_only=1')
     foreach ($name in @('Bin\glslc.exe', 'Include\vulkan\vulkan.h', 'Lib\vulkan-1.lib')) {

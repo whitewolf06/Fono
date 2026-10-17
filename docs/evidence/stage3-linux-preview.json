@@ -1,0 +1,98 @@
+{
+  "source": {
+    "source_commit": "7e4ad06b153e498ae3c52f279d406c556df7b7c2",
+    "source": "git archive; no host node_modules, untracked files, credentials or Git metadata",
+    "status": "internal technical preview; dependency not activated in working tree; license owner response pending",
+    "whiteui_version": "0.6.0",
+    "whiteui_original_sha256": "e0aabc07070a54eae56cfb810f120b3ebdcb12f34e1313a1eecc073c5dfaab65",
+    "package_source_change": "file:vendor/whiteui/whitelife-core-ui-kit-0.6.0.tgz",
+    "license_added": false,
+    "host_npm_cache_mounted": false,
+    "image": "node:22.23.3-bookworm-slim@sha256:efd0ab5780c2d9ab1f0f869571a00d5edb17793bff4cce4a2792e3eb0ffc7562"
+  },
+  "runtime": {
+    "node": "v22.23.3",
+    "npm": "10.9.9",
+    "platform": "linux",
+    "arch": "x64",
+    "os_release": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+    "glibc": "2.36",
+    "home": "/tmp/fono-npm-home",
+    "user_npmconfig_empty": true,
+    "host_credentials_or_npm_cache_mounted": false
+  },
+  "steps": [
+    {
+      "name": "npm-ci",
+      "exit_code": 0,
+      "seconds": 5
+    },
+    {
+      "name": "typecheck",
+      "exit_code": 0,
+      "seconds": 6
+    },
+    {
+      "name": "lint",
+      "exit_code": 0,
+      "seconds": 5
+    },
+    {
+      "name": "ui-tests",
+      "exit_code": 0,
+      "seconds": 49
+    },
+    {
+      "name": "release-tests",
+      "exit_code": 0,
+      "seconds": 1
+    },
+    {
+      "name": "formatting",
+      "exit_code": 0,
+      "seconds": 5
+    },
+    {
+      "name": "version",
+      "exit_code": 0,
+      "seconds": 0
+    },
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 13
+    },
+    {
+      "name": "docs",
+      "exit_code": 0,
+      "seconds": 0
+    },
+    {
+      "name": "lock-unchanged",
+      "exit_code": 0,
+      "seconds": 0
+    }
+  ],
+  "ui": {
+    "tests": 239,
+    "pass": 239,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "release_scripts": {
+    "tests": 21,
+    "pass": 21,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "scope": {
+    "working_tree_dependency_activated": false,
+    "license_added": false,
+    "host_credentials_or_npm_cache_mounted": false,
+    "github_workflow_executed": false,
+    "rust_or_native_audio_executed": false
+  },
+  "all_steps_passed": true
+}

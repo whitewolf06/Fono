@@ -21,6 +21,16 @@ const SHERPA_RUNTIME_DLLS: &[&str] = &[
 ];
 
 fn main() {
+    let cpu_only = env::var_os("CARGO_FEATURE_CPU_ONLY").is_some();
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_CPU_ONLY");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_CUDA");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_VULKAN");
+    assert!(
+        !cpu_only
+            || (env::var_os("CARGO_FEATURE_CUDA").is_none()
+                && env::var_os("CARGO_FEATURE_VULKAN").is_none()),
+        "cpu-only cannot be combined with cuda or vulkan"
+    );
     // SIMD flags for whisper.cpp are configured in .cargo/config.toml because
     // this build script only applies to the application crate.
     // The release-resource preparation build runs before the Sherpa DLLs
@@ -83,7 +93,9 @@ fn main() {
         panic!("cannot determine Cargo output layout: {error}");
     });
 
-    stage_stt_workers(&layout);
+    if !cpu_only {
+        stage_stt_workers(&layout);
+    }
     if env::var_os("CARGO_FEATURE_SPEECH_VAD").is_some() {
         speech_vad_resource::stage(&layout.manifest_dir, &layout.profile_dir);
     }

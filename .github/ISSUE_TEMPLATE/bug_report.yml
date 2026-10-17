@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible Fono problem without private data.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, use SECURITY.md. Do not attach keys, personal audio, dictations, raw logs or third-party field contents."
+  - type: input
+    id: version
+    attributes:
+      label: Fono version and build
+      description: App version, release link or commit; installed, desktop dev or browser mock.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Windows, model and acceleration
+      description: Include selected acceleration and actual backend if known. Do not include device names.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use a short non-private example.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostic report
+      description: Prefer the built-in technical report. Review any attachment before posting.

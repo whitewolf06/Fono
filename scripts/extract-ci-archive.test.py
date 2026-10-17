@@ -148,6 +148,146 @@ class ArchiveSecurityTests(unittest.TestCase):
             extractor.extract_archive(self.archive, self.destination, ROOT, digest)
         self.assertEqual(list(self.destination.iterdir()), [])
 
+    def prepare_cache(self):
+        digest = self.write_archive([
+            self.regular(f"{ROOT}/lib/model.dll", b"trusted DLL"),
+            self.regular(f"{ROOT}/lib/model.lib", b"trusted LIB"),
+        ])
+        extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        return digest
+
+    def test_repeated_reuse_verifies_real_files_without_reextracting(self):
+        digest = self.prepare_cache()
+        files = [self.destination / ROOT / "lib" / name for name in ("model.dll", "model.lib")]
+        before = [(entry.stat().st_mtime_ns, entry.stat().st_ino) for entry in files]
+        extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertEqual(before, [(entry.stat().st_mtime_ns, entry.stat().st_ino) for entry in files])
+        self.assertEqual(sorted(entry.name for entry in self.directory.iterdir()), ["extracted", "fixture.tar.bz2"])
+
+    def test_same_size_tamper_is_rejected_without_mutating_cache(self):
+        digest = self.prepare_cache()
+        cached = self.destination / ROOT / "lib/model.dll"
+        cached.write_bytes(b"changed DLL")
+        with self.assertRaisesRegex(ValueError, "cache SHA-256"):
+            extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertEqual(cached.read_bytes(), b"changed DLL")
+
+    def test_missing_cache_file_is_rejected_without_repairing(self):
+        digest = self.prepare_cache()
+        cached = self.destination / ROOT / "lib/model.lib"
+        cached.unlink()
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertFalse(cached.exists())
+
+    def test_extra_dll_and_forged_marker_are_rejected(self):
+        digest = self.prepare_cache()
+        injected = self.destination / ROOT / "lib/injected.dll"
+        injected.write_bytes(b"untrusted")
+        (self.destination / "verified.sha256").write_text(digest)
+        with self.assertRaisesRegex(ValueError, "unexpected entry"):
+            extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertTrue(injected.exists())
+
+    def test_archive_is_rehashed_even_for_existing_cache(self):
+        digest = self.prepare_cache()
+        self.archive.write_bytes(b"tampered archive")
+        with self.assertRaisesRegex(ValueError, "Archive SHA-256 mismatch"):
+            extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+
+    def test_reparse_cache_root_is_rejected(self):
+        digest = self.prepare_cache()
+        with mock.patch.object(extractor, "is_reparse", return_value=True):
+            with self.assertRaisesRegex(ValueError, "ordinary directory"):
+                extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+
+    def test_archive_path_replacement_after_hash_cannot_change_verified_snapshot(self):
+        digest = self.write_archive([self.regular(f"{ROOT}/lib/model.dll", b"trusted snapshot")])
+        open_tar = tarfile.open
+
+        def replace_path_before_tar_read(*args, **kwargs):
+            self.archive.write_bytes(b"untrusted replacement after SHA-256")
+            return open_tar(*args, **kwargs)
+
+        with mock.patch.object(tarfile, "open", replace_path_before_tar_read):
+            extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertEqual((self.destination / ROOT / "lib/model.dll").read_bytes(), b"trusted snapshot")
+        self.assertEqual(self.archive.read_bytes(), b"untrusted replacement after SHA-256")
+
+    def test_partial_extraction_failure_leaves_no_final_cache_and_next_run_succeeds(self):
+        digest = self.write_archive([
+            self.regular(f"{ROOT}/lib/model.dll", b"trusted DLL"),
+            self.regular(f"{ROOT}/lib/model.lib", b"trusted LIB"),
+        ])
+        extractall = tarfile.TarFile.extractall
+
+        def fail_after_first_file(package, staging, *, members, filter):
+            extractall(package, staging, members=members[:1], filter=filter)
+            self.assertTrue((staging / ROOT / "lib/model.dll").is_file())
+            self.assertFalse(self.destination.exists())
+            raise OSError("fixture interrupted after first file")
+
+        with mock.patch.object(tarfile.TarFile, "extractall", fail_after_first_file):
+            with self.assertRaisesRegex(OSError, "interrupted after first file"):
+                extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertFalse(self.destination.exists())
+        self.assertEqual(list(self.directory.iterdir()), [self.archive])
+        extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertEqual((self.destination / ROOT / "lib/model.dll").read_bytes(), b"trusted DLL")
+        self.assertEqual((self.destination / ROOT / "lib/model.lib").read_bytes(), b"trusted LIB")
+
+    def test_abandoned_or_active_sibling_staging_does_not_block_or_get_cleaned(self):
+        abandoned = self.directory / ".sherpa-staging-another-writer"
+        abandoned.mkdir()
+        content = abandoned / "partial.dll"
+        content.write_bytes(b"still owned by another writer")
+        before = content.stat().st_mtime_ns
+        self.prepare_cache()
+        self.assertEqual(content.read_bytes(), b"still owned by another writer")
+        self.assertEqual(content.stat().st_mtime_ns, before)
+        self.assertTrue((self.destination / ROOT / "lib/model.lib").is_file())
+
+    def test_atomic_publication_never_replaces_a_cache_created_by_another_writer(self):
+        digest = self.write_archive([self.regular(f"{ROOT}/lib/model.dll")])
+        verify = extractor.verify_cached_files
+
+        def create_concurrent_cache(package, members, staging):
+            verify(package, members, staging)
+            self.destination.mkdir()
+            (self.destination / "other-writer.dll").write_bytes(b"must remain")
+
+        with mock.patch.object(extractor, "verify_cached_files", create_concurrent_cache):
+            with self.assertRaisesRegex(FileExistsError, "refusing to replace"):
+                extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertEqual((self.destination / "other-writer.dll").read_bytes(), b"must remain")
+        self.assertEqual(sorted(entry.name for entry in self.directory.iterdir()), ["extracted", "fixture.tar.bz2"])
+
+    def test_transient_windows_sharing_errors_retry_only_atomic_publication(self):
+        staging = mock.Mock(spec=pathlib.Path)
+        destination = mock.Mock(spec=pathlib.Path)
+        destination.exists.return_value = False
+        destination.is_symlink.return_value = False
+        error = PermissionError("fixture scanner still reading")
+        error.winerror = 32
+        staging.rename.side_effect = [error, error, None]
+        with mock.patch.object(extractor.sys, "platform", "win32"), \
+                mock.patch.object(extractor.time, "sleep") as sleep:
+            extractor.publish_cache(staging, destination)
+        self.assertEqual(staging.rename.call_args_list, [mock.call(destination)] * 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_persistent_publication_failure_is_bounded_and_does_not_leave_final_cache(self):
+        digest = self.write_archive([self.regular(f"{ROOT}/lib/model.dll")])
+        error = PermissionError("fixture permanent denial")
+        error.winerror = 5
+        with mock.patch.object(pathlib.Path, "rename", side_effect=error), \
+                mock.patch.object(extractor.sys, "platform", "win32"), \
+                mock.patch.object(extractor.time, "monotonic", side_effect=[0, 6]):
+            with self.assertRaisesRegex(PermissionError, "permanent denial"):
+                extractor.extract_archive(self.archive, self.destination, ROOT, digest, reuse_existing=True)
+        self.assertFalse(self.destination.exists())
+        self.assertEqual(list(self.directory.iterdir()), [self.archive])
+
 
 if __name__ == "__main__":
     extractor.require_supported_python()

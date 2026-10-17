@@ -1,0 +1,10 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build"
+  },
+  "bundle": {
+    "resources": {
+      "resources/stt-workers/*": null
+    }
+  }
+}

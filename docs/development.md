@@ -24,23 +24,48 @@ git commit -m "fix(scope): описание [v0.5.1]"
 
 ## Требования машины сборки
 
-- Rust toolchain из `src-tauri/rust-toolchain.toml` и Node.js 20+.
-- MSVC Build Tools 2022 + Windows SDK.
-- CMake и LLVM/libclang.
-- CUDA Toolkit для CUDA worker.
-- Vulkan SDK для Vulkan worker.
+| Режим              | Окружение                                                                                                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UI в браузере      | Node.js 22, npm                                                                                                                                                      |
+| CPU desktop        | Windows x64, Node.js 22, закреплённый Rust toolchain, MSVC Build Tools с C++ x64 и Windows SDK, CMake, LLVM/libclang, PowerShell 7, Python 3.12+, curl.exe, WebView2 |
+| Сборка GPU workers | Дополнительно LLVM/libclang, CUDA Toolkit для CUDA и Vulkan SDK для Vulkan; закреплённый submodule whisper.cpp                                                       |
 
-CUDA Toolkit и Vulkan SDK нужны только разработчику, который создаёт release.
-Пользователь получает CUDA runtime DLL рядом с CUDA worker; для Vulkan нужен
-драйвер GPU с Vulkan support.
+CPU launcher генерирует Windows bindings закреплённого `whisper-rs-sys`,
+поэтому LLVM/libclang остаётся обязательным. Готовые bindings из crate
+используют другой C ABI и на Windows не применяются.
+CUDA Toolkit, Vulkan SDK и GPU workers CPU-профилю не нужны.
+Речевой VAD остаётся настоящим: bootstrap скачивает закреплённые Sherpa/ONNX
+runtime и модель с проверкой SHA256. Поэтому первый запуск требует сеть.
+Точные версии и хэши находятся в `scripts/ci-native-dependencies.json`.
+
+Для интерфейса не нужен Rust. Для запуска настоящей диктовки используйте
+CPU desktop; browser mock работает с демонстрационными данными.
 
 ## Локальная разработка
 
+Минимальный desktop-путь:
+
 ```powershell
-git submodule update --init --recursive
 npm ci
-npm run dev:desktop:v3
+npm run dev:cpu
 ```
+
+`dev:cpu` включает отдельный feature `cpu-only` с речевым VAD, отключает GPU
+в сборке и поиске workers и убирает их из Tauri resources. Даже найденный
+рядом CUDA/Vulkan worker не используется; Auto выбирает embedded CPU.
+Явный выбор недоступного GPU возвращает ошибку, а не меняет ускорение молча.
+На старте выберите Whisper-модель и отключите обработку/перевод для проверки
+диктовки без LLM. Модели Whisper не входят в Git.
+
+По умолчанию CPU launcher использует отдельный debug-профиль
+`build/dev-cpu-profile` и API-порт 17833. В нём недоступны настоящие Windows
+credentials и автозапуск; микрофон, hotkey и IPC остаются настоящими.
+Абсолютный `FONO_TEST_DATA_DIR` и свободный `FONO_API_PORT` можно задать заранее.
+После выхода launcher восстанавливает окружение своего процесса.
+
+Для работы над GPU или полной поставкой сначала подготовьте дополнительные
+зависимости и выполните `git submodule update --init --recursive`, затем
+используйте `npm run dev:desktop:v3`. Подробнее о проверках — [testing](testing.md).
 
 ### Уровни тестирования
 

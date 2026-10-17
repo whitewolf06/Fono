@@ -327,10 +327,7 @@ fn recovery_fixture(
     let selection = crate::stt::RecoverySelection {
         model_path: model_path.clone(),
         acceleration: crate::types::AccelerationMode::Cuda,
-        worker_paths: crate::stt::WorkerPaths {
-            cuda: Some(fixture.script.clone()),
-            vulkan: None,
-        },
+        worker_paths: crate::stt::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None),
     };
     let provider = Arc::new(Mutex::new(Some(selection.clone())));
     let selected = provider.clone();

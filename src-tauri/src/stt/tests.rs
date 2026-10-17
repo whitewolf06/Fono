@@ -3,10 +3,10 @@ use parking_lot::Mutex;
 
 #[test]
 fn auto_prefers_cuda_worker_before_vulkan_worker() {
-    let paths = WorkerPaths {
-        cuda: Some(PathBuf::from("cuda.exe")),
-        vulkan: Some(PathBuf::from("vulkan.exe")),
-    };
+    let paths = WorkerPaths::for_test_workers(
+        Some(PathBuf::from("cuda.exe")),
+        Some(PathBuf::from("vulkan.exe")),
+    );
     let candidates = paths.candidates(AccelerationMode::Auto);
     assert!(matches!(
         candidates.first(),
