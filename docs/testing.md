@@ -1,6 +1,6 @@
 # Проверки и ручная приёмка Fono
 
-Fono использует классическую диктовку с горячей клавишей в режимах `hold` и `toggle`. WakeWord временно недоступен, поэтапный вывод «На лету» скрыт. Методики этих экспериментов находятся в [fono-voice-reliability.md](fono-voice-reliability.md) и не входят в текущую приёмку.
+Fono использует классическую диктовку с горячей клавишей в режимах `hold` и `toggle`. WakeWord временно недоступен, поэтапный вывод «На лету» скрыт. Методики этих экспериментов находятся в [fono-voice-reliability.md](qa/voice-reliability.md) и не входят в текущую приёмку.
 
 Проверяйте три уровня отдельно:
 
@@ -99,9 +99,9 @@ Browser mock не подтверждает native IPC, глобальную кл
 
 | Сценарий                                                                      | Инструкция                                                   |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Удержание/повторное нажатие, отмена, ручной выбор, история и смена поля       | [dictation-controls-qa.md](dictation-controls-qa.md)         |
-| Индикатор без перехвата фокуса, сохранение выбора, промпты и пробная диктовка | [overlay-prompts-qa.md](overlay-prompts-qa.md)               |
-| Память Whisper, отключённый WakeWord и проверка обновлений                    | [fono-memory-updates-qa.md](fono-memory-updates-qa.md)       |
+| Удержание/повторное нажатие, отмена, ручной выбор, история и смена поля       | [dictation-controls-qa.md](qa/dictation-controls.md)         |
+| Индикатор без перехвата фокуса, сохранение выбора, промпты и пробная диктовка | [overlay-prompts-qa.md](qa/overlay-prompts.md)               |
+| Память Whisper, отключённый WakeWord и проверка обновлений                    | [fono-memory-updates-qa.md](qa/memory-updates.md)            |
 | Метаданные истории, локальный словарь и отчёт диагностики                     | [fono-quality-enhancements.md](fono-quality-enhancements.md) |
 | Health, WAV upload/polling, очередь и отмена API                              | [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md)     |
 | Загрузчик, продолжение загрузки, подпись, UAC и NSIS                          | [online-installer.md](online-installer.md)                   |

@@ -87,7 +87,7 @@ WakeWord сейчас выключен и недоступен в native/UI. В�
       начатая диагностика не конкурировала с интерактивной диктовкой за CPU.
 
 Методика и предыдущие ограниченные замеры:
-[fono-voice-reliability.md](fono-voice-reliability.md).
+[fono-voice-reliability.md](qa/voice-reliability.md).
 
 ## Отдельное решение — поэтапный вывод
 

@@ -97,4 +97,4 @@ API работает ограниченными окнами и уступает
 на AMD/Intel. Остались реальные проверки CPU-only, CUDA, Vulkan, Auto,
 смены ускорения и отказов drivers/runtime — [roadmap.md](roadmap.md).
 Прежние ограниченные cold/warm замеры сохранены
-в [fono-voice-reliability.md](fono-voice-reliability.md).
+в [fono-voice-reliability.md](qa/voice-reliability.md).

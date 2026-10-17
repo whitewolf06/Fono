@@ -9,7 +9,7 @@
 Подробные исходные пункты сохранены в связанных карточках Kvorum.
 Возврат функции требует отдельного решения по качеству детектора и ручной
 проверки голоса. Актуальная приёмка — в [STATUS.md](STATUS.md) и
-[fono-voice-reliability.md](fono-voice-reliability.md).
+[fono-voice-reliability.md](qa/voice-reliability.md).
 
 ## Граница с обычной диктовкой
 

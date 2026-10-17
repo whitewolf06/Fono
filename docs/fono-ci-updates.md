@@ -123,7 +123,7 @@ npm run test:release
 Автоматическая проверка по умолчанию выключена; после включения попытки идут
 не чаще раза в сутки с сохранением времени между запусками. Ручная проверка
 доступна независимо. Поведение и ручные сценарии —
-[fono-memory-updates-qa.md](fono-memory-updates-qa.md).
+[fono-memory-updates-qa.md](qa/memory-updates.md).
 Updater signing защищает обновление; это отдельная подпись от Windows Authenticode
 и не заменяет сертификат издателя / SmartScreen reputation.
 Схема формата: [Tauri updater](https://v2.tauri.app/plugin/updater/).

@@ -155,8 +155,8 @@ Native runtime сохраняет настройки и историю чере�
 ради UI-проверки. Browser mock, unit tests и сборка не заменяют приёмку
 установленной версии и чистой Windows.
 
-Сценарии: [testing.md](testing.md), [overlay-prompts-qa.md](overlay-prompts-qa.md),
-[fono-memory-updates-qa.md](fono-memory-updates-qa.md)
-и [fono-voice-reliability.md](fono-voice-reliability.md).
+Сценарии: [testing.md](testing.md), [overlay-prompts-qa.md](qa/overlay-prompts.md),
+[fono-memory-updates-qa.md](qa/memory-updates.md)
+и [fono-voice-reliability.md](qa/voice-reliability.md).
 Запуск и сборка — [development.md](development.md), границы подтверждения —
 [STATUS.md](STATUS.md).
