@@ -64,9 +64,15 @@ jobs:
         with:
           node-version: "22.23.3"
           registry-url: https://registry.npmjs.org
+      - name: Verify Linux optional dependency lock before installation
+        run: node scripts/ci-frontend-dependencies.mjs --lock
       - name: Install locked dependencies
         run: |
           npm ci
+      - name: Verify installed native frontend dependencies
+        run: |
+          node scripts/ci-frontend-dependencies.mjs --installed
+          node --test scripts/ci-frontend-dependencies.test.mjs
       - name: Typecheck, lint, tests and formatting
         run: |
           npm run typecheck:v3

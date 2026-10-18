@@ -1,0 +1,367 @@
+{
+  "task": "FONO-107 / CI-02",
+  "recorded_at": "2026-10-18T09:58:57.145Z",
+  "state": "candidate_uncommitted",
+  "source_base_commit": "8e8faca525a819575c213aa1e06e446ea357f622",
+  "source_version": "0.7.24",
+  "source_scope": "HEAD 8e8faca525a819575c213aa1e06e446ea357f622 plus exactly the CI-02 guard, its tests and frontend workflow overlay; no other stage-5 changes",
+  "gap": "OSS-02 already provided vendored exact WhiteUI 0.6.0, anonymous public npm URLs, an unconditional Ubuntu frontend job and a prior anonymous Linux smoke. CI-02 adds a pre-install Linux Rollup optional-dependency lock guard, a real post-install native Rollup bundle, and mutation contracts for missing, skipped, reordered or ignored gates. The existing lock was complete; no dependency or lock change was needed.",
+  "own_files": [
+    ".github/workflows/ci.yml",
+    "scripts/ci-frontend-dependencies.mjs",
+    "scripts/ci-frontend-dependencies.test.mjs",
+    "docs/evidence/stage5-ci02.json"
+  ],
+  "prior_evidence": "docs/evidence/stage3-anonymous-vendored-final.json",
+  "lock_contract": {
+    "rollup_version": "4.62.2",
+    "linux_optional_targets": 13,
+    "required_targets": [
+      "@rollup/rollup-linux-x64-gnu",
+      "@rollup/rollup-linux-x64-musl",
+      "@rollup/rollup-linux-arm64-gnu",
+      "@rollup/rollup-linux-arm64-musl"
+    ],
+    "checked_fields": [
+      "every declared Linux package has a lock entry",
+      "exact Rollup version",
+      "optional=true",
+      "Linux OS and matching CPU",
+      "public immutable registry URL",
+      "complete SHA-512 integrity"
+    ],
+    "lock_modified": false,
+    "installed_probe": "Actual Rollup graph and generate() of an in-memory ES module exercise native parsing; load/build failures propagate, and the bundle is closed after generation."
+  },
+  "linux": {
+    "runtime": {
+      "node": "v22.23.3",
+      "npm": "10.9.9",
+      "platform": "linux",
+      "architecture": "x64"
+    },
+    "runtime_distribution": "Ubuntu WSL2, existing distribution; no host package installation or Docker usage",
+    "node_download": {
+      "version": "22.23.3",
+      "archive_url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz",
+      "verification": "sha256sum --check against the release SHASUMS256.txt succeeded before extraction; numeric archive digest was not retained before tasktmp disappeared"
+    },
+    "isolation": {
+      "empty_environment": true,
+      "initially_empty_home": true,
+      "empty_userconfig": true,
+      "empty_globalconfig": true,
+      "fresh_npm_cache": true,
+      "credential_environment_names": [],
+      "host_credentials_or_cache_supplied": false,
+      "wsl_host_filesystem_accessible": true
+    },
+    "launch": "wsl.exe -d Ubuntu --exec /bin/sh /mnt/c/work/whitewolf/whisperclone/build/checks/stage5-ci02-linux.sh",
+    "anonymous_environment": "env -i PATH=<task-local-node>:/usr/bin:/bin HOME=<fresh-task-home> NPM_CONFIG_USERCONFIG=<empty-file> NPM_CONFIG_GLOBALCONFIG=<empty-file> NPM_CONFIG_CACHE=<fresh-task-cache>",
+    "steps": [
+      {
+        "name": "lock-before-install",
+        "command": ["node", "scripts/ci-frontend-dependencies.mjs", "--lock"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 0.091
+      },
+      {
+        "name": "npm-ci",
+        "command": ["npm", "ci", "--no-audit", "--no-fund"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 7.074
+      },
+      {
+        "name": "native-rollup-bundle",
+        "command": [
+          "node",
+          "scripts/ci-frontend-dependencies.mjs",
+          "--installed"
+        ],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 0.162
+      },
+      {
+        "name": "frontend-dependency-contracts",
+        "command": [
+          "node",
+          "--test",
+          "scripts/ci-frontend-dependencies.test.mjs",
+          "scripts/ci-workflow.test.mjs"
+        ],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 0.289,
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "name": "typecheck:v3",
+        "command": ["npm", "run", "typecheck:v3"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 10.029
+      },
+      {
+        "name": "lint",
+        "command": ["npm", "run", "lint"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 9.278
+      },
+      {
+        "name": "test:v3",
+        "command": ["npm", "run", "test:v3"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 64.449,
+        "counts": {
+          "tests": 273,
+          "pass": 273,
+          "fail": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "name": "test:release",
+        "command": ["npm", "run", "test:release"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 0.669,
+        "counts": {
+          "tests": 28,
+          "pass": 28,
+          "fail": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "name": "test:cpu",
+        "command": ["npm", "run", "test:cpu"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 0.227,
+        "counts": {
+          "tests": 10,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 9
+        }
+      },
+      {
+        "name": "docs:check",
+        "command": ["npm", "run", "docs:check"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 0.22
+      },
+      {
+        "name": "format:check",
+        "command": ["npm", "run", "format:check"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 4.495
+      },
+      {
+        "name": "version:check",
+        "command": ["npm", "run", "version:check"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 0.38
+      },
+      {
+        "name": "build",
+        "command": ["npm", "run", "build"],
+        "exit_code": 0,
+        "signal": null,
+        "seconds": 13.133
+      }
+    ],
+    "all_steps_passed": true,
+    "source_file_count": 819,
+    "all_source_files_unchanged": true,
+    "source_input_hashes": {
+      "package.json": "517508ab3deb44ea4632c796ac124a95d44cfa8f09745be450dc7e6f40366013",
+      "package-lock.json": "3fbd377e547577ca98505cb89652c3a0334512e12d697f33546fc927416d9980",
+      ".npmrc": "3a951f66e7e0f3e2dd1832473a871357c4a507b51100636b73bcf6ff0dd78b6c",
+      ".github/workflows/ci.yml": "7b52905f9603d52ffc1a5c6ba479b742cdb1563774db66cc3f3d07ad799dd824",
+      "scripts/ci-frontend-dependencies.mjs": "69424828ecf4bf97349b9e79ddb080fcef47db6fb2317ceda9bc2086182e5aa4",
+      "scripts/ci-frontend-dependencies.test.mjs": "b20d4da43282aa3d79ffde654421737b5c7c379aebd7e03853e2d9803596a609",
+      "vendor/whiteui/whitelife-core-ui-kit-0.6.0.tgz": "e0aabc07070a54eae56cfb810f120b3ebdcb12f34e1313a1eecc073c5dfaab65"
+    },
+    "source_manifest_sha256": "357a2fde5c9f2184753e5bb7238ce6680d94bbceeb3870160df15c4c47b8bfde",
+    "source_archive_sha256": "441395ff84aa146eca95860d2df9183a4e9642bfce2fee849a56f8d296517b02",
+    "raw_report_sha256": "2a30116f4a65396d82eafb85a79d18b3030106adccd541b13688f2adc5f3256b",
+    "logs_directory": "build/checks/stage5-ci02-linux-final",
+    "logs": [
+      {
+        "path": "build/checks/stage5-ci02-linux-final/lock-before-install.log",
+        "sha256": "b4c877cf74d47c85514b381acf2886b5e0e313b439ac8cd252804df699d1a8d5"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/npm-ci.log",
+        "sha256": "c3ef7b8e4ef6c60ac3fa68b69d35d2135d2618d89beed7dea6ef72000b15bc06"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/native-rollup-bundle.log",
+        "sha256": "9a7d20ff9258da2e0588381e587f225185dbb30718476b8344948cc1ce7ac9cc"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/frontend-dependency-contracts.log",
+        "sha256": "99ddd26567eeffc209a52102877af9bc1b6b4b4f2124d2b0704a9665390d243a"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/typecheck-v3.log",
+        "sha256": "2d4a9807decfa47f80fc06df09088690743d552c34d05ce08ae2e6d99d4744fc"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/lint.log",
+        "sha256": "da6bd07046700fe5f5e2e9b71cf01f31e0cea0f8ee315c4f424c6f89c27bd723"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/test-v3.log",
+        "sha256": "aa42f91b4f21617cc628120383389840c83ba3dde5739bfbd60112eaa2c03225"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/test-release.log",
+        "sha256": "c08361abef1c23ce4cc5bdb24f7a6a915a14820a4d26202f2f235f36ce1ab03f"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/test-cpu.log",
+        "sha256": "3d63291ecedc7261657e7cdf605febf8e1ffb4023e0c2495660266d92a4b13f4"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/docs-check.log",
+        "sha256": "943f6ec667680c9037448c3b646d72268ca8cb4d65f007dd575cf8b723975dd5"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/format-check.log",
+        "sha256": "ad2aebc1f7bf9e28b3ac03b4281a9d9cf32ad3c1a8bd5bb8920b8970273d3c61"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/version-check.log",
+        "sha256": "7af8d74a8ce4f0524b4fe3e7d8b82451080d600b099eccb27c25b35cc8b9d7a3"
+      },
+      {
+        "path": "build/checks/stage5-ci02-linux-final/build.log",
+        "sha256": "283bb6e44f7ee0924ac5c86fc515d54f227d223db29e3ef068c7525d44e4caee"
+      }
+    ],
+    "cleanup": {
+      "checked_paths": [
+        {
+          "path": "/tmp/fono-stage5-ci02.Kqn3cR",
+          "existed_before_cleanup": false,
+          "absent_after_cleanup": true
+        },
+        {
+          "path": "/tmp/fono-stage5-ci02.sH2ser",
+          "existed_before_cleanup": false,
+          "absent_after_cleanup": true
+        },
+        {
+          "path": "/tmp/fono-stage5-ci02.IFR5BK",
+          "existed_before_cleanup": false,
+          "absent_after_cleanup": true
+        }
+      ],
+      "note": "All three recorded task directories were already absent when checked in a later WSL invocation. No external process or directory was removed."
+    }
+  },
+  "windows_contracts": {
+    "command": "node --test scripts/ci-frontend-dependencies.test.mjs scripts/ci-workflow.test.mjs",
+    "tests": 15,
+    "pass": 15,
+    "fail": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "log": "build/checks/stage5-ci02-windows-contracts.log",
+    "sha256": "b9d13e024dafda39acd647e16b5cd2b12f19d76ff8d2658af04c4f0bd8e47ec8"
+  },
+  "lineage": {
+    "initial_attempt": {
+      "steps": [
+        {
+          "name": "lock-before-install",
+          "command": ["node", "scripts/ci-frontend-dependencies.mjs", "--lock"],
+          "exit_code": 0,
+          "signal": null,
+          "seconds": 0.04
+        },
+        {
+          "name": "npm-ci",
+          "command": ["npm", "ci", "--no-audit", "--no-fund"],
+          "exit_code": 0,
+          "signal": null,
+          "seconds": 8.291
+        },
+        {
+          "name": "native-rollup-bundle",
+          "command": [
+            "node",
+            "scripts/ci-frontend-dependencies.mjs",
+            "--installed"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "seconds": 0.453
+        },
+        {
+          "name": "frontend-dependency-contracts",
+          "command": [
+            "node",
+            "--test",
+            "scripts/ci-frontend-dependencies.test.mjs",
+            "scripts/ci-workflow.test.mjs"
+          ],
+          "exit_code": 0,
+          "signal": null,
+          "seconds": 0.257,
+          "counts": {
+            "tests": 15,
+            "pass": 15,
+            "fail": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "typecheck:v3",
+          "command": ["npm", "run", "typecheck:v3"],
+          "exit_code": 0,
+          "signal": null,
+          "seconds": 8.986
+        },
+        {
+          "name": "lint",
+          "command": ["npm", "run", "lint"],
+          "exit_code": 1,
+          "signal": null,
+          "seconds": 7.994
+        }
+      ],
+      "final_failed_gate": "lint",
+      "reason": "Three no-regex-spaces findings in the newly added workflow mutation test. Replaced literal repeated spaces by {2}, {4}, {6}; focused Windows ESLint and the fresh full Linux run passed.",
+      "report": "build/checks/stage5-ci02-linux/report.json",
+      "report_sha256": "a47d48a2b7c037f5ab1c857f93c0a655a7b03b259fccd200c7a3df4778cc6b31",
+      "lint_log_sha256": "d58e59d40d107f01b87e669e953320a536cf08b89588ba6e3acd89c5caaac1cd"
+    },
+    "preparation_retry": "A planned reuse of the earlier task-local Node archive failed because that WSL /tmp directory was already absent. The successful final attempt downloaded and verified Node again; no host runtime or npm cache was reused."
+  },
+  "acceptance": {
+    "local_anonymous_linux_candidate_passed": true,
+    "remote_github_actions_or_fork_pr_executed": false,
+    "committed_final_tree_tested": false,
+    "other_stage5_changes_included": false,
+    "native_audio_microphone_or_browser_ui_executed": false,
+    "windows_desktop_or_owner_acceptance": false,
+    "publication_or_installer": false,
+    "linux_cpu_launcher_skips": "Nine tests exercise Windows PowerShell and intentionally skip on Linux; one Linux contributor-contract test passed."
+  }
+}
