@@ -1,0 +1,4427 @@
+{
+  "schema": 1,
+  "kind": "fono-ci03-consolidated",
+  "generated_at": "2026-10-18T10:13:27.034Z",
+  "lineage": {
+    "run_id": "stage5-ci03-final-v0.7.26-4d220f161a384a30b1e4717dba1dad72",
+    "source_revision": "de12bd3a3f495e038bf9a02c5f26ad87a5fed040",
+    "app_version": "0.7.26",
+    "source_inputs_sha256": "a700c1c0484a09988ec8a45ca3dd6eef77ffe6aaec8fd25ad3363b2871e999d0",
+    "source_inputs": [
+      {
+        "path": ".github/workflows/stt-quality.yml",
+        "sha256": "4ad51b480b72b6b02e02a9879b160508b4398e9bb2f650ecbf56c089194f17d2"
+      },
+      {
+        "path": "scripts/bootstrap-ci-resources.ps1",
+        "sha256": "ac7db9c9d0b9adee25c7f4713ad5c3fbf66067fbdd86af6b8706bf7415a1f7ed"
+      },
+      {
+        "path": "scripts/native-test-runtime.mjs",
+        "sha256": "5a015cb04fb2d8b93e2e75ab0deda9f3659f3bda90302b7fd48d32f29d3438d3"
+      },
+      {
+        "path": "scripts/prepare-stt-quality-corpus.py",
+        "sha256": "9270c4dbdbbc613965dcc1f1b092576684947983bcb865d8b6ebf2d82a859e54"
+      },
+      {
+        "path": "scripts/stage4-quality.mjs",
+        "sha256": "6194380af83a60de6220ecf32d8577fcb13b2592e8ddc9213c28ce5cc87297fd"
+      },
+      {
+        "path": "scripts/stage5-quality.mjs",
+        "sha256": "904b5f73e2b3185ad3a945ab4f7d6b87422c6eeabfc9e112a77981a6c0b96691"
+      },
+      {
+        "path": "scripts/stt-quality-lineage.mjs",
+        "sha256": "c9eca9c3fec1b08110d9607db67923fe07bf31bf04acd19be923c1a3bd5b373d"
+      },
+      {
+        "path": "scripts/stt-quality.mjs",
+        "sha256": "d91ce7b54bb1feb1b1a3d28bcbe001f1a5508fd19c5be5382ed67d3638e67481"
+      },
+      {
+        "path": "src-tauri/.cargo/config.toml",
+        "sha256": "26770295187010df6b1dc90c387fed5865d67552e93f33cf6bd031fc32c2ac34"
+      },
+      {
+        "path": "src-tauri/Cargo.lock",
+        "sha256": "39e7adfc4c0c18fe7090c8c0b1b53f19c5137feb12ea07e3447b5a69ee0348b5"
+      },
+      {
+        "path": "src-tauri/Cargo.toml",
+        "sha256": "a753b85a7c3985e5ffcc59611b345c9ef66d8f4dbbb9c8c23252f55199b435f2"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/Cargo.toml",
+        "sha256": "4b8a6faee280aa7e60dae21681111c418d4c729c784246018678d12e248d58e0"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/resample-wav.rs",
+        "sha256": "332e53ccef3d490d9be47d7e43fb329e913297e78e7f6d63d5f4d0e2b12ea8a1"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/support/pcm_wav.rs",
+        "sha256": "ffb5bc6d72e41504025eac8b89a18a31b2b32425fab9245b935368108798d031"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/trim-vad-wav.rs",
+        "sha256": "f1fe521038820dbc4fef2383fe309c266f0816a7daeff63fe6ee11c0e2a74b8b"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/capture.rs",
+        "sha256": "26dbd2c53c629396df09cf25f9e0164c4fa950cbabcb235e9e3d095c0311f1e0"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/convert.rs",
+        "sha256": "3661a3ee659d18d4380829a0413c082efaf68002435fce166ee64a0d72832ae8"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/hub.rs",
+        "sha256": "00a6bf1c31ff0828ccd65219cdbb554e7675adec9a3884ac1b9648e2e19582ae"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/mod.rs",
+        "sha256": "19fe4fe273e27b79bfde0ec5cf38726cc96968fabc473a2a6de33b313534a6ea"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/owner.rs",
+        "sha256": "762fe980227afe5190d2e884ce03ca5d0e2a870b96da357fb9038658d4358aae"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+        "sha256": "fd8201ec6a9299b423f756fd0eeb78c0276bd03bd1da8681f4dbc5cf5b8e5a49"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/ring.rs",
+        "sha256": "1924d01fe8c0dba849a35861ac83097e36a80fb62c9c4c1e22be5f9810f12f45"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/error.rs",
+        "sha256": "9b357265781170155af2d59cea32da61541bcb99bd3d5a754144dc2236a47c7b"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/lib.rs",
+        "sha256": "051dbf1bf927dc2409a94f8a7666601ce84ddb4d815fce2babbfd43f6108fb4f"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_boundaries.rs",
+        "sha256": "27b5c2f87ca2febb30e287e26ba62bee5ca4287c4af14bf6c4cb7e81026f73d7"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad.rs",
+        "sha256": "0f28b8c5563bd4cb5e6f282adcb9557d4cccb93a235caa37d8328c7f3f7210e8"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad/recording.rs",
+        "sha256": "d9f2b8ac3cc64af55e7b727deed4c4aaa4f104d85f3d72af9a271f0d2ad2dbf9"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad/tests.rs",
+        "sha256": "de2e0e4bc102fb789fb29df413bbe27e0f24fb5705867ef858aa41751da434a2"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/tests/resampler_allocations.rs",
+        "sha256": "052e68f4b5316319a4484fce2a1145a7c6229885d6555510a67531b90b1f03ed"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/Cargo.toml",
+        "sha256": "3360b3c68539171480a64335fbea8887da8b361fb0335d112aa458b6ad600b3c"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/decoding.rs",
+        "sha256": "e1ca0710f586589a05a039d0d6d76b6b4bd8ad3eb2dab2e3c9bb0c9f5286857b"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/inference_options.rs",
+        "sha256": "002eca3a96c0af57c107d1190f68a6798757ef958ba6bdf31c5758bd17e19ba4"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/inference.rs",
+        "sha256": "f11e42adc03af4abebf5053ee4c5d90926efb94b8982859f41ad5f6a5ef45c57"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/lib.rs",
+        "sha256": "d9e5c4b2caded612ce8593647d44a7deb2ff5ec8fc7e9b2453a0d840840e9d7d"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/timestamps.rs",
+        "sha256": "fc2eff125ac6e4904a398399ae511c22df0749f016a21611ed469f172619c80c"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/Cargo.toml",
+        "sha256": "1afc9d6cffb4993b6295f7fd3c68e382e3ccb366d317c28edeb0f14e95740625"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/metrics.rs",
+        "sha256": "b81da8458c5078273c8aa74d7e9cb9935aac6dc0462ecc5aad61ae41163453b7"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/transport.rs",
+        "sha256": "1a40e0639afeb3c3a307bd9cc616bf52ac42f7401a39b4dff8a23cbd393d1c99"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/wav.rs",
+        "sha256": "4c74aa702595a852fcfe7bad5efefa77acffd81fee794509eb983e1b8183b69b"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-bench.rs",
+        "sha256": "a7e9828c7248c9fac32b1495ed1e65b3e640635bc0c7d06fad636e9a7cbfcdfe"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-quality.rs",
+        "sha256": "da23128dce445f6941ec8b2d879e27933f584973626800fd0a8e3f8ebc727029"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/control.rs",
+        "sha256": "fec3f87d5fda50c0a10fbe2d0c847c460a1878b3f85c0e5a3507a1fac5973401"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/framing.rs",
+        "sha256": "bfe724371932139b215994d3588adae4392db87940db5a459a54c6064f50ea29"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/main.rs",
+        "sha256": "5813d1caed93e57c6a900e0dfe6bd6eb55437a81dd9f496615d03c847c3c8a8d"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/runtime.rs",
+        "sha256": "66aa54d4570031a4cc3463b9a63ca60685033ac0c4a7727a2cc09a78a1b5f38d"
+      },
+      {
+        "path": "src-tauri/rust-toolchain.toml",
+        "sha256": "5a357c16adbb4740c3264b315c59c4882c286072146d7198757096197b498c52"
+      },
+      {
+        "path": "src-tauri/src/application/dictation/capture.rs",
+        "sha256": "5fb0e88b40f0870dce0cf75ad26dc988d0386b4e3248751ca8a8c69a6c9a14fe"
+      },
+      {
+        "path": "src-tauri/src/application/speech_gate.rs",
+        "sha256": "840ce9dda389a0470094ddfb1aa623b6318c31e76faba9fce7042c1da6fe8045"
+      },
+      {
+        "path": "src-tauri/src/vad/mod.rs",
+        "sha256": "8ac37745b032a6a302e7eaa61643432dd787c27b5dd18d6f64e10d9ad2f379cc"
+      },
+      {
+        "path": "src-tauri/tests/fixtures/stt-quality/baseline.json",
+        "sha256": "6189e7e0a2426b35ec694c390c7de6c826df9eea8315a086f196e6b724f3558c"
+      },
+      {
+        "path": "src-tauri/tests/fixtures/stt-quality/manifest.json",
+        "sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2"
+      }
+    ]
+  },
+  "corpus": "fono-fleurs-smoke-v1",
+  "corpus_manifest_sha256": "bd83645181c0a9db009312b34d3a5f4cdc5c3abbd95965803e1f3302df695c3d",
+  "license": "CC-BY-4.0",
+  "attribution": "FLEURS, The Google and HuggingFace Datasets Authors (2022).",
+  "source_card": "https://huggingface.co/datasets/google/fleurs/blob/437d9e667fa3a2a08a1957f810bf2c3b5050d221/README.md",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.en",
+  "model": {
+    "basename": "ggml-tiny.bin",
+    "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1"
+  },
+  "vad_model_sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+  "hardware": {
+    "platform": "win32",
+    "architecture": "x64",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+    "logical_cpus": 16
+  },
+  "profile": "debug-cpu-no-default-features",
+  "binaries": {
+    "runner_sha256": "601038092ab284fecebd5df0f277fe1bafd755ad338039a80bae021bc789883f",
+    "resampler_sha256": "bf5d265f3c691302c5aff1a62c2d8eb23913f404f95ea24aadd1fab6000728b6",
+    "trimmer_sha256": "d2c80c11fdcecaa95d7abcbdf1a2127df68fdba46fb1bf0f90f186d075b9388d"
+  },
+  "variants": {
+    "legacy": {
+      "backend": "cpu",
+      "threads": 8,
+      "decoding": {
+        "strategy": "fast",
+        "threads": null
+      },
+      "summary": {
+        "word_errors": 85,
+        "reference_words": 450,
+        "character_errors": 207,
+        "reference_characters": 2846,
+        "warm_seconds": 13.590286299999999,
+        "audio_seconds": 235.35875,
+        "wer": 0.18888888888888888,
+        "cer": 0.07273366127898806,
+        "rtf": 0.057742855534370405
+      },
+      "per_clip": [
+        {
+          "id": "en-01",
+          "language": "en",
+          "condition": "clean",
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year",
+          "hypothesis": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "audio_seconds": 10.5599375,
+          "warm_seconds": 0.4950082,
+          "rtf": 0.046876053953917814,
+          "no_speech": false
+        },
+        {
+          "id": "en-02",
+          "language": "en",
+          "condition": "clean",
+          "reference": "all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence",
+          "hypothesis": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence.",
+          "errors": {
+            "cer": 0.10185185185185185,
+            "character_errors": 11,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 8.7599375,
+          "warm_seconds": 0.7189124,
+          "rtf": 0.08206821110310433,
+          "no_speech": false
+        },
+        {
+          "id": "en-03",
+          "language": "en",
+          "condition": "clean",
+          "reference": "to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron",
+          "hypothesis": "To the north and with an easy reach is a romantic and fascinating town of Sinatra, which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron.",
+          "errors": {
+            "cer": 0.06451612903225806,
+            "character_errors": 12,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.18181818181818182,
+            "word_errors": 6
+          },
+          "audio_seconds": 11.4599375,
+          "warm_seconds": 0.695892,
+          "rtf": 0.060723891382479175,
+          "no_speech": false
+        },
+        {
+          "id": "en-04",
+          "language": "en",
+          "condition": "quiet-minus-18db",
+          "reference": "the cabbage juice changes color depending on how acidic or basic alkaline the chemical is",
+          "hypothesis": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "audio_seconds": 5.7599375,
+          "warm_seconds": 0.516382,
+          "rtf": 0.08965062554932236,
+          "no_speech": false
+        },
+        {
+          "id": "en-05",
+          "language": "en",
+          "condition": "clean",
+          "reference": "many people don't think about them as dinosaurs because they have feathers and can fly",
+          "hypothesis": "Many people don't think about them as senators because they have feathers and can fly.",
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "audio_seconds": 4.3199375,
+          "warm_seconds": 0.4518911,
+          "rtf": 0.1046059346923422,
+          "no_speech": false
+        },
+        {
+          "id": "en-06",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others",
+          "hypothesis": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 11.4199375,
+          "warm_seconds": 0.571346,
+          "rtf": 0.05003057153333808,
+          "no_speech": false
+        },
+        {
+          "id": "en-07",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the northern marianas emergency management office said that there were no damages reported in the nation",
+          "hypothesis": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 10.7999375,
+          "warm_seconds": 0.5231763,
+          "rtf": 0.04844253033871724,
+          "no_speech": false
+        },
+        {
+          "id": "en-08",
+          "language": "en",
+          "condition": "white-noise-20db-snr",
+          "reference": "twentieth century research has shown that there are two pools of genetic variation hidden and expressed",
+          "hypothesis": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 6.9599375,
+          "warm_seconds": 0.4819749,
+          "rtf": 0.06924988909742365,
+          "no_speech": false
+        },
+        {
+          "id": "en-09",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the aspect ratio of this format dividing by twelve to obtain the simplest whole-number ratio is therefore said to be 3:2",
+          "hypothesis": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "audio_seconds": 11.0399375,
+          "warm_seconds": 0.7975881,
+          "rtf": 0.07224570791274859,
+          "no_speech": false
+        },
+        {
+          "id": "en-10",
+          "language": "en",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times",
+          "hypothesis": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 20.7999375,
+          "warm_seconds": 0.9802146,
+          "rtf": 0.04712584352717406,
+          "no_speech": false
+        },
+        {
+          "id": "ru-01",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией",
+          "hypothesis": "В древнем китай использовали уникальный способ обозначения передов времени. Каждый этап китай или каждое семья находившаяся у власти. Были особо династии.",
+          "errors": {
+            "cer": 0.05844155844155844,
+            "character_errors": 9,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 16.9199375,
+          "warm_seconds": 0.7090586,
+          "rtf": 0.041906691440201836,
+          "no_speech": false
+        },
+        {
+          "id": "ru-02",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы",
+          "hypothesis": "Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы.",
+          "errors": {
+            "cer": 0.030303030303030304,
+            "character_errors": 3,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.14285714285714285,
+            "word_errors": 2
+          },
+          "audio_seconds": 11.5199375,
+          "warm_seconds": 0.6704282,
+          "rtf": 0.05819720810117243,
+          "no_speech": false
+        },
+        {
+          "id": "ru-03",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "во всех научных вопросах включая психологию были приняты взгляды аристотеля",
+          "hypothesis": "Во всех научных вопросах включая психологию, были приняты взгляды рестотеля.",
+          "errors": {
+            "cer": 0.02666666666666667,
+            "character_errors": 2,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.1,
+            "word_errors": 1
+          },
+          "audio_seconds": 8.6399375,
+          "warm_seconds": 0.6573358,
+          "rtf": 0.07608108276246212,
+          "no_speech": false
+        },
+        {
+          "id": "ru-04",
+          "language": "ru",
+          "condition": "quiet-minus-18db",
+          "reference": "в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией",
+          "hypothesis": "В различных местах Рима были установлены большей, телевизионные экраны, с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "cer": 0.04918032786885246,
+            "character_errors": 6,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.17647058823529413,
+            "word_errors": 3
+          },
+          "audio_seconds": 7.9199375,
+          "warm_seconds": 0.6760994,
+          "rtf": 0.08536675952303917,
+          "no_speech": false
+        },
+        {
+          "id": "ru-05",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана катрина который некоторые фискальные консерваторы в шутку назвали новоорлеанской сделкой буша",
+          "hypothesis": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления стани после урогана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "errors": {
+            "cer": 0.06334841628959276,
+            "character_errors": 14,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.34615384615384615,
+            "word_errors": 9
+          },
+          "audio_seconds": 19.4399375,
+          "warm_seconds": 0.9092567,
+          "rtf": 0.046772614366687136,
+          "no_speech": false
+        },
+        {
+          "id": "ru-06",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в 1990 году он был добавлен в список всемирного наследия находящегося под угрозой из-за опасности со стороны песков пустыни",
+          "hypothesis": "В 1990 году он был добавлен в список в Семерного наследия, находящаяся под огроза из опасности со стороны писков пустыни.",
+          "errors": {
+            "cer": 0.0975609756097561,
+            "character_errors": 12,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.3,
+            "word_errors": 6
+          },
+          "audio_seconds": 10.4399375,
+          "warm_seconds": 0.7452816,
+          "rtf": 0.07138755380480008,
+          "no_speech": false
+        },
+        {
+          "id": "ru-07",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "согласно ядерному управлению японии на заводе были обнаружены радиоактивный цезий и йод",
+          "hypothesis": "Соклассной ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "errors": {
+            "cer": 0.13793103448275862,
+            "character_errors": 12,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.5,
+            "word_errors": 6
+          },
+          "audio_seconds": 7.1999375,
+          "warm_seconds": 0.6751589,
+          "rtf": 0.09377288344516879,
+          "no_speech": false
+        },
+        {
+          "id": "ru-08",
+          "language": "ru",
+          "condition": "white-noise-20db-snr",
+          "reference": "надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ а также излагать свои собственные взгляды на конкретные вопросы оравек 2002",
+          "hypothesis": "Но для женщин использования блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "errors": {
+            "cer": 0.09090909090909091,
+            "character_errors": 26,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.2631578947368421,
+            "word_errors": 10
+          },
+          "audio_seconds": 26.9999375,
+          "warm_seconds": 0.9770018,
+          "rtf": 0.03618533561420281,
+          "no_speech": false
+        },
+        {
+          "id": "ru-09",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "только мутации в клетках зародышевой линии могут передаваться далее детям в то время как мутации где-то ещё могут привести к гибели клеток или раку",
+          "hypothesis": "Только мутации в клетках зародашего линии могут передаваться далее, где это может привести гиблик леток или раку.",
+          "errors": {
+            "cer": 0.29931972789115646,
+            "character_errors": 44,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.52,
+            "word_errors": 13
+          },
+          "audio_seconds": 11.5199375,
+          "warm_seconds": 0.6970888,
+          "rtf": 0.06051150885150201,
+          "no_speech": false
+        },
+        {
+          "id": "ru-10",
+          "language": "ru",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг",
+          "hypothesis": "Не оскверняйте это место нася или выцироповое графить на объекты вокруг. Не оскверняйте это место нася или выцироповое графить на объекты вокруг.",
+          "errors": {
+            "cer": 0.12080536912751678,
+            "character_errors": 18,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.2727272727272727,
+            "word_errors": 6
+          },
+          "audio_seconds": 12.8799375,
+          "warm_seconds": 0.6411909,
+          "rtf": 0.04978214374099253,
+          "no_speech": false
+        }
+      ],
+      "strata": {
+        "ru": {
+          "utterances": 10,
+          "word_errors": 62,
+          "reference_words": 205,
+          "character_errors": 146,
+          "reference_characters": 1463,
+          "warm_seconds": 7.3579007,
+          "audio_seconds": 133.479375,
+          "wer": 0.3024390243902439,
+          "cer": 0.09979494190020506,
+          "rtf": 0.05512387737805934
+        },
+        "en": {
+          "utterances": 10,
+          "word_errors": 23,
+          "reference_words": 245,
+          "character_errors": 61,
+          "reference_characters": 1383,
+          "warm_seconds": 6.232385600000001,
+          "audio_seconds": 101.87937499999998,
+          "wer": 0.09387755102040816,
+          "cer": 0.044107013738250184,
+          "rtf": 0.06117416405430443
+        },
+        "quiet": {
+          "utterances": 2,
+          "word_errors": 5,
+          "reference_words": 32,
+          "character_errors": 13,
+          "reference_characters": 211,
+          "warm_seconds": 1.1924814000000001,
+          "audio_seconds": 13.679875,
+          "wer": 0.15625,
+          "cer": 0.061611374407582936,
+          "rtf": 0.08717048949643182
+        },
+        "noise": {
+          "utterances": 2,
+          "word_errors": 12,
+          "reference_words": 54,
+          "character_errors": 35,
+          "reference_characters": 389,
+          "warm_seconds": 1.4589767,
+          "audio_seconds": 33.959875000000004,
+          "wer": 0.2222222222222222,
+          "cer": 0.08997429305912596,
+          "rtf": 0.042961780630817986
+        },
+        "short_under_10_seconds": {
+          "utterances": 7,
+          "word_errors": 21,
+          "reference_words": 107,
+          "character_errors": 53,
+          "reference_characters": 670,
+          "warm_seconds": 4.177754500000001,
+          "audio_seconds": 49.55956249999999,
+          "wer": 0.19626168224299065,
+          "cer": 0.0791044776119403,
+          "rtf": 0.08429764689710491
+        },
+        "long_at_least_10_seconds": {
+          "utterances": 13,
+          "word_errors": 64,
+          "reference_words": 343,
+          "character_errors": 154,
+          "reference_characters": 2176,
+          "warm_seconds": 9.412531799999998,
+          "audio_seconds": 185.79918750000002,
+          "wer": 0.18658892128279883,
+          "cer": 0.07077205882352941,
+          "rtf": 0.05065970377292418
+        }
+      },
+      "latency": {
+        "method": "fresh_model_context_then_first_clip_repeated;nearest_rank_quantiles_across_distinct_clips_v1",
+        "model_load_seconds": 0.1845116,
+        "first_inference": {
+          "id": "en-01",
+          "seconds": 0.7253433
+        },
+        "first_ready_seconds": 0.9098549,
+        "warm_utterances": 20,
+        "speech_gate_rejections": 0,
+        "warm_seconds": {
+          "p50": 0.6751589,
+          "p95": 0.9770018,
+          "p99": 0.9802146
+        },
+        "warm_rtf": {
+          "p50": 0.06051150885150201,
+          "p95": 0.09377288344516879,
+          "p99": 0.1046059346923422
+        },
+        "per_clip": [
+          {
+            "id": "en-01",
+            "warm_seconds": 0.4950082,
+            "no_speech": false
+          },
+          {
+            "id": "en-02",
+            "warm_seconds": 0.7189124,
+            "no_speech": false
+          },
+          {
+            "id": "en-03",
+            "warm_seconds": 0.695892,
+            "no_speech": false
+          },
+          {
+            "id": "en-04",
+            "warm_seconds": 0.516382,
+            "no_speech": false
+          },
+          {
+            "id": "en-05",
+            "warm_seconds": 0.4518911,
+            "no_speech": false
+          },
+          {
+            "id": "en-06",
+            "warm_seconds": 0.571346,
+            "no_speech": false
+          },
+          {
+            "id": "en-07",
+            "warm_seconds": 0.5231763,
+            "no_speech": false
+          },
+          {
+            "id": "en-08",
+            "warm_seconds": 0.4819749,
+            "no_speech": false
+          },
+          {
+            "id": "en-09",
+            "warm_seconds": 0.7975881,
+            "no_speech": false
+          },
+          {
+            "id": "en-10",
+            "warm_seconds": 0.9802146,
+            "no_speech": false
+          },
+          {
+            "id": "ru-01",
+            "warm_seconds": 0.7090586,
+            "no_speech": false
+          },
+          {
+            "id": "ru-02",
+            "warm_seconds": 0.6704282,
+            "no_speech": false
+          },
+          {
+            "id": "ru-03",
+            "warm_seconds": 0.6573358,
+            "no_speech": false
+          },
+          {
+            "id": "ru-04",
+            "warm_seconds": 0.6760994,
+            "no_speech": false
+          },
+          {
+            "id": "ru-05",
+            "warm_seconds": 0.9092567,
+            "no_speech": false
+          },
+          {
+            "id": "ru-06",
+            "warm_seconds": 0.7452816,
+            "no_speech": false
+          },
+          {
+            "id": "ru-07",
+            "warm_seconds": 0.6751589,
+            "no_speech": false
+          },
+          {
+            "id": "ru-08",
+            "warm_seconds": 0.9770018,
+            "no_speech": false
+          },
+          {
+            "id": "ru-09",
+            "warm_seconds": 0.6970888,
+            "no_speech": false
+          },
+          {
+            "id": "ru-10",
+            "warm_seconds": 0.6411909,
+            "no_speech": false
+          }
+        ]
+      },
+      "input_hashes": [
+        {
+          "id": "en-01",
+          "sha256": "da21bea3c7801e6174be9f4e186fc5f02f73065d7001ddcc7c4069d97b70c4c3"
+        },
+        {
+          "id": "en-02",
+          "sha256": "020dda4652fea97564701bea42015be52d32e5be805c1fd3c57aaa2ad8607ccc"
+        },
+        {
+          "id": "en-03",
+          "sha256": "47ac8b6f0c1c56de6d98a98e28205225f60bc28094adc8241eeb0acea35f6c7e"
+        },
+        {
+          "id": "en-04",
+          "sha256": "bdefa726c96030ef53eba6ffbab9f1d67de4ccc163179f47a6e1372cdb79bf67"
+        },
+        {
+          "id": "en-05",
+          "sha256": "a9a81e649ba46256d00f039de737e8788bc9547b3952e9683068c91697f5f39e"
+        },
+        {
+          "id": "en-06",
+          "sha256": "174477b8296d8579e81303986ce6708bca8117b8ed6c015e9c7d44b4339fa0a3"
+        },
+        {
+          "id": "en-07",
+          "sha256": "9db33b8770959426eee5e08e28e7ef3c3087da2ac174852de81f48f3533014f8"
+        },
+        {
+          "id": "en-08",
+          "sha256": "313b6c92c950a84274a1fb64dd61bb867130a5f42a573a4692bd14fa01f194f7"
+        },
+        {
+          "id": "en-09",
+          "sha256": "97da18de272404493546224411a36836a2474851ef012243e1aa63109b9f44bd"
+        },
+        {
+          "id": "en-10",
+          "sha256": "d07dfc0785a6514f85489d0fcd44b45f5bb9775600a6b984ebcfafb27d949b41"
+        },
+        {
+          "id": "ru-01",
+          "sha256": "91c566e4ba1af9ec2f68e1a835811c56955775cf6ba8ca50e98dccb028560b1e"
+        },
+        {
+          "id": "ru-02",
+          "sha256": "765cdd55a32791f8b2076290192a7a97fb562ea616b7dce74f3fdc57fa1ee0f0"
+        },
+        {
+          "id": "ru-03",
+          "sha256": "70cf5475552fad6c573c862b7d111c570850145b95bbc25ab5e10fe06e56fafd"
+        },
+        {
+          "id": "ru-04",
+          "sha256": "e2e2077909459ce6d464499fded7209b3b7468957278de1ec16bb38343780834"
+        },
+        {
+          "id": "ru-05",
+          "sha256": "6681f672c62c7ae19c6d2a4b153d1a708dea0cf497f0b07c8796fd21825f03c5"
+        },
+        {
+          "id": "ru-06",
+          "sha256": "d3e8babe135e67c1ed6040e4268ad2a9ef74d6f188132a5cf4cabe136901caff"
+        },
+        {
+          "id": "ru-07",
+          "sha256": "ce9cc8213845252bd8947b84e9a5f2c012abe2481b361b5d60a72fa8f495ba27"
+        },
+        {
+          "id": "ru-08",
+          "sha256": "6192ec54d102d9923239b24956eb3eb86d17c3fa1fbefbb78cf7a8c37294e6a1"
+        },
+        {
+          "id": "ru-09",
+          "sha256": "e6ea11c5923f042ed694efa62980060d2075425d52208522f98df11368841bce"
+        },
+        {
+          "id": "ru-10",
+          "sha256": "757c35c1c26264eff3b2d95edf3c468f0b3a779094ad028069f61858ac10ec72"
+        }
+      ]
+    },
+    "current": {
+      "backend": "cpu",
+      "threads": 8,
+      "decoding": {
+        "strategy": "fast",
+        "threads": null
+      },
+      "summary": {
+        "word_errors": 88,
+        "reference_words": 450,
+        "character_errors": 215,
+        "reference_characters": 2846,
+        "warm_seconds": 12.864751600000002,
+        "audio_seconds": 235.35875,
+        "wer": 0.19555555555555557,
+        "cer": 0.07554462403373155,
+        "rtf": 0.05466017983185245
+      },
+      "per_clip": [
+        {
+          "id": "en-01",
+          "language": "en",
+          "condition": "clean",
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year",
+          "hypothesis": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "audio_seconds": 10.5599375,
+          "warm_seconds": 0.5125187,
+          "rtf": 0.04853425505596032,
+          "no_speech": false
+        },
+        {
+          "id": "en-02",
+          "language": "en",
+          "condition": "clean",
+          "reference": "all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence",
+          "hypothesis": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence.",
+          "errors": {
+            "cer": 0.10185185185185185,
+            "character_errors": 11,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 8.7599375,
+          "warm_seconds": 0.5494521,
+          "rtf": 0.06272328997781092,
+          "no_speech": false
+        },
+        {
+          "id": "en-03",
+          "language": "en",
+          "condition": "clean",
+          "reference": "to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron",
+          "hypothesis": "To the north and with an easy reach is a romantic and fascinating town of Sinatra, which was made famous. To foreigners after a glowing account of the splendrous recorded by Lord Byron.",
+          "errors": {
+            "cer": 0.08064516129032258,
+            "character_errors": 15,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.21212121212121213,
+            "word_errors": 7
+          },
+          "audio_seconds": 11.4599375,
+          "warm_seconds": 0.6404176,
+          "rtf": 0.055883166902088256,
+          "no_speech": false
+        },
+        {
+          "id": "en-04",
+          "language": "en",
+          "condition": "quiet-minus-18db",
+          "reference": "the cabbage juice changes color depending on how acidic or basic alkaline the chemical is",
+          "hypothesis": "The cabbage juice changes the color depending on how acidic basic alkaline the chemical is.",
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "audio_seconds": 5.7599375,
+          "warm_seconds": 0.5392899,
+          "rtf": 0.09362773467594049,
+          "no_speech": false
+        },
+        {
+          "id": "en-05",
+          "language": "en",
+          "condition": "clean",
+          "reference": "many people don't think about them as dinosaurs because they have feathers and can fly",
+          "hypothesis": "Many people don't think about them as senators because they have feathers and can fly.",
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "audio_seconds": 4.3199375,
+          "warm_seconds": 0.4044576,
+          "rtf": 0.0936257989843603,
+          "no_speech": false
+        },
+        {
+          "id": "en-06",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others",
+          "hypothesis": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 11.4199375,
+          "warm_seconds": 0.5042168,
+          "rtf": 0.04415232570230792,
+          "no_speech": false
+        },
+        {
+          "id": "en-07",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the northern marianas emergency management office said that there were no damages reported in the nation",
+          "hypothesis": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 10.7999375,
+          "warm_seconds": 0.4500385,
+          "rtf": 0.04167047263004994,
+          "no_speech": false
+        },
+        {
+          "id": "en-08",
+          "language": "en",
+          "condition": "white-noise-20db-snr",
+          "reference": "twentieth century research has shown that there are two pools of genetic variation hidden and expressed",
+          "hypothesis": "20th century researchers shown that there are two poles of genetic variation hidden and expressed.",
+          "errors": {
+            "cer": 0.11650485436893204,
+            "character_errors": 12,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.25,
+            "word_errors": 4
+          },
+          "audio_seconds": 6.9599375,
+          "warm_seconds": 0.5723354,
+          "rtf": 0.08223283614256595,
+          "no_speech": false
+        },
+        {
+          "id": "en-09",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the aspect ratio of this format dividing by twelve to obtain the simplest whole-number ratio is therefore said to be 3:2",
+          "hypothesis": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "audio_seconds": 11.0399375,
+          "warm_seconds": 0.5369309,
+          "rtf": 0.04863532062568288,
+          "no_speech": false
+        },
+        {
+          "id": "en-10",
+          "language": "en",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times",
+          "hypothesis": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 20.7999375,
+          "warm_seconds": 0.8835426,
+          "rtf": 0.042478137254018195,
+          "no_speech": false
+        },
+        {
+          "id": "ru-01",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией",
+          "hypothesis": "В древнем китай использовали уникальный способ обозначения передов времени. Каждый этап китай или каждое семья находившаяся у власти. Были особо династии.",
+          "errors": {
+            "cer": 0.05844155844155844,
+            "character_errors": 9,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 16.9199375,
+          "warm_seconds": 1.1816533,
+          "rtf": 0.06983792345568653,
+          "no_speech": false
+        },
+        {
+          "id": "ru-02",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы",
+          "hypothesis": "Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы.",
+          "errors": {
+            "cer": 0.030303030303030304,
+            "character_errors": 3,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.14285714285714285,
+            "word_errors": 2
+          },
+          "audio_seconds": 11.5199375,
+          "warm_seconds": 0.6974458,
+          "rtf": 0.06054249860296552,
+          "no_speech": false
+        },
+        {
+          "id": "ru-03",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "во всех научных вопросах включая психологию были приняты взгляды аристотеля",
+          "hypothesis": "Во всех научных вопросах включая психологию были приняты взгляды рестотеля.",
+          "errors": {
+            "cer": 0.02666666666666667,
+            "character_errors": 2,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.1,
+            "word_errors": 1
+          },
+          "audio_seconds": 8.6399375,
+          "warm_seconds": 0.5433638,
+          "rtf": 0.06288978363558763,
+          "no_speech": false
+        },
+        {
+          "id": "ru-04",
+          "language": "ru",
+          "condition": "quiet-minus-18db",
+          "reference": "в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией",
+          "hypothesis": "В различных местах рима были установлены большей, телевизионные экраны, с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "cer": 0.04918032786885246,
+            "character_errors": 6,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.17647058823529413,
+            "word_errors": 3
+          },
+          "audio_seconds": 7.9199375,
+          "warm_seconds": 0.6419926,
+          "rtf": 0.0810603113976594,
+          "no_speech": false
+        },
+        {
+          "id": "ru-05",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана катрина который некоторые фискальные консерваторы в шутку назвали новоорлеанской сделкой буша",
+          "hypothesis": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления станей после урогана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "errors": {
+            "cer": 0.06334841628959276,
+            "character_errors": 14,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.34615384615384615,
+            "word_errors": 9
+          },
+          "audio_seconds": 19.4399375,
+          "warm_seconds": 0.8433319,
+          "rtf": 0.043381410048257615,
+          "no_speech": false
+        },
+        {
+          "id": "ru-06",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в 1990 году он был добавлен в список всемирного наследия находящегося под угрозой из-за опасности со стороны песков пустыни",
+          "hypothesis": "В 1990 году он был добавлен в список семерного наследия, находящаяся под огроза из опасности со стороны писков пустыни.",
+          "errors": {
+            "cer": 0.0975609756097561,
+            "character_errors": 12,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.25,
+            "word_errors": 5
+          },
+          "audio_seconds": 10.4399375,
+          "warm_seconds": 0.5844224,
+          "rtf": 0.05597949221439305,
+          "no_speech": false
+        },
+        {
+          "id": "ru-07",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "согласно ядерному управлению японии на заводе были обнаружены радиоактивный цезий и йод",
+          "hypothesis": "Соклассной ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "errors": {
+            "cer": 0.13793103448275862,
+            "character_errors": 12,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.5,
+            "word_errors": 6
+          },
+          "audio_seconds": 7.1999375,
+          "warm_seconds": 0.5655081,
+          "rtf": 0.07854347346765163,
+          "no_speech": false
+        },
+        {
+          "id": "ru-08",
+          "language": "ru",
+          "condition": "white-noise-20db-snr",
+          "reference": "надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ а также излагать свои собственные взгляды на конкретные вопросы оравек 2002",
+          "hypothesis": "Но для женщин использования блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "errors": {
+            "cer": 0.09090909090909091,
+            "character_errors": 26,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.2631578947368421,
+            "word_errors": 10
+          },
+          "audio_seconds": 26.9999375,
+          "warm_seconds": 0.8739612,
+          "rtf": 0.032369008261593196,
+          "no_speech": false
+        },
+        {
+          "id": "ru-09",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "только мутации в клетках зародышевой линии могут передаваться далее детям в то время как мутации где-то ещё могут привести к гибели клеток или раку",
+          "hypothesis": "Только мутации в клетках зародашего линии могут передаваться далее, где это может привести гиблик леток и раку.",
+          "errors": {
+            "cer": 0.3129251700680272,
+            "character_errors": 46,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.56,
+            "word_errors": 14
+          },
+          "audio_seconds": 11.5199375,
+          "warm_seconds": 0.5428654,
+          "rtf": 0.047123988302887936,
+          "no_speech": false
+        },
+        {
+          "id": "ru-10",
+          "language": "ru",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг",
+          "hypothesis": "Не оскверняйте это место нася или выцироповое графить на объекты вокруг. Не оскверняйте это место нася или выцироповое графить на объекты вокруг.",
+          "errors": {
+            "cer": 0.12080536912751678,
+            "character_errors": 18,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.2727272727272727,
+            "word_errors": 6
+          },
+          "audio_seconds": 12.8799375,
+          "warm_seconds": 0.797007,
+          "rtf": 0.061879725736246775,
+          "no_speech": false
+        }
+      ],
+      "strata": {
+        "ru": {
+          "utterances": 10,
+          "word_errors": 62,
+          "reference_words": 205,
+          "character_errors": 148,
+          "reference_characters": 1463,
+          "warm_seconds": 7.271551499999999,
+          "audio_seconds": 133.479375,
+          "wer": 0.3024390243902439,
+          "cer": 0.10116199589883801,
+          "rtf": 0.0544769669471407
+        },
+        "en": {
+          "utterances": 10,
+          "word_errors": 26,
+          "reference_words": 245,
+          "character_errors": 67,
+          "reference_characters": 1383,
+          "warm_seconds": 5.5932001,
+          "audio_seconds": 101.87937499999998,
+          "wer": 0.10612244897959183,
+          "cer": 0.04844540853217643,
+          "rtf": 0.054900219990552564
+        },
+        "quiet": {
+          "utterances": 2,
+          "word_errors": 5,
+          "reference_words": 32,
+          "character_errors": 13,
+          "reference_characters": 211,
+          "warm_seconds": 1.1812825,
+          "audio_seconds": 13.679875,
+          "wer": 0.15625,
+          "cer": 0.061611374407582936,
+          "rtf": 0.08635184897522821
+        },
+        "noise": {
+          "utterances": 2,
+          "word_errors": 14,
+          "reference_words": 54,
+          "character_errors": 38,
+          "reference_characters": 389,
+          "warm_seconds": 1.4462966000000002,
+          "audio_seconds": 33.959875000000004,
+          "wer": 0.25925925925925924,
+          "cer": 0.09768637532133675,
+          "rtf": 0.042588395864236836
+        },
+        "short_under_10_seconds": {
+          "utterances": 7,
+          "word_errors": 23,
+          "reference_words": 107,
+          "character_errors": 56,
+          "reference_characters": 670,
+          "warm_seconds": 3.8163994999999993,
+          "audio_seconds": 49.55956249999999,
+          "wer": 0.21495327102803738,
+          "cer": 0.08358208955223881,
+          "rtf": 0.07700631941615707
+        },
+        "long_at_least_10_seconds": {
+          "utterances": 13,
+          "word_errors": 65,
+          "reference_words": 343,
+          "character_errors": 159,
+          "reference_characters": 2176,
+          "warm_seconds": 9.0483521,
+          "audio_seconds": 185.79918750000002,
+          "wer": 0.18950437317784258,
+          "cer": 0.07306985294117647,
+          "rtf": 0.048699632230630716
+        }
+      },
+      "latency": {
+        "method": "fresh_model_context_then_first_clip_repeated;nearest_rank_quantiles_across_distinct_clips_v1",
+        "model_load_seconds": 0.1614358,
+        "first_inference": {
+          "id": "en-01",
+          "seconds": 0.5648692
+        },
+        "first_ready_seconds": 0.726305,
+        "warm_utterances": 20,
+        "speech_gate_rejections": 0,
+        "warm_seconds": {
+          "p50": 0.5655081,
+          "p95": 0.8835426,
+          "p99": 1.1816533
+        },
+        "warm_rtf": {
+          "p50": 0.05597949221439305,
+          "p95": 0.0936257989843603,
+          "p99": 0.09362773467594049
+        },
+        "per_clip": [
+          {
+            "id": "en-01",
+            "warm_seconds": 0.5125187,
+            "no_speech": false
+          },
+          {
+            "id": "en-02",
+            "warm_seconds": 0.5494521,
+            "no_speech": false
+          },
+          {
+            "id": "en-03",
+            "warm_seconds": 0.6404176,
+            "no_speech": false
+          },
+          {
+            "id": "en-04",
+            "warm_seconds": 0.5392899,
+            "no_speech": false
+          },
+          {
+            "id": "en-05",
+            "warm_seconds": 0.4044576,
+            "no_speech": false
+          },
+          {
+            "id": "en-06",
+            "warm_seconds": 0.5042168,
+            "no_speech": false
+          },
+          {
+            "id": "en-07",
+            "warm_seconds": 0.4500385,
+            "no_speech": false
+          },
+          {
+            "id": "en-08",
+            "warm_seconds": 0.5723354,
+            "no_speech": false
+          },
+          {
+            "id": "en-09",
+            "warm_seconds": 0.5369309,
+            "no_speech": false
+          },
+          {
+            "id": "en-10",
+            "warm_seconds": 0.8835426,
+            "no_speech": false
+          },
+          {
+            "id": "ru-01",
+            "warm_seconds": 1.1816533,
+            "no_speech": false
+          },
+          {
+            "id": "ru-02",
+            "warm_seconds": 0.6974458,
+            "no_speech": false
+          },
+          {
+            "id": "ru-03",
+            "warm_seconds": 0.5433638,
+            "no_speech": false
+          },
+          {
+            "id": "ru-04",
+            "warm_seconds": 0.6419926,
+            "no_speech": false
+          },
+          {
+            "id": "ru-05",
+            "warm_seconds": 0.8433319,
+            "no_speech": false
+          },
+          {
+            "id": "ru-06",
+            "warm_seconds": 0.5844224,
+            "no_speech": false
+          },
+          {
+            "id": "ru-07",
+            "warm_seconds": 0.5655081,
+            "no_speech": false
+          },
+          {
+            "id": "ru-08",
+            "warm_seconds": 0.8739612,
+            "no_speech": false
+          },
+          {
+            "id": "ru-09",
+            "warm_seconds": 0.5428654,
+            "no_speech": false
+          },
+          {
+            "id": "ru-10",
+            "warm_seconds": 0.797007,
+            "no_speech": false
+          }
+        ]
+      },
+      "input_hashes": [
+        {
+          "id": "en-01",
+          "sha256": "5234c18b326205e9fa34e0d9181ce286b3c53376823adf25abd1c0718be43d47"
+        },
+        {
+          "id": "en-02",
+          "sha256": "0bb96336cf4f147c6e46690fa3f52bfd198154dbd04331ed52a51a76e84d3ce3"
+        },
+        {
+          "id": "en-03",
+          "sha256": "ce196d62a93b9a93e598e1ea53955ac72580b8996f15a1517239c6fb1cee8f47"
+        },
+        {
+          "id": "en-04",
+          "sha256": "5ad7f11fa5f7096c2ea5f9284e74b60ad1647895686364787c3247ce444becc2"
+        },
+        {
+          "id": "en-05",
+          "sha256": "a31e7159d29ae4241ebd61315f8ab6f63c523082c1291b3cdf38db132377794a"
+        },
+        {
+          "id": "en-06",
+          "sha256": "0a88d89ca6cfae8a943f947965fda2c36e1f60c65fd30f408f512fcfc75f4150"
+        },
+        {
+          "id": "en-07",
+          "sha256": "468fdedec7de6f8c9f746f7ccd7ffba8738be287bba0a16b771a8e46489972ea"
+        },
+        {
+          "id": "en-08",
+          "sha256": "a807bfee7b6e193686e42fa74f6aec5c4f19d8e5cb0d57ec9a3c6ee0969171a4"
+        },
+        {
+          "id": "en-09",
+          "sha256": "b6989e0772d6f7d88897302ba3a4b1124dcc4b7e3336e154b15a81c6c4a86d25"
+        },
+        {
+          "id": "en-10",
+          "sha256": "875088b6f42591426eec6a1f2c5f7564f4f6463aaa46b820304b54b985b6828c"
+        },
+        {
+          "id": "ru-01",
+          "sha256": "ec22964d484ea7bba5f09fe09f0d47b982bee908d2354f4208cbda4ba363b35e"
+        },
+        {
+          "id": "ru-02",
+          "sha256": "b4ca2f6de1e4f8259eb327f4f7df76d305aec243a35dadb297cc16857dd0ac4c"
+        },
+        {
+          "id": "ru-03",
+          "sha256": "431d927462b0080877ba5901ab7453fc6db94e4905e5b468fd8116be2f7f910f"
+        },
+        {
+          "id": "ru-04",
+          "sha256": "7e1d8c6eb60ca02a90ba5c9a1d4e01ef9926e291bb54224011e90bb6ccbed0fa"
+        },
+        {
+          "id": "ru-05",
+          "sha256": "71a67d04e1f9ec3bd0900a1d80e57be79936cd9ede6990d9ac4b22de98516091"
+        },
+        {
+          "id": "ru-06",
+          "sha256": "fbaa98fa4d2d953cadf2dcf0600485fa7624ee0350a071a264f3818d3625b8ec"
+        },
+        {
+          "id": "ru-07",
+          "sha256": "1de7b3c747212cb486c7cd83f64d88e1c9ed2d416ca05750176c01f88234ec89"
+        },
+        {
+          "id": "ru-08",
+          "sha256": "15b47676e36262ddbcc38e02edbffbe607decd0f8b330999db988fd353a9b91c"
+        },
+        {
+          "id": "ru-09",
+          "sha256": "c486af9f014d471efc326cd9d56d7b81cae012bf31d6dac699deff0625b4c29e"
+        },
+        {
+          "id": "ru-10",
+          "sha256": "f9ab82e60b05ce1aa30ba50841c091c28308a86234cc278e8d6a071ed7d7f4cf"
+        }
+      ]
+    },
+    "original_fast": {
+      "backend": "cpu",
+      "threads": 8,
+      "decoding": {
+        "strategy": "fast",
+        "threads": null
+      },
+      "summary": {
+        "word_errors": 85,
+        "reference_words": 450,
+        "character_errors": 207,
+        "reference_characters": 2846,
+        "warm_seconds": 10.877144399999999,
+        "audio_seconds": 235.35999999999996,
+        "wer": 0.18888888888888888,
+        "cer": 0.07273366127898806,
+        "rtf": 0.04621492352141401
+      },
+      "per_clip": [
+        {
+          "id": "en-01",
+          "language": "en",
+          "condition": "clean",
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year",
+          "hypothesis": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "audio_seconds": 10.56,
+          "warm_seconds": 0.4475069,
+          "rtf": 0.04237754734848485,
+          "no_speech": false
+        },
+        {
+          "id": "en-02",
+          "language": "en",
+          "condition": "clean",
+          "reference": "all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence",
+          "hypothesis": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence.",
+          "errors": {
+            "cer": 0.10185185185185185,
+            "character_errors": 11,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 8.76,
+          "warm_seconds": 0.5078979,
+          "rtf": 0.05797921232876713,
+          "no_speech": false
+        },
+        {
+          "id": "en-03",
+          "language": "en",
+          "condition": "clean",
+          "reference": "to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron",
+          "hypothesis": "To the north and with an easy reach is a romantic and fascinating town of Sinatra, which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron.",
+          "errors": {
+            "cer": 0.06451612903225806,
+            "character_errors": 12,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.18181818181818182,
+            "word_errors": 6
+          },
+          "audio_seconds": 11.46,
+          "warm_seconds": 0.6986433,
+          "rtf": 0.06096363874345549,
+          "no_speech": false
+        },
+        {
+          "id": "en-04",
+          "language": "en",
+          "condition": "quiet-minus-18db",
+          "reference": "the cabbage juice changes color depending on how acidic or basic alkaline the chemical is",
+          "hypothesis": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "audio_seconds": 5.76,
+          "warm_seconds": 0.4584747,
+          "rtf": 0.07959630208333333,
+          "no_speech": false
+        },
+        {
+          "id": "en-05",
+          "language": "en",
+          "condition": "clean",
+          "reference": "many people don't think about them as dinosaurs because they have feathers and can fly",
+          "hypothesis": "Many people don't think about them as senators because they have feathers and can fly.",
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "audio_seconds": 4.32,
+          "warm_seconds": 0.4525357,
+          "rtf": 0.10475363425925925,
+          "no_speech": false
+        },
+        {
+          "id": "en-06",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others",
+          "hypothesis": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 11.42,
+          "warm_seconds": 0.4396027,
+          "rtf": 0.038494106830122596,
+          "no_speech": false
+        },
+        {
+          "id": "en-07",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the northern marianas emergency management office said that there were no damages reported in the nation",
+          "hypothesis": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 10.8,
+          "warm_seconds": 0.3979376,
+          "rtf": 0.03684607407407407,
+          "no_speech": false
+        },
+        {
+          "id": "en-08",
+          "language": "en",
+          "condition": "white-noise-20db-snr",
+          "reference": "twentieth century research has shown that there are two pools of genetic variation hidden and expressed",
+          "hypothesis": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 6.96,
+          "warm_seconds": 0.3916041,
+          "rtf": 0.05626495689655173,
+          "no_speech": false
+        },
+        {
+          "id": "en-09",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the aspect ratio of this format dividing by twelve to obtain the simplest whole-number ratio is therefore said to be 3:2",
+          "hypothesis": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "audio_seconds": 11.04,
+          "warm_seconds": 0.463143,
+          "rtf": 0.04195135869565218,
+          "no_speech": false
+        },
+        {
+          "id": "en-10",
+          "language": "en",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times",
+          "hypothesis": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 20.8,
+          "warm_seconds": 0.7569061,
+          "rtf": 0.036389716346153844,
+          "no_speech": false
+        },
+        {
+          "id": "ru-01",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией",
+          "hypothesis": "В древнем китай использовали уникальный способ обозначения передов времени. Каждый этап китай или каждое семья находившаяся у власти. Были особо династии.",
+          "errors": {
+            "cer": 0.05844155844155844,
+            "character_errors": 9,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 16.92,
+          "warm_seconds": 0.6353617,
+          "rtf": 0.037550927895981086,
+          "no_speech": false
+        },
+        {
+          "id": "ru-02",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы",
+          "hypothesis": "Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы.",
+          "errors": {
+            "cer": 0.030303030303030304,
+            "character_errors": 3,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.14285714285714285,
+            "word_errors": 2
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.5800274,
+          "rtf": 0.05034960069444444,
+          "no_speech": false
+        },
+        {
+          "id": "ru-03",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "во всех научных вопросах включая психологию были приняты взгляды аристотеля",
+          "hypothesis": "Во всех научных вопросах включая психологию, были приняты взгляды рестотеля.",
+          "errors": {
+            "cer": 0.02666666666666667,
+            "character_errors": 2,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.1,
+            "word_errors": 1
+          },
+          "audio_seconds": 8.64,
+          "warm_seconds": 0.4714443,
+          "rtf": 0.0545653125,
+          "no_speech": false
+        },
+        {
+          "id": "ru-04",
+          "language": "ru",
+          "condition": "quiet-minus-18db",
+          "reference": "в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией",
+          "hypothesis": "В различных местах Рима были установлены большей, телевизионные экраны, с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "cer": 0.04918032786885246,
+            "character_errors": 6,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.17647058823529413,
+            "word_errors": 3
+          },
+          "audio_seconds": 7.92,
+          "warm_seconds": 0.4597731,
+          "rtf": 0.05805215909090909,
+          "no_speech": false
+        },
+        {
+          "id": "ru-05",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана катрина который некоторые фискальные консерваторы в шутку назвали новоорлеанской сделкой буша",
+          "hypothesis": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления стани после урогана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "errors": {
+            "cer": 0.06334841628959276,
+            "character_errors": 14,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.34615384615384615,
+            "word_errors": 9
+          },
+          "audio_seconds": 19.44,
+          "warm_seconds": 0.6289219,
+          "rtf": 0.03235194958847737,
+          "no_speech": false
+        },
+        {
+          "id": "ru-06",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в 1990 году он был добавлен в список всемирного наследия находящегося под угрозой из-за опасности со стороны песков пустыни",
+          "hypothesis": "В 1990 году он был добавлен в список в Семерного наследия, находящаяся под огроза из опасности со стороны писков пустыни.",
+          "errors": {
+            "cer": 0.0975609756097561,
+            "character_errors": 12,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.3,
+            "word_errors": 6
+          },
+          "audio_seconds": 10.44,
+          "warm_seconds": 0.4828954,
+          "rtf": 0.04625434865900383,
+          "no_speech": false
+        },
+        {
+          "id": "ru-07",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "согласно ядерному управлению японии на заводе были обнаружены радиоактивный цезий и йод",
+          "hypothesis": "Соклассной ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "errors": {
+            "cer": 0.13793103448275862,
+            "character_errors": 12,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.5,
+            "word_errors": 6
+          },
+          "audio_seconds": 7.2,
+          "warm_seconds": 0.5270238,
+          "rtf": 0.07319775,
+          "no_speech": false
+        },
+        {
+          "id": "ru-08",
+          "language": "ru",
+          "condition": "white-noise-20db-snr",
+          "reference": "надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ а также излагать свои собственные взгляды на конкретные вопросы оравек 2002",
+          "hypothesis": "Но для женщин использования блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "errors": {
+            "cer": 0.09090909090909091,
+            "character_errors": 26,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.2631578947368421,
+            "word_errors": 10
+          },
+          "audio_seconds": 27,
+          "warm_seconds": 0.9852495,
+          "rtf": 0.03649072222222222,
+          "no_speech": false
+        },
+        {
+          "id": "ru-09",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "только мутации в клетках зародышевой линии могут передаваться далее детям в то время как мутации где-то ещё могут привести к гибели клеток или раку",
+          "hypothesis": "Только мутации в клетках зародашего линии могут передаваться далее, где это может привести гиблик леток или раку.",
+          "errors": {
+            "cer": 0.29931972789115646,
+            "character_errors": 44,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.52,
+            "word_errors": 13
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.5467541,
+          "rtf": 0.04746129340277778,
+          "no_speech": false
+        },
+        {
+          "id": "ru-10",
+          "language": "ru",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг",
+          "hypothesis": "Не оскверняйте это место нася или выцироповое графить на объекты вокруг. Не оскверняйте это место нася или выцироповое графить на объекты вокруг.",
+          "errors": {
+            "cer": 0.12080536912751678,
+            "character_errors": 18,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.2727272727272727,
+            "word_errors": 6
+          },
+          "audio_seconds": 12.88,
+          "warm_seconds": 0.5454412,
+          "rtf": 0.04234791925465838,
+          "no_speech": false
+        }
+      ],
+      "strata": {
+        "ru": {
+          "utterances": 10,
+          "word_errors": 62,
+          "reference_words": 205,
+          "character_errors": 146,
+          "reference_characters": 1463,
+          "warm_seconds": 5.8628924,
+          "audio_seconds": 133.48,
+          "wer": 0.3024390243902439,
+          "cer": 0.09979494190020506,
+          "rtf": 0.04392337728498651
+        },
+        "en": {
+          "utterances": 10,
+          "word_errors": 23,
+          "reference_words": 245,
+          "character_errors": 61,
+          "reference_characters": 1383,
+          "warm_seconds": 5.014252,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.09387755102040816,
+          "cer": 0.044107013738250184,
+          "rtf": 0.04921723596387908
+        },
+        "quiet": {
+          "utterances": 2,
+          "word_errors": 5,
+          "reference_words": 32,
+          "character_errors": 13,
+          "reference_characters": 211,
+          "warm_seconds": 0.9182478000000001,
+          "audio_seconds": 13.68,
+          "wer": 0.15625,
+          "cer": 0.061611374407582936,
+          "rtf": 0.06712337719298246
+        },
+        "noise": {
+          "utterances": 2,
+          "word_errors": 12,
+          "reference_words": 54,
+          "character_errors": 35,
+          "reference_characters": 389,
+          "warm_seconds": 1.3768536,
+          "audio_seconds": 33.96,
+          "wer": 0.2222222222222222,
+          "cer": 0.08997429305912596,
+          "rtf": 0.04054339222614841
+        },
+        "short_under_10_seconds": {
+          "utterances": 7,
+          "word_errors": 21,
+          "reference_words": 107,
+          "character_errors": 53,
+          "reference_characters": 670,
+          "warm_seconds": 3.2687536,
+          "audio_seconds": 49.56,
+          "wer": 0.19626168224299065,
+          "cer": 0.0791044776119403,
+          "rtf": 0.0659554802259887
+        },
+        "long_at_least_10_seconds": {
+          "utterances": 13,
+          "word_errors": 64,
+          "reference_words": 343,
+          "character_errors": 154,
+          "reference_characters": 2176,
+          "warm_seconds": 7.6083908000000005,
+          "audio_seconds": 185.8,
+          "wer": 0.18658892128279883,
+          "cer": 0.07077205882352941,
+          "rtf": 0.040949358449946176
+        }
+      },
+      "latency": {
+        "method": "fresh_model_context_then_first_clip_repeated;nearest_rank_quantiles_across_distinct_clips_v1",
+        "model_load_seconds": 0.1150761,
+        "first_inference": {
+          "id": "en-01",
+          "seconds": 0.48529
+        },
+        "first_ready_seconds": 0.6003661,
+        "warm_utterances": 20,
+        "speech_gate_rejections": 0,
+        "warm_seconds": {
+          "p50": 0.4828954,
+          "p95": 0.7569061,
+          "p99": 0.9852495
+        },
+        "warm_rtf": {
+          "p50": 0.04625434865900383,
+          "p95": 0.07959630208333333,
+          "p99": 0.10475363425925925
+        },
+        "per_clip": [
+          {
+            "id": "en-01",
+            "warm_seconds": 0.4475069,
+            "no_speech": false
+          },
+          {
+            "id": "en-02",
+            "warm_seconds": 0.5078979,
+            "no_speech": false
+          },
+          {
+            "id": "en-03",
+            "warm_seconds": 0.6986433,
+            "no_speech": false
+          },
+          {
+            "id": "en-04",
+            "warm_seconds": 0.4584747,
+            "no_speech": false
+          },
+          {
+            "id": "en-05",
+            "warm_seconds": 0.4525357,
+            "no_speech": false
+          },
+          {
+            "id": "en-06",
+            "warm_seconds": 0.4396027,
+            "no_speech": false
+          },
+          {
+            "id": "en-07",
+            "warm_seconds": 0.3979376,
+            "no_speech": false
+          },
+          {
+            "id": "en-08",
+            "warm_seconds": 0.3916041,
+            "no_speech": false
+          },
+          {
+            "id": "en-09",
+            "warm_seconds": 0.463143,
+            "no_speech": false
+          },
+          {
+            "id": "en-10",
+            "warm_seconds": 0.7569061,
+            "no_speech": false
+          },
+          {
+            "id": "ru-01",
+            "warm_seconds": 0.6353617,
+            "no_speech": false
+          },
+          {
+            "id": "ru-02",
+            "warm_seconds": 0.5800274,
+            "no_speech": false
+          },
+          {
+            "id": "ru-03",
+            "warm_seconds": 0.4714443,
+            "no_speech": false
+          },
+          {
+            "id": "ru-04",
+            "warm_seconds": 0.4597731,
+            "no_speech": false
+          },
+          {
+            "id": "ru-05",
+            "warm_seconds": 0.6289219,
+            "no_speech": false
+          },
+          {
+            "id": "ru-06",
+            "warm_seconds": 0.4828954,
+            "no_speech": false
+          },
+          {
+            "id": "ru-07",
+            "warm_seconds": 0.5270238,
+            "no_speech": false
+          },
+          {
+            "id": "ru-08",
+            "warm_seconds": 0.9852495,
+            "no_speech": false
+          },
+          {
+            "id": "ru-09",
+            "warm_seconds": 0.5467541,
+            "no_speech": false
+          },
+          {
+            "id": "ru-10",
+            "warm_seconds": 0.5454412,
+            "no_speech": false
+          }
+        ]
+      },
+      "input_hashes": [
+        {
+          "id": "en-01",
+          "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+        },
+        {
+          "id": "en-02",
+          "sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+        },
+        {
+          "id": "en-03",
+          "sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+        },
+        {
+          "id": "en-04",
+          "sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+        },
+        {
+          "id": "en-05",
+          "sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+        },
+        {
+          "id": "en-06",
+          "sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+        },
+        {
+          "id": "en-07",
+          "sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+        },
+        {
+          "id": "en-08",
+          "sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+        },
+        {
+          "id": "en-09",
+          "sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+        },
+        {
+          "id": "en-10",
+          "sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+        },
+        {
+          "id": "ru-01",
+          "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+        },
+        {
+          "id": "ru-02",
+          "sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+        },
+        {
+          "id": "ru-03",
+          "sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+        },
+        {
+          "id": "ru-04",
+          "sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+        },
+        {
+          "id": "ru-05",
+          "sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+        },
+        {
+          "id": "ru-06",
+          "sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+        },
+        {
+          "id": "ru-07",
+          "sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+        },
+        {
+          "id": "ru-08",
+          "sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+        },
+        {
+          "id": "ru-09",
+          "sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+        },
+        {
+          "id": "ru-10",
+          "sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+        }
+      ]
+    },
+    "original_accurate": {
+      "backend": "cpu",
+      "threads": 8,
+      "decoding": {
+        "strategy": "accurate",
+        "threads": null
+      },
+      "summary": {
+        "word_errors": 84,
+        "reference_words": 450,
+        "character_errors": 262,
+        "reference_characters": 2846,
+        "warm_seconds": 13.808505399999998,
+        "audio_seconds": 235.35999999999996,
+        "wer": 0.18666666666666668,
+        "cer": 0.09205903021784961,
+        "rtf": 0.05866972042828008
+      },
+      "per_clip": [
+        {
+          "id": "en-01",
+          "language": "en",
+          "condition": "clean",
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year",
+          "hypothesis": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "audio_seconds": 10.56,
+          "warm_seconds": 0.6315928,
+          "rtf": 0.059809924242424234,
+          "no_speech": false
+        },
+        {
+          "id": "en-02",
+          "language": "en",
+          "condition": "clean",
+          "reference": "all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence",
+          "hypothesis": "All now is alongside the world's safe for you, always begin with a capital letter, even in the middle of a sentence.",
+          "errors": {
+            "cer": 0.07407407407407407,
+            "character_errors": 8,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.23809523809523808,
+            "word_errors": 5
+          },
+          "audio_seconds": 8.76,
+          "warm_seconds": 0.5023099,
+          "rtf": 0.05734131278538813,
+          "no_speech": false
+        },
+        {
+          "id": "en-03",
+          "language": "en",
+          "condition": "clean",
+          "reference": "to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron",
+          "hypothesis": "To the north and with an easy reach is the romantic and fascinating town of Sintra and which was made famous to foreigners after a glowing account of its splendor is recorded by Lord Byron.",
+          "errors": {
+            "cer": 0.026881720430107527,
+            "character_errors": 5,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.12121212121212122,
+            "word_errors": 4
+          },
+          "audio_seconds": 11.46,
+          "warm_seconds": 0.6957932,
+          "rtf": 0.06071493891797556,
+          "no_speech": false
+        },
+        {
+          "id": "en-04",
+          "language": "en",
+          "condition": "quiet-minus-18db",
+          "reference": "the cabbage juice changes color depending on how acidic or basic alkaline the chemical is",
+          "hypothesis": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "audio_seconds": 5.76,
+          "warm_seconds": 0.5178141,
+          "rtf": 0.08989828125000002,
+          "no_speech": false
+        },
+        {
+          "id": "en-05",
+          "language": "en",
+          "condition": "clean",
+          "reference": "many people don't think about them as dinosaurs because they have feathers and can fly",
+          "hypothesis": "Many people don't think about them as senators because they have feathers and can fly.",
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "audio_seconds": 4.32,
+          "warm_seconds": 0.6155714,
+          "rtf": 0.14249337962962963,
+          "no_speech": false
+        },
+        {
+          "id": "en-06",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others",
+          "hypothesis": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 11.42,
+          "warm_seconds": 0.5216608,
+          "rtf": 0.04567957968476358,
+          "no_speech": false
+        },
+        {
+          "id": "en-07",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the northern marianas emergency management office said that there were no damages reported in the nation",
+          "hypothesis": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 10.8,
+          "warm_seconds": 0.5112275,
+          "rtf": 0.047335879629629624,
+          "no_speech": false
+        },
+        {
+          "id": "en-08",
+          "language": "en",
+          "condition": "white-noise-20db-snr",
+          "reference": "twentieth century research has shown that there are two pools of genetic variation hidden and expressed",
+          "hypothesis": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 6.96,
+          "warm_seconds": 0.5124449,
+          "rtf": 0.0736271408045977,
+          "no_speech": false
+        },
+        {
+          "id": "en-09",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the aspect ratio of this format dividing by twelve to obtain the simplest whole-number ratio is therefore said to be 3:2",
+          "hypothesis": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "audio_seconds": 11.04,
+          "warm_seconds": 0.573508,
+          "rtf": 0.05194818840579711,
+          "no_speech": false
+        },
+        {
+          "id": "en-10",
+          "language": "en",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times",
+          "hypothesis": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 20.8,
+          "warm_seconds": 1.0049814,
+          "rtf": 0.048316413461538456,
+          "no_speech": false
+        },
+        {
+          "id": "ru-01",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией",
+          "hypothesis": "В древнем китай использовали уникальный способ обозначения передов времени.",
+          "errors": {
+            "cer": 0.5324675324675324,
+            "character_errors": 82,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.6666666666666666,
+            "word_errors": 14
+          },
+          "audio_seconds": 16.92,
+          "warm_seconds": 0.7916907,
+          "rtf": 0.046790230496453894,
+          "no_speech": false
+        },
+        {
+          "id": "ru-02",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы",
+          "hypothesis": "Мадагаскар намного больше других и является самобытным континентом в то, что касается дикой природы.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.07142857142857142,
+            "word_errors": 1
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.6790202,
+          "rtf": 0.05894272569444444,
+          "no_speech": false
+        },
+        {
+          "id": "ru-03",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "во всех научных вопросах включая психологию были приняты взгляды аристотеля",
+          "hypothesis": "Во всех научных вопросах включая психологию.",
+          "errors": {
+            "cer": 0.4266666666666667,
+            "character_errors": 32,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.4,
+            "word_errors": 4
+          },
+          "audio_seconds": 8.64,
+          "warm_seconds": 0.5596612,
+          "rtf": 0.06477560185185184,
+          "no_speech": false
+        },
+        {
+          "id": "ru-04",
+          "language": "ru",
+          "condition": "quiet-minus-18db",
+          "reference": "в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией",
+          "hypothesis": "В различных местах Рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "cer": 0.03278688524590164,
+            "character_errors": 4,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.11764705882352941,
+            "word_errors": 2
+          },
+          "audio_seconds": 7.92,
+          "warm_seconds": 0.6859474,
+          "rtf": 0.0866095202020202,
+          "no_speech": false
+        },
+        {
+          "id": "ru-05",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана катрина который некоторые фискальные консерваторы в шутку назвали новоорлеанской сделкой буша",
+          "hypothesis": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления зданий после урагана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "errors": {
+            "cer": 0.04524886877828054,
+            "character_errors": 10,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.2692307692307692,
+            "word_errors": 7
+          },
+          "audio_seconds": 19.44,
+          "warm_seconds": 0.8887717,
+          "rtf": 0.04571870884773663,
+          "no_speech": false
+        },
+        {
+          "id": "ru-06",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в 1990 году он был добавлен в список всемирного наследия находящегося под угрозой из-за опасности со стороны песков пустыни",
+          "hypothesis": "В 1990 году он был добавлен в список семерного наследия, находящаяся по-дого раза из опасности со стороны писков пустыни.",
+          "errors": {
+            "cer": 0.13821138211382114,
+            "character_errors": 17,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.35,
+            "word_errors": 7
+          },
+          "audio_seconds": 10.44,
+          "warm_seconds": 0.6157575,
+          "rtf": 0.05898060344827586,
+          "no_speech": false
+        },
+        {
+          "id": "ru-07",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "согласно ядерному управлению японии на заводе были обнаружены радиоактивный цезий и йод",
+          "hypothesis": "Согласно ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "errors": {
+            "cer": 0.10344827586206896,
+            "character_errors": 9,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.4166666666666667,
+            "word_errors": 5
+          },
+          "audio_seconds": 7.2,
+          "warm_seconds": 0.6165196,
+          "rtf": 0.08562772222222222,
+          "no_speech": false
+        },
+        {
+          "id": "ru-08",
+          "language": "ru",
+          "condition": "white-noise-20db-snr",
+          "reference": "надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ а также излагать свои собственные взгляды на конкретные вопросы оравек 2002",
+          "hypothesis": "Но длижащее использование блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "errors": {
+            "cer": 0.06993006993006994,
+            "character_errors": 20,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.21052631578947367,
+            "word_errors": 8
+          },
+          "audio_seconds": 27,
+          "warm_seconds": 1.3406713,
+          "rtf": 0.04965449259259259,
+          "no_speech": false
+        },
+        {
+          "id": "ru-09",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "только мутации в клетках зародышевой линии могут передаваться далее детям в то время как мутации где-то ещё могут привести к гибели клеток или раку",
+          "hypothesis": "Только мутации в клетках зародашего линии могут передаваться далее детям, в то время как мутация где-то еще могут привести гиблик леток или раку.",
+          "errors": {
+            "cer": 0.06802721088435375,
+            "character_errors": 10,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.24,
+            "word_errors": 6
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.7030543,
+          "rtf": 0.06102901909722223,
+          "no_speech": false
+        },
+        {
+          "id": "ru-10",
+          "language": "ru",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг",
+          "hypothesis": "Не оскверняйте на мясом нася или выцараповой графить на объекты вокруг. Не оскверняйте на мясом нася или выцараповой графить на объекты вокруг.",
+          "errors": {
+            "cer": 0.174496644295302,
+            "character_errors": 26,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.45454545454545453,
+            "word_errors": 10
+          },
+          "audio_seconds": 12.88,
+          "warm_seconds": 0.8405075,
+          "rtf": 0.06525679347826087,
+          "no_speech": false
+        }
+      ],
+      "strata": {
+        "ru": {
+          "utterances": 10,
+          "word_errors": 64,
+          "reference_words": 205,
+          "character_errors": 211,
+          "reference_characters": 1463,
+          "warm_seconds": 7.7216014,
+          "audio_seconds": 133.48,
+          "wer": 0.3121951219512195,
+          "cer": 0.1442241968557758,
+          "rtf": 0.05784837728498652
+        },
+        "en": {
+          "utterances": 10,
+          "word_errors": 20,
+          "reference_words": 245,
+          "character_errors": 51,
+          "reference_characters": 1383,
+          "warm_seconds": 6.086904,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.08163265306122448,
+          "cer": 0.0368763557483731,
+          "rtf": 0.05974581861012957
+        },
+        "quiet": {
+          "utterances": 2,
+          "word_errors": 4,
+          "reference_words": 32,
+          "character_errors": 11,
+          "reference_characters": 211,
+          "warm_seconds": 1.2037615000000002,
+          "audio_seconds": 13.68,
+          "wer": 0.125,
+          "cer": 0.052132701421800945,
+          "rtf": 0.08799426169590645
+        },
+        "noise": {
+          "utterances": 2,
+          "word_errors": 10,
+          "reference_words": 54,
+          "character_errors": 29,
+          "reference_characters": 389,
+          "warm_seconds": 1.8531161999999999,
+          "audio_seconds": 33.96,
+          "wer": 0.18518518518518517,
+          "cer": 0.07455012853470437,
+          "rtf": 0.0545676148409894
+        },
+        "short_under_10_seconds": {
+          "utterances": 7,
+          "word_errors": 21,
+          "reference_words": 107,
+          "character_errors": 75,
+          "reference_characters": 670,
+          "warm_seconds": 4.0102685,
+          "audio_seconds": 49.56,
+          "wer": 0.19626168224299065,
+          "cer": 0.11194029850746269,
+          "rtf": 0.08091744350282484
+        },
+        "long_at_least_10_seconds": {
+          "utterances": 13,
+          "word_errors": 63,
+          "reference_words": 343,
+          "character_errors": 187,
+          "reference_characters": 2176,
+          "warm_seconds": 9.7982369,
+          "audio_seconds": 185.8,
+          "wer": 0.1836734693877551,
+          "cer": 0.0859375,
+          "rtf": 0.052735397739504836
+        }
+      },
+      "latency": {
+        "method": "fresh_model_context_then_first_clip_repeated;nearest_rank_quantiles_across_distinct_clips_v1",
+        "model_load_seconds": 0.1203412,
+        "first_inference": {
+          "id": "en-01",
+          "seconds": 0.6394976
+        },
+        "first_ready_seconds": 0.7598388,
+        "warm_utterances": 20,
+        "speech_gate_rejections": 0,
+        "warm_seconds": {
+          "p50": 0.6165196,
+          "p95": 1.0049814,
+          "p99": 1.3406713
+        },
+        "warm_rtf": {
+          "p50": 0.05898060344827586,
+          "p95": 0.08989828125000002,
+          "p99": 0.14249337962962963
+        },
+        "per_clip": [
+          {
+            "id": "en-01",
+            "warm_seconds": 0.6315928,
+            "no_speech": false
+          },
+          {
+            "id": "en-02",
+            "warm_seconds": 0.5023099,
+            "no_speech": false
+          },
+          {
+            "id": "en-03",
+            "warm_seconds": 0.6957932,
+            "no_speech": false
+          },
+          {
+            "id": "en-04",
+            "warm_seconds": 0.5178141,
+            "no_speech": false
+          },
+          {
+            "id": "en-05",
+            "warm_seconds": 0.6155714,
+            "no_speech": false
+          },
+          {
+            "id": "en-06",
+            "warm_seconds": 0.5216608,
+            "no_speech": false
+          },
+          {
+            "id": "en-07",
+            "warm_seconds": 0.5112275,
+            "no_speech": false
+          },
+          {
+            "id": "en-08",
+            "warm_seconds": 0.5124449,
+            "no_speech": false
+          },
+          {
+            "id": "en-09",
+            "warm_seconds": 0.573508,
+            "no_speech": false
+          },
+          {
+            "id": "en-10",
+            "warm_seconds": 1.0049814,
+            "no_speech": false
+          },
+          {
+            "id": "ru-01",
+            "warm_seconds": 0.7916907,
+            "no_speech": false
+          },
+          {
+            "id": "ru-02",
+            "warm_seconds": 0.6790202,
+            "no_speech": false
+          },
+          {
+            "id": "ru-03",
+            "warm_seconds": 0.5596612,
+            "no_speech": false
+          },
+          {
+            "id": "ru-04",
+            "warm_seconds": 0.6859474,
+            "no_speech": false
+          },
+          {
+            "id": "ru-05",
+            "warm_seconds": 0.8887717,
+            "no_speech": false
+          },
+          {
+            "id": "ru-06",
+            "warm_seconds": 0.6157575,
+            "no_speech": false
+          },
+          {
+            "id": "ru-07",
+            "warm_seconds": 0.6165196,
+            "no_speech": false
+          },
+          {
+            "id": "ru-08",
+            "warm_seconds": 1.3406713,
+            "no_speech": false
+          },
+          {
+            "id": "ru-09",
+            "warm_seconds": 0.7030543,
+            "no_speech": false
+          },
+          {
+            "id": "ru-10",
+            "warm_seconds": 0.8405075,
+            "no_speech": false
+          }
+        ]
+      },
+      "input_hashes": [
+        {
+          "id": "en-01",
+          "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+        },
+        {
+          "id": "en-02",
+          "sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+        },
+        {
+          "id": "en-03",
+          "sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+        },
+        {
+          "id": "en-04",
+          "sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+        },
+        {
+          "id": "en-05",
+          "sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+        },
+        {
+          "id": "en-06",
+          "sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+        },
+        {
+          "id": "en-07",
+          "sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+        },
+        {
+          "id": "en-08",
+          "sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+        },
+        {
+          "id": "en-09",
+          "sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+        },
+        {
+          "id": "en-10",
+          "sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+        },
+        {
+          "id": "ru-01",
+          "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+        },
+        {
+          "id": "ru-02",
+          "sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+        },
+        {
+          "id": "ru-03",
+          "sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+        },
+        {
+          "id": "ru-04",
+          "sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+        },
+        {
+          "id": "ru-05",
+          "sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+        },
+        {
+          "id": "ru-06",
+          "sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+        },
+        {
+          "id": "ru-07",
+          "sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+        },
+        {
+          "id": "ru-08",
+          "sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+        },
+        {
+          "id": "ru-09",
+          "sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+        },
+        {
+          "id": "ru-10",
+          "sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+        }
+      ]
+    },
+    "neural_fast": {
+      "backend": "cpu",
+      "threads": 8,
+      "decoding": {
+        "strategy": "fast",
+        "threads": null
+      },
+      "summary": {
+        "word_errors": 85,
+        "reference_words": 450,
+        "character_errors": 207,
+        "reference_characters": 2846,
+        "warm_seconds": 11.443910399999998,
+        "audio_seconds": 235.35999999999996,
+        "wer": 0.18888888888888888,
+        "cer": 0.07273366127898806,
+        "rtf": 0.04862300475866758
+      },
+      "per_clip": [
+        {
+          "id": "en-01",
+          "language": "en",
+          "condition": "clean",
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year",
+          "hypothesis": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "audio_seconds": 10.56,
+          "warm_seconds": 0.4464947,
+          "rtf": 0.042281695075757575,
+          "no_speech": false
+        },
+        {
+          "id": "en-02",
+          "language": "en",
+          "condition": "clean",
+          "reference": "all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence",
+          "hypothesis": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence.",
+          "errors": {
+            "cer": 0.10185185185185185,
+            "character_errors": 11,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 8.76,
+          "warm_seconds": 0.4471007,
+          "rtf": 0.05103889269406393,
+          "no_speech": false
+        },
+        {
+          "id": "en-03",
+          "language": "en",
+          "condition": "clean",
+          "reference": "to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron",
+          "hypothesis": "To the north and with an easy reach is a romantic and fascinating town of Sinatra, which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron.",
+          "errors": {
+            "cer": 0.06451612903225806,
+            "character_errors": 12,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.18181818181818182,
+            "word_errors": 6
+          },
+          "audio_seconds": 11.46,
+          "warm_seconds": 0.4895572,
+          "rtf": 0.04271877835951134,
+          "no_speech": false
+        },
+        {
+          "id": "en-04",
+          "language": "en",
+          "condition": "quiet-minus-18db",
+          "reference": "the cabbage juice changes color depending on how acidic or basic alkaline the chemical is",
+          "hypothesis": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "audio_seconds": 5.76,
+          "warm_seconds": 0.4538339,
+          "rtf": 0.0787906076388889,
+          "no_speech": false
+        },
+        {
+          "id": "en-05",
+          "language": "en",
+          "condition": "clean",
+          "reference": "many people don't think about them as dinosaurs because they have feathers and can fly",
+          "hypothesis": "Many people don't think about them as senators because they have feathers and can fly.",
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "audio_seconds": 4.32,
+          "warm_seconds": 0.6071187,
+          "rtf": 0.14053673611111112,
+          "no_speech": false
+        },
+        {
+          "id": "en-06",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others",
+          "hypothesis": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 11.42,
+          "warm_seconds": 0.489588,
+          "rtf": 0.04287110332749562,
+          "no_speech": false
+        },
+        {
+          "id": "en-07",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the northern marianas emergency management office said that there were no damages reported in the nation",
+          "hypothesis": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 10.8,
+          "warm_seconds": 0.6389874,
+          "rtf": 0.059165499999999996,
+          "no_speech": false
+        },
+        {
+          "id": "en-08",
+          "language": "en",
+          "condition": "white-noise-20db-snr",
+          "reference": "twentieth century research has shown that there are two pools of genetic variation hidden and expressed",
+          "hypothesis": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 6.96,
+          "warm_seconds": 0.5483578,
+          "rtf": 0.07878704022988506,
+          "no_speech": false
+        },
+        {
+          "id": "en-09",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the aspect ratio of this format dividing by twelve to obtain the simplest whole-number ratio is therefore said to be 3:2",
+          "hypothesis": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "audio_seconds": 11.04,
+          "warm_seconds": 0.5488784,
+          "rtf": 0.049717246376811595,
+          "no_speech": false
+        },
+        {
+          "id": "en-10",
+          "language": "en",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times",
+          "hypothesis": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 20.8,
+          "warm_seconds": 0.6450836,
+          "rtf": 0.031013634615384613,
+          "no_speech": false
+        },
+        {
+          "id": "ru-01",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией",
+          "hypothesis": "В древнем китай использовали уникальный способ обозначения передов времени. Каждый этап китай или каждое семья находившаяся у власти. Были особо династии.",
+          "errors": {
+            "cer": 0.05844155844155844,
+            "character_errors": 9,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.2857142857142857,
+            "word_errors": 6
+          },
+          "audio_seconds": 16.92,
+          "warm_seconds": 0.5323353,
+          "rtf": 0.03146189716312056,
+          "no_speech": false
+        },
+        {
+          "id": "ru-02",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы",
+          "hypothesis": "Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы.",
+          "errors": {
+            "cer": 0.030303030303030304,
+            "character_errors": 3,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.14285714285714285,
+            "word_errors": 2
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.5488737,
+          "rtf": 0.04764528645833334,
+          "no_speech": false
+        },
+        {
+          "id": "ru-03",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "во всех научных вопросах включая психологию были приняты взгляды аристотеля",
+          "hypothesis": "Во всех научных вопросах включая психологию, были приняты взгляды рестотеля.",
+          "errors": {
+            "cer": 0.02666666666666667,
+            "character_errors": 2,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.1,
+            "word_errors": 1
+          },
+          "audio_seconds": 8.64,
+          "warm_seconds": 0.500249,
+          "rtf": 0.057899189814814817,
+          "no_speech": false
+        },
+        {
+          "id": "ru-04",
+          "language": "ru",
+          "condition": "quiet-minus-18db",
+          "reference": "в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией",
+          "hypothesis": "В различных местах Рима были установлены большей, телевизионные экраны, с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "cer": 0.04918032786885246,
+            "character_errors": 6,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.17647058823529413,
+            "word_errors": 3
+          },
+          "audio_seconds": 7.92,
+          "warm_seconds": 0.603737,
+          "rtf": 0.0762294191919192,
+          "no_speech": false
+        },
+        {
+          "id": "ru-05",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана катрина который некоторые фискальные консерваторы в шутку назвали новоорлеанской сделкой буша",
+          "hypothesis": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления стани после урогана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "errors": {
+            "cer": 0.06334841628959276,
+            "character_errors": 14,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.34615384615384615,
+            "word_errors": 9
+          },
+          "audio_seconds": 19.44,
+          "warm_seconds": 0.8676416,
+          "rtf": 0.044631769547325104,
+          "no_speech": false
+        },
+        {
+          "id": "ru-06",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в 1990 году он был добавлен в список всемирного наследия находящегося под угрозой из-за опасности со стороны песков пустыни",
+          "hypothesis": "В 1990 году он был добавлен в список в Семерного наследия, находящаяся под огроза из опасности со стороны писков пустыни.",
+          "errors": {
+            "cer": 0.0975609756097561,
+            "character_errors": 12,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.3,
+            "word_errors": 6
+          },
+          "audio_seconds": 10.44,
+          "warm_seconds": 0.6489133,
+          "rtf": 0.062156446360153265,
+          "no_speech": false
+        },
+        {
+          "id": "ru-07",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "согласно ядерному управлению японии на заводе были обнаружены радиоактивный цезий и йод",
+          "hypothesis": "Соклассной ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "errors": {
+            "cer": 0.13793103448275862,
+            "character_errors": 12,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.5,
+            "word_errors": 6
+          },
+          "audio_seconds": 7.2,
+          "warm_seconds": 0.5689336,
+          "rtf": 0.07901855555555556,
+          "no_speech": false
+        },
+        {
+          "id": "ru-08",
+          "language": "ru",
+          "condition": "white-noise-20db-snr",
+          "reference": "надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ а также излагать свои собственные взгляды на конкретные вопросы оравек 2002",
+          "hypothesis": "Но для женщин использования блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "errors": {
+            "cer": 0.09090909090909091,
+            "character_errors": 26,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.2631578947368421,
+            "word_errors": 10
+          },
+          "audio_seconds": 27,
+          "warm_seconds": 0.7970637,
+          "rtf": 0.02952087777777778,
+          "no_speech": false
+        },
+        {
+          "id": "ru-09",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "только мутации в клетках зародышевой линии могут передаваться далее детям в то время как мутации где-то ещё могут привести к гибели клеток или раку",
+          "hypothesis": "Только мутации в клетках зародашего линии могут передаваться далее, где это может привести гиблик леток или раку.",
+          "errors": {
+            "cer": 0.29931972789115646,
+            "character_errors": 44,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.52,
+            "word_errors": 13
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.474871,
+          "rtf": 0.041221440972222224,
+          "no_speech": false
+        },
+        {
+          "id": "ru-10",
+          "language": "ru",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг",
+          "hypothesis": "Не оскверняйте это место нася или выцироповое графить на объекты вокруг. Не оскверняйте это место нася или выцироповое графить на объекты вокруг.",
+          "errors": {
+            "cer": 0.12080536912751678,
+            "character_errors": 18,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.2727272727272727,
+            "word_errors": 6
+          },
+          "audio_seconds": 12.88,
+          "warm_seconds": 0.5862918,
+          "rtf": 0.045519549689441,
+          "no_speech": false
+        }
+      ],
+      "strata": {
+        "ru": {
+          "utterances": 10,
+          "word_errors": 62,
+          "reference_words": 205,
+          "character_errors": 146,
+          "reference_characters": 1463,
+          "warm_seconds": 6.12891,
+          "audio_seconds": 133.48,
+          "wer": 0.3024390243902439,
+          "cer": 0.09979494190020506,
+          "rtf": 0.04591631705124364
+        },
+        "en": {
+          "utterances": 10,
+          "word_errors": 23,
+          "reference_words": 245,
+          "character_errors": 61,
+          "reference_characters": 1383,
+          "warm_seconds": 5.315000399999999,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.09387755102040816,
+          "cer": 0.044107013738250184,
+          "rtf": 0.052169222614840985
+        },
+        "quiet": {
+          "utterances": 2,
+          "word_errors": 5,
+          "reference_words": 32,
+          "character_errors": 13,
+          "reference_characters": 211,
+          "warm_seconds": 1.0575709,
+          "audio_seconds": 13.68,
+          "wer": 0.15625,
+          "cer": 0.061611374407582936,
+          "rtf": 0.07730781432748537
+        },
+        "noise": {
+          "utterances": 2,
+          "word_errors": 12,
+          "reference_words": 54,
+          "character_errors": 35,
+          "reference_characters": 389,
+          "warm_seconds": 1.3454215,
+          "audio_seconds": 33.96,
+          "wer": 0.2222222222222222,
+          "cer": 0.08997429305912596,
+          "rtf": 0.03961782979976443
+        },
+        "short_under_10_seconds": {
+          "utterances": 7,
+          "word_errors": 21,
+          "reference_words": 107,
+          "character_errors": 53,
+          "reference_characters": 670,
+          "warm_seconds": 3.7293307,
+          "audio_seconds": 49.56,
+          "wer": 0.19626168224299065,
+          "cer": 0.0791044776119403,
+          "rtf": 0.07524880347054076
+        },
+        "long_at_least_10_seconds": {
+          "utterances": 13,
+          "word_errors": 64,
+          "reference_words": 343,
+          "character_errors": 154,
+          "reference_characters": 2176,
+          "warm_seconds": 7.7145797,
+          "audio_seconds": 185.8,
+          "wer": 0.18658892128279883,
+          "cer": 0.07077205882352941,
+          "rtf": 0.041520881054897735
+        }
+      },
+      "latency": {
+        "method": "fresh_model_context_then_first_clip_repeated;nearest_rank_quantiles_across_distinct_clips_v1",
+        "model_load_seconds": 0.1153171,
+        "first_inference": {
+          "id": "en-01",
+          "seconds": 0.4446099
+        },
+        "first_ready_seconds": 0.5599270000000001,
+        "warm_utterances": 20,
+        "speech_gate_rejections": 0,
+        "warm_seconds": {
+          "p50": 0.5488737,
+          "p95": 0.7970637,
+          "p99": 0.8676416
+        },
+        "warm_rtf": {
+          "p50": 0.04764528645833334,
+          "p95": 0.07901855555555556,
+          "p99": 0.14053673611111112
+        },
+        "per_clip": [
+          {
+            "id": "en-01",
+            "warm_seconds": 0.4464947,
+            "no_speech": false
+          },
+          {
+            "id": "en-02",
+            "warm_seconds": 0.4471007,
+            "no_speech": false
+          },
+          {
+            "id": "en-03",
+            "warm_seconds": 0.4895572,
+            "no_speech": false
+          },
+          {
+            "id": "en-04",
+            "warm_seconds": 0.4538339,
+            "no_speech": false
+          },
+          {
+            "id": "en-05",
+            "warm_seconds": 0.6071187,
+            "no_speech": false
+          },
+          {
+            "id": "en-06",
+            "warm_seconds": 0.489588,
+            "no_speech": false
+          },
+          {
+            "id": "en-07",
+            "warm_seconds": 0.6389874,
+            "no_speech": false
+          },
+          {
+            "id": "en-08",
+            "warm_seconds": 0.5483578,
+            "no_speech": false
+          },
+          {
+            "id": "en-09",
+            "warm_seconds": 0.5488784,
+            "no_speech": false
+          },
+          {
+            "id": "en-10",
+            "warm_seconds": 0.6450836,
+            "no_speech": false
+          },
+          {
+            "id": "ru-01",
+            "warm_seconds": 0.5323353,
+            "no_speech": false
+          },
+          {
+            "id": "ru-02",
+            "warm_seconds": 0.5488737,
+            "no_speech": false
+          },
+          {
+            "id": "ru-03",
+            "warm_seconds": 0.500249,
+            "no_speech": false
+          },
+          {
+            "id": "ru-04",
+            "warm_seconds": 0.603737,
+            "no_speech": false
+          },
+          {
+            "id": "ru-05",
+            "warm_seconds": 0.8676416,
+            "no_speech": false
+          },
+          {
+            "id": "ru-06",
+            "warm_seconds": 0.6489133,
+            "no_speech": false
+          },
+          {
+            "id": "ru-07",
+            "warm_seconds": 0.5689336,
+            "no_speech": false
+          },
+          {
+            "id": "ru-08",
+            "warm_seconds": 0.7970637,
+            "no_speech": false
+          },
+          {
+            "id": "ru-09",
+            "warm_seconds": 0.474871,
+            "no_speech": false
+          },
+          {
+            "id": "ru-10",
+            "warm_seconds": 0.5862918,
+            "no_speech": false
+          }
+        ]
+      },
+      "input_hashes": [
+        {
+          "id": "en-01",
+          "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+        },
+        {
+          "id": "en-02",
+          "sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+        },
+        {
+          "id": "en-03",
+          "sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+        },
+        {
+          "id": "en-04",
+          "sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+        },
+        {
+          "id": "en-05",
+          "sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+        },
+        {
+          "id": "en-06",
+          "sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+        },
+        {
+          "id": "en-07",
+          "sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+        },
+        {
+          "id": "en-08",
+          "sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+        },
+        {
+          "id": "en-09",
+          "sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+        },
+        {
+          "id": "en-10",
+          "sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+        },
+        {
+          "id": "ru-01",
+          "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+        },
+        {
+          "id": "ru-02",
+          "sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+        },
+        {
+          "id": "ru-03",
+          "sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+        },
+        {
+          "id": "ru-04",
+          "sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+        },
+        {
+          "id": "ru-05",
+          "sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+        },
+        {
+          "id": "ru-06",
+          "sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+        },
+        {
+          "id": "ru-07",
+          "sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+        },
+        {
+          "id": "ru-08",
+          "sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+        },
+        {
+          "id": "ru-09",
+          "sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+        },
+        {
+          "id": "ru-10",
+          "sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+        }
+      ]
+    },
+    "neural_accurate": {
+      "backend": "cpu",
+      "threads": 8,
+      "decoding": {
+        "strategy": "accurate",
+        "threads": null
+      },
+      "summary": {
+        "word_errors": 84,
+        "reference_words": 450,
+        "character_errors": 262,
+        "reference_characters": 2846,
+        "warm_seconds": 14.1361454,
+        "audio_seconds": 235.35999999999996,
+        "wer": 0.18666666666666668,
+        "cer": 0.09205903021784961,
+        "rtf": 0.06006180064581918
+      },
+      "per_clip": [
+        {
+          "id": "en-01",
+          "language": "en",
+          "condition": "clean",
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year",
+          "hypothesis": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 19,
+            "wer": 0.05263157894736842,
+            "word_errors": 1
+          },
+          "audio_seconds": 10.56,
+          "warm_seconds": 0.624197,
+          "rtf": 0.05910956439393939,
+          "no_speech": false
+        },
+        {
+          "id": "en-02",
+          "language": "en",
+          "condition": "clean",
+          "reference": "all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence",
+          "hypothesis": "All now is alongside the world's safe for you, always begin with a capital letter, even in the middle of a sentence.",
+          "errors": {
+            "cer": 0.07407407407407407,
+            "character_errors": 8,
+            "reference_characters": 108,
+            "reference_words": 21,
+            "wer": 0.23809523809523808,
+            "word_errors": 5
+          },
+          "audio_seconds": 8.76,
+          "warm_seconds": 0.7375046,
+          "rtf": 0.08419002283105023,
+          "no_speech": false
+        },
+        {
+          "id": "en-03",
+          "language": "en",
+          "condition": "clean",
+          "reference": "to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron",
+          "hypothesis": "To the north and with an easy reach is the romantic and fascinating town of Sintra and which was made famous to foreigners after a glowing account of its splendor is recorded by Lord Byron.",
+          "errors": {
+            "cer": 0.026881720430107527,
+            "character_errors": 5,
+            "reference_characters": 186,
+            "reference_words": 33,
+            "wer": 0.12121212121212122,
+            "word_errors": 4
+          },
+          "audio_seconds": 11.46,
+          "warm_seconds": 0.775251,
+          "rtf": 0.06764842931937172,
+          "no_speech": false
+        },
+        {
+          "id": "en-04",
+          "language": "en",
+          "condition": "quiet-minus-18db",
+          "reference": "the cabbage juice changes color depending on how acidic or basic alkaline the chemical is",
+          "hypothesis": "The cabbage juice changes the color depending on how acidic, basic alkaline the chemical is.",
+          "errors": {
+            "cer": 0.07865168539325842,
+            "character_errors": 7,
+            "reference_characters": 89,
+            "reference_words": 15,
+            "wer": 0.13333333333333333,
+            "word_errors": 2
+          },
+          "audio_seconds": 5.76,
+          "warm_seconds": 0.4767377,
+          "rtf": 0.08276696180555555,
+          "no_speech": false
+        },
+        {
+          "id": "en-05",
+          "language": "en",
+          "condition": "clean",
+          "reference": "many people don't think about them as dinosaurs because they have feathers and can fly",
+          "hypothesis": "Many people don't think about them as senators because they have feathers and can fly.",
+          "errors": {
+            "cer": 0.06976744186046512,
+            "character_errors": 6,
+            "reference_characters": 86,
+            "reference_words": 16,
+            "wer": 0.0625,
+            "word_errors": 1
+          },
+          "audio_seconds": 4.32,
+          "warm_seconds": 0.5023107,
+          "rtf": 0.116275625,
+          "no_speech": false
+        },
+        {
+          "id": "en-06",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others",
+          "hypothesis": "The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "reference_words": 20,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 11.42,
+          "warm_seconds": 0.5386862,
+          "rtf": 0.047170420315236425,
+          "no_speech": false
+        },
+        {
+          "id": "en-07",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the northern marianas emergency management office said that there were no damages reported in the nation",
+          "hypothesis": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+          "errors": {
+            "cer": 0.019230769230769232,
+            "character_errors": 2,
+            "reference_characters": 104,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 10.8,
+          "warm_seconds": 0.5429049,
+          "rtf": 0.05026897222222222,
+          "no_speech": false
+        },
+        {
+          "id": "en-08",
+          "language": "en",
+          "condition": "white-noise-20db-snr",
+          "reference": "twentieth century research has shown that there are two pools of genetic variation hidden and expressed",
+          "hypothesis": "20th century research has shown that there are two poles of genetic variation hidden and expressed.",
+          "errors": {
+            "cer": 0.08737864077669903,
+            "character_errors": 9,
+            "reference_characters": 103,
+            "reference_words": 16,
+            "wer": 0.125,
+            "word_errors": 2
+          },
+          "audio_seconds": 6.96,
+          "warm_seconds": 0.7017439,
+          "rtf": 0.10082527298850574,
+          "no_speech": false
+        },
+        {
+          "id": "en-09",
+          "language": "en",
+          "condition": "clean",
+          "reference": "the aspect ratio of this format dividing by twelve to obtain the simplest whole-number ratio is therefore said to be 3:2",
+          "hypothesis": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to 2.",
+          "errors": {
+            "cer": 0.10833333333333334,
+            "character_errors": 13,
+            "reference_characters": 120,
+            "reference_words": 23,
+            "wer": 0.13043478260869565,
+            "word_errors": 3
+          },
+          "audio_seconds": 11.04,
+          "warm_seconds": 0.7035137,
+          "rtf": 0.06372406702898552,
+          "no_speech": false
+        },
+        {
+          "id": "en-10",
+          "language": "en",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times as light pollution in their heyday was not the kind of problem it is today they are usually located in cities or at campuses easier to reach than those built in modern times",
+          "hypothesis": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses, easier to reach than those built in modern times.",
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "reference_words": 66,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "audio_seconds": 20.8,
+          "warm_seconds": 1.0772023,
+          "rtf": 0.05178857211538461,
+          "no_speech": false
+        },
+        {
+          "id": "ru-01",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией",
+          "hypothesis": "В древнем китай использовали уникальный способ обозначения передов времени.",
+          "errors": {
+            "cer": 0.5324675324675324,
+            "character_errors": 82,
+            "reference_characters": 154,
+            "reference_words": 21,
+            "wer": 0.6666666666666666,
+            "word_errors": 14
+          },
+          "audio_seconds": 16.92,
+          "warm_seconds": 0.6690857,
+          "rtf": 0.03954407210401891,
+          "no_speech": false
+        },
+        {
+          "id": "ru-02",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы",
+          "hypothesis": "Мадагаскар намного больше других и является самобытным континентом в то, что касается дикой природы.",
+          "errors": {
+            "cer": 0.010101010101010102,
+            "character_errors": 1,
+            "reference_characters": 99,
+            "reference_words": 14,
+            "wer": 0.07142857142857142,
+            "word_errors": 1
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.5699009,
+          "rtf": 0.04947056423611112,
+          "no_speech": false
+        },
+        {
+          "id": "ru-03",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "во всех научных вопросах включая психологию были приняты взгляды аристотеля",
+          "hypothesis": "Во всех научных вопросах включая психологию.",
+          "errors": {
+            "cer": 0.4266666666666667,
+            "character_errors": 32,
+            "reference_characters": 75,
+            "reference_words": 10,
+            "wer": 0.4,
+            "word_errors": 4
+          },
+          "audio_seconds": 8.64,
+          "warm_seconds": 0.5007993,
+          "rtf": 0.05796288194444443,
+          "no_speech": false
+        },
+        {
+          "id": "ru-04",
+          "language": "ru",
+          "condition": "quiet-minus-18db",
+          "reference": "в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией",
+          "hypothesis": "В различных местах Рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "cer": 0.03278688524590164,
+            "character_errors": 4,
+            "reference_characters": 122,
+            "reference_words": 17,
+            "wer": 0.11764705882352941,
+            "word_errors": 2
+          },
+          "audio_seconds": 7.92,
+          "warm_seconds": 0.5723687,
+          "rtf": 0.07226877525252524,
+          "no_speech": false
+        },
+        {
+          "id": "ru-05",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана катрина который некоторые фискальные консерваторы в шутку назвали новоорлеанской сделкой буша",
+          "hypothesis": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления зданий после урагана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+          "errors": {
+            "cer": 0.04524886877828054,
+            "character_errors": 10,
+            "reference_characters": 221,
+            "reference_words": 26,
+            "wer": 0.2692307692307692,
+            "word_errors": 7
+          },
+          "audio_seconds": 19.44,
+          "warm_seconds": 1.0649213,
+          "rtf": 0.05477990226337448,
+          "no_speech": false
+        },
+        {
+          "id": "ru-06",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "в 1990 году он был добавлен в список всемирного наследия находящегося под угрозой из-за опасности со стороны песков пустыни",
+          "hypothesis": "В 1990 году он был добавлен в список семерного наследия, находящаяся по-дого раза из опасности со стороны писков пустыни.",
+          "errors": {
+            "cer": 0.13821138211382114,
+            "character_errors": 17,
+            "reference_characters": 123,
+            "reference_words": 20,
+            "wer": 0.35,
+            "word_errors": 7
+          },
+          "audio_seconds": 10.44,
+          "warm_seconds": 0.7975843,
+          "rtf": 0.07639696360153257,
+          "no_speech": false
+        },
+        {
+          "id": "ru-07",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "согласно ядерному управлению японии на заводе были обнаружены радиоактивный цезий и йод",
+          "hypothesis": "Согласно ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+          "errors": {
+            "cer": 0.10344827586206896,
+            "character_errors": 9,
+            "reference_characters": 87,
+            "reference_words": 12,
+            "wer": 0.4166666666666667,
+            "word_errors": 5
+          },
+          "audio_seconds": 7.2,
+          "warm_seconds": 0.5670703,
+          "rtf": 0.07875976388888889,
+          "no_speech": false
+        },
+        {
+          "id": "ru-08",
+          "language": "ru",
+          "condition": "white-noise-20db-snr",
+          "reference": "надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ а также излагать свои собственные взгляды на конкретные вопросы оравек 2002",
+          "hypothesis": "Но длижащее использование блогов может дать учащимся возможность стать более аналетичными и критичными. Путем активного отклика на интернет-материалы учащейся могут определять свою полицию в контексте, чужих работ, а также излагать свои собственные взгляды на конкретные вопросы.",
+          "errors": {
+            "cer": 0.06993006993006994,
+            "character_errors": 20,
+            "reference_characters": 286,
+            "reference_words": 38,
+            "wer": 0.21052631578947367,
+            "word_errors": 8
+          },
+          "audio_seconds": 27,
+          "warm_seconds": 1.0480576,
+          "rtf": 0.038816948148148143,
+          "no_speech": false
+        },
+        {
+          "id": "ru-09",
+          "language": "ru",
+          "condition": "clean",
+          "reference": "только мутации в клетках зародышевой линии могут передаваться далее детям в то время как мутации где-то ещё могут привести к гибели клеток или раку",
+          "hypothesis": "Только мутации в клетках зародашего линии могут передаваться далее детям, в то время как мутация где-то еще могут привести гиблик леток или раку.",
+          "errors": {
+            "cer": 0.06802721088435375,
+            "character_errors": 10,
+            "reference_characters": 147,
+            "reference_words": 25,
+            "wer": 0.24,
+            "word_errors": 6
+          },
+          "audio_seconds": 11.52,
+          "warm_seconds": 0.6629848,
+          "rtf": 0.0575507638888889,
+          "no_speech": false
+        },
+        {
+          "id": "ru-10",
+          "language": "ru",
+          "condition": "long-repeat-with-1s-pause",
+          "reference": "не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг не оскверняйте это место нанося или выцарапывая граффити на объекты вокруг",
+          "hypothesis": "Не оскверняйте на мясом нася или выцараповой графить на объекты вокруг. Не оскверняйте на мясом нася или выцараповой графить на объекты вокруг.",
+          "errors": {
+            "cer": 0.174496644295302,
+            "character_errors": 26,
+            "reference_characters": 149,
+            "reference_words": 22,
+            "wer": 0.45454545454545453,
+            "word_errors": 10
+          },
+          "audio_seconds": 12.88,
+          "warm_seconds": 1.0033205,
+          "rtf": 0.07789755434782608,
+          "no_speech": false
+        }
+      ],
+      "strata": {
+        "ru": {
+          "utterances": 10,
+          "word_errors": 64,
+          "reference_words": 205,
+          "character_errors": 211,
+          "reference_characters": 1463,
+          "warm_seconds": 7.4560934,
+          "audio_seconds": 133.48,
+          "wer": 0.3121951219512195,
+          "cer": 0.1442241968557758,
+          "rtf": 0.05585925531914894
+        },
+        "en": {
+          "utterances": 10,
+          "word_errors": 20,
+          "reference_words": 245,
+          "character_errors": 51,
+          "reference_characters": 1383,
+          "warm_seconds": 6.680052,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.08163265306122448,
+          "cer": 0.0368763557483731,
+          "rtf": 0.06556784452296821
+        },
+        "quiet": {
+          "utterances": 2,
+          "word_errors": 4,
+          "reference_words": 32,
+          "character_errors": 11,
+          "reference_characters": 211,
+          "warm_seconds": 1.0491063999999999,
+          "audio_seconds": 13.68,
+          "wer": 0.125,
+          "cer": 0.052132701421800945,
+          "rtf": 0.07668906432748537
+        },
+        "noise": {
+          "utterances": 2,
+          "word_errors": 10,
+          "reference_words": 54,
+          "character_errors": 29,
+          "reference_characters": 389,
+          "warm_seconds": 1.7498014999999998,
+          "audio_seconds": 33.96,
+          "wer": 0.18518518518518517,
+          "cer": 0.07455012853470437,
+          "rtf": 0.05152536808009422
+        },
+        "short_under_10_seconds": {
+          "utterances": 7,
+          "word_errors": 21,
+          "reference_words": 107,
+          "character_errors": 75,
+          "reference_characters": 670,
+          "warm_seconds": 4.058535200000001,
+          "audio_seconds": 49.56,
+          "wer": 0.19626168224299065,
+          "cer": 0.11194029850746269,
+          "rtf": 0.08189134786117838
+        },
+        "long_at_least_10_seconds": {
+          "utterances": 13,
+          "word_errors": 63,
+          "reference_words": 343,
+          "character_errors": 187,
+          "reference_characters": 2176,
+          "warm_seconds": 10.077610199999999,
+          "audio_seconds": 185.8,
+          "wer": 0.1836734693877551,
+          "cer": 0.0859375,
+          "rtf": 0.054239021528525284
+        }
+      },
+      "latency": {
+        "method": "fresh_model_context_then_first_clip_repeated;nearest_rank_quantiles_across_distinct_clips_v1",
+        "model_load_seconds": 0.111177,
+        "first_inference": {
+          "id": "en-01",
+          "seconds": 0.7137292
+        },
+        "first_ready_seconds": 0.8249061999999999,
+        "warm_utterances": 20,
+        "speech_gate_rejections": 0,
+        "warm_seconds": {
+          "p50": 0.6629848,
+          "p95": 1.0649213,
+          "p99": 1.0772023
+        },
+        "warm_rtf": {
+          "p50": 0.05910956439393939,
+          "p95": 0.10082527298850574,
+          "p99": 0.116275625
+        },
+        "per_clip": [
+          {
+            "id": "en-01",
+            "warm_seconds": 0.624197,
+            "no_speech": false
+          },
+          {
+            "id": "en-02",
+            "warm_seconds": 0.7375046,
+            "no_speech": false
+          },
+          {
+            "id": "en-03",
+            "warm_seconds": 0.775251,
+            "no_speech": false
+          },
+          {
+            "id": "en-04",
+            "warm_seconds": 0.4767377,
+            "no_speech": false
+          },
+          {
+            "id": "en-05",
+            "warm_seconds": 0.5023107,
+            "no_speech": false
+          },
+          {
+            "id": "en-06",
+            "warm_seconds": 0.5386862,
+            "no_speech": false
+          },
+          {
+            "id": "en-07",
+            "warm_seconds": 0.5429049,
+            "no_speech": false
+          },
+          {
+            "id": "en-08",
+            "warm_seconds": 0.7017439,
+            "no_speech": false
+          },
+          {
+            "id": "en-09",
+            "warm_seconds": 0.7035137,
+            "no_speech": false
+          },
+          {
+            "id": "en-10",
+            "warm_seconds": 1.0772023,
+            "no_speech": false
+          },
+          {
+            "id": "ru-01",
+            "warm_seconds": 0.6690857,
+            "no_speech": false
+          },
+          {
+            "id": "ru-02",
+            "warm_seconds": 0.5699009,
+            "no_speech": false
+          },
+          {
+            "id": "ru-03",
+            "warm_seconds": 0.5007993,
+            "no_speech": false
+          },
+          {
+            "id": "ru-04",
+            "warm_seconds": 0.5723687,
+            "no_speech": false
+          },
+          {
+            "id": "ru-05",
+            "warm_seconds": 1.0649213,
+            "no_speech": false
+          },
+          {
+            "id": "ru-06",
+            "warm_seconds": 0.7975843,
+            "no_speech": false
+          },
+          {
+            "id": "ru-07",
+            "warm_seconds": 0.5670703,
+            "no_speech": false
+          },
+          {
+            "id": "ru-08",
+            "warm_seconds": 1.0480576,
+            "no_speech": false
+          },
+          {
+            "id": "ru-09",
+            "warm_seconds": 0.6629848,
+            "no_speech": false
+          },
+          {
+            "id": "ru-10",
+            "warm_seconds": 1.0033205,
+            "no_speech": false
+          }
+        ]
+      },
+      "input_hashes": [
+        {
+          "id": "en-01",
+          "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+        },
+        {
+          "id": "en-02",
+          "sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+        },
+        {
+          "id": "en-03",
+          "sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+        },
+        {
+          "id": "en-04",
+          "sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+        },
+        {
+          "id": "en-05",
+          "sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+        },
+        {
+          "id": "en-06",
+          "sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+        },
+        {
+          "id": "en-07",
+          "sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+        },
+        {
+          "id": "en-08",
+          "sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+        },
+        {
+          "id": "en-09",
+          "sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+        },
+        {
+          "id": "en-10",
+          "sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+        },
+        {
+          "id": "ru-01",
+          "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+        },
+        {
+          "id": "ru-02",
+          "sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+        },
+        {
+          "id": "ru-03",
+          "sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+        },
+        {
+          "id": "ru-04",
+          "sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+        },
+        {
+          "id": "ru-05",
+          "sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+        },
+        {
+          "id": "ru-06",
+          "sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+        },
+        {
+          "id": "ru-07",
+          "sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+        },
+        {
+          "id": "ru-08",
+          "sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+        },
+        {
+          "id": "ru-09",
+          "sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+        },
+        {
+          "id": "ru-10",
+          "sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+        }
+      ]
+    }
+  },
+  "quality_gates": {
+    "ci03_same_run_wer_plus_one_percentage_point": {
+      "maximum_wer_regression": 0.01,
+      "wer_delta": 0.006666666666666682,
+      "cer_delta": 0.00281096275474349,
+      "no_wer_regression": false,
+      "passed": true
+    },
+    "ci03_historical_wer_plus_one_percentage_point": {
+      "maximum_wer_regression": 0.01,
+      "wer_delta": 0.006666666666666682,
+      "cer_delta": 0.00281096275474349,
+      "no_wer_regression": false,
+      "passed": true
+    },
+    "arc09_production_fast_no_wer_regression": {
+      "maximum_wer_regression": 0,
+      "wer_delta": 0,
+      "cer_delta": 0,
+      "no_wer_regression": true,
+      "passed": true
+    }
+  },
+  "open_acceptance": {
+    "perf04_no_wer_regression": {
+      "maximum_wer_regression": 0,
+      "wer_delta": 0.006666666666666682,
+      "cer_delta": 0.00281096275474349,
+      "no_wer_regression": false,
+      "passed": false,
+      "task": "FONO-79",
+      "ci03_exit_gate": false,
+      "state": "failed_open"
+    },
+    "accurate_vs_fast": {
+      "maximum_wer_regression": 0,
+      "wer_delta": -0.0022222222222222088,
+      "cer_delta": 0.019325368938861553,
+      "no_wer_regression": true,
+      "passed": true
+    }
+  },
+  "latency_acceptance": {
+    "state": "observational_no_independent_same_hardware_baseline",
+    "passed": null
+  },
+  "limitations": [
+    "Twenty public 16 kHz clips: a smoke regression corpus, not native 48 kHz or owner microphone acceptance.",
+    "Quiet/noise are deterministic transformations; long means >=10 seconds, including repeated real utterances, not independent 60-second speech.",
+    "Cold is a fresh model/context, not a flushed OS cache. Quantiles span distinct clips and are not repeated same-clip jitter estimates.",
+    "CPU-only inference excludes microphone, Tauri, Windows insertion and Stop-to-ready application latency.",
+    "Source hashes identify the observed checkout; binary hashes do not attest its compiler provenance."
+  ],
+  "passed": true,
+  "inputs": [
+    {
+      "path": "build/stt-quality/stage5-final-resampling.json",
+      "sha256": "cc9ee03abdf15560f0a06da13e7332616a4b00cbda22d1528eabbbc14284c621"
+    },
+    {
+      "path": "build/stt-quality/stage5-final-vad.json",
+      "sha256": "f7d53e98cc1578252aa4c98b95db2d96b24179dba2f706cbe2ae9b7c0ea9758c"
+    }
+  ],
+  "child_runs": [
+    {
+      "script": "stt-quality.mjs",
+      "exit_code": 0
+    },
+    {
+      "script": "stage4-quality.mjs",
+      "exit_code": 0
+    }
+  ],
+  "execution_evidence": {
+    "replay_exit_code": 0,
+    "public_clip_evaluations": 120,
+    "app_started": false,
+    "microphone_opened": false,
+    "gpu_used": false,
+    "remote_actions_run": false,
+    "host_load_controlled": false,
+    "host_load_note": "Foreign cargo/MSBuild processes were observed by the parent agent; latency remains observational. No independent same-hardware baseline was supplied.",
+    "command": "node scripts/stage5-quality.mjs --run --runner build/checks/stage5-tools/fono-stt-quality.exe --resampler build/checks/stage5-tools/resample-wav.exe --trimmer build/checks/stage5-tools/trim-vad-wav.exe --profile debug-cpu-no-default-features --resampling-report build/stt-quality/stage5-final-resampling.json --vad-report build/stt-quality/stage5-final-vad.json --report build/stt-quality/stage5-final-report.json",
+    "log_sha256": "ba6e8fc4894731c1cf2bfc581a88d1852b17034d253c02711161a1fd8e2e2fea",
+    "frozen_tool_inventory_sha256": "5715c42435ba92f442c0498c4541d5584c1ac4f91896364d0562adc5c22645b2",
+    "observed_contract_tests": {
+      "command": "node --test scripts/stt-quality.test.mjs scripts/stage5-quality.test.mjs",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0,
+      "source_sha256": "8fedab74fd46ed5fe660f934ffa58a8816d0085a99ab15fb08190a0f9c62bdfe"
+    },
+    "initial_attempt": {
+      "run_id": "stage5-ci03-v0.7.26-6444fe7a2c0542649f23efd949fcee3f",
+      "source_inputs_sha256": "d38adaedbec5b9d74136081ac7241d881597871ee39f5501ebc0f1db63335d46",
+      "app_version": "0.7.26",
+      "replay_exit_code": 0,
+      "report_sha256": "bfd078a5f86b292750b36da2d92acf464d35e44621413d589b5fa9916c1782ac",
+      "log_sha256": "3e42e7133d7d5a8273f47cc4a2297b70ed6353094e85426aaaca900b99503c15",
+      "reason_repeated": "Review found that text/error-count consistency was not independently verified and an explicit latency baseline could use the same run. Final source fixes both; the initial numeric measurements are preserved rather than relabeled as final validation."
+    }
+  }
+}

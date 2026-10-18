@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { qualityLineage } from "./stt-quality-lineage.mjs";
 import {
   aggregate,
   compare,
@@ -31,6 +32,7 @@ function execute(binary, args) {
 }
 
 export async function stage4Quality(options = {}) {
+  const lineage = qualityLineage();
   const suffix = process.platform === "win32" ? ".exe" : "";
   const target = path.join(root, "src-tauri/target-codex-review/debug");
   const runner = path.resolve(
@@ -101,6 +103,8 @@ export async function stage4Quality(options = {}) {
   const report = {
     schema: 1,
     generated_at: new Date().toISOString(),
+    lineage,
+    profile: options["--profile"] ?? path.basename(path.dirname(runner)),
     corpus: manifest.corpus,
     license: manifest.license,
     corpus_manifest_sha256: hash(Buffer.from(JSON.stringify(manifest))),

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { qualityLineage } from "./stt-quality-lineage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const corpusRoot = path.join(root, "src-tauri/tests/fixtures/stt-quality");
@@ -106,6 +107,7 @@ function execute(binary, arguments_) {
   return JSON.parse(result.stdout);
 }
 async function run() {
+  const lineage = qualityLineage();
   const options = {};
   for (let index = 2; index < process.argv.length; index++) {
     const key = process.argv[index];
@@ -221,10 +223,11 @@ async function run() {
   const report = {
     schema: 1,
     generated_at: new Date().toISOString(),
+    lineage,
     source_revision: revision,
     runner_binary_sha256: hash(fs.readFileSync(runner)),
     replay_binary_sha256: hash(fs.readFileSync(resampler)),
-    profile: path.basename(target),
+    profile: options["--profile"] ?? path.basename(path.dirname(runner)),
     resampler_source_sha256: hash(fs.readFileSync(source)),
     corpus: manifest.corpus,
     corpus_manifest_sha256: manifestHash,

@@ -79,6 +79,7 @@ jobs:
           npm run lint
           npm run test:v3
           npm run test:release
+          npm run test:quality:stage5
           npm run test:cpu
           npm run docs:check
           npm run format:check
