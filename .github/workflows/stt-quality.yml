@@ -30,12 +30,17 @@ permissions:
 
 jobs:
   quality:
+    name: quality (${{ matrix.reconstruction }})
     runs-on: windows-2022
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        reconstruction: [legacy_linear, cardinal_sinc]
     env:
       LIBCLANG_PATH: C:\Program Files\LLVM\bin
       CARGO_TARGET_DIR: ${{ github.workspace }}\src-tauri\target-codex-review
-      STT_QUALITY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      STT_QUALITY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.reconstruction }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -64,7 +69,13 @@ jobs:
         run: node scripts/native-test-runtime.mjs build/stt-quality/tools.jsonl $env:SHERPA_ONNX_LIB_DIR $env:CARGO_TARGET_DIR
       - name: Compare legacy and current resampling with pinned public model
         shell: pwsh
-        run: node scripts/stt-quality.mjs --target src-tauri/target-codex-review/release --download-model
+        run: |
+          $reconstructionArguments = @()
+          if ('${{ matrix.reconstruction }}' -eq 'cardinal_sinc') {
+            $reconstructionArguments += '--bandlimited-reconstruction'
+          }
+          node scripts/stt-quality.mjs --target src-tauri/target-codex-review/release --download-model --require-no-wer-regression --report build/stt-quality/report.json @reconstructionArguments
+          exit $LASTEXITCODE
       - name: Compare neural boundaries and explicit decoding policies
         if: ${{ !cancelled() }}
         shell: pwsh
@@ -77,10 +88,21 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: stt-quality-cpu
+          name: stt-quality-cpu-${{ matrix.reconstruction }}
           path: |
             build/stt-quality/report.json
             build/stt-quality/stage4-report.json
             build/stt-quality/stage5-report.json
           if-no-files-found: warn
           retention-days: 30
+
+  quality-result:
+    name: quality
+    needs: [quality]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both reconstruction methods to pass
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+        run: test "$QUALITY_RESULT" = success

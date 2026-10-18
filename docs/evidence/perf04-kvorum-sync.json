@@ -1,0 +1,242 @@
+{
+  "schema": 1,
+  "kind": "fono-perf04-kvorum-sync",
+  "version": "0.7.28",
+  "created_at_utc": "2026-10-18T12:51:30.892Z",
+  "scope": {
+    "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+    "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842"
+  },
+  "base_head": "ad79364be63341a3011bff65b55f3610f4fe942c",
+  "source_branch": "codex/perf04-resampling-20261018",
+  "operations": [
+    {
+      "operation": "tasks.update",
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "proposal_id": "16048540-6bfa-40db-a31a-17faf9c4c4e6",
+      "canonical_confirmation": "Подтвердите изменение: задача «[PERF-04] Линейный ресемплинг без антиалиасингового фильтра».",
+      "auto_confirmable": true,
+      "object_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "content_sha256": null,
+      "content": null,
+      "resulting_status": "in_progress",
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T11:36:50.834Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-start.json",
+        "sha256": "7e76838c521f7832c77c85ff088c907f511cc1aa913bf980c179adef2f342fa8"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "proposal_id": "a8218842-d09b-403f-a003-5890df274e02",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "fe54539c-f79d-4090-a4a5-4ea2f8eecae3",
+      "content_sha256": "0b08d7129904da4a73211532cf6ac2409dcdfc5aab34d8c969df1cabf850022f",
+      "content": "PERF-04 возвращён в работу по поручению владельца, исходники v0.7.27\n\nПроверены зависимости ARC-02/FONO-89 и CI-03/FONO-108. Регрессия85→88/450 подтверждена свежим stage5 receipt; исторические WAV, baseline и строгий критерий WER≤legacy сохраняются.\n\nНезависимый DSP-аудит подтвердил дефект полосы: текущий cutoff7200Гц — точка−6дБ, уже7кГц ослабляются на2.645дБ,7.5кГц на15.49дБ. Ошибок ring buffer/рационального sampleclock пока не найдено. Дополнительно исходный16→48 linear reconstruction ослабляет полосу; legacy48→16 выбираеткаждыйтретийsample и возвращаетoriginal. Этот конфаунд будет сохранён в отчёте, а не объявлен оправданием failedgate.\n\nДо нового STT результата задана независимая спецификация для16кГц: passband0–7кГц ≤0.1дБ ripple, stopband≥8кГц ≥60дБ подавления,12кГц≥40дБ; lookahead≤3.1мс включаяследующийinputframe. Выбрана симметричная Blackman-sinc схемаfc7500/N289 при48кГц с масштабированиемпоrate; для44.1нуженfractional-phase FIR вместоокругленияиlinearinterpolationпослефильтра. Горячийпутьбезalloc, arbitrarypacketinvariance/finite-tail/identity-rate сохраняются. Inverse-linear compensation, выборпараметровпоWER, изменениекорпусаилиослаблениепорога не применяются.\n\nПервый exploratory40-evaluation baseline/candidate replay запущен с заранее замороженнойспекой вignoredbuild. Параллельно готовится общаяphase-FIRреализация и независимыеDSP/holdoutпроверки. Результаты каждогоattempt будут сохранены, дажееслиотрицательные; микрофон/пользовательскийFono/установка не используются.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T11:40:41.367Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-research.json",
+        "sha256": "e51950934e49f06bd89394397279db992a4a0d84068480c309f8161dbe9fc310"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "proposal_id": "ed4df70c-6a2a-4a67-bab6-1e2476683a4a",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "31f15124-d723-4caa-aa3e-bbd4e0e47794",
+      "content_sha256": "17c4b74b80d28137d495931ac596e874b2440935d9a4ce5b713ea032670dc3ce",
+      "content": "PERF-04: первый кандидат и исправление конфаунда измерения\n\nПервый заранее заданный Blackman fc7500/N289 дал 86 ошибок из450 против legacy85 (старый FIR давал88). Это улучшение, но строгий WER gate пока FAILED. Полные raw результаты сохранены в `build/checks/perf04/flat-7500-n289-48k-first/report.json`; параметры по результатам распознавания не перебирались.\n\nProduction переписан на direct fractional FIR с одним итоговым PCM-квантованием. Независимые23 unit tests, allocation integration test и strict Clippy уже PASS: passband до7кГц≤0.1дБ, stopband от8кГц≤−60дБ, packet/phase/finite-boundary контракты. Прежний Blackman-дизайн остаётся фиксированным; Kaiser рассчитан независимо как возможная будущая оптимизация, но по WER не выбирался.\n\nДополнительный честный replay исправляет генерацию входного48кГц: explicit cardinal Blackman-sinc, source Nyquist8кГц, half-window48 исходных кадров. При целой фазе берётся точный исходный sample; независимая проверка ДО нового STT подтвердила все20 legacy PCM SHA256 из исторического baseline. Корпус, reference, baseline.json, модель, fast/8threads и нулевой WER-порог остаются прежними. Старый linear режим сохранён явным, отрицательный результат не удалён. Freeze proof: `build/perf04/cardinal-oracle/manifest.json`, SHA fb14d123289defe05098bdcc6135a063f7d91ad7fbd561803a283e05daed677f.\n\nОтдельно до STT зафиксированы20 настоящих48кГц VoxForge RU/EN WAV (115.875с, два говорящих), с provenance и GPL-3.0-or-later notices отдельно от MIT кода. Holdout manifest SHA2426fd1e442e96bc51c204b3d164f1bdfeeb333a84619557cfa43365b6345276. Итоговые fixed-corpus и native-wideband измерения ещё ожидаются; FONO-79 остаётся in_progress.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T11:49:53.907Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-progress.json",
+        "sha256": "744cb2440300681f3c5b8b23eeb73cf09ea505712a8533f3d546c3a3701b68c1"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "proposal_id": "68ce97a0-ee23-4811-a383-d85a9064c34c",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "9f610be3-2587-4832-a765-1d840ba00363",
+      "content_sha256": "cac489fc72b4397359ac8632a5f41178cb6ed25b4638c61c559e1c210af81a98",
+      "content": "PERF-04: получены первые production quality результаты, v0.7.28 candidate\n\nFixed FLEURS20, explicit cardinal reconstruction: строгий gate WER≤same-run legacy И WER≤frozen historical PASS —85/450 уобоих. Все20 legacy PCM SHA256 совпали с baseline.json. CER209/2846 против207/2846, +2 символа: общего улучшения всехметрик не заявляю. Все51 quality source inputs послеизмерения совпали с captured lineage; производственные параметры фильтра фиксированы.\n\nВажный отрицательный результат: native48 VoxForge20 (255слов) дал linearlegacy72 ошибок, новый FIR78, тоесть +6; RU+4, EN+2. Строгий дополнительный holdout gate FAILED. Rawreferences/hypotheses, хэши/лицензии/источники и явныйfailed state сохранены в `docs/evidence/perf04-wideband.json`. Этот исход нельзя скрыть за положительным fixed-corpus результатом.\n\nПродолжаю независимую проверку waveform против offlineconvolution и сравнение с реально поставленным доэтойзадачи FIR145 из v0.7.27: linearlegacy72 относитсякдорефакторинговому v0.7.14 пути,а текущийappужеиспользовалFIR145. Трёхстороннее сравнение покажет фактическое влияние v0.7.27→candidate, сохранив negativelegacyholdout. Коэффициенты по распознанным словам не меняются. Итоговая native-матрица ещё не запущена; задача остаётся in_progress.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T11:56:08.059Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-negative.json",
+        "sha256": "4165ed850d7aaeee76b27bbcb7f916caa5214078af102b197f75e671d8292e91"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "proposal_id": "8126a093-f6f5-40a9-8083-bfba80eb2992",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "5c12b4be-1144-491a-8654-3d17c23433a7",
+      "content_sha256": "516a7a69279108ff81310e225fe57c8eedf137541fe1dce0abdfc11e09fa267c",
+      "content": "PERF-04: окончательный blind holdout выявил регрессию, задача остаётся открытой\n\nКандидат Blackman выбран и зафиксирован до нового STT в 12:09:13 UTC. Kaiser A66 отклонён по заранее заданному строгому gate: на FLEURS 86 против 85 ошибок слов. Новых изменений коэффициентов по результатам holdout не делаю.\n\nСвежие 20 native 48 кГц WAV, два новых автора, 341 слово: linear legacy 80 ошибок, текущий v0.7.27 FIR145 — 80, кандидат Blackman — 81. CER: 146 / 140 / 142 из 2011 символов соответственно. Строгий WER gate FAILED относительно обеих баз (+1 слово, +0,2933 п.п.). Все 60 распознаваний, reference/hypothesis, хэши, лицензии и фиксация выбора до inference сохранены в docs/evidence/perf04-wideband-final.json (SHA256 50613af00ad8749b7ee16a73fc7ede4a9aebd25f23969ebb531b2b35984c4463).\n\nРанее: основной FLEURS20 с явно изменённой cardinal-реконструкцией дал 85→85/450 и CER 207→209/2846. Все 20 legacy PCM совпали с историческим baseline. Первый native-набор дал linear 72, deployed 79, кандидат 78 из 255. Эти данные не отменяют новый отрицательный результат. Независимая свёртка совпала со всеми 1 854 000 PCM samples кандидата: ноль LSB и нулевой сдвиг; отрицательный WER является наблюдаемым качеством ASR, а не найденной ошибкой clock/packet boundary.\n\nЗапущена итоговая native-матрица из 14 gates на замороженных исходниках. Frontend UI 273/273, release scripts 48/48, quality contracts 26/26 уже прошли. Реализация и evidence будут сохранены отдельным коммитом кандидата; устранение PERF-04 и приёмка владельца не заявлены. Статус in_progress сохраняется.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T12:12:27.773Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-fresh-negative.json",
+        "sha256": "a65e036a13ec4aad3774f724a36ecc8eb1b578dd4bb5992508afde70160a28d8"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-108",
+      "task_id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "proposal_id": "5328899c-3acd-4b82-8d82-da29829f768b",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "cfb302f4-c16b-45d5-9948-9531d60067e0",
+      "content_sha256": "a974bc428f2797632dc32a90366178dffc1b3a782e11ec6dc77d57ec16431b7c",
+      "content": "CI-03 / проверка PERF-04, кандидат v0.7.28\n\nДобавлен явный --require-no-wer-regression: одновременно WER≤same-run legacy и WER≤исторического baseline, допуск строго 0; отсутствующий baseline закрывает gate с ошибкой. Контракты 26/26 прошли. Workflow stt-quality явно передаёт этот флаг и --bandlimited-reconstruction, сохраняет отчёт и при ошибке; corpus, модель, декодирование, тексты и baseline не заменялись.\n\nМетодики разделены: прежний пятиаргументный linear replay сохранён; новый cardinal sinc сохраняет все 20 SHA256 legacy PCM. Финальный Blackman на неизменённом linear generator побайтно совпал со всеми 20 WAV первого опыта: WER 85→86/450, CER 207→212/2846, строгий gate FAILED (раньше было 85→88). Отдельный cardinal replay: 85→85/450, CER 207→209/2846 — положительный результат другой методики, не отмена исходного отказа.\n\nДополнительно два независимых native 48 кГц набора. Diagnostic: linear/deployed/current = 72/79/78 из 255. Fresh holdout: 80/80/81 из 341, оба строгих gate FAILED. Кандидат и спецификация зафиксированы до fresh inference; после результата коэффициенты не менялись. Raw hypotheses/references, CPU fast8, хэши инструментов/модели/данных и notices: docs/evidence/perf04-quality.json и perf04-wideband-final.json. Повторный независимый audit: 348 файлов, 4875 проверок, 0 расхождений. Результаты CER/RTF сохранены отдельно; latency gate, GPU и владелец не подтверждены.\n\nCI-03 остаётся in_review как механизм измерения. PERF-04 / FONO-79 остаётся in_progress: отсутствие WER-регрессии не достигнуто. Запуск удалённого GitHub Actions в этой работе не выполнялся.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T12:19:51.924Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-ci03.json",
+        "sha256": "1eebd6726084f360a95bd1837053342e2784cd5d791fef686af4a6984c50580f"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-49",
+      "task_id": "a563978a-8f9a-4bbb-a1cb-2537ca8e8bfe",
+      "proposal_id": "a426efef-49a7-45b0-bb65-1dff1f610090",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "c47cffab-d629-4833-9fe6-250b70d730c6",
+      "content_sha256": "cb2d1813eeab16a8e9ac08dcad3656c22e1d4e5626b85506d7245355a9707db7",
+      "content": "PERF-04 / FONO-79: регрессия сокращена, критерий остаётся открытым\n\nКандидат v0.7.28 меняет FIR на прямой дробно-фазовый Blackman: плоская полоса до 7 кГц, подавление от 8 кГц не менее 60 дБ, 289 taps и 3 мс lookahead при 48→16 кГц; горячий цикл без выделений, packet/EOF clock сохранён. Независимая NumPy-свёртка совпала со всеми 1 854 000 output samples первого native набора, ошибка и сдвиг — ноль.\n\nНа исходном historical linear replay финальная реализация даёт 85→86 ошибок слов из 450 вместо 85→88 в v0.7.27: улучшение есть, нулевой допуск не пройден. Отдельная явно исправленная cardinal-реконструкция дала 85→85, но это другая методика. Первый native diagnostic: linear/deployed/current 72/79/78 из 255; свежий заранее отложенный набор: 80/80/81 из 341, строгий gate FAILED относительно обеих баз. Подбор параметров после fresh результата не проводится.\n\nRaw evidence, лицензии, спецификации, rejected Kaiser и все отрицательные опыты собраны в docs/improvement-perf04.md и docs/evidence/perf04-quality.json; отдельный fresh receipt perf04-wideband-final.json. FONO-79 и эта история остаются in_progress, CI-03 — in_review. Устранение регрессии, native голос/GPU и приёмка владельца не заявлены. Продолжается итоговая проверка кода кандидата.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T12:20:56.297Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-parent.json",
+        "sha256": "767a755fc5c278cc4fe4d18e52f31bdaca46b3a6e8ac8817cf2f577e440b947b"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-108",
+      "task_id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "proposal_id": "2bbb98fb-5877-4693-afd2-b54c7bd6989c",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "04086827-64ea-463b-8fb0-8e09019fe424",
+      "content_sha256": "4a7dd18816dd9707b62d00615a43d7a07e986f8cfbc8abfb1366c2d94a8fcfa0",
+      "content": "CI-03: устранён риск ложного зелёного результата, финальная проверка v0.7.28\n\nВ ходе независимого ревью найден пробел предыдущего варианта: cardinal-only workflow мог пройти при оставшемся отказе исходного linear replay. Теперь legacy_linear и cardinal_sinc запускаются отдельными обязательными matrix jobs, fail-fast:false; workspaces, run IDs и artifacts разделены. Итоговый check с прежним именем quality требует success всей матрицы, включая отказ при failed/skipped/cancelled. continue-on-error нет. Поле acceptance явно ограничено одной reconstruction_policy; compatibility comparison +1 п.п. не заменяет strict0. Независимое второе ревью блокеров не нашло. Контракты 27/27, targeted ESLint и форматирование прошли.\n\nПосле окончательных изменений скрипта выполнены оба official replay с прежними pinned CPU runner/model, fast8 и release-converter: historical linear 85→86/450, CER207→212/2846, exit1; cardinal 85→85/450, CER207→209/2846, exit0. Все 80 scored entries пересчитаны независимо из полных reference/hypothesis; 80 output WAV SHA256 и все 51 final source inputs проверены. Legacy PCM обеих методик сохранил исторические 20 SHA256. Отчёты не переписывают ранние отрицательные опыты и native holdout.\n\nНовый CI по этому кандидату обязан быть красным на historical leg и aggregate quality. Фактический удалённый Actions run не выполнялся. Общая PERF-04 acceptance остаётся FAILED: свежий native holdout 80/80→81 из341. Raw и финальные source fingerprints: docs/evidence/perf04-quality.json, SHA256 683b6179f0d1bd044493da62870ba9d70ee594decc1d36383edf2f2ff22071d4. Native-код отдельно прошёл14/14 gates, default/CPU-only по571/571; это не отменяет failed quality. CI-03 остаётся in_review; FONO-79 — in_progress.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T12:50:08.382Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-ci03-final.json",
+        "sha256": "1e5a0be23c7adce9882f378ef87e5f1488c4debf73c62c84e19e64c62780012b"
+      }
+    },
+    {
+      "operation": "comments.create",
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "proposal_id": "a3f53f28-b035-4a4a-90db-a972d2df6d92",
+      "canonical_confirmation": "Подтвердите создание: комментарий «комментарий».",
+      "auto_confirmable": true,
+      "object_id": "85ddb310-4bcf-4257-96e6-e7f7faf59d02",
+      "content_sha256": "59116dfe9ea605ce859e44294f0d5ed5dbfe43da197351b7ced0c184bf4c8fac",
+      "content": "PERF-04 / итог проверки кандидата v0.7.28: регрессия сокращена, устранение НЕ подтверждено\n\nРеализация: прямой fractional FIR Blackman, 7,5 кГц cutoff, passband до7 кГц ≤0,1 дБ, stopband от8 кГц ≥60 дБ, 289 taps и3 мс lookahead при48→16 кГц. Убрана интерполяция уже округлённых filtered samples; один финальный PCM16 round/clamp. Packet/EOF clock и подготовленный output без hot allocations проверены. Независимый offline oracle совпал с 1 854 000 native samples, ошибка0 LSB и сдвиг0. Цена — lookahead вырос примерно с1,5 до3 мс.\n\nКачество, pinned tiny CPU fast8:\n- Исходный historical linear replay: раньше85→88/450, финальный кандидат85→86/450; CER207→212/2846. Строгий gate FAILED, сокращение регрессии с3 до1 ошибки.\n- Отдельная cardinal-реконструкция:85→85/450, CER207→209/2846, method gate passed. Она не заменяет исходный отказ; все20 legacy WAV совпадают с историческим baseline.\n- Native diagnostic20: linear/deployed/current72/79/78 из255; CER116/128/129 из1502.\n- Fresh native20, два новых автора:80/80/81 из341; CER146/140/142 из2011. Gate FAILED относительно обеих баз. Выбор и SHA кандидата закреплены до inference; после holdout параметры не менялись.\n- Независимо рассчитанный Kaiser отклонён: fixed85→86. Все отрицательные опыты сохранены. После финальных изменений harness заново выполнены оба official fixed replay;80 scored entries и80 WAV hashes проверены, все51 final source inputs совпали.\n\nПроверки кода: native14/14 gates, default и CPU-only по571/571, в каждом478 app tests; strict Clippy,6 feature modes и2 release checks прошли. UI273/273, release scripts48/48 в рабочем дереве (28 в составе коммита +20 отдельных owner cache tests), quality contracts27/27, dependency contracts7/7, typecheck/lint/build/format/version/docs links прошли. Два первых native failures сохранены: исправлены только тестовые request framing и ожидание фактического async cleanup; production-таймауты и исключения не менялись. Heavy lifecycle soak повторно не запускался.\n\nCI теперь имеет два обязательных независимых метода и общий check quality: known historical failure должен оставлять CI красным. Удалённый workflow не запускался. Отчёт docs/improvement-perf04.md; evidence perf04-quality.json, perf04-native-final.json, perf04-validation.json. Исходники — отдельная ветка codex/perf04-resampling-20261018, без merge/push/release/installer/записи микрофона.\n\nОбщая acceptance FAILED; статус остаётся in_progress. Для следующего кандидата нужны заранее зафиксированные расширенный blind native corpus и условия оценки. Подбор окна по уже просмотренным словам и замена отрицательного gate положительным методом не допускаются. Ручная Windows/GPU-приёмка и FONO-112 остаются открытыми.",
+      "resulting_status": null,
+      "confirmed_and_readback": true,
+      "readback_verified_at_utc": "2026-10-18T12:51:02.256Z",
+      "raw_receipt": {
+        "path": "build/checks/perf04-kvorum-final.json",
+        "sha256": "b2e45493d50604c8034e039b1189a181583821063b090df31df2e232b92d03fb"
+      }
+    }
+  ],
+  "counts": {
+    "total": 9,
+    "comments": 8,
+    "status_transitions": 1,
+    "confirmed": 9,
+    "readback_verified": 9
+  },
+  "task_snapshots": [
+    {
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "status": "in_progress",
+      "canonical_url": "https://kvorum.gorbach-dev.ru/tasks/FONO-79/perf-04",
+      "verified": true,
+      "verified_at_utc": "2026-10-18T12:51:17.265Z"
+    },
+    {
+      "task_key": "FONO-49",
+      "task_id": "a563978a-8f9a-4bbb-a1cb-2537ca8e8bfe",
+      "status": "in_progress",
+      "canonical_url": "https://kvorum.gorbach-dev.ru/tasks/FONO-49/fono",
+      "verified": true,
+      "verified_at_utc": "2026-10-18T12:51:20.337Z"
+    },
+    {
+      "task_key": "FONO-108",
+      "task_id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "status": "in_review",
+      "canonical_url": "https://kvorum.gorbach-dev.ru/tasks/FONO-108/ci-03-stt",
+      "verified": true,
+      "verified_at_utc": "2026-10-18T12:51:23.279Z"
+    },
+    {
+      "task_key": "FONO-47",
+      "task_id": "85eafd57-86b8-4e09-8eab-2cb3bbb300d4",
+      "status": "in_progress",
+      "canonical_url": "https://kvorum.gorbach-dev.ru/tasks/FONO-47/fono-improvement-plan",
+      "verified": true,
+      "verified_at_utc": "2026-10-18T12:51:26.203Z"
+    },
+    {
+      "task_key": "FONO-112",
+      "task_id": "6e7e2661-cb6f-4a25-b110-0d775b9a91a3",
+      "status": "todo",
+      "canonical_url": "https://kvorum.gorbach-dev.ru/tasks/FONO-112/stab-06-windows",
+      "verified": true,
+      "verified_at_utc": "2026-10-18T12:51:29.129Z"
+    }
+  ],
+  "quality_acceptance": {
+    "passed": false,
+    "original_linear_word_errors": [
+      85,
+      86
+    ],
+    "fresh_native_word_errors": {
+      "linear": 80,
+      "deployed": 80,
+      "candidate": 81,
+      "reference_words": 341
+    },
+    "task_status": "in_progress",
+    "owner_confirmed": false
+  },
+  "all_operations_verified": true,
+  "post_commit_note": "A final epic comment with the actual commit hash is confirmed after this receipt is committed. It is retained in the local final receipt, outside these pre-commit counts."
+}

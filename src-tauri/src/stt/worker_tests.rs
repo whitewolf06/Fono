@@ -80,6 +80,63 @@ impl WorkerFixture {
         Self { directory, script }
     }
 
+    #[cfg(windows)]
+    fn request_dispatcher() -> Self {
+        let fixture = Self::create("");
+        let dispatcher = fixture.directory.join("worker.ps1");
+        // This fixture needs a real line-framed request loop: a fixed third
+        // set /p can mistake a partial/empty pipe read for Shutdown and emit an
+        // unsolicited ACK/EOF before model readiness has been published.
+        fs::write(
+            &dispatcher,
+            r#"$ErrorActionPreference = 'Stop'
+while ($null -ne ($line = [Console]::In.ReadLine())) {
+    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+    $request = ConvertFrom-Json -InputObject $line
+    if ($request.protocol_version -ne 3 -or
+        [string]::IsNullOrWhiteSpace([string]$request.request_id)) {
+        throw 'Invalid fixture request metadata'
+    }
+    $response = [ordered]@{
+        type = ''
+        protocol_version = 3
+        request_id = [string]$request.request_id
+        backend = 'cuda'
+    }
+    switch ($request.type) {
+        'hello' {
+            $response['type'] = 'ready'
+            $response['capabilities'] = @{
+                protocol_version = 3
+                supports_health = $true
+                supports_shutdown = $true
+                supports_window = $true
+                supports_cancel = $true
+                supports_token_timestamps = $true
+                maximum_request_bytes = 16777216
+                maximum_response_bytes = 1048576
+            }
+        }
+        'load' { $response['type'] = 'model_loaded' }
+        'ping' { $response['type'] = 'pong' }
+        'shutdown' { $response['type'] = 'shutting_down' }
+        default { throw 'Unexpected fixture request type' }
+    }
+    [Console]::Out.WriteLine(($response | ConvertTo-Json -Depth 4 -Compress))
+    [Console]::Out.Flush()
+    if ($request.type -eq 'shutdown') { exit 0 }
+}
+"#,
+        )
+        .expect("write request-dispatch fixture");
+        fs::write(
+            &fixture.script,
+            "@echo off\r\n\"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%~dp0worker.ps1\"\r\nexit /b %errorlevel%\r\n",
+        )
+        .expect("write request-dispatch wrapper");
+        fixture
+    }
+
     fn start(&self) -> WorkerSession {
         WorkerSession::start_with_timeouts(
             self.script.clone(),
@@ -98,6 +155,13 @@ impl Drop for WorkerFixture {
 }
 
 fn assert_session_is_terminated(session: &mut WorkerSession) {
+    // Request failure may transfer process/IO ownership to the cleanup
+    // supervisor. Assert confirmed cleanup, not an immediate post-error exit.
+    let deadline = Instant::now() + EOF_FIXTURE_TIMEOUT;
+    while session.cleanup.is_pending() {
+        assert!(Instant::now() < deadline, "fixture cleanup did not finish");
+        thread::sleep(Duration::from_millis(10));
+    }
     assert!(matches!(session.child.try_wait(), Ok(Some(_))));
     assert!(session.stdin_tx.is_none());
     assert!(session.stdin_thread.is_none());
@@ -381,7 +445,17 @@ fn recovery_fixture(
     Arc<crate::stt::SttEngine>,
     Arc<Mutex<Option<crate::stt::RecoverySelection>>>,
 ) {
-    let fixture = WorkerFixture::create(after_load);
+    recovery_fixture_with_worker(WorkerFixture::create(after_load))
+}
+
+#[cfg(windows)]
+fn recovery_fixture_with_worker(
+    fixture: WorkerFixture,
+) -> (
+    WorkerFixture,
+    Arc<crate::stt::SttEngine>,
+    Arc<Mutex<Option<crate::stt::RecoverySelection>>>,
+) {
     let model_path = fixture.directory.join("fixture-model.bin");
     fs::write(&model_path, []).unwrap();
     let selection = crate::stt::RecoverySelection {
@@ -541,9 +615,15 @@ fn removed_selection_and_shutdown_cancel_queued_fixture_recovery() {
 #[cfg(windows)]
 #[test]
 fn intentional_adaptive_release_does_not_trigger_fixture_recovery() {
-    let (_fixture, engine, _provider) = recovery_fixture(
-        "echo {\"type\":\"shutting_down\",\"protocol_version\":3,\"request_id\":\"shutdown-3\",\"backend\":\"cuda\"}\r\nexit /b 0"
-    );
+    let (_fixture, engine, _provider) =
+        recovery_fixture_with_worker(WorkerFixture::request_dispatcher());
+    // A health request is legal before adaptive release. Its response must not
+    // consume the fixture's eventual Shutdown or depend on a fixed request ID.
+    wait_for_fixture_state(|| match engine.health() {
+        crate::stt::SttHealth::Ready { .. } => true,
+        crate::stt::SttHealth::Busy { .. } => false,
+        other => panic!("request-dispatch fixture health failed: {other:?}"),
+    });
     let old = engine.generation.load(Ordering::Acquire);
     assert!(engine.release_idle_gpu(old, |detach| detach()));
     let released_generation = engine.generation.load(Ordering::Acquire);

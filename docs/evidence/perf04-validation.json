@@ -1,0 +1,2054 @@
+{
+  "schema": 1,
+  "kind": "fono-perf04-project-validation",
+  "generated_at_utc": "2026-10-18T12:49:32.051Z",
+  "app_version": "0.7.28",
+  "base_head": "ad79364be63341a3011bff65b55f3610f4fe942c",
+  "source_branch": "codex/perf04-resampling-20261018",
+  "code_checks_passed": true,
+  "quality_acceptance_passed": false,
+  "task_status": "in_progress",
+  "frontend": {
+    "summary": {
+      "path": "build/checks/perf04-frontend-results.json",
+      "bytes": 1086,
+      "sha256": "aea1cdae91f84656d5e6a6e97d02a1439c9f3dc44959f92362f4727736c56710",
+      "data": {
+        "version": "0.7.28",
+        "steps": [
+          {
+            "name": "typecheck",
+            "exit_code": 0,
+            "log": "build/checks/perf04-typecheck.log",
+            "seconds": 18.519
+          },
+          {
+            "name": "lint",
+            "exit_code": 0,
+            "log": "build/checks/perf04-lint.log",
+            "seconds": 62.74
+          },
+          {
+            "name": "v3",
+            "exit_code": 0,
+            "log": "build/checks/perf04-v3.log",
+            "seconds": 87.826
+          },
+          {
+            "name": "build",
+            "exit_code": 0,
+            "log": "build/checks/perf04-build.log",
+            "seconds": 13.261
+          },
+          {
+            "name": "release-scripts",
+            "exit_code": 0,
+            "log": "build/checks/perf04-release-scripts.log",
+            "seconds": 19.925
+          },
+          {
+            "name": "quality-contracts",
+            "exit_code": 0,
+            "log": "build/checks/perf04-quality-contracts.log",
+            "seconds": 2.202
+          },
+          {
+            "name": "dependency-contracts",
+            "exit_code": 0,
+            "log": "build/checks/perf04-dependency-contracts.log",
+            "seconds": 0.606
+          }
+        ],
+        "all_steps_passed": true
+      }
+    },
+    "gates": [
+      {
+        "name": "typecheck",
+        "exit_code": 0,
+        "log": "build/checks/perf04-typecheck.log",
+        "seconds": 18.519,
+        "evidence": {
+          "path": "build/checks/perf04-typecheck.log",
+          "bytes": 72,
+          "sha256": "81fb7e9149982c3974771bc3306cb691951a56a03059439e655c6f60807e87c3"
+        }
+      },
+      {
+        "name": "lint",
+        "exit_code": 0,
+        "log": "build/checks/perf04-lint.log",
+        "seconds": 62.74,
+        "evidence": {
+          "path": "build/checks/perf04-lint.log",
+          "bytes": 101,
+          "sha256": "0932d578d64df8fa8b5d4e3a2ca550d6be9011f9c63b21431a9c868ffacf7ed1"
+        }
+      },
+      {
+        "name": "v3",
+        "exit_code": 0,
+        "log": "build/checks/perf04-v3.log",
+        "seconds": 87.826,
+        "evidence": {
+          "path": "build/checks/perf04-v3.log",
+          "bytes": 60533,
+          "sha256": "ede5d35dff1b126d3bcf61b79104c8d918d1fc843fc7dcda1a7f37ecff84da4b"
+        }
+      },
+      {
+        "name": "build",
+        "exit_code": 0,
+        "log": "build/checks/perf04-build.log",
+        "seconds": 13.261,
+        "evidence": {
+          "path": "build/checks/perf04-build.log",
+          "bytes": 3026,
+          "sha256": "f1f75729630c75e8863445d4ad10136ccf0e8c3a7b253707f5dfb95dcda19a29"
+        }
+      },
+      {
+        "name": "release-scripts",
+        "exit_code": 0,
+        "log": "build/checks/perf04-release-scripts.log",
+        "seconds": 19.925,
+        "evidence": {
+          "path": "build/checks/perf04-release-scripts.log",
+          "bytes": 9566,
+          "sha256": "fe8ef2e2c0f43810527c2f77854cfd583bbfd1b2891f488059a946ee334979c7"
+        }
+      },
+      {
+        "name": "quality-contracts",
+        "exit_code": 0,
+        "log": "build/checks/perf04-quality-contracts.log",
+        "seconds": 2.202,
+        "evidence": {
+          "path": "build/checks/perf04-quality-contracts.log",
+          "bytes": 5842,
+          "sha256": "f3489c80761bd329b98635dbb09d23305da880d3f421ecee9a0150a66b387e1b"
+        }
+      },
+      {
+        "name": "dependency-contracts",
+        "exit_code": 0,
+        "log": "build/checks/perf04-dependency-contracts.log",
+        "seconds": 0.606,
+        "evidence": {
+          "path": "build/checks/perf04-dependency-contracts.log",
+          "bytes": 1535,
+          "sha256": "165ed0ea51b2e2f2ebd2f39a63393ea53f2ec4e467899573378b3c3f19f0a783"
+        }
+      }
+    ],
+    "observed_tests": {
+      "ui": {
+        "passed": 273,
+        "failed": 0,
+        "skipped": 0,
+        "log": {
+          "path": "build/checks/perf04-v3.log",
+          "bytes": 60533,
+          "sha256": "ede5d35dff1b126d3bcf61b79104c8d918d1fc843fc7dcda1a7f37ecff84da4b"
+        }
+      },
+      "release_scripts": {
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0,
+        "log": {
+          "path": "build/checks/perf04-release-scripts.log",
+          "bytes": 9566,
+          "sha256": "fe8ef2e2c0f43810527c2f77854cfd583bbfd1b2891f488059a946ee334979c7"
+        },
+        "committed_scope": 28,
+        "owner_cache_tests": 20,
+        "note": "Owner cache-maintenance tests are in the working tree but excluded from the task commit; 48 is the actual working-tree run."
+      },
+      "quality_contracts": {
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "log": {
+          "path": "build/checks/perf04-final-quality-contracts.log",
+          "bytes": 6061,
+          "sha256": "15f8467289830d123bb31e17efb4e3ece5c95b906dcb98d0a936aaaddcc2354a"
+        }
+      },
+      "dependency_contracts": {
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "log": {
+          "path": "build/checks/perf04-dependency-contracts.log",
+          "bytes": 1535,
+          "sha256": "165ed0ea51b2e2f2ebd2f39a63393ea53f2ec4e467899573378b3c3f19f0a783"
+        }
+      }
+    }
+  },
+  "native": {
+    "report": {
+      "path": "docs/evidence/perf04-native-final.json",
+      "bytes": 109278,
+      "sha256": "e50e6562deb7da98a7a06c1d0dd0ddc68d8e50adefc48cfd74326786eb2c7332"
+    },
+    "default_passed": 571,
+    "cpu_passed": 571,
+    "gates": 14,
+    "include_ignored": true,
+    "skipped_heavy_soak": [
+      "stt::worker::lifecycle_soak::cpu_worker_lifecycle_soak"
+    ]
+  },
+  "focused_audio_review": {
+    "path": "build/checks/perf04/dsp-final-review.json",
+    "bytes": 12984,
+    "sha256": "41dd288d33caf1383373fa8250886d3c3f09b6676c02b709d862fb564d3b8735",
+    "data": {
+      "schema": 1,
+      "kind": "fono-perf04-final-read-only-dsp-review",
+      "reviewed_at_utc": "2026-10-18T12:12:20.446000+00:00",
+      "review_scope": "Production Blackman resampler, allocation test, finite replay/cardinal converter and native PCM fixture reader. Read-only review and verification of existing focused evidence; no new source edits, recognition or native test execution in this review.",
+      "production_modified_by_review": false,
+      "selected_design": {
+        "schema": 1,
+        "kind": "perf04-selected-production-spec",
+        "recorded_at_utc": "2026-10-18T12:09:13.633Z",
+        "candidate": "blackman_289",
+        "design_basis": "48 output-frame half length and cutoff 7.5kHz at16kHz output were fixed before initial candidate recognition; current fractional FIR evaluates once at exact output clock, not rounded input FIR plus linear interpolation.",
+        "window": "Blackman",
+        "cutoff_hz_at_16k": 7500,
+        "half_length": "clamp(floor(48*input_rate/output_rate),32,1024)",
+        "taps_at_48k_to_16k": 289,
+        "lookahead_ms_at_48k": 3,
+        "passband_hz": [
+          0,
+          7000
+        ],
+        "maximum_passband_ripple_db": 0.1,
+        "stopband_from_hz": 8000,
+        "maximum_stopband_gain_db": -60,
+        "exact_phase_denominator_limit": 256,
+        "fallback_phase_kernels": 257,
+        "rounding": "f64 accumulation then one final i16 round/clamp",
+        "boundaries": "zero extension; first output t=0; historical finite output sample count",
+        "source": {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+          "sha256": "6bd3297a94d21d7443fb751ca8110eb59a4622aa9ea39131534054931e99a58c"
+        },
+        "converter": {
+          "path": "build/checks/perf04-tools/resample-wav.exe",
+          "sha256": "9e1219146accc59ba8a7d0f02a308b3a21b41d5132e4c827d8a4678e3d43ee29"
+        },
+        "rejected_kaiser": {
+          "reason": "Fails preregistered fixed corpus zero WER regression gate:85 to86/450",
+          "report": "build/checks/perf04/kaiser-a66-fixed-diagnostic/report.json",
+          "sha256": "452995fde6cb0a5d74f52508ceced1636e904c8a60487e729717849adef35656"
+        },
+        "selection_scope": "Original fixed corpus gate passes85 to85/450 under explicit cardinal reconstruction. Supplemental native diagnostic is negative vs linear72 to78/255 but improves deployed79 to78. Fresh holdout was not inferred before this decision."
+      },
+      "source_files": [
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+          "sha256": "6bd3297a94d21d7443fb751ca8110eb59a4622aa9ea39131534054931e99a58c"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/tests/resampler_allocations.rs",
+          "sha256": "f2edbd9a60cf04a4ce1925d37ea631d431a7c511e83997e10abb3fd8735b5035"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/resample-wav.rs",
+          "sha256": "fb8cac0e0d2955108c93143cbcc9fe9b3189a3d86ac885dd4df411f7cbc197e7"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/support/pcm_wav.rs",
+          "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+        }
+      ],
+      "focused_checks": {
+        "fono_audio_lib": {
+          "passed": 23,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "resampler_cases_within_lib": 10,
+          "resampler_case_names": [
+            "atypical_rates_keep_constructor_storage_bounded",
+            "finishing_preserves_the_tail_and_is_independent_of_packets",
+            "dc_and_same_rate_are_preserved",
+            "latency_is_bounded_and_output_does_not_wait_for_a_full_packet",
+            "finite_sources_match_the_direct_fractional_convolution_oracle",
+            "fractional_conversion_preserves_the_requested_sine_phase",
+            "rejects_out_of_band_audio_before_decimation",
+            "packet_boundaries_do_not_change_output",
+            "preserves_speech_passband",
+            "rejects_the_whole_stopband_at_common_capture_rates"
+          ],
+          "evidence": {
+            "path": "build/checks/perf04-audio-tests.log",
+            "sha256": "da1cda2859c6e7cc77ed9d72f6a98df03bad5f3d49e5cbe51c0546eed69fe3b0"
+          }
+        },
+        "allocation_integration": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "scope": "Prepared output capacity, all common rates plus coprime44101 fallback, bypass, upsampling, variable packets and finish; separate single-frame48k capture loop and finish. Thread-local global allocator counts alloc/alloc_zeroed/realloc; no unrelated test threads affect the assertion.",
+          "evidence": {
+            "path": "build/checks/perf04-audio-tests.log",
+            "sha256": "da1cda2859c6e7cc77ed9d72f6a98df03bad5f3d49e5cbe51c0546eed69fe3b0"
+          }
+        },
+        "converter_examples": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "scope": "Two cardinal finite-clock/legacy-PCM tests and two exact-native-clock/format/truncation reader tests.",
+          "evidence": {
+            "path": "build/checks/perf04-converter-tests.log",
+            "sha256": "37a7ec5b5a3b3b0005c8e5823d243122ab1956e6eec6d36bb4bad294796b4ed0"
+          }
+        },
+        "strict_audio_lib_tests_clippy": {
+          "flags": "--no-default-features --lib --tests -- -D warnings",
+          "existing_log_finished_without_errors": true,
+          "evidence": {
+            "path": "build/checks/perf04-audio-clippy.log",
+            "sha256": "5f387c39b91a0a5d4b89f7af2da72b1a2d937db5b6bc5091ede3524bdc367d0b"
+          }
+        },
+        "strict_audio_all_targets_clippy": {
+          "flags": "--no-default-features --all-targets -- -D warnings",
+          "existing_log_finished_without_errors": true,
+          "evidence": {
+            "path": "build/checks/perf04-audio-all-targets-clippy.log",
+            "sha256": "c966832e0e5018815d15568d3ddefae03ffd926a70bce03b6c55deeb341c5cb1"
+          }
+        },
+        "release_converter_build": {
+          "existing_log_finished_without_errors": true,
+          "evidence": {
+            "path": "build/checks/perf04-converter-build.log",
+            "sha256": "eb2a4100270fa9a8d413676f0a6622a5090980cf79ec742f509a2b60221f2a9c"
+          },
+          "binary": {
+            "path": "build/checks/perf04-tools/resample-wav.exe",
+            "sha256": "9e1219146accc59ba8a7d0f02a308b3a21b41d5132e4c827d8a4678e3d43ee29"
+          }
+        }
+      },
+      "reasoned_checks": [
+        {
+          "area": "FIR chronology and fractional phase",
+          "result": "pass",
+          "details": "After push, cursor addresses the oldest frame; history[cursor..] followed by history[..cursor] is chronological. Kernels are ordered j=-H..H around exact t=floor(t)+alpha. At each output the newest input is floor(t)+H, matching the independent centered finite convolution. Phase endpoint bank is available for interpolation without out-of-range reads."
+        },
+        {
+          "area": "Exact sample clock and unsigned bounds",
+          "result": "pass",
+          "details": "Downsample output occurs only with position<output_rate. position*phase_resolution is below2^40 for u32 rates/resolution<=256. Adding input_rate after an emission is below2^33; initial H*output_rate is below2^42. Because input_rate>output_rate in this branch, subtraction after an emission cannot underflow. Euclidean GCD gives positive phase count after constructor asserts nonzero rates."
+        },
+        {
+          "area": "Finite source and callback boundaries",
+          "result": "pass",
+          "details": "Delay is compensated without leading zeros: first logical output is t=0 after H input lookahead. Zero-initialized history and finish zeros supply two-sided finite extension. Existing finite-count convention ceil((N-1)*Fout/Fin) is retained; finish uses u128 products, is idempotent and blocks later process. H<=1024 bounds the1026-frame stack tail. Packet invariance is checked through finish, including empty/single-frame packets and edge-length independent-oracle cases."
+        },
+        {
+          "area": "Quantization and headroom",
+          "result": "pass",
+          "details": "Stored PCM input and coefficients accumulate in f64 and undergo exactly one final round/clamp. Fractional evaluation does not interpolate already rounded or clipped FIR PCM. The independent direct-source oracle includes full-scale endpoints; analytic sine checks detect fractional clock/phase errors."
+        },
+        {
+          "area": "Allocation and CPU placement",
+          "result": "pass",
+          "details": "All coefficient/history allocations and trigonometry occur in constructor. Coefficients use at most257*2049*8=4212744 bytes and history at most2049*8=16392 bytes. Exact common clocks need one dot product per output, independent of packet size; bounded fallback interpolates coefficients in the same dot product. process/finish reuse history and prepared caller output storage. Capture RT callback still only enqueues bounded raw data; conversion remains on its existing worker thread."
+        },
+        {
+          "area": "Offline fixture source identity",
+          "result": "pass",
+          "details": "Five-argument historical reconstruction remains available. Cardinal reconstruction is a distinct explicit mode with exact original samples at integer16k positions, so its frozen legacy16k PCM hashes remain identical while image spectrum changes. Native-input flag reads exact declared48k header without silently reconstructing or resampling at ingestion. Mode flags are mutually exclusive by arity and allow-list. Manual10ms zero extension exceeds the selected<=3ms lookahead, and output count is checked after truncation."
+        },
+        {
+          "area": "Native WAV validation",
+          "result": "pass_with_scope_limit",
+          "details": "Trusted fixture reader checks RIFF/WAVE tags, actual chunk bounds using checked_add, PCM16 mono format and exact expected rate, even PCM bytes and truncation. Native input cannot accidentally be a16k source labeled48k. Corpus hashes/selection are validated in preparation/replay harnesses, not inferred from this minimal reader alone."
+        }
+      ],
+      "independent_evidence": [
+        {
+          "path": "build/perf04/native-independent-convolution.json",
+          "sha256": "acd9533a376fb5967c99603b6c1bb1419cb5aa944ae53b986df21543bd04be14",
+          "scope": "All20 actual native48 clips,1854000 output samples: exact0LSB difference from NumPy full convolution, lag0 and zero boundary differences; unfiltered legacy equals source[3m]. This verifies DSP implementation, not an ASR-quality pass."
+        },
+        {
+          "path": "build/perf04/converter-proof/conversion-manifest.json",
+          "sha256": "254da5b37604bd832a3a705e7d70658a5c50fa7b84d62eddd0990b7187dcb1e4",
+          "scope": "40 frozen historical/cardinal legacy byte-compatibility cases,40 actual native legacy/current conversions with equal counts,6 CLI rejection cases."
+        },
+        {
+          "path": "build/perf04/cardinal-oracle/construction-spec.json",
+          "sha256": "dd8ab731d74288d6c8e3fe9900fd028f22bc5782435c6557638facd65854d173",
+          "scope": "Cardinal reconstruction construction fixed independently of speech outcomes."
+        },
+        {
+          "path": "build/perf04/cardinal-oracle-proof-console.json",
+          "sha256": "26e4700ea56b0e338354fb07991d6237442cc8b8dc45d81733f39227dd8c738f",
+          "scope": "All20 cardinal legacy PCM hashes equal frozen historical baseline."
+        },
+        {
+          "path": "build/perf04/reference-characterization.json",
+          "sha256": "ef00ca6d8ec147a1af12b2b7f8806913989670e148984d2d32d913433eecdc76",
+          "scope": "Original145-tap filter and linear reconstruction frequency-response diagnosis; historical evidence, not the selected implementation's numerical acceptance."
+        }
+      ],
+      "blocking_findings": [],
+      "known_limits": [
+        "Band-edge/latency contract applies to44.1/48/96/192kHz input at16kHz output. Constructor memory remains bounded at arbitrary extreme ratios, but capped kernels do not claim the same transition width there.",
+        "Zero allocation requires caller output capacity prepared with output_capacity, as in capture and allocation integration test; a new undersized Vec may grow by design.",
+        "Same-rate and upsampling behavior is preserved. New anti-alias/fractional FIR logic is only the downsample branch.",
+        "Offline WAV support remains a minimal hashed-fixture parser: RIFF advertised length, byte-rate and block-align are not a generalized strict-RIFF validation contract.",
+        "Pre-existing offline WAV writer uses unchecked RIFF size+36 near4GiB output (roughly37hours mono16kPCM). Current small fixed/public corpora are far below this boundary. No source change made in this read-only review.",
+        "DSP correctness does not accept the supplemental native WER regression. Retain negative Blackman/Kaiser reports, assess the frozen fresh holdout separately, and keep full native/remote CI/hardware/owner acceptance distinct."
+      ],
+      "source_files_unchanged_during_review": true,
+      "generator": {
+        "path": "build/checks/perf04/write-dsp-final-review.py",
+        "sha256": "f897428df7791044478d2545e3c11342dbe7885e7abbea57041c2e58d23e9ca7"
+      }
+    }
+  },
+  "final_harness_contract_checks": {
+    "path": "build/checks/perf04-final-contract-checks.json",
+    "bytes": 709,
+    "sha256": "00c7c7c0842d3e55e57466da34585979103ecfcd5249de7611196d4b8127d56a",
+    "data": {
+      "schema": 1,
+      "version": "0.7.28",
+      "steps": [
+        {
+          "name": "quality-contracts",
+          "exit_code": 0,
+          "seconds": 7.5741017,
+          "log": "build/checks/perf04-final-quality-contracts.log"
+        },
+        {
+          "name": "quality-lint",
+          "exit_code": 0,
+          "seconds": 11.2894232,
+          "log": "build/checks/perf04-final-quality-lint.log"
+        },
+        {
+          "name": "format",
+          "exit_code": 0,
+          "seconds": 6.175716,
+          "log": "build/checks/perf04-final-format.log"
+        },
+        {
+          "name": "version",
+          "exit_code": 0,
+          "seconds": 1.0222254,
+          "log": "build/checks/perf04-final-version.log"
+        }
+      ],
+      "all_steps_passed": true
+    }
+  },
+  "quality_integrity_audit": {
+    "path": "build/checks/perf04/quality-readonly-integrity-audit.json",
+    "bytes": 62723,
+    "sha256": "3539bf3c2c4da6ecfc069425aa2c1ddc1ddd38ae98450dfe979795377b1b0176",
+    "data": {
+      "schema": 1,
+      "kind": "perf04-quality-readonly-integrity-audit",
+      "audited_at_utc": "2026-10-18T12:12:55.107Z",
+      "files_hashed": 348,
+      "checks": 4875,
+      "failures": [],
+      "warnings": [
+        "Aggregate decision text must explicitly state fresh negative80→81 and PERF04 failed/open; existing numeric refs and fresh SHA are correct."
+      ],
+      "all_integrity_checks_passed": true,
+      "under_review_files_modified": false,
+      "cargo_invoked": false,
+      "stt_invoked": false,
+      "selected_at_utc": "2026-10-18T12:09:13.636Z",
+      "fresh_started_at_utc": "2026-10-18T12:09:28.652Z",
+      "fresh_finished_at_utc": "2026-10-18T12:10:49.806Z",
+      "selection_before_first_inference": true,
+      "quality_state": "failed_open",
+      "fresh_wer_counts": {
+        "linear": 80,
+        "deployed_v27": 80,
+        "current": 81,
+        "reference_words": 341
+      },
+      "files": [
+        {
+          "path": "build/checks/perf04/selected-candidate.json",
+          "sha256": "31a24fda6fac3ca04ee82631166f2cd672d89c215cc8835cb53092c6b152df4f"
+        },
+        {
+          "path": "build/checks/perf04-tools/resample-wav.exe",
+          "sha256": "9e1219146accc59ba8a7d0f02a308b3a21b41d5132e4c827d8a4678e3d43ee29"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+          "sha256": "6bd3297a94d21d7443fb751ca8110eb59a4622aa9ea39131534054931e99a58c"
+        },
+        {
+          "path": "build/checks/perf04/selected-blackman-spec.json",
+          "sha256": "8d6704e1627e6014f91c793ed72b932eef0b4a7873f8459881f99bcc7885adc7"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/manifest.json",
+          "sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/baseline.json",
+          "sha256": "6189e7e0a2426b35ec694c390c7de6c826df9eea8315a086f196e6b724f3558c"
+        },
+        {
+          "path": "build/checks/perf04-fixed-cardinal/report.json",
+          "sha256": "e8d7a63e9d56cb4da096c1c73482f5a96f590552504ffcfb49d9262114ef184d"
+        },
+        {
+          "path": ".github/workflows/stt-quality.yml",
+          "sha256": "f6e7b74439589256d749ad184d8340e0915ac746db88ea824fcecaca70209f3b"
+        },
+        {
+          "path": "scripts/bootstrap-ci-resources.ps1",
+          "sha256": "ac7db9c9d0b9adee25c7f4713ad5c3fbf66067fbdd86af6b8706bf7415a1f7ed"
+        },
+        {
+          "path": "scripts/native-test-runtime.mjs",
+          "sha256": "5a015cb04fb2d8b93e2e75ab0deda9f3659f3bda90302b7fd48d32f29d3438d3"
+        },
+        {
+          "path": "scripts/prepare-stt-quality-corpus.py",
+          "sha256": "9270c4dbdbbc613965dcc1f1b092576684947983bcb865d8b6ebf2d82a859e54"
+        },
+        {
+          "path": "scripts/stage4-quality.mjs",
+          "sha256": "6194380af83a60de6220ecf32d8577fcb13b2592e8ddc9213c28ce5cc87297fd"
+        },
+        {
+          "path": "scripts/stage5-quality.mjs",
+          "sha256": "904b5f73e2b3185ad3a945ab4f7d6b87422c6eeabfc9e112a77981a6c0b96691"
+        },
+        {
+          "path": "scripts/stt-quality-lineage.mjs",
+          "sha256": "c9eca9c3fec1b08110d9607db67923fe07bf31bf04acd19be923c1a3bd5b373d"
+        },
+        {
+          "path": "scripts/stt-quality.mjs",
+          "sha256": "52773430899224e5d5624227a3417b2a39b0a9112ec4c004bf350a60f0550804"
+        },
+        {
+          "path": "src-tauri/.cargo/config.toml",
+          "sha256": "26770295187010df6b1dc90c387fed5865d67552e93f33cf6bd031fc32c2ac34"
+        },
+        {
+          "path": "src-tauri/Cargo.lock",
+          "sha256": "4520c575e8ed9a9544c9606e3d8eaec7bfe530b7d4d27b988ce696b0a9313d12"
+        },
+        {
+          "path": "src-tauri/Cargo.toml",
+          "sha256": "c455d66c26e4aacaa9432d72e1e545cb75d9a1fe31c0f476d3ee17afcbe1ca5d"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/Cargo.toml",
+          "sha256": "4b8a6faee280aa7e60dae21681111c418d4c729c784246018678d12e248d58e0"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/resample-wav.rs",
+          "sha256": "fb8cac0e0d2955108c93143cbcc9fe9b3189a3d86ac885dd4df411f7cbc197e7"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/support/pcm_wav.rs",
+          "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/trim-vad-wav.rs",
+          "sha256": "f1fe521038820dbc4fef2383fe309c266f0816a7daeff63fe6ee11c0e2a74b8b"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/capture.rs",
+          "sha256": "26dbd2c53c629396df09cf25f9e0164c4fa950cbabcb235e9e3d095c0311f1e0"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/convert.rs",
+          "sha256": "3661a3ee659d18d4380829a0413c082efaf68002435fce166ee64a0d72832ae8"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/hub.rs",
+          "sha256": "00a6bf1c31ff0828ccd65219cdbb554e7675adec9a3884ac1b9648e2e19582ae"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/mod.rs",
+          "sha256": "19fe4fe273e27b79bfde0ec5cf38726cc96968fabc473a2a6de33b313534a6ea"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/owner.rs",
+          "sha256": "762fe980227afe5190d2e884ce03ca5d0e2a870b96da357fb9038658d4358aae"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/ring.rs",
+          "sha256": "1924d01fe8c0dba849a35861ac83097e36a80fb62c9c4c1e22be5f9810f12f45"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/error.rs",
+          "sha256": "9b357265781170155af2d59cea32da61541bcb99bd3d5a754144dc2236a47c7b"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/lib.rs",
+          "sha256": "051dbf1bf927dc2409a94f8a7666601ce84ddb4d815fce2babbfd43f6108fb4f"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_boundaries.rs",
+          "sha256": "27b5c2f87ca2febb30e287e26ba62bee5ca4287c4af14bf6c4cb7e81026f73d7"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad.rs",
+          "sha256": "0f28b8c5563bd4cb5e6f282adcb9557d4cccb93a235caa37d8328c7f3f7210e8"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad/recording.rs",
+          "sha256": "d9f2b8ac3cc64af55e7b727deed4c4aaa4f104d85f3d72af9a271f0d2ad2dbf9"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad/tests.rs",
+          "sha256": "de2e0e4bc102fb789fb29df413bbe27e0f24fb5705867ef858aa41751da434a2"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/tests/resampler_allocations.rs",
+          "sha256": "f2edbd9a60cf04a4ce1925d37ea631d431a7c511e83997e10abb3fd8735b5035"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/Cargo.toml",
+          "sha256": "3360b3c68539171480a64335fbea8887da8b361fb0335d112aa458b6ad600b3c"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/decoding.rs",
+          "sha256": "e1ca0710f586589a05a039d0d6d76b6b4bd8ad3eb2dab2e3c9bb0c9f5286857b"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/inference_options.rs",
+          "sha256": "002eca3a96c0af57c107d1190f68a6798757ef958ba6bdf31c5758bd17e19ba4"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/inference.rs",
+          "sha256": "f11e42adc03af4abebf5053ee4c5d90926efb94b8982859f41ad5f6a5ef45c57"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/lib.rs",
+          "sha256": "d9e5c4b2caded612ce8593647d44a7deb2ff5ec8fc7e9b2453a0d840840e9d7d"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/timestamps.rs",
+          "sha256": "fc2eff125ac6e4904a398399ae511c22df0749f016a21611ed469f172619c80c"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/Cargo.toml",
+          "sha256": "1afc9d6cffb4993b6295f7fd3c68e382e3ccb366d317c28edeb0f14e95740625"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/metrics.rs",
+          "sha256": "b81da8458c5078273c8aa74d7e9cb9935aac6dc0462ecc5aad61ae41163453b7"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/transport.rs",
+          "sha256": "1a40e0639afeb3c3a307bd9cc616bf52ac42f7401a39b4dff8a23cbd393d1c99"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/wav.rs",
+          "sha256": "4c74aa702595a852fcfe7bad5efefa77acffd81fee794509eb983e1b8183b69b"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-bench.rs",
+          "sha256": "a7e9828c7248c9fac32b1495ed1e65b3e640635bc0c7d06fad636e9a7cbfcdfe"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-quality.rs",
+          "sha256": "da23128dce445f6941ec8b2d879e27933f584973626800fd0a8e3f8ebc727029"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/control.rs",
+          "sha256": "fec3f87d5fda50c0a10fbe2d0c847c460a1878b3f85c0e5a3507a1fac5973401"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/framing.rs",
+          "sha256": "bfe724371932139b215994d3588adae4392db87940db5a459a54c6064f50ea29"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/main.rs",
+          "sha256": "5813d1caed93e57c6a900e0dfe6bd6eb55437a81dd9f496615d03c847c3c8a8d"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/runtime.rs",
+          "sha256": "66aa54d4570031a4cc3463b9a63ca60685033ac0c4a7727a2cc09a78a1b5f38d"
+        },
+        {
+          "path": "src-tauri/rust-toolchain.toml",
+          "sha256": "5a357c16adbb4740c3264b315c59c4882c286072146d7198757096197b498c52"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/capture.rs",
+          "sha256": "5fb0e88b40f0870dce0cf75ad26dc988d0386b4e3248751ca8a8c69a6c9a14fe"
+        },
+        {
+          "path": "src-tauri/src/application/speech_gate.rs",
+          "sha256": "840ce9dda389a0470094ddfb1aa623b6318c31e76faba9fce7042c1da6fe8045"
+        },
+        {
+          "path": "src-tauri/src/vad/mod.rs",
+          "sha256": "8ac37745b032a6a302e7eaa61643432dd787c27b5dd18d6f64e10d9ad2f379cc"
+        },
+        {
+          "path": "docs/evidence/stage5-ci03.json",
+          "sha256": "5ca6729121e9ba19ffe808276d600db9285e881f2ef0a0e33616b17ff7a4d44e"
+        },
+        {
+          "path": "build/checks/perf04/flat-7500-n289-experiment-receipt.json",
+          "sha256": "9eb303650859814fe911e73c2eeaf6672d5d9f8cc975b4c4b01c7930514a70c8"
+        },
+        {
+          "path": "build/checks/perf04/flat-7500-n289/spec.json",
+          "sha256": "e6ce7fe88d43d86d74bfeae89ea12677e889b65f653036a4a9db2e39dc04652b"
+        },
+        {
+          "path": "build/checks/perf04/flat-7500-n289/candidate-resample.rs",
+          "sha256": "b058937c248208a29ce8d54e99837ea4082fd40a297e83fe7deb32146e62fa3c"
+        },
+        {
+          "path": "build/checks/perf04/flat-7500-n289/candidate-converter.rs",
+          "sha256": "ad940aefee82f10f83af28940247ee8d828b0c9c18f791a0db2c6764d8262ae4"
+        },
+        {
+          "path": "build/checks/perf04/flat-7500-n289/pcm_wav.rs",
+          "sha256": "ffb5bc6d72e41504025eac8b89a18a31b2b32425fab9245b935368108798d031"
+        },
+        {
+          "path": "build/checks/perf04/flat-7500-n289/resample-wav.exe",
+          "sha256": "6314ac522c9dfbbe1887c9a765257a77cb3fc5c1a412996f4a9952340ea3df31"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/report.json",
+          "sha256": "452995fde6cb0a5d74f52508ceced1636e904c8a60487e729717849adef35656"
+        },
+        {
+          "path": "build/perf04/kaiser-a66-candidate/frozen-spec.json",
+          "sha256": "66946c253b443284998520b702209c707ae65f329fe66f998a9045dcc6926a57"
+        },
+        {
+          "path": "build/perf04/kaiser-a66-candidate/resampler.rs",
+          "sha256": "33a862981958e409ce059db386be1e7f13b899b059691dd7d2beb1a842f7e537"
+        },
+        {
+          "path": "build/perf04/kaiser-a66-candidate/converter.rs",
+          "sha256": "61af144bfb920153fceb83740c31a020af075ce890346fba389e96b8a747dde4"
+        },
+        {
+          "path": "build/perf04/kaiser-a66-candidate/pcm_wav.rs",
+          "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+        },
+        {
+          "path": "build/perf04/kaiser-a66-candidate/resample-wav.exe",
+          "sha256": "3c2fcc6db8d85c69637dc0e877394bc741a05395647aaa3c6a86db43e2b423a4"
+        },
+        {
+          "path": "build/checks/stage5-tools/fono-stt-quality.exe",
+          "sha256": "601038092ab284fecebd5df0f277fe1bafd755ad338039a80bae021bc789883f"
+        },
+        {
+          "path": "build/stt-quality/ggml-tiny.bin",
+          "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-diagnostics.mjs",
+          "sha256": "2727fb8b76f37d6cd7a5b2b80533b30000c4534b306d573d941ad0a18db32d1b"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-01.wav",
+          "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-02.wav",
+          "sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-03.wav",
+          "sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-04.wav",
+          "sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-05.wav",
+          "sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-06.wav",
+          "sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-07.wav",
+          "sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-08.wav",
+          "sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-09.wav",
+          "sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/en-10.wav",
+          "sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-01.wav",
+          "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-02.wav",
+          "sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-03.wav",
+          "sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-04.wav",
+          "sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-05.wav",
+          "sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-06.wav",
+          "sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-07.wav",
+          "sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-08.wav",
+          "sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-09.wav",
+          "sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/ru-10.wav",
+          "sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-01.wav",
+          "sha256": "da21bea3c7801e6174be9f4e186fc5f02f73065d7001ddcc7c4069d97b70c4c3"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-02.wav",
+          "sha256": "020dda4652fea97564701bea42015be52d32e5be805c1fd3c57aaa2ad8607ccc"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-03.wav",
+          "sha256": "47ac8b6f0c1c56de6d98a98e28205225f60bc28094adc8241eeb0acea35f6c7e"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-04.wav",
+          "sha256": "bdefa726c96030ef53eba6ffbab9f1d67de4ccc163179f47a6e1372cdb79bf67"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-05.wav",
+          "sha256": "a9a81e649ba46256d00f039de737e8788bc9547b3952e9683068c91697f5f39e"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-06.wav",
+          "sha256": "174477b8296d8579e81303986ce6708bca8117b8ed6c015e9c7d44b4339fa0a3"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-07.wav",
+          "sha256": "9db33b8770959426eee5e08e28e7ef3c3087da2ac174852de81f48f3533014f8"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-08.wav",
+          "sha256": "313b6c92c950a84274a1fb64dd61bb867130a5f42a573a4692bd14fa01f194f7"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-09.wav",
+          "sha256": "97da18de272404493546224411a36836a2474851ef012243e1aa63109b9f44bd"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/en-10.wav",
+          "sha256": "d07dfc0785a6514f85489d0fcd44b45f5bb9775600a6b984ebcfafb27d949b41"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-01.wav",
+          "sha256": "91c566e4ba1af9ec2f68e1a835811c56955775cf6ba8ca50e98dccb028560b1e"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-02.wav",
+          "sha256": "765cdd55a32791f8b2076290192a7a97fb562ea616b7dce74f3fdc57fa1ee0f0"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-03.wav",
+          "sha256": "70cf5475552fad6c573c862b7d111c570850145b95bbc25ab5e10fe06e56fafd"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-04.wav",
+          "sha256": "e2e2077909459ce6d464499fded7209b3b7468957278de1ec16bb38343780834"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-05.wav",
+          "sha256": "6681f672c62c7ae19c6d2a4b153d1a708dea0cf497f0b07c8796fd21825f03c5"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-06.wav",
+          "sha256": "d3e8babe135e67c1ed6040e4268ad2a9ef74d6f188132a5cf4cabe136901caff"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-07.wav",
+          "sha256": "ce9cc8213845252bd8947b84e9a5f2c012abe2481b361b5d60a72fa8f495ba27"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-08.wav",
+          "sha256": "6192ec54d102d9923239b24956eb3eb86d17c3fa1fbefbb78cf7a8c37294e6a1"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-09.wav",
+          "sha256": "e6ea11c5923f042ed694efa62980060d2075425d52208522f98df11368841bce"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/legacy/ru-10.wav",
+          "sha256": "757c35c1c26264eff3b2d95edf3c468f0b3a779094ad028069f61858ac10ec72"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-01.wav",
+          "sha256": "0cf722e0d38388a44105671690d689a3c110529b0f118e3638a0b92eeb94ba1d"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-02.wav",
+          "sha256": "02bfd0fb86f80feb29e83b167aab52b324e3d5b52284477708366fc87fb47ac1"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-03.wav",
+          "sha256": "0f96b5bbebc84e4b9809a2565d43c20a994fd74adfbce2a3739be5ecf6b38f99"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-04.wav",
+          "sha256": "121aa905b783c4aa8e7b361254dae2bfbe091dc10db255068ff9e16f9d780ec2"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-05.wav",
+          "sha256": "3fe5ba286b2f3b06b78abaffff164d3f723521e2d8d2f4ccf3da9b7e77a20787"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-06.wav",
+          "sha256": "1210e3a374587c81caa231fb03db1c3d46a4d4d01572a0ca8fdb12cb46aeb052"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-07.wav",
+          "sha256": "0dd0194a519578331161ae71e18d6cfe8e428ac4fc46297b605fcdab007992b1"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-08.wav",
+          "sha256": "25063fbbe422fa44a9e87dbb6248d3ede228085f9bd775494b603bafecf8068c"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-09.wav",
+          "sha256": "85d0a83cc76511d395024ee068ceae0970d2c991c7d9e7b5a41df9472ac7e233"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/en-10.wav",
+          "sha256": "34b45792d7f75871a119cd3d6395b804e4950985c37aa9b1bbb6b0e80509d99a"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-01.wav",
+          "sha256": "21ea741de6016eedbc153e242798caedae2a954d63763d0a4c365e1cbb6b4722"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-02.wav",
+          "sha256": "cb6b892d646dc31b105cdcc41a27c2fd80839bc000494adf3f39028e041d1ae2"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-03.wav",
+          "sha256": "6c56ca0a0085d71f32dbe4df4b1a1bba77875931e58314100484407bc3da0daa"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-04.wav",
+          "sha256": "b9364a1e0344cd6a34caf8b6befd9d61fa68b17bd09ca967bd64ee24fec7e5d2"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-05.wav",
+          "sha256": "09b769ece739c4fbd07d8b6b1df2dbd160e332a38b6aa642a01c08efb58f57c9"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-06.wav",
+          "sha256": "0f7615d21b46a527381a607b8cb1f84002375bb6a72ba6f332fefd17cd2c2030"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-07.wav",
+          "sha256": "210953fb88d4f594316778e7f75236765b4f1e69a90b17b452d41c968b3d9ed6"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-08.wav",
+          "sha256": "61d457c23a9c63178a40f6288a35845a37ba718488d20956b02912edad165cb3"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-09.wav",
+          "sha256": "9db2028f044da97ae977f35994a65ed320384fa0918a841ebfa608f6d7952306"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-fixed-diagnostic/current/ru-10.wav",
+          "sha256": "75da698fe9c4f304dfb75f8ee5a5ba2c84f9279516e1ad50e4ff8bf3d5204d25"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/report.json",
+          "sha256": "3ec21627e58fff5d9f30c793378711bd49d66084db8ff83c00234639940ea66c"
+        },
+        {
+          "path": "build/perf04/wideband/manifest.json",
+          "sha256": "2426fd1e442e96bc51c204b3d164f1bdfeeb333a84619557cfa43365b6345276"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0058.wav",
+          "sha256": "1cfe3d0365ff572e6f69ba6bb32f2fbc9382124a3ac3bad109834985f404657a"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0059.wav",
+          "sha256": "0f1aa4ef250c8014aff55cea48afd4e80de3cc41da8532e354e51d7f6d8bd5f5"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0060.wav",
+          "sha256": "0a65cac92f0ef8d091a38e2c09807c28e2e6a5b4985ea649d818fd2859feb775"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0061.wav",
+          "sha256": "e752d51a4177bff1eb7d11117e29a82fe159e6e995ba2410b091f0a83f775868"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0062.wav",
+          "sha256": "bb2dd81d15a719d6b08aca2d73e287e2a8b5e59611b94d9daa1de460bb8286bf"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0063.wav",
+          "sha256": "613a9cd73fa3386ff2e19f333d13285cbc5712b60a65b4677ba6fa25f56a3c8f"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0064.wav",
+          "sha256": "0c30ba64c95f2cceb0495ba16a7ab8c6016e43d99f871609cb62a44f1ea7a61e"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0065.wav",
+          "sha256": "58de4711f15c8432dee5739944da7bdfb34583f53b746d928e8292e0fed9f008"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0066.wav",
+          "sha256": "096c7d277ecb81f798ccfe64ba8cb02663b231bb9ff769a5ddfaed3b0b93ef35"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0067.wav",
+          "sha256": "96926322d02329c091e340648ddb8bc03be9dc61c99944288902b3b1509f4c5d"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-18.wav",
+          "sha256": "3c0d647514b31a4c740d8591fa79c5bbcd2e0cad305fce38153c8cd888c4843e"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-19.wav",
+          "sha256": "d847cb442dbe4e1d24613c802f2e0167fcb007ab712d5c63c9af95a2c40af9de"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-20.wav",
+          "sha256": "f5fd2c9cf20075a3ce1e2a48648d1e7a0156d7f8fad7d4e6a4ffeef57558ed09"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-21.wav",
+          "sha256": "3101551362e7f9540714dedf9c6ca845b442010e98efeae0977a0e2c91e2003d"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-22.wav",
+          "sha256": "9a1111fb066305d5169f48f3c6c5a474f0ebb369993e5a07228fc111e1b2cbcd"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-23.wav",
+          "sha256": "ea927844173cf0c7cf726bfe996c3f6535fea61ba333a8bdc0447df352cfd04d"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-24.wav",
+          "sha256": "39db7ff0eeba5e07b3c6dce6622755abf0b13572782e85ac0c5fc65f7f2174b3"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-25.wav",
+          "sha256": "e48641060be73d725942b7cbdf9d1abbb3a2440e07c99a2301d6b3879f4e6594"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-26.wav",
+          "sha256": "42b9d04bb5e97b4b18438d03fd861a1fc01a72b3fe9c6ab5a18e2103bc3bc3d6"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-27.wav",
+          "sha256": "8a700c6e4a14bbc1ec3cdce497375bce5250a1fd1c569ed5055fd50416d8906d"
+        },
+        {
+          "path": "docs/evidence/perf04-wideband.json",
+          "sha256": "434dc95863c88a2edcde4791a7dc5a600af85adc411c660c450ece87413c6f88"
+        },
+        {
+          "path": "docs/evidence/perf04-wideband-deployed.json",
+          "sha256": "098e3c3c365aa8e6b2c951159a43342c2107d4472259f5e7cf4ccb5d2bacfdda"
+        },
+        {
+          "path": "build/perf04/wideband/selection-predeclared.json",
+          "sha256": "3795438b2887c533de7e753bc0a7210bad22500e97a384d2d160df807330bfb5"
+        },
+        {
+          "path": "build/checks/perf04/nativewideband-replay.mjs",
+          "sha256": "97737f6e895e7ad5f1c980c8e0d5843469967874b78e31959a8b08b4bec2195b"
+        },
+        {
+          "path": "build/perf04/wideband/gav-20170207-ifk.tgz",
+          "sha256": "40d0e8721a1499fcfebcb725a0aba3fda9ceaee0431bdabd4fe1528470ac88ee"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/LICENSE",
+          "sha256": "57d11099f0ad9aa9450542e04eb60aa406f0532b74cf43d47f282181a7870e1d"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/etc/PROMPTS",
+          "sha256": "1630bc956c5747e31f191df7c8ca4afb4c65e4e4d12c12247386a4f430a66f5c"
+        },
+        {
+          "path": "build/perf04/wideband/ru/gav-20170207-ifk/etc/README",
+          "sha256": "c38b95b6b7420e89730c18c49e62fc65b09ec848dde4becc5a19e51e9c40cd09"
+        },
+        {
+          "path": "build/perf04/wideband/icern300-20151115-dno.tgz",
+          "sha256": "b94bf700682871c83a356469228eddf89c17ed5eb1bb4163bce5cc06631c3d91"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/LICENSE",
+          "sha256": "90ea10fdd22b10d497c5ee6bc0f62ca21a4586cff29f596aaa7ca47aad1b2d74"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/etc/PROMPTS",
+          "sha256": "7707ddcc8fd7be5955c79860427fc33926da3f8ec446c3ae6d681c3ed36eab64"
+        },
+        {
+          "path": "build/perf04/wideband/en/icern300-20151115-dno/etc/README",
+          "sha256": "428ceba895c03514c2e5e1ef597de17b20027fe0cd015ff7a56ff710cbada0ea"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0058.wav",
+          "sha256": "1d4bb00e57a0f4f50252daec5cfbf53e094c4c7599e198badb0ffbbbd937c3a2"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0059.wav",
+          "sha256": "a9e1c6159fe3dc3316ed4a755378fda48ee78c437832adcf691b36a23ec3e7fc"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0060.wav",
+          "sha256": "5a5fe95d186b0fab5d56cbbeadee563d181420a070e185c8504c9336e4eb4d19"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0061.wav",
+          "sha256": "05eac4b9198e82118751a955c2e9c6fd8b0e57102509f91efa85c8063ada54eb"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0062.wav",
+          "sha256": "3c1ca717c9ba13748769a0f2d97ec1bf6e8428fecc27b7b129a9d400c52fc3e6"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0063.wav",
+          "sha256": "75f1c569ed18f91ad541a1b04d95a5160acd0f0d75a8a0fb19550f92a98319ae"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0064.wav",
+          "sha256": "ad9d6f86ce1da30862a9bea3b46711a0da33c821fcd894774f79b7d10ea22792"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0065.wav",
+          "sha256": "dbb0d013074dc1dc6fa1b2d7bc567947c6d915088d8f17be7d016b2b2dc281ac"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0066.wav",
+          "sha256": "84b5289ffff202091e2f318a68f760f77c48f70cde17bd98f094e2979b5cc080"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0067.wav",
+          "sha256": "a902d7f6ca8264796fa5df562d69550be0bdc63eae5bad868dc57d9ec773056b"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-18.wav",
+          "sha256": "ccae30cfd40928abb3b832683db295a565e430bfe3b5e5c12f4c11eec99e8fd7"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-19.wav",
+          "sha256": "e9a551dcdfe85d2394e7ed51135c44a4b8127471a0765b530f9b8974454c0930"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-20.wav",
+          "sha256": "f54c55ebac1cd6862c1540ec6e5a03e67543a4da5b4ba701201fb7d6a2a1f8dd"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-21.wav",
+          "sha256": "7c8546efb9a0eb1cfcedafa9af7399524c0adf1c5ba7e4241fe020baad45276c"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-22.wav",
+          "sha256": "a916fe3f7e056bab13d98a7424fd955819cbe83648d889f92afb4ba411b8360f"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-23.wav",
+          "sha256": "7964d4efa85dea0abfe627a5d8cce305f407f1a7f092cebb569c421073bfc1d2"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-24.wav",
+          "sha256": "25d148e116db515c9814f0aadb2a5cdd077057fc81aed3d6c3220aa467f3f429"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-25.wav",
+          "sha256": "ae988be84a52cbf0cf4a68711d5dc3703bbb284f5f98a75e4ee0c25ec03f3508"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-26.wav",
+          "sha256": "3349429acf5af2391ed669681dd3c7f994aa69c288359ccb93a65a855cfb6643"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-27.wav",
+          "sha256": "6de776fb4f9420589cad150eda1cd8d04a4eb8a56c654c87c4b0e503c3ff024a"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0058.wav",
+          "sha256": "cf92eac3771e66dc9a9d53c5b30235aada7af8bb3a2cb446ee0b778be633a6fc"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0059.wav",
+          "sha256": "51322726e3ec4054b8bb9a7a10150433dab6eb4b0e3e7a619ac4b1ca10a6e08f"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0060.wav",
+          "sha256": "3bdf30b599609a83a9105327405653257683173b3693fffc066dc7de797c9eac"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0061.wav",
+          "sha256": "1b60897948b871ca96694b6a46a3591b0afaacca216706e4ae891edccb9cb1c7"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0062.wav",
+          "sha256": "5b5b4acaef5bb6926911af5caddbea10cd04c2e42fc810e2e41e62d6c7ec5677"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0063.wav",
+          "sha256": "90158be00e03618d950936f5b7115793c047d3481547855a91e39d53e163e3f9"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0064.wav",
+          "sha256": "bc557b294e42866067c832c4990c0184e9d238cc75848f6915be8abd4ac2f32f"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0065.wav",
+          "sha256": "704788ba8ef4e99b99649365b44ec46f525681bb28189c9710b7dc944e6be11f"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0066.wav",
+          "sha256": "dec0328681cdc3a96b35ab9874c0cbaf1c7f67334d25d44fd6c85a30f8fd7dee"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/ru-ru_0067.wav",
+          "sha256": "494fb60595eb6961e9821914178b3545928a0fd582617d97f42557712ec5a6c0"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-18.wav",
+          "sha256": "ed295eb9b06149da6c399592a1e18d1df83495592666622f8857febe6c154c6f"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-19.wav",
+          "sha256": "6aaf999acad0b14206dfab8acc5dba434c26847d9c957a08581bc029c7115563"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-20.wav",
+          "sha256": "9040f6062573388440a42d48341d9d1036d1bd9f4dda13ddac757173eff04526"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-21.wav",
+          "sha256": "b8e7fc4e5ce1f338c2b35e87c0149b09e1435ee43790c33debb559e0c2962768"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-22.wav",
+          "sha256": "a877cc0cee8f559d7e9cf2b05de3ff616d5694e63822247a785105aee9472386"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-23.wav",
+          "sha256": "d654e390a0678a55adc2477d3ff63eed95cab12accf17e304efcb768cc54d5fd"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-24.wav",
+          "sha256": "442abe95af25282d1494545305a9437cddbd5d8b9726651a53c04918d3ae14ec"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-25.wav",
+          "sha256": "c293e47364cf5a6f2a52bcb97775c91e868000d70dc8de2a8d3b706b6f40188c"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-26.wav",
+          "sha256": "3fd02ecb97952514f1ed761c21495dea217e132a97a25351821eacfdfbbbc493"
+        },
+        {
+          "path": "build/checks/perf04/kaiser-a66-native-diagnostic/current/en-rp-27.wav",
+          "sha256": "2c681bab58b2639f8ec00ef8170aabad78647a0abd777e69d8c42ba107b05041"
+        },
+        {
+          "path": "docs/evidence/perf04-wideband-final.json",
+          "sha256": "50613af00ad8749b7ee16a73fc7ede4a9aebd25f23969ebb531b2b35984c4463"
+        },
+        {
+          "path": "build/perf04/wideband-final/manifest.json",
+          "sha256": "8038bc25f66785f21c158884a17c1cda018da640b4deef710aacfda939936999"
+        },
+        {
+          "path": "build/perf04/cardinal-oracle/manifest.json",
+          "sha256": "fb14d123289defe05098bdcc6135a063f7d91ad7fbd561803a283e05daed677f"
+        },
+        {
+          "path": "build/perf04/converter-proof/conversion-manifest.json",
+          "sha256": "254da5b37604bd832a3a705e7d70658a5c50fa7b84d62eddd0990b7187dcb1e4"
+        },
+        {
+          "path": "build/perf04/native-independent-convolution.json",
+          "sha256": "acd9533a376fb5967c99603b6c1bb1419cb5aa944ae53b986df21543bd04be14"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0058.wav",
+          "sha256": "704f32cfbfe7fee1e244b660b14a27ebd08fe99d29b42a19ed06327e9f65cadf"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0059.wav",
+          "sha256": "bd12fb961ca9b90c2e701e7e41f49e070cf6930e73af950f999b656cc2f9ef87"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0060.wav",
+          "sha256": "951a869438d8a3e1c6b1c25396392674c0f5194f41e07a18fdf85736d76fa1a1"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0061.wav",
+          "sha256": "5de4434a094c1a65a633d1f7cf0e74103faebf00403605701aca10378fa4c44d"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0062.wav",
+          "sha256": "0b6a23cd44eb953ce834086e8019794d2932de3b673f40fa00a858bb5dd60e30"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0063.wav",
+          "sha256": "dbc32dd3a10f1d7c5e9f6153bd86be762b0762493824d60e49aaea9be781fa06"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0064.wav",
+          "sha256": "dd6456dc7eefbe6b3f0a1204c06bf83c3b283fdd96067060a37c420c0f31ffd2"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0065.wav",
+          "sha256": "2c758f06717e50e1495d75bcfb30f9c5b615ca2f257977f773e1ea5a042da588"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0066.wav",
+          "sha256": "62eed812eae9f7546532c850cfcbbd94d06f463bf710f788ece4172ac2c7e72a"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0067.wav",
+          "sha256": "99ab0bbf8633ca8250025c47627db0bf7fde618470a98ec6167021784bd94b98"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-18.wav",
+          "sha256": "4abd0c0b7daa8de209c67045c9e168bd7a9b3ae493b472667a6770ea03b677e8"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-19.wav",
+          "sha256": "e4ca990580aae73bc1a56dd75e28ff676637bf8283e2b2d498bbd63b5eb7eacc"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-20.wav",
+          "sha256": "90e336623c62dec332685fd3a7b062e4e84a22c53bab8189d6c5ea1a226fd188"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-21.wav",
+          "sha256": "9eace0c417772fcaac5b10b8bd903f9fcfb20b47ab36043c7a1a4acbac0c7fa5"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-22.wav",
+          "sha256": "d06b8f88e235ea4fb28f6eecbd4b0384372d364262c6008fb4717f167ce3fe51"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-23.wav",
+          "sha256": "f2e4a91f7158713cbc3225d0649d03c75edfd0dfe65a92e22516667f6d6efff0"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-24.wav",
+          "sha256": "a159f8c610884be7799b1f02812b37fbd78b27bc0225b254a1e583165172e2b7"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-25.wav",
+          "sha256": "3731d8e784b830ea09e483a14fb8ae6e6cc3f51795a60fa36a9d4844f943be98"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-26.wav",
+          "sha256": "cdf21f08199ca195562270b54317ac3a72184cf0c3a5dc36978dc302950f4b1a"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-27.wav",
+          "sha256": "5de644c6dd06de2490bc156f1908bcee1b5cf4c05615a44d63f68e26849a93c7"
+        },
+        {
+          "path": "build/checks/perf04/deployed-v27-converter/resample-wav.exe",
+          "sha256": "a58f5b69afa3608d49c128475652765f290ae8b2265d3c12658fc733b137b107"
+        },
+        {
+          "path": "build/checks/perf04/deployed-nativewideband-replay.mjs",
+          "sha256": "877bc16b37d41252f6696986656ea70721766a453cc27a986fb93c113532c263"
+        },
+        {
+          "path": "build/checks/perf04/deployed-v27-converter/source-receipt.json",
+          "sha256": "e630f87332d79e793e2f3d67ece44a2b2bfb32702f993623b3b5479ae0ea84f0"
+        },
+        {
+          "path": "build/checks/perf04/deployed-v27-converter/deployed-resample.rs",
+          "sha256": "fd8201ec6a9299b423f756fd0eeb78c0276bd03bd1da8681f4dbc5cf5b8e5a49"
+        },
+        {
+          "path": "build/checks/perf04/deployed-v27-converter/deployed-converter.rs",
+          "sha256": "f98cad7d4bd605f8e95172fabea81df1c39d8c34539629e40f8d05c0d9b49485"
+        },
+        {
+          "path": "build/checks/perf04/deployed-v27-converter/pcm_wav.rs",
+          "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0058.wav",
+          "sha256": "40ea8da2959e7054dc75605c30e94d6527639aef57365d28f8f310a182ff582b"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0059.wav",
+          "sha256": "2b5743b15a02622a042fb0bb168075dc8136ca2fc151dc146c2d61b5bcc0f2d4"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0060.wav",
+          "sha256": "c565734d0b435a09e40c26619bbd535683e54c2033b316451c3d68f7d3079825"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0061.wav",
+          "sha256": "6a4f91226c44448a7eb427b575db7b7d9419a381adb0d66ee1acab866d90325f"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0062.wav",
+          "sha256": "80155e4ba8b249c2a56d6db01e5af59b2447b0e99f4d2e504ead34893f3800a2"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0063.wav",
+          "sha256": "684efc226c6567b6613f27b75ef96ff79e39638edd621b409675c262e2b6e75a"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0064.wav",
+          "sha256": "09c47ca9d7c28dfab571a95a134b725d169abf6441427b47e2b62ec3fdcef639"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0065.wav",
+          "sha256": "53e581d599ccf4994d453749770e337fb7463c67e02c53d6513a7a6841d3bb54"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0066.wav",
+          "sha256": "fbb9a56f46eee9b903d6a872a1188ae9b1fc4ab043e53f5d054d2c2b19397b01"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/ru-ru_0067.wav",
+          "sha256": "8c5d459cacf154f43764347f92191c98c1f6bafd2bf62eced8397927233949e9"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-18.wav",
+          "sha256": "2bc1016d57bc4af0841388d3f952ee8d05f4e14b76fad9839f1806898de3eb5a"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-19.wav",
+          "sha256": "451df52800a08be6f6b51f1c1232c6e81477141ccb13cd47eb35a8f5d848c19a"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-20.wav",
+          "sha256": "cab0011cdbe1be385a1f849ce69c49d245d96e4fc2e9145663744f35c3f558c4"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-21.wav",
+          "sha256": "fa8b0c6f52297c2a32a81a6e670b3ee29eb4c149d7d41c8df08aa2d25ecd1852"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-22.wav",
+          "sha256": "3d98674d3adcbb2d5ccf08c9d5524d360167685ad2b2ea59eca716bad2b47796"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-23.wav",
+          "sha256": "35ed4c65ce7dec37aa3dc2a3ffb32b6f3c1029be0d7af6285ba36a6b4cea3925"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-24.wav",
+          "sha256": "57364976e2522f6d090a09a987b7d2ebe63f4766db5bd042c090568c9175d9c8"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-25.wav",
+          "sha256": "d4a73b2f8e45955e998d90229c6408f9ea9ef1f29e853eeada05567d84ad4b3a"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-26.wav",
+          "sha256": "9f743eac587eb66fa47d44faaa3df590e1496ac4c7d12764d5ef11ec71c4e29b"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-deployed-v27/current/en-rp-27.wav",
+          "sha256": "67941068de16bf4a4690b1a28aec97c1f9b64533055ac8f98dc458d5408f87ba"
+        },
+        {
+          "path": "build/perf04/wideband-final/selection-predeclared.json",
+          "sha256": "e2ba1d0aa21e2b15c431c6cfe35ca364be89a1bfb17d97b911cfb9f0d84acbd5"
+        },
+        {
+          "path": "build/checks/perf04/fresh-nativewideband-replay.mjs",
+          "sha256": "3308f118062381c933ebe0b87fcb6bce737ee538be22cb6641eda50f1a25f531"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0008.wav",
+          "sha256": "356a7d4a90bed9f2735bbb76e242c760c8125df2df9fe0a39c053cc9c7f42c62"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0009.wav",
+          "sha256": "4639139660e877e92a54d3d2a0a51641e73462ff1fc6e2e9b82f9e5d91c7181b"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0010.wav",
+          "sha256": "8094e05933e89f9149a219afa22f8d0673eb478f39b5fd12cd43fc1637e9453d"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0011.wav",
+          "sha256": "1de52bc475d4afafb1c638f5e6038d76daf6030213b6de504f1b1145c8a72bad"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0012.wav",
+          "sha256": "9cf5a9ff508ec530960549417443419d1f4aff60e32732a42330bcf00181edae"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0013.wav",
+          "sha256": "da7ca1f45ac12be042e76b510a98fedd61a2031f78cbcfea6b19c4a511aeb827"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0014.wav",
+          "sha256": "68e316803afbcd8df01b2e1a92cfa22db0bf4b203d27d4c3db666112e8d69c1b"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0015.wav",
+          "sha256": "b5f8bd0fddbd1a8afa70b389d4dd04a581409af0419b0b72e4af713bebd73ab3"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0016.wav",
+          "sha256": "8034c5a960c54d546c50a799fbb19cedf7d2fe4fb8f60ec8b3d8c3f923667ae5"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/wav/ru_0017.wav",
+          "sha256": "c767d215bf5b5e07c8d690287f5150f03cbbcc70a3186ce434b1a6bb0199eec7"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0148.wav",
+          "sha256": "577eb29b149d241a5821b4c626fb6b9425dec0027c795cfa72a47685b8812453"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0149.wav",
+          "sha256": "a2835e30741fb0a89c801e8e25f1a9b10f34071a7a1496c7e1a49fc4012ef1c5"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0150.wav",
+          "sha256": "fbf33810e964e8b3a1d708aaf22eec8f73d763b38e40f22e4d42e02b23f00ae4"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0151.wav",
+          "sha256": "50cfe6a4f0cd24701b77d704a17b09686ce0ffbcdf4aa8463c7a5114195c5077"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0152.wav",
+          "sha256": "19076fafccbde91098082fe674c29e86120e7a2673d4abb3f71fe115e619641e"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0153.wav",
+          "sha256": "d955ff7a5021b8ecd71cfec3907ea513a9d0b2b82121021475ca2a56e6c8ad9e"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0154.wav",
+          "sha256": "0fe82fc1e73b159991375ceb21a272e5317886f6dbb7581b6be520d5eb60275d"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0155.wav",
+          "sha256": "e6e6f13db4eeac5106c8a5ae18296c2aa32c27115abb88b67893f1bdfe0be441"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0156.wav",
+          "sha256": "e0a440ae13180175959d514544cd628429d95d5cffe55c3785dd2ade7f3b8571"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/wav/e0157.wav",
+          "sha256": "8989ab30f7c3e5c489bc014a0c7ecf9eadb0ae27a665e3601e20620891981df5"
+        },
+        {
+          "path": "build/perf04/wideband-final/vad-20160619-jeo.tgz",
+          "sha256": "4125eeb49ee21b807266853e274df23c405e15a532b743ad9d5883f16fbc0eae"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/LICENSE",
+          "sha256": "4881fa4502c7dd5d0ab6329a3bbec9c25bbc7291d02b08fbc379998f641849b1"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/etc/PROMPTS",
+          "sha256": "5394f0cf9c84cd21126a8ba91357683eec0ccd1fc2b862bc2b9041eede68d181"
+        },
+        {
+          "path": "build/perf04/wideband-final/ru/vad-20160619-jeo/etc/README",
+          "sha256": "c9cf3e5c03ecd2525de730fb91e6af57f94c669df3e913719b723a842bbfc818"
+        },
+        {
+          "path": "build/perf04/wideband-final/hchauhan-20160614-dzx.tgz",
+          "sha256": "847884b7ef2f8a7a9b5573a126455e9bc586a250ca66b03ce3a7c4c50f76741c"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/LICENSE",
+          "sha256": "68a312838db7b6a2b2fefbc39bb2440571bd15a979c0cda28acc8626d4aca3e5"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/etc/PROMPTS",
+          "sha256": "a098f4f0ebb8e89d0010fe9b571c83e258b7a969d500675a47ce1bc263a5abee"
+        },
+        {
+          "path": "build/perf04/wideband-final/en/hchauhan-20160614-dzx/etc/README",
+          "sha256": "f28b96c72bcf7e466a68f954761330cfa24645849c9a496f9fec6a3fd5ff6db7"
+        },
+        {
+          "path": "build/perf04/wideband-final/license-provenance.json",
+          "sha256": "4d2cbacaa5555f0b5d8ab56f4aee72bb490e725c16fb97bb3f9f6c55f7a548e9"
+        },
+        {
+          "path": "build/perf04/wideband-final/LICENSE-GPL-3.0.txt",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0008.wav",
+          "sha256": "2d8ce2b1b68cbb343147c3fe5f2d4e834bdc62ff5b866e08db0aeaee8301a9e3"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0009.wav",
+          "sha256": "9b685b1022d23d3635d554808ee6507da128175d69cff2e416be02a76b7e4c05"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0010.wav",
+          "sha256": "940694d2e001fe7543feccef9ee748f37f75fc92e666cc7e53e60d0fe85c64b7"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0011.wav",
+          "sha256": "846d6762c05f43844b68d746726a4e648b61bc7470290839bbe28af7d47ac8c3"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0012.wav",
+          "sha256": "cedad213dd64970f37634b14ba1881468e07ce5bda5a20062e6122b80e5b4e0b"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0013.wav",
+          "sha256": "5444a234e63a93458bb94b0bbae732b547c1cbd04758393d22e2a98a722da08b"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0014.wav",
+          "sha256": "89ffed7d9c84b48ed1a2abd66aa4ee7ef0af78edd5b7be788428f7d2424d871d"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0015.wav",
+          "sha256": "311a1417fb982a9ecb48146f3f9d0c5dab8dcbe4430843f3f4d01cc1d019397d"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0016.wav",
+          "sha256": "5529da73eee9b7a13a77a2222e671d3ca419ee0e2fe5227bb9debd6c0d845f38"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/ru-ru_0017.wav",
+          "sha256": "de0926f2b0342b20760b63161b3fe567f561af33ee420524fcdecfefee30fd15"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0148.wav",
+          "sha256": "2ac12b07f55c0d856b3b980d4964ade3f44790500e031dc5cd04e60e461c3935"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0149.wav",
+          "sha256": "fcb79f59ebe7b73138eb34cfe65526a3970af16c2803478e17ae04fb7e262072"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0150.wav",
+          "sha256": "248a6f6290855b07dd77bdf5cf91e727f34cfbd3bfe79dd8de70ead3f94ac4b6"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0151.wav",
+          "sha256": "30c233ed9ba7b83bfcc4ff1839aeb371dcc4c899e8d9206e871a62093f695ffb"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0152.wav",
+          "sha256": "e99137bfbee7eadc2e70db37f8e825f846850f07c07ab9d89a9190a74b5314c5"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0153.wav",
+          "sha256": "665f9238d6d5c496aaefddb372c1789bc6b4a9a3c7aac6e2caf4b8ca2df63f11"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0154.wav",
+          "sha256": "b8a69133032d75130ca3c4df4458d89859707320033467c699fc8f42a7a1054b"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0155.wav",
+          "sha256": "b0e234f470e8b9403416307c9d8a0b32bbe82e1c7d5b9d72c4fb2c11c1e08b80"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0156.wav",
+          "sha256": "3aefc9210ffe6a54339e4f8821ca68b0361d1d86df79074f95345656be7d6a8e"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/legacy/en-e0157.wav",
+          "sha256": "fbc7394e1faa6d83ae7cd3a57efdce9daff4cd787f8bd96f82ca2ce5812abe9d"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0008.wav",
+          "sha256": "9394854bfd87e5a4adc8497a6bd3c243cf0a2abd569214597fa18a0c8fc3454c"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0009.wav",
+          "sha256": "fa2d2af761511c6b68f7cdb9c09dd569cd3a2ad2634afc6ef194a00b368ace0c"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0010.wav",
+          "sha256": "4730efda535a1769b34b0aa392a0de5af2c1360ba504e92ad0401b9ad75ce878"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0011.wav",
+          "sha256": "49315e444fbea95aa839eb5ae6d43d2588ae3e109766f76353fd347d5e7f0346"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0012.wav",
+          "sha256": "1cd951d6f40cc1c7de5d2d00a5ae3f88fc0844f7196153616f6fc1cf2c00beac"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0013.wav",
+          "sha256": "52e21f5ec3a75009f8857a059d614ff02e86d312cda21c9d93afa1a43ac9d8c7"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0014.wav",
+          "sha256": "8866b21d2f824717bbd6ca08cf268e2452cb244c85bedf78f33c8fafa651a03e"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0015.wav",
+          "sha256": "e41b4e69544ad9dfc0eb7403d640cefbf417efc42ea7c5633a29088fe28d47c6"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0016.wav",
+          "sha256": "4d5229535e1bc2755709f9bfdde0250e65396154485f813fa969ae9c7b19b061"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/ru-ru_0017.wav",
+          "sha256": "2d15f638976b618d1e51b30f18b69af8df8b23f37e0e5308ad79a74789f24be1"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0148.wav",
+          "sha256": "530bde6c1533aaf1feb750a2d4a1502de9bbbe9460c9c8d1ee7eefb0c26b89d5"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0149.wav",
+          "sha256": "e868350f9f2c30bc7b4710edc7a393d9bdef68b092087d83ee98f8179e265820"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0150.wav",
+          "sha256": "b9bcd74ad1b90e63ce48a47ded39a243c11b9c3b81e4b533f8d0c84c9d24912c"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0151.wav",
+          "sha256": "761ad73caed9ef447b55deafc306f74e419809ca8aa064e0bc081205c5624646"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0152.wav",
+          "sha256": "58254ef1b358a2e96df75f8b1c11028ac85a66f169e0d407843b72c3d9913e5f"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0153.wav",
+          "sha256": "5cb790b99b6b31ec6d488e6e6bece31c67a8eb1ac1ced96d81285f7aacc44beb"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0154.wav",
+          "sha256": "5efdac21f70794401a4b45b0aac7e4740c115f2efbafce9723b9784c2e589f3f"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0155.wav",
+          "sha256": "d8ba80d1880f5300886aed5bf132c18a27ba4e3e2acefaa0a1478e72253611ea"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0156.wav",
+          "sha256": "f94a7a5b64545e86101748ad33d6aa2c74199116c00d658a47ad7040f15445ab"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/deployed_v27/en-e0157.wav",
+          "sha256": "c5b50932db62fd052755e6f96cb8f2cc8873f164428b5a67b93c6372b0ab7933"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0008.wav",
+          "sha256": "7ee72a92a6d8ec199778f1367f8412b12671de77016171dfa8cfc6431dc142f3"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0009.wav",
+          "sha256": "40b7389ff808bb4d97d21ff5019ce9ecbf6103ea6f49e13ee926b9e3f6e71bd2"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0010.wav",
+          "sha256": "c11c6735a4da5660696581db1b6383ef22d8251073a1ab097983b550d6f60df3"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0011.wav",
+          "sha256": "6ef9636950bdc5e536979dfed50fea2a6e314ee534483339dda7a0c3fc78d855"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0012.wav",
+          "sha256": "95d693669a92fa14144a5dc0bb25be37386c80f73be33a09d25ba63dea13d625"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0013.wav",
+          "sha256": "0d4275ba955e27a2228a092fb12764b998d1190ef0a94ab5cb0d2fb1673ef7d9"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0014.wav",
+          "sha256": "0ed4ce5c08674b0a2d51658969611e2aeffb97ff3e065b6193b75b4372703793"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0015.wav",
+          "sha256": "e5c7979d8514ee2a17040282e920da86f63a416150b7c1f4d8930924ad3d93af"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0016.wav",
+          "sha256": "47c3fba56ab8c2effb4dadf7bc6dcdd40bf4c7bfd40a652f62482611ae97a188"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/ru-ru_0017.wav",
+          "sha256": "547e527fedc671d56050ce4c2d5c7d17d9c7deea838d2e8a7a870b144b3c3172"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0148.wav",
+          "sha256": "7166a656f95606fc319fe97a35b22ac708fda33d4714d7611abb1fc65ba02246"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0149.wav",
+          "sha256": "4ecfa3c16f1257a9e9a458053e4602e128e0debe51cc4a666def9b30b586031e"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0150.wav",
+          "sha256": "885849b648212182550f76e18bf4147cf47cb30fb1750d3fa2d45d486feca9eb"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0151.wav",
+          "sha256": "af7674f5066c84aeefdc278b09abb9d9c47a288e9db1457c8eeaf42e0d3286a0"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0152.wav",
+          "sha256": "76fb6ccc7964facb46b987c63b72e3b4b75975db97f29eb1ed03890c0476af8f"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0153.wav",
+          "sha256": "8685de9d54ebedfc838af90908cd8046c989280b9d7ea5165e2d01c19fc7e390"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0154.wav",
+          "sha256": "d7193cb4c4de3c3ee9d581a16a972874d957499a4e7e57db61f03bc45525bc4d"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0155.wav",
+          "sha256": "7f017d35cd81d3d0c3f0ac2d9873b54ada975543bedc97dd2b6d6acb93fcfa7d"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0156.wav",
+          "sha256": "c4856d94da3203f9fe941324ea9d9de6fc2543b7bdea06d5dfcd9c97f10ef40b"
+        },
+        {
+          "path": "build/checks/perf04/native-wideband-fresh-selected/current/en-e0157.wav",
+          "sha256": "966af600acc1577274619e6a5da791f06590110d2e16c957b1bf6ba37a33f0d5"
+        }
+      ]
+    },
+    "warning_resolution": "Aggregate decision and acceptance updated after the read-only audit to explicitly state fresh80/80 to81 and failed/open; immutable experiment reports unchanged."
+  },
+  "final_project_checks": {
+    "summary": {
+      "path": "build/checks/perf04-project-results.json",
+      "bytes": 942,
+      "sha256": "82377079b09056f5caed56df3899919cde021ade62fa90abb7ac6fd45304827e",
+      "data": {
+        "schema": 1,
+        "version": "0.7.28",
+        "steps": [
+          {
+            "name": "docs-format",
+            "exit_code": 0,
+            "started_at_utc": "2026-10-18T12:49:16.4445699+00:00",
+            "seconds": 2.633152,
+            "log": "build/checks/perf04-project-docs-format.log"
+          },
+          {
+            "name": "docs-links",
+            "exit_code": 0,
+            "started_at_utc": "2026-10-18T12:49:19.1112201+00:00",
+            "seconds": 0.8589276,
+            "log": "build/checks/perf04-project-docs-links.log"
+          },
+          {
+            "name": "version",
+            "exit_code": 0,
+            "started_at_utc": "2026-10-18T12:49:19.9810161+00:00",
+            "seconds": 0.71372,
+            "log": "build/checks/perf04-project-version.log"
+          },
+          {
+            "name": "diff",
+            "exit_code": 0,
+            "started_at_utc": "2026-10-18T12:49:20.6975821+00:00",
+            "seconds": 0.2494425,
+            "log": "build/checks/perf04-project-diff.log"
+          }
+        ],
+        "all_steps_passed": true
+      }
+    },
+    "gates": [
+      {
+        "name": "docs-format",
+        "exit_code": 0,
+        "started_at_utc": "2026-10-18T12:49:16.4445699+00:00",
+        "seconds": 2.633152,
+        "log": "build/checks/perf04-project-docs-format.log",
+        "evidence": {
+          "path": "build/checks/perf04-project-docs-format.log",
+          "bytes": 272,
+          "sha256": "21e8a35dab4dc4c594888fd7d37005633707b378bf3c9b5dd07211df6f4f3dc8"
+        }
+      },
+      {
+        "name": "docs-links",
+        "exit_code": 0,
+        "started_at_utc": "2026-10-18T12:49:19.1112201+00:00",
+        "seconds": 0.8589276,
+        "log": "build/checks/perf04-project-docs-links.log",
+        "evidence": {
+          "path": "build/checks/perf04-project-docs-links.log",
+          "bytes": 189,
+          "sha256": "32d66307f5ef5294a9f0e786512effc52a0fd77fb63865acd040865ff0b61502"
+        }
+      },
+      {
+        "name": "version",
+        "exit_code": 0,
+        "started_at_utc": "2026-10-18T12:49:19.9810161+00:00",
+        "seconds": 0.71372,
+        "log": "build/checks/perf04-project-version.log",
+        "evidence": {
+          "path": "build/checks/perf04-project-version.log",
+          "bytes": 94,
+          "sha256": "dbc8f7b5f735d90271ae31a5d975cc1ed87fbce09aa8b30a8f98d35061c595cc"
+        }
+      },
+      {
+        "name": "diff",
+        "exit_code": 0,
+        "started_at_utc": "2026-10-18T12:49:20.6975821+00:00",
+        "seconds": 0.2494425,
+        "log": "build/checks/perf04-project-diff.log",
+        "evidence": {
+          "path": "build/checks/perf04-project-diff.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ]
+  },
+  "quality_report": {
+    "path": "docs/evidence/perf04-quality.json",
+    "bytes": 790869,
+    "sha256": "683b6179f0d1bd044493da62870ba9d70ee594decc1d36383edf2f2ff22071d4"
+  },
+  "scope": {
+    "browser_mock_visual_repeated": false,
+    "native_app_started": false,
+    "microphone_opened": false,
+    "gpu_used": false,
+    "installer_produced": false,
+    "installer_installed": false,
+    "remote_ci_run": false,
+    "release_published": false,
+    "owner_accepted": false
+  },
+  "limitations": [
+    "Passing code checks do not establish quality acceptance. Fresh native holdout has81/341 WER errors against80/341 for both baselines.",
+    "Native matrix excludes the explicitly opt-in real-worker lifecycle soak, which has its own historical stage5 receipt; no new soak pass is claimed.",
+    "StrictClippy and Cargo release checks do not qualify C++ Vulkan inference or installed Windows application.",
+    "Unrelated owner changes preserved; package.json is staged with only the patch-version delta."
+  ],
+  "documentation_closeout": {
+    "verified_at_utc": "2026-10-18T12:52:41.782Z",
+    "docs_links_passed": true,
+    "diff_check_passed": true,
+    "format_write_passed": true,
+    "logs": [
+      {
+        "path": "build/checks/perf04-closeout-docs-format.log",
+        "sha256": "3e4775984605f71bbc559c936b80d720a4608076b0d00fdb5fff8a08dedb15c4",
+        "bytes": 79
+      },
+      {
+        "path": "build/checks/perf04-closeout-docs-links.log",
+        "sha256": "32d66307f5ef5294a9f0e786512effc52a0fd77fb63865acd040865ff0b61502",
+        "bytes": 189
+      },
+      {
+        "path": "build/checks/perf04-closeout-diff.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    ],
+    "final_markdown": [
+      {
+        "path": "docs/improvement-perf04.md",
+        "sha256": "4cfa16d43a0aa73c2b32fe5cbafbcc4d9baa9cddf571939baf28195bc733b8e5",
+        "bytes": 24676
+      },
+      {
+        "path": "docs/STATUS.md",
+        "sha256": "78bc42f2206e69791aafeea152e1ca81bb70671fa6dfa4819ea88e644bac1a94",
+        "bytes": 17054
+      },
+      {
+        "path": "docs/README.md",
+        "sha256": "526c0d9092c44763446ccc214d1493e02dc9a8bc27509c70fd98b4eec95bb7a0",
+        "bytes": 5173
+      },
+      {
+        "path": "docs/testing.md",
+        "sha256": "ca2ed5b67382aa8464ffcdbd73b4b5af060cac0abb8f5f7192cda0ec72194623",
+        "bytes": 23921
+      },
+      {
+        "path": "src-tauri/tests/fixtures/stt-quality/README.md",
+        "sha256": "99341cd8387f5c775446e9ae808aa7a1e02e7ea17e2781f9f542766e5ef30960",
+        "bytes": 8330
+      },
+      {
+        "path": "docs/evidence/licenses/perf04-data-NOTICE.md",
+        "sha256": "650e29a58bec5108d778d225660a0d60f1469c55e138b0b90fe1506a78d4be21",
+        "bytes": 4347
+      }
+    ]
+  }
+}

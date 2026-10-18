@@ -1,0 +1,3498 @@
+{
+  "schema": 1,
+  "kind": "fono-perf04-native-wideband-holdout",
+  "case": "native-wideband-final",
+  "started_at_utc": "2026-10-18T11:50:46.293Z",
+  "lineage": {
+    "run_id": "perf04-native48-079f4281-32f7-4511-8b42-8c6c73c00d6d",
+    "source_revision": "ad79364be63341a3011bff65b55f3610f4fe942c",
+    "app_version": "0.7.28",
+    "source_inputs_sha256": "3d0b9e2a0f71b3edb3c1fde118db1f8183dfacb5726cef4ee717566857bfc166",
+    "source_inputs": [
+      {
+        "path": ".github/workflows/stt-quality.yml",
+        "sha256": "f6e7b74439589256d749ad184d8340e0915ac746db88ea824fcecaca70209f3b"
+      },
+      {
+        "path": "scripts/bootstrap-ci-resources.ps1",
+        "sha256": "ac7db9c9d0b9adee25c7f4713ad5c3fbf66067fbdd86af6b8706bf7415a1f7ed"
+      },
+      {
+        "path": "scripts/native-test-runtime.mjs",
+        "sha256": "5a015cb04fb2d8b93e2e75ab0deda9f3659f3bda90302b7fd48d32f29d3438d3"
+      },
+      {
+        "path": "scripts/prepare-stt-quality-corpus.py",
+        "sha256": "9270c4dbdbbc613965dcc1f1b092576684947983bcb865d8b6ebf2d82a859e54"
+      },
+      {
+        "path": "scripts/stage4-quality.mjs",
+        "sha256": "6194380af83a60de6220ecf32d8577fcb13b2592e8ddc9213c28ce5cc87297fd"
+      },
+      {
+        "path": "scripts/stage5-quality.mjs",
+        "sha256": "904b5f73e2b3185ad3a945ab4f7d6b87422c6eeabfc9e112a77981a6c0b96691"
+      },
+      {
+        "path": "scripts/stt-quality-lineage.mjs",
+        "sha256": "c9eca9c3fec1b08110d9607db67923fe07bf31bf04acd19be923c1a3bd5b373d"
+      },
+      {
+        "path": "scripts/stt-quality.mjs",
+        "sha256": "52773430899224e5d5624227a3417b2a39b0a9112ec4c004bf350a60f0550804"
+      },
+      {
+        "path": "src-tauri/.cargo/config.toml",
+        "sha256": "26770295187010df6b1dc90c387fed5865d67552e93f33cf6bd031fc32c2ac34"
+      },
+      {
+        "path": "src-tauri/Cargo.lock",
+        "sha256": "4520c575e8ed9a9544c9606e3d8eaec7bfe530b7d4d27b988ce696b0a9313d12"
+      },
+      {
+        "path": "src-tauri/Cargo.toml",
+        "sha256": "c455d66c26e4aacaa9432d72e1e545cb75d9a1fe31c0f476d3ee17afcbe1ca5d"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/Cargo.toml",
+        "sha256": "4b8a6faee280aa7e60dae21681111c418d4c729c784246018678d12e248d58e0"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/resample-wav.rs",
+        "sha256": "fb8cac0e0d2955108c93143cbcc9fe9b3189a3d86ac885dd4df411f7cbc197e7"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/support/pcm_wav.rs",
+        "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/trim-vad-wav.rs",
+        "sha256": "f1fe521038820dbc4fef2383fe309c266f0816a7daeff63fe6ee11c0e2a74b8b"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/capture.rs",
+        "sha256": "26dbd2c53c629396df09cf25f9e0164c4fa950cbabcb235e9e3d095c0311f1e0"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/convert.rs",
+        "sha256": "3661a3ee659d18d4380829a0413c082efaf68002435fce166ee64a0d72832ae8"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/hub.rs",
+        "sha256": "00a6bf1c31ff0828ccd65219cdbb554e7675adec9a3884ac1b9648e2e19582ae"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/mod.rs",
+        "sha256": "19fe4fe273e27b79bfde0ec5cf38726cc96968fabc473a2a6de33b313534a6ea"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/owner.rs",
+        "sha256": "762fe980227afe5190d2e884ce03ca5d0e2a870b96da357fb9038658d4358aae"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+        "sha256": "6bd3297a94d21d7443fb751ca8110eb59a4622aa9ea39131534054931e99a58c"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/ring.rs",
+        "sha256": "1924d01fe8c0dba849a35861ac83097e36a80fb62c9c4c1e22be5f9810f12f45"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/error.rs",
+        "sha256": "9b357265781170155af2d59cea32da61541bcb99bd3d5a754144dc2236a47c7b"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/lib.rs",
+        "sha256": "051dbf1bf927dc2409a94f8a7666601ce84ddb4d815fce2babbfd43f6108fb4f"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_boundaries.rs",
+        "sha256": "27b5c2f87ca2febb30e287e26ba62bee5ca4287c4af14bf6c4cb7e81026f73d7"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad.rs",
+        "sha256": "0f28b8c5563bd4cb5e6f282adcb9557d4cccb93a235caa37d8328c7f3f7210e8"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad/recording.rs",
+        "sha256": "d9f2b8ac3cc64af55e7b727deed4c4aaa4f104d85f3d72af9a271f0d2ad2dbf9"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad/tests.rs",
+        "sha256": "de2e0e4bc102fb789fb29df413bbe27e0f24fb5705867ef858aa41751da434a2"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/tests/resampler_allocations.rs",
+        "sha256": "f2edbd9a60cf04a4ce1925d37ea631d431a7c511e83997e10abb3fd8735b5035"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/Cargo.toml",
+        "sha256": "3360b3c68539171480a64335fbea8887da8b361fb0335d112aa458b6ad600b3c"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/decoding.rs",
+        "sha256": "e1ca0710f586589a05a039d0d6d76b6b4bd8ad3eb2dab2e3c9bb0c9f5286857b"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/inference_options.rs",
+        "sha256": "002eca3a96c0af57c107d1190f68a6798757ef958ba6bdf31c5758bd17e19ba4"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/inference.rs",
+        "sha256": "f11e42adc03af4abebf5053ee4c5d90926efb94b8982859f41ad5f6a5ef45c57"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/lib.rs",
+        "sha256": "d9e5c4b2caded612ce8593647d44a7deb2ff5ec8fc7e9b2453a0d840840e9d7d"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/timestamps.rs",
+        "sha256": "fc2eff125ac6e4904a398399ae511c22df0749f016a21611ed469f172619c80c"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/Cargo.toml",
+        "sha256": "1afc9d6cffb4993b6295f7fd3c68e382e3ccb366d317c28edeb0f14e95740625"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/metrics.rs",
+        "sha256": "b81da8458c5078273c8aa74d7e9cb9935aac6dc0462ecc5aad61ae41163453b7"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/transport.rs",
+        "sha256": "1a40e0639afeb3c3a307bd9cc616bf52ac42f7401a39b4dff8a23cbd393d1c99"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/wav.rs",
+        "sha256": "4c74aa702595a852fcfe7bad5efefa77acffd81fee794509eb983e1b8183b69b"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-bench.rs",
+        "sha256": "a7e9828c7248c9fac32b1495ed1e65b3e640635bc0c7d06fad636e9a7cbfcdfe"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-quality.rs",
+        "sha256": "da23128dce445f6941ec8b2d879e27933f584973626800fd0a8e3f8ebc727029"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/control.rs",
+        "sha256": "fec3f87d5fda50c0a10fbe2d0c847c460a1878b3f85c0e5a3507a1fac5973401"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/framing.rs",
+        "sha256": "bfe724371932139b215994d3588adae4392db87940db5a459a54c6064f50ea29"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/main.rs",
+        "sha256": "5813d1caed93e57c6a900e0dfe6bd6eb55437a81dd9f496615d03c847c3c8a8d"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/runtime.rs",
+        "sha256": "66aa54d4570031a4cc3463b9a63ca60685033ac0c4a7727a2cc09a78a1b5f38d"
+      },
+      {
+        "path": "src-tauri/rust-toolchain.toml",
+        "sha256": "5a357c16adbb4740c3264b315c59c4882c286072146d7198757096197b498c52"
+      },
+      {
+        "path": "src-tauri/src/application/dictation/capture.rs",
+        "sha256": "5fb0e88b40f0870dce0cf75ad26dc988d0386b4e3248751ca8a8c69a6c9a14fe"
+      },
+      {
+        "path": "src-tauri/src/application/speech_gate.rs",
+        "sha256": "840ce9dda389a0470094ddfb1aa623b6318c31e76faba9fce7042c1da6fe8045"
+      },
+      {
+        "path": "src-tauri/src/vad/mod.rs",
+        "sha256": "8ac37745b032a6a302e7eaa61643432dd787c27b5dd18d6f64e10d9ad2f379cc"
+      },
+      {
+        "path": "src-tauri/tests/fixtures/stt-quality/baseline.json",
+        "sha256": "6189e7e0a2426b35ec694c390c7de6c826df9eea8315a086f196e6b724f3558c"
+      },
+      {
+        "path": "src-tauri/tests/fixtures/stt-quality/manifest.json",
+        "sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2"
+      }
+    ]
+  },
+  "hardware": {
+    "platform": "win32",
+    "architecture": "x64",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+    "logical_cpus": 16,
+    "os_release": "10.0.26200"
+  },
+  "hardware_sha256": "135993614647410ab07dea77f1063cf74393d8c23a397a3344dd69f885c98bcb",
+  "corpus": {
+    "name": "fono-voxforge-native48-holdout-v1",
+    "manifest_sha256": "2426fd1e442e96bc51c204b3d164f1bdfeeb333a84619557cfa43365b6345276",
+    "selection_sha256": "3795438b2887c533de7e753bc0a7210bad22500e97a384d2d160df807330bfb5",
+    "frozen_at_utc": "2026-10-18T11:41:23.651695+00:00",
+    "selection": "All ten archive utterances from each of the two packs. Chosen by native 48kHz metadata, availability and small pack size, before any new STT inference. No recognition results or text difficulty used for selection.",
+    "utterances": 20,
+    "sample_rate": 48000,
+    "license": "GPL-3.0-or-later",
+    "license_separation": "Public VoxForge audio/transcripts are GPL-3.0-or-later as declared on the original submission pages; they are separate data from MIT Fono code. Audio and archives remain build-only. Read and retain the archive license notices independently.",
+    "limitations": "Twenty utterances from two male speakers. Catalog-declared 48k capture verified as PCM16 mono48k WAV headers, not a claim of measured microphone analog bandwidth, demographic coverage or owner microphone acceptance. HTTP transport hashes are local pins rather than upstream authenticated checksums."
+  },
+  "decoding": {
+    "strategy": "fast",
+    "threads": 8
+  },
+  "before_files": [
+    {
+      "path": "build/perf04/wideband/manifest.json",
+      "sha256": "2426fd1e442e96bc51c204b3d164f1bdfeeb333a84619557cfa43365b6345276",
+      "bytes": 34001
+    },
+    {
+      "path": "build/perf04/wideband/selection-predeclared.json",
+      "sha256": "3795438b2887c533de7e753bc0a7210bad22500e97a384d2d160df807330bfb5",
+      "bytes": 2243
+    },
+    {
+      "path": "build/checks/stage5-tools/fono-stt-quality.exe",
+      "sha256": "601038092ab284fecebd5df0f277fe1bafd755ad338039a80bae021bc789883f",
+      "bytes": 1982464
+    },
+    {
+      "path": "build/stt-quality/ggml-tiny.bin",
+      "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+      "bytes": 77691713
+    },
+    {
+      "path": "build/checks/perf04-tools/resample-wav.exe",
+      "sha256": "9e1219146accc59ba8a7d0f02a308b3a21b41d5132e4c827d8a4678e3d43ee29",
+      "bytes": 172544
+    },
+    {
+      "path": "build/checks/perf04/nativewideband-replay.mjs",
+      "sha256": "97737f6e895e7ad5f1c980c8e0d5843469967874b78e31959a8b08b4bec2195b",
+      "bytes": 14779
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0058.wav",
+      "sha256": "1cfe3d0365ff572e6f69ba6bb32f2fbc9382124a3ac3bad109834985f404657a",
+      "bytes": 456044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0059.wav",
+      "sha256": "0f1aa4ef250c8014aff55cea48afd4e80de3cc41da8532e354e51d7f6d8bd5f5",
+      "bytes": 792044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0060.wav",
+      "sha256": "0a65cac92f0ef8d091a38e2c09807c28e2e6a5b4985ea649d818fd2859feb775",
+      "bytes": 456044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0061.wav",
+      "sha256": "e752d51a4177bff1eb7d11117e29a82fe159e6e995ba2410b091f0a83f775868",
+      "bytes": 600044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0062.wav",
+      "sha256": "bb2dd81d15a719d6b08aca2d73e287e2a8b5e59611b94d9daa1de460bb8286bf",
+      "bytes": 552044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0063.wav",
+      "sha256": "613a9cd73fa3386ff2e19f333d13285cbc5712b60a65b4677ba6fa25f56a3c8f",
+      "bytes": 384044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0064.wav",
+      "sha256": "0c30ba64c95f2cceb0495ba16a7ab8c6016e43d99f871609cb62a44f1ea7a61e",
+      "bytes": 1080044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0065.wav",
+      "sha256": "58de4711f15c8432dee5739944da7bdfb34583f53b746d928e8292e0fed9f008",
+      "bytes": 1152044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0066.wav",
+      "sha256": "096c7d277ecb81f798ccfe64ba8cb02663b231bb9ff769a5ddfaed3b0b93ef35",
+      "bytes": 708044
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0067.wav",
+      "sha256": "96926322d02329c091e340648ddb8bc03be9dc61c99944288902b3b1509f4c5d",
+      "bytes": 792044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-18.wav",
+      "sha256": "3c0d647514b31a4c740d8591fa79c5bbcd2e0cad305fce38153c8cd888c4843e",
+      "bytes": 360044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-19.wav",
+      "sha256": "d847cb442dbe4e1d24613c802f2e0167fcb007ab712d5c63c9af95a2c40af9de",
+      "bytes": 336044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-20.wav",
+      "sha256": "f5fd2c9cf20075a3ce1e2a48648d1e7a0156d7f8fad7d4e6a4ffeef57558ed09",
+      "bytes": 420044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-21.wav",
+      "sha256": "3101551362e7f9540714dedf9c6ca845b442010e98efeae0977a0e2c91e2003d",
+      "bytes": 420044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-22.wav",
+      "sha256": "9a1111fb066305d5169f48f3c6c5a474f0ebb369993e5a07228fc111e1b2cbcd",
+      "bytes": 396044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-23.wav",
+      "sha256": "ea927844173cf0c7cf726bfe996c3f6535fea61ba333a8bdc0447df352cfd04d",
+      "bytes": 516044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-24.wav",
+      "sha256": "39db7ff0eeba5e07b3c6dce6622755abf0b13572782e85ac0c5fc65f7f2174b3",
+      "bytes": 516044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-25.wav",
+      "sha256": "e48641060be73d725942b7cbdf9d1abbb3a2440e07c99a2301d6b3879f4e6594",
+      "bytes": 456044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-26.wav",
+      "sha256": "42b9d04bb5e97b4b18438d03fd861a1fc01a72b3fe9c6ab5a18e2103bc3bc3d6",
+      "bytes": 336044
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-27.wav",
+      "sha256": "8a700c6e4a14bbc1ec3cdce497375bce5250a1fd1c569ed5055fd50416d8906d",
+      "bytes": 396044
+    },
+    {
+      "path": "build/perf04/wideband/gav-20170207-ifk.tgz",
+      "sha256": "40d0e8721a1499fcfebcb725a0aba3fda9ceaee0431bdabd4fe1528470ac88ee",
+      "bytes": 6408228
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/LICENSE",
+      "sha256": "57d11099f0ad9aa9450542e04eb60aa406f0532b74cf43d47f282181a7870e1d",
+      "bytes": 681
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/etc/PROMPTS",
+      "sha256": "1630bc956c5747e31f191df7c8ca4afb4c65e4e4d12c12247386a4f430a66f5c",
+      "bytes": 2013
+    },
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/etc/README",
+      "sha256": "c38b95b6b7420e89730c18c49e62fc65b09ec848dde4becc5a19e51e9c40cd09",
+      "bytes": 444
+    },
+    {
+      "path": "build/perf04/wideband/icern300-20151115-dno.tgz",
+      "sha256": "b94bf700682871c83a356469228eddf89c17ed5eb1bb4163bce5cc06631c3d91",
+      "bytes": 2324648
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/LICENSE",
+      "sha256": "90ea10fdd22b10d497c5ee6bc0f62ca21a4586cff29f596aaa7ca47aad1b2d74",
+      "bytes": 659
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/etc/PROMPTS",
+      "sha256": "7707ddcc8fd7be5955c79860427fc33926da3f8ec446c3ae6d681c3ed36eab64",
+      "bytes": 906
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/etc/README",
+      "sha256": "428ceba895c03514c2e5e1ef597de17b20027fe0cd015ff7a56ff710cbada0ea",
+      "bytes": 417
+    }
+  ],
+  "model": {
+    "basename": "ggml-tiny.bin",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+    "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
+  },
+  "runner": {
+    "path": "build/checks/stage5-tools/fono-stt-quality.exe",
+    "sha256": "601038092ab284fecebd5df0f277fe1bafd755ad338039a80bae021bc789883f"
+  },
+  "converter": {
+    "path": "build/checks/perf04-tools/resample-wav.exe",
+    "sha256": "9e1219146accc59ba8a7d0f02a308b3a21b41d5132e4c827d8a4678e3d43ee29"
+  },
+  "method": "Each unchanged native PCM16 mono48k WAV is converted independently by the same production converter using legacy or current and explicit --native-input. No 16→48 reconstruction; exact complete references and all twenty preselected clips retained. Fresh CPU model per alternative; first utterance measured once before its warm replay. Timings observational; unrelated host load uncontrolled.",
+  "license_notices": [
+    {
+      "path": "build/perf04/wideband/ru/gav-20170207-ifk/LICENSE",
+      "sha256": "57d11099f0ad9aa9450542e04eb60aa406f0532b74cf43d47f282181a7870e1d",
+      "bytes": 681,
+      "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+      "archive_url": "http://www.repository.voxforge1.org/downloads/Russian/Trunk/Audio/Original/48kHz_16bit/gav-20170207-ifk.tgz",
+      "declared_copyright": "Copyright 2017 Ассоциация свободного ПО",
+      "text": "Copyright 2017 Ассоциация свободного ПО\n\nThese files are free software: you can redistribute them and/or modify\nthem under the terms of the GNU General Public License as published by\nthe Free Software Foundation, either version 3 of the License, or\n(at your option) any later version.\n\nThese files are distributed in the hope that they will be useful,\nbut WITHOUT ANY WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\nGNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License\nalong with these files.  If not, see <http://www.gnu.org/licenses/>.\n\n"
+    },
+    {
+      "path": "build/perf04/wideband/en/icern300-20151115-dno/LICENSE",
+      "sha256": "90ea10fdd22b10d497c5ee6bc0f62ca21a4586cff29f596aaa7ca47aad1b2d74",
+      "bytes": 659,
+      "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+      "archive_url": "http://www.repository.voxforge1.org/downloads/SpeechCorpus/Trunk/Audio/Original/48kHz_16bit/icern300-20151115-dno.tgz",
+      "declared_copyright": "Copyright 2015 Free Software Foundation",
+      "text": "Copyright 2015 Free Software Foundation\n\nThese files are free software: you can redistribute them and/or modify\nthem under the terms of the GNU General Public License as published by\nthe Free Software Foundation, either version 3 of the License, or\n(at your option) any later version.\n\nThese files are distributed in the hope that they will be useful,\nbut WITHOUT ANY WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\nGNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License\nalong with these files.  If not, see <http://www.gnu.org/licenses/>.\n\n"
+    }
+  ],
+  "portable_path": "docs/evidence/perf04-wideband.json",
+  "finished_at_utc": "2026-10-18T11:52:23.280Z",
+  "alternatives": {
+    "legacy": {
+      "backend": "cpu",
+      "cold": {
+        "errors": {
+          "cer": 0.11764705882352941,
+          "character_errors": 6,
+          "reference_characters": 51,
+          "reference_words": 9,
+          "wer": 0.5555555555555556,
+          "word_errors": 5
+        },
+        "id": "ru-ru_0058",
+        "seconds": 0.7091806
+      },
+      "decoding": {
+        "strategy": "fast",
+        "threads": 8
+      },
+      "entries": [
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.11764705882352941,
+            "character_errors": 6,
+            "reference_characters": 51,
+            "reference_words": 9,
+            "wer": 0.5555555555555556,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0058",
+          "language": "ru",
+          "rtf": 0.13683484210526314,
+          "text": "Осень не ветер надкатей лежащий в земле под крестом.",
+          "warm_seconds": 0.6499655
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.11864406779661017,
+            "character_errors": 14,
+            "reference_characters": 118,
+            "reference_words": 20,
+            "wer": 0.4,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0059",
+          "language": "ru",
+          "rtf": 0.07947334545454546,
+          "text": "Накинул пальтое за шагал через пустырь на большую монетную улицу к себе на квартиру, где полгода там у нас атомер локатия.",
+          "warm_seconds": 0.6556551
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.07246376811594203,
+            "character_errors": 5,
+            "reference_characters": 69,
+            "reference_words": 13,
+            "wer": 0.23076923076923078,
+            "word_errors": 3
+          },
+          "id": "ru-ru_0060",
+          "language": "ru",
+          "rtf": 0.10736014736842106,
+          "text": "Он открыл верюс спальню, где после смерти Катя он никогда не ночевал.",
+          "warm_seconds": 0.5099607
+        },
+        {
+          "audio_seconds": 6.25,
+          "errors": {
+            "cer": 0.10344827586206896,
+            "character_errors": 9,
+            "reference_characters": 87,
+            "reference_words": 15,
+            "wer": 0.4666666666666667,
+            "word_errors": 7
+          },
+          "id": "ru-ru_0061",
+          "language": "ru",
+          "rtf": 0.09275508800000001,
+          "text": "Гуси фумаша жили в одной комнате, когда-то роскошным огромным теперь заброшенным доме.",
+          "warm_seconds": 0.5797193
+        },
+        {
+          "audio_seconds": 5.75,
+          "errors": {
+            "cer": 0.273972602739726,
+            "character_errors": 20,
+            "reference_characters": 73,
+            "reference_words": 11,
+            "wer": 0.7272727272727273,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0062",
+          "language": "ru",
+          "rtf": 0.09028405217391304,
+          "text": "Главой ли тело не могла улететь весьлый женщин на свиселом имладенцами?",
+          "warm_seconds": 0.5191333
+        },
+        {
+          "audio_seconds": 4,
+          "errors": {
+            "cer": 0.14583333333333334,
+            "character_errors": 7,
+            "reference_characters": 48,
+            "reference_words": 10,
+            "wer": 0.5,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0063",
+          "language": "ru",
+          "rtf": 0.1132869,
+          "text": "Всем и лет меня не пуля не штык не могли сребить.",
+          "warm_seconds": 0.4531476
+        },
+        {
+          "audio_seconds": 11.25,
+          "errors": {
+            "cer": 0.045112781954887216,
+            "character_errors": 6,
+            "reference_characters": 133,
+            "reference_words": 21,
+            "wer": 0.23809523809523808,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0064",
+          "language": "ru",
+          "rtf": 0.10932131555555556,
+          "text": "Он сел к столу начал лупить варёную картошку, разломил окунул в соль. На завтрак приготовь чистые две смены, рубашки под штаннике подвертки.",
+          "warm_seconds": 1.2298648
+        },
+        {
+          "audio_seconds": 12,
+          "errors": {
+            "cer": 0.11920529801324503,
+            "character_errors": 18,
+            "reference_characters": 151,
+            "reference_words": 23,
+            "wer": 0.4782608695652174,
+            "word_errors": 11
+          },
+          "id": "ru-ru_0065",
+          "language": "ru",
+          "rtf": 2.5125426,
+          "text": "Шли с набережной бежали из переулков. Бубнились, бевались в кучке, лежали на чахлой траве. Поглядывали на низкая солнца, пусти в шесть квось облака широкий лучей.",
+          "warm_seconds": 30.1505112
+        },
+        {
+          "audio_seconds": 7.375,
+          "errors": {
+            "cer": 0.06593406593406594,
+            "character_errors": 6,
+            "reference_characters": 91,
+            "reference_words": 12,
+            "wer": 0.4166666666666667,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0066",
+          "language": "ru",
+          "rtf": 0.5785850169491525,
+          "text": "До Сумирек переливался Говар. Шли разные разговоры в толпе, ожидающий нем кновенного события.",
+          "warm_seconds": 4.2670645
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.10476190476190476,
+            "character_errors": 11,
+            "reference_characters": 105,
+            "reference_words": 15,
+            "wer": 0.4666666666666667,
+            "word_errors": 7
+          },
+          "id": "ru-ru_0067",
+          "language": "ru",
+          "rtf": 0.3360005090909091,
+          "text": "Его ярко освещенное внутренности с тёганой ромбами желтой кожи была видна сквозь круглая отверстия люка.",
+          "warm_seconds": 2.7720042
+        },
+        {
+          "audio_seconds": 3.75,
+          "errors": {
+            "cer": 0.10416666666666667,
+            "character_errors": 5,
+            "reference_characters": 48,
+            "reference_words": 8,
+            "wer": 0.125,
+            "word_errors": 1
+          },
+          "id": "en-rp-18",
+          "language": "en",
+          "rtf": 0.5835629866666667,
+          "text": "Airstumble thought that the rainbow was caused by.",
+          "warm_seconds": 2.1883612
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0.025,
+            "character_errors": 1,
+            "reference_characters": 40,
+            "reference_words": 9,
+            "wer": 0.1111111111111111,
+            "word_errors": 1
+          },
+          "id": "en-rp-19",
+          "language": "en",
+          "rtf": 0.44218217142857136,
+          "text": "Reflection of the Sun's Ray by the Rain.",
+          "warm_seconds": 1.5476375999999998
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 58,
+            "reference_words": 10,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-20",
+          "language": "en",
+          "rtf": 1.22809552,
+          "text": "Since then, physicists have found that it is not reflection.",
+          "warm_seconds": 5.3729179
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0.05263157894736842,
+            "character_errors": 3,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0.4444444444444444,
+            "word_errors": 4
+          },
+          "id": "en-rp-21",
+          "language": "en",
+          "rtf": 0.7553255542857144,
+          "text": "But refraction by the rain drops which caused the rainbow.",
+          "warm_seconds": 3.3045493
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-22",
+          "language": "en",
+          "rtf": 0.4645362424242424,
+          "text": "Many complicated ideas about the rainbow have been formed.",
+          "warm_seconds": 1.916212
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.05194805194805195,
+            "character_errors": 4,
+            "reference_characters": 77,
+            "reference_words": 13,
+            "wer": 0.07692307692307693,
+            "word_errors": 1
+          },
+          "id": "en-rp-23",
+          "language": "en",
+          "rtf": 0.30581966511627906,
+          "text": "The difference in rainbow depends considerably upon the size of the drops.",
+          "warm_seconds": 1.6437807
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.01282051282051282,
+            "character_errors": 1,
+            "reference_characters": 78,
+            "reference_words": 15,
+            "wer": 0.06666666666666667,
+            "word_errors": 1
+          },
+          "id": "en-rp-24",
+          "language": "en",
+          "rtf": 0.16833713488372093,
+          "text": "and the width of the colored band increases as the size of the drops increase.",
+          "warm_seconds": 0.9048121
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 63,
+            "reference_words": 12,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-25",
+          "language": "en",
+          "rtf": 0.2868236,
+          "text": "The actual primary rainbow observed is said to be the effect of.",
+          "warm_seconds": 1.3624121
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 36,
+            "reference_words": 7,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-26",
+          "language": "en",
+          "rtf": 0.3236827142857143,
+          "text": "super-imposition of a number of bows.",
+          "warm_seconds": 1.1328895
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 62,
+            "reference_words": 14,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-27",
+          "language": "en",
+          "rtf": 0.42863037575757573,
+          "text": "If the red of the second bow falls upon the green of the first.",
+          "warm_seconds": 1.7681003
+        }
+      ],
+      "model_load_seconds": 0.128354,
+      "schema": 1,
+      "threads": 8,
+      "summary": {
+        "word_errors": 72,
+        "reference_words": 255,
+        "character_errors": 116,
+        "reference_characters": 1502,
+        "warm_seconds": 62.9286989,
+        "audio_seconds": 115.875,
+        "wer": 0.2823529411764706,
+        "cer": 0.07723035952063914,
+        "rtf": 0.5430739926645092
+      },
+      "by_language": {
+        "ru": {
+          "word_errors": 64,
+          "reference_words": 149,
+          "character_errors": 102,
+          "reference_characters": 926,
+          "warm_seconds": 41.7870262,
+          "audio_seconds": 72.625,
+          "wer": 0.42953020134228187,
+          "cer": 0.1101511879049676,
+          "rtf": 0.5753807394148021
+        },
+        "en": {
+          "word_errors": 8,
+          "reference_words": 106,
+          "character_errors": 14,
+          "reference_characters": 576,
+          "warm_seconds": 21.1416727,
+          "audio_seconds": 43.25,
+          "wer": 0.07547169811320754,
+          "cer": 0.024305555555555556,
+          "rtf": 0.48882480231213876
+        }
+      },
+      "latency": {
+        "model_load_seconds": 0.128354,
+        "first_inference": {
+          "errors": {
+            "cer": 0.11764705882352941,
+            "character_errors": 6,
+            "reference_characters": 51,
+            "reference_words": 9,
+            "wer": 0.5555555555555556,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0058",
+          "seconds": 0.7091806
+        },
+        "warm_seconds": {
+          "p50": 1.3624121,
+          "p95": 5.3729179,
+          "p99": 30.1505112
+        }
+      },
+      "conversions": [
+        {
+          "id": "ru-ru_0058",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0058.wav",
+          "sha256": "1d4bb00e57a0f4f50252daec5cfbf53e094c4c7599e198badb0ffbbbd937c3a2",
+          "bytes": 152044,
+          "sample_rate": 16000,
+          "samples": 76000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.000249,
+              "input_rate": 48000,
+              "output_samples": 76000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.033,
+            "stdout_sha256": "93585d13c120a1ae40917453aeb61e26a808d3fe40e600a759324d1c82a8f3c2",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0059",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0059.wav",
+          "sha256": "a9e1c6159fe3dc3316ed4a755378fda48ee78c437832adcf691b36a23ec3e7fc",
+          "bytes": 264044,
+          "sample_rate": 16000,
+          "samples": 132000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0004454,
+              "input_rate": 48000,
+              "output_samples": 132000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.037,
+            "stdout_sha256": "683a1b35f68f23b9ca664db79594140f6011ae1beeabb1460bead8bf45882fc8",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0060",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0060.wav",
+          "sha256": "5a5fe95d186b0fab5d56cbbeadee563d181420a070e185c8504c9336e4eb4d19",
+          "bytes": 152044,
+          "sample_rate": 16000,
+          "samples": 76000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0002559,
+              "input_rate": 48000,
+              "output_samples": 76000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.033,
+            "stdout_sha256": "c670dbea832a0ffb0b06d5d9e94cb02a33a702134e3eebcb56d84c28047529b1",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0061",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0061.wav",
+          "sha256": "05eac4b9198e82118751a955c2e9c6fd8b0e57102509f91efa85c8063ada54eb",
+          "bytes": 200044,
+          "sample_rate": 16000,
+          "samples": 100000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0003423,
+              "input_rate": 48000,
+              "output_samples": 100000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.033,
+            "stdout_sha256": "f91e084319588941ce6bf034ef325f9272cbd9c81a17bf3fb49e5ff88e0a40cb",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0062",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0062.wav",
+          "sha256": "3c1ca717c9ba13748769a0f2d97ec1bf6e8428fecc27b7b129a9d400c52fc3e6",
+          "bytes": 184044,
+          "sample_rate": 16000,
+          "samples": 92000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0003019,
+              "input_rate": 48000,
+              "output_samples": 92000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.034,
+            "stdout_sha256": "132e4e2663d7e5fe5c4852a4fa5cd6d124438da9d960f82db9b98a8683dc4584",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0063",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0063.wav",
+          "sha256": "75f1c569ed18f91ad541a1b04d95a5160acd0f0d75a8a0fb19550f92a98319ae",
+          "bytes": 128044,
+          "sample_rate": 16000,
+          "samples": 64000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0002082,
+              "input_rate": 48000,
+              "output_samples": 64000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.038,
+            "stdout_sha256": "f86cdeddd015384b4f402b63e6c0304456b1be5ffe77c716f2397623c642a07c",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0064",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0064.wav",
+          "sha256": "ad9d6f86ce1da30862a9bea3b46711a0da33c821fcd894774f79b7d10ea22792",
+          "bytes": 360044,
+          "sample_rate": 16000,
+          "samples": 180000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0012163,
+              "input_rate": 48000,
+              "output_samples": 180000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.037,
+            "stdout_sha256": "eb04ba3b6c33795ba22ac32961a7e80a14b4e4faee8fe4c3da324eb5673934f7",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0065",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0065.wav",
+          "sha256": "dbb0d013074dc1dc6fa1b2d7bc567947c6d915088d8f17be7d016b2b2dc281ac",
+          "bytes": 384044,
+          "sample_rate": 16000,
+          "samples": 192000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0008536,
+              "input_rate": 48000,
+              "output_samples": 192000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.041,
+            "stdout_sha256": "cbcb1917f16087ffdc4b2ec8a7cb0aff8c5a8a8d27d7653c4d76da662f9b1784",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0066",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0066.wav",
+          "sha256": "84b5289ffff202091e2f318a68f760f77c48f70cde17bd98f094e2979b5cc080",
+          "bytes": 236044,
+          "sample_rate": 16000,
+          "samples": 118000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0003816,
+              "input_rate": 48000,
+              "output_samples": 118000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.039,
+            "stdout_sha256": "01e0961750d918b20a8bc592964709b58288e83f6033dfef43eae7a85db42af9",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0067",
+          "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0067.wav",
+          "sha256": "a902d7f6ca8264796fa5df562d69550be0bdc63eae5bad868dc57d9ec773056b",
+          "bytes": 264044,
+          "sample_rate": 16000,
+          "samples": 132000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0006399,
+              "input_rate": 48000,
+              "output_samples": 132000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.046,
+            "stdout_sha256": "3802c5ac280c33f9c13dcd913488099d43c4614875c7514beac43d449ef0454c",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-18",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-18.wav",
+          "sha256": "ccae30cfd40928abb3b832683db295a565e430bfe3b5e5c12f4c11eec99e8fd7",
+          "bytes": 120044,
+          "sample_rate": 16000,
+          "samples": 60000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0002066,
+              "input_rate": 48000,
+              "output_samples": 60000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.033,
+            "stdout_sha256": "069b35b7257febef45594369b963b1c16756996e4ed2b52701fa632c074363a3",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-19",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-19.wav",
+          "sha256": "e9a551dcdfe85d2394e7ed51135c44a4b8127471a0765b530f9b8974454c0930",
+          "bytes": 112044,
+          "sample_rate": 16000,
+          "samples": 56000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0003389,
+              "input_rate": 48000,
+              "output_samples": 56000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.057,
+            "stdout_sha256": "dda0dd07a70e18d61292460e74d9c15a653a38fe911381e23792c31710d143fe",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-20",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-20.wav",
+          "sha256": "f54c55ebac1cd6862c1540ec6e5a03e67543a4da5b4ba701201fb7d6a2a1f8dd",
+          "bytes": 140044,
+          "sample_rate": 16000,
+          "samples": 70000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0002352,
+              "input_rate": 48000,
+              "output_samples": 70000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.037,
+            "stdout_sha256": "1ade450d6f8e18133676cdebb13a4d1d5425c40a29ce0d0ac4da80e216ba0f6f",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-21",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-21.wav",
+          "sha256": "7c8546efb9a0eb1cfcedafa9af7399524c0adf1c5ba7e4241fe020baad45276c",
+          "bytes": 140044,
+          "sample_rate": 16000,
+          "samples": 70000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.000249,
+              "input_rate": 48000,
+              "output_samples": 70000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.052,
+            "stdout_sha256": "e94410a34c52423c5aa315c9da56665231d36854a87290221e1443c824e9b19e",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-22",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-22.wav",
+          "sha256": "a916fe3f7e056bab13d98a7424fd955819cbe83648d889f92afb4ba411b8360f",
+          "bytes": 132044,
+          "sample_rate": 16000,
+          "samples": 66000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0002563,
+              "input_rate": 48000,
+              "output_samples": 66000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.039,
+            "stdout_sha256": "604d4cbdc4d1d4f99574bdbd13ee69cabf60fea3c20dbbf18515313c2a9af944",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-23",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-23.wav",
+          "sha256": "7964d4efa85dea0abfe627a5d8cce305f407f1a7f092cebb569c421073bfc1d2",
+          "bytes": 172044,
+          "sample_rate": 16000,
+          "samples": 86000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0002946,
+              "input_rate": 48000,
+              "output_samples": 86000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.053,
+            "stdout_sha256": "03d5f1b751fa25a1240017ace3aa0bb34188dede00044a663406ed73d1b39b26",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-24",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-24.wav",
+          "sha256": "25d148e116db515c9814f0aadb2a5cdd077057fc81aed3d6c3220aa467f3f429",
+          "bytes": 172044,
+          "sample_rate": 16000,
+          "samples": 86000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0003015,
+              "input_rate": 48000,
+              "output_samples": 86000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.071,
+            "stdout_sha256": "1ebd39d35d46f308b16aeefadfde9825960e7d0f444346a4b3af1064dc2aee86",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-25",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-25.wav",
+          "sha256": "ae988be84a52cbf0cf4a68711d5dc3703bbb284f5f98a75e4ee0c25ec03f3508",
+          "bytes": 152044,
+          "sample_rate": 16000,
+          "samples": 76000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0004266,
+              "input_rate": 48000,
+              "output_samples": 76000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.058,
+            "stdout_sha256": "68408995fd2e42c32873dbcd9da424e8213572cf4ff552fae77cbedbb03e50b7",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-26",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-26.wav",
+          "sha256": "3349429acf5af2391ed669681dd3c7f994aa69c288359ccb93a65a855cfb6643",
+          "bytes": 112044,
+          "sample_rate": 16000,
+          "samples": 56000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.000328,
+              "input_rate": 48000,
+              "output_samples": 56000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.05,
+            "stdout_sha256": "c10dccd140a7b9373ec6686bc64cc09fb2a5efcf86890a86a837ed1f5fbe66a4",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-27",
+          "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-27.wav",
+          "sha256": "6de776fb4f9420589cad150eda1cd8d04a4eb8a56c654c87c4b0e503c3ff024a",
+          "bytes": 132044,
+          "sample_rate": 16000,
+          "samples": 66000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0002748,
+              "input_rate": 48000,
+              "output_samples": 66000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.044,
+            "stdout_sha256": "5c4139b0a48043e6298a2dba7a6236c2fe3ce944ef8d3ad9775d78e30e577cff",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ],
+      "execution": {
+        "wall_seconds": 63.933,
+        "stdout_sha256": "ea71ac9b1d98e375b1ea2f5673884ae5f295595b319b757a69991e33b324f873",
+        "stderr_sha256": "958104502089c77f49c8489f935ce8ab426350656c86c5ecaf98c5d15aabcf38"
+      },
+      "per_clip": [
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.11764705882352941,
+            "character_errors": 6,
+            "reference_characters": 51,
+            "reference_words": 9,
+            "wer": 0.5555555555555556,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0058",
+          "language": "ru",
+          "rtf": 0.13683484210526314,
+          "text": "Осень не ветер надкатей лежащий в земле под крестом.",
+          "warm_seconds": 0.6499655,
+          "reference": "Осенний ветер над Катей лежащей в земле под крестом",
+          "source_sha256": "1cfe3d0365ff572e6f69ba6bb32f2fbc9382124a3ac3bad109834985f404657a",
+          "replay_sha256": "1d4bb00e57a0f4f50252daec5cfbf53e094c4c7599e198badb0ffbbbd937c3a2",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.11864406779661017,
+            "character_errors": 14,
+            "reference_characters": 118,
+            "reference_words": 20,
+            "wer": 0.4,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0059",
+          "language": "ru",
+          "rtf": 0.07947334545454546,
+          "text": "Накинул пальтое за шагал через пустырь на большую монетную улицу к себе на квартиру, где полгода там у нас атомер локатия.",
+          "warm_seconds": 0.6556551,
+          "reference": "Накинул пальто и зашагал через пустырь на Большую Монетную улицу к себе на квартиру где полгода тому назад умерла Катя",
+          "source_sha256": "0f1aa4ef250c8014aff55cea48afd4e80de3cc41da8532e354e51d7f6d8bd5f5",
+          "replay_sha256": "a9e1c6159fe3dc3316ed4a755378fda48ee78c437832adcf691b36a23ec3e7fc",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.07246376811594203,
+            "character_errors": 5,
+            "reference_characters": 69,
+            "reference_words": 13,
+            "wer": 0.23076923076923078,
+            "word_errors": 3
+          },
+          "id": "ru-ru_0060",
+          "language": "ru",
+          "rtf": 0.10736014736842106,
+          "text": "Он открыл верюс спальню, где после смерти Катя он никогда не ночевал.",
+          "warm_seconds": 0.5099607,
+          "reference": "Он открыл дверь в спальню где после смерти Кати он никогда не ночевал",
+          "source_sha256": "0a65cac92f0ef8d091a38e2c09807c28e2e6a5b4985ea649d818fd2859feb775",
+          "replay_sha256": "5a5fe95d186b0fab5d56cbbeadee563d181420a070e185c8504c9336e4eb4d19",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 6.25,
+          "errors": {
+            "cer": 0.10344827586206896,
+            "character_errors": 9,
+            "reference_characters": 87,
+            "reference_words": 15,
+            "wer": 0.4666666666666667,
+            "word_errors": 7
+          },
+          "id": "ru-ru_0061",
+          "language": "ru",
+          "rtf": 0.09275508800000001,
+          "text": "Гуси фумаша жили в одной комнате, когда-то роскошным огромным теперь заброшенным доме.",
+          "warm_seconds": 0.5797193,
+          "reference": "Гусев и Маша жили в одной комнате в когда-то роскошном огромном теперь заброшенном доме",
+          "source_sha256": "e752d51a4177bff1eb7d11117e29a82fe159e6e995ba2410b091f0a83f775868",
+          "replay_sha256": "05eac4b9198e82118751a955c2e9c6fd8b0e57102509f91efa85c8063ada54eb",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 5.75,
+          "errors": {
+            "cer": 0.273972602739726,
+            "character_errors": 20,
+            "reference_characters": 73,
+            "reference_words": 11,
+            "wer": 0.7272727272727273,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0062",
+          "language": "ru",
+          "rtf": 0.09028405217391304,
+          "text": "Главой ли тело не могла улететь весьлый женщин на свиселом имладенцами?",
+          "warm_seconds": 0.5191333,
+          "reference": "Над головой летела не могла улететь весёлая женщина с весёлыми младенцами",
+          "source_sha256": "bb2dd81d15a719d6b08aca2d73e287e2a8b5e59611b94d9daa1de460bb8286bf",
+          "replay_sha256": "3c1ca717c9ba13748769a0f2d97ec1bf6e8428fecc27b7b129a9d400c52fc3e6",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4,
+          "errors": {
+            "cer": 0.14583333333333334,
+            "character_errors": 7,
+            "reference_characters": 48,
+            "reference_words": 10,
+            "wer": 0.5,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0063",
+          "language": "ru",
+          "rtf": 0.1132869,
+          "text": "Всем и лет меня не пуля не штык не могли сребить.",
+          "warm_seconds": 0.4531476,
+          "reference": "Семь лет меня ни пуля ни штык не могли истребить",
+          "source_sha256": "613a9cd73fa3386ff2e19f333d13285cbc5712b60a65b4677ba6fa25f56a3c8f",
+          "replay_sha256": "75f1c569ed18f91ad541a1b04d95a5160acd0f0d75a8a0fb19550f92a98319ae",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 11.25,
+          "errors": {
+            "cer": 0.045112781954887216,
+            "character_errors": 6,
+            "reference_characters": 133,
+            "reference_words": 21,
+            "wer": 0.23809523809523808,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0064",
+          "language": "ru",
+          "rtf": 0.10932131555555556,
+          "text": "Он сел к столу начал лупить варёную картошку, разломил окунул в соль. На завтрак приготовь чистые две смены, рубашки под штаннике подвертки.",
+          "warm_seconds": 1.2298648,
+          "reference": "Он сел к столу начал лупить варёную картошку разломил окунул в соль На завтра приготовь чистое две смены рубашки подштаники подвёртки",
+          "source_sha256": "0c30ba64c95f2cceb0495ba16a7ab8c6016e43d99f871609cb62a44f1ea7a61e",
+          "replay_sha256": "ad9d6f86ce1da30862a9bea3b46711a0da33c821fcd894774f79b7d10ea22792",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 12,
+          "errors": {
+            "cer": 0.11920529801324503,
+            "character_errors": 18,
+            "reference_characters": 151,
+            "reference_words": 23,
+            "wer": 0.4782608695652174,
+            "word_errors": 11
+          },
+          "id": "ru-ru_0065",
+          "language": "ru",
+          "rtf": 2.5125426,
+          "text": "Шли с набережной бежали из переулков. Бубнились, бевались в кучке, лежали на чахлой траве. Поглядывали на низкая солнца, пусти в шесть квось облака широкий лучей.",
+          "warm_seconds": 30.1505112,
+          "reference": "Шли с набережной бежали из переулков бубнили сбивались в кучки лежали на чахлой траве поглядывали на низкое солнце пустившее сквозь облака широкие лучи",
+          "source_sha256": "58de4711f15c8432dee5739944da7bdfb34583f53b746d928e8292e0fed9f008",
+          "replay_sha256": "dbb0d013074dc1dc6fa1b2d7bc567947c6d915088d8f17be7d016b2b2dc281ac",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 7.375,
+          "errors": {
+            "cer": 0.06593406593406594,
+            "character_errors": 6,
+            "reference_characters": 91,
+            "reference_words": 12,
+            "wer": 0.4166666666666667,
+            "word_errors": 5
+          },
+          "id": "ru-ru_0066",
+          "language": "ru",
+          "rtf": 0.5785850169491525,
+          "text": "До Сумирек переливался Говар. Шли разные разговоры в толпе, ожидающий нем кновенного события.",
+          "warm_seconds": 4.2670645,
+          "reference": "До сумерек переливался говор шли разные разговоры в толпе ожидающей необыкновенного события",
+          "source_sha256": "096c7d277ecb81f798ccfe64ba8cb02663b231bb9ff769a5ddfaed3b0b93ef35",
+          "replay_sha256": "84b5289ffff202091e2f318a68f760f77c48f70cde17bd98f094e2979b5cc080",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.10476190476190476,
+            "character_errors": 11,
+            "reference_characters": 105,
+            "reference_words": 15,
+            "wer": 0.4666666666666667,
+            "word_errors": 7
+          },
+          "id": "ru-ru_0067",
+          "language": "ru",
+          "rtf": 0.3360005090909091,
+          "text": "Его ярко освещенное внутренности с тёганой ромбами желтой кожи была видна сквозь круглая отверстия люка.",
+          "warm_seconds": 2.7720042,
+          "reference": "Его ярко освещённая внутренность из стёганой ромбами жёлтой кожи была видна сквозь круглое отверстие люка",
+          "source_sha256": "96926322d02329c091e340648ddb8bc03be9dc61c99944288902b3b1509f4c5d",
+          "replay_sha256": "a902d7f6ca8264796fa5df562d69550be0bdc63eae5bad868dc57d9ec773056b",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 3.75,
+          "errors": {
+            "cer": 0.10416666666666667,
+            "character_errors": 5,
+            "reference_characters": 48,
+            "reference_words": 8,
+            "wer": 0.125,
+            "word_errors": 1
+          },
+          "id": "en-rp-18",
+          "language": "en",
+          "rtf": 0.5835629866666667,
+          "text": "Airstumble thought that the rainbow was caused by.",
+          "warm_seconds": 2.1883612,
+          "reference": "ARISTOTLE THOUGHT THAT THE RAINBOW WAS CAUSED BY",
+          "source_sha256": "3c0d647514b31a4c740d8591fa79c5bbcd2e0cad305fce38153c8cd888c4843e",
+          "replay_sha256": "ccae30cfd40928abb3b832683db295a565e430bfe3b5e5c12f4c11eec99e8fd7",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0.025,
+            "character_errors": 1,
+            "reference_characters": 40,
+            "reference_words": 9,
+            "wer": 0.1111111111111111,
+            "word_errors": 1
+          },
+          "id": "en-rp-19",
+          "language": "en",
+          "rtf": 0.44218217142857136,
+          "text": "Reflection of the Sun's Ray by the Rain.",
+          "warm_seconds": 1.5476375999999998,
+          "reference": "REFLECTION OF THE SUN'S RAYS BY THE RAIN",
+          "source_sha256": "d847cb442dbe4e1d24613c802f2e0167fcb007ab712d5c63c9af95a2c40af9de",
+          "replay_sha256": "e9a551dcdfe85d2394e7ed51135c44a4b8127471a0765b530f9b8974454c0930",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 58,
+            "reference_words": 10,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-20",
+          "language": "en",
+          "rtf": 1.22809552,
+          "text": "Since then, physicists have found that it is not reflection.",
+          "warm_seconds": 5.3729179,
+          "reference": "SINCE THEN PHYSICISTS HAVE FOUND THAT IT IS NOT REFLECTION",
+          "source_sha256": "f5fd2c9cf20075a3ce1e2a48648d1e7a0156d7f8fad7d4e6a4ffeef57558ed09",
+          "replay_sha256": "f54c55ebac1cd6862c1540ec6e5a03e67543a4da5b4ba701201fb7d6a2a1f8dd",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0.05263157894736842,
+            "character_errors": 3,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0.4444444444444444,
+            "word_errors": 4
+          },
+          "id": "en-rp-21",
+          "language": "en",
+          "rtf": 0.7553255542857144,
+          "text": "But refraction by the rain drops which caused the rainbow.",
+          "warm_seconds": 3.3045493,
+          "reference": "BUT REFRACTION BY THE RAINDROPS WHICH CAUSES THE RAINBOWS",
+          "source_sha256": "3101551362e7f9540714dedf9c6ca845b442010e98efeae0977a0e2c91e2003d",
+          "replay_sha256": "7c8546efb9a0eb1cfcedafa9af7399524c0adf1c5ba7e4241fe020baad45276c",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-22",
+          "language": "en",
+          "rtf": 0.4645362424242424,
+          "text": "Many complicated ideas about the rainbow have been formed.",
+          "warm_seconds": 1.916212,
+          "reference": "MANY COMPLICATED IDEAS ABOUT THE RAINBOW HAVE BEEN FORMED",
+          "source_sha256": "9a1111fb066305d5169f48f3c6c5a474f0ebb369993e5a07228fc111e1b2cbcd",
+          "replay_sha256": "a916fe3f7e056bab13d98a7424fd955819cbe83648d889f92afb4ba411b8360f",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.05194805194805195,
+            "character_errors": 4,
+            "reference_characters": 77,
+            "reference_words": 13,
+            "wer": 0.07692307692307693,
+            "word_errors": 1
+          },
+          "id": "en-rp-23",
+          "language": "en",
+          "rtf": 0.30581966511627906,
+          "text": "The difference in rainbow depends considerably upon the size of the drops.",
+          "warm_seconds": 1.6437807,
+          "reference": "THE DIFFERENCE IN THE RAINBOW DEPENDS CONSIDERABLY UPON THE SIZE OF THE DROPS",
+          "source_sha256": "ea927844173cf0c7cf726bfe996c3f6535fea61ba333a8bdc0447df352cfd04d",
+          "replay_sha256": "7964d4efa85dea0abfe627a5d8cce305f407f1a7f092cebb569c421073bfc1d2",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.01282051282051282,
+            "character_errors": 1,
+            "reference_characters": 78,
+            "reference_words": 15,
+            "wer": 0.06666666666666667,
+            "word_errors": 1
+          },
+          "id": "en-rp-24",
+          "language": "en",
+          "rtf": 0.16833713488372093,
+          "text": "and the width of the colored band increases as the size of the drops increase.",
+          "warm_seconds": 0.9048121,
+          "reference": "AND THE WIDTH OF THE COLORED BAND INCREASES AS THE SIZE OF THE DROPS INCREASES",
+          "source_sha256": "39db7ff0eeba5e07b3c6dce6622755abf0b13572782e85ac0c5fc65f7f2174b3",
+          "replay_sha256": "25d148e116db515c9814f0aadb2a5cdd077057fc81aed3d6c3220aa467f3f429",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 63,
+            "reference_words": 12,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-25",
+          "language": "en",
+          "rtf": 0.2868236,
+          "text": "The actual primary rainbow observed is said to be the effect of.",
+          "warm_seconds": 1.3624121,
+          "reference": "THE ACTUAL PRIMARY RAINBOW OBSERVED IS SAID TO BE THE EFFECT OF",
+          "source_sha256": "e48641060be73d725942b7cbdf9d1abbb3a2440e07c99a2301d6b3879f4e6594",
+          "replay_sha256": "ae988be84a52cbf0cf4a68711d5dc3703bbb284f5f98a75e4ee0c25ec03f3508",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 36,
+            "reference_words": 7,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-26",
+          "language": "en",
+          "rtf": 0.3236827142857143,
+          "text": "super-imposition of a number of bows.",
+          "warm_seconds": 1.1328895,
+          "reference": "SUPER-IMPOSITION OF A NUMBER OF BOWS",
+          "source_sha256": "42b9d04bb5e97b4b18438d03fd861a1fc01a72b3fe9c6ab5a18e2103bc3bc3d6",
+          "replay_sha256": "3349429acf5af2391ed669681dd3c7f994aa69c288359ccb93a65a855cfb6643",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 62,
+            "reference_words": 14,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-27",
+          "language": "en",
+          "rtf": 0.42863037575757573,
+          "text": "If the red of the second bow falls upon the green of the first.",
+          "warm_seconds": 1.7681003,
+          "reference": "IF THE RED OF THE SECOND BOW FALLS UPON THE GREEN OF THE FIRST",
+          "source_sha256": "8a700c6e4a14bbc1ec3cdce497375bce5250a1fd1c569ed5055fd50416d8906d",
+          "replay_sha256": "6de776fb4f9420589cad150eda1cd8d04a4eb8a56c654c87c4b0e503c3ff024a",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        }
+      ]
+    },
+    "current": {
+      "backend": "cpu",
+      "cold": {
+        "errors": {
+          "cer": 0.3333333333333333,
+          "character_errors": 17,
+          "reference_characters": 51,
+          "reference_words": 9,
+          "wer": 0.8888888888888888,
+          "word_errors": 8
+        },
+        "id": "ru-ru_0058",
+        "seconds": 1.3187092
+      },
+      "decoding": {
+        "strategy": "fast",
+        "threads": 8
+      },
+      "entries": [
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.3333333333333333,
+            "character_errors": 17,
+            "reference_characters": 51,
+            "reference_words": 9,
+            "wer": 0.8888888888888888,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0058",
+          "language": "ru",
+          "rtf": 0.3143125052631579,
+          "text": "А сень не ветер над котель и жащий взем лепат крестом.",
+          "warm_seconds": 1.4929844
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.06779661016949153,
+            "character_errors": 8,
+            "reference_characters": 118,
+            "reference_words": 20,
+            "wer": 0.3,
+            "word_errors": 6
+          },
+          "id": "ru-ru_0059",
+          "language": "ru",
+          "rtf": 0.3561974424242424,
+          "text": "Накинул пальтое за шагал через пустырь на большой монетную гуляцу к себе на квартиру, где полгода тому назад умерла кать.",
+          "warm_seconds": 2.9386289
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.10144927536231885,
+            "character_errors": 7,
+            "reference_characters": 69,
+            "reference_words": 13,
+            "wer": 0.23076923076923078,
+            "word_errors": 3
+          },
+          "id": "ru-ru_0060",
+          "language": "ru",
+          "rtf": 0.5083678947368421,
+          "text": "Он открыл в верюспальню, где после смерти Катя он никогда не ночевал.",
+          "warm_seconds": 2.4147475
+        },
+        {
+          "audio_seconds": 6.25,
+          "errors": {
+            "cer": 0.14942528735632185,
+            "character_errors": 13,
+            "reference_characters": 87,
+            "reference_words": 15,
+            "wer": 0.4666666666666667,
+            "word_errors": 7
+          },
+          "id": "ru-ru_0061",
+          "language": "ru",
+          "rtf": 0.34431924799999997,
+          "text": "Гуси фумаша жили в одной комнате, когда-то роскошным огромным теперь изображенным доме.",
+          "warm_seconds": 2.1519953
+        },
+        {
+          "audio_seconds": 5.75,
+          "errors": {
+            "cer": 0.1917808219178082,
+            "character_errors": 14,
+            "reference_characters": 73,
+            "reference_words": 11,
+            "wer": 0.5454545454545454,
+            "word_errors": 6
+          },
+          "id": "ru-ru_0062",
+          "language": "ru",
+          "rtf": 0.37151619130434776,
+          "text": "Главой ли тело не могла улететь весьёлое женщины с веселыми младенцами?",
+          "warm_seconds": 2.1362181
+        },
+        {
+          "audio_seconds": 4,
+          "errors": {
+            "cer": 0.0625,
+            "character_errors": 3,
+            "reference_characters": 48,
+            "reference_words": 10,
+            "wer": 0.3,
+            "word_errors": 3
+          },
+          "id": "ru-ru_0063",
+          "language": "ru",
+          "rtf": 0.583475,
+          "text": "Семь лет меня не пуля не штык не могли стребить.",
+          "warm_seconds": 2.3339
+        },
+        {
+          "audio_seconds": 11.25,
+          "errors": {
+            "cer": 0.07518796992481203,
+            "character_errors": 10,
+            "reference_characters": 133,
+            "reference_words": 21,
+            "wer": 0.38095238095238093,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0064",
+          "language": "ru",
+          "rtf": 0.19971833777777778,
+          "text": "Он сел к столу начал лупить варенную картошку, разломила кунул в соль. На завтрак приготовь чистые две смены, рубашки под штаннике подвертки.",
+          "warm_seconds": 2.2468313
+        },
+        {
+          "audio_seconds": 12,
+          "errors": {
+            "cer": 0.12582781456953643,
+            "character_errors": 19,
+            "reference_characters": 151,
+            "reference_words": 23,
+            "wer": 0.5217391304347826,
+            "word_errors": 12
+          },
+          "id": "ru-ru_0065",
+          "language": "ru",
+          "rtf": 0.21151800833333334,
+          "text": "Шлист на обережные бежали из переулков. Бубнились, бевались в кучке, лежали на чахлой траве. Поглядывали на низкая солнца, пусть и в шея сквозь облака широкие лучи.",
+          "warm_seconds": 2.5382161
+        },
+        {
+          "audio_seconds": 7.375,
+          "errors": {
+            "cer": 0.10989010989010989,
+            "character_errors": 10,
+            "reference_characters": 91,
+            "reference_words": 12,
+            "wer": 0.75,
+            "word_errors": 9
+          },
+          "id": "ru-ru_0066",
+          "language": "ru",
+          "rtf": 0.26154310508474576,
+          "text": "До Сумирек переливался Говар, Шлиразный разговоров толпе, ожидающий нем кновенного события.",
+          "warm_seconds": 1.9288804000000002
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.09523809523809523,
+            "character_errors": 10,
+            "reference_characters": 105,
+            "reference_words": 15,
+            "wer": 0.4,
+            "word_errors": 6
+          },
+          "id": "ru-ru_0067",
+          "language": "ru",
+          "rtf": 0.09332435151515152,
+          "text": "Его ярко освещенное внутренность с тёганой ромбами желтой кожи была видна сквозь круглая отверстия люка.",
+          "warm_seconds": 0.7699259
+        },
+        {
+          "audio_seconds": 3.75,
+          "errors": {
+            "cer": 0.10416666666666667,
+            "character_errors": 5,
+            "reference_characters": 48,
+            "reference_words": 8,
+            "wer": 0.125,
+            "word_errors": 1
+          },
+          "id": "en-rp-18",
+          "language": "en",
+          "rtf": 0.13486234666666666,
+          "text": "Airstumble thought that the rainbow was caused by.",
+          "warm_seconds": 0.5057338
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0.025,
+            "character_errors": 1,
+            "reference_characters": 40,
+            "reference_words": 9,
+            "wer": 0.1111111111111111,
+            "word_errors": 1
+          },
+          "id": "en-rp-19",
+          "language": "en",
+          "rtf": 0.16430925714285713,
+          "text": "Reflection of the Sun's Ray by the Rain.",
+          "warm_seconds": 0.5750824
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 58,
+            "reference_words": 10,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-20",
+          "language": "en",
+          "rtf": 0.13041536,
+          "text": "Since then, physicists have found that it is not reflection.",
+          "warm_seconds": 0.5705672
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0.05263157894736842,
+            "character_errors": 3,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0.4444444444444444,
+            "word_errors": 4
+          },
+          "id": "en-rp-21",
+          "language": "en",
+          "rtf": 0.13413042285714286,
+          "text": "But refraction by the rain drops which caused the rainbow.",
+          "warm_seconds": 0.5868206
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0.07017543859649122,
+            "character_errors": 4,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0.2222222222222222,
+            "word_errors": 2
+          },
+          "id": "en-rp-22",
+          "language": "en",
+          "rtf": 0.23510947878787877,
+          "text": "Many complicated ideas about the rainbow have informed.",
+          "warm_seconds": 0.9698266
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.05194805194805195,
+            "character_errors": 4,
+            "reference_characters": 77,
+            "reference_words": 13,
+            "wer": 0.07692307692307693,
+            "word_errors": 1
+          },
+          "id": "en-rp-23",
+          "language": "en",
+          "rtf": 0.12498766511627908,
+          "text": "The difference in rainbow depends considerably upon the size of the drops.",
+          "warm_seconds": 0.6718087
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.01282051282051282,
+            "character_errors": 1,
+            "reference_characters": 78,
+            "reference_words": 15,
+            "wer": 0.06666666666666667,
+            "word_errors": 1
+          },
+          "id": "en-rp-24",
+          "language": "en",
+          "rtf": 0.10794120930232559,
+          "text": "and the width of the colored band increases as the size of the drops increase.",
+          "warm_seconds": 0.580184
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 63,
+            "reference_words": 12,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-25",
+          "language": "en",
+          "rtf": 0.12107073684210526,
+          "text": "The actual primary rainbow observed is said to be the effect of.",
+          "warm_seconds": 0.575086
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 36,
+            "reference_words": 7,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-26",
+          "language": "en",
+          "rtf": 0.1687750285714286,
+          "text": "super-imposition of a number of bows.",
+          "warm_seconds": 0.5907126
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 62,
+            "reference_words": 14,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-27",
+          "language": "en",
+          "rtf": 0.23686831515151516,
+          "text": "If the red of the second bow falls upon the green of the first.",
+          "warm_seconds": 0.9770818
+        }
+      ],
+      "model_load_seconds": 0.1859967,
+      "schema": 1,
+      "threads": 8,
+      "summary": {
+        "word_errors": 78,
+        "reference_words": 255,
+        "character_errors": 129,
+        "reference_characters": 1502,
+        "warm_seconds": 27.5552316,
+        "audio_seconds": 115.875,
+        "wer": 0.3058823529411765,
+        "cer": 0.08588548601864181,
+        "rtf": 0.23780135145631068
+      },
+      "by_language": {
+        "ru": {
+          "word_errors": 68,
+          "reference_words": 149,
+          "character_errors": 111,
+          "reference_characters": 926,
+          "warm_seconds": 20.9523279,
+          "audio_seconds": 72.625,
+          "wer": 0.4563758389261745,
+          "cer": 0.11987041036717062,
+          "rtf": 0.28850021204819276
+        },
+        "en": {
+          "word_errors": 10,
+          "reference_words": 106,
+          "character_errors": 18,
+          "reference_characters": 576,
+          "warm_seconds": 6.602903700000001,
+          "audio_seconds": 43.25,
+          "wer": 0.09433962264150944,
+          "cer": 0.03125,
+          "rtf": 0.15266829364161852
+        }
+      },
+      "latency": {
+        "model_load_seconds": 0.1859967,
+        "first_inference": {
+          "errors": {
+            "cer": 0.3333333333333333,
+            "character_errors": 17,
+            "reference_characters": 51,
+            "reference_words": 9,
+            "wer": 0.8888888888888888,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0058",
+          "seconds": 1.3187092
+        },
+        "warm_seconds": {
+          "p50": 0.9698266,
+          "p95": 2.5382161,
+          "p99": 2.9386289
+        }
+      },
+      "conversions": [
+        {
+          "id": "ru-ru_0058",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0058.wav",
+          "sha256": "704f32cfbfe7fee1e244b660b14a27ebd08fe99d29b42a19ed06327e9f65cadf",
+          "bytes": 152044,
+          "sample_rate": 16000,
+          "samples": 76000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0121242,
+              "input_rate": 48000,
+              "output_samples": 76000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.061,
+            "stdout_sha256": "809a76f89cb75e1a64d0a4833cff94f4245616fed1bb47cb8bbbab71c018130f",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0059",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0059.wav",
+          "sha256": "bd12fb961ca9b90c2e701e7e41f49e070cf6930e73af950f999b656cc2f9ef87",
+          "bytes": 264044,
+          "sample_rate": 16000,
+          "samples": 132000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0228129,
+              "input_rate": 48000,
+              "output_samples": 132000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.094,
+            "stdout_sha256": "7a26c84e529e2229cdf53f3c72a3b0ec2e981057b4dc64dbfb7dade9b32c11b9",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0060",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0060.wav",
+          "sha256": "951a869438d8a3e1c6b1c25396392674c0f5194f41e07a18fdf85736d76fa1a1",
+          "bytes": 152044,
+          "sample_rate": 16000,
+          "samples": 76000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.013896,
+              "input_rate": 48000,
+              "output_samples": 76000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.061,
+            "stdout_sha256": "9468f01fb1ae72094b7246a3f0766f71164a1d085df73a1be4471e00bf6cf27c",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0061",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0061.wav",
+          "sha256": "5de4434a094c1a65a633d1f7cf0e74103faebf00403605701aca10378fa4c44d",
+          "bytes": 200044,
+          "sample_rate": 16000,
+          "samples": 100000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0174449,
+              "input_rate": 48000,
+              "output_samples": 100000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.074,
+            "stdout_sha256": "967942cb0561cce4f5620578f9796e6e2459589a169481727c3ac84f6d84cb66",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0062",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0062.wav",
+          "sha256": "0b6a23cd44eb953ce834086e8019794d2932de3b673f40fa00a858bb5dd60e30",
+          "bytes": 184044,
+          "sample_rate": 16000,
+          "samples": 92000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0138956,
+              "input_rate": 48000,
+              "output_samples": 92000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.059,
+            "stdout_sha256": "e6180a67d9fbdb433e35c722723fc8d11f6dbdcc958873560f6a6aa66cf73d9a",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0063",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0063.wav",
+          "sha256": "dbc32dd3a10f1d7c5e9f6153bd86be762b0762493824d60e49aaea9be781fa06",
+          "bytes": 128044,
+          "sample_rate": 16000,
+          "samples": 64000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0095608,
+              "input_rate": 48000,
+              "output_samples": 64000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.159,
+            "stdout_sha256": "669394111a2730e31214f2e9ff68f7d22efe471fbb27b43b2a385bd8ea1791c5",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0064",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0064.wav",
+          "sha256": "dd6456dc7eefbe6b3f0a1204c06bf83c3b283fdd96067060a37c420c0f31ffd2",
+          "bytes": 360044,
+          "sample_rate": 16000,
+          "samples": 180000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0550366,
+              "input_rate": 48000,
+              "output_samples": 180000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.332,
+            "stdout_sha256": "53702cbad9a96312b0a952968a23afc4c509b6b269446fb5efbf4757fdb725cc",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0065",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0065.wav",
+          "sha256": "2c758f06717e50e1495d75bcfb30f9c5b615ca2f257977f773e1ea5a042da588",
+          "bytes": 384044,
+          "sample_rate": 16000,
+          "samples": 192000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0419807,
+              "input_rate": 48000,
+              "output_samples": 192000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.147,
+            "stdout_sha256": "4ad01e54326f175c5a683db12c119d3412937d457cce6f0ddd4052407d40e6b1",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0066",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0066.wav",
+          "sha256": "62eed812eae9f7546532c850cfcbbd94d06f463bf710f788ece4172ac2c7e72a",
+          "bytes": 236044,
+          "sample_rate": 16000,
+          "samples": 118000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0223286,
+              "input_rate": 48000,
+              "output_samples": 118000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.087,
+            "stdout_sha256": "6a4d28873c233e8975866050ad38b7e7d824b65b3a465fe8ddbebb15b15845cf",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "ru-ru_0067",
+          "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0067.wav",
+          "sha256": "99ab0bbf8633ca8250025c47627db0bf7fde618470a98ec6167021784bd94b98",
+          "bytes": 264044,
+          "sample_rate": 16000,
+          "samples": 132000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0237191,
+              "input_rate": 48000,
+              "output_samples": 132000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.093,
+            "stdout_sha256": "6514daae87e1f04e36ffcc6100efc4b24fd5948628fe594d4f27a1fb5118259a",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-18",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-18.wav",
+          "sha256": "4abd0c0b7daa8de209c67045c9e168bd7a9b3ae493b472667a6770ea03b677e8",
+          "bytes": 120044,
+          "sample_rate": 16000,
+          "samples": 60000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0112463,
+              "input_rate": 48000,
+              "output_samples": 60000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.145,
+            "stdout_sha256": "8686447a3f3dab277408a4c2196fef343873e89f9823eab5bfd9a5e8faaaf532",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-19",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-19.wav",
+          "sha256": "e4ca990580aae73bc1a56dd75e28ff676637bf8283e2b2d498bbd63b5eb7eacc",
+          "bytes": 112044,
+          "sample_rate": 16000,
+          "samples": 56000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.011028,
+              "input_rate": 48000,
+              "output_samples": 56000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.122,
+            "stdout_sha256": "a4e0a98bcbaff6d08664da47f311bef2c0b58247ded09eb0c11f19c75f0a8a7b",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-20",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-20.wav",
+          "sha256": "90e336623c62dec332685fd3a7b062e4e84a22c53bab8189d6c5ea1a226fd188",
+          "bytes": 140044,
+          "sample_rate": 16000,
+          "samples": 70000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0122518,
+              "input_rate": 48000,
+              "output_samples": 70000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.092,
+            "stdout_sha256": "b59d9928d0bd86a6ddc8fd97f1583238f2df81ed8460edb3b84e2b02f25d0700",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-21",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-21.wav",
+          "sha256": "9eace0c417772fcaac5b10b8bd903f9fcfb20b47ab36043c7a1a4acbac0c7fa5",
+          "bytes": 140044,
+          "sample_rate": 16000,
+          "samples": 70000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0124765,
+              "input_rate": 48000,
+              "output_samples": 70000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.097,
+            "stdout_sha256": "06bf682b59f8ccf8b2f9d9451f208cb1371a29d9703cf75f8765aa29c8ff6d8e",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-22",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-22.wav",
+          "sha256": "d06b8f88e235ea4fb28f6eecbd4b0384372d364262c6008fb4717f167ce3fe51",
+          "bytes": 132044,
+          "sample_rate": 16000,
+          "samples": 66000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.010673,
+              "input_rate": 48000,
+              "output_samples": 66000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.083,
+            "stdout_sha256": "973d0f438258e1258dbc0000e46012d165f8e698bc75710b015ca8b1d8dadc13",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-23",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-23.wav",
+          "sha256": "f2e4a91f7158713cbc3225d0649d03c75edfd0dfe65a92e22516667f6d6efff0",
+          "bytes": 172044,
+          "sample_rate": 16000,
+          "samples": 86000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0165566,
+              "input_rate": 48000,
+              "output_samples": 86000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.104,
+            "stdout_sha256": "6d963bc953be10041cb7200f5fd197121d3c9be340574ca5e73e971706647c19",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-24",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-24.wav",
+          "sha256": "a159f8c610884be7799b1f02812b37fbd78b27bc0225b254a1e583165172e2b7",
+          "bytes": 172044,
+          "sample_rate": 16000,
+          "samples": 86000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0193043,
+              "input_rate": 48000,
+              "output_samples": 86000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.113,
+            "stdout_sha256": "7c7bd524bdbe369debdd284c56781947d044d6888c3574611619f1c8d250e1cf",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-25",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-25.wav",
+          "sha256": "3731d8e784b830ea09e483a14fb8ae6e6cc3f51795a60fa36a9d4844f943be98",
+          "bytes": 152044,
+          "sample_rate": 16000,
+          "samples": 76000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0112958,
+              "input_rate": 48000,
+              "output_samples": 76000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.134,
+            "stdout_sha256": "2f39c82c7e9c151d6f74b1b38b1178f1f3bd5a92ac84b269f0b6bae28ebc249e",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-26",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-26.wav",
+          "sha256": "cdf21f08199ca195562270b54317ac3a72184cf0c3a5dc36978dc302950f4b1a",
+          "bytes": 112044,
+          "sample_rate": 16000,
+          "samples": 56000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0107789,
+              "input_rate": 48000,
+              "output_samples": 56000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.059,
+            "stdout_sha256": "27043faf7c4e77377f8754012cec6a9edb2cbab3c3e84541ecefb24cadaaa529",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "id": "en-rp-27",
+          "path": "build/checks/perf04/native-wideband-final/current/en-rp-27.wav",
+          "sha256": "5de644c6dd06de2490bc156f1908bcee1b5cf4c05615a44d63f68e26849a93c7",
+          "bytes": 132044,
+          "sample_rate": 16000,
+          "samples": 66000,
+          "channels": 1,
+          "sample_width_bytes": 2,
+          "converter": {
+            "result": {
+              "resample_seconds": 0.0108998,
+              "input_rate": 48000,
+              "output_samples": 66000,
+              "native_input": true,
+              "source_mode": "native"
+            },
+            "wall_seconds": 0.097,
+            "stdout_sha256": "5831d87fb46d35a80291b262e443229d4fa9f02d397399729e2b66cd15589342",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ],
+      "execution": {
+        "wall_seconds": 29.247,
+        "stdout_sha256": "582a2c1edd48b628a7ebe9b8e7597263ecc13e55a9662e668b2bfde9fba0f207",
+        "stderr_sha256": "51dbe4c379ba3df67797ac840539d6487056ad169e27c6b742880765d6a8ec6e"
+      },
+      "per_clip": [
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.3333333333333333,
+            "character_errors": 17,
+            "reference_characters": 51,
+            "reference_words": 9,
+            "wer": 0.8888888888888888,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0058",
+          "language": "ru",
+          "rtf": 0.3143125052631579,
+          "text": "А сень не ветер над котель и жащий взем лепат крестом.",
+          "warm_seconds": 1.4929844,
+          "reference": "Осенний ветер над Катей лежащей в земле под крестом",
+          "source_sha256": "1cfe3d0365ff572e6f69ba6bb32f2fbc9382124a3ac3bad109834985f404657a",
+          "replay_sha256": "704f32cfbfe7fee1e244b660b14a27ebd08fe99d29b42a19ed06327e9f65cadf",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.06779661016949153,
+            "character_errors": 8,
+            "reference_characters": 118,
+            "reference_words": 20,
+            "wer": 0.3,
+            "word_errors": 6
+          },
+          "id": "ru-ru_0059",
+          "language": "ru",
+          "rtf": 0.3561974424242424,
+          "text": "Накинул пальтое за шагал через пустырь на большой монетную гуляцу к себе на квартиру, где полгода тому назад умерла кать.",
+          "warm_seconds": 2.9386289,
+          "reference": "Накинул пальто и зашагал через пустырь на Большую Монетную улицу к себе на квартиру где полгода тому назад умерла Катя",
+          "source_sha256": "0f1aa4ef250c8014aff55cea48afd4e80de3cc41da8532e354e51d7f6d8bd5f5",
+          "replay_sha256": "bd12fb961ca9b90c2e701e7e41f49e070cf6930e73af950f999b656cc2f9ef87",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0.10144927536231885,
+            "character_errors": 7,
+            "reference_characters": 69,
+            "reference_words": 13,
+            "wer": 0.23076923076923078,
+            "word_errors": 3
+          },
+          "id": "ru-ru_0060",
+          "language": "ru",
+          "rtf": 0.5083678947368421,
+          "text": "Он открыл в верюспальню, где после смерти Катя он никогда не ночевал.",
+          "warm_seconds": 2.4147475,
+          "reference": "Он открыл дверь в спальню где после смерти Кати он никогда не ночевал",
+          "source_sha256": "0a65cac92f0ef8d091a38e2c09807c28e2e6a5b4985ea649d818fd2859feb775",
+          "replay_sha256": "951a869438d8a3e1c6b1c25396392674c0f5194f41e07a18fdf85736d76fa1a1",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 6.25,
+          "errors": {
+            "cer": 0.14942528735632185,
+            "character_errors": 13,
+            "reference_characters": 87,
+            "reference_words": 15,
+            "wer": 0.4666666666666667,
+            "word_errors": 7
+          },
+          "id": "ru-ru_0061",
+          "language": "ru",
+          "rtf": 0.34431924799999997,
+          "text": "Гуси фумаша жили в одной комнате, когда-то роскошным огромным теперь изображенным доме.",
+          "warm_seconds": 2.1519953,
+          "reference": "Гусев и Маша жили в одной комнате в когда-то роскошном огромном теперь заброшенном доме",
+          "source_sha256": "e752d51a4177bff1eb7d11117e29a82fe159e6e995ba2410b091f0a83f775868",
+          "replay_sha256": "5de4434a094c1a65a633d1f7cf0e74103faebf00403605701aca10378fa4c44d",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 5.75,
+          "errors": {
+            "cer": 0.1917808219178082,
+            "character_errors": 14,
+            "reference_characters": 73,
+            "reference_words": 11,
+            "wer": 0.5454545454545454,
+            "word_errors": 6
+          },
+          "id": "ru-ru_0062",
+          "language": "ru",
+          "rtf": 0.37151619130434776,
+          "text": "Главой ли тело не могла улететь весьёлое женщины с веселыми младенцами?",
+          "warm_seconds": 2.1362181,
+          "reference": "Над головой летела не могла улететь весёлая женщина с весёлыми младенцами",
+          "source_sha256": "bb2dd81d15a719d6b08aca2d73e287e2a8b5e59611b94d9daa1de460bb8286bf",
+          "replay_sha256": "0b6a23cd44eb953ce834086e8019794d2932de3b673f40fa00a858bb5dd60e30",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4,
+          "errors": {
+            "cer": 0.0625,
+            "character_errors": 3,
+            "reference_characters": 48,
+            "reference_words": 10,
+            "wer": 0.3,
+            "word_errors": 3
+          },
+          "id": "ru-ru_0063",
+          "language": "ru",
+          "rtf": 0.583475,
+          "text": "Семь лет меня не пуля не штык не могли стребить.",
+          "warm_seconds": 2.3339,
+          "reference": "Семь лет меня ни пуля ни штык не могли истребить",
+          "source_sha256": "613a9cd73fa3386ff2e19f333d13285cbc5712b60a65b4677ba6fa25f56a3c8f",
+          "replay_sha256": "dbc32dd3a10f1d7c5e9f6153bd86be762b0762493824d60e49aaea9be781fa06",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 11.25,
+          "errors": {
+            "cer": 0.07518796992481203,
+            "character_errors": 10,
+            "reference_characters": 133,
+            "reference_words": 21,
+            "wer": 0.38095238095238093,
+            "word_errors": 8
+          },
+          "id": "ru-ru_0064",
+          "language": "ru",
+          "rtf": 0.19971833777777778,
+          "text": "Он сел к столу начал лупить варенную картошку, разломила кунул в соль. На завтрак приготовь чистые две смены, рубашки под штаннике подвертки.",
+          "warm_seconds": 2.2468313,
+          "reference": "Он сел к столу начал лупить варёную картошку разломил окунул в соль На завтра приготовь чистое две смены рубашки подштаники подвёртки",
+          "source_sha256": "0c30ba64c95f2cceb0495ba16a7ab8c6016e43d99f871609cb62a44f1ea7a61e",
+          "replay_sha256": "dd6456dc7eefbe6b3f0a1204c06bf83c3b283fdd96067060a37c420c0f31ffd2",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 12,
+          "errors": {
+            "cer": 0.12582781456953643,
+            "character_errors": 19,
+            "reference_characters": 151,
+            "reference_words": 23,
+            "wer": 0.5217391304347826,
+            "word_errors": 12
+          },
+          "id": "ru-ru_0065",
+          "language": "ru",
+          "rtf": 0.21151800833333334,
+          "text": "Шлист на обережные бежали из переулков. Бубнились, бевались в кучке, лежали на чахлой траве. Поглядывали на низкая солнца, пусть и в шея сквозь облака широкие лучи.",
+          "warm_seconds": 2.5382161,
+          "reference": "Шли с набережной бежали из переулков бубнили сбивались в кучки лежали на чахлой траве поглядывали на низкое солнце пустившее сквозь облака широкие лучи",
+          "source_sha256": "58de4711f15c8432dee5739944da7bdfb34583f53b746d928e8292e0fed9f008",
+          "replay_sha256": "2c758f06717e50e1495d75bcfb30f9c5b615ca2f257977f773e1ea5a042da588",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 7.375,
+          "errors": {
+            "cer": 0.10989010989010989,
+            "character_errors": 10,
+            "reference_characters": 91,
+            "reference_words": 12,
+            "wer": 0.75,
+            "word_errors": 9
+          },
+          "id": "ru-ru_0066",
+          "language": "ru",
+          "rtf": 0.26154310508474576,
+          "text": "До Сумирек переливался Говар, Шлиразный разговоров толпе, ожидающий нем кновенного события.",
+          "warm_seconds": 1.9288804000000002,
+          "reference": "До сумерек переливался говор шли разные разговоры в толпе ожидающей необыкновенного события",
+          "source_sha256": "096c7d277ecb81f798ccfe64ba8cb02663b231bb9ff769a5ddfaed3b0b93ef35",
+          "replay_sha256": "62eed812eae9f7546532c850cfcbbd94d06f463bf710f788ece4172ac2c7e72a",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 8.25,
+          "errors": {
+            "cer": 0.09523809523809523,
+            "character_errors": 10,
+            "reference_characters": 105,
+            "reference_words": 15,
+            "wer": 0.4,
+            "word_errors": 6
+          },
+          "id": "ru-ru_0067",
+          "language": "ru",
+          "rtf": 0.09332435151515152,
+          "text": "Его ярко освещенное внутренность с тёганой ромбами желтой кожи была видна сквозь круглая отверстия люка.",
+          "warm_seconds": 0.7699259,
+          "reference": "Его ярко освещённая внутренность из стёганой ромбами жёлтой кожи была видна сквозь круглое отверстие люка",
+          "source_sha256": "96926322d02329c091e340648ddb8bc03be9dc61c99944288902b3b1509f4c5d",
+          "replay_sha256": "99ab0bbf8633ca8250025c47627db0bf7fde618470a98ec6167021784bd94b98",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/russian/gav-20170207-ifk",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 3.75,
+          "errors": {
+            "cer": 0.10416666666666667,
+            "character_errors": 5,
+            "reference_characters": 48,
+            "reference_words": 8,
+            "wer": 0.125,
+            "word_errors": 1
+          },
+          "id": "en-rp-18",
+          "language": "en",
+          "rtf": 0.13486234666666666,
+          "text": "Airstumble thought that the rainbow was caused by.",
+          "warm_seconds": 0.5057338,
+          "reference": "ARISTOTLE THOUGHT THAT THE RAINBOW WAS CAUSED BY",
+          "source_sha256": "3c0d647514b31a4c740d8591fa79c5bbcd2e0cad305fce38153c8cd888c4843e",
+          "replay_sha256": "4abd0c0b7daa8de209c67045c9e168bd7a9b3ae493b472667a6770ea03b677e8",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0.025,
+            "character_errors": 1,
+            "reference_characters": 40,
+            "reference_words": 9,
+            "wer": 0.1111111111111111,
+            "word_errors": 1
+          },
+          "id": "en-rp-19",
+          "language": "en",
+          "rtf": 0.16430925714285713,
+          "text": "Reflection of the Sun's Ray by the Rain.",
+          "warm_seconds": 0.5750824,
+          "reference": "REFLECTION OF THE SUN'S RAYS BY THE RAIN",
+          "source_sha256": "d847cb442dbe4e1d24613c802f2e0167fcb007ab712d5c63c9af95a2c40af9de",
+          "replay_sha256": "e4ca990580aae73bc1a56dd75e28ff676637bf8283e2b2d498bbd63b5eb7eacc",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 58,
+            "reference_words": 10,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-20",
+          "language": "en",
+          "rtf": 0.13041536,
+          "text": "Since then, physicists have found that it is not reflection.",
+          "warm_seconds": 0.5705672,
+          "reference": "SINCE THEN PHYSICISTS HAVE FOUND THAT IT IS NOT REFLECTION",
+          "source_sha256": "f5fd2c9cf20075a3ce1e2a48648d1e7a0156d7f8fad7d4e6a4ffeef57558ed09",
+          "replay_sha256": "90e336623c62dec332685fd3a7b062e4e84a22c53bab8189d6c5ea1a226fd188",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.375,
+          "errors": {
+            "cer": 0.05263157894736842,
+            "character_errors": 3,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0.4444444444444444,
+            "word_errors": 4
+          },
+          "id": "en-rp-21",
+          "language": "en",
+          "rtf": 0.13413042285714286,
+          "text": "But refraction by the rain drops which caused the rainbow.",
+          "warm_seconds": 0.5868206,
+          "reference": "BUT REFRACTION BY THE RAINDROPS WHICH CAUSES THE RAINBOWS",
+          "source_sha256": "3101551362e7f9540714dedf9c6ca845b442010e98efeae0977a0e2c91e2003d",
+          "replay_sha256": "9eace0c417772fcaac5b10b8bd903f9fcfb20b47ab36043c7a1a4acbac0c7fa5",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0.07017543859649122,
+            "character_errors": 4,
+            "reference_characters": 57,
+            "reference_words": 9,
+            "wer": 0.2222222222222222,
+            "word_errors": 2
+          },
+          "id": "en-rp-22",
+          "language": "en",
+          "rtf": 0.23510947878787877,
+          "text": "Many complicated ideas about the rainbow have informed.",
+          "warm_seconds": 0.9698266,
+          "reference": "MANY COMPLICATED IDEAS ABOUT THE RAINBOW HAVE BEEN FORMED",
+          "source_sha256": "9a1111fb066305d5169f48f3c6c5a474f0ebb369993e5a07228fc111e1b2cbcd",
+          "replay_sha256": "d06b8f88e235ea4fb28f6eecbd4b0384372d364262c6008fb4717f167ce3fe51",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.05194805194805195,
+            "character_errors": 4,
+            "reference_characters": 77,
+            "reference_words": 13,
+            "wer": 0.07692307692307693,
+            "word_errors": 1
+          },
+          "id": "en-rp-23",
+          "language": "en",
+          "rtf": 0.12498766511627908,
+          "text": "The difference in rainbow depends considerably upon the size of the drops.",
+          "warm_seconds": 0.6718087,
+          "reference": "THE DIFFERENCE IN THE RAINBOW DEPENDS CONSIDERABLY UPON THE SIZE OF THE DROPS",
+          "source_sha256": "ea927844173cf0c7cf726bfe996c3f6535fea61ba333a8bdc0447df352cfd04d",
+          "replay_sha256": "f2e4a91f7158713cbc3225d0649d03c75edfd0dfe65a92e22516667f6d6efff0",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 5.375,
+          "errors": {
+            "cer": 0.01282051282051282,
+            "character_errors": 1,
+            "reference_characters": 78,
+            "reference_words": 15,
+            "wer": 0.06666666666666667,
+            "word_errors": 1
+          },
+          "id": "en-rp-24",
+          "language": "en",
+          "rtf": 0.10794120930232559,
+          "text": "and the width of the colored band increases as the size of the drops increase.",
+          "warm_seconds": 0.580184,
+          "reference": "AND THE WIDTH OF THE COLORED BAND INCREASES AS THE SIZE OF THE DROPS INCREASES",
+          "source_sha256": "39db7ff0eeba5e07b3c6dce6622755abf0b13572782e85ac0c5fc65f7f2174b3",
+          "replay_sha256": "a159f8c610884be7799b1f02812b37fbd78b27bc0225b254a1e583165172e2b7",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.75,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 63,
+            "reference_words": 12,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-25",
+          "language": "en",
+          "rtf": 0.12107073684210526,
+          "text": "The actual primary rainbow observed is said to be the effect of.",
+          "warm_seconds": 0.575086,
+          "reference": "THE ACTUAL PRIMARY RAINBOW OBSERVED IS SAID TO BE THE EFFECT OF",
+          "source_sha256": "e48641060be73d725942b7cbdf9d1abbb3a2440e07c99a2301d6b3879f4e6594",
+          "replay_sha256": "3731d8e784b830ea09e483a14fb8ae6e6cc3f51795a60fa36a9d4844f943be98",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 3.5,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 36,
+            "reference_words": 7,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-26",
+          "language": "en",
+          "rtf": 0.1687750285714286,
+          "text": "super-imposition of a number of bows.",
+          "warm_seconds": 0.5907126,
+          "reference": "SUPER-IMPOSITION OF A NUMBER OF BOWS",
+          "source_sha256": "42b9d04bb5e97b4b18438d03fd861a1fc01a72b3fe9c6ab5a18e2103bc3bc3d6",
+          "replay_sha256": "cdf21f08199ca195562270b54317ac3a72184cf0c3a5dc36978dc302950f4b1a",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        },
+        {
+          "audio_seconds": 4.125,
+          "errors": {
+            "cer": 0,
+            "character_errors": 0,
+            "reference_characters": 62,
+            "reference_words": 14,
+            "wer": 0,
+            "word_errors": 0
+          },
+          "id": "en-rp-27",
+          "language": "en",
+          "rtf": 0.23686831515151516,
+          "text": "If the red of the second bow falls upon the green of the first.",
+          "warm_seconds": 0.9770818,
+          "reference": "IF THE RED OF THE SECOND BOW FALLS UPON THE GREEN OF THE FIRST",
+          "source_sha256": "8a700c6e4a14bbc1ec3cdce497375bce5250a1fd1c569ed5055fd50416d8906d",
+          "replay_sha256": "5de644c6dd06de2490bc156f1908bcee1b5cf4c05615a44d63f68e26849a93c7",
+          "source_page": "https://www.voxforge.org/home/downloads/speech/english/icern300-20151115-dno",
+          "license": "GPL-3.0-or-later"
+        }
+      ]
+    }
+  },
+  "comparison": {
+    "maximum_wer_regression": 0,
+    "wer_delta": 0.02352941176470591,
+    "cer_delta": 0.008655126498002666,
+    "no_wer_regression": false,
+    "passed": false,
+    "word_error_delta": 6,
+    "character_error_delta": 13,
+    "by_language": {
+      "ru": {
+        "maximum_wer_regression": 0,
+        "wer_delta": 0.026845637583892634,
+        "cer_delta": 0.009719222462203025,
+        "no_wer_regression": false,
+        "passed": false
+      },
+      "en": {
+        "maximum_wer_regression": 0,
+        "wer_delta": 0.018867924528301896,
+        "cer_delta": 0.006944444444444444,
+        "no_wer_regression": false,
+        "passed": false
+      }
+    },
+    "per_clip": [
+      {
+        "id": "ru-ru_0058",
+        "word_error_delta": 3,
+        "character_error_delta": 11
+      },
+      {
+        "id": "ru-ru_0059",
+        "word_error_delta": -2,
+        "character_error_delta": -6
+      },
+      {
+        "id": "ru-ru_0060",
+        "word_error_delta": 0,
+        "character_error_delta": 2
+      },
+      {
+        "id": "ru-ru_0061",
+        "word_error_delta": 0,
+        "character_error_delta": 4
+      },
+      {
+        "id": "ru-ru_0062",
+        "word_error_delta": -2,
+        "character_error_delta": -6
+      },
+      {
+        "id": "ru-ru_0063",
+        "word_error_delta": -2,
+        "character_error_delta": -4
+      },
+      {
+        "id": "ru-ru_0064",
+        "word_error_delta": 3,
+        "character_error_delta": 4
+      },
+      {
+        "id": "ru-ru_0065",
+        "word_error_delta": 1,
+        "character_error_delta": 1
+      },
+      {
+        "id": "ru-ru_0066",
+        "word_error_delta": 4,
+        "character_error_delta": 4
+      },
+      {
+        "id": "ru-ru_0067",
+        "word_error_delta": -1,
+        "character_error_delta": -1
+      },
+      {
+        "id": "en-rp-18",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-19",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-20",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-21",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-22",
+        "word_error_delta": 2,
+        "character_error_delta": 4
+      },
+      {
+        "id": "en-rp-23",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-24",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-25",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-26",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      },
+      {
+        "id": "en-rp-27",
+        "word_error_delta": 0,
+        "character_error_delta": 0
+      }
+    ]
+  },
+  "integrity": {
+    "source_unchanged": true,
+    "hardware_unchanged": true,
+    "binaries_model_manifest_archive_notices_inputs_outputs_unchanged": true,
+    "after_files": [
+      {
+        "path": "build/perf04/wideband/manifest.json",
+        "sha256": "2426fd1e442e96bc51c204b3d164f1bdfeeb333a84619557cfa43365b6345276",
+        "bytes": 34001
+      },
+      {
+        "path": "build/perf04/wideband/selection-predeclared.json",
+        "sha256": "3795438b2887c533de7e753bc0a7210bad22500e97a384d2d160df807330bfb5",
+        "bytes": 2243
+      },
+      {
+        "path": "build/checks/stage5-tools/fono-stt-quality.exe",
+        "sha256": "601038092ab284fecebd5df0f277fe1bafd755ad338039a80bae021bc789883f",
+        "bytes": 1982464
+      },
+      {
+        "path": "build/stt-quality/ggml-tiny.bin",
+        "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+        "bytes": 77691713
+      },
+      {
+        "path": "build/checks/perf04-tools/resample-wav.exe",
+        "sha256": "9e1219146accc59ba8a7d0f02a308b3a21b41d5132e4c827d8a4678e3d43ee29",
+        "bytes": 172544
+      },
+      {
+        "path": "build/checks/perf04/nativewideband-replay.mjs",
+        "sha256": "97737f6e895e7ad5f1c980c8e0d5843469967874b78e31959a8b08b4bec2195b",
+        "bytes": 14779
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0058.wav",
+        "sha256": "1cfe3d0365ff572e6f69ba6bb32f2fbc9382124a3ac3bad109834985f404657a",
+        "bytes": 456044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0059.wav",
+        "sha256": "0f1aa4ef250c8014aff55cea48afd4e80de3cc41da8532e354e51d7f6d8bd5f5",
+        "bytes": 792044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0060.wav",
+        "sha256": "0a65cac92f0ef8d091a38e2c09807c28e2e6a5b4985ea649d818fd2859feb775",
+        "bytes": 456044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0061.wav",
+        "sha256": "e752d51a4177bff1eb7d11117e29a82fe159e6e995ba2410b091f0a83f775868",
+        "bytes": 600044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0062.wav",
+        "sha256": "bb2dd81d15a719d6b08aca2d73e287e2a8b5e59611b94d9daa1de460bb8286bf",
+        "bytes": 552044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0063.wav",
+        "sha256": "613a9cd73fa3386ff2e19f333d13285cbc5712b60a65b4677ba6fa25f56a3c8f",
+        "bytes": 384044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0064.wav",
+        "sha256": "0c30ba64c95f2cceb0495ba16a7ab8c6016e43d99f871609cb62a44f1ea7a61e",
+        "bytes": 1080044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0065.wav",
+        "sha256": "58de4711f15c8432dee5739944da7bdfb34583f53b746d928e8292e0fed9f008",
+        "bytes": 1152044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0066.wav",
+        "sha256": "096c7d277ecb81f798ccfe64ba8cb02663b231bb9ff769a5ddfaed3b0b93ef35",
+        "bytes": 708044
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/wav/ru_0067.wav",
+        "sha256": "96926322d02329c091e340648ddb8bc03be9dc61c99944288902b3b1509f4c5d",
+        "bytes": 792044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-18.wav",
+        "sha256": "3c0d647514b31a4c740d8591fa79c5bbcd2e0cad305fce38153c8cd888c4843e",
+        "bytes": 360044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-19.wav",
+        "sha256": "d847cb442dbe4e1d24613c802f2e0167fcb007ab712d5c63c9af95a2c40af9de",
+        "bytes": 336044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-20.wav",
+        "sha256": "f5fd2c9cf20075a3ce1e2a48648d1e7a0156d7f8fad7d4e6a4ffeef57558ed09",
+        "bytes": 420044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-21.wav",
+        "sha256": "3101551362e7f9540714dedf9c6ca845b442010e98efeae0977a0e2c91e2003d",
+        "bytes": 420044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-22.wav",
+        "sha256": "9a1111fb066305d5169f48f3c6c5a474f0ebb369993e5a07228fc111e1b2cbcd",
+        "bytes": 396044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-23.wav",
+        "sha256": "ea927844173cf0c7cf726bfe996c3f6535fea61ba333a8bdc0447df352cfd04d",
+        "bytes": 516044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-24.wav",
+        "sha256": "39db7ff0eeba5e07b3c6dce6622755abf0b13572782e85ac0c5fc65f7f2174b3",
+        "bytes": 516044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-25.wav",
+        "sha256": "e48641060be73d725942b7cbdf9d1abbb3a2440e07c99a2301d6b3879f4e6594",
+        "bytes": 456044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-26.wav",
+        "sha256": "42b9d04bb5e97b4b18438d03fd861a1fc01a72b3fe9c6ab5a18e2103bc3bc3d6",
+        "bytes": 336044
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/wav/rp-27.wav",
+        "sha256": "8a700c6e4a14bbc1ec3cdce497375bce5250a1fd1c569ed5055fd50416d8906d",
+        "bytes": 396044
+      },
+      {
+        "path": "build/perf04/wideband/gav-20170207-ifk.tgz",
+        "sha256": "40d0e8721a1499fcfebcb725a0aba3fda9ceaee0431bdabd4fe1528470ac88ee",
+        "bytes": 6408228
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/LICENSE",
+        "sha256": "57d11099f0ad9aa9450542e04eb60aa406f0532b74cf43d47f282181a7870e1d",
+        "bytes": 681
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/etc/PROMPTS",
+        "sha256": "1630bc956c5747e31f191df7c8ca4afb4c65e4e4d12c12247386a4f430a66f5c",
+        "bytes": 2013
+      },
+      {
+        "path": "build/perf04/wideband/ru/gav-20170207-ifk/etc/README",
+        "sha256": "c38b95b6b7420e89730c18c49e62fc65b09ec848dde4becc5a19e51e9c40cd09",
+        "bytes": 444
+      },
+      {
+        "path": "build/perf04/wideband/icern300-20151115-dno.tgz",
+        "sha256": "b94bf700682871c83a356469228eddf89c17ed5eb1bb4163bce5cc06631c3d91",
+        "bytes": 2324648
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/LICENSE",
+        "sha256": "90ea10fdd22b10d497c5ee6bc0f62ca21a4586cff29f596aaa7ca47aad1b2d74",
+        "bytes": 659
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/etc/PROMPTS",
+        "sha256": "7707ddcc8fd7be5955c79860427fc33926da3f8ec446c3ae6d681c3ed36eab64",
+        "bytes": 906
+      },
+      {
+        "path": "build/perf04/wideband/en/icern300-20151115-dno/etc/README",
+        "sha256": "428ceba895c03514c2e5e1ef597de17b20027fe0cd015ff7a56ff710cbada0ea",
+        "bytes": 417
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0058.wav",
+        "sha256": "1d4bb00e57a0f4f50252daec5cfbf53e094c4c7599e198badb0ffbbbd937c3a2",
+        "bytes": 152044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0059.wav",
+        "sha256": "a9e1c6159fe3dc3316ed4a755378fda48ee78c437832adcf691b36a23ec3e7fc",
+        "bytes": 264044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0060.wav",
+        "sha256": "5a5fe95d186b0fab5d56cbbeadee563d181420a070e185c8504c9336e4eb4d19",
+        "bytes": 152044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0061.wav",
+        "sha256": "05eac4b9198e82118751a955c2e9c6fd8b0e57102509f91efa85c8063ada54eb",
+        "bytes": 200044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0062.wav",
+        "sha256": "3c1ca717c9ba13748769a0f2d97ec1bf6e8428fecc27b7b129a9d400c52fc3e6",
+        "bytes": 184044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0063.wav",
+        "sha256": "75f1c569ed18f91ad541a1b04d95a5160acd0f0d75a8a0fb19550f92a98319ae",
+        "bytes": 128044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0064.wav",
+        "sha256": "ad9d6f86ce1da30862a9bea3b46711a0da33c821fcd894774f79b7d10ea22792",
+        "bytes": 360044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0065.wav",
+        "sha256": "dbb0d013074dc1dc6fa1b2d7bc567947c6d915088d8f17be7d016b2b2dc281ac",
+        "bytes": 384044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0066.wav",
+        "sha256": "84b5289ffff202091e2f318a68f760f77c48f70cde17bd98f094e2979b5cc080",
+        "bytes": 236044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/ru-ru_0067.wav",
+        "sha256": "a902d7f6ca8264796fa5df562d69550be0bdc63eae5bad868dc57d9ec773056b",
+        "bytes": 264044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-18.wav",
+        "sha256": "ccae30cfd40928abb3b832683db295a565e430bfe3b5e5c12f4c11eec99e8fd7",
+        "bytes": 120044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-19.wav",
+        "sha256": "e9a551dcdfe85d2394e7ed51135c44a4b8127471a0765b530f9b8974454c0930",
+        "bytes": 112044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-20.wav",
+        "sha256": "f54c55ebac1cd6862c1540ec6e5a03e67543a4da5b4ba701201fb7d6a2a1f8dd",
+        "bytes": 140044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-21.wav",
+        "sha256": "7c8546efb9a0eb1cfcedafa9af7399524c0adf1c5ba7e4241fe020baad45276c",
+        "bytes": 140044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-22.wav",
+        "sha256": "a916fe3f7e056bab13d98a7424fd955819cbe83648d889f92afb4ba411b8360f",
+        "bytes": 132044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-23.wav",
+        "sha256": "7964d4efa85dea0abfe627a5d8cce305f407f1a7f092cebb569c421073bfc1d2",
+        "bytes": 172044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-24.wav",
+        "sha256": "25d148e116db515c9814f0aadb2a5cdd077057fc81aed3d6c3220aa467f3f429",
+        "bytes": 172044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-25.wav",
+        "sha256": "ae988be84a52cbf0cf4a68711d5dc3703bbb284f5f98a75e4ee0c25ec03f3508",
+        "bytes": 152044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-26.wav",
+        "sha256": "3349429acf5af2391ed669681dd3c7f994aa69c288359ccb93a65a855cfb6643",
+        "bytes": 112044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/legacy/en-rp-27.wav",
+        "sha256": "6de776fb4f9420589cad150eda1cd8d04a4eb8a56c654c87c4b0e503c3ff024a",
+        "bytes": 132044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0058.wav",
+        "sha256": "704f32cfbfe7fee1e244b660b14a27ebd08fe99d29b42a19ed06327e9f65cadf",
+        "bytes": 152044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0059.wav",
+        "sha256": "bd12fb961ca9b90c2e701e7e41f49e070cf6930e73af950f999b656cc2f9ef87",
+        "bytes": 264044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0060.wav",
+        "sha256": "951a869438d8a3e1c6b1c25396392674c0f5194f41e07a18fdf85736d76fa1a1",
+        "bytes": 152044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0061.wav",
+        "sha256": "5de4434a094c1a65a633d1f7cf0e74103faebf00403605701aca10378fa4c44d",
+        "bytes": 200044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0062.wav",
+        "sha256": "0b6a23cd44eb953ce834086e8019794d2932de3b673f40fa00a858bb5dd60e30",
+        "bytes": 184044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0063.wav",
+        "sha256": "dbc32dd3a10f1d7c5e9f6153bd86be762b0762493824d60e49aaea9be781fa06",
+        "bytes": 128044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0064.wav",
+        "sha256": "dd6456dc7eefbe6b3f0a1204c06bf83c3b283fdd96067060a37c420c0f31ffd2",
+        "bytes": 360044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0065.wav",
+        "sha256": "2c758f06717e50e1495d75bcfb30f9c5b615ca2f257977f773e1ea5a042da588",
+        "bytes": 384044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0066.wav",
+        "sha256": "62eed812eae9f7546532c850cfcbbd94d06f463bf710f788ece4172ac2c7e72a",
+        "bytes": 236044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/ru-ru_0067.wav",
+        "sha256": "99ab0bbf8633ca8250025c47627db0bf7fde618470a98ec6167021784bd94b98",
+        "bytes": 264044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-18.wav",
+        "sha256": "4abd0c0b7daa8de209c67045c9e168bd7a9b3ae493b472667a6770ea03b677e8",
+        "bytes": 120044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-19.wav",
+        "sha256": "e4ca990580aae73bc1a56dd75e28ff676637bf8283e2b2d498bbd63b5eb7eacc",
+        "bytes": 112044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-20.wav",
+        "sha256": "90e336623c62dec332685fd3a7b062e4e84a22c53bab8189d6c5ea1a226fd188",
+        "bytes": 140044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-21.wav",
+        "sha256": "9eace0c417772fcaac5b10b8bd903f9fcfb20b47ab36043c7a1a4acbac0c7fa5",
+        "bytes": 140044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-22.wav",
+        "sha256": "d06b8f88e235ea4fb28f6eecbd4b0384372d364262c6008fb4717f167ce3fe51",
+        "bytes": 132044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-23.wav",
+        "sha256": "f2e4a91f7158713cbc3225d0649d03c75edfd0dfe65a92e22516667f6d6efff0",
+        "bytes": 172044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-24.wav",
+        "sha256": "a159f8c610884be7799b1f02812b37fbd78b27bc0225b254a1e583165172e2b7",
+        "bytes": 172044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-25.wav",
+        "sha256": "3731d8e784b830ea09e483a14fb8ae6e6cc3f51795a60fa36a9d4844f943be98",
+        "bytes": 152044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-26.wav",
+        "sha256": "cdf21f08199ca195562270b54317ac3a72184cf0c3a5dc36978dc302950f4b1a",
+        "bytes": 112044
+      },
+      {
+        "path": "build/checks/perf04/native-wideband-final/current/en-rp-27.wav",
+        "sha256": "5de644c6dd06de2490bc156f1908bcee1b5cf4c05615a44d63f68e26849a93c7",
+        "bytes": 132044
+      }
+    ],
+    "helper_sha256": "97737f6e895e7ad5f1c980c8e0d5843469967874b78e31959a8b08b4bec2195b"
+  },
+  "acceptance": {
+    "state": "failed_strict_wer_regression",
+    "passed": false,
+    "scope": "Automated twenty-clip/two-speaker CPU data point; this does not establish owner microphone, GPU or device acceptance."
+  }
+}

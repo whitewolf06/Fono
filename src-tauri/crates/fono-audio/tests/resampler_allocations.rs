@@ -43,6 +43,7 @@ fn prepared_resampler_does_not_allocate_in_the_capture_loop() {
     let input = [1_234; 65_536];
     for (input_rate, output_rate) in [
         (44_100, 16_000),
+        (44_101, 16_000),
         (48_000, 16_000),
         (96_000, 16_000),
         (192_000, 16_000),

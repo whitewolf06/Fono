@@ -83,6 +83,15 @@ export function aggregate(entries) {
   };
 }
 export function compare(baseline, candidate, maximumRegression = 0.01) {
+  for (const [label, value] of [
+    ["baseline WER", baseline.wer],
+    ["baseline CER", baseline.cer],
+    ["candidate WER", candidate.wer],
+    ["candidate CER", candidate.cer],
+    ["maximum WER regression", maximumRegression],
+  ])
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
+      throw new Error(`Invalid nonnegative quality measurement: ${label}`);
   const werDelta = candidate.wer - baseline.wer;
   return {
     maximum_wer_regression: maximumRegression,
@@ -91,6 +100,91 @@ export function compare(baseline, candidate, maximumRegression = 0.01) {
     no_wer_regression: werDelta <= 1e-12,
     passed: werDelta <= maximumRegression + 1e-12,
   };
+}
+export function parseOptions(arguments_) {
+  const flags = new Set([
+    "--download-model",
+    "--require-no-wer-regression",
+    "--bandlimited-reconstruction",
+  ]);
+  const values = new Set([
+    "--target",
+    "--runner",
+    "--resampler",
+    "--model",
+    "--profile",
+    "--report",
+  ]);
+  const options = {};
+  for (let index = 0; index < arguments_.length; index++) {
+    const key = arguments_[index];
+    if (Object.hasOwn(options, key))
+      throw new Error(`Repeated quality option: ${key}`);
+    if (flags.has(key)) options[key] = true;
+    else if (values.has(key)) {
+      const value = arguments_[++index];
+      if (!value || value.startsWith("--"))
+        throw new Error(`Missing value for quality option: ${key}`);
+      options[key] = value;
+    } else throw new Error(`Unknown quality option: ${key}`);
+  }
+  return options;
+}
+export function replayPolicy(options) {
+  return options["--bandlimited-reconstruction"] === true
+    ? {
+        reconstruction_policy: "cardinal_sinc",
+        replay:
+          "16 kHz public speech reconstructed to 48 kHz with a cardinal Blackman-windowed sinc (source Nyquist 8 kHz, half-window 48 source samples), then converted to 16 kHz. Original samples at phase zero and frozen legacy PCM hashes are retained. This is derived replay, not native wideband audio.",
+      }
+    : {
+        reconstruction_policy: "legacy_linear",
+        replay:
+          "16 kHz public speech reconstructed with frozen linear interpolation to 48 kHz, then converted to 16 kHz. This is not native wideband audio.",
+      };
+}
+export function replayArguments(input, output, mode, options) {
+  return [
+    input,
+    output,
+    mode,
+    "48000",
+    ...(options["--bandlimited-reconstruction"] === true
+      ? ["--bandlimited-reconstruction"]
+      : []),
+  ];
+}
+export function resamplingAcceptance(
+  legacy,
+  candidate,
+  historicalBaseline,
+  required = false,
+  reconstructionPolicy = "legacy_linear",
+) {
+  if (!["legacy_linear", "cardinal_sinc"].includes(reconstructionPolicy))
+    throw new Error("Unknown reconstruction policy for quality acceptance");
+  const sameRun = compare(legacy, candidate, 0);
+  const historical = historicalBaseline
+    ? compare(historicalBaseline, candidate, 0)
+    : null;
+  return {
+    criterion: `No WER regression on ${reconstructionPolicy} derived replay`,
+    reconstruction_policy: reconstructionPolicy,
+    scope:
+      "One identified replay method; overall PERF-04 acceptance is separate",
+    required,
+    maximum_wer_regression: 0,
+    same_run: sameRun,
+    historical,
+    passed: sameRun.passed && historical?.passed === true,
+  };
+}
+export function qualityExitCode(report) {
+  return !report.comparison.passed ||
+    report.historical_comparison?.passed === false ||
+    (report.acceptance.required && !report.acceptance.passed)
+    ? 1
+    : 0;
 }
 function execute(binary, arguments_) {
   const result = spawnSync(binary, arguments_, {
@@ -107,13 +201,8 @@ function execute(binary, arguments_) {
   return JSON.parse(result.stdout);
 }
 async function run() {
+  const options = parseOptions(process.argv.slice(2));
   const lineage = qualityLineage();
-  const options = {};
-  for (let index = 2; index < process.argv.length; index++) {
-    const key = process.argv[index];
-    if (key === "--download-model") options[key] = true;
-    else options[key] = process.argv[++index];
-  }
   const suffix = process.platform === "win32" ? ".exe" : "";
   const target = path.resolve(
     options["--target"] ??
@@ -154,12 +243,15 @@ async function run() {
     let resampleSeconds = 0;
     const entries = manifest.entries.map((entry) => {
       const output = path.join(directory, entry.path);
-      const converted = execute(resampler, [
-        path.join(corpusRoot, entry.path),
-        output,
-        mode,
-        "48000",
-      ]);
+      const converted = execute(
+        resampler,
+        replayArguments(
+          path.join(corpusRoot, entry.path),
+          output,
+          mode,
+          options,
+        ),
+      );
       resampleSeconds += converted.resample_seconds;
       return {
         ...entry,
@@ -201,6 +293,7 @@ async function run() {
   const manifestHash = hash(Buffer.from(JSON.stringify(manifest)));
   const baselinePath = path.join(corpusRoot, "baseline.json");
   let historicalComparison = null;
+  let historicalSummary = null;
   if (fs.existsSync(baselinePath)) {
     const baseline = JSON.parse(fs.readFileSync(baselinePath));
     if (
@@ -219,6 +312,7 @@ async function run() {
       baseline.summary,
       alternatives.current.summary,
     );
+    historicalSummary = baseline.summary;
   }
   const report = {
     schema: 1,
@@ -242,8 +336,7 @@ async function run() {
       cpu: os.cpus()[0]?.model,
       logical_cpus: os.cpus().length,
     },
-    replay:
-      "16 kHz public speech reconstructed with frozen linear interpolation to 48 kHz, then converted to 16 kHz. This is not native wideband audio.",
+    ...replayPolicy(options),
     timing:
       "Each alternative loads a fresh CPU model; first utterance is measured cold, repeated for warmup; aggregate contains warmed runs. No hard performance gate across machines.",
     alternatives,
@@ -252,6 +345,13 @@ async function run() {
       alternatives.current.summary,
     ),
     historical_comparison: historicalComparison,
+    acceptance: resamplingAcceptance(
+      alternatives.legacy.summary,
+      alternatives.current.summary,
+      historicalSummary,
+      options["--require-no-wer-regression"] === true,
+      replayPolicy(options).reconstruction_policy,
+    ),
   };
   const output = path.resolve(
     options["--report"] ?? path.join(working, "report.json"),
@@ -264,10 +364,10 @@ async function run() {
       ...report.comparison,
       baseline_wer: alternatives.legacy.summary.wer,
       candidate_wer: alternatives.current.summary.wer,
+      acceptance: report.acceptance,
     }),
   );
-  if (!report.comparison.passed || historicalComparison?.passed === false)
-    process.exitCode = 1;
+  process.exitCode = qualityExitCode(report);
 }
 if (
   process.argv[1] &&

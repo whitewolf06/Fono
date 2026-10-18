@@ -85,11 +85,32 @@ Wrapper собирает выбранные тесты и размещает з�
 
 Сравнивайте одинаковые pinned model/corpus и явно выбранные decoding options. Фиксируйте WER и CER отдельно, результаты по языкам и условиям, полный PCM и каждый эксперимент с обрезкой. Измерения готовых 16 кГц WAV не заменяют проверку ресемплера или личного голоса.
 
-В [четвёртом этапе](improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для допуска речи и диагностики границ; STT получает полный PCM. [Финальный quality JSON](evidence/stage4-quality.json) и отрицательные результаты [150 мс](evidence/stage4-quality-preroll-150ms.json)/[2 с](evidence/stage4-quality-preroll-2s.json) сохранены. Прежний PERF-04 остаётся открытым.
+В [четвёртом этапе](improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для допуска речи и диагностики границ; STT получает полный PCM. [Финальный quality JSON](evidence/stage4-quality.json) и отрицательные результаты [150 мс](evidence/stage4-quality-preroll-150ms.json)/[2 с](evidence/stage4-quality-preroll-2s.json) сохранены.
 
 Контракты отчёта пятого этапа запускаются командой `npm run test:quality:stage5`. `scripts/stage5-quality.mjs --run` собирает свежий общий replay ресемплера, Silero и fast/accurate; укажите CPU runner, resampler, trimmer и отдельные пути отчётов. Один run ID, версия, исходники, модель, corpus и фактические параметры связывают все шесть вариантов.
 
-WER/CER пересчитываются из эталона и гипотезы. Действуют прежний CI-допуск WER +1 п.п. и строгий нулевой допуск ARC-09. Строгий критерий PERF-04 показывается отдельно. Cold/model-load и warm p50/p95/p99 описывают измеренный запуск. Для проверки задержки нужен отдельный совместимый same-hardware baseline и явно заданные пороги; без него задержка остаётся наблюдением.
+WER/CER пересчитываются из эталона и гипотезы. У прежнего CI-03 есть допуск WER +1 п.п.; ARC-09 и PERF-04 используют собственные строгие критерии. Cold/model-load и warm p50/p95/p99 описывают измеренный запуск. Для проверки задержки нужен отдельный совместимый same-hardware baseline и явно заданные пороги; без него задержка остаётся наблюдением.
+
+#### Проверка ресемплера PERF-04
+
+Для отдельного cardinal-сравнения запускайте fixed corpus с обоими явными флагами:
+
+```powershell
+$env:CARGO_TARGET_DIR = "$PWD/src-tauri/target-codex-review"
+cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features -p fono-audio --example resample-wav -p fono-stt-worker --bin fono-stt-quality
+node scripts/stt-quality.mjs --target src-tauri/target-codex-review/release --download-model --require-no-wer-regression --bandlimited-reconstruction --report build/stt-quality/perf04-report.json
+npm run cache:maintain
+```
+
+`--require-no-wer-regression` требует WER не хуже same-run legacy и замороженного `baseline.json`: допуск равен нулю. CER сохраняется отдельным числом. `--bandlimited-reconstruction` строит одинаковый для обоих вариантов 48 кГц вход через cardinal Blackman-windowed sinc: Nyquist исходника 8 кГц, половина поддержки 48 исходных кадров, unity каждой фазы. На целых исходных позициях сохраняется точный PCM16 sample. Все 20 legacy WAV остаются byte-exact замороженной базе; исходные WAV, references и порог не меняются.
+
+Пятиаргументный вызов `resample-wav` и `stt-quality.mjs` без нового флага сохраняют прежнюю линейную реконструкцию. На ней финальный Blackman дал 85→86 ошибок на 450 слов: исходный строгий gate по-прежнему не выполнен. Для его повторения уберите только `--bandlimited-reconstruction` и задайте отдельный путь `--report`; ожидаемый результат кандидата — exit code 1. `stage5-quality.mjs --run` использует этот прежний режим; для отдельного cardinal-сравнения нужен прямой вызов выше. Уже полученные same-run отчёты можно объединять `stage5-quality.mjs` без `--run` с явными `--resampling-report` и `--vad-report`; происхождение обоих должно совпадать.
+
+Workflow `stt-quality.yml` запускает оба метода отдельными обязательными заданиями матрицы: `legacy_linear` и `cardinal_sinc`. У каждого свой runner, run ID и artifact `stt-quality-cpu-<метод>`, поэтому WAV и отчёты разных методов не перезаписывают друг друга. `fail-fast: false` даёт второму заданию закончить измерения после отрицательного результата первого. Ошибки сборки, загрузки модели и строгого WER gate сохраняют failed-статус; отчёт загружается через `always()`. Итоговая проверка с прежним именем `quality` требует `success` всей матрицы; failed, skipped и cancelled её не проходят. Успешный cardinal-результат не делает исторический gate зелёным. Поле `acceptance` в JSON описывает только явно названный `reconstruction_policy`; общая приёмка PERF-04 учитывается отдельно.
+
+Для настоящего входного WAV 44,1/48/96 кГц example принимает `--native-input` последним аргументом. Он проверяет частоту заголовка и не реконструирует файл из 16 кГц. Этот флаг и `--bandlimited-reconstruction` взаимоисключающие. Архивы и native VoxForge WAV остаются в `build/perf04/`; обычный CI их не скачивает. Эталонные тексты входят в переносимые JSON и сохраняют GPL-3.0-or-later отдельно от MIT-кода. [Исходные notices и атрибуция](evidence/licenses/perf04-data-NOTICE.md), [полный GPLv3](evidence/licenses/perf04-voxforge-GPL-3.0.txt) включены рядом с отчётами.
+
+[Отчёт PERF-04](improvement-perf04.md) сохраняет все сравнения. Отдельный cardinal replay дал 85→85 ошибок на 450 слов, CER изменился 207→209 на 2846 символов. Он не заменяет исходный linear gate с 85→86. Дополнительный native diagnostic ухудшился относительно unfiltered linear 72→78/255 и улучшился относительно поставлявшегося FIR 79→78/255. На свежем native holdout Blackman дал 81/341 ошибок слов против 80 у обеих баз. **PERF-04 остаётся открытым: исходный и финальный native строгие WER gates не выполнены.** Эти результаты относятся к разным входам и базам; общего вывода о качестве на любом микрофоне из них не следует.
 
 ### Lifecycle soak
 
