@@ -1,0 +1,78 @@
+name: CPU lifecycle subsystem soak
+
+on:
+  workflow_dispatch:
+    inputs:
+      cycles:
+        description: Production pipeline start/cancel cycles (target 1000)
+        default: "1000"
+        required: true
+        type: string
+      faults:
+        description: Real CPU worker kill/reap/restarts (target 100)
+        default: "100"
+        required: true
+        type: string
+      idle_seconds:
+        description: Measured idle window; 3600 for the separate one-hour target
+        default: "0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle:
+    runs-on: windows-2022
+    timeout-minutes: 150
+    env:
+      LIBCLANG_PATH: C:\Program Files\LLVM\bin
+      CARGO_TARGET_DIR: ${{ github.workspace }}\src-tauri\target-codex-review
+      # Inert compile fixture: no frontend install, UI startup or GPU asset.
+      TAURI_CONFIG: '{"build":{"frontendDist":"../scripts/ci-native-frontend"},"bundle":{"resources":{"resources/stt-base/fono-stt-vulkan-worker.exe":null}}}'
+      SOAK_CYCLES: ${{ inputs.cycles }}
+      SOAK_FAULTS: ${{ inputs.faults }}
+      SOAK_IDLE_SECONDS: ${{ inputs.idle_seconds }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.23.3"
+      - name: Install pinned Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.96.1 --profile minimal
+      - name: Verify explicit soak runner and evidence guards
+        shell: pwsh
+        run: node --test scripts/lifecycle-soak.test.mjs
+      - name: Prepare verified CPU resources
+        shell: pwsh
+        run: ./scripts/bootstrap-ci-resources.ps1
+      - name: Build real CPU helper and ignored native test executable
+        shell: pwsh
+        working-directory: src-tauri
+        run: |
+          New-Item -ItemType Directory -Force ../build/lifecycle-soak | Out-Null
+          cargo build --locked --release --no-default-features -p fono-stt-worker --bin fono-stt-worker
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p fono --lib --no-default-features --features cpu-only --no-run --message-format=json > ../build/lifecycle-soak/tests.jsonl
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Stage verified native VAD DLLs beside test executable
+        shell: pwsh
+        run: node scripts/native-test-runtime.mjs build/lifecycle-soak/tests.jsonl $env:SHERPA_ONNX_LIB_DIR $env:CARGO_TARGET_DIR
+      - name: Run explicit mock-audio and real CPU-worker lifecycle soak
+        shell: pwsh
+        run: ./scripts/lifecycle-soak.ps1 -Cycles $env:SOAK_CYCLES -Faults $env:SOAK_FAULTS -IdleSeconds $env:SOAK_IDLE_SECONDS -DownloadModel
+      - name: Save native measurements, runner receipt and failure log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cpu-lifecycle-subsystem-soak
+          path: |
+            build/lifecycle-soak/report.json
+            build/lifecycle-soak/report.json.runner.json
+            build/lifecycle-soak/report.json.log
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,0 +1,1917 @@
+{
+  "schema": 1,
+  "task": "CI-04 / FONO-109",
+  "status": "automated_subsystem_soak_passed_owner_acceptance_open",
+  "scope": "Windows native subsystem soak with mock physical audio and a real CPU Whisper worker; separate from desktop and STAB-06 owner acceptance",
+  "entrypoints": {
+    "manual_workflow": ".github/workflows/lifecycle-soak.yml",
+    "runner": "scripts/lifecycle-soak.mjs",
+    "powershell_launcher": "scripts/lifecycle-soak.ps1",
+    "exact_ignored_test": "stt::worker::lifecycle_soak::cpu_worker_lifecycle_soak"
+  },
+  "implementation": {
+    "production_paths": [
+      "Pipeline capture ownership and bounded recording writer",
+      "OperationCoordinator operation identity and cancellation",
+      "SttScheduler reservation and actual-work permit",
+      "WorkerSession protocol, deadlines, cancellation and cleanup supervisor",
+      "CPU helper handshake, model load and public WAV inference"
+    ],
+    "physical_audio": "Injected AudioRecorder copies a pinned public corpus WAV into the production writer; CPAL/microphone and AudioHub physical queues are not exercised",
+    "cancellations": "Every capture cycle uses the production coordinator and scheduler. By default 990 requests are cancelled before transport and 10 after the complete Transcribe frame is acknowledged by the actual stdin writer, with CPU activity observed. Native kernel entry is not instrumented.",
+    "worker_faults": "Kill only the currently owned live loaded-idle CPU helper, detect transport failure, confirm process reap and stdio cleanup, reopen and reload through production WorkerSession. This does not test automatic SttEngine recovery routing.",
+    "cleanup": "Dedicated test process enters its own noninheritable kill-on-close Windows Job before any worker starts; a kernel handle watches the exact controlling Node runner, and an independent native deadline stops the driver if the runner disappears or stalls.",
+    "resource_measurements": "Read-only Win32 handles, threads, private bytes and cumulative CPU time for the native driver and owned helper; thread enumeration fails closed on API errors or zero threads for a live process.",
+    "resource_gates": "Compare parent warm loaded baseline with final loaded state, and settled warm no-worker baseline with final shutdown while the same Pipeline/job/watchdog remain alive. Handles and threads cannot increase; private bytes allowance is max(5%, 10 MiB). Cold pre-worker startup differences are descriptive and excluded from leak gates.",
+    "latency_measurements": "Capture start, capture stop, uncontended scheduler acquire, cancellation-to-request-return and fault reload p50/p95/p99; first-session load and first/warm inference are separate. No cold OS-cache claim."
+  },
+  "verified_so_far": {
+    "focused_node_contracts": {
+      "passed": 8,
+      "failed": 0,
+      "workflow_mutations_rejected": 11,
+      "idle_invalid_measurements_rejected": [
+        "missing",
+        "NaN",
+        "Infinity",
+        "negative",
+        "shorter than requested window"
+      ]
+    },
+    "powershell_syntax": "passed",
+    "final_cpu_native_compile": {
+      "app_version": "0.7.27",
+      "result": "passed",
+      "log": "build/checks/stage5-ci04-finalcompile-warm.log",
+      "sha256": "2d44136d7492f3f5f0d175853b166f50cf86a7dc774f2a6882f25cc2433f5db6"
+    },
+    "strict_cpu_clippy": {
+      "result": "passed",
+      "command": "cargo clippy --locked --workspace --all-targets --no-default-features --features fono/cpu-only -- -D warnings",
+      "log": "build/checks/stage5-ci04-clippy.log",
+      "sha256": "4b81a0a32f4dacd19fca74c3edfdf743d402c5391b19ee5665e424d7bd80ed9c"
+    },
+    "warm_baseline_smoke": {
+      "result": "passed",
+      "cycles": 10,
+      "faults": 2,
+      "resource_gates": {
+        "handle_tolerance": 0,
+        "loaded_parent": {
+          "handle_delta": 0,
+          "handles_pass": true,
+          "private_bytes_allowance": 10485760,
+          "private_bytes_delta": 49152,
+          "private_bytes_pass": true,
+          "thread_delta": 0,
+          "threads_pass": true
+        },
+        "loaded_worker_comparison": {
+          "handle_delta": 0,
+          "handles_pass": true,
+          "private_bytes_allowance": 37779865,
+          "private_bytes_delta": 249856,
+          "private_bytes_pass": true,
+          "thread_delta": 0,
+          "threads_pass": true
+        },
+        "monotonic_growth": {
+          "definition": "all checkpoints nondecreasing and final greater than warm baseline; reported separately from bounded endpoint gates",
+          "parent_handles": false,
+          "parent_private_bytes": false,
+          "parent_threads": false,
+          "samples": 14
+        },
+        "private_bytes_rule": "baseline + max(5%, 10 MiB)",
+        "shutdown_parent": {
+          "handle_delta": 0,
+          "handles_pass": true,
+          "private_bytes_allowance": 10485760,
+          "private_bytes_delta": 344064,
+          "private_bytes_pass": true,
+          "thread_delta": 0,
+          "threads_pass": true
+        },
+        "thread_tolerance": 0,
+        "worker_comparison_scope": "different freshly restarted owned helper; descriptive, parent lifecycle budgets are gates"
+      },
+      "path": "build/checks/stage5-ci04-smoke-v27-warm/report.json",
+      "sha256": "fd2a5c400076a36d727c342d1ee5f2e25ad9dbd0b3e6aac185ec5847d670eb8e"
+    },
+    "full_native_soak": {
+      "result": "passed",
+      "completed": {
+        "active_worker_cancellations": 10,
+        "all_owned_children_exited": true,
+        "cancellation_reloads": 0,
+        "fault_kills": 100,
+        "fault_reaps": 100,
+        "fault_restarts": 100,
+        "pretransport_worker_cancellations": 990,
+        "start_cancel_cycles": 1000
+      },
+      "measured_idle_seconds": 61.0843594,
+      "resource_gates": {
+        "handle_tolerance": 0,
+        "loaded_parent": {
+          "handle_delta": 0,
+          "handles_pass": true,
+          "private_bytes_allowance": 10485760,
+          "private_bytes_delta": 413696,
+          "private_bytes_pass": true,
+          "thread_delta": -3,
+          "threads_pass": true
+        },
+        "loaded_worker_comparison": {
+          "handle_delta": 0,
+          "handles_pass": true,
+          "private_bytes_allowance": 37780889,
+          "private_bytes_delta": 131072,
+          "private_bytes_pass": true,
+          "thread_delta": -3,
+          "threads_pass": true
+        },
+        "monotonic_growth": {
+          "definition": "all checkpoints nondecreasing and final greater than warm baseline; reported separately from bounded endpoint gates",
+          "parent_handles": false,
+          "parent_private_bytes": false,
+          "parent_threads": false,
+          "samples": 28
+        },
+        "private_bytes_rule": "baseline + max(5%, 10 MiB)",
+        "shutdown_parent": {
+          "handle_delta": 0,
+          "handles_pass": true,
+          "private_bytes_allowance": 10485760,
+          "private_bytes_delta": 1204224,
+          "private_bytes_pass": true,
+          "thread_delta": -3,
+          "threads_pass": true
+        },
+        "thread_tolerance": 0,
+        "worker_comparison_scope": "different freshly restarted owned helper; descriptive, parent lifecycle budgets are gates"
+      },
+      "latency_ms": {
+        "cancel_to_request_return": {
+          "count": 1000,
+          "maximum": 437.6697,
+          "p50": 7.63,
+          "p95": 9.6069,
+          "p99": 12.0611
+        },
+        "capture_start": {
+          "count": 1000,
+          "maximum": 0.2369,
+          "p50": 0.0573,
+          "p95": 0.0854,
+          "p99": 0.11349999999999999
+        },
+        "capture_stop": {
+          "count": 1000,
+          "maximum": 0.0674,
+          "p50": 0.0085,
+          "p95": 0.012799999999999999,
+          "p99": 0.0176
+        },
+        "scheduler_acquire_uncontended": {
+          "count": 1000,
+          "maximum": 0.14880000000000002,
+          "p50": 0.0044,
+          "p95": 0.0070999999999999995,
+          "p99": 0.009099999999999999
+        },
+        "worker_fault_reload": {
+          "count": 100,
+          "maximum": 169.4446,
+          "p50": 129.0415,
+          "p95": 157.90689999999998,
+          "p99": 166.6667
+        }
+      },
+      "first_session_load_ms": 121.9274,
+      "first_inference": {
+        "audio_seconds": 10.5600004196167,
+        "backend": "CPU",
+        "nonempty_result": true,
+        "reported_inference_seconds": 0.44524380564689636,
+        "wall_ms": 471.4808
+      },
+      "warm_inference": {
+        "measurements": [
+          {
+            "audio_seconds": 10.5600004196167,
+            "backend": "CPU",
+            "nonempty_result": true,
+            "reported_inference_seconds": 0.5056865811347961,
+            "wall_ms": 531.6788
+          },
+          {
+            "audio_seconds": 10.5600004196167,
+            "backend": "CPU",
+            "nonempty_result": true,
+            "reported_inference_seconds": 0.5217685103416443,
+            "wall_ms": 553.0397
+          }
+        ],
+        "wall_ms": {
+          "count": 2,
+          "maximum": 553.0397,
+          "p50": 531.6788,
+          "p95": 553.0397,
+          "p99": 553.0397
+        }
+      },
+      "elapsed_seconds": 94.4515242
+    }
+  },
+  "targets_not_yet_claimed": {
+    "one_hour_idle": "not run; actual measured window is 60 seconds",
+    "remote_manual_workflow": "not run",
+    "desktop_and_owner_acceptance": "STAB-06 remains open"
+  },
+  "remaining_owner_acceptance": [
+    "STAB-06 real microphone/USB/sleep-resume/long recordings",
+    "Tauri windows, hotkey, clipboard and external insertion",
+    "GPU/runtime/driver matrix and automatic recovery router in the desktop runtime",
+    "Installed release, clean Windows, installer/updater and owner confirmation"
+  ],
+  "app_version": "0.7.27",
+  "verified_at_utc": "2026-10-18T10:27:08.662Z",
+  "cold_startup_descriptive_only": {
+    "before": {
+      "cpu_seconds": 1.4375,
+      "handles": 256,
+      "pid": 69916,
+      "private_bytes": 4730880,
+      "threads": 6
+    },
+    "after_warmup_no_worker": {
+      "cpu_seconds": 1.75,
+      "handles": 258,
+      "pid": 69916,
+      "private_bytes": 4399104,
+      "threads": 6
+    },
+    "handle_delta": 2,
+    "thread_delta": 0,
+    "private_bytes_delta": -331776,
+    "interpretation": "First-use runtime/OS initialization is not identified as a specific cause. Acceptance uses comparable post-warmup states; cold counts remain visible."
+  },
+  "attempt_lineage": [
+    {
+      "path": "build/checks/stage5-ci04-smoke-v27/report.json",
+      "sha256": "1dab3ffaa759da45f5b5091448dd29e4d74d60893d55e01e335410deb26b987c",
+      "result": "failed",
+      "app_version": "0.7.27",
+      "completed": {
+        "active_worker_cancellations": 2,
+        "all_owned_children_exited": true,
+        "cancellation_reloads": 0,
+        "fault_kills": 2,
+        "fault_reaps": 2,
+        "fault_restarts": 2,
+        "pretransport_worker_cancellations": 8,
+        "start_cancel_cycles": 10
+      },
+      "resource_gates": {
+        "handle_tolerance": 0,
+        "loaded_parent": {
+          "handle_delta": 0,
+          "handles_pass": true,
+          "private_bytes_allowance": 10485760,
+          "private_bytes_delta": 0,
+          "private_bytes_pass": true,
+          "thread_delta": 0,
+          "threads_pass": true
+        },
+        "loaded_worker_comparison": {
+          "handle_delta": -6,
+          "handles_pass": true,
+          "private_bytes_allowance": 37821440,
+          "private_bytes_delta": -786432,
+          "private_bytes_pass": true,
+          "thread_delta": 0,
+          "threads_pass": true
+        },
+        "monotonic_growth": {
+          "definition": "all checkpoints nondecreasing and final greater than warm baseline; reported separately from bounded endpoint gates",
+          "parent_handles": false,
+          "parent_private_bytes": false,
+          "parent_threads": false,
+          "samples": 14
+        },
+        "private_bytes_rule": "baseline + max(5%, 10 MiB)",
+        "shutdown_parent": {
+          "handle_delta": 2,
+          "handles_pass": false,
+          "private_bytes_allowance": 10485760,
+          "private_bytes_delta": 626688,
+          "private_bytes_pass": true,
+          "thread_delta": 0,
+          "threads_pass": true
+        },
+        "thread_tolerance": 0,
+        "worker_comparison_scope": "different freshly restarted owned helper; descriptive, parent lifecycle budgets are gates"
+      },
+      "reason": "Initial harness compared cold pre-worker resources with post-warmup final shutdown: +2 handles. Preserved failed evidence; repaired baseline to the plan's post-warmup requirement without relaxing budgets."
+    },
+    {
+      "path": "build/checks/stage5-ci04-smoke-v27-warm/report.json",
+      "sha256": "fd2a5c400076a36d727c342d1ee5f2e25ad9dbd0b3e6aac185ec5847d670eb8e",
+      "result": "passed"
+    },
+    {
+      "path": "build/checks/stage5-ci04-full-v27/report.json",
+      "sha256": "d817e01a0d49f269565ac5c492737ce5bad4abbce7f02972849305c21c781ce7",
+      "runner_receipt_sha256": "e6742b69641d71397b92f62f8c4423ac78283f1238bb488382c01c911e1f4da6",
+      "result": "passed"
+    }
+  ],
+  "native_report": {
+    "after_faults_inference": {
+      "audio_seconds": 10.5600004196167,
+      "backend": "CPU",
+      "nonempty_result": true,
+      "reported_inference_seconds": 0.46087759733200073,
+      "wall_ms": 486.9896
+    },
+    "app_version": "0.7.27",
+    "completed": {
+      "active_worker_cancellations": 10,
+      "all_owned_children_exited": true,
+      "cancellation_reloads": 0,
+      "fault_kills": 100,
+      "fault_reaps": 100,
+      "fault_restarts": 100,
+      "pretransport_worker_cancellations": 990,
+      "start_cancel_cycles": 1000
+    },
+    "elapsed_seconds": 94.4515242,
+    "error": null,
+    "fault_injection": {
+      "automatic_recovery_router_tested": false,
+      "method": "kill only the owned live Child, detect transport failure, reap, reopen and reload with production WorkerSession",
+      "phase": "loaded idle helper after a successful health request"
+    },
+    "first_inference": {
+      "audio_seconds": 10.5600004196167,
+      "backend": "CPU",
+      "nonempty_result": true,
+      "reported_inference_seconds": 0.44524380564689636,
+      "wall_ms": 471.4808
+    },
+    "first_session_load_ms": 121.9274,
+    "inputs": {
+      "backend": "cpu",
+      "model_sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+      "sample_rate": 16000,
+      "wav_sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7",
+      "worker_sha256": "a85aaf97c991685f4dcbc9fe03afd7cd186fc8f5b8a5341973ab3d7c76f5d138"
+    },
+    "kind": "fono-production-subsystem-lifecycle-soak",
+    "latency_ms": {
+      "cancel_to_request_return": {
+        "count": 1000,
+        "maximum": 437.6697,
+        "p50": 7.63,
+        "p95": 9.6069,
+        "p99": 12.0611
+      },
+      "capture_start": {
+        "count": 1000,
+        "maximum": 0.2369,
+        "p50": 0.0573,
+        "p95": 0.0854,
+        "p99": 0.11349999999999999
+      },
+      "capture_stop": {
+        "count": 1000,
+        "maximum": 0.0674,
+        "p50": 0.0085,
+        "p95": 0.012799999999999999,
+        "p99": 0.0176
+      },
+      "scheduler_acquire_uncontended": {
+        "count": 1000,
+        "maximum": 0.14880000000000002,
+        "p50": 0.0044,
+        "p95": 0.0070999999999999995,
+        "p99": 0.009099999999999999
+      },
+      "worker_fault_reload": {
+        "count": 100,
+        "maximum": 169.4446,
+        "p50": 129.0415,
+        "p95": 157.90689999999998,
+        "p99": 166.6667
+      }
+    },
+    "limits": {
+      "active_cancel_every": 100,
+      "idle_seconds": 60,
+      "start_cancel_cycles": 1000,
+      "worker_faults": 100
+    },
+    "measured_idle_seconds": 61.0843594,
+    "measured_session_load_ms": 144.2268,
+    "measured_session_warmup_inference": {
+      "audio_seconds": 10.5600004196167,
+      "backend": "CPU",
+      "nonempty_result": true,
+      "reported_inference_seconds": 0.5673710703849792,
+      "wall_ms": 596.3372999999999
+    },
+    "profile": "native unit-test executable; CPU helper profile recorded by runner",
+    "resource_gates": {
+      "handle_tolerance": 0,
+      "loaded_parent": {
+        "handle_delta": 0,
+        "handles_pass": true,
+        "private_bytes_allowance": 10485760,
+        "private_bytes_delta": 413696,
+        "private_bytes_pass": true,
+        "thread_delta": -3,
+        "threads_pass": true
+      },
+      "loaded_worker_comparison": {
+        "handle_delta": 0,
+        "handles_pass": true,
+        "private_bytes_allowance": 37780889,
+        "private_bytes_delta": 131072,
+        "private_bytes_pass": true,
+        "thread_delta": -3,
+        "threads_pass": true
+      },
+      "monotonic_growth": {
+        "definition": "all checkpoints nondecreasing and final greater than warm baseline; reported separately from bounded endpoint gates",
+        "parent_handles": false,
+        "parent_private_bytes": false,
+        "parent_threads": false,
+        "samples": 28
+      },
+      "private_bytes_rule": "baseline + max(5%, 10 MiB)",
+      "shutdown_parent": {
+        "handle_delta": 0,
+        "handles_pass": true,
+        "private_bytes_allowance": 10485760,
+        "private_bytes_delta": 1204224,
+        "private_bytes_pass": true,
+        "thread_delta": -3,
+        "threads_pass": true
+      },
+      "thread_tolerance": 0,
+      "worker_comparison_scope": "different freshly restarted owned helper; descriptive, parent lifecycle budgets are gates"
+    },
+    "resource_samples": [
+      {
+        "cycle": 0,
+        "parent": {
+          "cpu_seconds": 1.4375,
+          "handles": 256,
+          "pid": 69916,
+          "private_bytes": 4730880,
+          "threads": 6
+        },
+        "phase": "cold_pre_worker",
+        "worker": null
+      },
+      {
+        "cycle": 0,
+        "parent": {
+          "cpu_seconds": 1.75,
+          "handles": 258,
+          "pid": 69916,
+          "private_bytes": 4399104,
+          "threads": 6
+        },
+        "phase": "warm_no_worker_baseline",
+        "worker": null
+      },
+      {
+        "cycle": 0,
+        "parent": {
+          "cpu_seconds": 1.875,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4546560,
+          "threads": 9
+        },
+        "phase": "warm_baseline",
+        "worker": {
+          "cpu_seconds": 3.953125,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 755617792,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 100,
+        "parent": {
+          "cpu_seconds": 2.9375,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4542464,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 4.015625,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 755396608,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 200,
+        "parent": {
+          "cpu_seconds": 3.921875,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 5521408,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 4.0625,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 755396608,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 300,
+        "parent": {
+          "cpu_seconds": 4.859375,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 6504448,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 6.5,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 757977088,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 400,
+        "parent": {
+          "cpu_seconds": 5.90625,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 6504448,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 6.546875,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 756170752,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 500,
+        "parent": {
+          "cpu_seconds": 6.9375,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 6504448,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 6.59375,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 756170752,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 600,
+        "parent": {
+          "cpu_seconds": 7.9375,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 5566464,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 6.65625,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 756170752,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 700,
+        "parent": {
+          "cpu_seconds": 9.015625,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 6533120,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 6.71875,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 756170752,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 800,
+        "parent": {
+          "cpu_seconds": 10.046875,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 6533120,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 6.75,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 756170752,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 900,
+        "parent": {
+          "cpu_seconds": 11.078125,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 7434240,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 9.84375,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 756170752,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 1000,
+        "parent": {
+          "cpu_seconds": 12.109375,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 7434240,
+          "threads": 9
+        },
+        "phase": "capture_cycles",
+        "worker": {
+          "cpu_seconds": 12.8125,
+          "handles": 197,
+          "pid": 50944,
+          "private_bytes": 758943744,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 10,
+        "parent": {
+          "cpu_seconds": 12.34375,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 4919296,
+          "threads": 9
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.125,
+          "handles": 197,
+          "pid": 15096,
+          "private_bytes": 724008960,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 20,
+        "parent": {
+          "cpu_seconds": 12.5625,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 4923392,
+          "threads": 9
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.140625,
+          "handles": 197,
+          "pid": 19420,
+          "private_bytes": 724033536,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 30,
+        "parent": {
+          "cpu_seconds": 12.78125,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 4923392,
+          "threads": 9
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.125,
+          "handles": 197,
+          "pid": 68036,
+          "private_bytes": 724013056,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 40,
+        "parent": {
+          "cpu_seconds": 13.03125,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 4923392,
+          "threads": 9
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.125,
+          "handles": 197,
+          "pid": 67956,
+          "private_bytes": 723996672,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 50,
+        "parent": {
+          "cpu_seconds": 13.34375,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 4923392,
+          "threads": 9
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.140625,
+          "handles": 197,
+          "pid": 20848,
+          "private_bytes": 724008960,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 60,
+        "parent": {
+          "cpu_seconds": 13.59375,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 4923392,
+          "threads": 9
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.125,
+          "handles": 197,
+          "pid": 31308,
+          "private_bytes": 724021248,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 70,
+        "parent": {
+          "cpu_seconds": 13.828125,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 5824512,
+          "threads": 9
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.140625,
+          "handles": 197,
+          "pid": 75380,
+          "private_bytes": 724025344,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 80,
+        "parent": {
+          "cpu_seconds": 14.0625,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 5738496,
+          "threads": 6
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.109375,
+          "handles": 197,
+          "pid": 27148,
+          "private_bytes": 724033536,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 90,
+        "parent": {
+          "cpu_seconds": 14.25,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 5742592,
+          "threads": 6
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.109375,
+          "handles": 197,
+          "pid": 67504,
+          "private_bytes": 724013056,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 100,
+        "parent": {
+          "cpu_seconds": 14.421875,
+          "handles": 268,
+          "pid": 69916,
+          "private_bytes": 5742592,
+          "threads": 6
+        },
+        "phase": "worker_faults",
+        "worker": {
+          "cpu_seconds": 0.09375,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 724008960,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 10,
+        "parent": {
+          "cpu_seconds": 14.59375,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4927488,
+          "threads": 6
+        },
+        "phase": "idle",
+        "worker": {
+          "cpu_seconds": 3.5,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 755843072,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 20,
+        "parent": {
+          "cpu_seconds": 14.8125,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4960256,
+          "threads": 6
+        },
+        "phase": "idle",
+        "worker": {
+          "cpu_seconds": 3.5,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 755843072,
+          "threads": 5
+        }
+      },
+      {
+        "cycle": 30,
+        "parent": {
+          "cpu_seconds": 15,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4960256,
+          "threads": 6
+        },
+        "phase": "idle",
+        "worker": {
+          "cpu_seconds": 3.5,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 755748864,
+          "threads": 2
+        }
+      },
+      {
+        "cycle": 40,
+        "parent": {
+          "cpu_seconds": 15.21875,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4960256,
+          "threads": 6
+        },
+        "phase": "idle",
+        "worker": {
+          "cpu_seconds": 3.5,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 755748864,
+          "threads": 2
+        }
+      },
+      {
+        "cycle": 50,
+        "parent": {
+          "cpu_seconds": 15.390625,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4960256,
+          "threads": 6
+        },
+        "phase": "idle",
+        "worker": {
+          "cpu_seconds": 3.5,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 755748864,
+          "threads": 2
+        }
+      },
+      {
+        "cycle": 60,
+        "parent": {
+          "cpu_seconds": 15.578125,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4960256,
+          "threads": 6
+        },
+        "phase": "idle",
+        "worker": {
+          "cpu_seconds": 3.5,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 755748864,
+          "threads": 2
+        }
+      },
+      {
+        "cycle": 1000,
+        "parent": {
+          "cpu_seconds": 15.78125,
+          "handles": 266,
+          "pid": 69916,
+          "private_bytes": 4960256,
+          "threads": 6
+        },
+        "phase": "final_loaded",
+        "worker": {
+          "cpu_seconds": 3.5,
+          "handles": 197,
+          "pid": 67952,
+          "private_bytes": 755748864,
+          "threads": 2
+        }
+      },
+      {
+        "cycle": 1000,
+        "parent": {
+          "cpu_seconds": 15.953125,
+          "handles": 258,
+          "pid": 69916,
+          "private_bytes": 5603328,
+          "threads": 3
+        },
+        "phase": "final_shutdown",
+        "worker": null
+      }
+    ],
+    "schema": 1,
+    "scope": {
+      "cold_cache_claim": false,
+      "mock": [
+        "physical AudioRecorder only; WAV copied synchronously into real writer"
+      ],
+      "physical_dropped_frames": null,
+      "physical_queue_overflow": null,
+      "production": [
+        "Pipeline capture ownership and bounded writer",
+        "OperationCoordinator and cancellation token",
+        "SttScheduler permit and reservation",
+        "WorkerSession protocol, deadlines and cleanup supervisor",
+        "real CPU Whisper helper, model load and public-WAV inference"
+      ],
+      "unmeasured": [
+        "microphone and CPAL callback/overflow",
+        "Tauri IPC/windows/hotkey/clipboard",
+        "LLM/insertion latency",
+        "automatic SttEngine recovery routing",
+        "GPU drivers",
+        "release installation and owner UAT"
+      ]
+    },
+    "status": "passed",
+    "warm_inference": {
+      "measurements": [
+        {
+          "audio_seconds": 10.5600004196167,
+          "backend": "CPU",
+          "nonempty_result": true,
+          "reported_inference_seconds": 0.5056865811347961,
+          "wall_ms": 531.6788
+        },
+        {
+          "audio_seconds": 10.5600004196167,
+          "backend": "CPU",
+          "nonempty_result": true,
+          "reported_inference_seconds": 0.5217685103416443,
+          "wall_ms": 553.0397
+        }
+      ],
+      "wall_ms": {
+        "count": 2,
+        "maximum": 553.0397,
+        "p50": 531.6788,
+        "p95": 553.0397,
+        "p99": 553.0397
+      }
+    },
+    "warmup": {
+      "capture_cycles": 20,
+      "cold_snapshot": "cold_pre_worker is descriptive only",
+      "excluded_from_completed_counts": true,
+      "initial_session_inferences": 3,
+      "measured_session_inferences_before_baseline": 1,
+      "shutdown_gate_baseline": "warm_no_worker_baseline after confirmed warmup child shutdown and 250ms settling"
+    },
+    "worker_faults": [
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 1,
+        "owned_pid": 50944
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 2,
+        "owned_pid": 34784
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 3,
+        "owned_pid": 65696
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 4,
+        "owned_pid": 53788
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 5,
+        "owned_pid": 72544
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 6,
+        "owned_pid": 69260
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 7,
+        "owned_pid": 80724
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 8,
+        "owned_pid": 82216
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 9,
+        "owned_pid": 78576
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 10,
+        "owned_pid": 65400
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 11,
+        "owned_pid": 15096
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 12,
+        "owned_pid": 32332
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 13,
+        "owned_pid": 70660
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 14,
+        "owned_pid": 61756
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 15,
+        "owned_pid": 81244
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 16,
+        "owned_pid": 80784
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 17,
+        "owned_pid": 73652
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 18,
+        "owned_pid": 79456
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 19,
+        "owned_pid": 73384
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 20,
+        "owned_pid": 73880
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 21,
+        "owned_pid": 19420
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 22,
+        "owned_pid": 77396
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 23,
+        "owned_pid": 15016
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 24,
+        "owned_pid": 72328
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 25,
+        "owned_pid": 57116
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 26,
+        "owned_pid": 58124
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 27,
+        "owned_pid": 25720
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 28,
+        "owned_pid": 67104
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 29,
+        "owned_pid": 51668
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 30,
+        "owned_pid": 73136
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 31,
+        "owned_pid": 68036
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 32,
+        "owned_pid": 63020
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 33,
+        "owned_pid": 62712
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 34,
+        "owned_pid": 75660
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 35,
+        "owned_pid": 71364
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 36,
+        "owned_pid": 66204
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 37,
+        "owned_pid": 48104
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 38,
+        "owned_pid": 69852
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 39,
+        "owned_pid": 37056
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 40,
+        "owned_pid": 17844
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 41,
+        "owned_pid": 67956
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 42,
+        "owned_pid": 52084
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 43,
+        "owned_pid": 36836
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 44,
+        "owned_pid": 50084
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 45,
+        "owned_pid": 60412
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 46,
+        "owned_pid": 11536
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 47,
+        "owned_pid": 70012
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 48,
+        "owned_pid": 61384
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 49,
+        "owned_pid": 11188
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 50,
+        "owned_pid": 78020
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 51,
+        "owned_pid": 20848
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 52,
+        "owned_pid": 26452
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 53,
+        "owned_pid": 63612
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 54,
+        "owned_pid": 79804
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 55,
+        "owned_pid": 43708
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 56,
+        "owned_pid": 75276
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 57,
+        "owned_pid": 67656
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 58,
+        "owned_pid": 48388
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 59,
+        "owned_pid": 19248
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 60,
+        "owned_pid": 71152
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 61,
+        "owned_pid": 31308
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 62,
+        "owned_pid": 66636
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 63,
+        "owned_pid": 69896
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 64,
+        "owned_pid": 79000
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 65,
+        "owned_pid": 28416
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 66,
+        "owned_pid": 79648
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 67,
+        "owned_pid": 24548
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 68,
+        "owned_pid": 35448
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 69,
+        "owned_pid": 50208
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 70,
+        "owned_pid": 40352
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 71,
+        "owned_pid": 75380
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 72,
+        "owned_pid": 70984
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 73,
+        "owned_pid": 74608
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 74,
+        "owned_pid": 58108
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 75,
+        "owned_pid": 12336
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 76,
+        "owned_pid": 79536
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 77,
+        "owned_pid": 31300
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 78,
+        "owned_pid": 63128
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 79,
+        "owned_pid": 54180
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 80,
+        "owned_pid": 77104
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 81,
+        "owned_pid": 27148
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 82,
+        "owned_pid": 38188
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 83,
+        "owned_pid": 79176
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 84,
+        "owned_pid": 21928
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 85,
+        "owned_pid": 47560
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 86,
+        "owned_pid": 74040
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 87,
+        "owned_pid": 62428
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 88,
+        "owned_pid": 82292
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 89,
+        "owned_pid": 16524
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 90,
+        "owned_pid": 81072
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 91,
+        "owned_pid": 67504
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 92,
+        "owned_pid": 81172
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 93,
+        "owned_pid": 79108
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 94,
+        "owned_pid": 47384
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 95,
+        "owned_pid": 67756
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 96,
+        "owned_pid": 79920
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 97,
+        "owned_pid": 68100
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 98,
+        "owned_pid": 75764
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 99,
+        "owned_pid": 40764
+      },
+      {
+        "alive_before_kill": true,
+        "confirmed_exit": true,
+        "exit_code": 1,
+        "index": 100,
+        "owned_pid": 79864
+      }
+    ]
+  },
+  "runner_receipt": {
+    "schema": 1,
+    "started_at": "2026-10-18T10:25:32.855Z",
+    "finished_at": "2026-10-18T10:27:08.662Z",
+    "driver_sha256": "4a12091cfc397d89a2ebfe6d409f805e15147c4a063a5a8aeb36050d0b2c736d",
+    "worker_sha256": "a85aaf97c991685f4dcbc9fe03afd7cd186fc8f5b8a5341973ab3d7c76f5d138",
+    "worker_profile": "dev-debug-no-default-features",
+    "owned_driver_pid": 69916,
+    "exact_test": "stt::worker::lifecycle_soak::cpu_worker_lifecycle_soak",
+    "requested": {
+      "cycles": 1000,
+      "faults": 100,
+      "active_cancel_every": 100,
+      "idle_seconds": 60
+    },
+    "corpus": {
+      "id": "en-01",
+      "license": "CC-BY-4.0",
+      "attribution": "FLEURS, The Google and HuggingFace Datasets Authors (2022)."
+    },
+    "hardware": {
+      "platform": "win32",
+      "architecture": "x64",
+      "os_release": "10.0.26200",
+      "logical_cpus": 16,
+      "cpu_models": ["12th Gen Intel(R) Core(TM) i5-12600KF"],
+      "total_memory_bytes": 68564881408
+    },
+    "tools": {
+      "node": "22.14.0"
+    },
+    "interrupted": false,
+    "timed_out": false,
+    "result": {
+      "code": 0,
+      "signal": null
+    },
+    "scope": "production native subsystems with mock physical audio; not desktop, automatic recovery router or STAB-06 acceptance"
+  },
+  "source_snapshot": [
+    {
+      "path": ".github/workflows/lifecycle-soak.yml",
+      "sha256": "f8e5a8036c3d5cf2409e26b6365243b56b713e450a740171ecb31d44a7671251"
+    },
+    {
+      "path": "scripts/lifecycle-soak.mjs",
+      "sha256": "694705c0d40e903f6045efa3513bd5a9149aa07394bc81eef768ddd3031042a9"
+    },
+    {
+      "path": "scripts/lifecycle-soak.ps1",
+      "sha256": "24c4848d36d78b596a85f5baf74439cd1df2ae6a66900f22cf2a7d7e40ae45a3"
+    },
+    {
+      "path": "scripts/lifecycle-soak.test.mjs",
+      "sha256": "43dc204a164c291bcbc56a67b6db060fb52aec09f659e88802f676fb10f98781"
+    },
+    {
+      "path": "src-tauri/src/pipeline/mod.rs",
+      "sha256": "262e0df8b30c9f1e8338866cac345cad6432e1eb7906ec709faf2703893ab03c"
+    },
+    {
+      "path": "src-tauri/src/stt/worker.rs",
+      "sha256": "139231b246af2204d02633ad517219df6663ed92abdf016aa99d21c4e124753d"
+    },
+    {
+      "path": "src-tauri/src/stt/worker_session.rs",
+      "sha256": "b088b8f423bf00daad1a3a38e8ec6b0ed261eb6a90b3628100bcb928a2a7800f"
+    },
+    {
+      "path": "src-tauri/src/stt/worker_request.rs",
+      "sha256": "9530ed058a4a8275dc880860b2266251e7d36d0445a8461965ac7905a10179de"
+    },
+    {
+      "path": "src-tauri/src/stt/lifecycle_soak.rs",
+      "sha256": "febb28d134bd3afb15d7e1cd1ca419c67169d625ad0b7f65c6582baf22367415"
+    },
+    {
+      "path": "src-tauri/src/stt/lifecycle_soak_config.rs",
+      "sha256": "99d4fcb93020117baae356b2962f76108d168ddde2b00fa754f3518a3c577234"
+    },
+    {
+      "path": "src-tauri/src/stt/lifecycle_soak_win32.rs",
+      "sha256": "be435a376f87c087098c0b56447898d34b89f917a87788f0e27159fbc5cc02d5"
+    }
+  ],
+  "source_snapshot_sha256": "b1e267b5bd2b4baa15adf996397aab448df6edf94d6ab80a7e7c08269bd53f09",
+  "source_snapshot_at_soak": [
+    {
+      "path": ".github/workflows/lifecycle-soak.yml",
+      "sha256": "f8e5a8036c3d5cf2409e26b6365243b56b713e450a740171ecb31d44a7671251"
+    },
+    {
+      "path": "scripts/lifecycle-soak.mjs",
+      "sha256": "694705c0d40e903f6045efa3513bd5a9149aa07394bc81eef768ddd3031042a9"
+    },
+    {
+      "path": "scripts/lifecycle-soak.ps1",
+      "sha256": "24c4848d36d78b596a85f5baf74439cd1df2ae6a66900f22cf2a7d7e40ae45a3"
+    },
+    {
+      "path": "scripts/lifecycle-soak.test.mjs",
+      "sha256": "0282d58434729e088f21986b3575b1305cbbb061a59081782e10797ea200d635"
+    },
+    {
+      "path": "src-tauri/src/pipeline/mod.rs",
+      "sha256": "262e0df8b30c9f1e8338866cac345cad6432e1eb7906ec709faf2703893ab03c"
+    },
+    {
+      "path": "src-tauri/src/stt/worker.rs",
+      "sha256": "139231b246af2204d02633ad517219df6663ed92abdf016aa99d21c4e124753d"
+    },
+    {
+      "path": "src-tauri/src/stt/worker_session.rs",
+      "sha256": "b088b8f423bf00daad1a3a38e8ec6b0ed261eb6a90b3628100bcb928a2a7800f"
+    },
+    {
+      "path": "src-tauri/src/stt/worker_request.rs",
+      "sha256": "9530ed058a4a8275dc880860b2266251e7d36d0445a8461965ac7905a10179de"
+    },
+    {
+      "path": "src-tauri/src/stt/lifecycle_soak.rs",
+      "sha256": "febb28d134bd3afb15d7e1cd1ca419c67169d625ad0b7f65c6582baf22367415"
+    },
+    {
+      "path": "src-tauri/src/stt/lifecycle_soak_config.rs",
+      "sha256": "99d4fcb93020117baae356b2962f76108d168ddde2b00fa754f3518a3c577234"
+    },
+    {
+      "path": "src-tauri/src/stt/lifecycle_soak_win32.rs",
+      "sha256": "be435a376f87c087098c0b56447898d34b89f917a87788f0e27159fbc5cc02d5"
+    }
+  ],
+  "source_snapshot_at_soak_sha256": "cd960ca392aad4080a715c86eda8e5dd52e202aa9e74e42b3752de62624e27a7",
+  "post_soak_validation_changes": [
+    {
+      "path": "scripts/lifecycle-soak.test.mjs",
+      "kind": "test-only equivalent regular-expression lint fix",
+      "change": "Two workflow-mutation regex literals and the associated lookahead express six spaces with {6}; matching behavior and all native/runner sources are unchanged.",
+      "before_sha256": "0282d58434729e088f21986b3575b1305cbbb061a59081782e10797ea200d635",
+      "after_sha256": "43dc204a164c291bcbc56a67b6db060fb52aec09f659e88802f676fb10f98781",
+      "validations": [
+        "Targeted ESLint no-regex-spaces rule for the changed test file: passed",
+        "Node lifecycle contracts: 8/8 passed"
+      ],
+      "raw_native_receipts_unchanged": true,
+      "native_source_and_executed_binary_unchanged": true,
+      "full_soak_repeated": false
+    }
+  ]
+}

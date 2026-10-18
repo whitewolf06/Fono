@@ -54,6 +54,34 @@ default и CPU-only — по **561/561**, в каждом наборе **478** �
 сохранён как история сбоя. Native UI, микрофон, GPU, installer, публикация
 и ручная Windows-приёмка остаются отдельными этапами.
 
+[Пятый этап, исходники v0.7.25–v0.7.27](improvement-stage-5.md): CI-02
+проверяет Linux optional dependencies Rollup до установки и настоящий parser
+после неё. Чистый anonymous Ubuntu snapshot прошёл frontend без npm-секретов;
+[CI-02 receipt](evidence/stage5-ci02.json) фиксирует точный состав проверки.
+CI-03 связывает качество и задержку с одним source/model/corpus/binary snapshot:
+20/20 контрактов и 120 replay-измерений прошли. Полный PCM сохранил ΔWER/CER=0;
+допуск CI +1 п.п. проходит, строгий PERF-04 остаётся открытым.
+[Quality JSON](evidence/stage5-ci03.json) хранит исходные per-clip результаты.
+
+CI-04 прошёл **1000 start/cancel**, **100 kill/reap/restart** настоящего CPU
+worker и **61,08 с idle**. Parent handles Δ0, threads Δ−3, private bytes после
+shutdown +1,20 МБ при допуске 10 МиБ; все собственные workers завершены.
+[Soak receipt](evidence/stage5-ci04.json) включает raw measurements и историю
+неуспешного cold-baseline smoke. Проверен native subsystem с mock физического
+AudioRecorder; микрофон, desktop, автоматический recovery router и часовой
+аппаратный idle остаются в FONO-112.
+
+Финальные [Linux gates](evidence/stage5-linux-final.json) — **16/16**,
+[native gates](evidence/stage5-native-final.json) — **14/14**, default и CPU-only
+по **561/561**. UI **273/273**, quality contracts **20/20**, soak contracts
+**8/8**, dependency/CI contracts **15/15**; strict Clippy, feature/release checks
+прошли. [Release scripts](evidence/stage5-scripts.json) — **28/28** в составе
+Linux candidate и **48/48** с отдельными owner cache tests в рабочем Windows
+дереве. [Кворум receipt](evidence/stage5-kvorum-sync.json) подтверждает 7 комментариев
+и 5 переходов: FONO-107/108/109 — `in_review`, родители — `in_progress`,
+ручная FONO-112 — `todo`. Это автоматизированный результат этапа, приёмка
+владельца остаётся открытой.
+
 ## Открытые критерии
 
 1. **PERF-04 / FONO-79:** итоговый WER 19,5556% против прежних 18,8889%: +3 ошибки из 450, +0,6667 п.п. Допуск CI-03 +1 п.п. проходит, исходный критерий «не хуже» не выполнен. Ограничение 16→48→16 replay и DSP-аудит приведены в отчёте. Нужны независимая спецификация фильтра и настоящий широкополосный корпус.
@@ -62,7 +90,7 @@ default и CPU-only — по **561/561**, в каждом наборе **478** �
 4. **PERF-06:** реальный crash/hang поставляемого GPU worker и восстановление выбранной модели. Процессные fixtures не заменяют проверку GPU-драйвера.
 5. Реальные `resident`/`adaptive`, AMD/Intel Vulkan, CPU-only и Auto при недоступных runtime; длинные записи, sleep/resume, unplug и смена микрофона.
 6. Обновление установленной версии: загрузка, подпись/версия, UAC, перезапуск и сохранение данных. NSIS/MSI на чистой Windows без SDK и исходников отложены владельцем. Онлайн-установщик требует собственного GUI/UAC-прогона.
-7. Фактический запуск нового STT quality workflow в GitHub Actions и длительный lifecycle soak остаются открытыми. Локальные тесты не считаются запуском удалённого workflow.
+7. Фактический запуск frontend/fork PR, STT quality и lifecycle soak workflows в GitHub Actions остаётся открытым. Локальный CI-04 1000/100 прошёл; аппаратная цель 60 минут idle ещё не проверена. Локальные тесты не считаются запуском удалённого workflow.
 
 8. Остаток browser-матрицы этапа 4: визуальный overlay 720×560 и 1440×900, настройки на подтверждённых 1440×900, сценарий no-speech. Тренер на трёх размерах проверен; автоматические contract/SSR checks не заменяют оставшуюся визуальную проверку.
 9. ARC-09 сохраняет полный PCM; новая обрезка требует собственного строгого quality gate. CODE-04 создал основу glossary; реальное подключение к Whisper/LLM остаётся в F-03.

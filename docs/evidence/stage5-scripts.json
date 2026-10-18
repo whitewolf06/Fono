@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "kind": "fono-stage5-local-script-checks",
+  "generated_at_utc": "2026-10-18T11:31:53.496Z",
+  "app_version": "0.7.27",
+  "release_scripts": {
+    "working_tree": {
+      "command": "npm run test:release",
+      "exit_code": 0,
+      "passed": 48,
+      "failed": 0,
+      "receipt": {
+        "path": "build/checks/stage5-release-working-unsandboxed.log",
+        "sha256": "ac58e75af537f749ee90ececb9f3be1a3540c8e3f84f16abe10086d3b625b4a3",
+        "bytes": 9578
+      },
+      "scope": "Includes 20 owner cache tests outside this stage commit; temp Git fixtures run with sandbox restriction lifted. Desktop hook tests use mock fixture scripts, not user Fono."
+    },
+    "commit_scope": {
+      "passed": 28,
+      "failed": 0,
+      "evidence": "stage5-linux-final.json",
+      "evidence_receipt": {
+        "path": "docs/evidence/stage5-linux-final.json",
+        "sha256": "ecab1baa63801dd7c1c5d70dbef048fb6c8685d9fb168f02434798906b91510d",
+        "bytes": 15551
+      },
+      "scope": "Anonymous Linux candidate synthesized from HEAD package without owner cache additions."
+    },
+    "initial_sandbox_attempt": {
+      "passed": 27,
+      "failed": 21,
+      "receipt": {
+        "path": "build/checks/stage5-release-working.log",
+        "sha256": "faa9113d6cf2ee17e47c4b683fb36220f155bbea80c976abb869cdf4bd2166be",
+        "bytes": 39941
+      },
+      "reason": "Windows sandbox blocked temp fixture .git/config writes, DLL renames and symlink creation; preserved and rerun with actual fixture access. No code change for these failures."
+    }
+  },
+  "checks": [
+    {
+      "name": "format",
+      "exit_code": 0,
+      "log": "build/checks/stage5-format-check.log",
+      "started_at_utc": "2026-10-18T11:27:51.4297893+00:00",
+      "finished_at_utc": "2026-10-18T11:31:11.5310343+00:00",
+      "receipt": {
+        "path": "build/checks/stage5-format-check.log",
+        "sha256": "a3ad2f54caf30242dd0306e07a8b369e5e4cc55b01452b19c07e298659757801",
+        "bytes": 540
+      }
+    },
+    {
+      "name": "docs",
+      "exit_code": 0,
+      "log": "build/checks/stage5-docs-links-final.log",
+      "started_at_utc": "2026-10-18T11:31:13.1734527+00:00",
+      "finished_at_utc": "2026-10-18T11:31:21.0785543+00:00",
+      "receipt": {
+        "path": "build/checks/stage5-docs-links-final.log",
+        "sha256": "409ee5994c97ef19d08856a4c676b48462f5fb571165a2f0f4f72e81bc69b5b9",
+        "bytes": 189
+      }
+    },
+    {
+      "name": "version",
+      "exit_code": 0,
+      "log": "build/checks/stage5-version-check.log",
+      "started_at_utc": "2026-10-18T11:31:21.2121388+00:00",
+      "finished_at_utc": "2026-10-18T11:31:27.9130982+00:00",
+      "receipt": {
+        "path": "build/checks/stage5-version-check.log",
+        "sha256": "0cc90bbc24ad479001957e982f9dfcfc1ef9acda7fb444103efd37e5b2d377c3",
+        "bytes": 94
+      }
+    },
+    {
+      "name": "diff",
+      "exit_code": 0,
+      "log": "build/checks/stage5-diff-check.log",
+      "started_at_utc": "2026-10-18T11:31:28.1840114+00:00",
+      "finished_at_utc": "2026-10-18T11:31:31.0283739+00:00",
+      "receipt": {
+        "path": "build/checks/stage5-diff-check.log",
+        "sha256": "25b8c8814fac13bb1d192e9c48ea70818fba89974ca45b2c9cd4d0b2d85ec8f8",
+        "bytes": 250
+      }
+    }
+  ],
+  "check_exit_receipt": {
+    "path": "build/checks/stage5-final-doc-checks.json",
+    "sha256": "45cd029321d478cc85453acb451e480fdf4ba8a8fe92b7316b46c8fd0553c517",
+    "bytes": 1041
+  },
+  "release_script_inputs": [
+    {
+      "path": "package.json",
+      "sha256": "d08864b394738fb0d6bc2b12f3c0a97d7515614460825631ade3553293cb4922",
+      "bytes": 4829
+    },
+    {
+      "path": "scripts/release-support.test.mjs",
+      "sha256": "46a710b1d27870675c0bf09abe17ad364aa75c819a2d75ed5befd0a32e708938",
+      "bytes": 6011
+    },
+    {
+      "path": "scripts/update-release.test.mjs",
+      "sha256": "422f6c6ff2ff8d4e17d4ca523be647007f57b2c63f3df8e8af0e9fe81490b16b",
+      "bytes": 3840
+    },
+    {
+      "path": "scripts/native-test-runtime.test.mjs",
+      "sha256": "f4b996bf04f79a3c5c365f530b7d88cf215980c9ff92406f05131e61b4241645",
+      "bytes": 4412
+    },
+    {
+      "path": "scripts/clean-build-cache.test.mjs",
+      "sha256": "168f7121676c4fcc0e8952ad9c26a0189e090d69a2eb5d83912adbb8203dfd9b",
+      "bytes": 15368
+    },
+    {
+      "path": "scripts/ci-workflow.test.mjs",
+      "sha256": "9543e5889406271432b5d6e107e722e31a19a98614eb591d47f36e8b6d260e9d",
+      "bytes": 11718
+    },
+    {
+      "path": "scripts/sign-cuda-package.test.mjs",
+      "sha256": "bd44dcd2ece46695787778e1a58d83cfd4e8511c65f88fdeec62c29e717a2986",
+      "bytes": 4949
+    }
+  ],
+  "owner_changes_included_in_commit": false,
+  "native_ui_launched": false,
+  "microphone_recorded": false
+}

@@ -98,6 +98,10 @@ pub(super) struct WorkerSession {
     next_request_id: u64,
     timeouts: WorkerTimeouts,
     supports_decoding_options: bool,
+    // A test observer distinguishes complete transport writes from requests
+    // cancelled before transport. This counter is absent from production.
+    #[cfg(test)]
+    written_frames: Arc<AtomicUsize>,
 }
 
 enum WorkerOutput {
@@ -169,6 +173,9 @@ include!("worker_request.rs");
 include!("worker_mailbox.rs");
 include!("worker_transport.rs");
 include!("worker_cleanup.rs");
+#[cfg(all(test, windows))]
+#[path = "lifecycle_soak.rs"]
+mod lifecycle_soak;
 #[cfg(test)]
 #[path = "worker_tests.rs"]
 mod tests;

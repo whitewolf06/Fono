@@ -99,6 +99,15 @@ impl Pipeline {
         }
     }
 
+    /// Physical audio is replaced only in native lifecycle tests; the pipeline,
+    /// coordinator, bounded writer and scheduler remain the production objects.
+    #[cfg(all(test, windows))]
+    pub(crate) fn new_with_test_audio_owner(
+        audio_owner: Box<dyn AudioRecorder<RecordingWriter, AppError>>,
+    ) -> Self {
+        Self::new_with_audio_owner(audio_owner)
+    }
+
     pub fn stt(&self) -> &Arc<SttEngine> {
         &self.stt
     }

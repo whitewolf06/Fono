@@ -1,0 +1,395 @@
+{
+  "schema": 1,
+  "task": "FONO-47 stage 5 / CI-02 CI-03 CI-04 candidate integration",
+  "recorded_at": "2026-10-18T11:06:23.736Z",
+  "state": "candidate_code_scope_before_final_documentation_and_commit",
+  "scope": "Immutable committed CI-02/CI-03 tree 17b14a0c69ffcebbee3ecafdeddfa0eff65e51b1 plus exactly 19 approved CI-04/root-integration overlays. Package.json is synthesized from that committed tree with version 0.7.27, the soak contract script and its format targets. Owner cache scripts/hooks and other working-tree changes were not copied.",
+  "final_documentation_scope": "The recorded docs/testing.md SHA identifies its snapshot prose. A later root-only wording correction attributes VAD DLL staging to the separate native-test-runtime workflow step rather than the launcher. That prose correction, final stage-5 report/native receipt and tracker receipts are outside this immutable Linux snapshot and receive separate root documentation checks; no code, workflow, version, Node or Rust inputs changed.",
+  "source": {
+    "base_commit": "17b14a0c69ffcebbee3ecafdeddfa0eff65e51b1",
+    "app_version": "0.7.27",
+    "state": "candidate_code_scope_before_final_docs_and_commit",
+    "base_archive": "build/checks/stage5-linux-base17b14.tar",
+    "base_archive_sha256": "6f7515596f223907ade2f0b581468b70e296f8cd58c09baf0f8f484879e866a3",
+    "overlay_archive": "build/checks/stage5-linux-candidate-overlay.tar",
+    "overlay_archive_sha256": "cd8bcdafddc5de5e93c8ddb3b982bb2ca03459d6d39dfaba8b004e548106580c",
+    "overlay_files": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "sha256": "0317acaccef2464481c82ba52ac56781e39cf60f748c99536bb94042fdb8cdb1",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": ".github/workflows/lifecycle-soak.yml",
+        "sha256": "f8e5a8036c3d5cf2409e26b6365243b56b713e450a740171ecb31d44a7671251",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "docs/evidence/stage5-ci04.json",
+        "sha256": "09b34b1be1d9d102ec8c49dc934c2b8992d19402067ec79ce337bd7c91bba4d0",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "docs/testing.md",
+        "sha256": "0327c328cf00dc47d5d0959366594e180aaaace25c1a5523deb076fc0448dde1",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "05f0055d347e663e71998458aec33b4dca9f6c75eb1933e19115ef8859df5a6d",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "package.json",
+        "sha256": "6a04c5d3a4f02bc56fd8ab3ffd8077a33ddb79cdb16db81c1340255e05278adf",
+        "origin": "synthesized from immutable HEAD17b14: version27 and two approved script additions"
+      },
+      {
+        "path": "scripts/lifecycle-soak.mjs",
+        "sha256": "694705c0d40e903f6045efa3513bd5a9149aa07394bc81eef768ddd3031042a9",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "scripts/lifecycle-soak.ps1",
+        "sha256": "24c4848d36d78b596a85f5baf74439cd1df2ae6a66900f22cf2a7d7e40ae45a3",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "scripts/lifecycle-soak.test.mjs",
+        "sha256": "43dc204a164c291bcbc56a67b6db060fb52aec09f659e88802f676fb10f98781",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/Cargo.lock",
+        "sha256": "9f3b77fdb98397c72e27a7830c89886329e821916af98408fc751a8acbb293d2",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/Cargo.toml",
+        "sha256": "801f7d03d76dc73a2e167a997c430094ee0676ad199a8ac15a33e50c700fac6b",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/src/pipeline/mod.rs",
+        "sha256": "262e0df8b30c9f1e8338866cac345cad6432e1eb7906ec709faf2703893ab03c",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/src/stt/lifecycle_soak_config.rs",
+        "sha256": "99d4fcb93020117baae356b2962f76108d168ddde2b00fa754f3518a3c577234",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/src/stt/lifecycle_soak_win32.rs",
+        "sha256": "be435a376f87c087098c0b56447898d34b89f917a87788f0e27159fbc5cc02d5",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/src/stt/lifecycle_soak.rs",
+        "sha256": "febb28d134bd3afb15d7e1cd1ca419c67169d625ad0b7f65c6582baf22367415",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/src/stt/worker_request.rs",
+        "sha256": "9530ed058a4a8275dc880860b2266251e7d36d0445a8461965ac7905a10179de",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/src/stt/worker_session.rs",
+        "sha256": "b088b8f423bf00daad1a3a38e8ec6b0ed261eb6a90b3628100bcb928a2a7800f",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/src/stt/worker.rs",
+        "sha256": "139231b246af2204d02633ad517219df6663ed92abdf016aa99d21c4e124753d",
+        "origin": "approved candidate overlay"
+      },
+      {
+        "path": "src-tauri/tauri.conf.json",
+        "sha256": "e495273ab90c4cd3d826404f6f32502a5dd95432f76b5b33d18e2c7df7836065",
+        "origin": "approved candidate overlay"
+      }
+    ],
+    "exclusions": [
+      "owner cache scripts/hooks",
+      "working-tree AGENTS.md",
+      "working-tree docs/development.md",
+      "working-tree test-native.ps1/build-online-installer.ps1",
+      ".kvorum",
+      "improvement-plan",
+      "future stage5 main/final-native docs"
+    ]
+  },
+  "runtime": {
+    "node": "v22.23.3",
+    "npm": "10.9.9",
+    "platform": "linux",
+    "architecture": "x64",
+    "node_archive_sha256": "df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de",
+    "node_archive_checked_against": "https://nodejs.org/dist/v22.23.3/SHASUMS256.txt"
+  },
+  "isolation": {
+    "empty_environment": true,
+    "initially_empty_home": true,
+    "empty_userconfig": true,
+    "empty_globalconfig": true,
+    "fresh_npm_cache": true,
+    "credential_environment_names": [],
+    "host_credentials_or_cache_supplied": false,
+    "wsl_host_filesystem_accessible": true
+  },
+  "launch": "wsl.exe -d Ubuntu --exec /bin/sh /mnt/c/work/whitewolf/whisperclone/build/checks/stage5-linux-final.sh",
+  "anonymous_environment": "env -i PATH=<verified-task-local-Node22.23.3>:/usr/bin:/bin HOME=<fresh-task-home> NPM_CONFIG_USERCONFIG=<empty-file> NPM_CONFIG_GLOBALCONFIG=<empty-file> NPM_CONFIG_CACHE=<fresh-task-cache>",
+  "steps": [
+    {
+      "name": "lock-before-install",
+      "command": ["node", "scripts/ci-frontend-dependencies.mjs", "--lock"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.192,
+      "log": "lock-before-install.log",
+      "log_sha256": "b4c877cf74d47c85514b381acf2886b5e0e313b439ac8cd252804df699d1a8d5"
+    },
+    {
+      "name": "npm-ci",
+      "command": ["npm", "ci", "--no-audit", "--no-fund"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 5.878,
+      "log": "npm-ci.log",
+      "log_sha256": "12b904f85dafdde402173bdba2c59c5ceffeec7613a907c2a256ade58a529676"
+    },
+    {
+      "name": "native-rollup-bundle",
+      "command": [
+        "node",
+        "scripts/ci-frontend-dependencies.mjs",
+        "--installed"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.113,
+      "log": "native-rollup-bundle.log",
+      "log_sha256": "9a7d20ff9258da2e0588381e587f225185dbb30718476b8344948cc1ce7ac9cc"
+    },
+    {
+      "name": "frontend-dependency-contracts",
+      "command": [
+        "node",
+        "--test",
+        "scripts/ci-frontend-dependencies.test.mjs",
+        "scripts/ci-workflow.test.mjs"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.183,
+      "log": "frontend-dependency-contracts.log",
+      "log_sha256": "5f3b560e96917cd7a656863e682746d47724d1a810c91863208e88fab8651c34",
+      "counts": {
+        "tests": 15,
+        "pass": 15,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "typecheck:v3",
+      "command": ["npm", "run", "typecheck:v3"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 5.838,
+      "log": "typecheck-v3.log",
+      "log_sha256": "3847e25aa3fd1c4e1e908d4d6a6b920d6dc7cd6088bb85c97e702749f5ecf94c"
+    },
+    {
+      "name": "lint",
+      "command": ["npm", "run", "lint"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 5.545,
+      "log": "lint.log",
+      "log_sha256": "d8fb5e8e1175f3e7522fd7189e9ba49dce382b6a148b3e3002ad4eac71dbd053"
+    },
+    {
+      "name": "test:v3",
+      "command": ["npm", "run", "test:v3"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 50.771,
+      "log": "test-v3.log",
+      "log_sha256": "3944c573ae8109e924c442f9fd4f636fc9ae1f6fccdcf70fa39926814d317d82",
+      "counts": {
+        "tests": 273,
+        "pass": 273,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "test:release",
+      "command": ["npm", "run", "test:release"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.571,
+      "log": "test-release.log",
+      "log_sha256": "a0497b8d04399bb818438389b6a3fa7d1f999c00b43d101a4996151f3ee3ac55",
+      "counts": {
+        "tests": 28,
+        "pass": 28,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "test:quality:stage5",
+      "command": ["npm", "run", "test:quality:stage5"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.684,
+      "log": "test-quality-stage5.log",
+      "log_sha256": "ad0e0491f4cddf97f4071e680b7c5e0f2a167ab39e934c9751ca9b6135c8eac7",
+      "counts": {
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "test:soak:contracts",
+      "command": ["npm", "run", "test:soak:contracts"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.215,
+      "log": "test-soak-contracts.log",
+      "log_sha256": "1a37b9cc3ef8db8630eeefdaf3907c0dede1a54a1a882e37b44e146b2ab99f45",
+      "counts": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "test:cpu",
+      "command": ["npm", "run", "test:cpu"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.198,
+      "log": "test-cpu.log",
+      "log_sha256": "ca6d98e86986fad5cbb09748ac2de66025a39b796110cff5fff9e1fde82bd15e",
+      "counts": {
+        "tests": 10,
+        "pass": 1,
+        "fail": 0,
+        "skipped": 9
+      }
+    },
+    {
+      "name": "docs:check",
+      "command": ["npm", "run", "docs:check"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.141,
+      "log": "docs-check.log",
+      "log_sha256": "3464bef328f19249166a4d60353b245a2e4b59d4aa8416d1b614fb4e24bc435b"
+    },
+    {
+      "name": "format:check",
+      "command": ["npm", "run", "format:check"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 3.957,
+      "log": "format-check.log",
+      "log_sha256": "382a8e99bf8e74f5c652c1c120072e1e3bc32f1d12d75085847018af5c0bf30b"
+    },
+    {
+      "name": "workflow-format",
+      "command": [
+        "node",
+        "node_modules/prettier/bin/prettier.cjs",
+        "--check",
+        ".github/workflows/*.yml",
+        "scripts/*release*.mjs",
+        "scripts/update-manifest.mjs",
+        "scripts/ci-native-dependencies.json",
+        "src-tauri/update-channel.json",
+        "tests/ui/diagnosticReport.test.mjs",
+        "tests/ui/personalDictionary.test.mjs",
+        "tests/ui/historyMetadata.test.mjs",
+        "tests/ui/updates.test.mjs",
+        "docs/fono-ci-updates.md",
+        "docs/fono-quality-enhancements.md"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.439,
+      "log": "workflow-format.log",
+      "log_sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "name": "version:check",
+      "command": ["npm", "run", "version:check"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 0.127,
+      "log": "version-check.log",
+      "log_sha256": "9f797e198b547cdcb1b177692184051b9f787afe3c48d8791be5ed5625e9d935"
+    },
+    {
+      "name": "build",
+      "command": ["npm", "run", "build"],
+      "exit_code": 0,
+      "signal": null,
+      "seconds": 9.66,
+      "log": "build.log",
+      "log_sha256": "bbfaa2efa4563e9bb3e5313c5b30db8dc0dcca8253c47e39aaf4af73e7d8096b"
+    }
+  ],
+  "all_steps_passed": true,
+  "source_file_count": 832,
+  "all_source_files_unchanged": true,
+  "source_manifest": {
+    "path": "build/checks/stage5-linux-final/source-files.json",
+    "sha256": "91c6f593fcf67164c7ab4f04bce4c018755edf99f1efa21f7b1adbfd68342c50"
+  },
+  "input_hashes": {
+    "package.json": "6a04c5d3a4f02bc56fd8ab3ffd8077a33ddb79cdb16db81c1340255e05278adf",
+    "package-lock.json": "05f0055d347e663e71998458aec33b4dca9f6c75eb1933e19115ef8859df5a6d",
+    ".npmrc": "3a951f66e7e0f3e2dd1832473a871357c4a507b51100636b73bcf6ff0dd78b6c",
+    ".github/workflows/ci.yml": "0317acaccef2464481c82ba52ac56781e39cf60f748c99536bb94042fdb8cdb1",
+    ".github/workflows/lifecycle-soak.yml": "f8e5a8036c3d5cf2409e26b6365243b56b713e450a740171ecb31d44a7671251",
+    "scripts/stage5-quality.mjs": "904b5f73e2b3185ad3a945ab4f7d6b87422c6eeabfc9e112a77981a6c0b96691",
+    "scripts/stt-quality-lineage.mjs": "c9eca9c3fec1b08110d9607db67923fe07bf31bf04acd19be923c1a3bd5b373d",
+    "scripts/stage5-quality.test.mjs": "8fedab74fd46ed5fe660f934ffa58a8816d0085a99ab15fb08190a0f9c62bdfe",
+    "scripts/lifecycle-soak.mjs": "694705c0d40e903f6045efa3513bd5a9149aa07394bc81eef768ddd3031042a9",
+    "scripts/lifecycle-soak.test.mjs": "43dc204a164c291bcbc56a67b6db060fb52aec09f659e88802f676fb10f98781",
+    "scripts/lifecycle-soak.ps1": "24c4848d36d78b596a85f5baf74439cd1df2ae6a66900f22cf2a7d7e40ae45a3",
+    "vendor/whiteui/whitelife-core-ui-kit-0.6.0.tgz": "e0aabc07070a54eae56cfb810f120b3ebdcb12f34e1313a1eecc073c5dfaab65"
+  },
+  "raw_report": {
+    "path": "build/checks/stage5-linux-final/report.json",
+    "sha256": "bc6744d6800783708558f7e086374b2cc3ea62b85f9fba9e368ef85d422ecd6c"
+  },
+  "task_directory_cleaned_before_process_exit": true,
+  "lineage": {
+    "prior_candidate_attempt": {
+      "report": "build/checks/stage5-linux-final-attempt1/report.json",
+      "sha256": "c35d469aeddfa1c0c3652f3b9b6d98c5d3c704bc881e0680e8461460fa671608",
+      "lint_log_sha256": "27e942e380aebe2a84429980937c906477f29b7e1032e8d5e03407995f127341",
+      "failure": "Two no-regex-spaces findings in CI-04 workflow mutation tests; replaced literal six-space regexes and lookahead by equivalent {6}. Native Rust, soak runtime and quality sources were unchanged."
+    }
+  },
+  "acceptance": {
+    "anonymous_linux_candidate_integration_passed": true,
+    "remote_github_actions_or_external_fork_pr_executed": false,
+    "final_committed_tree_tested": false,
+    "final_root_stage5_native_tracker_documentation_included": false,
+    "full_whisper_quality_replay_on_linux": false,
+    "native_soak_executed_on_linux": false,
+    "microphone_desktop_gpu_windows_owner_uat": false,
+    "publication_installer_or_installation": false,
+    "linux_cpu_launcher": "One Linux contract passed; nine Windows PowerShell launcher cases intentionally skipped.",
+    "included_windows_soak_evidence": "The finalized docs/evidence/stage5-ci04.json from the separately completed Windows full soak is present as an explicit source overlay; Linux runs only its eight runner/evidence contracts."
+  }
+}

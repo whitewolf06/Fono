@@ -1,0 +1,289 @@
+{
+  "schema": 1,
+  "kind": "fono-stage5-kvorum-sync",
+  "verified_at_utc": "2026-10-18T11:27:00.884Z",
+  "scope": {
+    "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+    "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842"
+  },
+  "app_version": "0.7.27",
+  "scope_boundary": "Precommit27 sync:7 comments and5 status updates. Local CI02 de12bd3 and CI03 17b14a0 committed. Actual final v0.7.27 commit identity will be posted separately after commit; no owner acceptance or done transition.",
+  "counts": {
+    "comments": 7,
+    "status_updates": 5,
+    "total": 12
+  },
+  "operations": [
+    {
+      "kind": "status",
+      "task_key": "FONO-108",
+      "task_id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "proposal_id": "c58459f2-5e12-4bcc-be0f-15db798b6af2",
+      "canonical_confirmation_message": "Подтвердите изменение: задача «[CI-03] Регрессия качества и задержки STT».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T09:49:17.989Z",
+      "from": "in_review",
+      "to": "in_progress",
+      "status_comment": "Пятый этап плана: дополнение CI-03 проверкой согласованности quality/latency отчётов, cold/warm сводками и воспроизводимым численным приёмочным отчётом. Существующие evidence и открытый PERF-04 сохраняются.",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-start.json",
+        "sha256": "0be723c807455aa8ef0afe9153d1994e7d2886a9241a24787e0e83616129336f"
+      }
+    },
+    {
+      "kind": "status",
+      "task_key": "FONO-109",
+      "task_id": "d60ce1b8-d4bc-45e2-8559-f779eb8b16d8",
+      "proposal_id": "afc6534b-2281-46ad-847a-e7772203e2c7",
+      "canonical_confirmation_message": "Подтвердите изменение: задача «[CI-04] Soak-тесты жизненного цикла».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T09:49:17.989Z",
+      "from": "todo",
+      "to": "in_progress",
+      "status_comment": "Пятый этап плана: реализация отдельного ignored/manual lifecycle soak с mock audio и настоящим CPU worker. Цели 1000 start/cancel и 100 faults будут проверены фактическим прогоном; STAB-06 остаётся отдельной приёмкой владельца.",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-start.json",
+        "sha256": "0be723c807455aa8ef0afe9153d1994e7d2886a9241a24787e0e83616129336f"
+      }
+    },
+    {
+      "kind": "comment",
+      "task_key": "FONO-107",
+      "task_id": "b8348117-a008-4912-ae0c-08843f04f72e",
+      "proposal_id": "cf6c0ba5-aff2-4f8a-964c-3bff19b87780",
+      "canonical_confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T10:04:15.724Z",
+      "comment_id": "2664e928-a8cf-4f16-af8c-7e12faea4496",
+      "content": "Пятый этап — CI-02 реализован, локальный коммит v0.7.25\n\nКоммит `de12bd3a3f495e038bf9a02c5f26ad87a5fed040`, ветка `codex/fono-stage5-20261018`. Зависимости OSS-02/FONO-72 и CI-01/FONO-106 повторно сверены: их реализация присутствует, карточки остаются in_review.\n\nДо npm ci проверяются все 13 Linux optional targets Rollup 4.62.2: полнота, exact version, cpu/os, public tarball и SHA512 integrity. После npm ci выполняется настоящий native Rollup bundle. Семь регрессионных тестов проверяют пропавшие bindings и удалённые/переставленные/пропущенные/игнорируемые gates. Lock-файл уже был полным, не менялся.\n\nFresh anonymous Ubuntu WSL2, Node22.23.3/npm10.9.9: 13/13 шагов, 15/15 CI contracts, 273/273 UI, 28/28 release, CPU 1 passed/9 Windows-only skipped; typecheck/lint/docs/format/version/build прошли. env-i, пустые npmconfig/home/cache, credentials не передавались; это WSL с доступным host filesystem, не контейнерная изоляция. 819 source hashes не изменились внутри проверки.\n\nEvidence `docs/evidence/stage5-ci02.json` относится к candidate HEAD8e8faca плюс ровно три CI-02 overlay-файла до patch bump, а не к удалённому Actions. Первый lint fail сохранён, исправления проверены полным свежим повтором. Реальный fork PR/GitHub Actions и приёмка владельца остаются открытыми. Результат передаётся в in_review, не done.",
+      "created_at": "2026-10-18T10:04:00.464000Z",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci02.json",
+        "sha256": "ca87da42ee8bf03dfff1a1258f9882c28168f95757461e9ab51e550c8e62a245"
+      }
+    },
+    {
+      "kind": "status",
+      "task_key": "FONO-107",
+      "task_id": "b8348117-a008-4912-ae0c-08843f04f72e",
+      "proposal_id": "d1315f88-bf22-44a7-a4f4-ec4146edfe54",
+      "canonical_confirmation_message": "Подтвердите изменение: задача «[CI-02] UI-тесты должны работать после OSS-02 без секретов».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T10:04:15.724Z",
+      "from": "in_progress",
+      "to": "in_review",
+      "status_comment": "CI-02: Linux anonymous 13/13 gates, UI273/273, release28/28; native Rollup lock/import guards и регрессии включены, evidence сохранён в v0.7.25/de12bd3. Удалённый fork Actions и owner acceptance остаются открытыми.",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci02.json",
+        "sha256": "ca87da42ee8bf03dfff1a1258f9882c28168f95757461e9ab51e550c8e62a245"
+      }
+    },
+    {
+      "kind": "comment",
+      "task_key": "FONO-108",
+      "task_id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "proposal_id": "26833d0e-f7e0-4568-9510-a7bba008576a",
+      "canonical_confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T10:20:05.039Z",
+      "comment_id": "9d542033-b3d0-41b1-ad2e-07323a5ff161",
+      "content": "Пятый этап — CI-03: единый quality/latency отчёт, v0.7.26\n\nЛокальный коммит `17b14a0c69ffcebbee3ecafdeddfa0eff65e51b1`. Новый consolidator связывает шесть CPU replay вариантов одним run_id, source/version fingerprint, pinned model/corpus, actual binary hashes, backend/threads/decoding. Проверяются finite measurements, полнота RU/EN/quiet/noise/short/long и совместимость входов; WER/CER независимо пересчитываются из каждого reference/hypothesis. Explicit latency baseline требует отдельного валидного run_id и совместимых hardware/model/profile/options; self-baseline отклоняется.\n\n20/20 контрактов и финальные 120 clip evaluations прошли. Финальный run `stage5-ci03-final-v0.7.26-4d220f161a384a30b1e4717dba1dad72`, fingerprint `a700c1c0484a09988ec8a45ca3dd6eef77ffe6aaec8fd25ad3363b2871e999d0`. CI-03 WER+1п.п. PASS; строгий ARC-09 PASS, фактические full-PCM fast ΔWER/CER=0. PERF-04 снова 85→88/450 (+0.6667п.п.), его строгий критерий остаётся failed_open. Accurate84/450 против fast85/450, но CER262/2846 против207/2846; default fast сохранён.\n\nFast original/neural RTF0.04621/0.04862; accurate0.05867/0.06006. Model load0.11–0.18с, first inference0.44–0.73с; cold/warm p50/p95/p99 и все per-clip counts включены в `docs/evidence/stage5-ci03.json`. Это debug CPU и наблюдение при внешней нагрузке, без принятого независимого latency baseline. Реальный remote Actions, GPU/микрофон и приёмка владельца остаются открытыми. Первоначальный прогон и найденные/исправленные review bugs сохранены как lineage. Передаю в in_review, не done.",
+      "created_at": "2026-10-18T10:19:41.686371Z",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci03.json",
+        "sha256": "f348b4c45855ce75745ff00d2df1eca4dca030239b180c87cd9bf4d07a95779f"
+      }
+    },
+    {
+      "kind": "comment",
+      "task_key": "FONO-79",
+      "task_id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "proposal_id": "ca753f37-3aaf-48ef-a449-80190c7259b6",
+      "canonical_confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T10:20:05.039Z",
+      "comment_id": "e2cc88e9-9d0f-4550-bfce-c95ce8700de2",
+      "content": "Пятый этап / CI-03: свежая повторная проверка PERF-04\n\nВ v0.7.26 / коммите `17b14a0c69ffcebbee3ecafdeddfa0eff65e51b1` повторены 20 закреплённых публичных RU/EN WAV (450 слов, pinned tiny CPU). Legacy85/450 WER18.8889%; current FIR replay88/450 WER19.5556%; Δ+3/450, +0.6667п.п. Сохранённый CI-03 допуск+1п.п. проходит, исходный строгий PERF-04 «не хуже» по-прежнему не выполнен — `failed_open`.\n\nРезультат независимого пересчёта reference/hypothesis, hardware/model/binary hashes, условия и один общий run_id находятся в `docs/evidence/stage5-ci03.json`; подробности — в FONO-108. Готовые16кГц WAV и их16→48→16 replay не подтверждают native wideband качество или спецификацию фильтра. Статус FONO-79 остаётся in_review; закрытие и owner acceptance не заявляются.",
+      "created_at": "2026-10-18T10:19:47.101546Z",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci03.json",
+        "sha256": "f348b4c45855ce75745ff00d2df1eca4dca030239b180c87cd9bf4d07a95779f"
+      }
+    },
+    {
+      "kind": "status",
+      "task_key": "FONO-108",
+      "task_id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "proposal_id": "dee449a2-cca6-4adf-82f6-0082f67391d7",
+      "canonical_confirmation_message": "Подтвердите изменение: задача «[CI-03] Регрессия качества и задержки STT».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T10:20:05.039Z",
+      "from": "in_progress",
+      "to": "in_review",
+      "status_comment": "CI-03 v0.7.26/17b14a0:20/20 contracts, свежие120CPU clip evaluations и независимыйtext→WER/CER пересчёт; CI+1п.п. и ARC09 gates прошли. Latency observational без независимогоbaseline, PERF04 failed_open; remoteCI/owner acceptance открыты.",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci03.json",
+        "sha256": "f348b4c45855ce75745ff00d2df1eca4dca030239b180c87cd9bf4d07a95779f"
+      }
+    },
+    {
+      "kind": "comment",
+      "task_key": "FONO-109",
+      "task_id": "d60ce1b8-d4bc-45e2-8559-f779eb8b16d8",
+      "proposal_id": "c9f215a0-a41e-43e5-aeef-6af070acdfbd",
+      "canonical_confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T10:58:17.816Z",
+      "comment_id": "877df1a2-b248-4ac6-8cdf-aa9b6ed7baec",
+      "content": "Пятый этап — CI-04: реальный CPU lifecycle soak, v0.7.27\n\nФинальный локальный subsystem прогон PASS: 1000 start/cancel (990 до transport, 10 после полного Transcribe frame ACK и наблюдения CPU), 100 kill/reap/restart собственных загруженных idle workers, 61.084 с idle; native elapsed94.452с. Используются настоящие Pipeline/OperationCoordinator/SttScheduler/WorkerSession/CPU Whisper, физический AudioRecorder заменён pinned публичным WAV. Автоматический SttEngine recovery router отдельно не проверен.\n\nПосле прогрева: parent handles Δ0 loaded/shutdown, threads Δ-3/-3, private bytes +413696/+1204224B при допуске10MiB. Все собственные дочерние процессы завершены. Cancel-to-return p50/p95/p99=7.63/9.6069/12.0611мс; fault reload=129.0415/157.9069/166.6667мс. Это debug subsystem timing, не hardware/UI latency и не cold OS cache.\n\nПервый smoke10/2 cold→shutdown обнаружил +2 handles и сохранён как FAILED. Сопоставление исправлено на warm no-worker→shutdown при одинаковых Pipeline/job/watchdog; допуски handles/threads=0 не ослаблены. Повторный smoke10/2 и полный1000/100 PASS. 8/8 Node contracts,11 workflow mutations и строгий CPU Clippy PASS; независимый read-only review блокеров не нашёл. Полный raw native+runner receipt, hardware/model/WAV/EXE/source hashes и lineage: `docs/evidence/stage5-ci04.json`.\n\nДобавлены manual CPU workflow и ignored native test с fail-closed конфигурацией; Win32 Job/watchdog ограничены собственными проверочными процессами. Итоговая14-gate native матрица и финальный Linux integration ещё выполняются; результаты будут записаны в FONO-54/FONO-47. Часовой idle, mic/USB/sleep-resume, GPU, desktop/installer и приёмка владельца остаются в FONO-112; пользовательский Fono и микрофон не запускались.",
+      "created_at": "2026-10-18T10:58:06.258148Z",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci04-result.json",
+        "sha256": "c6b48bdfa625a0e30cd999eab63d77e392f3b33e2e285863dcf18a4bfbab8b0b"
+      }
+    },
+    {
+      "kind": "comment",
+      "task_key": "FONO-112",
+      "task_id": "6e7e2661-cb6f-4a25-b110-0d775b9a91a3",
+      "proposal_id": "12aab3c7-0136-4ccc-9422-8e6e1659b64f",
+      "canonical_confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T10:59:23.758Z",
+      "comment_id": "cc0c28b5-3162-464e-8118-7d243487bdf7",
+      "content": "Пятый этап — автоматизированная часть CI-04, v0.7.27\n\nСвязанная FONO-109 фактически прошла 1000 start/cancel (990 pretransport +10 active после полного frame ACK),100 kill/reap/restart настоящего CPU worker и61.084с idle. После прогрева handlesΔ0,threadsΔ-3,private bytes shutdown+1204224B при допуске10MiB; все собственные потомки завершены. Переносимый raw native/runner/hardware/hash receipt: `docs/evidence/stage5-ci04.json`. Первый failed cold-baseline smoke сохранён, warm-baseline smoke и полный прогон PASS без расширения допусков.\n\nПроверены native subsystems с mock физического AudioRecorder и pinned публичным WAV. Автоматический recovery router, CPAL/AudioHub physical queues, реальные mic/USB/sleep-resume, GPU/драйверы, hotkey/overlay/clipboard/внешняя вставка и установленная поставка этим прогоном не проверялись. Цель60минут idle остаётся открытой: здесь измерена61секунда. Владелец отдельно подтверждает аппаратную/Windows/installer приёмку; статус FONO-112 оставляю todo. Пользовательское приложение, микрофон и установка автоматически не запускались.",
+      "created_at": "2026-10-18T10:59:13.516585Z",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci04-manual.json",
+        "sha256": "80ce82343ea07bb8f6ebb168759451d4bb5c506df410a4a114a8e42621b4b1f3"
+      }
+    },
+    {
+      "kind": "status",
+      "task_key": "FONO-109",
+      "task_id": "d60ce1b8-d4bc-45e2-8559-f779eb8b16d8",
+      "proposal_id": "43508355-5823-41f7-a232-d50f00c7cb74",
+      "canonical_confirmation_message": "Подтвердите изменение: задача «[CI-04] Soak-тесты жизненного цикла».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T11:07:18.236Z",
+      "from": "in_progress",
+      "to": "in_review",
+      "status_comment": "CI-04: реальный CPU subsystem soak1000/100/61с PASS, resources/cleanup PASS,8/8контрактов и strictCPUClippy PASS; финальный Linux16/16PASS. Raw portable evidence приложено в комментарии. Передаю на ревью; аппаратная/Windows/часовой idle приёмка остаётся FONO-112. Общая native-матрица этапа ещё завершается.",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-ci04-status.json",
+        "sha256": "ed4aa4a06e3e680c6e012aa02185050f8f474c56fdbadb32e622556963c222d6"
+      }
+    },
+    {
+      "kind": "comment",
+      "task_key": "FONO-54",
+      "task_id": "5acda590-5934-4b78-8efb-ccb39340d032",
+      "proposal_id": "15682211-a6bb-4552-a916-3c3152ea2b5d",
+      "canonical_confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T11:26:22.280Z",
+      "comment_id": "4dc22c03-60c9-42be-8f4c-0bcbb4ea7951",
+      "content": "Пятый этап — итог автоматических проверок, v0.7.25–v0.7.27\n\nПо строке «5. Тесты» improvement-plan выполнены CI-02 / FONO-107, CI-03 / FONO-108 и CI-04 / FONO-109. Контекст и зависимости повторно проверены: CI-02 использует OSS-02 и CI-01; CI-04 — STAB-07 и PERF-06. Все три карточки переданы в in_review, родитель остаётся in_progress до приёмки владельца.\n\nФинальная anonymous Linux integration v0.7.27: 16/16 gates, UI273/273, release28/28, quality20/20, soak contracts8/8, dependency/CI contracts15/15; typecheck/lint/build/format/docs/version/workflow checks PASS. 832 исходных файла immutable snapshot не изменились; tasktmp удалён. В рабочем Windows дереве release scripts48/48 включают20 отдельных owner cache tests; эти owner files/hooks исключены из коммитов этапа.\n\nФинальная Windows native-матрица14/14 PASS: default и CPU-only по561/561, по478 тестов приложения; strict Clippy, шесть feature modes и оба release-check PASS. Заморозка307 native source inputs проверена до/после. Отдельно CI-04 реально прошёл1000 start/cancel,100 kill/reap/restart и61.084с idle: handlesΔ0, threadsΔ-3, private bytes shutdown+1.20МБ при10MiB allowance, все собственные workers завершены. Это subsystem с mock физического AudioRecorder, не аппаратная Windows-приёмка.\n\nCI-03:20/20 контрактов и120 public-WAV evaluations; full-PCM VAD ΔWER/CER=0. CI допуск+1п.п. проходит, но PERF-04 остаётся85→88/450 (+0.6667п.п.), его строгий критерий не выполнен. Accurate не улучшает все метрики; fast default сохранён. Latency пока observational debug CPU, независимый baseline не принят.\n\nКоммиты CI-02 `de12bd3a3f495e038bf9a02c5f26ad87a5fed040` (v0.7.25), CI-03 `17b14a0c69ffcebbee3ecafdeddfa0eff65e51b1` (v0.7.26); итоговый CI-04 commit v0.7.27 подготовлен в `codex/fono-stage5-20261018`. Отчёт: `docs/improvement-stage-5.md`; переносимые receipts: `docs/evidence/stage5-{ci02,ci03,ci04,linux-final,native-final,scripts,kvorum-sync}.json`. Remote Actions/fork PR, часовой idle, GPU/микрофон/desktop/installer и приёмка FONO-112 остаются открытыми; публикация и установка не выполнялись.",
+      "created_at": "2026-10-18T11:25:45.625633Z",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-parents.json",
+        "sha256": "9f0ba889c96faf1e9700850cbc9b30945831db18c93a2c993ef003b92a9f8947"
+      }
+    },
+    {
+      "kind": "comment",
+      "task_key": "FONO-47",
+      "task_id": "85eafd57-86b8-4e09-8eab-2cb3bbb300d4",
+      "proposal_id": "904f6f6f-6f4c-4a02-8dbc-367583dc317f",
+      "canonical_confirmation_message": "Подтвердите создание: комментарий «комментарий».",
+      "automatic_confirmation": true,
+      "readback_verified": true,
+      "verified_at_utc": "2026-10-18T11:26:22.280Z",
+      "comment_id": "ae90d121-26d3-42bd-bb54-3f3ccfa3d278",
+      "content": "Пятый этап improvement-plan реализован и проверен, v0.7.25–v0.7.27\n\nСтрока «5. Тесты» плана: CI-02/FONO-107, CI-03/FONO-108, CI-04/FONO-109 — in_review. Работа шла по прочитанным зависимостям OSS-02/CI-01 и STAB-07/PERF-06. FONO-54 и эпик остаются in_progress до приёмки; новых возможностей F-01…F-14 в этом этапе не включали.\n\nИтоговые проверки: anonymous Linux16/16 (UI273, release28, quality20, soak8, CI15); Windows native14/14, default/CPU-only по561/561, strict Clippy, feature/release matrix PASS. Отдельный реальный CPU subsystem soak1000 start/cancel +100 kill/reap/restart +61.084с idle PASS: handlesΔ0, threadsΔ-3, private bytes shutdown+1.20МБ; все собственные потомки завершены. Windows working-tree release scripts48/48 включают20 owner cache tests, которые не входят в коммит.\n\nCI-03 закрепил120 свежих public-WAV evaluations, происхождение model/corpus/source/binaries, независимый пересчёт WER/CER и cold/first/warm timing. Полный PCM сохранил ΔWER/CER=0. PERF-04 всё ещё85→88 ошибок/450 (+0.6667п.п.): CI+1п.п. PASS, строгий «не хуже» FAILED_OPEN. Accurate не даёт общего выигрыша, fast default сохранён; latency observational, без принятого независимого baseline.\n\nЛокальные коммиты: `de12bd3a3f495e038bf9a02c5f26ad87a5fed040` v0.7.25 и `17b14a0c69ffcebbee3ecafdeddfa0eff65e51b1` v0.7.26. Финальный v0.7.27 подготовлен в `codex/fono-stage5-20261018`; точный hash добавлю после коммита. Подробности и portable receipts: `docs/improvement-stage-5.md`, `docs/evidence/stage5-*.json`, обновлённые STATUS/testing. Failed smoke/cold-baseline, Linux lint и sandbox fixture attempts сохранены как lineage, допуски не расширялись. Source freeze307 и Linux snapshot832 inputs проверены неизменными; исходные owner changes сохраняются отдельно.\n\nОткрыты реальный fork PR/remote Actions, аппаратный часовой idle, microphone/GPU/USB/sleep-resume, native UI/clipboard/внешняя вставка, installer/updater/чистая Windows и подтверждение владельца FONO-112. Результаты автоматизированной части добавлены и в FONO-112, статус todo сохранён. WakeWord/live выключены. Публикация, установка, запись микрофона и управление пользовательским приложением не выполнялись.",
+      "created_at": "2026-10-18T11:26:13.379348Z",
+      "raw_receipt": {
+        "path": "build/checks/stage5-kvorum-parents.json",
+        "sha256": "9f0ba889c96faf1e9700850cbc9b30945831db18c93a2c993ef003b92a9f8947"
+      }
+    }
+  ],
+  "final_task_states": [
+    {
+      "id": "b8348117-a008-4912-ae0c-08843f04f72e",
+      "task_key": "FONO-107",
+      "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+      "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+      "status": "in_review",
+      "updated_at": "2026-10-18T10:04:06.054740",
+      "title": "[CI-02] UI-тесты должны работать после OSS-02 без секретов"
+    },
+    {
+      "id": "9981ad69-f16f-4c5f-8d38-2401b5a9bd76",
+      "task_key": "FONO-108",
+      "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+      "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+      "status": "in_review",
+      "updated_at": "2026-10-18T10:19:52.284115",
+      "title": "[CI-03] Регрессия качества и задержки STT"
+    },
+    {
+      "id": "d60ce1b8-d4bc-45e2-8559-f779eb8b16d8",
+      "task_key": "FONO-109",
+      "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+      "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+      "status": "in_review",
+      "updated_at": "2026-10-18T11:07:05.817253",
+      "title": "[CI-04] Soak-тесты жизненного цикла"
+    },
+    {
+      "id": "26b13575-06ab-435f-abff-f0ce86ef71c4",
+      "task_key": "FONO-79",
+      "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+      "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+      "status": "in_review",
+      "updated_at": "2026-10-16T23:06:50.752606",
+      "title": "[PERF-04] Линейный ресемплинг без антиалиасингового фильтра"
+    },
+    {
+      "id": "6e7e2661-cb6f-4a25-b110-0d775b9a91a3",
+      "task_key": "FONO-112",
+      "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+      "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+      "status": "todo",
+      "updated_at": "2026-10-16T20:45:20.582194",
+      "title": "[STAB-06] Полевая приёмка Windows, оборудования и поставки"
+    },
+    {
+      "id": "5acda590-5934-4b78-8efb-ccb39340d032",
+      "task_key": "FONO-54",
+      "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+      "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+      "status": "in_progress",
+      "updated_at": "2026-10-16T21:55:33.432160",
+      "title": "Fono: Проверки всех PR и измеримое качество STT"
+    },
+    {
+      "id": "85eafd57-86b8-4e09-8eab-2cb3bbb300d4",
+      "task_key": "FONO-47",
+      "space_id": "1d34a079-5b7f-4881-9e54-fea373f1a842",
+      "project_id": "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c",
+      "status": "in_progress",
+      "updated_at": "2026-10-16T20:59:05.678646",
+      "title": "Fono: улучшения по improvement-plan — стабильность, открытая сборка и новые возможности"
+    }
+  ],
+  "owner_acceptance": false,
+  "published": false
+}

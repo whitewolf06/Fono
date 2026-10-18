@@ -151,6 +151,8 @@ impl WorkerSession {
             next_request_id: 0,
             timeouts,
             supports_decoding_options: false,
+            #[cfg(test)]
+            written_frames: Arc::new(AtomicUsize::new(0)),
         };
         let hello_meta = worker.next_meta("hello", None);
         match worker.request(&WorkerRequest::Hello { meta: hello_meta })? {

@@ -48,7 +48,11 @@ impl WorkerSession {
                 return Err(self.fail_request("worker stdin write timed out".into()));
             }
             match result_rx.recv_timeout(remaining.min(CANCELLATION_POLL_INTERVAL)) {
-                Ok(Ok(())) => break,
+                Ok(Ok(())) => {
+                    #[cfg(test)]
+                    self.written_frames.fetch_add(1, Ordering::AcqRel);
+                    break;
+                }
                 Ok(Err(error)) => return Err(self.fail_request(format!("worker stdin: {error}"))),
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => {

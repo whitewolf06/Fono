@@ -72,16 +72,32 @@ Wrapper собирает выбранные тесты и размещает з�
 
 ### Общий process contract workers
 
--
+После штатной пересборки `npm run build:workers` один набор проверок запускается против обоих EXE. Его можно повторить без загрузки модели:
 
-+После штатной пересборки `npm run build:workers` один набор проверок запускается против обоих EXE. Его можно повторить без загрузки модели: + +`powershell
-+./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-workers -Backends @('cuda', 'vulkan')
-+./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-base -Backends @('vulkan')
-+` + +`scripts/worker-contract.mjs` проверяет protocol/capabilities, health, неверную версию, PCM/base64/JSON, optional decoding options и число потоков, границу wire frame с LF, восстановление, idle cancel без отдельного ответа и shutdown. Idle cancel не подтверждает остановку активного inference. Модель, GPU и установленное приложение в этом наборе не проверяются. Изменение protocol contract требует пересборки workers; старый worker без `supports_decoding_options` должен отклонять нестандартный выбор до отправки запроса. +
-+### Качество STT и решение об обрезке +
-+Сравнивайте одинаковые pinned model/corpus и явно выбранные decoding options. Фиксируйте WER и CER отдельно; небольшое снижение WER не означает общего улучшения. Учитывайте результаты по языкам, полный PCM и каждый эксперимент с обрезкой. Измерения готовых 16 кГц WAV не заменяют проверку ресемплера или личного голоса. +
-+В [четвёртом этапе](improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для решения о речи и диагностики границ, а в STT передаёт полный PCM. [Финальный quality JSON](evidence/stage4-quality.json) содержит исходные и итоговые варианты; [150 мс](evidence/stage4-quality-preroll-150ms.json) и [2 с](evidence/stage4-quality-preroll-2s.json) сохраняют отрицательные результаты. Эти прогоны не закрывают прежний PERF-04 и Windows/GPU-приёмку. +
-+## UI в браузере
+```powershell
+./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-workers -Backends @('cuda', 'vulkan')
+./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-base -Backends @('vulkan')
+```
+
+`scripts/worker-contract.mjs` проверяет protocol/capabilities, health, неверную версию, PCM/base64/JSON, decoding options и число потоков, границу wire frame с LF, восстановление, idle cancel и shutdown. Активный inference проверяется отдельно. Изменение protocol contract требует пересборки workers; worker без `supports_decoding_options` отклоняет нестандартный выбор до отправки запроса.
+
+### Качество и задержка STT
+
+Сравнивайте одинаковые pinned model/corpus и явно выбранные decoding options. Фиксируйте WER и CER отдельно, результаты по языкам и условиям, полный PCM и каждый эксперимент с обрезкой. Измерения готовых 16 кГц WAV не заменяют проверку ресемплера или личного голоса.
+
+В [четвёртом этапе](improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для допуска речи и диагностики границ; STT получает полный PCM. [Финальный quality JSON](evidence/stage4-quality.json) и отрицательные результаты [150 мс](evidence/stage4-quality-preroll-150ms.json)/[2 с](evidence/stage4-quality-preroll-2s.json) сохранены. Прежний PERF-04 остаётся открытым.
+
+Контракты отчёта пятого этапа запускаются командой `npm run test:quality:stage5`. `scripts/stage5-quality.mjs --run` собирает свежий общий replay ресемплера, Silero и fast/accurate; укажите CPU runner, resampler, trimmer и отдельные пути отчётов. Один run ID, версия, исходники, модель, corpus и фактические параметры связывают все шесть вариантов.
+
+WER/CER пересчитываются из эталона и гипотезы. Действуют прежний CI-допуск WER +1 п.п. и строгий нулевой допуск ARC-09. Строгий критерий PERF-04 показывается отдельно. Cold/model-load и warm p50/p95/p99 описывают измеренный запуск. Для проверки задержки нужен отдельный совместимый same-hardware baseline и явно заданные пороги; без него задержка остаётся наблюдением.
+
+### Lifecycle soak
+
+Ручной workflow `lifecycle-soak.yml` собирает CPU worker и отдельный native test executable. Отдельный шаг `native-test-runtime.mjs` размещает проверенные VAD DLL рядом с executable. `scripts/lifecycle-soak.ps1` проверяет emitted Cargo artifact, pinned модель и worker через Node guards, затем запускает ровно `stt::worker::lifecycle_soak::cpu_worker_lifecycle_soak`. Обычная native-матрица исключает этот тяжёлый ignored test; его выбирают явно.
+
+Параметры по умолчанию: 1000 start/cancel и 100 kill/reap/restart. Физический AudioRecorder заменён публичным WAV; coordinator, bounded writer, scheduler, transport и CPU Whisper остаются настоящими. Runner проверяет хэши, счётчики и raw resource measurements, сохраняет отчёт даже при неуспешном gate и завершает собственные дочерние процессы. Границы handles/threads и private bytes объявлены в отчёте. Микрофон, desktop, автоматический recovery router и ручная STAB-06 проверяются отдельно.
+
+## UI в браузере
 
 На размерах 720×560, 900×720 и 1440×900 проверьте страницы из [карты маршрутов](frontend-architecture.md):
 
@@ -125,7 +141,7 @@ Browser mock не подтверждает native IPC, глобальную кл
 
 Для локальной диагностики после Stop найдите в `%APPDATA%\Fono\logs` запись `event="dictation_tail_diagnostic"` с тем же `operation`. Сравните `source`, `stop_reason`, `captured_ms`, VAD-поля, `stt`, `postprocessor` и `first_suspected_layer`. Значение `none` означает, что числовые измерения не обнаружили подозрительного этапа.
 
-В hotkey-пути VAD удаляет ведущую тишину; при найденной речи `vad_trailing_after_ms` должен совпадать с `vad_trailing_before_ms`. Запись содержит длительности, счётчики и статусы, без аудио и фрагментов транскрипта. Это техническая подсказка, а не измерение точности распознавания.
+В классической диктовке Silero определяет наличие речи, а STT получает полный PCM; при найденной речи `vad_trailing_after_ms` должен совпадать с `vad_trailing_before_ms`. Запись содержит длительности, счётчики и статусы, без аудио и фрагментов транскрипта. Это техническая подсказка, а не измерение точности распознавания.
 
 ## Что сохранить по итогам приёмки
 
