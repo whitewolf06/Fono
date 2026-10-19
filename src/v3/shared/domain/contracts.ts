@@ -145,6 +145,7 @@ export interface ConnectionProfile {
   model: string;
 }
 export interface SpeechModel {
+  benchmark?: string;
   engine?: import("./speechModels").SpeechEngine;
   license?: string;
   licenseUrl?: string;

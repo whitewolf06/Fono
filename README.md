@@ -80,7 +80,7 @@ GPU development, profiles and packaging are covered in [development.md](docs/dev
 
 ## Measured recognition baseline
 
-Available measurements cover one fixed CPU smoke corpus, not a ranking of
+The historical baseline covers one fixed CPU smoke corpus, not a ranking of
 models or GPUs. The following result uses Whisper tiny, 8 threads, debug build,
 an Intel i5-12600KF, and 20 public RU/EN FLEURS utterances (235.36 seconds, 450 words).
 
@@ -91,12 +91,47 @@ an Intel i5-12600KF, and 20 public RU/EN FLEURS utterances (235.36 seconds, 450 
 RTF is inference seconds per audio second. It excludes model loading, VAD,
 resampling, LLM processing and insertion. Inputs were reconstructed from 16 to
 48 kHz and downsampled again; they are not native wideband recordings. Other
-models, accelerators and end-to-end latency need separate measurements.
+accelerators and end-to-end latency need separate measurements.
 
 The strict resampler no-regression criterion is still open: the same-run legacy
 baseline has WER 18.89%, a difference of +0.67 percentage points. See the
 [full evidence](docs/evidence/stage2-stt-quality-final.json) and
 [measurement limits](docs/improvement-stage-2.md).
+
+## CPU engine comparison
+
+FONO-119 uses the same pinned public FLEURS corpus, production PCM preparation
+and 25-second segment boundaries on one Intel i5-12600KF. This is one sequential
+native **debug** run: Whisper fast / 8 threads; GigaAM and Parakeet greedy / 2
+threads, matching their current Fono configurations. The historical resampler
+baseline above is a separate experiment and is not the comparison baseline.
+
+| Model                       | Language / utterances |         WER |    CER | Warm decode |   RTF |
+| --------------------------- | --------------------- | ----------: | -----: | ----------: | ----: |
+| GigaAM v3 e2e RNNT INT8     | RU / 10               |       1.95% |  0.34% |     7.871 s | 0.059 |
+| GigaAM v3 e2e RNNT INT8     | EN                    | unsupported |      — |           — |     — |
+| Parakeet TDT 0.6B v3 INT8   | RU / 10               |      11.22% |  4.31% |    11.983 s | 0.090 |
+| Parakeet TDT 0.6B v3 INT8   | EN / 10               |      15.51% | 12.65% |     8.702 s | 0.085 |
+| Whisper Large v3 Turbo FP16 | RU / EN               |  incomplete |      — |           — |     — |
+
+RU contains 133.48 audio seconds and 205 reference words; EN contains 101.88
+seconds and 245 words. Unsupported English is excluded from GigaAM's denominator.
+RTF includes recognition and segment merging, with file decoding, VAD, model
+loading, LLM and insertion measured separately or excluded.
+
+| Model                     | Model load | First RU decode | Mean warm RU utterance |
+| ------------------------- | ---------: | --------------: | ---------------------: |
+| GigaAM v3 e2e RNNT INT8   |    4.294 s |         1.324 s |                0.787 s |
+| Parakeet TDT 0.6B v3 INT8 |   11.868 s |         1.402 s |                1.198 s |
+
+These numbers describe this small corpus and machine. They do not establish a
+general model ranking, release latency, GPU performance or personal-voice
+acceptance. The complete Whisper Turbo CPU series remains pending; partial
+results are not mixed into the table or UI. FLEURS is by The Google and
+HuggingFace Datasets Authors (2022), licensed CC-BY-4.0.
+
+[Reproduction, limits and remaining work](docs/improvement-fono119.md) ·
+[raw results, model hashes and hardware](docs/evidence/fono119-comparison.json).
 
 ## Documentation and contributions
 

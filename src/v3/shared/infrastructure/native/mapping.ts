@@ -12,6 +12,7 @@ import type {
   ServiceJob,
 } from "../../domain/contracts";
 import { defaults } from "../../../features/preferences/domain/preferences";
+import { measuredModel } from "../../domain/sttMeasurements";
 import { availableDictationMode } from "../../domain/dictationMode";
 import { availableWakeEnabled } from "../../domain/wakeAvailability";
 import { availableGpuModelResidency } from "../../domain/gpuMemory";
@@ -275,6 +276,14 @@ export function modelsFromNative(models: SttModelInfo[]): SpeechModel[] {
   return models.map((m) => ({
     id: modelKey(m.id),
     engine: m.id.engine,
+    benchmark: measuredModel(
+      modelKey(m.id),
+      m.files?.length
+        ? m.files
+        : m.sha256
+          ? [{ filename: m.filename, bytes: m.bytes, sha256: m.sha256 }]
+          : [],
+    ),
     name:
       m.id.engine === "whisper"
         ? whisperModelName(m.id.variant)

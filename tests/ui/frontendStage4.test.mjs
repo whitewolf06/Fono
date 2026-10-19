@@ -3,6 +3,7 @@ import { after, before, test } from "node:test";
 import { createServer } from "vite";
 import { createSSRApp, h } from "vue";
 import { renderToString } from "@vue/server-renderer";
+import fs from "node:fs";
 
 let server,
   messages,
@@ -14,11 +15,15 @@ let server,
   mapping,
   rawDefaults,
   browser;
+let measurements;
 before(async () => {
   server = await createServer({
     appType: "custom",
     server: { middlewareMode: true, hmr: false },
   });
+  measurements = await server.ssrLoadModule(
+    "/src/v3/shared/domain/sttMeasurements.ts",
+  );
   messages = await server.ssrLoadModule("/src/v3/shared/domain/messages.ts");
   ({ createMockTrainer } = await server.ssrLoadModule(
     "/src/v3/features/trainer/infrastructure/mockTrainer.ts",
@@ -40,6 +45,49 @@ before(async () => {
   ));
   browser = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/browser.ts",
+  );
+});
+
+test("CPU measurements require the exact artifact identity and never transfer to quantized variants", () => {
+  const [gigaam] = JSON.parse(
+    fs.readFileSync("src-tauri/src/stt/offline_models.json"),
+  );
+  const id = "giga_am:v3_e2e_rnnt_int8";
+  assert.match(measurements.measuredModel(id, gigaam.files), /RU: WER/);
+  assert.match(
+    measurements.measuredModel(id, gigaam.files),
+    /EN: не поддерживается/,
+  );
+  const changed = structuredClone(gigaam.files);
+  changed[0].sha256 = "f".repeat(64);
+  assert.equal(measurements.measuredModel(id, changed), undefined);
+  assert.equal(
+    measurements.measuredModel("large_turbo_q5_0", gigaam.files),
+    undefined,
+  );
+  assert.equal(measurements.measuredModel("custom", gigaam.files), undefined);
+  assert.match(measurements.measurementContext, /debug/);
+});
+test("native catalog attaches benchmark facts only to the pinned model package", () => {
+  const [spec] = JSON.parse(
+    fs.readFileSync("src-tauri/src/stt/offline_models.json"),
+  );
+  const entry = {
+    id: spec.id,
+    filename: spec.directory,
+    bytes: 1,
+    sha256: null,
+    files: spec.files,
+    capabilities: {
+      accelerations: ["auto", "cpu"],
+      language_selection: false,
+      decoding_options: false,
+    },
+  };
+  assert.match(mapping.modelsFromNative([entry])[0].benchmark, /WER/);
+  assert.equal(
+    mapping.modelsFromNative([{ ...entry, files: [] }])[0].benchmark,
+    undefined,
   );
 });
 after(async () => {

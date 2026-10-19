@@ -583,5 +583,7 @@ fn validate_model_selection(model: &SttModelSelection) -> AppResult<()> {
     }
 }
 
+#[cfg(all(test, feature = "offline-stt"))]
+mod comparison_tests;
 #[cfg(test)]
 mod tests;

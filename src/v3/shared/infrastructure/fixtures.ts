@@ -4,6 +4,7 @@ import type {
   ServiceJob,
   LaunchApp,
 } from "../domain/contracts";
+import { demoMeasuredModel } from "../domain/sttMeasurements";
 export function demoHistory(): Dictation[] {
   const now = new Date();
   const date = (days: number, hour: number) => {
@@ -90,6 +91,14 @@ export const demoModels = (): SpeechModel[] =>
       name: "Whisper Large v3",
       size: "3,1 ГБ",
       description: "Whisper Large v3 · FP16",
+      status: "available",
+      progress: 0,
+    },
+    {
+      id: "large_turbo",
+      name: "Whisper Large v3 Turbo",
+      size: "1549 МБ",
+      description: "Whisper Large v3 Turbo · FP16",
       status: "available",
       progress: 0,
     },
@@ -182,7 +191,8 @@ export const demoModels = (): SpeechModel[] =>
         decodingOptions: false,
         accelerations: ["auto", "cpu"],
       },
-    ]);
+    ])
+    .map((model) => ({ ...model, benchmark: demoMeasuredModel(model.id) }));
 export const demoJobs = (): ServiceJob[] => [
   {
     id: "job-01",

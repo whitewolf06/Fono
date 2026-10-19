@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "date": "2026-10-19",
+  "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+  "corpus": "fono-fleurs-smoke-v1",
+  "utterancesPerLanguage": 10,
+  "complete": false,
+  "evidence": "docs/evidence/fono119-comparison.json",
+  "models": [
+    {
+      "id": "giga_am:v3_e2e_rnnt_int8",
+      "fingerprint": "decoder.onnx:4600132:38fc7475443ea2a26f63211ca350f73ac50fff824ab7a3876ee2bd610c53bbc4|encoder.int8.onnx:224570820:369f35a71bf288d3b8e0391fabd8dba5f2314088d440bca474056b7b4b6e66bf|joiner.onnx:2712896:602ff7017a93311aad34df1437c8d7f49911353c13d6eae7a6ee7b041339465c|LICENSE:1070:f00de6715714c7a63d08639cdbfaa40224eefc407302614bd19f1a8b98c875aa|tokens.txt:13354:39abae20e692998290c574e606f11a9edef2902a1995463fcff63d1490cf22b7",
+      "profile": "debug",
+      "loadSeconds": 4.2935321,
+      "coldSeconds": 1.3242762,
+      "ru": {
+        "word_errors": 4,
+        "reference_words": 205,
+        "character_errors": 5,
+        "reference_characters": 1463,
+        "warm_seconds": 7.8705951,
+        "audio_seconds": 133.48,
+        "wer": 0.01951219512195122,
+        "cer": 0.003417634996582365,
+        "rtf": 0.058964602187593654,
+        "utterances": 10,
+        "mean_warm_seconds": 0.78705951
+      },
+      "en": null
+    },
+    {
+      "id": "parakeet:tdt_0.6b_v3_int8",
+      "fingerprint": "decoder.int8.onnx:11845275:179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e|encoder.int8.onnx:652184281:acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247|joiner.int8.onnx:6355277:3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3|tokens.txt:93939:d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+      "profile": "debug",
+      "loadSeconds": 11.8680671,
+      "coldSeconds": 1.4021638,
+      "ru": {
+        "word_errors": 23,
+        "reference_words": 205,
+        "character_errors": 63,
+        "reference_characters": 1463,
+        "warm_seconds": 11.9830117,
+        "audio_seconds": 133.48,
+        "wer": 0.11219512195121951,
+        "cer": 0.0430622009569378,
+        "rtf": 0.08977383652981721,
+        "utterances": 10,
+        "mean_warm_seconds": 1.1983011700000001
+      },
+      "en": {
+        "word_errors": 38,
+        "reference_words": 245,
+        "character_errors": 175,
+        "reference_characters": 1383,
+        "warm_seconds": 8.7020814,
+        "audio_seconds": 101.87999999999998,
+        "wer": 0.15510204081632653,
+        "cer": 0.1265365148228489,
+        "rtf": 0.08541501177856303,
+        "utterances": 10,
+        "mean_warm_seconds": 0.8702081400000001
+      }
+    }
+  ],
+  "evidenceSha256": "c0709ddd485cb9b00ed678aa7ae41af309908a709c2d7ca234406c68eb9d76ff"
+}

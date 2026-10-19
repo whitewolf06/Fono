@@ -1,0 +1,2690 @@
+{
+  "schema": 1,
+  "task": "FONO-119",
+  "started_at": "2026-10-19T10:12:40.475Z",
+  "lineage": {
+    "run_id": "6bc4efea-e494-4325-8668-757ff428eef5",
+    "source_revision": "bb9a75b008195f9784a7cfcffa9f7889c8d412ab",
+    "app_version": "0.7.34",
+    "source_inputs_sha256": "bd70636bb65bd069039e1ea60b48a07d1a7ce67f2a12d1492a73888896d8515a",
+    "source_inputs": [
+      {
+        "path": ".github/workflows/stt-quality.yml",
+        "sha256": "dcbc65a28bbd6ed74add56ff6093f06bac92c77730bf87bd8c86b56fbd978c23"
+      },
+      {
+        "path": "scripts/bootstrap-ci-resources.ps1",
+        "sha256": "ac7db9c9d0b9adee25c7f4713ad5c3fbf66067fbdd86af6b8706bf7415a1f7ed"
+      },
+      {
+        "path": "scripts/native-test-runtime.mjs",
+        "sha256": "5a015cb04fb2d8b93e2e75ab0deda9f3659f3bda90302b7fd48d32f29d3438d3"
+      },
+      {
+        "path": "scripts/prepare-stt-quality-corpus.py",
+        "sha256": "9270c4dbdbbc613965dcc1f1b092576684947983bcb865d8b6ebf2d82a859e54"
+      },
+      {
+        "path": "scripts/stage4-quality.mjs",
+        "sha256": "6194380af83a60de6220ecf32d8577fcb13b2592e8ddc9213c28ce5cc87297fd"
+      },
+      {
+        "path": "scripts/stage5-quality.mjs",
+        "sha256": "904b5f73e2b3185ad3a945ab4f7d6b87422c6eeabfc9e112a77981a6c0b96691"
+      },
+      {
+        "path": "scripts/stt-quality-lineage.mjs",
+        "sha256": "c9eca9c3fec1b08110d9607db67923fe07bf31bf04acd19be923c1a3bd5b373d"
+      },
+      {
+        "path": "scripts/stt-quality.mjs",
+        "sha256": "bdfbf1ddae1f54b5706666cd7a202b896b38ffee3234198ce797629c1e1acccc"
+      },
+      {
+        "path": "src-tauri/.cargo/config.toml",
+        "sha256": "26770295187010df6b1dc90c387fed5865d67552e93f33cf6bd031fc32c2ac34"
+      },
+      {
+        "path": "src-tauri/Cargo.lock",
+        "sha256": "0b22a24199c37ea40fc29af421552281a68d2b8f3e3c0425c9f3a41d7750986e"
+      },
+      {
+        "path": "src-tauri/Cargo.toml",
+        "sha256": "18dd6bdda0da4d4bcf7dc36c62a806eab10e553b5f2fbc72bce6246bbbf539cb"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/Cargo.toml",
+        "sha256": "4b8a6faee280aa7e60dae21681111c418d4c729c784246018678d12e248d58e0"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/resample-wav.rs",
+        "sha256": "fb8cac0e0d2955108c93143cbcc9fe9b3189a3d86ac885dd4df411f7cbc197e7"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/support/pcm_wav.rs",
+        "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/examples/trim-vad-wav.rs",
+        "sha256": "f1fe521038820dbc4fef2383fe309c266f0816a7daeff63fe6ee11c0e2a74b8b"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/capture.rs",
+        "sha256": "26dbd2c53c629396df09cf25f9e0164c4fa950cbabcb235e9e3d095c0311f1e0"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/convert.rs",
+        "sha256": "3661a3ee659d18d4380829a0413c082efaf68002435fce166ee64a0d72832ae8"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/hub.rs",
+        "sha256": "00a6bf1c31ff0828ccd65219cdbb554e7675adec9a3884ac1b9648e2e19582ae"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/mod.rs",
+        "sha256": "19fe4fe273e27b79bfde0ec5cf38726cc96968fabc473a2a6de33b313534a6ea"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/owner.rs",
+        "sha256": "762fe980227afe5190d2e884ce03ca5d0e2a870b96da357fb9038658d4358aae"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+        "sha256": "6bd3297a94d21d7443fb751ca8110eb59a4622aa9ea39131534054931e99a58c"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/audio_source/ring.rs",
+        "sha256": "1924d01fe8c0dba849a35861ac83097e36a80fb62c9c4c1e22be5f9810f12f45"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/error.rs",
+        "sha256": "9b357265781170155af2d59cea32da61541bcb99bd3d5a754144dc2236a47c7b"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/lib.rs",
+        "sha256": "e19e7319030d3667783704eabe1bb9e96a638ab929eca7f5da68c714c855ef0d"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_boundaries.rs",
+        "sha256": "27b5c2f87ca2febb30e287e26ba62bee5ca4287c4af14bf6c4cb7e81026f73d7"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_segments.rs",
+        "sha256": "1869f0de621952700f8b46d515fb369ba7caa00ac7e4b8da92d42e7a194b6986"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad.rs",
+        "sha256": "2f96af840a5da0dce8d0a2840335eba42c50dc3efaa3dabf41d7d46c384e33c7"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad/recording.rs",
+        "sha256": "d9f2b8ac3cc64af55e7b727deed4c4aaa4f104d85f3d72af9a271f0d2ad2dbf9"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/src/speech_vad/tests.rs",
+        "sha256": "de2e0e4bc102fb789fb29df413bbe27e0f24fb5705867ef858aa41751da434a2"
+      },
+      {
+        "path": "src-tauri/crates/fono-audio/tests/resampler_allocations.rs",
+        "sha256": "f2edbd9a60cf04a4ce1925d37ea631d431a7c511e83997e10abb3fd8735b5035"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/Cargo.toml",
+        "sha256": "3360b3c68539171480a64335fbea8887da8b361fb0335d112aa458b6ad600b3c"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/decoding.rs",
+        "sha256": "e1ca0710f586589a05a039d0d6d76b6b4bd8ad3eb2dab2e3c9bb0c9f5286857b"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/inference_options.rs",
+        "sha256": "002eca3a96c0af57c107d1190f68a6798757ef958ba6bdf31c5758bd17e19ba4"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/inference.rs",
+        "sha256": "f11e42adc03af4abebf5053ee4c5d90926efb94b8982859f41ad5f6a5ef45c57"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/lib.rs",
+        "sha256": "d9e5c4b2caded612ce8593647d44a7deb2ff5ec8fc7e9b2453a0d840840e9d7d"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-protocol/src/timestamps.rs",
+        "sha256": "fc2eff125ac6e4904a398399ae511c22df0749f016a21611ed469f172619c80c"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/Cargo.toml",
+        "sha256": "1afc9d6cffb4993b6295f7fd3c68e382e3ccb366d317c28edeb0f14e95740625"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/metrics.rs",
+        "sha256": "b81da8458c5078273c8aa74d7e9cb9935aac6dc0462ecc5aad61ae41163453b7"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/transport.rs",
+        "sha256": "1a40e0639afeb3c3a307bd9cc616bf52ac42f7401a39b4dff8a23cbd393d1c99"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/benchmark/wav.rs",
+        "sha256": "4c74aa702595a852fcfe7bad5efefa77acffd81fee794509eb983e1b8183b69b"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-bench.rs",
+        "sha256": "a7e9828c7248c9fac32b1495ed1e65b3e640635bc0c7d06fad636e9a7cbfcdfe"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-quality.rs",
+        "sha256": "da23128dce445f6941ec8b2d879e27933f584973626800fd0a8e3f8ebc727029"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/control.rs",
+        "sha256": "fec3f87d5fda50c0a10fbe2d0c847c460a1878b3f85c0e5a3507a1fac5973401"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/framing.rs",
+        "sha256": "bfe724371932139b215994d3588adae4392db87940db5a459a54c6064f50ea29"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/main.rs",
+        "sha256": "5813d1caed93e57c6a900e0dfe6bd6eb55437a81dd9f496615d03c847c3c8a8d"
+      },
+      {
+        "path": "src-tauri/crates/fono-stt-worker/src/runtime.rs",
+        "sha256": "66aa54d4570031a4cc3463b9a63ca60685033ac0c4a7727a2cc09a78a1b5f38d"
+      },
+      {
+        "path": "src-tauri/rust-toolchain.toml",
+        "sha256": "5a357c16adbb4740c3264b315c59c4882c286072146d7198757096197b498c52"
+      },
+      {
+        "path": "src-tauri/src/application/dictation/capture.rs",
+        "sha256": "5fb0e88b40f0870dce0cf75ad26dc988d0386b4e3248751ca8a8c69a6c9a14fe"
+      },
+      {
+        "path": "src-tauri/src/application/speech_gate.rs",
+        "sha256": "840ce9dda389a0470094ddfb1aa623b6318c31e76faba9fce7042c1da6fe8045"
+      },
+      {
+        "path": "src-tauri/src/vad/mod.rs",
+        "sha256": "8ac37745b032a6a302e7eaa61643432dd787c27b5dd18d6f64e10d9ad2f379cc"
+      },
+      {
+        "path": "src-tauri/tests/fixtures/stt-quality/baseline.json",
+        "sha256": "6189e7e0a2426b35ec694c390c7de6c826df9eea8315a086f196e6b724f3558c"
+      },
+      {
+        "path": "src-tauri/tests/fixtures/stt-quality/manifest.json",
+        "sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2"
+      }
+    ]
+  },
+  "collector_sha256": "4bdaf9703ada2e7bec76a986b3eaa1fc1bfbd6dafd7f8ba5238647c362dccc9c",
+  "native_runner_sha256": "3bd00a1e817a0fc389dd0cdb55c454fd2f8391ed792db4266339aa7a57fae9b2",
+  "runner_source_sha256": "02e02ef1fc2277383bf7eb3d4453708d9af866adaf260b84b083c68af78eb8cf",
+  "hardware": {
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+    "logical_cpus": 16,
+    "os": "10.0.26200",
+    "arch": "x64",
+    "memory_bytes": 68564881408,
+    "initial_free_memory_bytes": 16636051456
+  },
+  "corpus": {
+    "name": "fono-fleurs-smoke-v1",
+    "sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2",
+    "utterances": 20,
+    "languages": {
+      "ru": 10,
+      "en": 10
+    },
+    "license": "CC-BY-4.0",
+    "source": "https://huggingface.co/datasets/google/fleurs/blob/437d9e667fa3a2a08a1957f810bf2c3b5050d221/README.md"
+  },
+  "policy": {
+    "backend": "CPU",
+    "whisper": "fast / 8 threads",
+    "sherpa": "greedy / 2 threads (production defaults)",
+    "cold": "same ru-01 before warm series",
+    "order": [
+      {
+        "variant": "v3_e2e_rnnt_int8",
+        "engine": "giga_am"
+      },
+      {
+        "variant": "tdt_0.6b_v3_int8",
+        "engine": "parakeet"
+      },
+      {
+        "engine": "whisper",
+        "variant": "large_turbo"
+      }
+    ],
+    "maximum_model_seconds": 360,
+    "scope": "same production PCM and 25s segmentation; native decode timing excludes preprocessing/model load/LLM/insertion; one sequential run, no statistical speed ranking"
+  },
+  "runs": [
+    {
+      "id": {
+        "variant": "v3_e2e_rnnt_int8",
+        "engine": "giga_am"
+      },
+      "revision": "a6039be7cee829a9044a69ac0ebaf1c191217c97",
+      "artifacts": [
+        {
+          "filename": "tokens.txt",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-transducer-punct-giga-am-v3-russian-2025-12-16/resolve/a6039be7cee829a9044a69ac0ebaf1c191217c97/tokens.txt",
+          "sha256": "39abae20e692998290c574e606f11a9edef2902a1995463fcff63d1490cf22b7",
+          "bytes": 13354
+        },
+        {
+          "filename": "LICENSE",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-transducer-punct-giga-am-v3-russian-2025-12-16/resolve/a6039be7cee829a9044a69ac0ebaf1c191217c97/LICENSE",
+          "sha256": "f00de6715714c7a63d08639cdbfaa40224eefc407302614bd19f1a8b98c875aa",
+          "bytes": 1070
+        },
+        {
+          "filename": "decoder.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-transducer-punct-giga-am-v3-russian-2025-12-16/resolve/a6039be7cee829a9044a69ac0ebaf1c191217c97/decoder.onnx",
+          "sha256": "38fc7475443ea2a26f63211ca350f73ac50fff824ab7a3876ee2bd610c53bbc4",
+          "bytes": 4600132
+        },
+        {
+          "filename": "joiner.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-transducer-punct-giga-am-v3-russian-2025-12-16/resolve/a6039be7cee829a9044a69ac0ebaf1c191217c97/joiner.onnx",
+          "sha256": "602ff7017a93311aad34df1437c8d7f49911353c13d6eae7a6ee7b041339465c",
+          "bytes": 2712896
+        },
+        {
+          "filename": "encoder.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-transducer-punct-giga-am-v3-russian-2025-12-16/resolve/a6039be7cee829a9044a69ac0ebaf1c191217c97/encoder.int8.onnx",
+          "sha256": "369f35a71bf288d3b8e0391fabd8dba5f2314088d440bca474056b7b4b6e66bf",
+          "bytes": 224570820
+        }
+      ],
+      "fingerprint": "decoder.onnx:4600132:38fc7475443ea2a26f63211ca350f73ac50fff824ab7a3876ee2bd610c53bbc4|encoder.int8.onnx:224570820:369f35a71bf288d3b8e0391fabd8dba5f2314088d440bca474056b7b4b6e66bf|joiner.onnx:2712896:602ff7017a93311aad34df1437c8d7f49911353c13d6eae7a6ee7b041339465c|LICENSE:1070:f00de6715714c7a63d08639cdbfaa40224eefc407302614bd19f1a8b98c875aa|tokens.txt:13354:39abae20e692998290c574e606f11a9edef2902a1995463fcff63d1490cf22b7",
+      "languages": [
+        "ru"
+      ],
+      "status": "completed",
+      "summary": {
+        "ru": {
+          "word_errors": 4,
+          "reference_words": 205,
+          "character_errors": 5,
+          "reference_characters": 1463,
+          "warm_seconds": 7.8705951,
+          "audio_seconds": 133.48,
+          "wer": 0.01951219512195122,
+          "cer": 0.003417634996582365,
+          "rtf": 0.058964602187593654,
+          "utterances": 10,
+          "mean_warm_seconds": 0.78705951
+        },
+        "en": null
+      },
+      "entries": [
+        {
+          "audio_seconds": 16.92,
+          "id": "ru-01",
+          "language": "ru",
+          "status": "completed",
+          "text": "В Древнем Китае использовали уникальный способ обозначения периодов времени. Каждый этап Китая или каждая семья, находившаяся у власти, были особой династией.",
+          "warm_seconds": 0.9732004,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 21,
+            "character_errors": 0,
+            "reference_characters": 154,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 11.52,
+          "id": "ru-02",
+          "language": "ru",
+          "status": "completed",
+          "text": "Мадагаскар намного больше других и является самобытным континентом в том, что касается дикой природы.",
+          "warm_seconds": 0.6790836,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 14,
+            "character_errors": 0,
+            "reference_characters": 99,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 8.64,
+          "id": "ru-03",
+          "language": "ru",
+          "status": "completed",
+          "text": "Во всех научных вопросах, включая психологию, были приняты взгляды Аристотеля.",
+          "warm_seconds": 0.5211127,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 10,
+            "character_errors": 0,
+            "reference_characters": 75,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 7.92,
+          "id": "ru-04",
+          "language": "ru",
+          "status": "completed",
+          "text": "В различных местах Рима были установлены большие телевизионные экраны, с помощью которых люди могли наблюдать за церемонией.",
+          "warm_seconds": 0.4949201,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 17,
+            "character_errors": 0,
+            "reference_characters": 122,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 19.44,
+          "id": "ru-05",
+          "language": "ru",
+          "status": "completed",
+          "text": "Причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана Катрина, который некоторые фискальные консерваторы в шутку назвали новоорлианской сделкой Буша.",
+          "warm_seconds": 1.1464424,
+          "errors": {
+            "word_errors": 1,
+            "reference_words": 26,
+            "character_errors": 1,
+            "reference_characters": 221,
+            "wer": 0.038461538461538464,
+            "cer": 0.004524886877828055
+          }
+        },
+        {
+          "audio_seconds": 10.44,
+          "id": "ru-06",
+          "language": "ru",
+          "status": "completed",
+          "text": "В 1990 году он был добавлен в список Всемирного наследия. Находящееся под угрозой из-за опасности со стороны песков пустыни.",
+          "warm_seconds": 0.6203806,
+          "errors": {
+            "word_errors": 1,
+            "reference_words": 20,
+            "character_errors": 2,
+            "reference_characters": 123,
+            "wer": 0.05,
+            "cer": 0.016260162601626018
+          }
+        },
+        {
+          "audio_seconds": 7.2,
+          "id": "ru-07",
+          "language": "ru",
+          "status": "completed",
+          "text": "Согласно ядерному управлению Японии, на заводе были обнаружены радиоактивный цезий и йод.",
+          "warm_seconds": 0.4062134,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 12,
+            "character_errors": 0,
+            "reference_characters": 87,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 27,
+          "id": "ru-08",
+          "language": "ru",
+          "status": "completed",
+          "text": "Надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. Путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ, а также излагать свои собственные взгляды на конкретные вопросы. Аравек 2002.",
+          "warm_seconds": 1.6216355999999998,
+          "errors": {
+            "word_errors": 1,
+            "reference_words": 38,
+            "character_errors": 1,
+            "reference_characters": 286,
+            "wer": 0.02631578947368421,
+            "cer": 0.0034965034965034965
+          }
+        },
+        {
+          "audio_seconds": 11.52,
+          "id": "ru-09",
+          "language": "ru",
+          "status": "completed",
+          "text": "Только мутации в клетках зародышевой линии могут передаваться далее детям. В то время как мутации где-то ещё могут привести к гибели клеток или раку.",
+          "warm_seconds": 0.6877703,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 25,
+            "character_errors": 0,
+            "reference_characters": 147,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 12.88,
+          "id": "ru-10",
+          "language": "ru",
+          "status": "completed",
+          "text": "Не оскверняйте это место, нанося или выцарапывая графити на объекты вокруг. Не оскверняйте это место, нанося или выцарапывая граффити на объекты вокруг.",
+          "warm_seconds": 0.719836,
+          "errors": {
+            "word_errors": 1,
+            "reference_words": 22,
+            "character_errors": 1,
+            "reference_characters": 149,
+            "wer": 0.045454545454545456,
+            "cer": 0.006711409395973154
+          }
+        }
+      ],
+      "input_identity": "97910fa1e1a33e59d8c1cfa949bffb5204bed17100f5537695d60d48b40f00c5",
+      "raw": {
+        "cold": {
+          "id": "ru-01",
+          "seconds": 1.3242762,
+          "text": "В Древнем Китае использовали уникальный способ обозначения периодов времени. Каждый этап Китая или каждая семья, находившаяся у власти, были особой династией."
+        },
+        "completed": true,
+        "corpus_sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2",
+        "device": "CPU",
+        "entries": [
+          {
+            "id": "en-01",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-02",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-03",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-04",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-05",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-06",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-07",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-08",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-09",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "id": "en-10",
+            "language": "en",
+            "status": "unsupported"
+          },
+          {
+            "audio_seconds": 16.92,
+            "id": "ru-01",
+            "language": "ru",
+            "status": "completed",
+            "text": "В Древнем Китае использовали уникальный способ обозначения периодов времени. Каждый этап Китая или каждая семья, находившаяся у власти, были особой династией.",
+            "warm_seconds": 0.9732004
+          },
+          {
+            "audio_seconds": 11.52,
+            "id": "ru-02",
+            "language": "ru",
+            "status": "completed",
+            "text": "Мадагаскар намного больше других и является самобытным континентом в том, что касается дикой природы.",
+            "warm_seconds": 0.6790836
+          },
+          {
+            "audio_seconds": 8.64,
+            "id": "ru-03",
+            "language": "ru",
+            "status": "completed",
+            "text": "Во всех научных вопросах, включая психологию, были приняты взгляды Аристотеля.",
+            "warm_seconds": 0.5211127
+          },
+          {
+            "audio_seconds": 7.92,
+            "id": "ru-04",
+            "language": "ru",
+            "status": "completed",
+            "text": "В различных местах Рима были установлены большие телевизионные экраны, с помощью которых люди могли наблюдать за церемонией.",
+            "warm_seconds": 0.4949201
+          },
+          {
+            "audio_seconds": 19.44,
+            "id": "ru-05",
+            "language": "ru",
+            "status": "completed",
+            "text": "Причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана Катрина, который некоторые фискальные консерваторы в шутку назвали новоорлианской сделкой Буша.",
+            "warm_seconds": 1.1464424
+          },
+          {
+            "audio_seconds": 10.44,
+            "id": "ru-06",
+            "language": "ru",
+            "status": "completed",
+            "text": "В 1990 году он был добавлен в список Всемирного наследия. Находящееся под угрозой из-за опасности со стороны песков пустыни.",
+            "warm_seconds": 0.6203806
+          },
+          {
+            "audio_seconds": 7.2,
+            "id": "ru-07",
+            "language": "ru",
+            "status": "completed",
+            "text": "Согласно ядерному управлению Японии, на заводе были обнаружены радиоактивный цезий и йод.",
+            "warm_seconds": 0.4062134
+          },
+          {
+            "audio_seconds": 27,
+            "id": "ru-08",
+            "language": "ru",
+            "status": "completed",
+            "text": "Надлежащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. Путём активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ, а также излагать свои собственные взгляды на конкретные вопросы. Аравек 2002.",
+            "warm_seconds": 1.6216355999999998
+          },
+          {
+            "audio_seconds": 11.52,
+            "id": "ru-09",
+            "language": "ru",
+            "status": "completed",
+            "text": "Только мутации в клетках зародышевой линии могут передаваться далее детям. В то время как мутации где-то ещё могут привести к гибели клеток или раку.",
+            "warm_seconds": 0.6877703
+          },
+          {
+            "audio_seconds": 12.88,
+            "id": "ru-10",
+            "language": "ru",
+            "status": "completed",
+            "text": "Не оскверняйте это место, нанося или выцарапывая графити на объекты вокруг. Не оскверняйте это место, нанося или выцарапывая граффити на объекты вокруг.",
+            "warm_seconds": 0.719836
+          }
+        ],
+        "model": {
+          "engine": "giga_am",
+          "variant": "v3_e2e_rnnt_int8"
+        },
+        "model_load_seconds": 4.2935321,
+        "policy": {
+          "preprocessing": "production decode_file + Silero admission + full-PCM preparation + shared 25s segmentation",
+          "sherpa_decoding": "greedy_search",
+          "sherpa_threads": 2,
+          "whisper_strategy": "fast",
+          "whisper_threads": 8
+        },
+        "preprocessing": [
+          {
+            "has_speech": true,
+            "id": "en-01",
+            "pcm_sha256": "0529d921fe2b0e39200728e68b214e57d76ebd08f39ae06e4caafe642c897388",
+            "samples": 168960,
+            "seconds": 0.1171686,
+            "segments": [
+              {
+                "end": 26384,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 65296,
+                "forced": false,
+                "start": 26384
+              },
+              {
+                "end": 154896,
+                "forced": false,
+                "start": 65296
+              },
+              {
+                "end": 168960,
+                "forced": false,
+                "start": 154896
+              }
+            ],
+            "source_sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+          },
+          {
+            "has_speech": true,
+            "id": "en-02",
+            "pcm_sha256": "2946f3dc16c1db94e4ad64e5929ae9775cf809d05450c80f79267b1dccf1d0db",
+            "samples": 140160,
+            "seconds": 0.1062652,
+            "segments": [
+              {
+                "end": 96528,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 140160,
+                "forced": false,
+                "start": 96528
+              }
+            ],
+            "source_sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+          },
+          {
+            "has_speech": true,
+            "id": "en-03",
+            "pcm_sha256": "ac952716a273beb237600afe266fe9708c39007f2ba884f55915bfaa135e4f23",
+            "samples": 183360,
+            "seconds": 0.1307898,
+            "segments": [
+              {
+                "end": 103184,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 176912,
+                "forced": false,
+                "start": 103184
+              },
+              {
+                "end": 183360,
+                "forced": false,
+                "start": 176912
+              }
+            ],
+            "source_sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+          },
+          {
+            "has_speech": true,
+            "id": "en-04",
+            "pcm_sha256": "76fad0e37024a92145430f85205266d3e3c4663ee62e25dffaa199fd4c52ffd5",
+            "samples": 92160,
+            "seconds": 0.0718294,
+            "segments": [
+              {
+                "end": 92160,
+                "forced": false,
+                "start": 0
+              }
+            ],
+            "source_sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+          },
+          {
+            "has_speech": true,
+            "id": "en-05",
+            "pcm_sha256": "eca1c4af94264f4a27f6ac0086ea92995b93185f6fad7fe7a05dcd7746b3453d",
+            "samples": 69120,
+            "seconds": 0.0546987,
+            "segments": [
+              {
+                "end": 63760,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 69120,
+                "forced": false,
+                "start": 63760
+              }
+            ],
+            "source_sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+          },
+          {
+            "has_speech": true,
+            "id": "en-06",
+            "pcm_sha256": "dad936550616fb24c72b8e94e557fd6c8b404651a4085f76ce3c84246d2cb09c",
+            "samples": 182720,
+            "seconds": 0.1402173,
+            "segments": [
+              {
+                "end": 66832,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 148240,
+                "forced": false,
+                "start": 66832
+              },
+              {
+                "end": 182720,
+                "forced": false,
+                "start": 148240
+              }
+            ],
+            "source_sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+          },
+          {
+            "has_speech": true,
+            "id": "en-07",
+            "pcm_sha256": "bed6498c965a70c40a12234728c82480d636d5bb5fba78524caed8ff39e31dc8",
+            "samples": 172800,
+            "seconds": 0.1249782,
+            "segments": [
+              {
+                "end": 123152,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 172800,
+                "forced": false,
+                "start": 123152
+              }
+            ],
+            "source_sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+          },
+          {
+            "has_speech": true,
+            "id": "en-08",
+            "pcm_sha256": "c56de3547144d463680a6195b599aa7ce4ce8b1c82600778a375772cf593bb71",
+            "samples": 111360,
+            "seconds": 0.0930485,
+            "segments": [
+              {
+                "end": 111360,
+                "forced": false,
+                "start": 0
+              }
+            ],
+            "source_sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+          },
+          {
+            "has_speech": true,
+            "id": "en-09",
+            "pcm_sha256": "c1a2631b3d524081851731efe1de85aa12f78b126c0043c60f4116c7d1bd2a11",
+            "samples": 176640,
+            "seconds": 0.1278398,
+            "segments": [
+              {
+                "end": 115984,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 176640,
+                "forced": false,
+                "start": 115984
+              }
+            ],
+            "source_sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+          },
+          {
+            "has_speech": true,
+            "id": "en-10",
+            "pcm_sha256": "7242bb35e039bd5721491e1c0c22898d19855b085e167ad1fd0c7a80a7cd6003",
+            "samples": 332800,
+            "seconds": 0.238204,
+            "segments": [
+              {
+                "end": 145168,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 168720,
+                "forced": false,
+                "start": 145168
+              },
+              {
+                "end": 327952,
+                "forced": false,
+                "start": 168720
+              },
+              {
+                "end": 332800,
+                "forced": false,
+                "start": 327952
+              }
+            ],
+            "source_sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-01",
+            "pcm_sha256": "c949af47413001d2729bd23ce22e4fbc21a90262ad7189162c8807d5d10efcab",
+            "samples": 270720,
+            "seconds": 0.2158002,
+            "segments": [
+              {
+                "end": 241936,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 270720,
+                "forced": false,
+                "start": 241936
+              }
+            ],
+            "source_sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-02",
+            "pcm_sha256": "a9b5151ac4614607e863b55f99414dd0b30f1569573a79dc22ef41b71600709d",
+            "samples": 184320,
+            "seconds": 0.1382254,
+            "segments": [
+              {
+                "end": 163600,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 184320,
+                "forced": false,
+                "start": 163600
+              }
+            ],
+            "source_sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-03",
+            "pcm_sha256": "60978082f310d5e22adf49cba2c09ab441fc2904ea6e98f8d1e25c4de65fd551",
+            "samples": 138240,
+            "seconds": 0.1026679,
+            "segments": [
+              {
+                "end": 121616,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 138240,
+                "forced": false,
+                "start": 121616
+              }
+            ],
+            "source_sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-04",
+            "pcm_sha256": "9c432045fecf55b58dc67b0b3e94745e32ec609cb2bc526eb2d5b2ee753fd0be",
+            "samples": 126720,
+            "seconds": 0.085535,
+            "segments": [
+              {
+                "end": 119056,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 126720,
+                "forced": false,
+                "start": 119056
+              }
+            ],
+            "source_sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-05",
+            "pcm_sha256": "98bd613d2959af7dc9a5f0cb45beaed3d3210c02e42039f8c710d6755e1c854f",
+            "samples": 311040,
+            "seconds": 0.267343,
+            "segments": [
+              {
+                "end": 306960,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 311040,
+                "forced": false,
+                "start": 306960
+              }
+            ],
+            "source_sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-06",
+            "pcm_sha256": "648fdb8f99b118870311d5733c5acadaa43e1f006a78816d1676464b2b987c55",
+            "samples": 167040,
+            "seconds": 0.1340524,
+            "segments": [
+              {
+                "end": 83216,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 151312,
+                "forced": false,
+                "start": 83216
+              },
+              {
+                "end": 167040,
+                "forced": false,
+                "start": 151312
+              }
+            ],
+            "source_sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-07",
+            "pcm_sha256": "c8efbdb1456cf03c7eed95a815f913c17a9a33e5e15fa5f93e489545eb9ea370",
+            "samples": 115200,
+            "seconds": 0.0864586,
+            "segments": [
+              {
+                "end": 97040,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 115200,
+                "forced": false,
+                "start": 97040
+              }
+            ],
+            "source_sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-08",
+            "pcm_sha256": "95c3665f1ecdd679191f9e21512695fcc6b1bbb4265f38b35f70c2ed3015a76d",
+            "samples": 432000,
+            "seconds": 0.5134643,
+            "segments": [
+              {
+                "end": 400000,
+                "forced": true,
+                "start": 0
+              },
+              {
+                "end": 420112,
+                "forced": false,
+                "start": 400000
+              },
+              {
+                "end": 432000,
+                "forced": false,
+                "start": 420112
+              }
+            ],
+            "source_sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-09",
+            "pcm_sha256": "c368313f3d7b08d63621ead86c3e921dadffe945b08f67c2fb31ca8f1b701f14",
+            "samples": 184320,
+            "seconds": 0.1312758,
+            "segments": [
+              {
+                "end": 95504,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 165136,
+                "forced": false,
+                "start": 95504
+              },
+              {
+                "end": 184320,
+                "forced": false,
+                "start": 165136
+              }
+            ],
+            "source_sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-10",
+            "pcm_sha256": "058e0cb15a3ce5be1536fbdbb058fd6e285272fed261ce33d5d5bdc94b937672",
+            "samples": 206080,
+            "seconds": 0.1530994,
+            "segments": [
+              {
+                "end": 101648,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 206080,
+                "forced": false,
+                "start": 101648
+              }
+            ],
+            "source_sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+          }
+        ],
+        "profile": "debug",
+        "schema": 1,
+        "vad_sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+      }
+    },
+    {
+      "id": {
+        "variant": "tdt_0.6b_v3_int8",
+        "engine": "parakeet"
+      },
+      "revision": "2bda32ec70b097a55adaa07d9a7173915b43cc78",
+      "artifacts": [
+        {
+          "filename": "tokens.txt",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/tokens.txt",
+          "sha256": "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+          "bytes": 93939
+        },
+        {
+          "filename": "decoder.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/decoder.int8.onnx",
+          "sha256": "179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e",
+          "bytes": 11845275
+        },
+        {
+          "filename": "joiner.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/joiner.int8.onnx",
+          "sha256": "3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3",
+          "bytes": 6355277
+        },
+        {
+          "filename": "encoder.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/encoder.int8.onnx",
+          "sha256": "acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247",
+          "bytes": 652184281
+        }
+      ],
+      "fingerprint": "decoder.int8.onnx:11845275:179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e|encoder.int8.onnx:652184281:acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247|joiner.int8.onnx:6355277:3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3|tokens.txt:93939:d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+      "languages": [
+        "ru",
+        "en",
+        "bg",
+        "hr",
+        "cs",
+        "da",
+        "nl",
+        "et",
+        "fi",
+        "fr",
+        "de",
+        "el",
+        "hu",
+        "it",
+        "lv",
+        "lt",
+        "mt",
+        "uk",
+        "pl",
+        "pt",
+        "ro",
+        "sk",
+        "sl",
+        "es",
+        "sv"
+      ],
+      "status": "completed",
+      "summary": {
+        "ru": {
+          "word_errors": 23,
+          "reference_words": 205,
+          "character_errors": 63,
+          "reference_characters": 1463,
+          "warm_seconds": 11.9830117,
+          "audio_seconds": 133.48,
+          "wer": 0.11219512195121951,
+          "cer": 0.0430622009569378,
+          "rtf": 0.08977383652981721,
+          "utterances": 10,
+          "mean_warm_seconds": 1.1983011700000001
+        },
+        "en": {
+          "word_errors": 38,
+          "reference_words": 245,
+          "character_errors": 175,
+          "reference_characters": 1383,
+          "warm_seconds": 8.7020814,
+          "audio_seconds": 101.87999999999998,
+          "wer": 0.15510204081632653,
+          "cer": 0.1265365148228489,
+          "rtf": 0.08541501177856303,
+          "utterances": 10,
+          "mean_warm_seconds": 0.8702081400000001
+        }
+      },
+      "entries": [
+        {
+          "audio_seconds": 10.56,
+          "id": "en-01",
+          "language": "en",
+          "status": "completed",
+          "text": "Due to the slow communication channels. styles in the West could lag behind by twenty five to thirty years.",
+          "warm_seconds": 0.9088781,
+          "errors": {
+            "word_errors": 5,
+            "reference_words": 19,
+            "character_errors": 26,
+            "reference_characters": 99,
+            "wer": 0.2631578947368421,
+            "cer": 0.26262626262626265
+          }
+        },
+        {
+          "audio_seconds": 8.76,
+          "id": "en-02",
+          "language": "en",
+          "status": "completed",
+          "text": "All nouns alongside the world say for you always begin with a capital letter",
+          "warm_seconds": 0.7288556,
+          "errors": {
+            "word_errors": 9,
+            "reference_words": 21,
+            "character_errors": 36,
+            "reference_characters": 108,
+            "wer": 0.42857142857142855,
+            "cer": 0.3333333333333333
+          }
+        },
+        {
+          "audio_seconds": 11.46,
+          "id": "en-03",
+          "language": "en",
+          "status": "completed",
+          "text": "To the north and within easy reach is the romantic and fascinating town of Sintra and which was made famous. To foreigners after a glowing account of the splinters recorded by Lord Byron.",
+          "warm_seconds": 1.0002315,
+          "errors": {
+            "word_errors": 2,
+            "reference_words": 33,
+            "character_errors": 7,
+            "reference_characters": 186,
+            "wer": 0.06060606060606061,
+            "cer": 0.03763440860215054
+          }
+        },
+        {
+          "audio_seconds": 5.76,
+          "id": "en-04",
+          "language": "en",
+          "status": "completed",
+          "text": "",
+          "warm_seconds": 0.4371415,
+          "errors": {
+            "word_errors": 15,
+            "reference_words": 15,
+            "character_errors": 89,
+            "reference_characters": 89,
+            "wer": 1,
+            "cer": 1
+          }
+        },
+        {
+          "audio_seconds": 4.32,
+          "id": "en-05",
+          "language": "en",
+          "status": "completed",
+          "text": "Many people don't think about them as dinosaurs because they have others and can fly.",
+          "warm_seconds": 0.4073332,
+          "errors": {
+            "word_errors": 1,
+            "reference_words": 16,
+            "character_errors": 3,
+            "reference_characters": 86,
+            "wer": 0.0625,
+            "cer": 0.03488372093023256
+          }
+        },
+        {
+          "audio_seconds": 11.42,
+          "id": "en-06",
+          "language": "en",
+          "status": "completed",
+          "text": "The hospital has followed protocol for infection control. including separating the patient from others to prevent possible infection of others.",
+          "warm_seconds": 0.9653878,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 20,
+            "character_errors": 0,
+            "reference_characters": 141,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 10.8,
+          "id": "en-07",
+          "language": "en",
+          "status": "completed",
+          "text": "The Northern Mariana's Emergency Management Off said that there were no damages reported in the nation.",
+          "warm_seconds": 0.8987773,
+          "errors": {
+            "word_errors": 3,
+            "reference_words": 16,
+            "character_errors": 4,
+            "reference_characters": 104,
+            "wer": 0.1875,
+            "cer": 0.038461538461538464
+          }
+        },
+        {
+          "audio_seconds": 6.96,
+          "id": "en-08",
+          "language": "en",
+          "status": "completed",
+          "text": "Twentieth century research has shown that there are two pools of genetic variation hidden and expressed.",
+          "warm_seconds": 0.5730825,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 16,
+            "character_errors": 0,
+            "reference_characters": 103,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 11.04,
+          "id": "en-09",
+          "language": "en",
+          "status": "completed",
+          "text": "The aspect ratio of this format, dividing by twelve to obtain the simplest whole number ratio. is therefore said to be free to two.",
+          "warm_seconds": 0.9217402,
+          "errors": {
+            "word_errors": 3,
+            "reference_words": 23,
+            "character_errors": 10,
+            "reference_characters": 120,
+            "wer": 0.13043478260869565,
+            "cer": 0.08333333333333333
+          }
+        },
+        {
+          "audio_seconds": 20.8,
+          "id": "en-10",
+          "language": "en",
+          "status": "completed",
+          "text": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+          "warm_seconds": 1.8606536999999999,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 66,
+            "character_errors": 0,
+            "reference_characters": 347,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 16.92,
+          "id": "ru-01",
+          "language": "ru",
+          "status": "completed",
+          "text": "В древнем Китае использовали уникальный способ обозначения периодов времени. Каждые тап Китая или каждая семья, находившаяся у власти, были особой династией.",
+          "warm_seconds": 1.3296033999999999,
+          "errors": {
+            "word_errors": 2,
+            "reference_words": 21,
+            "character_errors": 2,
+            "reference_characters": 154,
+            "wer": 0.09523809523809523,
+            "cer": 0.012987012987012988
+          }
+        },
+        {
+          "audio_seconds": 11.52,
+          "id": "ru-02",
+          "language": "ru",
+          "status": "completed",
+          "text": "Мадагаскар намного больше других и является самобытным континентом в том, что касается дикой природы.",
+          "warm_seconds": 0.9480416,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 14,
+            "character_errors": 0,
+            "reference_characters": 99,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 8.64,
+          "id": "ru-03",
+          "language": "ru",
+          "status": "completed",
+          "text": "Во всех научных вопросах, включая психологию, были приняты взгляды Аристотеля.",
+          "warm_seconds": 0.8038369,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 10,
+            "character_errors": 0,
+            "reference_characters": 75,
+            "wer": 0,
+            "cer": 0
+          }
+        },
+        {
+          "audio_seconds": 7.92,
+          "id": "ru-04",
+          "language": "ru",
+          "status": "completed",
+          "text": "В различных местах Рима были установлены большие телевизионные экраны, с помощью которых люди могли наблюдать за церемониями.",
+          "warm_seconds": 0.7373339,
+          "errors": {
+            "word_errors": 1,
+            "reference_words": 17,
+            "character_errors": 3,
+            "reference_characters": 122,
+            "wer": 0.058823529411764705,
+            "cer": 0.02459016393442623
+          }
+        },
+        {
+          "audio_seconds": 19.44,
+          "id": "ru-05",
+          "language": "ru",
+          "status": "completed",
+          "text": "Причиной дебатов стали разногласия относительно затрат на оказание материально поддержки и восстановление зданий после урагана Катрина, которые некоторые фискальные консерваторы в шутку назвали новоорлианской сделкой буша.",
+          "warm_seconds": 2.017085,
+          "errors": {
+            "word_errors": 3,
+            "reference_words": 26,
+            "character_errors": 3,
+            "reference_characters": 221,
+            "wer": 0.11538461538461539,
+            "cer": 0.013574660633484163
+          }
+        },
+        {
+          "audio_seconds": 10.44,
+          "id": "ru-06",
+          "language": "ru",
+          "status": "completed",
+          "text": "В тысяча девятьсот девяностом году он был добавлен в списку всемирного наследия. находящееся под угрозой из опасности со стороны песков пустыни",
+          "warm_seconds": 0.9534224,
+          "errors": {
+            "word_errors": 6,
+            "reference_words": 20,
+            "character_errors": 34,
+            "reference_characters": 123,
+            "wer": 0.3,
+            "cer": 0.2764227642276423
+          }
+        },
+        {
+          "audio_seconds": 7.2,
+          "id": "ru-07",
+          "language": "ru",
+          "status": "completed",
+          "text": "Согласно ядерному управлению Японие, на заводе были обнаружены радиоактивные Цзи и ют.",
+          "warm_seconds": 0.6512157,
+          "errors": {
+            "word_errors": 4,
+            "reference_words": 12,
+            "character_errors": 7,
+            "reference_characters": 87,
+            "wer": 0.3333333333333333,
+            "cer": 0.08045977011494253
+          }
+        },
+        {
+          "audio_seconds": 27,
+          "id": "ru-08",
+          "language": "ru",
+          "status": "completed",
+          "text": "Належащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. Путем активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ, а также излагать свои собственные взгляды на конкретные вопросы. Разве 2002. Mm-hmm.",
+          "warm_seconds": 2.4975426,
+          "errors": {
+            "word_errors": 5,
+            "reference_words": 38,
+            "character_errors": 12,
+            "reference_characters": 286,
+            "wer": 0.13157894736842105,
+            "cer": 0.04195804195804196
+          }
+        },
+        {
+          "audio_seconds": 11.52,
+          "id": "ru-09",
+          "language": "ru",
+          "status": "completed",
+          "text": "Только мутации в клетках зародышевой линии могут передаваться далее детям. в то время как мутация где-то еще могут привести к гибели клеток или раку.",
+          "warm_seconds": 1.0237668,
+          "errors": {
+            "word_errors": 2,
+            "reference_words": 25,
+            "character_errors": 2,
+            "reference_characters": 147,
+            "wer": 0.08,
+            "cer": 0.013605442176870748
+          }
+        },
+        {
+          "audio_seconds": 12.88,
+          "id": "ru-10",
+          "language": "ru",
+          "status": "completed",
+          "text": "Не оскверняйте это место, нанося или выцарапывая граффити на объекты вокруг. Не оскверняйте это место, нанося или выцарапывая граффити на объекты вокруг.",
+          "warm_seconds": 1.0211634,
+          "errors": {
+            "word_errors": 0,
+            "reference_words": 22,
+            "character_errors": 0,
+            "reference_characters": 149,
+            "wer": 0,
+            "cer": 0
+          }
+        }
+      ],
+      "input_identity": "97910fa1e1a33e59d8c1cfa949bffb5204bed17100f5537695d60d48b40f00c5",
+      "raw": {
+        "cold": {
+          "id": "ru-01",
+          "seconds": 1.4021638,
+          "text": "В древнем Китае использовали уникальный способ обозначения периодов времени. Каждые тап Китая или каждая семья, находившаяся у власти, были особой династией."
+        },
+        "completed": true,
+        "corpus_sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2",
+        "device": "CPU",
+        "entries": [
+          {
+            "audio_seconds": 10.56,
+            "id": "en-01",
+            "language": "en",
+            "status": "completed",
+            "text": "Due to the slow communication channels. styles in the West could lag behind by twenty five to thirty years.",
+            "warm_seconds": 0.9088781
+          },
+          {
+            "audio_seconds": 8.76,
+            "id": "en-02",
+            "language": "en",
+            "status": "completed",
+            "text": "All nouns alongside the world say for you always begin with a capital letter",
+            "warm_seconds": 0.7288556
+          },
+          {
+            "audio_seconds": 11.46,
+            "id": "en-03",
+            "language": "en",
+            "status": "completed",
+            "text": "To the north and within easy reach is the romantic and fascinating town of Sintra and which was made famous. To foreigners after a glowing account of the splinters recorded by Lord Byron.",
+            "warm_seconds": 1.0002315
+          },
+          {
+            "audio_seconds": 5.76,
+            "id": "en-04",
+            "language": "en",
+            "status": "completed",
+            "text": "",
+            "warm_seconds": 0.4371415
+          },
+          {
+            "audio_seconds": 4.32,
+            "id": "en-05",
+            "language": "en",
+            "status": "completed",
+            "text": "Many people don't think about them as dinosaurs because they have others and can fly.",
+            "warm_seconds": 0.4073332
+          },
+          {
+            "audio_seconds": 11.42,
+            "id": "en-06",
+            "language": "en",
+            "status": "completed",
+            "text": "The hospital has followed protocol for infection control. including separating the patient from others to prevent possible infection of others.",
+            "warm_seconds": 0.9653878
+          },
+          {
+            "audio_seconds": 10.8,
+            "id": "en-07",
+            "language": "en",
+            "status": "completed",
+            "text": "The Northern Mariana's Emergency Management Off said that there were no damages reported in the nation.",
+            "warm_seconds": 0.8987773
+          },
+          {
+            "audio_seconds": 6.96,
+            "id": "en-08",
+            "language": "en",
+            "status": "completed",
+            "text": "Twentieth century research has shown that there are two pools of genetic variation hidden and expressed.",
+            "warm_seconds": 0.5730825
+          },
+          {
+            "audio_seconds": 11.04,
+            "id": "en-09",
+            "language": "en",
+            "status": "completed",
+            "text": "The aspect ratio of this format, dividing by twelve to obtain the simplest whole number ratio. is therefore said to be free to two.",
+            "warm_seconds": 0.9217402
+          },
+          {
+            "audio_seconds": 20.8,
+            "id": "en-10",
+            "language": "en",
+            "status": "completed",
+            "text": "As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times. As light pollution in their heyday was not the kind of problem it is today, they are usually located in cities or at campuses easier to reach than those built in modern times.",
+            "warm_seconds": 1.8606536999999999
+          },
+          {
+            "audio_seconds": 16.92,
+            "id": "ru-01",
+            "language": "ru",
+            "status": "completed",
+            "text": "В древнем Китае использовали уникальный способ обозначения периодов времени. Каждые тап Китая или каждая семья, находившаяся у власти, были особой династией.",
+            "warm_seconds": 1.3296033999999999
+          },
+          {
+            "audio_seconds": 11.52,
+            "id": "ru-02",
+            "language": "ru",
+            "status": "completed",
+            "text": "Мадагаскар намного больше других и является самобытным континентом в том, что касается дикой природы.",
+            "warm_seconds": 0.9480416
+          },
+          {
+            "audio_seconds": 8.64,
+            "id": "ru-03",
+            "language": "ru",
+            "status": "completed",
+            "text": "Во всех научных вопросах, включая психологию, были приняты взгляды Аристотеля.",
+            "warm_seconds": 0.8038369
+          },
+          {
+            "audio_seconds": 7.92,
+            "id": "ru-04",
+            "language": "ru",
+            "status": "completed",
+            "text": "В различных местах Рима были установлены большие телевизионные экраны, с помощью которых люди могли наблюдать за церемониями.",
+            "warm_seconds": 0.7373339
+          },
+          {
+            "audio_seconds": 19.44,
+            "id": "ru-05",
+            "language": "ru",
+            "status": "completed",
+            "text": "Причиной дебатов стали разногласия относительно затрат на оказание материально поддержки и восстановление зданий после урагана Катрина, которые некоторые фискальные консерваторы в шутку назвали новоорлианской сделкой буша.",
+            "warm_seconds": 2.017085
+          },
+          {
+            "audio_seconds": 10.44,
+            "id": "ru-06",
+            "language": "ru",
+            "status": "completed",
+            "text": "В тысяча девятьсот девяностом году он был добавлен в списку всемирного наследия. находящееся под угрозой из опасности со стороны песков пустыни",
+            "warm_seconds": 0.9534224
+          },
+          {
+            "audio_seconds": 7.2,
+            "id": "ru-07",
+            "language": "ru",
+            "status": "completed",
+            "text": "Согласно ядерному управлению Японие, на заводе были обнаружены радиоактивные Цзи и ют.",
+            "warm_seconds": 0.6512157
+          },
+          {
+            "audio_seconds": 27,
+            "id": "ru-08",
+            "language": "ru",
+            "status": "completed",
+            "text": "Належащее использование блогов может дать учащимся возможность стать более аналитичными и критичными. Путем активного отклика на интернет-материалы учащиеся могут определять свою позицию в контексте чужих работ, а также излагать свои собственные взгляды на конкретные вопросы. Разве 2002. Mm-hmm.",
+            "warm_seconds": 2.4975426
+          },
+          {
+            "audio_seconds": 11.52,
+            "id": "ru-09",
+            "language": "ru",
+            "status": "completed",
+            "text": "Только мутации в клетках зародышевой линии могут передаваться далее детям. в то время как мутация где-то еще могут привести к гибели клеток или раку.",
+            "warm_seconds": 1.0237668
+          },
+          {
+            "audio_seconds": 12.88,
+            "id": "ru-10",
+            "language": "ru",
+            "status": "completed",
+            "text": "Не оскверняйте это место, нанося или выцарапывая граффити на объекты вокруг. Не оскверняйте это место, нанося или выцарапывая граффити на объекты вокруг.",
+            "warm_seconds": 1.0211634
+          }
+        ],
+        "model": {
+          "engine": "parakeet",
+          "variant": "tdt_0.6b_v3_int8"
+        },
+        "model_load_seconds": 11.8680671,
+        "policy": {
+          "preprocessing": "production decode_file + Silero admission + full-PCM preparation + shared 25s segmentation",
+          "sherpa_decoding": "greedy_search",
+          "sherpa_threads": 2,
+          "whisper_strategy": "fast",
+          "whisper_threads": 8
+        },
+        "preprocessing": [
+          {
+            "has_speech": true,
+            "id": "en-01",
+            "pcm_sha256": "0529d921fe2b0e39200728e68b214e57d76ebd08f39ae06e4caafe642c897388",
+            "samples": 168960,
+            "seconds": 0.1206922,
+            "segments": [
+              {
+                "end": 26384,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 65296,
+                "forced": false,
+                "start": 26384
+              },
+              {
+                "end": 154896,
+                "forced": false,
+                "start": 65296
+              },
+              {
+                "end": 168960,
+                "forced": false,
+                "start": 154896
+              }
+            ],
+            "source_sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+          },
+          {
+            "has_speech": true,
+            "id": "en-02",
+            "pcm_sha256": "2946f3dc16c1db94e4ad64e5929ae9775cf809d05450c80f79267b1dccf1d0db",
+            "samples": 140160,
+            "seconds": 0.0997365,
+            "segments": [
+              {
+                "end": 96528,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 140160,
+                "forced": false,
+                "start": 96528
+              }
+            ],
+            "source_sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+          },
+          {
+            "has_speech": true,
+            "id": "en-03",
+            "pcm_sha256": "ac952716a273beb237600afe266fe9708c39007f2ba884f55915bfaa135e4f23",
+            "samples": 183360,
+            "seconds": 0.1291143,
+            "segments": [
+              {
+                "end": 103184,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 176912,
+                "forced": false,
+                "start": 103184
+              },
+              {
+                "end": 183360,
+                "forced": false,
+                "start": 176912
+              }
+            ],
+            "source_sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+          },
+          {
+            "has_speech": true,
+            "id": "en-04",
+            "pcm_sha256": "76fad0e37024a92145430f85205266d3e3c4663ee62e25dffaa199fd4c52ffd5",
+            "samples": 92160,
+            "seconds": 0.0639768,
+            "segments": [
+              {
+                "end": 92160,
+                "forced": false,
+                "start": 0
+              }
+            ],
+            "source_sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+          },
+          {
+            "has_speech": true,
+            "id": "en-05",
+            "pcm_sha256": "eca1c4af94264f4a27f6ac0086ea92995b93185f6fad7fe7a05dcd7746b3453d",
+            "samples": 69120,
+            "seconds": 0.0513227,
+            "segments": [
+              {
+                "end": 63760,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 69120,
+                "forced": false,
+                "start": 63760
+              }
+            ],
+            "source_sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+          },
+          {
+            "has_speech": true,
+            "id": "en-06",
+            "pcm_sha256": "dad936550616fb24c72b8e94e557fd6c8b404651a4085f76ce3c84246d2cb09c",
+            "samples": 182720,
+            "seconds": 0.1297075,
+            "segments": [
+              {
+                "end": 66832,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 148240,
+                "forced": false,
+                "start": 66832
+              },
+              {
+                "end": 182720,
+                "forced": false,
+                "start": 148240
+              }
+            ],
+            "source_sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+          },
+          {
+            "has_speech": true,
+            "id": "en-07",
+            "pcm_sha256": "bed6498c965a70c40a12234728c82480d636d5bb5fba78524caed8ff39e31dc8",
+            "samples": 172800,
+            "seconds": 0.1221969,
+            "segments": [
+              {
+                "end": 123152,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 172800,
+                "forced": false,
+                "start": 123152
+              }
+            ],
+            "source_sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+          },
+          {
+            "has_speech": true,
+            "id": "en-08",
+            "pcm_sha256": "c56de3547144d463680a6195b599aa7ce4ce8b1c82600778a375772cf593bb71",
+            "samples": 111360,
+            "seconds": 0.0781707,
+            "segments": [
+              {
+                "end": 111360,
+                "forced": false,
+                "start": 0
+              }
+            ],
+            "source_sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+          },
+          {
+            "has_speech": true,
+            "id": "en-09",
+            "pcm_sha256": "c1a2631b3d524081851731efe1de85aa12f78b126c0043c60f4116c7d1bd2a11",
+            "samples": 176640,
+            "seconds": 0.1346164,
+            "segments": [
+              {
+                "end": 115984,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 176640,
+                "forced": false,
+                "start": 115984
+              }
+            ],
+            "source_sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+          },
+          {
+            "has_speech": true,
+            "id": "en-10",
+            "pcm_sha256": "7242bb35e039bd5721491e1c0c22898d19855b085e167ad1fd0c7a80a7cd6003",
+            "samples": 332800,
+            "seconds": 0.2483936,
+            "segments": [
+              {
+                "end": 145168,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 168720,
+                "forced": false,
+                "start": 145168
+              },
+              {
+                "end": 327952,
+                "forced": false,
+                "start": 168720
+              },
+              {
+                "end": 332800,
+                "forced": false,
+                "start": 327952
+              }
+            ],
+            "source_sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-01",
+            "pcm_sha256": "c949af47413001d2729bd23ce22e4fbc21a90262ad7189162c8807d5d10efcab",
+            "samples": 270720,
+            "seconds": 0.2210627,
+            "segments": [
+              {
+                "end": 241936,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 270720,
+                "forced": false,
+                "start": 241936
+              }
+            ],
+            "source_sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-02",
+            "pcm_sha256": "a9b5151ac4614607e863b55f99414dd0b30f1569573a79dc22ef41b71600709d",
+            "samples": 184320,
+            "seconds": 0.1286276,
+            "segments": [
+              {
+                "end": 163600,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 184320,
+                "forced": false,
+                "start": 163600
+              }
+            ],
+            "source_sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-03",
+            "pcm_sha256": "60978082f310d5e22adf49cba2c09ab441fc2904ea6e98f8d1e25c4de65fd551",
+            "samples": 138240,
+            "seconds": 0.0914022,
+            "segments": [
+              {
+                "end": 121616,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 138240,
+                "forced": false,
+                "start": 121616
+              }
+            ],
+            "source_sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-04",
+            "pcm_sha256": "9c432045fecf55b58dc67b0b3e94745e32ec609cb2bc526eb2d5b2ee753fd0be",
+            "samples": 126720,
+            "seconds": 0.0990459,
+            "segments": [
+              {
+                "end": 119056,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 126720,
+                "forced": false,
+                "start": 119056
+              }
+            ],
+            "source_sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-05",
+            "pcm_sha256": "98bd613d2959af7dc9a5f0cb45beaed3d3210c02e42039f8c710d6755e1c854f",
+            "samples": 311040,
+            "seconds": 0.278795,
+            "segments": [
+              {
+                "end": 306960,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 311040,
+                "forced": false,
+                "start": 306960
+              }
+            ],
+            "source_sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-06",
+            "pcm_sha256": "648fdb8f99b118870311d5733c5acadaa43e1f006a78816d1676464b2b987c55",
+            "samples": 167040,
+            "seconds": 0.1261669,
+            "segments": [
+              {
+                "end": 83216,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 151312,
+                "forced": false,
+                "start": 83216
+              },
+              {
+                "end": 167040,
+                "forced": false,
+                "start": 151312
+              }
+            ],
+            "source_sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-07",
+            "pcm_sha256": "c8efbdb1456cf03c7eed95a815f913c17a9a33e5e15fa5f93e489545eb9ea370",
+            "samples": 115200,
+            "seconds": 0.0874794,
+            "segments": [
+              {
+                "end": 97040,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 115200,
+                "forced": false,
+                "start": 97040
+              }
+            ],
+            "source_sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-08",
+            "pcm_sha256": "95c3665f1ecdd679191f9e21512695fcc6b1bbb4265f38b35f70c2ed3015a76d",
+            "samples": 432000,
+            "seconds": 0.489171,
+            "segments": [
+              {
+                "end": 400000,
+                "forced": true,
+                "start": 0
+              },
+              {
+                "end": 420112,
+                "forced": false,
+                "start": 400000
+              },
+              {
+                "end": 432000,
+                "forced": false,
+                "start": 420112
+              }
+            ],
+            "source_sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-09",
+            "pcm_sha256": "c368313f3d7b08d63621ead86c3e921dadffe945b08f67c2fb31ca8f1b701f14",
+            "samples": 184320,
+            "seconds": 0.1273521,
+            "segments": [
+              {
+                "end": 95504,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 165136,
+                "forced": false,
+                "start": 95504
+              },
+              {
+                "end": 184320,
+                "forced": false,
+                "start": 165136
+              }
+            ],
+            "source_sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-10",
+            "pcm_sha256": "058e0cb15a3ce5be1536fbdbb058fd6e285272fed261ce33d5d5bdc94b937672",
+            "samples": 206080,
+            "seconds": 0.1423237,
+            "segments": [
+              {
+                "end": 101648,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 206080,
+                "forced": false,
+                "start": 101648
+              }
+            ],
+            "source_sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+          }
+        ],
+        "profile": "debug",
+        "schema": 1,
+        "vad_sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+      }
+    },
+    {
+      "id": {
+        "engine": "whisper",
+        "variant": "large_turbo"
+      },
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "artifacts": [
+        {
+          "variant": "large_turbo",
+          "filename": "ggml-large-v3-turbo.bin",
+          "bytes": 1624555275,
+          "sha256": "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+          "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo.bin"
+        }
+      ],
+      "fingerprint": "ggml-large-v3-turbo.bin:1624555275:1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+      "languages": [
+        "ru",
+        "en"
+      ],
+      "status": "incomplete",
+      "completed_utterances": 9,
+      "reason": "ETIMEDOUT",
+      "partial_input_identity": "97910fa1e1a33e59d8c1cfa949bffb5204bed17100f5537695d60d48b40f00c5",
+      "partial_raw": {
+        "cold": {
+          "id": "ru-01",
+          "seconds": 30.4003738,
+          "text": "В Древнем Китае использовали уникальный способ обозначения периодов времени. Каждый этап Китая или каждая семья, находившаяся у власти, были особой династией. Спасибо."
+        },
+        "completed": false,
+        "corpus_sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2",
+        "device": "CPU",
+        "entries": [
+          {
+            "audio_seconds": 10.56,
+            "id": "en-01",
+            "language": "en",
+            "status": "completed",
+            "text": "However, Due to the slow communication channels, styles in the West could lag behind by 25 to 30 years. Okay.",
+            "warm_seconds": 59.2688861
+          },
+          {
+            "audio_seconds": 8.76,
+            "id": "en-02",
+            "language": "en",
+            "status": "completed",
+            "text": "All nouns alongside the world say for you always begin with a capital letter even in the middle of a sentence.",
+            "warm_seconds": 28.6572825
+          },
+          {
+            "audio_seconds": 11.46,
+            "id": "en-03",
+            "language": "en",
+            "status": "completed",
+            "text": "To the north and within easy reach is the romantic and fascinating town of Sintra and which was made famous to foreigners after a glowing account of its splendorous recorded by Lord Byron. Thank you.",
+            "warm_seconds": 44.5430335
+          },
+          {
+            "audio_seconds": 5.76,
+            "id": "en-04",
+            "language": "en",
+            "status": "completed",
+            "text": "The cabbage juice changes color depending on how acidic, basic, alkaline the chemical is.",
+            "warm_seconds": 14.5038152
+          },
+          {
+            "audio_seconds": 4.32,
+            "id": "en-05",
+            "language": "en",
+            "status": "completed",
+            "text": "Many people don't think about them as dinosaurs because they have feathers and can fly. Thank you.",
+            "warm_seconds": 29.5828832
+          },
+          {
+            "audio_seconds": 11.42,
+            "id": "en-06",
+            "language": "en",
+            "status": "completed",
+            "text": "The hospital has followed protocol for infection control. including separating the patient from others to prevent possible infection, of others.",
+            "warm_seconds": 44.8577323
+          },
+          {
+            "audio_seconds": 10.8,
+            "id": "en-07",
+            "language": "en",
+            "status": "completed",
+            "text": "The Northern Marianas Emergency Management Office said that there were no damages reported in the nation. Thank you.",
+            "warm_seconds": 28.1137431
+          },
+          {
+            "audio_seconds": 6.96,
+            "id": "en-08",
+            "language": "en",
+            "status": "completed",
+            "text": "20th century research has shown that there are two pools of genetic variation hidden and expressed.",
+            "warm_seconds": 14.2567744
+          },
+          {
+            "audio_seconds": 11.04,
+            "id": "en-09",
+            "language": "en",
+            "status": "completed",
+            "text": "The aspect ratio of this format, dividing by 12 to obtain the simplest whole number ratio, is therefore said to be free to two.",
+            "warm_seconds": 28.7066485
+          }
+        ],
+        "model": {
+          "engine": "whisper",
+          "variant": "large_turbo"
+        },
+        "model_load_seconds": 1.5428281,
+        "policy": {
+          "preprocessing": "production decode_file + Silero admission + full-PCM preparation + shared 25s segmentation",
+          "sherpa_decoding": "greedy_search",
+          "sherpa_threads": 2,
+          "whisper_strategy": "fast",
+          "whisper_threads": 8
+        },
+        "preprocessing": [
+          {
+            "has_speech": true,
+            "id": "en-01",
+            "pcm_sha256": "0529d921fe2b0e39200728e68b214e57d76ebd08f39ae06e4caafe642c897388",
+            "samples": 168960,
+            "seconds": 0.1133761,
+            "segments": [
+              {
+                "end": 26384,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 65296,
+                "forced": false,
+                "start": 26384
+              },
+              {
+                "end": 154896,
+                "forced": false,
+                "start": 65296
+              },
+              {
+                "end": 168960,
+                "forced": false,
+                "start": 154896
+              }
+            ],
+            "source_sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7"
+          },
+          {
+            "has_speech": true,
+            "id": "en-02",
+            "pcm_sha256": "2946f3dc16c1db94e4ad64e5929ae9775cf809d05450c80f79267b1dccf1d0db",
+            "samples": 140160,
+            "seconds": 0.1009563,
+            "segments": [
+              {
+                "end": 96528,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 140160,
+                "forced": false,
+                "start": 96528
+              }
+            ],
+            "source_sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f"
+          },
+          {
+            "has_speech": true,
+            "id": "en-03",
+            "pcm_sha256": "ac952716a273beb237600afe266fe9708c39007f2ba884f55915bfaa135e4f23",
+            "samples": 183360,
+            "seconds": 0.1355487,
+            "segments": [
+              {
+                "end": 103184,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 176912,
+                "forced": false,
+                "start": 103184
+              },
+              {
+                "end": 183360,
+                "forced": false,
+                "start": 176912
+              }
+            ],
+            "source_sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6"
+          },
+          {
+            "has_speech": true,
+            "id": "en-04",
+            "pcm_sha256": "76fad0e37024a92145430f85205266d3e3c4663ee62e25dffaa199fd4c52ffd5",
+            "samples": 92160,
+            "seconds": 0.070793,
+            "segments": [
+              {
+                "end": 92160,
+                "forced": false,
+                "start": 0
+              }
+            ],
+            "source_sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c"
+          },
+          {
+            "has_speech": true,
+            "id": "en-05",
+            "pcm_sha256": "eca1c4af94264f4a27f6ac0086ea92995b93185f6fad7fe7a05dcd7746b3453d",
+            "samples": 69120,
+            "seconds": 0.0545437,
+            "segments": [
+              {
+                "end": 63760,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 69120,
+                "forced": false,
+                "start": 63760
+              }
+            ],
+            "source_sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82"
+          },
+          {
+            "has_speech": true,
+            "id": "en-06",
+            "pcm_sha256": "dad936550616fb24c72b8e94e557fd6c8b404651a4085f76ce3c84246d2cb09c",
+            "samples": 182720,
+            "seconds": 0.125721,
+            "segments": [
+              {
+                "end": 66832,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 148240,
+                "forced": false,
+                "start": 66832
+              },
+              {
+                "end": 182720,
+                "forced": false,
+                "start": 148240
+              }
+            ],
+            "source_sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b"
+          },
+          {
+            "has_speech": true,
+            "id": "en-07",
+            "pcm_sha256": "bed6498c965a70c40a12234728c82480d636d5bb5fba78524caed8ff39e31dc8",
+            "samples": 172800,
+            "seconds": 0.1173991,
+            "segments": [
+              {
+                "end": 123152,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 172800,
+                "forced": false,
+                "start": 123152
+              }
+            ],
+            "source_sha256": "b804e68fee5b002c5a6942a4dbefe4dba14b3f816e07404c80ee508527ecf956"
+          },
+          {
+            "has_speech": true,
+            "id": "en-08",
+            "pcm_sha256": "c56de3547144d463680a6195b599aa7ce4ce8b1c82600778a375772cf593bb71",
+            "samples": 111360,
+            "seconds": 0.0770306,
+            "segments": [
+              {
+                "end": 111360,
+                "forced": false,
+                "start": 0
+              }
+            ],
+            "source_sha256": "899c16b5281540a6c11f9365c6f0d6a0dae27c01df5c4b151db8bbf95898333c"
+          },
+          {
+            "has_speech": true,
+            "id": "en-09",
+            "pcm_sha256": "c1a2631b3d524081851731efe1de85aa12f78b126c0043c60f4116c7d1bd2a11",
+            "samples": 176640,
+            "seconds": 0.1257329,
+            "segments": [
+              {
+                "end": 115984,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 176640,
+                "forced": false,
+                "start": 115984
+              }
+            ],
+            "source_sha256": "409f227a6a0d463314a5b138931d658c69377b1684a134f2459aa698eb0fc8cd"
+          },
+          {
+            "has_speech": true,
+            "id": "en-10",
+            "pcm_sha256": "7242bb35e039bd5721491e1c0c22898d19855b085e167ad1fd0c7a80a7cd6003",
+            "samples": 332800,
+            "seconds": 0.2585872,
+            "segments": [
+              {
+                "end": 145168,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 168720,
+                "forced": false,
+                "start": 145168
+              },
+              {
+                "end": 327952,
+                "forced": false,
+                "start": 168720
+              },
+              {
+                "end": 332800,
+                "forced": false,
+                "start": 327952
+              }
+            ],
+            "source_sha256": "a840d43a4a9eed8fe6a058f189d9ce2faed94f74e968186a7688fbd16ec0a532"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-01",
+            "pcm_sha256": "c949af47413001d2729bd23ce22e4fbc21a90262ad7189162c8807d5d10efcab",
+            "samples": 270720,
+            "seconds": 0.1948265,
+            "segments": [
+              {
+                "end": 241936,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 270720,
+                "forced": false,
+                "start": 241936
+              }
+            ],
+            "source_sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-02",
+            "pcm_sha256": "a9b5151ac4614607e863b55f99414dd0b30f1569573a79dc22ef41b71600709d",
+            "samples": 184320,
+            "seconds": 0.1296788,
+            "segments": [
+              {
+                "end": 163600,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 184320,
+                "forced": false,
+                "start": 163600
+              }
+            ],
+            "source_sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-03",
+            "pcm_sha256": "60978082f310d5e22adf49cba2c09ab441fc2904ea6e98f8d1e25c4de65fd551",
+            "samples": 138240,
+            "seconds": 0.1137745,
+            "segments": [
+              {
+                "end": 121616,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 138240,
+                "forced": false,
+                "start": 121616
+              }
+            ],
+            "source_sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-04",
+            "pcm_sha256": "9c432045fecf55b58dc67b0b3e94745e32ec609cb2bc526eb2d5b2ee753fd0be",
+            "samples": 126720,
+            "seconds": 0.0921195,
+            "segments": [
+              {
+                "end": 119056,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 126720,
+                "forced": false,
+                "start": 119056
+              }
+            ],
+            "source_sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-05",
+            "pcm_sha256": "98bd613d2959af7dc9a5f0cb45beaed3d3210c02e42039f8c710d6755e1c854f",
+            "samples": 311040,
+            "seconds": 0.3047935,
+            "segments": [
+              {
+                "end": 306960,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 311040,
+                "forced": false,
+                "start": 306960
+              }
+            ],
+            "source_sha256": "43b6f12adb981e475616d3b0bab463e003abbdae52be2eb4102e169e3f9c8db0"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-06",
+            "pcm_sha256": "648fdb8f99b118870311d5733c5acadaa43e1f006a78816d1676464b2b987c55",
+            "samples": 167040,
+            "seconds": 0.1278085,
+            "segments": [
+              {
+                "end": 83216,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 151312,
+                "forced": false,
+                "start": 83216
+              },
+              {
+                "end": 167040,
+                "forced": false,
+                "start": 151312
+              }
+            ],
+            "source_sha256": "ad65e1b5b8a7ad293229e7158f6e58846a892e941d7e05832c75ee37e8e2a4c8"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-07",
+            "pcm_sha256": "c8efbdb1456cf03c7eed95a815f913c17a9a33e5e15fa5f93e489545eb9ea370",
+            "samples": 115200,
+            "seconds": 0.089363,
+            "segments": [
+              {
+                "end": 97040,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 115200,
+                "forced": false,
+                "start": 97040
+              }
+            ],
+            "source_sha256": "f0ec0bfa961649fd7f401e59fb58a4840c322114cb1e78a307bbdc83769d70b8"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-08",
+            "pcm_sha256": "95c3665f1ecdd679191f9e21512695fcc6b1bbb4265f38b35f70c2ed3015a76d",
+            "samples": 432000,
+            "seconds": 0.5171152,
+            "segments": [
+              {
+                "end": 400000,
+                "forced": true,
+                "start": 0
+              },
+              {
+                "end": 420112,
+                "forced": false,
+                "start": 400000
+              },
+              {
+                "end": 432000,
+                "forced": false,
+                "start": 420112
+              }
+            ],
+            "source_sha256": "08e24f213b5ed7bf5851c8dcfcd6c496b380fef7bccde8531311e8a104bfb344"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-09",
+            "pcm_sha256": "c368313f3d7b08d63621ead86c3e921dadffe945b08f67c2fb31ca8f1b701f14",
+            "samples": 184320,
+            "seconds": 0.1304222,
+            "segments": [
+              {
+                "end": 95504,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 165136,
+                "forced": false,
+                "start": 95504
+              },
+              {
+                "end": 184320,
+                "forced": false,
+                "start": 165136
+              }
+            ],
+            "source_sha256": "0e6671664365b0400c894b24133acaea72262f6d30dab571d7a9694dde21d588"
+          },
+          {
+            "has_speech": true,
+            "id": "ru-10",
+            "pcm_sha256": "058e0cb15a3ce5be1536fbdbb058fd6e285272fed261ce33d5d5bdc94b937672",
+            "samples": 206080,
+            "seconds": 0.1418794,
+            "segments": [
+              {
+                "end": 101648,
+                "forced": false,
+                "start": 0
+              },
+              {
+                "end": 206080,
+                "forced": false,
+                "start": 101648
+              }
+            ],
+            "source_sha256": "73e51749c259fc7b77939f5329cdda92a77cf68c4b800aa434b6e46a39c7cfbb"
+          }
+        ],
+        "profile": "debug",
+        "schema": 1,
+        "vad_sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+      }
+    }
+  ],
+  "same_preprocessing": true,
+  "completed": false,
+  "completed_at": "2026-10-19T10:19:39.243Z",
+  "export_verification": {
+    "collector_sha256": "4f0a40016ebb9af2d4223336c890cac8a241627ef30381a9c0d9a4ea2fac7844",
+    "exporter_sha256": "6fbb501a6b5f793751e3451ee905bfe077549d28008882d96d5a3110e4acb2ca",
+    "recomputed_completed_models": true
+  }
+}
