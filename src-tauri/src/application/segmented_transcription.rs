@@ -58,13 +58,7 @@ pub fn transcribe_segments(
         }
         backend = Some(result.backend);
         combined.backend = result.backend;
-        let text = result.text.trim();
-        if !text.is_empty() {
-            if !combined.text.is_empty() && !text.starts_with(['.', ',', '!', '?', ':', ';']) {
-                combined.text.push(' ');
-            }
-            combined.text.push_str(text);
-        }
+        append_text(&mut combined.text, &result.text);
         combined.transcribe_secs += result.transcribe_secs;
         if combined.detected_language.is_none() {
             combined.detected_language = result.detected_language;
@@ -73,6 +67,17 @@ pub fn transcribe_segments(
         combined.words.extend(result.words);
     }
     Ok(combined)
+}
+
+pub(crate) fn append_text(combined: &mut String, text: &str) {
+    let text = text.trim();
+    if text.is_empty() {
+        return;
+    }
+    if !combined.is_empty() && !text.starts_with(['.', ',', '!', '?', ':', ';']) {
+        combined.push(' ');
+    }
+    combined.push_str(text);
 }
 
 #[cfg(test)]

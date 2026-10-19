@@ -79,10 +79,15 @@ fn capture_consumer_keeps_an_ordered_private_prefix_and_leaves_the_tail_to_stop(
     let original_length = pipeline.recording_end() as usize;
     let (calls_tx, calls_rx) = mpsc::channel();
     assert!(pipeline
-        .start_capture_segments_for(operation, vad_path(), 0, move |samples, start, _| {
-            calls_tx.send(start).unwrap();
-            Ok(transcript(samples.len(), "phrase"))
-        })
+        .start_capture_segments_for(
+            operation,
+            vad_path(),
+            0,
+            move |samples, start, context, _| {
+                calls_tx.send((start, context.map(str::to_owned))).unwrap();
+                Ok(transcript(samples.len(), "phrase"))
+            }
+        )
         .unwrap());
     wait_until(|| pipeline.completed_capture_segments_for(operation) == Some(2));
     assert!(
@@ -112,7 +117,10 @@ fn capture_consumer_keeps_an_ordered_private_prefix_and_leaves_the_tail_to_stop(
     assert!(batch.processed_until < captured.len());
     assert_eq!(
         calls_rx.try_iter().collect::<Vec<_>>(),
-        vec![0, batch.results[1].range.start as u64]
+        vec![
+            (0, None),
+            (batch.results[1].range.start as u64, Some("phrase".into()))
+        ]
     );
 }
 
@@ -130,7 +138,7 @@ fn an_interactive_request_retries_only_the_uncommitted_capture_segment() {
             operation,
             vad_path(),
             0,
-            move |samples, start, cancellation| {
+            move |samples, start, _, cancellation| {
                 let attempt = {
                     let mut values = observed.lock();
                     values.push(start);
@@ -175,7 +183,7 @@ fn cancelled_non_cooperative_work_keeps_admission_and_cannot_publish_to_a_new_ca
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     pipeline
-        .start_capture_segments_for(old, vad_path(), 0, move |samples, _, _| {
+        .start_capture_segments_for(old, vad_path(), 0, move |samples, _, _, _| {
             started_tx.send(()).unwrap();
             release_rx.recv_timeout(Duration::from_secs(10)).unwrap();
             Ok(transcript(samples.len(), "obsolete"))
@@ -229,15 +237,20 @@ fn stop_preempts_an_unfinished_window_and_returns_only_the_committed_prefix() {
     let (started_tx, started_rx) = mpsc::channel();
     let mut calls = 0;
     pipeline
-        .start_capture_segments_for(operation, vad_path(), 0, move |samples, _, cancellation| {
-            calls += 1;
-            if calls == 2 {
-                started_tx.send(()).unwrap();
-                wait_until(|| cancellation.is_cancelled());
-                return Ok(transcript(samples.len(), "late result"));
-            }
-            Ok(transcript(samples.len(), "ready prefix"))
-        })
+        .start_capture_segments_for(
+            operation,
+            vad_path(),
+            0,
+            move |samples, _, _, cancellation| {
+                calls += 1;
+                if calls == 2 {
+                    started_tx.send(()).unwrap();
+                    wait_until(|| cancellation.is_cancelled());
+                    return Ok(transcript(samples.len(), "late result"));
+                }
+                Ok(transcript(samples.len(), "ready prefix"))
+            },
+        )
         .unwrap();
     started_rx.recv_timeout(Duration::from_secs(10)).unwrap();
     pipeline.stop_recording_for(operation).unwrap();
@@ -269,7 +282,7 @@ fn forced_silence_ranges_never_reach_stt() {
         .start_recording_from(None, OperationSource::Ui)
         .unwrap();
     pipeline
-        .start_capture_segments_for(operation, vad_path(), 0, |_, _, _| {
+        .start_capture_segments_for(operation, vad_path(), 0, |_, _, _, _| {
             panic!("silence must be rejected before STT")
         })
         .unwrap();
@@ -292,7 +305,7 @@ fn an_oversized_result_leaves_its_pcm_for_the_stop_fallback() {
         .start_recording_from(None, OperationSource::Ui)
         .unwrap();
     pipeline
-        .start_capture_segments_for(operation, vad_path(), 0, |samples, _, _| {
+        .start_capture_segments_for(operation, vad_path(), 0, |samples, _, _, _| {
             Ok(transcript(samples.len(), &"x".repeat(MAX_TEXT_BYTES + 1)))
         })
         .unwrap();
@@ -323,7 +336,7 @@ fn a_dropped_stop_waiter_keeps_its_actual_worker_slot_until_backend_exit() {
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     pipeline
-        .start_capture_segments_for(old, vad_path(), 0, move |samples, _, _| {
+        .start_capture_segments_for(old, vad_path(), 0, move |samples, _, _, _| {
             started_tx.send(()).unwrap();
             release_rx.recv_timeout(Duration::from_secs(10)).unwrap();
             Ok(transcript(samples.len(), "late"))
@@ -337,7 +350,7 @@ fn a_dropped_stop_waiter_keeps_its_actual_worker_slot_until_backend_exit() {
         .start_recording_from(None, OperationSource::Hotkey)
         .unwrap();
     pipeline
-        .start_capture_segments_for(current, vad_path(), 0, |_, _, _| {
+        .start_capture_segments_for(current, vad_path(), 0, |_, _, _, _| {
             panic!("second capture must wait for the actual backend")
         })
         .unwrap();
@@ -351,6 +364,7 @@ fn a_dropped_stop_waiter_keeps_its_actual_worker_slot_until_backend_exit() {
     // continues to count against the bound. No third worker may be spawned.
     let extra = CaptureSegmentInput {
         operation: current + 1,
+        profile: CaptureSegmentProfile::from(&crate::types::Settings::default()),
         cancellation: OperationCancellation::default(),
         writer: pipeline.writer.lock().as_ref().unwrap().clone(),
         scheduler: pipeline.scheduler(),
@@ -360,7 +374,7 @@ fn a_dropped_stop_waiter_keeps_its_actual_worker_slot_until_backend_exit() {
     assert!(matches!(
         pipeline.capture_segments.start(
             extra,
-            |_, _, _| { panic!("worker capacity must be checked before spawning") },
+            |_, _, _, _| { panic!("worker capacity must be checked before spawning") },
             activity::lease().unwrap()
         ),
         Err(AppError::Busy(_))

@@ -7,6 +7,8 @@ use crate::{
 };
 use fono_core::OperationCancellation;
 use tauri::Manager;
+#[cfg(feature = "speech-vad")]
+mod segments;
 
 async fn await_task<T: Send + 'static>(
     task: tauri::async_runtime::JoinHandle<AppResult<T>>,
@@ -62,6 +64,46 @@ pub(super) async fn run_measured(
     report: Option<&crate::application::diagnostic_report::telemetry::ReportTrace>,
 ) -> AppResult<Option<Transcript>> {
     use crate::application::diagnostic_report::telemetry::ReportStage;
+    let samples = std::sync::Arc::new(samples);
+    #[cfg(feature = "speech-vad")]
+    {
+        let _timer = report.map(|trace| trace.stage(ReportStage::Recognition));
+        let prefix = segments::collect(session).await?;
+        if session.cancellation.is_cancelled()
+            || !session.active("after capture segment completion")
+        {
+            return Ok(None);
+        }
+        if let Some(prefix) = prefix {
+            if super::segment_completion::validate_prefix(
+                session.operation,
+                &session.settings,
+                samples.len(),
+                &prefix,
+            )
+            .is_ok()
+            {
+                match segments::run(session, samples.clone(), prefix).await {
+                    Ok(result) => return Ok(result),
+                    Err(_)
+                        if session.cancellation.is_cancelled()
+                            || !session.active("segmented Stop interrupted") =>
+                    {
+                        return Ok(None)
+                    }
+                    Err(_) => tracing::warn!(
+                        operation = session.operation,
+                        "segmented Stop failed; using complete recording"
+                    ),
+                }
+            } else {
+                tracing::warn!(
+                    operation = session.operation,
+                    "capture prefix rejected; using complete recording"
+                );
+            }
+        }
+    }
     let loaded = {
         let _timer = report.map(|trace| trace.stage(ReportStage::ModelLoad));
         load(session).await?

@@ -10,6 +10,8 @@ mod outcome;
 mod postprocess;
 mod processing_test;
 mod recognition;
+#[cfg(feature = "speech-vad")]
+mod segment_completion;
 mod standard;
 pub(crate) mod workflow;
 

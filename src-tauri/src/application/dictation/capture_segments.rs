@@ -30,12 +30,16 @@ fn start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool
         operation,
         vad_path,
         START_AFTER_SAMPLES,
-        move |samples, start, cancellation| {
+        move |samples, start, context, cancellation| {
             stt.ensure_model_loaded(&model, settings.acceleration, &workers, cancellation)?;
+            let context = context.filter(|_| {
+                stt.capabilities()
+                    .is_some_and(|capabilities| capabilities.initial_prompt)
+            });
             stt.transcribe_window_with_options(
                 samples,
                 &settings.language,
-                None,
+                context,
                 operation,
                 cancellation,
                 start,

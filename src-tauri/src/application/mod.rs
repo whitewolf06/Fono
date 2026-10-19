@@ -31,6 +31,8 @@ pub mod speech_analysis_queue;
 pub mod speech_gate;
 pub(crate) mod trainer_ai;
 pub(crate) mod trainer_report;
+#[cfg(feature = "speech-vad")]
+pub(crate) mod transcription_context;
 pub mod transcription_contract;
 pub mod transcription_jobs;
 pub mod transcription_service;

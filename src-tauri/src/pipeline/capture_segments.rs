@@ -28,6 +28,25 @@ const MAX_TASKS: usize = 2;
 const MAX_RESULTS: usize = 512;
 const MAX_TEXT_BYTES: usize = 256 * 1024;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureSegmentProfile {
+    model: Option<crate::types::SttModelSelection>,
+    acceleration: crate::types::AccelerationMode,
+    language: String,
+    decoding: fono_stt_protocol::DecodingOptions,
+}
+
+impl From<&crate::types::Settings> for CaptureSegmentProfile {
+    fn from(settings: &crate::types::Settings) -> Self {
+        Self {
+            model: settings.selected_stt_model(),
+            acceleration: settings.acceleration,
+            language: settings.language.clone(),
+            decoding: settings.decoding_options(),
+        }
+    }
+}
+
 pub struct CaptureSegmentResult {
     pub operation_id: u64,
     pub index: usize,
@@ -38,6 +57,7 @@ pub struct CaptureSegmentResult {
 
 pub struct CaptureSegmentBatch {
     pub operation_id: u64,
+    pub profile: CaptureSegmentProfile,
     pub results: Vec<CaptureSegmentResult>,
     /// Everything from this offset onward still belongs to Stop.
     pub processed_until: usize,
@@ -100,7 +120,7 @@ impl CaptureSegments {
     pub(super) fn start(
         &self,
         input: CaptureSegmentInput,
-        recognize: impl FnMut(&[i16], u64, &OperationCancellation) -> AppResult<WindowTranscript>
+        recognize: impl FnMut(&[i16], u64, Option<&str>, &OperationCancellation) -> AppResult<WindowTranscript>
             + Send
             + 'static,
         activity: ActivityLease<'static>,
@@ -159,6 +179,7 @@ impl CaptureSegments {
 
 pub(super) struct CaptureSegmentInput {
     pub operation: u64,
+    pub profile: CaptureSegmentProfile,
     pub cancellation: OperationCancellation,
     pub writer: RecordingWriter,
     pub scheduler: Arc<SttScheduler>,
@@ -169,11 +190,17 @@ pub(super) struct CaptureSegmentInput {
 fn run(
     input: CaptureSegmentInput,
     stop: OperationCancellation,
-    mut recognize: impl FnMut(&[i16], u64, &OperationCancellation) -> AppResult<WindowTranscript>,
+    mut recognize: impl FnMut(
+        &[i16],
+        u64,
+        Option<&str>,
+        &OperationCancellation,
+    ) -> AppResult<WindowTranscript>,
     completed: Arc<AtomicUsize>,
 ) -> AppResult<CaptureSegmentBatch> {
     let mut batch = CaptureSegmentBatch {
         operation_id: input.operation,
+        profile: input.profile.clone(),
         results: Vec::new(),
         processed_until: 0,
     };
@@ -184,6 +211,7 @@ fn run(
         StreamingSpeechVad::new(&input.vad_path).map_err(|e| AppError::Stt(e.to_string()))?;
     let mut cursor = 0;
     let mut text_bytes = 0;
+    let mut context = String::new();
     loop {
         if input.cancellation.is_cancelled() {
             return Err(AppError::Cancelled("capture cancelled".into()));
@@ -245,6 +273,7 @@ fn run(
                 let result = recognize(
                     &segment.samples,
                     segment.range.start as u64,
+                    crate::application::transcription_context::bounded(&context),
                     &permit.cancellation,
                 );
                 let preempted = permit.cancellation.is_cancelled();
@@ -271,6 +300,11 @@ fn run(
         if cancelled.is_cancelled() {
             continue;
         }
+        if let Some(result) = &transcript {
+            if let Some(value) = crate::application::transcription_context::bounded(&result.text) {
+                context = value.to_owned();
+            }
+        }
         batch.processed_until = segment.range.end;
         batch.results.push(CaptureSegmentResult {
             operation_id: input.operation,
@@ -288,7 +322,7 @@ impl super::Pipeline {
         operation: u64,
         vad_path: PathBuf,
         start_after_samples: usize,
-        recognize: impl FnMut(&[i16], u64, &OperationCancellation) -> AppResult<WindowTranscript>
+        recognize: impl FnMut(&[i16], u64, Option<&str>, &OperationCancellation) -> AppResult<WindowTranscript>
             + Send
             + 'static,
     ) -> AppResult<bool> {
@@ -315,6 +349,9 @@ impl super::Pipeline {
         self.capture_segments.start(
             CaptureSegmentInput {
                 operation,
+                profile: CaptureSegmentProfile::from(
+                    &self.session_settings_for(operation).unwrap_or_default(),
+                ),
                 cancellation,
                 writer,
                 scheduler: self.scheduler(),
