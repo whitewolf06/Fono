@@ -3,7 +3,7 @@ use super::*;
 pub(super) enum EngineState {
     Empty,
     Embedded {
-        engine: Arc<Mutex<EmbeddedEngine>>,
+        engine: Arc<EmbeddedRecognizer>,
         device: &'static str,
         model_path: String,
         use_gpu: bool,
@@ -40,11 +40,19 @@ pub(super) type SttReadinessObserver = Arc<dyn Fn(SttReadiness) + Send + Sync>;
 
 #[derive(Clone)]
 pub(super) enum ActiveEngine {
-    Embedded(Arc<Mutex<EmbeddedEngine>>),
+    Embedded(Arc<EmbeddedRecognizer>),
     Worker(Arc<WorkerMailbox>),
 }
 
 impl EngineState {
+    pub(super) fn model(&self) -> Option<&ModelId> {
+        use super::recognizer::Recognizer;
+        match self {
+            Self::Empty => None,
+            Self::Embedded { engine, .. } => Some(engine.model()),
+            Self::Worker { session, .. } => Some(session.model()),
+        }
+    }
     pub(super) fn compatible(&self, model_path: &str, candidate: &EngineCandidate) -> bool {
         match (self, candidate) {
             (
@@ -93,57 +101,11 @@ impl EngineState {
 }
 
 impl ActiveEngine {
-    pub(super) fn transcribe(
-        &self,
-        samples: &[i16],
-        language: &str,
-        decoding: fono_stt_protocol::DecodingOptions,
-    ) -> AppResult<Transcript> {
+    pub(super) fn recognizer(&self) -> &dyn super::recognizer::Recognizer {
         match self {
-            Self::Embedded(engine) => engine.lock().transcribe(
-                samples,
-                language,
-                &OperationCancellation::default(),
-                decoding,
-            ),
-            Self::Worker(session) => session.transcribe_cancellable_with_options(
-                samples,
-                language,
-                &OperationCancellation::default(),
-                decoding,
-            ),
+            Self::Embedded(engine) => engine.as_ref(),
+            Self::Worker(session) => session.as_ref(),
         }
-    }
-
-    pub(super) fn transcribe_cancellable(
-        &self,
-        samples: &[i16],
-        language: &str,
-        cancellation: &OperationCancellation,
-        decoding: fono_stt_protocol::DecodingOptions,
-    ) -> AppResult<Transcript> {
-        if cancellation.is_cancelled() {
-            return Err(AppError::Cancelled(
-                "STT request cancelled before start".into(),
-            ));
-        }
-        let result = match self {
-            Self::Embedded(engine) => {
-                engine
-                    .lock()
-                    .transcribe(samples, language, cancellation, decoding)
-            }
-            Self::Worker(session) => session.transcribe_cancellable_with_options(
-                samples,
-                language,
-                cancellation,
-                decoding,
-            ),
-        };
-        if cancellation.is_cancelled() {
-            return Err(AppError::Cancelled("STT request cancelled".into()));
-        }
-        result
     }
 
     pub(super) fn worker_faulted(&self) -> bool {
@@ -153,7 +115,7 @@ impl ActiveEngine {
     pub(super) fn health(&self, device: String) -> SttHealth {
         match self {
             Self::Embedded(engine) => {
-                if engine.try_lock().is_some() {
+                if engine.is_idle() {
                     SttHealth::Ready { device }
                 } else {
                     SttHealth::Busy { device }

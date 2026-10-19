@@ -5,6 +5,8 @@ file path. Engine identifiers are `whisper`, `giga_am`, and `parakeet`.
 Only the six existing Whisper models are downloadable in this stage. Other
 engines return an explicit unavailable-engine error until their recognizers
 and verified artifacts are integrated in F-01.2/F-01.3.
+The [shared recognizer contract](stt-recognizer.md) now provides the embedded
+and worker adapter boundary; offline engine integration remains F-01.3.
 
 The catalog includes artifact URL, SHA256, exact byte count, license and its
 source, languages, punctuation, and transcription/prompt/language-detection

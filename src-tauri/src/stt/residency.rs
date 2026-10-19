@@ -23,7 +23,7 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
         }
         EngineState::Embedded { engine, device, .. } => {
             let gpu = matches!(*device, "CUDA" | "Vulkan");
-            (gpu, gpu && exclusive(engine) && engine.try_lock().is_some())
+            (gpu, gpu && exclusive(engine) && engine.is_idle())
         }
     }
 }

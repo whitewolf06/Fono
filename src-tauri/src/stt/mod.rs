@@ -14,14 +14,17 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 use crate::error::{AppError, AppResult, RecognitionBackend};
-use crate::types::{AccelerationMode, Transcript};
+use crate::types::{AccelerationMode, ModelId, SttModelSelection, Transcript};
 use fono_core::OperationCancellation;
 
 mod paths;
+mod recognizer;
 mod routing;
 mod worker;
 use paths::EngineCandidate;
 pub use paths::{worker_paths_for_app, WorkerPaths};
+pub use recognizer::{CancellationSupport, RecognizerCapabilities};
+use recognizer::{RecognitionOptions, RecognizerLoad};
 
 /// Probe only a package whose signature/files are already locked and verified.
 /// The shared session code performs the same strict hello as inference, and
@@ -38,12 +41,11 @@ mod recovery;
 mod residency;
 pub use recovery::{RecoverySelection, RecoverySelectionProvider};
 mod window;
-use embedded::EmbeddedEngine;
+use embedded::EmbeddedRecognizer;
 pub use fono_stt_protocol::{TimedSegment, WindowTranscript};
 
 use worker::{
-    worker_cleanup_busy, MailboxHealth, WorkerCleanupStatus, WorkerCleanupSupervisor,
-    WorkerMailbox, WorkerSession,
+    worker_cleanup_busy, MailboxHealth, WorkerCleanupStatus, WorkerCleanupSupervisor, WorkerMailbox,
 };
 
 pub struct SttEngine {
@@ -82,6 +84,18 @@ impl SttEngine {
         self.ensure_loaded_if(model_path, acceleration, worker_paths, None)
     }
 
+    /// Typed selection entry point for recognizers. Legacy path callers remain
+    /// Whisper-compatible; unavailable engines never enter the Whisper loader.
+    pub fn ensure_model_loaded(
+        &self,
+        model: &SttModelSelection,
+        acceleration: AccelerationMode,
+        worker_paths: &WorkerPaths,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<()> {
+        self.ensure_selection_loaded_if(model, acceleration, worker_paths, cancellation, None)
+    }
+
     fn ensure_loaded_if(
         &self,
         model_path: &Path,
@@ -89,6 +103,27 @@ impl SttEngine {
         worker_paths: &WorkerPaths,
         valid: Option<recovery::LoadFence<'_>>,
     ) -> AppResult<()> {
+        let model = SttModelSelection::from_whisper_path(model_path.to_string_lossy().into_owned());
+        self.ensure_selection_loaded_if(
+            &model,
+            acceleration,
+            worker_paths,
+            &OperationCancellation::default(),
+            valid,
+        )
+    }
+
+    fn ensure_selection_loaded_if(
+        &self,
+        model: &SttModelSelection,
+        acceleration: AccelerationMode,
+        worker_paths: &WorkerPaths,
+        cancellation: &OperationCancellation,
+        valid: Option<recovery::LoadFence<'_>>,
+    ) -> AppResult<()> {
+        recognizer::check_cancellation(cancellation)?;
+        model.validate()?;
+        let model_path = Path::new(&model.local_path);
         let _activity = crate::application::updates::activity::lease()?;
         if self.cleanup.is_pending() {
             return Err(worker_cleanup_busy());
@@ -124,6 +159,7 @@ impl SttEngine {
         // ongoing transcription and device/status reads keep using the previous
         // engine until the replacement is fully prepared.
         let _load_gate = self.load_gate.lock();
+        recognizer::check_cancellation(cancellation)?;
         if valid.is_some_and(|fence| !(fence.valid)(fence.generation)) {
             return Err(AppError::Cancelled(
                 "STT recovery generation or selection changed".into(),
@@ -147,6 +183,7 @@ impl SttEngine {
             let compatible_device = {
                 let state = self.state.lock();
                 (exact_selection
+                    && state.model() == Some(&model.id)
                     && candidates
                         .iter()
                         .any(|candidate| state.compatible(&model_path_string, candidate)))
@@ -172,39 +209,27 @@ impl SttEngine {
             if self.cleanup.is_pending() {
                 return Err(self.pending_load_error(valid));
             }
-            let loaded = match &candidate {
-                EngineCandidate::Embedded { use_gpu } => EmbeddedEngine::load(model_path, *use_gpu)
-                    .map(|engine| {
-                        let device = engine.device();
-                        EngineState::Embedded {
-                            engine: Arc::new(Mutex::new(engine)),
-                            device,
-                            model_path: model_path_string.clone(),
-                            use_gpu: *use_gpu,
-                        }
-                    }),
-                EngineCandidate::Worker {
-                    backend,
-                    path,
-                    package,
-                } => WorkerSession::start(
-                    path.clone(),
-                    *backend,
-                    model_path,
-                    Arc::clone(&self.cleanup),
-                    package.as_deref().cloned(),
-                )
-                .map(|worker| {
-                    let device = worker.device();
-                    EngineState::Worker {
-                        session: Arc::new(WorkerMailbox::start(worker)),
-                        device,
-                    }
-                }),
-            };
+            let loaded = recognizer::load(RecognizerLoad {
+                model,
+                candidate: &candidate,
+                cleanup: Arc::clone(&self.cleanup),
+                cancellation,
+            });
             match loaded {
                 Ok(loaded) => {
                     let publication = self.recovery_publication();
+                    if let Err(error) = recognizer::check_cancellation(cancellation) {
+                        drop(publication);
+                        drop(loaded);
+                        self.load_readiness(
+                            SttReadiness::Failed {
+                                message: error.user_message(),
+                            },
+                            valid,
+                            valid.map_or(0, |fence| fence.generation),
+                        )?;
+                        return Err(error);
+                    }
                     if valid.is_some_and(|fence| !(fence.valid)(fence.generation)) {
                         drop(publication);
                         drop(loaded);
@@ -255,6 +280,16 @@ impl SttEngine {
                     return Ok(());
                 }
                 Err(error) => {
+                    if matches!(error, AppError::Cancelled(_)) {
+                        self.load_readiness(
+                            SttReadiness::Failed {
+                                message: error.user_message(),
+                            },
+                            valid,
+                            valid.map_or(0, |fence| fence.generation),
+                        )?;
+                        return Err(error);
+                    }
                     if self.cleanup.is_pending() {
                         return Err(self.pending_load_error(valid));
                     }
@@ -337,12 +372,13 @@ impl SttEngine {
         // do not wait for a complete Whisper/worker request while holding the
         // global engine-state mutex.
         let active = self.state.lock().active().ok_or(AppError::ModelNotLoaded)?;
-        let result = match cancellation {
-            Some(cancellation) => {
-                active.transcribe_cancellable(samples, language, cancellation, decoding)
-            }
-            None => active.transcribe(samples, language, decoding),
-        };
+        let default_cancellation = OperationCancellation::default();
+        let result = recognizer::transcribe(
+            active.recognizer(),
+            samples,
+            RecognitionOptions { language, decoding },
+            cancellation.unwrap_or(&default_cancellation),
+        );
         if result.is_err()
             && active.worker_faulted()
             && !matches!(result, Err(AppError::Cancelled(_)))
@@ -357,6 +393,17 @@ impl SttEngine {
 
     pub fn device(&self) -> String {
         self.state.lock().device()
+    }
+
+    pub fn model(&self) -> Option<ModelId> {
+        self.state.lock().model().cloned()
+    }
+
+    pub fn capabilities(&self) -> Option<RecognizerCapabilities> {
+        self.state
+            .lock()
+            .active()
+            .map(|active| active.recognizer().capabilities())
     }
 
     pub fn is_loaded(&self) -> bool {

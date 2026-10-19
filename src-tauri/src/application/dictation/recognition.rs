@@ -23,12 +23,18 @@ async fn await_task<T: Send + 'static>(
 }
 
 async fn load(session: &Session) -> AppResult<bool> {
-    let path = session
+    let model = session
         .settings
-        .whisper_model_path
-        .as_deref()
+        .stt_model
+        .clone()
+        .or_else(|| {
+            session
+                .settings
+                .whisper_model_path
+                .clone()
+                .map(crate::types::SttModelSelection::from_whisper_path)
+        })
         .ok_or(AppError::ModelNotSelected)?;
-    let path = std::path::PathBuf::from(path);
     let pipeline = session.app.state::<Pipeline>();
     let stt = pipeline.stt().clone();
     let scheduler = pipeline.scheduler();
@@ -39,7 +45,7 @@ async fn load(session: &Session) -> AppResult<bool> {
     let task = tauri::async_runtime::spawn_blocking(move || {
         let _activity = activity;
         let _permit = scheduler.acquire(true, &cancellation)?;
-        stt.ensure_loaded(&path, acceleration, &workers)
+        stt.ensure_model_loaded(&model, acceleration, &workers, &cancellation)
     });
     Ok(await_task(task, session.cancellation.clone(), "model load")
         .await?

@@ -1,3 +1,61 @@
+impl Recognizer for WorkerMailbox {
+    fn load(request: &RecognizerLoad<'_>) -> AppResult<Self> {
+        let super::EngineCandidate::Worker { backend, path, package } = request.candidate else {
+            return Err(AppError::Config("Expected a worker recognizer".into()));
+        };
+        let session = WorkerSession::start(
+            path.clone(),
+            *backend,
+            Path::new(&request.model.local_path),
+            request.cleanup.clone(),
+            package.as_deref().cloned(),
+        )?;
+        let mut mailbox = Self::start(session);
+        mailbox.model = request.model.id.clone();
+        Ok(mailbox)
+    }
+
+    fn model(&self) -> &ModelId {
+        &self.model
+    }
+
+    fn device(&self) -> &'static str {
+        backend_name(self.backend)
+    }
+
+    fn capabilities(&self) -> RecognizerCapabilities {
+        RecognizerCapabilities::whisper(self.supports_decoding_options)
+    }
+
+    fn transcribe(
+        &self,
+        samples: &[i16],
+        options: RecognitionOptions<'_>,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<Transcript> {
+        self.transcribe_cancellable_with_options(
+            samples, options.language, cancellation, options.decoding,
+        )
+    }
+
+    fn transcribe_window(
+        &self,
+        samples: &[i16],
+        options: WindowOptions<'_>,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<fono_stt_protocol::WindowTranscript> {
+        self.transcribe_window(
+            samples,
+            options.recognition.language,
+            options.context,
+            options.operation_id,
+            cancellation,
+            options.audio_start_sample,
+            options.recognition.decoding,
+        )
+    }
+}
+
 fn encode_samples_i16_base64(samples: &[i16]) -> String {
     let mut pcm = Vec::with_capacity(std::mem::size_of_val(samples));
     for sample in samples {
@@ -20,6 +78,8 @@ impl WorkerMailbox {
         let backend = session.backend;
         let path = session.path.clone();
         let model_path = session.model_path.clone();
+        let model = SttModelSelection::from_whisper_path(model_path.clone()).id;
+        let supports_decoding_options = session.supports_decoding_options;
         let child = Arc::clone(&session.child);
         let cleanup = Arc::clone(&session.cleanup);
         let transport_stopping = Arc::clone(&session.transport_stopping);
@@ -139,6 +199,8 @@ impl WorkerMailbox {
             backend,
             path,
             model_path,
+            model,
+            supports_decoding_options,
             command_tx,
             owner_thread: Mutex::new(Some(owner_thread)),
             busy,

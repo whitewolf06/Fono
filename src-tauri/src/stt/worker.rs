@@ -22,8 +22,12 @@ use fono_stt_protocol::{
 use parking_lot::Mutex;
 
 use crate::error::{AppError, AppResult};
-use crate::types::Transcript;
+use crate::types::{ModelId, SttModelSelection, Transcript};
 use fono_core::OperationCancellation;
+
+use super::recognizer::{
+    RecognitionOptions, Recognizer, RecognizerCapabilities, RecognizerLoad, WindowOptions,
+};
 
 #[path = "worker_window.rs"]
 mod window;
@@ -121,6 +125,8 @@ pub(super) struct WorkerMailbox {
     backend: BackendKind,
     path: PathBuf,
     model_path: String,
+    model: ModelId,
+    supports_decoding_options: bool,
     command_tx: Sender<WorkerCommand>,
     owner_thread: Mutex<Option<JoinHandle<()>>>,
     busy: Arc<AtomicBool>,

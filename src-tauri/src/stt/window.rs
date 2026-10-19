@@ -3,7 +3,7 @@ use crate::types::Transcript;
 use fono_core::OperationCancellation;
 use fono_stt_protocol::{BackendKind, WindowTranscript};
 
-use super::{ActiveEngine, SttEngine};
+use super::{recognizer, RecognitionOptions, SttEngine};
 
 pub(super) fn to_transcript(result: WindowTranscript) -> Transcript {
     Transcript {
@@ -67,25 +67,17 @@ impl SttEngine {
             ));
         }
         let active = self.state.lock().active().ok_or(AppError::ModelNotLoaded)?;
-        let result = match &active {
-            ActiveEngine::Embedded(engine) => engine.lock().transcribe_window(
-                samples,
-                language,
-                context,
-                cancellation,
-                audio_start_sample,
-                decoding,
-            ),
-            ActiveEngine::Worker(session) => session.transcribe_window(
-                samples,
-                language,
+        let result = recognizer::transcribe_window(
+            active.recognizer(),
+            samples,
+            recognizer::WindowOptions {
+                recognition: RecognitionOptions { language, decoding },
                 context,
                 operation_id,
-                cancellation,
                 audio_start_sample,
-                decoding,
-            ),
-        };
+            },
+            cancellation,
+        );
         if result.is_err()
             && active.worker_faulted()
             && !matches!(result, Err(AppError::Cancelled(_)))

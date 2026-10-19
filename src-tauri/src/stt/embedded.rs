@@ -2,11 +2,82 @@ use std::path::Path;
 use std::sync::Arc;
 
 use fono_stt_protocol::{inference::InferenceState, BackendKind, WindowTranscript};
+use parking_lot::Mutex;
 use whisper_rs::{WhisperContext, WhisperContextParameters};
 
 use crate::error::{AppError, AppResult};
-use crate::types::Transcript;
+use crate::types::{ModelId, Transcript};
 use fono_core::OperationCancellation;
+
+use super::recognizer::{
+    RecognitionOptions, Recognizer, RecognizerCapabilities, RecognizerLoad, WindowOptions,
+};
+
+pub(super) struct EmbeddedRecognizer {
+    engine: Mutex<EmbeddedEngine>,
+    model: ModelId,
+    device: &'static str,
+}
+
+impl EmbeddedRecognizer {
+    pub(super) fn is_idle(&self) -> bool {
+        self.engine.try_lock().is_some()
+    }
+}
+
+impl Recognizer for EmbeddedRecognizer {
+    fn load(request: &RecognizerLoad<'_>) -> AppResult<Self> {
+        let super::EngineCandidate::Embedded { use_gpu } = request.candidate else {
+            return Err(AppError::Config("Expected an embedded recognizer".into()));
+        };
+        let engine = EmbeddedEngine::load(Path::new(&request.model.local_path), *use_gpu)?;
+        let device = engine.device();
+        Ok(Self {
+            engine: Mutex::new(engine),
+            model: request.model.id.clone(),
+            device,
+        })
+    }
+
+    fn model(&self) -> &ModelId {
+        &self.model
+    }
+
+    fn device(&self) -> &'static str {
+        self.device
+    }
+
+    fn capabilities(&self) -> RecognizerCapabilities {
+        RecognizerCapabilities::whisper(true)
+    }
+
+    fn transcribe(
+        &self,
+        samples: &[i16],
+        options: RecognitionOptions<'_>,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<Transcript> {
+        self.engine
+            .lock()
+            .transcribe(samples, options.language, cancellation, options.decoding)
+    }
+
+    fn transcribe_window(
+        &self,
+        samples: &[i16],
+        options: WindowOptions<'_>,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<WindowTranscript> {
+        self.engine.lock().transcribe_window(
+            samples,
+            options.recognition.language,
+            options.context,
+            cancellation,
+            options.audio_start_sample,
+            options.recognition.decoding,
+        )
+    }
+}
 
 pub(super) struct EmbeddedEngine {
     inference: InferenceState,

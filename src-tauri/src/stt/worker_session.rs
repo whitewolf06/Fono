@@ -193,10 +193,6 @@ impl WorkerSession {
         Ok(())
     }
 
-    pub(super) fn device(&self) -> &'static str {
-        backend_name(self.backend)
-    }
-
     pub(super) fn ping(&mut self) -> AppResult<()> {
         let meta = self.next_meta("ping", None);
         match self.request(&WorkerRequest::Ping { meta: meta.clone() })? {

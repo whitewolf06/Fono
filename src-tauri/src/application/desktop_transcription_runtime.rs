@@ -62,8 +62,15 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
             }
             let settings = self.app.state::<AppState>().settings();
             let decoding = settings.decoding_options();
-            let model_path = settings
-                .whisper_model_path
+            let model = settings
+                .stt_model
+                .clone()
+                .or_else(|| {
+                    settings
+                        .whisper_model_path
+                        .clone()
+                        .map(crate::types::SttModelSelection::from_whisper_path)
+                })
                 .ok_or(AppError::ModelNotLoaded)?;
             let scheduler = pipeline.scheduler();
             let stt = pipeline.stt();
@@ -77,10 +84,11 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                         Err(error) => return (Err(error), false),
                     };
                     let result = (|| {
-                        stt.ensure_loaded(
-                            std::path::Path::new(&model_path),
+                        stt.ensure_model_loaded(
+                            &model,
                             settings.acceleration,
                             &worker_paths,
+                            &permit.cancellation,
                         )?;
                         stt.transcribe_window_with_options(
                             window,

@@ -27,6 +27,45 @@ const EOF_FIXTURE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[cfg(windows)]
 #[test]
+fn common_recognizer_preserves_worker_model_device_and_negotiated_capabilities() {
+    let fixture = WorkerFixture::create("echo {\"type\":\"result\",\"protocol_version\":3,\"request_id\":\"transcribe-3\",\"operation_id\":\"dictation-transcribe-3\",\"text\":\"contract result\",\"audio_secs\":0.01,\"transcribe_secs\":0.02,\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang");
+    let model_path = fixture.directory.join("ggml-small.bin");
+    fs::write(&model_path, b"protocol fixture, not a neural model").unwrap();
+    let model = SttModelSelection::from_whisper_path(model_path.to_string_lossy().into_owned());
+    let engine = crate::stt::SttEngine::new();
+    let paths = crate::stt::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None);
+    engine
+        .ensure_model_loaded(
+            &model,
+            crate::types::AccelerationMode::Cuda,
+            &paths,
+            &OperationCancellation::default(),
+        )
+        .unwrap();
+    assert_eq!(engine.model(), Some(model.id));
+    assert_eq!(engine.device(), "CUDA");
+    let capabilities = engine.capabilities().unwrap();
+    assert!(capabilities.window_transcription && capabilities.token_timestamps);
+    assert!(!capabilities.decoding_options);
+    assert!(matches!(
+        engine.transcribe_with_options(
+            &[0; 160],
+            "ru",
+            fono_stt_protocol::DecodingOptions {
+                strategy: fono_stt_protocol::DecodingStrategy::Accurate,
+                threads: None,
+            }
+        ),
+        Err(AppError::Config(_))
+    ));
+    let transcript = engine.transcribe(&[0; 160], "ru").unwrap();
+    assert_eq!(transcript.text, "contract result");
+    assert_eq!(transcript.device.as_deref(), Some("CUDA"));
+    assert_eq!(transcript.audio_secs, Some(0.01));
+}
+
+#[cfg(windows)]
+#[test]
 fn old_worker_rejects_nondefault_decoding_before_consuming_a_request() {
     let fixture = WorkerFixture::create("echo {\"type\":\"pong\",\"protocol_version\":3,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang");
     let mut session = fixture.start();
