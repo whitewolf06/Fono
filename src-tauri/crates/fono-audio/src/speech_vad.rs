@@ -5,7 +5,7 @@ use crate::{AudioError, AudioResult};
 use std::{collections::VecDeque, path::Path};
 mod recording;
 
-const WINDOW_SAMPLES: usize = 512;
+pub(crate) const WINDOW_SAMPLES: usize = 512;
 // Five windows are the earliest possible confirmation with min_speech=0.12 s.
 // This excludes only buffers too short for the configured neural detector.
 pub const MIN_RECORDING_SAMPLES: usize = WINDOW_SAMPLES * 5;

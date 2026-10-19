@@ -6,15 +6,23 @@ pub const SAMPLE_RATE: usize = 16_000;
 pub const DEFAULT_MAX_SEGMENT_SAMPLES: usize = 25 * SAMPLE_RATE;
 const PAUSE_PADDING: usize = SAMPLE_RATE * 175 / 1000;
 #[cfg(feature = "speech-vad")]
+// Preserve the already measured completed-file policy. Capture waits 600 ms
+// using this same pause predicate and planner, without changing file results.
 const MIN_CONFIRMED_PAUSE: usize = SAMPLE_RATE * 300 / 1000;
+
+#[cfg(feature = "speech-vad")]
+mod streaming;
+#[cfg(feature = "speech-vad")]
+pub use streaming::{ClosedSpeechSegment, StreamingSpeechSegmenter};
 
 #[cfg(feature = "speech-vad")]
 fn confirmed_pause_end(
     speaking: bool,
     closed_end: Option<usize>,
     inspected: usize,
+    minimum_pause: usize,
 ) -> Option<usize> {
-    closed_end.filter(|end| !speaking && inspected.saturating_sub(*end) >= MIN_CONFIRMED_PAUSE)
+    closed_end.filter(|end| !speaking && inspected.saturating_sub(*end) >= minimum_pause)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,6 +129,7 @@ pub fn segment_recording(
             vad.closed_speech_end_sample()
                 .map(|end| (end as usize).min(samples.len())),
             inspected,
+            MIN_CONFIRMED_PAUSE,
         );
         while let Some(segment) = planner.next_cut(inspected, closed_end)? {
             segments.push(segment);
@@ -144,12 +153,15 @@ mod tests {
     fn a_forced_neural_close_is_not_misreported_as_a_silent_boundary() {
         let end = 30 * SAMPLE_RATE;
         assert_eq!(
-            confirmed_pause_end(true, Some(end), end + SAMPLE_RATE),
+            confirmed_pause_end(true, Some(end), end + SAMPLE_RATE, MIN_CONFIRMED_PAUSE),
             None
         );
-        assert_eq!(confirmed_pause_end(false, Some(end), end + 512), None);
         assert_eq!(
-            confirmed_pause_end(false, Some(end), end + SAMPLE_RATE / 2),
+            confirmed_pause_end(false, Some(end), end + 512, MIN_CONFIRMED_PAUSE),
+            None
+        );
+        assert_eq!(
+            confirmed_pause_end(false, Some(end), end + SAMPLE_RATE / 2, MIN_CONFIRMED_PAUSE),
             Some(end)
         );
     }
