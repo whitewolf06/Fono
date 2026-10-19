@@ -1,7 +1,7 @@
 import type { WorkspaceState, Preferences } from "../../domain/contracts";
 import type {
   Settings,
-  WhisperModelInfo,
+  SttModelInfo,
   DeviceInfo,
   WakeWordCapabilities,
   LocalTranscriptionServiceSnapshot,
@@ -22,7 +22,7 @@ export function createNativeContext(
   state: WorkspaceState,
   visible: () => boolean = () => true,
 ) {
-  let models: WhisperModelInfo[] = [];
+  let models: SttModelInfo[] = [];
   let saveTail: Promise<unknown> = Promise.resolve();
   let historyInitialized = false;
   let disposed = false;
@@ -80,17 +80,25 @@ export function createNativeContext(
     return raw;
   }
   const modelRead = createCoalescedRead(
-    () => call<WhisperModelInfo[]>("list_whisper_models"),
+    () => call<SttModelInfo[]>("list_stt_models"),
     (value) => {
       models = value;
       const downloading = state.models.filter(
         (model) => model.status === "downloading",
+      );
+      const errors = new Map(
+        state.models
+          .filter((m) => m.downloadError)
+          .map((m) => [m.id, m.downloadError]),
       );
       state.models = modelsFromNative(models).map((model) =>
         model.status === "installed"
           ? model
           : downloading.find((download) => download.id === model.id) || model,
       );
+      state.models.forEach((m) => {
+        if (errors.has(m.id)) m.downloadError = errors.get(m.id);
+      });
     },
     active,
   );

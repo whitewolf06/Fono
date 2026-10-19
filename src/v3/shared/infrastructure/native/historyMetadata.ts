@@ -29,6 +29,7 @@ export function historyMetadataFromNative(
       modelLoadDurationMs: m.model_load_duration_ms,
       processingDurationMs: m.processing_duration_ms,
       backend: m.backend,
+      recognizer: m.recognizer,
       model: m.model,
       requestedAcceleration: m.requested_acceleration,
       language: m.language,

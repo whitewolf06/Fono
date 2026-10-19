@@ -222,6 +222,14 @@ impl Default for Settings {
 
 impl Settings {
     pub fn decoding_options(&self) -> DecodingOptions {
+        if self
+            .selected_stt_model()
+            .is_some_and(|model| model.id.engine != super::SttEngine::Whisper)
+        {
+            // Keep Whisper preferences for switching back; offline models do
+            // not implement Whisper's beam search or thread controls.
+            return DecodingOptions::default();
+        }
         DecodingOptions {
             strategy: self.whisper_decoding,
             threads: self.whisper_threads,

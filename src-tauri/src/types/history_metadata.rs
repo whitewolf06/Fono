@@ -42,6 +42,8 @@ pub struct DictationHistoryMetadata {
     /// Populated from the returned Transcript, never from the desired setting.
     #[serde(default)]
     pub backend: Option<DictationBackend>,
+    #[serde(default)]
+    pub recognizer: Option<super::SttEngine>,
     /// File name only. The user's path is never stored in session metadata.
     #[serde(default)]
     pub model: Option<String>,
@@ -74,11 +76,18 @@ impl DictationHistoryMetadata {
         transcript: &Transcript,
         timings: DictationTimingMeasurements,
     ) -> Self {
-        let model = settings.whisper_model_path.as_deref().and_then(|path| {
-            std::path::Path::new(path)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(str::to_owned)
+        let selection = settings.selected_stt_model();
+        let recognizer = selection.as_ref().map(|m| m.id.engine);
+        let model = selection.as_ref().map(|m| {
+            if m.id.engine == super::SttEngine::Whisper {
+                m.local_path
+                    .rsplit(['/', '\\'])
+                    .next()
+                    .unwrap_or("")
+                    .to_owned()
+            } else {
+                m.id.public_id()
+            }
         });
         Self {
             schema_version: 1,
@@ -90,6 +99,7 @@ impl DictationHistoryMetadata {
             model_load_duration_ms: timings.model_load_duration_ms,
             processing_duration_ms: timings.processing_duration_ms,
             backend: DictationBackend::from_device(transcript.device.as_deref()),
+            recognizer,
             model,
             requested_acceleration: settings.acceleration,
             language: settings.language.clone(),
@@ -116,6 +126,28 @@ fn seconds_to_ms(seconds: Option<f32>) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "offline-stt")]
+    #[test]
+    fn offline_metadata_uses_session_identity_and_actual_device_without_package_path() {
+        let spec = crate::stt::offline_models::specifications()
+            .unwrap()
+            .remove(0);
+        let settings = Settings {
+            stt_model: Some(super::super::SttModelSelection {
+                id: spec.id.clone(),
+                local_path: "PRIVATE/package".into(),
+            }),
+            ..Settings::default()
+        };
+        let metadata =
+            DictationHistoryMetadata::from_result(&settings, &transcript(), Default::default());
+        assert_eq!(metadata.recognizer, Some(spec.id.engine));
+        assert_eq!(metadata.model, Some(spec.id.public_id()));
+        assert_eq!(metadata.backend, Some(DictationBackend::Cpu));
+        assert!(!serde_json::to_string(&metadata)
+            .unwrap()
+            .contains("PRIVATE"));
+    }
     #[test]
     fn disabled_translation_does_not_record_the_remembered_language_as_applied() {
         let settings = Settings {

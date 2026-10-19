@@ -56,6 +56,17 @@ pub(super) fn language_label(language: &str) -> &'static str {
 }
 
 pub(super) fn model_label(settings: &Settings) -> &'static str {
+    if let Some(model) = &settings.stt_model {
+        match (model.id.engine, model.id.variant.as_str()) {
+            (crate::types::SttEngine::GigaAm, "v3_e2e_rnnt_int8") => {
+                return "GigaAM v3 e2e_rnnt INT8"
+            }
+            (crate::types::SttEngine::Parakeet, "tdt_0.6b_v3_int8") => {
+                return "Parakeet TDT 0.6B v3 INT8"
+            }
+            _ => (),
+        }
+    }
     let Some(path) = settings.whisper_model_path.as_deref() else {
         return "не выбрана";
     };

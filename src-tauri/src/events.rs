@@ -126,6 +126,7 @@ pub enum ModelDownloadPhaseV1 {
     Extracting,
     Completed,
     Cancelled,
+    Failed,
 }
 
 #[derive(Debug, Clone, Serialize)]

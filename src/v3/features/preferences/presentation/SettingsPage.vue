@@ -38,6 +38,11 @@ const { draft, dirty, reset, save, canLeave } = useDraft(
   () => sectionKeys[section.value],
 );
 const { run, busy, error } = useFeedback();
+const whisperSelected = computed(
+  () =>
+    (workspace.state.models.find((m) => m.id === draft.model)?.engine ||
+      "whisper") === "whisper",
+);
 const version = __FONO_FRONTEND_BUILD__.version;
 const results = computed(() =>
   searchIndex.filter((item) =>
@@ -147,6 +152,7 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
         </div>
         <template v-else-if="section === 'audio'"
           ><AudioFields v-model="draft" /><CudaPackagePanel
+            v-if="whisperSelected"
             :unsaved="dirty" /><DictionaryFields
             v-model="draft" /><ModelManager
         /></template>

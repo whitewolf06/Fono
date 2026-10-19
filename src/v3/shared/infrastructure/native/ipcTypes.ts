@@ -40,7 +40,8 @@ export interface SttModelInfo {
   id: ModelId;
   filename: string;
   url: string;
-  sha256: string;
+  sha256: string | null;
+  files: { filename: string; url: string; sha256: string; bytes: number }[];
   bytes: number;
   license: string;
   license_url: string;
@@ -51,6 +52,9 @@ export interface SttModelInfo {
     transcription: boolean;
     initial_prompt: boolean;
     language_detection: boolean;
+    language_selection: boolean;
+    decoding_options: boolean;
+    accelerations: string[];
   };
   local_path: string | null;
   installed_bytes: number | null;
@@ -447,6 +451,7 @@ export interface DictationHistoryEntry {
 }
 
 export interface DictationHistoryMetadata {
+  recognizer?: SttEngine | null;
   schema_version: number;
   recording_duration_ms: number | null;
   generation_duration_ms: number | null;

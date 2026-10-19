@@ -7,6 +7,8 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
     let capture_changed = previous.dictation_mode != next.dictation_mode
         || previous.audio_device_id != next.audio_device_id
         || previous.whisper_model_path != next.whisper_model_path
+        || previous.stt_model != next.stt_model
+        || previous.language != next.language
         || previous.whisper_decoding != next.whisper_decoding
         || previous.whisper_threads != next.whisper_threads
         || previous.acceleration != next.acceleration

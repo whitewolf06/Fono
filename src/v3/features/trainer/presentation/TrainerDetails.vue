@@ -4,6 +4,7 @@ import { WlButton, WlCard } from "@whitelife-core/ui-kit";
 import type { Dictation } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
+import { engineNames } from "../../../shared/domain/speechModels";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import { analyze } from "../domain/analysis";
 import { chartCategories } from "../application/chart";
@@ -42,6 +43,7 @@ const density = computed(() =>
 const technicalFacts = computed(() => {
   const metadata = props.entry.metadata;
   const facts: string[] = [];
+  if (metadata?.recognizer) facts.push(engineNames[metadata.recognizer]);
   if (metadata?.backend)
     facts.push(
       { cpu: "CPU", cuda: "NVIDIA CUDA", vulkan: "Vulkan" }[metadata.backend],

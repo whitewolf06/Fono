@@ -137,10 +137,8 @@ async fn run_once(
         return Ok(DictationOutcome::NoSpeech);
     }
 
-    // Загружаем основную whisper-модель.
-    if let Some(path) = settings.whisper_model_path.as_deref() {
+    if let Some(model) = settings.selected_stt_model() {
         let stt = pipeline.stt().clone();
-        let path = std::path::PathBuf::from(path);
         let acceleration = settings.acceleration;
         let worker_paths = stt::worker_paths_for_app(app);
         let scheduler = pipeline.scheduler();
@@ -149,7 +147,7 @@ async fn run_once(
         let load = tauri::async_runtime::spawn_blocking(move || {
             let _activity = background_activity;
             let _permit = scheduler.acquire(true, &load_cancel)?;
-            stt.ensure_loaded(&path, acceleration, &worker_paths)
+            stt.ensure_model_loaded(&model, acceleration, &worker_paths, &load_cancel)
         });
         let load_result = tokio::select! {
             result = load => Some(result),
@@ -178,7 +176,7 @@ async fn run_once(
             PipelineState::Idle,
             TerminalReason::Failed,
         );
-        return Err("Whisper-модель не выбрана".into());
+        return Err("Модель распознавания не выбрана".into());
     }
 
     if !pipeline::set_state_for_operation(

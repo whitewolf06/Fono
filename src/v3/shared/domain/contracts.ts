@@ -145,6 +145,17 @@ export interface ConnectionProfile {
   model: string;
 }
 export interface SpeechModel {
+  engine?: import("./speechModels").SpeechEngine;
+  license?: string;
+  licenseUrl?: string;
+  languages?: string[];
+  multilingual?: boolean;
+  punctuation?: boolean;
+  languageSelection?: boolean;
+  decodingOptions?: boolean;
+  accelerations?: string[];
+  downloadPhase?: "downloading" | "verifying";
+  downloadError?: string;
   custom?: boolean;
   id: string;
   name: string;
@@ -191,6 +202,11 @@ export type Scenario =
   | "live-backlog"
   | "live-insertion-error";
 export interface WorkspaceState {
+  sttReadiness?: {
+    state: "unloaded" | "loading" | "ready" | "failed";
+    device?: string;
+    message?: string;
+  };
   gpuMemory?: GpuMemoryStatus;
   gpuMemoryError?: string;
   pendingDictation?: PendingDictation | null;

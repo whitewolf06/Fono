@@ -1,6 +1,6 @@
 import type {
   Settings,
-  WhisperModelInfo,
+  SttModelInfo,
   DictationHistoryEntry,
   LocalTranscriptionJob,
 } from "./ipcTypes";
@@ -17,6 +17,11 @@ import { availableWakeEnabled } from "../../domain/wakeAvailability";
 import { availableGpuModelResidency } from "../../domain/gpuMemory";
 import { historyMetadataFromNative } from "./historyMetadata";
 import {
+  modelKey,
+  compatibleModelPreferences,
+  validateModelPreferences,
+} from "../../domain/speechModels";
+import {
   emptyProcessingPrompts,
   promptPresets,
 } from "../../../features/preferences/domain/processingPrompts";
@@ -26,14 +31,23 @@ import {
 } from "../../../features/preferences/domain/wakePhrase";
 export function preferencesFromNative(
   s: Settings,
-  models: WhisperModelInfo[],
+  models: SttModelInfo[],
 ): Preferences {
+  const catalogModel = s.whisper_model_path
+    ? models.find((m) => m.local_path === s.whisper_model_path)
+    : undefined;
   return {
     ...defaults,
     dictationMode: availableDictationMode(s.dictation_mode),
     microphone: s.audio_device_id || "system",
     model:
-      models.find((m) => m.local_path === s.whisper_model_path)?.size ||
+      (s.stt_model
+        ? s.stt_model.id.variant === "custom" &&
+          s.stt_model.id.engine === "whisper"
+          ? s.stt_model.local_path
+          : modelKey(s.stt_model.id)
+        : undefined) ||
+      (catalogModel ? modelKey(catalogModel.id) : undefined) ||
       s.whisper_model_path ||
       "",
     language: s.language,
@@ -122,11 +136,15 @@ export function preferencesFromNative(
 export function applyPreferences(
   s: Settings,
   patch: Partial<Preferences>,
-  models: WhisperModelInfo[],
+  models: SttModelInfo[],
 ): Settings {
   const next = structuredClone(s);
   next.dictation_mode = availableDictationMode(patch.dictationMode);
-  const p = { ...preferencesFromNative(s, models), ...patch };
+  let p = { ...preferencesFromNative(s, models), ...patch };
+  const catalog = modelsFromNative(models);
+  const selected = catalog.find((m) => m.id === p.model);
+  if ("model" in patch)
+    p = { ...p, ...compatibleModelPreferences(selected, p) };
   const has = (key: keyof Preferences) => key in patch;
   const pairs = {
     microphone: "audio_device_id",
@@ -165,11 +183,20 @@ export function applyPreferences(
       spoken: [...entry.spoken],
     }));
   if (has("model")) {
-    const model = models.find((m) => m.size === p.model && m.local_path);
+    const model = models.find(
+      (m) => modelKey(m.id) === p.model && m.local_path,
+    );
     if (!model && p.model !== s.whisper_model_path)
       throw new Error("Выберите установленную модель");
-    next.whisper_model_path = model?.local_path || s.whisper_model_path;
+    if (model) {
+      next.stt_model = { id: { ...model.id }, local_path: model.local_path! };
+      next.whisper_model_path =
+        model.id.engine === "whisper" ? model.local_path : null;
+      next.language = p.language;
+      next.acceleration = p.acceleration as Settings["acceleration"];
+    }
   }
+  if (selected) validateModelPreferences(selected, p);
   if (has("hotkey")) next.hotkey = p.hotkey.replaceAll(" ", "");
   if (has("hotkeyMode")) next.hotkey_mode = p.hotkeyMode;
   if (has("processingTrigger")) next.processing_workflow = p.processingTrigger;
@@ -244,10 +271,24 @@ export function profilesFromNative(s: Settings): ConnectionProfile[] {
     hasApiKey: p.has_api_key,
   }));
 }
-export function modelsFromNative(models: WhisperModelInfo[]): SpeechModel[] {
+export function modelsFromNative(models: SttModelInfo[]): SpeechModel[] {
   return models.map((m) => ({
-    id: m.size,
-    name: "Whisper " + m.size.replaceAll("_", " "),
+    id: modelKey(m.id),
+    engine: m.id.engine,
+    name:
+      m.id.engine === "whisper"
+        ? "Whisper " + m.id.variant.replaceAll("_", " ")
+        : m.id.engine === "giga_am"
+          ? "GigaAM v3 · e2e RNNT INT8"
+          : "Parakeet v3 · TDT 0.6B INT8",
+    license: m.license,
+    licenseUrl: m.license_url,
+    languages: m.languages,
+    multilingual: m.multilingual,
+    punctuation: m.punctuation,
+    languageSelection: m.capabilities.language_selection,
+    decodingOptions: m.capabilities.decoding_options,
+    accelerations: m.capabilities.accelerations,
     description: m.filename,
     size: m.bytes
       ? Math.round(m.bytes / 1048576) + " МБ"

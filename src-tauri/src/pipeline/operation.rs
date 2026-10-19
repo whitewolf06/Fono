@@ -148,6 +148,7 @@ impl Pipeline {
     /// Service lifecycle is independent from interactive dictation. The STT
     /// scheduler pauses a service at a bounded window when dictation starts.
     pub fn start_service_transcription(&self) -> AppResult<(u64, OperationCancellation)> {
+        let _configuration_admission = crate::application::capture_configuration::begin_capture()?;
         let _update_admission = crate::application::updates::activity::begin()?;
         let operation = self.service_operations.start(OperationSource::Service)?;
         if let Err(error) = self

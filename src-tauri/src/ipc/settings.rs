@@ -46,11 +46,25 @@ pub async fn get_stt_health(app: AppHandle) -> AppResult<SttHealth> {
 #[tauri::command]
 pub async fn save_settings(
     app: AppHandle,
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
+    settings: Settings,
+) -> AppResult<()> {
+    let activity = crate::application::updates::activity::lease()?;
+    let transaction = crate::application::updates::settings_transaction(&app).await;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        let _transaction = transaction;
+        save_settings_blocking(&app, app.state::<AppState>().inner(), settings)
+    })
+    .await
+    .map_err(|_| AppError::Internal("settings task failed".into()))?
+}
+
+fn save_settings_blocking(
+    app: &AppHandle,
+    state: &AppState,
     mut settings: Settings,
 ) -> AppResult<()> {
-    let _activity = crate::application::updates::activity::lease()?;
-    let _transaction = crate::application::updates::settings_transaction(&app).await;
     settings.enforce_classic_dictation();
     settings.enforce_wake_availability();
     settings.migrate_processing_prompts();
@@ -60,7 +74,7 @@ pub async fn save_settings(
     // settings form, including an older renderer, cannot silently change it.
     settings.update_checks_enabled = old_settings.update_checks_enabled;
     let _configuration = crate::application::capture_configuration::reserve_configuration(|| {
-        if crate::application::dictation::workflow::is_busy(&app) {
+        if crate::application::dictation::workflow::is_busy(app) {
             return Err(AppError::Busy(
                 "Сначала обработайте, вставьте или отмените ожидающую диктовку".into(),
             ));
@@ -68,7 +82,10 @@ pub async fn save_settings(
         active::validate(
             app.state::<crate::pipeline::Pipeline>()
                 .current_operation()
-                .is_some(),
+                .is_some()
+                || app
+                    .state::<crate::pipeline::Pipeline>()
+                    .has_active_service_operation(),
             &old_settings,
             &settings,
         )
@@ -86,6 +103,7 @@ pub async fn save_settings(
         || old_settings.hotkey_mode != settings.hotkey_mode
         || old_settings.command_hotkey != settings.command_hotkey;
     let model_changed = old_settings.whisper_model_path != settings.whisper_model_path
+        || old_settings.stt_model != settings.stt_model
         || old_settings.acceleration != settings.acceleration;
 
     let previous_secrets = profile_secret_snapshot(&old_settings, &settings)?;
@@ -97,36 +115,37 @@ pub async fn save_settings(
         }
     };
 
+    let mut model_rollback = model_changed.then(|| {
+        crate::application::models::SelectionRollback::new(
+            app.state::<crate::pipeline::Pipeline>().stt().clone(),
+            old_settings.clone(),
+            crate::stt::worker_paths_for_app(app),
+        )
+    });
     let mut prepared_recovery = None;
     if model_changed {
         app.state::<crate::pipeline::Pipeline>()
             .stt()
             .reset_recovery_budget();
-        if let Some(path) = persisted_settings.whisper_model_path.clone() {
+        if let Some(model) = persisted_settings.selected_stt_model() {
             let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
             let acceleration = persisted_settings.acceleration;
-            let worker_paths = crate::stt::worker_paths_for_app(&app);
-            let background_activity = _activity.clone();
-            let background_configuration = _configuration.clone();
-            let prepared = match tauri::async_runtime::spawn_blocking(move || {
-                let _activity = background_activity;
-                let _configuration = background_configuration;
-                stt.ensure_loaded(std::path::Path::new(&path), acceleration, &worker_paths)?;
+            let worker_paths = crate::stt::worker_paths_for_app(app);
+            let prepared = (|| {
+                stt.ensure_model_loaded(
+                    &model,
+                    acceleration,
+                    &worker_paths,
+                    &fono_core::OperationCancellation::default(),
+                )?;
                 Ok(
                     stt.prepared_recovery_selection(&crate::stt::RecoverySelection {
-                        model_path: path.into(),
+                        model_path: model.local_path.into(),
                         acceleration,
                         worker_paths,
                     }),
                 )
-            })
-            .await
-            {
-                Ok(result) => result,
-                Err(error) => Err(AppError::Stt(format!(
-                    "model preparation join failed: {error}"
-                ))),
-            };
+            })();
             match prepared {
                 Ok(prepared) => prepared_recovery = prepared,
                 Err(error) => {
@@ -141,9 +160,9 @@ pub async fn save_settings(
     // preparation cannot leave new shortcuts paired with old persisted values.
     if shortcuts_changed {
         if let Err(error) =
-            crate::application::hotkeys::register_all_shortcuts(&app, &persisted_settings)
+            crate::application::hotkeys::register_all_shortcuts(app, &persisted_settings)
         {
-            let rollback = restore_shortcuts(&app, &old_settings);
+            let rollback = restore_shortcuts(app, &old_settings);
             let _ = restore_profile_secrets(&previous_secrets);
             return Err(AppError::Config(format!(
                 "Не удалось зарегистрировать горячие клавиши: {error}. {rollback}"
@@ -161,7 +180,7 @@ pub async fn save_settings(
             Err(error) => {
                 let _ = restore_profile_secrets(&previous_secrets);
                 if shortcuts_changed {
-                    let _ = restore_shortcuts(&app, &old_settings);
+                    let _ = restore_shortcuts(app, &old_settings);
                 }
                 return Err(error);
             }
@@ -172,7 +191,7 @@ pub async fn save_settings(
         {
             let _ = restore_profile_secrets(&previous_secrets);
             if shortcuts_changed {
-                let _ = restore_shortcuts(&app, &old_settings);
+                let _ = restore_shortcuts(app, &old_settings);
             }
             return Err(AppError::Config(format!(
                 "Не удалось подготовить новые настройки wake word: {error}"
@@ -204,7 +223,7 @@ pub async fn save_settings(
                 }
             }
             if shortcuts_changed {
-                let rollback = restore_shortcuts(&app, &old_settings);
+                let rollback = restore_shortcuts(app, &old_settings);
                 return Err(AppError::Config(format!(
                     "Не удалось сохранить новые настройки: {error}. {rollback} {secret_rollback}"
                 )));
@@ -214,6 +233,9 @@ pub async fn save_settings(
             )));
         }
     };
+    if let Some(rollback) = &mut model_rollback {
+        rollback.commit();
+    }
     if let Some(prepared) = prepared_recovery {
         app.state::<crate::pipeline::Pipeline>()
             .stt()
@@ -227,7 +249,7 @@ pub async fn save_settings(
         )));
     }
 
-    if let Err(error) = crate::history::for_app(&app).maintain(&persisted_settings) {
+    if let Err(error) = crate::history::for_app(app).maintain(&persisted_settings) {
         tracing::error!(%error, "could not apply dictation analytics privacy policy");
         return Err(AppError::Config(format!(
             "Настройки сохранены, но не удалось применить правила хранения аналитики: {error}"
@@ -235,16 +257,16 @@ pub async fn save_settings(
     }
 
     crate::verbose::set_verbose(persisted_settings.verbose_logging);
-    crate::events::emit_settings(&app, &persisted_settings);
+    crate::events::emit_settings(app, &persisted_settings);
     #[cfg(feature = "wake-word")]
     if wake_settings_changed {
-        crate::events::emit_wake_status(&app, crate::events::WakeStatusV1::Paused);
+        crate::events::emit_wake_status(app, crate::events::WakeStatusV1::Paused);
         let _=app.emit("wake-word-configuration-invalidated",wake::WakeConfigurationInvalidated{
             reason:"configuration_changed",
             message:"Настройки пробуждения изменились. Фраза выключена: настройте и проверьте её заново.",
         });
     }
-    crate::pipeline::sync_overlay_window(&app, app.state::<crate::pipeline::Pipeline>().state());
+    crate::pipeline::sync_overlay_window(app, app.state::<crate::pipeline::Pipeline>().state());
     tracing::info!(
         "settings saved: model={:?}, lang={}",
         persisted_settings.whisper_model_path,
@@ -401,10 +423,13 @@ pub async fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
-    settings
-        .decoding_options()
-        .validate()
-        .map_err(AppError::Config)?;
+    settings.validate_stt_preferences()?;
+    crate::types::DecodingOptions {
+        strategy: settings.whisper_decoding,
+        threads: settings.whisper_threads,
+    }
+    .validate()
+    .map_err(AppError::Config)?;
     settings.processing_prompts.validate()?;
     crate::application::personal_dictionary::validate(&settings.personal_dictionary_entries)?;
     crate::overlay::validate_appearance(settings.overlay_scale, settings.overlay_opacity)?;

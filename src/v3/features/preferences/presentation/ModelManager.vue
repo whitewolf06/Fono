@@ -4,9 +4,33 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
 import { useInteraction } from "../../../shared/application/interaction";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import { computed } from "vue";
+import { engineNames } from "../../../shared/domain/speechModels";
 const workspace = useWorkspace();
 const { run } = useFeedback();
 const ui = useInteraction();
+const groups = computed(() =>
+  (Object.keys(engineNames) as (keyof typeof engineNames)[])
+    .map((engine) => ({
+      engine,
+      title: engineNames[engine],
+      models: workspace.state.models.filter(
+        (m) => (m.engine || "whisper") === engine,
+      ),
+    }))
+    .filter((group) => group.models.length),
+);
+const readiness = computed(() => {
+  const status = workspace.state.sttReadiness;
+  if (!workspace.native || !status) return "";
+  if (status.state === "loading") return "Распознавание: загружаем модель…";
+  if (status.state === "ready")
+    return (
+      "Распознавание готово · " + (status.device || "устройство не указано")
+    );
+  if (status.state === "failed") return "Модель не готова: " + status.message;
+  return "Модель распознавания не загружена";
+});
 async function remove(id: string) {
   if (
     await ui.confirm({
@@ -33,44 +57,79 @@ async function remove(id: string) {
           : "Загрузка и объём показаны для демонстрации."
       }}
     </p>
-    <div
-      v-for="model in workspace.state.models"
-      :key="model.id"
-      class="model-row"
+    <p v-if="readiness" class="muted" role="status">{{ readiness }}</p>
+    <p class="muted">
+      Качество и скорость сравним после замеров. Размер пакета и поддержка
+      языков указаны для выбранной версии.
+    </p>
+    <section
+      v-for="group in groups"
+      :key="group.engine"
+      :aria-label="group.title"
     >
-      <AppIcon name="inbox" />
-      <div>
-        <strong>{{ model.name }}</strong>
-        <p>{{ model.description }} · {{ model.size }}</p>
-        <progress
-          v-if="model.status === 'downloading'"
-          :value="model.progress"
-          max="100"
-          :aria-label="'Загрузка ' + model.name"
-        />
+      <h4>{{ group.title }}</h4>
+      <div v-for="model in group.models" :key="model.id" class="model-row">
+        <AppIcon name="inbox" />
+        <div>
+          <strong>{{ model.name }}</strong>
+          <p>{{ model.description }} · {{ model.size }}</p>
+          <p v-if="model.languages">
+            Языки: {{ model.languages.join(", ").toUpperCase()
+            }}{{ model.multilingual ? " и другие" : "" }} · Пунктуация:
+            {{ model.punctuation ? "есть" : "нет" }}
+          </p>
+          <p v-if="model.license">
+            <a :href="model.licenseUrl" target="_blank" rel="noreferrer">{{
+              model.license
+            }}</a>
+            · {{ model.engine === "whisper" ? "CPU / доступное GPU" : "CPU"
+            }}<span v-if="workspace.state.preferences.model === model.id">
+              · Выбрана</span
+            >
+          </p>
+          <p
+            v-if="
+              model.downloadPhase === 'verifying' &&
+              model.status === 'downloading'
+            "
+            role="status"
+          >
+            Проверяем пакет…
+          </p>
+          <p v-if="model.downloadError" class="error-text" role="alert">
+            {{ model.downloadError }}
+          </p>
+          <progress
+            v-if="model.status === 'downloading'"
+            :value="model.progress"
+            max="100"
+            :aria-label="'Загрузка ' + model.name"
+          />
+        </div>
+        <WlButton
+          v-if="model.status === 'available'"
+          size="sm"
+          @click="run(() => workspace.settings.downloadModel(model.id))"
+          ><template #icon><AppIcon name="download" /></template
+          >Загрузить</WlButton
+        >
+        <WlButton
+          v-else-if="model.status === 'downloading'"
+          size="sm"
+          variant="ghost"
+          @click="run(() => workspace.settings.removeModel(model.id))"
+          >Отменить {{ model.progress }}%</WlButton
+        >
+        <WlButton
+          v-else-if="!model.custom"
+          size="sm"
+          variant="ghost"
+          :disabled="workspace.state.preferences.model === model.id"
+          :aria-label="'Удалить ' + model.name"
+          @click="remove(model.id)"
+          ><template #icon><AppIcon name="trash" /></template>Удалить</WlButton
+        >
       </div>
-      <WlButton
-        v-if="model.status === 'available'"
-        size="sm"
-        @click="run(() => workspace.settings.downloadModel(model.id))"
-        ><template #icon><AppIcon name="download" /></template
-        >Загрузить</WlButton
-      >
-      <WlButton
-        v-else-if="model.status === 'downloading'"
-        size="sm"
-        variant="ghost"
-        @click="run(() => workspace.settings.removeModel(model.id))"
-        >Отменить {{ model.progress }}%</WlButton
-      >
-      <WlButton
-        v-else-if="!model.custom"
-        size="sm"
-        variant="ghost"
-        :aria-label="'Удалить ' + model.name"
-        @click="remove(model.id)"
-        ><template #icon><AppIcon name="trash" /></template>Удалить</WlButton
-      >
-    </div>
+    </section>
   </section>
 </template>

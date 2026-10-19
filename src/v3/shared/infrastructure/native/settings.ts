@@ -4,6 +4,7 @@ import type { LlmProfile } from "./ipcTypes";
 import { call, playMicrophoneSample } from "./ipc";
 import { nativeWake } from "./wake";
 import { ensureWakeAvailable } from "../../domain/wakeAvailability";
+import { modelId } from "../../domain/speechModels";
 import { nativeProcessing } from "../../../features/preferences/infrastructure/nativeProcessing";
 export function nativeSettings(ctx: NativeContext): SettingsPort {
   const { state } = ctx;
@@ -89,17 +90,26 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
       if (!model) throw new Error("Модель не найдена");
       model.status = "downloading";
       model.progress = 0;
+      model.downloadError = "";
       try {
-        await call("download_whisper_model", { size: id });
+        await call("download_stt_model", { id: modelId(id) });
+      } catch (error) {
+        model.downloadError =
+          error instanceof Error ? error.message : String(error);
+        throw error;
       } finally {
         model.status = "available";
         await ctx.readModels();
+        const current = state.models.find((m) => m.id === id);
+        if (current) current.downloadError = model.downloadError;
       }
     },
     async removeModel(id) {
       if (state.models.find((m) => m.id === id)?.status === "downloading")
-        await call("cancel_model_download", { downloadId: "whisper:" + id });
-      else await call("remove_whisper_model", { size: id });
+        await call("cancel_model_download", {
+          downloadId: id.includes(":") ? id : "whisper:" + id,
+        });
+      else await call("remove_stt_model", { id: modelId(id) });
       await ctx.readModels();
     },
     async testMicrophone(device) {

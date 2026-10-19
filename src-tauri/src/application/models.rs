@@ -1,51 +1,94 @@
 //! Speech model readiness and selection; downloads live in bounded adapters.
 mod catalog;
 mod download;
+#[cfg(feature = "offline-stt")]
+mod offline_package;
+mod selection_rollback;
 mod store;
 pub use catalog::{list_stt_models, SttModelInfo};
+pub(crate) use selection_rollback::SelectionRollback;
 #[cfg(feature = "wake-word")]
 mod wake_download;
 mod whisper_download;
 use crate::{
     error::{AppError, AppResult},
     state::{self, AppState},
-    types::{ModelId, WhisperModelInfo, WhisperModelSize},
+    types::{ModelId, SttEngine, SttModelSelection, WhisperModelInfo, WhisperModelSize},
 };
 pub use download::{cancel_download, has_active_downloads};
-use std::path::Path;
 use tauri::{AppHandle, Manager};
 #[cfg(feature = "wake-word")]
 pub use wake_download::{download_kws_model, is_kws_model_downloaded};
 pub use whisper_download::download_whisper_model;
 
 pub async fn download_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
+    if id.engine != SttEngine::Whisper {
+        #[cfg(feature = "offline-stt")]
+        return offline_package::download(app, id).await;
+        #[cfg(not(feature = "offline-stt"))]
+        return Err(AppError::Config(
+            "Offline STT is unavailable in this build".into(),
+        ));
+    }
     download_whisper_model(app, id.whisper_size()?.api_identifier().into()).await
 }
 
-pub async fn set_stt_model(app: &AppHandle, state: &AppState, id: ModelId) -> AppResult<()> {
-    let size = id.whisper_size()?;
+pub async fn set_stt_model(app: &AppHandle, _state: &AppState, id: ModelId) -> AppResult<()> {
     let activity = crate::application::updates::activity::lease()?;
-    let path = tauri::async_runtime::spawn_blocking(move || {
+    let transaction = crate::application::updates::settings_transaction(app).await;
+    let owned_app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
         let _activity = activity;
-        state::models_dir().map(|directory| {
-            directory
-                .join(size.filename())
+        let _transaction = transaction;
+        let filename = if id.engine == SttEngine::Whisper {
+            id.whisper_size()?.filename().to_owned()
+        } else {
+            #[cfg(feature = "offline-stt")]
+            {
+                crate::stt::offline_models::specification(&id)?.directory
+            }
+            #[cfg(not(feature = "offline-stt"))]
+            return Err(AppError::Config(
+                "Offline STT is unavailable in this build".into(),
+            ));
+        };
+        let selection = SttModelSelection {
+            id,
+            local_path: state::models_dir()?
+                .join(filename)
                 .to_string_lossy()
-                .into_owned()
-        })
+                .into_owned(),
+        };
+        set_model_blocking(&owned_app, owned_app.state::<AppState>().inner(), selection)
     })
     .await
-    .map_err(|_| AppError::Internal("model path task failed".into()))??;
-    set_whisper_model(app, state, path).await
+    .map_err(|_| AppError::Internal("model selection task failed".into()))?
 }
 
 pub async fn remove_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
-    let size = id.whisper_size()?;
     let activity = crate::application::updates::activity::lease()?;
     let transaction = crate::application::updates::settings_transaction(&app).await;
     tauri::async_runtime::spawn_blocking(move || {
         let _activity = activity;
         let _transaction = transaction;
+        if id.engine != SttEngine::Whisper {
+            #[cfg(feature = "offline-stt")]
+            {
+                let spec = crate::stt::offline_models::specification(&id)?;
+                let _registration = download::DownloadRegistration::begin(id.public_id())?;
+                let selected = app.state::<AppState>().settings().selected_stt_model();
+                return offline_package::remove(
+                    &state::models_dir()?.join(&spec.directory),
+                    &spec,
+                    selected.as_ref().map(|m| m.local_path.as_str()),
+                );
+            }
+            #[cfg(not(feature = "offline-stt"))]
+            return Err(AppError::Config(
+                "Offline STT is unavailable in this build".into(),
+            ));
+        }
+        let size = id.whisper_size()?;
         let _registration =
             download::DownloadRegistration::begin(format!("whisper:{}", size.api_identifier()))?;
         let selected = app.state::<AppState>().settings().whisper_model_path;
@@ -66,9 +109,12 @@ pub fn preload_configured_stt(app: AppHandle) {
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
     if let Err(error) = stt.enable_recovery(std::sync::Arc::new(move || {
         let settings = recovery_app.state::<AppState>().settings();
-        let (model_path, acceleration) = configured_stt_preload(&settings)?;
+        let (model, acceleration) = configured_stt_preload(&settings)?;
+        if model.id.engine != SttEngine::Whisper {
+            return None;
+        }
         Some(crate::stt::RecoverySelection {
-            model_path,
+            model_path: model.local_path.into(),
             acceleration,
             // An optional package may have been installed since startup.
             worker_paths: crate::stt::worker_paths_for_app(&recovery_app),
@@ -80,7 +126,7 @@ pub fn preload_configured_stt(app: AppHandle) {
         return;
     };
     let settings = app.state::<AppState>().settings();
-    let Some((model_path, acceleration)) = configured_stt_preload(&settings) else {
+    let Some((model, acceleration)) = configured_stt_preload(&settings) else {
         return;
     };
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
@@ -89,7 +135,12 @@ pub fn preload_configured_stt(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let result = tauri::async_runtime::spawn_blocking(move || {
             let _activity = activity;
-            stt.ensure_loaded(Path::new(&model_path), acceleration, &worker_paths)
+            stt.ensure_model_loaded(
+                &model,
+                acceleration,
+                &worker_paths,
+                &fono_core::OperationCancellation::default(),
+            )
         })
         .await;
         match result {
@@ -102,11 +153,10 @@ pub fn preload_configured_stt(app: AppHandle) {
 
 fn configured_stt_preload(
     settings: &crate::types::Settings,
-) -> Option<(std::path::PathBuf, crate::types::AccelerationMode)> {
+) -> Option<(SttModelSelection, crate::types::AccelerationMode)> {
     settings
-        .whisper_model_path
-        .as_deref()
-        .map(|path| (std::path::PathBuf::from(path), settings.acceleration))
+        .selected_stt_model()
+        .map(|model| (model, settings.acceleration))
 }
 
 pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
@@ -147,27 +197,45 @@ pub async fn set_whisper_model(app: &AppHandle, _state: &AppState, path: String)
         let _activity = activity;
         let _settings_transaction = settings_transaction;
         let state = owned_app.state::<AppState>();
-        set_whisper_model_blocking(&owned_app, state.inner(), path)
+        set_model_blocking(
+            &owned_app,
+            state.inner(),
+            SttModelSelection::from_whisper_path(path),
+        )
     })
     .await
     .map_err(|_| AppError::Internal("model selection task failed".into()))?
 }
 
-fn set_whisper_model_blocking(app: &AppHandle, state: &AppState, path: String) -> AppResult<()> {
-    let model_path = std::path::PathBuf::from(&path);
-    if path.trim().is_empty() || !model_path.is_file() {
+fn set_model_blocking(
+    app: &AppHandle,
+    state: &AppState,
+    selection: SttModelSelection,
+) -> AppResult<()> {
+    selection.validate()?;
+    let model_path = std::path::PathBuf::from(&selection.local_path);
+    if !model_path.exists() {
         return Err(AppError::ModelFileMissing);
     }
 
     let base = state.settings();
     let mut settings = base.clone();
-    let same_selection = settings.whisper_model_path.as_deref() == Some(path.as_str());
+    let same_selection = settings.selected_stt_model().as_ref() == Some(&selection);
+    if selection.id.engine != SttEngine::Whisper {
+        // Explicit activation also selects the supported CPU route and automatic
+        // language. Whisper-specific preferences remain available on return.
+        settings.acceleration = crate::types::AccelerationMode::Auto;
+        settings.language = "auto".into();
+    }
 
     let _configuration = super::capture_configuration::reserve_configuration(|| {
         if app
             .state::<crate::pipeline::Pipeline>()
             .current_operation()
             .is_some()
+            || app
+                .state::<crate::pipeline::Pipeline>()
+                .has_active_service_operation()
             || super::dictation::workflow::is_busy(app)
         {
             return Err(AppError::Busy(
@@ -180,8 +248,14 @@ fn set_whisper_model_blocking(app: &AppHandle, state: &AppState, path: String) -
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
     let acceleration = settings.acceleration;
     let worker_paths = crate::stt::worker_paths_for_app(app);
+    let mut rollback = SelectionRollback::new(stt.clone(), base.clone(), worker_paths.clone());
     stt.reset_recovery_budget();
-    stt.ensure_loaded(&model_path, acceleration, &worker_paths)?;
+    stt.ensure_model_loaded(
+        &selection,
+        acceleration,
+        &worker_paths,
+        &fono_core::OperationCancellation::default(),
+    )?;
     let prepared = stt.prepared_recovery_selection(&crate::stt::RecoverySelection {
         model_path,
         acceleration,
@@ -189,14 +263,17 @@ fn set_whisper_model_blocking(app: &AppHandle, state: &AppState, path: String) -
     });
 
     if same_selection {
+        rollback.commit();
         if let Some(prepared) = prepared {
             stt.acknowledge_recovery_selection(prepared);
         }
         return Ok(());
     }
 
-    settings.whisper_model_path = Some(path);
+    settings.stt_model = Some(selection);
+    settings.reconcile_stt_model(Some(&base))?;
     let settings = state.persist_settings_delta(&base, &settings)?;
+    rollback.commit();
     if let Some(prepared) = prepared {
         stt.acknowledge_recovery_selection(prepared);
     }

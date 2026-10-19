@@ -11,6 +11,10 @@ import {
 import { mockProcessing } from "./mockProcessing";
 import { clonePreferences } from "../domain/processingPrompts";
 import {
+  compatibleModelPreferences,
+  validateModelPreferences,
+} from "../../../shared/domain/speechModels";
+import {
   persistPreferences,
   playDemoSample,
 } from "../../../shared/infrastructure/browser";
@@ -21,9 +25,14 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     if (patch.wakeEnabled) ensureWakeAvailable();
     const guardCapture = () => {
       if (
-        ["dictationMode", "whisperDecoding", "whisperThreads"].some(
-          (key) => key in patch,
-        ) &&
+        [
+          "dictationMode",
+          "model",
+          "language",
+          "acceleration",
+          "whisperDecoding",
+          "whisperThreads",
+        ].some((key) => key in patch) &&
         [
           "listening",
           "silence",
@@ -49,6 +58,11 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
         patch.wakeEnabled ?? state.preferences.wakeEnabled,
       ),
     };
+    const selected = state.models.find((m) => m.id === next.model);
+    if ("model" in patch)
+      Object.assign(next, compatibleModelPreferences(selected, next));
+    if (["model", "language", "acceleration"].some((key) => key in patch))
+      validateModelPreferences(selected, next);
     const phraseChanged =
       next.wakePhrase !== state.preferences.wakePhrase ||
       next.wakeLanguage !== state.preferences.wakeLanguage;
@@ -100,18 +114,26 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       const model = state.models.find((m) => m.id === id);
       if (!model || model.status !== "available") return;
       model.status = "downloading";
+      model.downloadPhase = "downloading";
+      model.downloadError = "";
       for (let progress = 0; progress <= 100; progress += 10) {
         await wait(220);
         if (!state.models.includes(model) || model.status !== "downloading")
           return;
         model.progress = progress;
       }
+      model.downloadPhase = "verifying";
+      await wait(220);
+      if (model.status !== "downloading") return;
       model.status = "installed";
+      model.downloadPhase = undefined;
       state.logs.unshift(model.name + ": демонстрационная загрузка завершена");
     },
     removeModel(id) {
       const model = state.models.find((m) => m.id === id);
       if (model) {
+        if (state.preferences.model === id)
+          throw new Error("Сначала выберите другую модель распознавания");
         model.status = "available";
         model.progress = 0;
       }

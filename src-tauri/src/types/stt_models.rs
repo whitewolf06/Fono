@@ -19,6 +19,14 @@ pub struct ModelId {
 }
 
 impl ModelId {
+    pub fn public_id(&self) -> String {
+        match self.engine {
+            SttEngine::Whisper => self.variant.clone(),
+            SttEngine::GigaAm => format!("giga_am:{}", self.variant),
+            SttEngine::Parakeet => format!("parakeet:{}", self.variant),
+        }
+    }
+
     pub fn whisper(size: WhisperModelSize) -> Self {
         Self {
             engine: SttEngine::Whisper,
@@ -70,6 +78,14 @@ impl SttModelSelection {
         if self.local_path.trim().is_empty() {
             return Err(AppError::Config("STT model path is empty".into()));
         }
+        if self.id.engine != SttEngine::Whisper {
+            #[cfg(feature = "offline-stt")]
+            return crate::stt::offline_models::specification(&self.id).map(|_| ());
+            #[cfg(not(feature = "offline-stt"))]
+            return Err(AppError::Config(
+                "Offline STT is unavailable in this build".into(),
+            ));
+        }
         if self.id.engine == SttEngine::Whisper && self.id.variant == "custom" {
             return Ok(());
         }
@@ -85,6 +101,39 @@ impl SttModelSelection {
 }
 
 impl Settings {
+    pub fn selected_stt_model(&self) -> Option<SttModelSelection> {
+        self.stt_model.clone().or_else(|| {
+            self.whisper_model_path
+                .clone()
+                .map(SttModelSelection::from_whisper_path)
+        })
+    }
+
+    pub fn validate_stt_preferences(&self) -> AppResult<()> {
+        let Some(model) = self.selected_stt_model() else {
+            return Ok(());
+        };
+        model.validate()?;
+        if model.id.engine != SttEngine::Whisper {
+            let spec = crate::stt::offline_models::specification(&model.id)?;
+            if self.language != "auto" && !spec.languages.contains(&self.language) {
+                return Err(AppError::Config(
+                    "Выбранная модель не поддерживает этот язык".into(),
+                ));
+            }
+            if !matches!(
+                self.acceleration,
+                super::AccelerationMode::Auto | super::AccelerationMode::Cpu
+            ) {
+                return Err(AppError::Config(
+                    "GigaAM и Parakeet в этой сборке работают на CPU. Выберите Авто или Процессор."
+                        .into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// New selections are authoritative. A writer changing only the legacy
     /// path is still supported; update both fields as one settings delta.
     pub fn reconcile_stt_model(&mut self, previous: Option<&Settings>) -> AppResult<bool> {
@@ -105,7 +154,8 @@ impl Settings {
         }
         if let Some(selection) = &self.stt_model {
             selection.validate()?;
-            self.whisper_model_path = Some(selection.local_path.clone());
+            self.whisper_model_path =
+                (selection.id.engine == SttEngine::Whisper).then(|| selection.local_path.clone());
         }
         Ok(before != (self.stt_model.clone(), self.whisper_model_path.clone()))
     }
@@ -114,6 +164,39 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "offline-stt")]
+    #[test]
+    fn offline_settings_never_mirror_package_directory_to_whisper_and_keep_decoding_preferences() {
+        for spec in crate::stt::offline_models::specifications().unwrap() {
+            let mut settings = Settings {
+                stt_model: Some(SttModelSelection {
+                    id: spec.id.clone(),
+                    local_path: format!("/models/{}", spec.directory),
+                }),
+                language: "auto".into(),
+                whisper_decoding: super::super::DecodingStrategy::Accurate,
+                whisper_threads: Some(4),
+                ..Settings::default()
+            };
+            settings.reconcile_stt_model(None).unwrap();
+            assert!(settings.whisper_model_path.is_none());
+            assert_eq!(settings.selected_stt_model().unwrap().id, spec.id);
+            assert_eq!(
+                settings.decoding_options(),
+                super::super::DecodingOptions::default()
+            );
+            assert_eq!(settings.whisper_threads, Some(4));
+            assert!(settings.validate_stt_preferences().is_ok());
+            settings.acceleration = super::super::AccelerationMode::Cuda;
+            assert!(settings.validate_stt_preferences().is_err());
+            settings.acceleration = super::super::AccelerationMode::Auto;
+            settings.language = "zz".into();
+            assert!(settings.validate_stt_preferences().is_err());
+            let restored: Settings =
+                serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+            assert_eq!(restored.stt_model, settings.stt_model);
+        }
+    }
 
     #[test]
     fn legacy_known_and_custom_paths_survive_migration_and_roundtrip() {

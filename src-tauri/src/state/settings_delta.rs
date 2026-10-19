@@ -111,6 +111,30 @@ fn changed_value<T: PartialEq>(base: T, candidate: T, latest: T) -> T {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "offline-stt")]
+    #[test]
+    fn stale_whisper_form_cannot_overwrite_a_new_offline_selection() {
+        let mut base = Settings {
+            whisper_model_path: Some("/models/ggml-tiny.bin".into()),
+            ..Settings::default()
+        };
+        base.reconcile_stt_model(None).unwrap();
+        let mut latest = base.clone();
+        let spec = crate::stt::offline_models::specifications()
+            .unwrap()
+            .remove(0);
+        latest.stt_model = Some(crate::types::SttModelSelection {
+            id: spec.id,
+            local_path: "/models/gigaam".into(),
+        });
+        latest.reconcile_stt_model(Some(&base)).unwrap();
+        let mut candidate = base.clone();
+        candidate.overlay_opacity = 0.8;
+        let merged = merge_delta(&latest, &base, &candidate).unwrap();
+        assert_eq!(merged.stt_model, latest.stt_model);
+        assert!(merged.whisper_model_path.is_none());
+        assert_eq!(merged.overlay_opacity, 0.8);
+    }
     use crate::{error::AppError, types::DictationMode};
     use parking_lot::Mutex;
     use std::sync::{atomic::AtomicU64, Arc, Barrier};

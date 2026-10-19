@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import { microphones, languages, accelerations } from "../domain/preferences";
@@ -9,10 +9,40 @@ import SelectField from "../../../shared/presentation/SelectField.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import GpuMemoryField from "./GpuMemoryField.vue";
 import DecodingFields from "./DecodingFields.vue";
+import { compatibleModelPreferences } from "../../../shared/domain/speechModels";
 const props = defineProps<{ scope?: "microphone" | "recognition" }>();
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
 const { run, busy, error } = useFeedback();
+const selected = computed(() =>
+  workspace.state.models.find((m) => m.id === draft.value.model),
+);
+const offline = computed(
+  () => selected.value?.engine && selected.value.engine !== "whisper",
+);
+const languageOptions = computed(() =>
+  offline.value
+    ? languages.filter(
+        (l) =>
+          l.value === "auto" ||
+          (selected.value?.languageSelection &&
+            selected.value.languages?.includes(l.value)),
+      )
+    : languages,
+);
+const accelerationOptions = computed(() =>
+  (workspace.state.accelerations || accelerations).filter(
+    (a) => !offline.value || ["auto", "cpu"].includes(a.value),
+  ),
+);
+watch(
+  () => draft.value.model,
+  () =>
+    Object.assign(
+      draft.value,
+      compatibleModelPreferences(selected.value, draft.value),
+    ),
+);
 const installed = computed(() =>
   workspace.state.models
     .filter((m) => m.status === "installed")
@@ -96,15 +126,20 @@ const installed = computed(() =>
         <SelectField
           v-model="draft.language"
           label="Язык"
-          :options="languages"
+          :options="languageOptions"
         /><SelectField
           v-model="draft.acceleration"
           label="Ускорение"
-          :options="workspace.state.accelerations || accelerations"
+          :options="accelerationOptions"
         />
       </div>
-      <GpuMemoryField v-model="draft" />
-      <DecodingFields v-model="draft" />
+      <p v-if="offline" class="muted">
+        Эта модель работает на процессоре. Язык выбирается моделью автоматически
+        в пределах поддерживаемых языков. Настройки декодирования Whisper
+        сохранятся для возврата к Whisper.
+      </p>
+      <GpuMemoryField v-if="!offline" v-model="draft" />
+      <DecodingFields v-if="!offline" v-model="draft" />
     </template>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
   </div>

@@ -132,7 +132,7 @@ beforeEach(() => {
     if (
       [
         "get_dictation_history",
-        "list_whisper_models",
+        "list_stt_models",
         "list_audio_devices",
       ].includes(command)
     )
@@ -509,6 +509,124 @@ test("native patches preserve unrelated settings, key flags and overlay coordina
   assert.equal(next.hotkey, "Ctrl+Alt+F9");
   assert.deepEqual(next.llm_profiles, raw.llm_profiles);
   assert.equal(raw.overlay_scale, rawDefaults.overlay_scale);
+});
+
+const offlineCatalog = () => [
+  {
+    id: { engine: "giga_am", variant: "v3_e2e_rnnt_int8" },
+    filename: "gigaam",
+    local_path: "models/gigaam",
+    bytes: 231898272,
+    license: "MIT",
+    license_url: "https://example.test/license",
+    languages: ["ru"],
+    multilingual: false,
+    punctuation: true,
+    capabilities: {
+      transcription: true,
+      language_selection: false,
+      language_detection: false,
+      initial_prompt: false,
+      decoding_options: false,
+      accelerations: ["auto", "cpu"],
+    },
+  },
+  {
+    id: { engine: "parakeet", variant: "tdt_0.6b_v3_int8" },
+    filename: "parakeet",
+    local_path: "models/parakeet",
+    bytes: 670478772,
+    license: "CC-BY-4.0",
+    license_url: "https://creativecommons.org/licenses/by/4.0/",
+    languages: ["ru", "en", "uk"],
+    punctuation: true,
+    capabilities: {
+      language_selection: false,
+      decoding_options: false,
+      accelerations: ["auto", "cpu"],
+    },
+  },
+];
+test("offline selection round-trips canonical identity, CPU support and remembered Whisper options", () => {
+  const raw = structuredClone(rawDefaults);
+  raw.acceleration = "cuda";
+  raw.language = "en";
+  raw.whisper_decoding = "accurate";
+  raw.whisper_threads = 4;
+  const key = "giga_am:v3_e2e_rnnt_int8";
+  const next = mapping.applyPreferences(raw, { model: key }, offlineCatalog());
+  assert.deepEqual(next.stt_model, {
+    id: offlineCatalog()[0].id,
+    local_path: "models/gigaam",
+  });
+  assert.equal(next.whisper_model_path, null);
+  assert.equal(next.language, "auto");
+  assert.equal(next.acceleration, "auto");
+  assert.equal(next.whisper_decoding, "accurate");
+  assert.equal(next.whisper_threads, 4);
+  assert.equal(
+    mapping.preferencesFromNative(next, offlineCatalog()).model,
+    key,
+  );
+  assert.throws(
+    () => mapping.applyPreferences(next, { language: "en" }, offlineCatalog()),
+    /не поддерживает/,
+  );
+  assert.throws(
+    () =>
+      mapping.applyPreferences(
+        next,
+        { acceleration: "cuda" },
+        offlineCatalog(),
+      ),
+    /Процессор/,
+  );
+  const models = mapping.modelsFromNative(offlineCatalog());
+  assert.equal(models[1].license, "CC-BY-4.0");
+  assert.equal(models[0].languageSelection, false);
+  assert.equal(models[0].punctuation, true);
+  const unrelated = mapping.applyPreferences(
+    next,
+    { overlayOpacity: 80 },
+    offlineCatalog(),
+  );
+  assert.deepEqual(unrelated.stt_model, next.stt_model);
+});
+
+test("an unselected runtime never selects the first available catalogue model", () => {
+  const raw = structuredClone(rawDefaults);
+  raw.stt_model = null;
+  raw.whisper_model_path = null;
+  const catalog = offlineCatalog().map((model) => ({
+    ...model,
+    local_path: null,
+  }));
+  assert.equal(mapping.preferencesFromNative(raw, catalog).model, "");
+});
+
+test("offline downloads use typed IPC and their own cancellation ID", async () => {
+  const s = state();
+  const key = "parakeet:tdt_0.6b_v3_int8";
+  s.models = mapping.modelsFromNative(offlineCatalog());
+  s.models[1].status = "available";
+  const settings = nativeSettings(createContext(s));
+  await settings.downloadModel(key);
+  assert.ok(
+    calls.some(
+      ([name, args]) =>
+        name === "download_stt_model" &&
+        args.id.engine === "parakeet" &&
+        args.id.variant === "tdt_0.6b_v3_int8",
+    ),
+  );
+  s.models = [{ id: key, status: "downloading" }];
+  await settings.removeModel(key);
+  assert.ok(
+    calls.some(
+      ([name, args]) =>
+        name === "cancel_model_download" && args.downloadId === key,
+    ),
+  );
 });
 test("native trainer consent revocation disables both trainer and cloud analysis", () => {
   const raw = structuredClone(rawDefaults);

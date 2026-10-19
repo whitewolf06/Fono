@@ -88,6 +88,7 @@ export function createNativeWorkspace(): Workspace {
   );
   let sttError = "";
   function applySttReadiness(readiness: NativeSttReadiness) {
+    state.sttReadiness = readiness;
     if (readiness.state === "failed") {
       sttError = readiness.message;
       ctx.report(sttError);
@@ -189,10 +190,17 @@ export function createNativeWorkspace(): Workspace {
       if (event.kind !== "model_download") return;
       const progress = event.payload;
       const model = state.models.find(
-        (m) => progress.download_id === "whisper:" + m.id,
+        (m) =>
+          progress.download_id ===
+          (m.id.includes(":") ? m.id : "whisper:" + m.id),
       );
-      if (model && !["completed", "cancelled"].includes(progress.phase)) {
+      if (
+        model &&
+        !["completed", "cancelled", "failed"].includes(progress.phase)
+      ) {
         model.status = "downloading";
+        model.downloadPhase =
+          progress.phase === "verifying" ? "verifying" : "downloading";
         model.progress = progress.total_bytes
           ? Math.min(
               99,
@@ -202,7 +210,12 @@ export function createNativeWorkspace(): Workspace {
             )
           : 0;
       } else {
-        if (model) model.status = "available";
+        if (model) {
+          model.status = "available";
+          if (progress.phase === "failed")
+            model.downloadError =
+              "Не удалось загрузить или проверить модель. Повторите загрузку.";
+        }
         void ctx.readModels().catch(ctx.report);
       }
     })

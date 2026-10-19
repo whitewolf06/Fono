@@ -42,7 +42,7 @@ beforeEach(() => {
   invoke = async (name) => {
     calls.push(name);
     if (name === "get_settings") return structuredClone(rawDefaults);
-    if (name === "get_dictation_history" || name === "list_whisper_models")
+    if (name === "get_dictation_history" || name === "list_stt_models")
       return [];
     if (name === "get_local_transcription_service_snapshot")
       return service("initial", false);
@@ -324,10 +324,17 @@ test("model bursts publish only the final catalogue and do not lose installed st
   const first = ctx.readModels();
   await flush();
   const afterRemoval = ctx.readModels();
-  old.resolve([{ size: "tiny", filename: "old.bin", local_path: "old" }]);
+  const info = (variant, path) => ({
+    id: { engine: "whisper", variant },
+    filename: variant + ".bin",
+    local_path: path,
+    bytes: 10,
+    capabilities: {},
+  });
+  old.resolve([info("tiny", "old")]);
   await flush();
   assert.deepEqual(data.models, []);
-  latest.resolve([{ size: "base", filename: "base.bin", local_path: "new" }]);
+  latest.resolve([info("base", "new")]);
   await Promise.all([first, afterRemoval]);
   assert.equal(data.models[0].id, "base");
   assert.equal(data.models[0].status, "installed");

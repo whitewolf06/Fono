@@ -119,6 +119,11 @@ where
         if read == 0 {
             break;
         }
+        if expected_bytes.is_some_and(|expected| bytes.saturating_add(read as u64) > expected) {
+            return Err(AppError::Config(
+                "Model download exceeds the pinned artifact size".into(),
+            ));
+        }
         writer.write_all(&buffer[..read])?;
         hasher.update(&buffer[..read]);
         bytes = bytes.saturating_add(read as u64);
@@ -201,6 +206,20 @@ mod tests {
             |_| {},
         )
         .is_err());
+    }
+    #[test]
+    fn pinned_size_bounds_output_before_an_oversized_response_is_written() {
+        let mut reader = Cursor::new(vec![b'x'; 128 * 1024]);
+        let mut output = Vec::new();
+        assert!(copy_verified(
+            &mut reader,
+            &mut output,
+            Some(5),
+            &AtomicBool::new(false),
+            |_| {}
+        )
+        .is_err());
+        assert!(output.is_empty());
     }
 
     #[test]

@@ -79,6 +79,22 @@ test("save errors roll back toggles and preserve committed fields", async () => 
   assert.equal(workspace.state.preferences.language, "ru");
 });
 
+test("mock offline model activation keeps CPU/language capabilities and prevents deleting the selected package", async () => {
+  const id = "giga_am:v3_e2e_rnnt_int8";
+  const model = workspace.state.models.find((m) => m.id === id);
+  assert.ok(model);
+  model.status = "installed";
+  workspace.state.preferences.acceleration = "vulkan";
+  await workspace.settings.save({ model: id, language: "en" });
+  assert.equal(workspace.state.preferences.language, "auto");
+  assert.equal(workspace.state.preferences.acceleration, "auto");
+  assert.throws(() => workspace.settings.removeModel(id), /другую модель/);
+  await assert.rejects(
+    workspace.settings.save({ language: "en" }),
+    /не поддерживает/,
+  );
+});
+
 test("browser persistence contains preferences but never dictation or instructions", async () => {
   workspace.dictation.edit("PRIVATE TEST TRANSCRIPT");
   await workspace.settings.save({

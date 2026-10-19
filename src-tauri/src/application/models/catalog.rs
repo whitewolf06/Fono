@@ -11,6 +11,9 @@ pub struct ModelCapabilities {
     pub transcription: bool,
     pub initial_prompt: bool,
     pub language_detection: bool,
+    pub language_selection: bool,
+    pub decoding_options: bool,
+    pub accelerations: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -18,7 +21,8 @@ pub struct SttModelInfo {
     pub id: ModelId,
     pub filename: String,
     pub url: String,
-    pub sha256: String,
+    pub sha256: Option<String>,
+    pub files: Vec<crate::stt::offline_models::OfflineArtifact>,
     pub bytes: u64,
     pub license: String,
     pub license_url: String,
@@ -36,7 +40,8 @@ pub fn describe(size: WhisperModelSize) -> SttModelInfo {
         id: ModelId::whisper(size),
         filename: size.filename().into(),
         url: size.url().into(),
-        sha256: size.sha256().into(),
+        sha256: Some(size.sha256().into()),
+        files: Vec::new(),
         bytes: size.exact_bytes(),
         license: "MIT".into(),
         license_url: "https://github.com/openai/whisper/blob/main/LICENSE".into(),
@@ -47,6 +52,9 @@ pub fn describe(size: WhisperModelSize) -> SttModelInfo {
             transcription: true,
             initial_prompt: true,
             language_detection: true,
+            language_selection: true,
+            decoding_options: true,
+            accelerations: vec!["auto".into(), "cpu".into(), "cuda".into(), "vulkan".into()],
         },
         local_path: None,
         installed_bytes: None,
@@ -55,7 +63,7 @@ pub fn describe(size: WhisperModelSize) -> SttModelInfo {
 
 pub fn list_stt_models() -> AppResult<Vec<SttModelInfo>> {
     let directory = state::models_dir()?;
-    Ok(WhisperModelSize::ALL
+    let models: Vec<_> = WhisperModelSize::ALL
         .into_iter()
         .map(|size| {
             let mut info = describe(size);
@@ -66,7 +74,42 @@ pub fn list_stt_models() -> AppResult<Vec<SttModelInfo>> {
             }
             info
         })
-        .collect())
+        .collect();
+    #[cfg(feature = "offline-stt")]
+    let mut models = models;
+    #[cfg(feature = "offline-stt")]
+    for spec in crate::stt::offline_models::specifications()? {
+        let path = directory.join(&spec.directory);
+        let installed = super::offline_package::is_installed(&path, &spec);
+        let bytes = spec.files.iter().map(|file| file.bytes).sum();
+        models.push(SttModelInfo {
+            id: spec.id,
+            filename: spec.directory,
+            url: format!(
+                "https://huggingface.co/{}/tree/{}",
+                spec.repository, spec.revision
+            ),
+            sha256: None,
+            files: spec.files,
+            bytes,
+            license: spec.license,
+            license_url: spec.license_url,
+            languages: spec.languages,
+            multilingual: false,
+            punctuation: spec.punctuation,
+            capabilities: ModelCapabilities {
+                transcription: true,
+                initial_prompt: false,
+                language_detection: false,
+                language_selection: false,
+                decoding_options: false,
+                accelerations: vec!["auto".into(), "cpu".into()],
+            },
+            local_path: installed.then(|| path.to_string_lossy().into_owned()),
+            installed_bytes: installed.then_some(bytes),
+        });
+    }
+    Ok(models)
 }
 
 #[cfg(test)]
@@ -80,8 +123,9 @@ mod tests {
             assert!(entry
                 .url
                 .starts_with("https://huggingface.co/ggerganov/whisper.cpp/resolve/"));
-            assert_eq!(entry.sha256.len(), 64);
-            assert!(entry.sha256.bytes().all(|value| value.is_ascii_hexdigit()));
+            let digest = entry.sha256.unwrap();
+            assert_eq!(digest.len(), 64);
+            assert!(digest.bytes().all(|value| value.is_ascii_hexdigit()));
             assert!(entry.bytes > 0);
             assert_eq!(entry.license, "MIT");
             assert_eq!(entry.languages, ["ru", "en"]);

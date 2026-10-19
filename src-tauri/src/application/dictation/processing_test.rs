@@ -61,7 +61,7 @@ pub(crate) fn start(app: AppHandle) -> AppResult<CaptureStarted> {
         ));
     }
     let settings = app.state::<AppState>().settings();
-    if settings.whisper_model_path.is_none() {
+    if settings.selected_stt_model().is_none() {
         return Err(AppError::Stt(
             "Выберите установленную модель распознавания в настройках аудио.".into(),
         ));

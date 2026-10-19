@@ -6,9 +6,7 @@ mod service_windows;
 use tauri::{AppHandle, Manager};
 
 use crate::application::transcription_jobs::InteractiveActivity;
-use crate::application::transcription_service::{
-    configured_model_identifier, TranscriptionRuntime,
-};
+use crate::application::transcription_service::TranscriptionRuntime;
 use crate::error::{AppError, AppResult};
 use crate::pipeline::Pipeline;
 use crate::state::AppState;
@@ -36,10 +34,10 @@ impl InteractiveActivity for DesktopTranscriptionRuntime {
 impl TranscriptionRuntime for DesktopTranscriptionRuntime {
     fn configured_model(&self) -> AppResult<String> {
         let settings = self.app.state::<AppState>().settings();
-        let model_path = settings
-            .whisper_model_path
-            .ok_or(AppError::ModelNotLoaded)?;
-        configured_model_identifier(std::path::Path::new(&model_path))
+        settings
+            .selected_stt_model()
+            .map(|m| m.id.public_id())
+            .ok_or(AppError::ModelNotLoaded)
     }
 
     fn transcribe(
@@ -75,6 +73,68 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
             let scheduler = pipeline.scheduler();
             let stt = pipeline.stt();
             let worker_paths = crate::stt::worker_paths_for_app(&self.app);
+            #[cfg(feature = "offline-stt")]
+            if model.id.engine != crate::types::SttEngine::Whisper {
+                let vad = worker_paths
+                    .speech_vad
+                    .as_deref()
+                    .ok_or_else(|| AppError::Stt("Speech VAD model is unavailable".into()))?;
+                let segments = fono_audio::speech_segments::segment_recording(
+                    pcm_samples,
+                    vad,
+                    25 * 16_000,
+                    || cancellation.is_cancelled(),
+                )
+                .map_err(|e| AppError::Stt(e.to_string()))?
+                .ok_or_else(|| AppError::Cancelled("service segmentation cancelled".into()))?;
+                let result = super::segmented_transcription::transcribe_segments(
+                    pcm_samples,
+                    &segments,
+                    &cancellation,
+                    |window, start| {
+                        let permit = match scheduler.acquire(false, &cancellation) {
+                            Ok(permit) => permit,
+                            Err(error) => return (Err(error), false),
+                        };
+                        let result = stt
+                            .ensure_model_loaded(
+                                &model,
+                                settings.acceleration,
+                                &worker_paths,
+                                &permit.cancellation,
+                            )
+                            .and_then(|()| {
+                                stt.transcribe_window_with_options(
+                                    window,
+                                    language,
+                                    None,
+                                    worker_operation_id,
+                                    &permit.cancellation,
+                                    start,
+                                    decoding,
+                                )
+                            });
+                        let preempted =
+                            permit.cancellation.is_cancelled() && !cancellation.is_cancelled();
+                        drop(permit);
+                        (result, preempted)
+                    },
+                )?;
+                return Ok(Transcript {
+                    text: result.text,
+                    detected_language: result.detected_language,
+                    transcribe_secs: Some(result.transcribe_secs),
+                    audio_secs: Some(result.audio_secs),
+                    device: Some(
+                        match result.backend {
+                            fono_stt_protocol::BackendKind::Cpu => "CPU",
+                            fono_stt_protocol::BackendKind::Cuda => "CUDA",
+                            fono_stt_protocol::BackendKind::Vulkan => "Vulkan",
+                        }
+                        .into(),
+                    ),
+                });
+            }
             service_windows::transcribe_windows(
                 pcm_samples,
                 &cancellation,

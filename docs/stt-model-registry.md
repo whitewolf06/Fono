@@ -2,15 +2,16 @@
 
 F-01.1 introduces a stable `ModelId { engine, variant }`, separate from a local
 file path. Engine identifiers are `whisper`, `giga_am`, and `parakeet`.
-Only the six existing Whisper models are downloadable in this stage. Other
-engines return an explicit unavailable-engine error until their recognizers
-and verified artifacts are integrated in F-01.2/F-01.3.
+F-01.5 adds the verified CPU GigaAM v3 and Parakeet v3 packages alongside the
+six existing Whisper models when `offline-stt` is enabled.
 The [shared recognizer contract](stt-recognizer.md) now provides the embedded
-and worker adapter boundary; offline engine integration remains F-01.3.
+and worker adapter boundary; [offline recognition](stt-offline.md) shares it.
 
 The catalog includes artifact URL, SHA256, exact byte count, license and its
 source, languages, punctuation, and transcription/prompt/language-detection
-capabilities. `languages` lists the RU/EN locales exposed by Fono;
+capabilities, selectable language, decoding controls and acceleration routes.
+Multi-file packages expose `files` with exact per-file URL/SHA256/bytes;
+their top-level `sha256` is null. `languages` lists pinned model support;
 `multilingual` records the models' wider upstream language support.
 An existing `local_path` reports file presence, not a fresh checksum or runtime
 quality certification.
@@ -32,6 +33,11 @@ Loading old settings creates this selection from `whisper_model_path` and
 preserves the exact path. Unknown/custom Whisper filenames use variant
 `custom`; their files are not moved or renamed. The legacy path remains a
 compatibility mirror for the existing Whisper runtime and renderer commands.
+Offline selections leave `whisper_model_path` null: a package directory must
+never enter a Whisper loader. Preload, dictation, voice commands, prompt test
+capture and API jobs use the canonical selection. Offline Auto uses CPU;
+Whisper decoding/thread preferences are retained but do not reach offline
+inference. Unsupported language and explicit GPU routes fail validation.
 Legacy path-only writes update both fields in one settings delta. Unrelated
 stale preference writes preserve the latest model selection. Unknown engine
 identifiers and mismatched known identities/files fail explicitly.
@@ -48,6 +54,13 @@ Failed/cancelled transfers remove only their own staging file. Model removal
 shares the download admission fence and settings transaction; the selected
 model cannot be deleted. Blocking jobs retain update admission until their
 actual completion, including when the IPC waiter is dropped.
+Multi-file downloads stage each verified file in a unique sibling directory,
+retain attribution, and publish the complete package with a Windows directory
+rename. Failed/cancelled packages never appear as installed. Listing checks
+file presence/size; activation rechecks every digest with retained read guards.
+Settings activation retains configuration, update admission and the settings
+transaction through background completion. Failure before persistence restores
+the previous model; active capture/API jobs prevent configuration changes.
 
 ## Artifact sources and remaining work
 
@@ -58,9 +71,9 @@ The repository declares MIT; see the upstream
 [Whisper license](https://github.com/openai/whisper/blob/main/LICENSE).
 Download URLs retain the existing channel and always enforce the fixed digest.
 
-GigaAM/Parakeet package selection and licenses belong to their upcoming backend
-integration; no speculative download is enabled here. Quantized Whisper
-catalog entries remain F-01.6. Unit tests exercise migration, concurrent deltas,
+GigaAM/Parakeet artifact revisions and licenses are recorded in
+[offline model notices](evidence/licenses/offline-stt-NOTICE.md). Quantized
+Whisper catalog entries remain F-01.6. Unit tests exercise migration, concurrent deltas,
 publication, checksum/size/cancellation failures, publication races and removal
 using small temporary files. Full upstream model transfers and manual desktop
 selection are separate checks; this stage does not run microphone inference.

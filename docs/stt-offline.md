@@ -2,9 +2,10 @@
 
 FONO-115 adds a sherpa offline adapter to the shared `Recognizer` contract.
 FONO-116 supplies the shared `fono-audio` pause segmenter and checkpoint merger.
-These are backend stages. Settings migration, downloadable package activation
-and model-selection UI remain FONO-117; existing persisted settings and model
-IPC continue accepting Whisper only until that integration is completed.
+FONO-117 integrates these backends with canonical settings, verified package
+download/activation and the Vue model selector. The legacy Whisper path is null
+for offline selections. CPU-only and default builds expose both packages;
+builds without `offline-stt` retain the Whisper catalog.
 
 ## Verified packages
 
@@ -88,7 +89,8 @@ Ordinary tests never implicitly download or load these models.
 
 Full comparative WER/CER/RTF is FONO-119. Long continuous speech cut inside a
 word still needs broader quality qualification; PCM coverage alone is not a
-proof of lexical quality at that forced boundary. FONO-117 owns user-facing
-selection, download/activation, preferences and complete application metadata.
+proof of lexical quality at that forced boundary. FONO-117 supplies user-facing
+selection, download/activation, capability-aware preferences and session
+recognizer/model metadata alongside the actual returned device/backend.
 CUDA/DirectML, microphone/hotkey/overlay/installer and owner acceptance remain
 separate checks. Whisper's existing decoding and window policy are unchanged.

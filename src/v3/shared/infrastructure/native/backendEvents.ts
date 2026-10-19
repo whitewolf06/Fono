@@ -41,7 +41,9 @@ interface Payloads {
       | "verifying"
       | "extracting"
       | "completed"
-      | "cancelled";
+      | "cancelled"
+      | "failed";
+    // Terminal failure also survives a detached download IPC waiter.
     downloaded_bytes: number;
     total_bytes?: number | null;
   };
