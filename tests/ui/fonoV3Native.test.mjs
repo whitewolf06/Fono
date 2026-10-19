@@ -13,6 +13,46 @@ let server,
   rawDefaults,
   defaults;
 let calls, invoke, callbacks, listeners;
+test("quantized Whisper keeps artifact identity, readable precision and installed selection", () => {
+  const models = [
+    "small_q5_1",
+    "small_q8_0",
+    "large_turbo_q5_0",
+    "large_turbo_q8_0",
+  ].map((variant) => ({
+    id: { engine: "whisper", variant },
+    filename: variant + ".bin",
+    bytes: 190085487,
+    local_path: "C:/models/" + variant + ".bin",
+    license: "MIT",
+    license_url: "https://example.test/license",
+    languages: ["ru", "en"],
+    multilingual: true,
+    punctuation: true,
+    capabilities: {
+      language_selection: true,
+      decoding_options: true,
+      accelerations: ["auto", "cpu", "cuda", "vulkan"],
+    },
+  }));
+  const mapped = mapping.modelsFromNative(models);
+  assert.equal(mapped[0].name, "Whisper Small · Q5_1");
+  assert.equal(mapped[3].name, "Whisper Large v3 Turbo · Q8_0");
+  for (const [index, model] of mapped.entries()) {
+    assert.equal(model.id, models[index].id.variant);
+    assert.equal(model.status, "installed");
+    const settings = mapping.applyPreferences(
+      rawDefaults,
+      { model: model.id },
+      models,
+    );
+    assert.deepEqual(settings.stt_model.id, models[index].id);
+    assert.equal(
+      mapping.preferencesFromNative(settings, models).model,
+      model.id,
+    );
+  }
+});
 before(async () => {
   globalThis.window = {
     __TAURI_INTERNALS__: {

@@ -277,7 +277,7 @@ export function modelsFromNative(models: SttModelInfo[]): SpeechModel[] {
     engine: m.id.engine,
     name:
       m.id.engine === "whisper"
-        ? "Whisper " + m.id.variant.replaceAll("_", " ")
+        ? whisperModelName(m.id.variant)
         : m.id.engine === "giga_am"
           ? "GigaAM v3 · e2e RNNT INT8"
           : "Parakeet v3 · TDT 0.6B INT8",
@@ -289,13 +289,24 @@ export function modelsFromNative(models: SttModelInfo[]): SpeechModel[] {
     languageSelection: m.capabilities.language_selection,
     decodingOptions: m.capabilities.decoding_options,
     accelerations: m.capabilities.accelerations,
-    description: m.filename,
+    description:
+      m.id.engine === "whisper" && /_q[58]_/.test(m.id.variant)
+        ? "Квантованная модель. Качество зависит от записи."
+        : m.filename,
     size: m.bytes
       ? Math.round(m.bytes / 1048576) + " МБ"
       : "По размеру загрузки",
     status: m.local_path ? "installed" : "available",
     progress: m.local_path ? 100 : 0,
   }));
+}
+function whisperModelName(variant: string): string {
+  const [base, quantization] = variant.split(/_(?=q[58]_)/);
+  const title =
+    base === "large_turbo"
+      ? "Large v3 Turbo"
+      : base[0]?.toUpperCase() + base.slice(1);
+  return `Whisper ${title}${quantization ? " · " + quantization.toUpperCase() : ""}`;
 }
 export function historyFromNative(e: DictationHistoryEntry): Dictation {
   const kinds = [

@@ -1,9 +1,5 @@
 //! Verified downloadable artifacts; backends without a runtime stay out of this list.
-use crate::{
-    error::AppResult,
-    state,
-    types::{ModelId, WhisperModelSize},
-};
+use crate::{error::AppResult, state, types::WhisperArtifact};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -18,7 +14,7 @@ pub struct ModelCapabilities {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SttModelInfo {
-    pub id: ModelId,
+    pub id: crate::types::ModelId,
     pub filename: String,
     pub url: String,
     pub sha256: Option<String>,
@@ -35,14 +31,14 @@ pub struct SttModelInfo {
     pub installed_bytes: Option<u64>,
 }
 
-pub fn describe(size: WhisperModelSize) -> SttModelInfo {
+pub fn describe(artifact: WhisperArtifact) -> SttModelInfo {
     SttModelInfo {
-        id: ModelId::whisper(size),
-        filename: size.filename().into(),
-        url: size.url().into(),
-        sha256: Some(size.sha256().into()),
+        id: artifact.id(),
+        filename: artifact.filename,
+        url: artifact.url,
+        sha256: Some(artifact.sha256),
         files: Vec::new(),
-        bytes: size.exact_bytes(),
+        bytes: artifact.bytes,
         license: "MIT".into(),
         license_url: "https://github.com/openai/whisper/blob/main/LICENSE".into(),
         languages: vec!["ru".into(), "en".into()],
@@ -63,11 +59,11 @@ pub fn describe(size: WhisperModelSize) -> SttModelInfo {
 
 pub fn list_stt_models() -> AppResult<Vec<SttModelInfo>> {
     let directory = state::models_dir()?;
-    let models: Vec<_> = WhisperModelSize::ALL
+    let models: Vec<_> = WhisperArtifact::all()?
         .into_iter()
-        .map(|size| {
-            let mut info = describe(size);
-            let path = directory.join(size.filename());
+        .map(|artifact| {
+            let path = directory.join(&artifact.filename);
+            let mut info = describe(artifact);
             if let Some(metadata) = path.metadata().ok().filter(|metadata| metadata.is_file()) {
                 info.local_path = Some(path.to_string_lossy().into_owned());
                 info.installed_bytes = Some(metadata.len());
@@ -118,7 +114,7 @@ mod tests {
     #[test]
     fn catalog_has_unique_verified_artifacts_and_explicit_metadata() {
         let mut ids = std::collections::HashSet::new();
-        for entry in WhisperModelSize::ALL.into_iter().map(describe) {
+        for entry in WhisperArtifact::all().unwrap().into_iter().map(describe) {
             assert!(ids.insert(serde_json::to_string(&entry.id).unwrap()));
             assert!(entry
                 .url

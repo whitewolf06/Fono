@@ -28,6 +28,7 @@ mod processing;
 mod settings;
 mod stt_models;
 mod wake_profile;
+mod whisper_artifacts;
 pub use commands::*;
 pub use history::*;
 pub use models::*;
@@ -35,6 +36,7 @@ pub use processing::*;
 pub use settings::*;
 pub use stt_models::*;
 pub use wake_profile::*;
+pub use whisper_artifacts::*;
 
 use serde::{Deserialize, Serialize};
 

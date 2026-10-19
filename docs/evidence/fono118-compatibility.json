@@ -1,0 +1,224 @@
+{
+  "schema": 1,
+  "task": "FONO-118",
+  "started_at": "2026-10-19T09:49:37.268Z",
+  "source_revision": "060d4492c50652d1e4a1fb4c46d0b5f345146519",
+  "registry_sha256": "c6ccc647745369b1b5813e66832344e1b79efe055166309a60805abe2162da3b",
+  "corpus_sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2",
+  "runner_sha256": "a8995a770ac24044b1886a31830075895c7d09d8835c0154c7cf6053c399be83",
+  "hardware": {
+    "os": "10.0.26200",
+    "arch": "x64",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+    "logical_cpus": 16,
+    "memory_bytes": 68564881408
+  },
+  "policy": {
+    "backend": "cpu",
+    "strategy": "fast",
+    "threads": 8,
+    "corpus": "fono-fleurs-smoke-v1",
+    "samples": 20,
+    "replay": "original 16 kHz PCM; no resampler or DSP change",
+    "maximum_wer_regression": 0.01,
+    "limitations": "One run on a small public corpus; timing is indicative. No owner microphone, CUDA, sustained load or general quality guarantee."
+  },
+  "cpu_quality_status": "not_run",
+  "runs": {},
+  "comparisons": {},
+  "worker": {
+    "sha256": "614775923ad8bc1de1afeab19494c3a148934b7c1684adb2d32ef3d20a722fb8",
+    "probes": {
+      "small_q5_1": {
+        "scope": "one public WAV; compatibility only",
+        "ready": {
+          "backend": "vulkan",
+          "capabilities": {
+            "maximum_request_bytes": 16777216,
+            "maximum_response_bytes": 1048576,
+            "protocol_version": 3,
+            "supports_cancel": true,
+            "supports_decoding_options": true,
+            "supports_health": true,
+            "supports_shutdown": true,
+            "supports_token_timestamps": true,
+            "supports_window": true
+          },
+          "protocol_version": 3,
+          "request_id": "quantized-1",
+          "type": "ready",
+          "roundtrip_seconds": 0.012342300000000023
+        },
+        "load": {
+          "backend": "vulkan",
+          "protocol_version": 3,
+          "request_id": "quantized-2",
+          "type": "model_loaded",
+          "roundtrip_seconds": 1.0386006000000003
+        },
+        "result": {
+          "audio_secs": 10.5600004196167,
+          "backend": "vulkan",
+          "operation_id": "public-quantized-compatibility",
+          "protocol_version": 3,
+          "request_id": "quantized-3",
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "transcribe_secs": 15.704808235168457,
+          "type": "result",
+          "roundtrip_seconds": 15.740900100000001
+        },
+        "errors": {
+          "word_errors": 1,
+          "reference_words": 19,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "wer": 0.05263157894736842,
+          "cer": 0.010101010101010102
+        }
+      },
+      "small_q8_0": {
+        "scope": "one public WAV; compatibility only",
+        "ready": {
+          "backend": "vulkan",
+          "capabilities": {
+            "maximum_request_bytes": 16777216,
+            "maximum_response_bytes": 1048576,
+            "protocol_version": 3,
+            "supports_cancel": true,
+            "supports_decoding_options": true,
+            "supports_health": true,
+            "supports_shutdown": true,
+            "supports_token_timestamps": true,
+            "supports_window": true
+          },
+          "protocol_version": 3,
+          "request_id": "quantized-1",
+          "type": "ready",
+          "roundtrip_seconds": 0.012726999999998953
+        },
+        "load": {
+          "backend": "vulkan",
+          "protocol_version": 3,
+          "request_id": "quantized-2",
+          "type": "model_loaded",
+          "roundtrip_seconds": 0.6673063000000002
+        },
+        "result": {
+          "audio_secs": 10.5600004196167,
+          "backend": "vulkan",
+          "operation_id": "public-quantized-compatibility",
+          "protocol_version": 3,
+          "request_id": "quantized-3",
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "transcribe_secs": 6.396644115447998,
+          "type": "result",
+          "roundtrip_seconds": 6.425231200000002
+        },
+        "errors": {
+          "word_errors": 1,
+          "reference_words": 19,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "wer": 0.05263157894736842,
+          "cer": 0.010101010101010102
+        }
+      },
+      "large_turbo_q5_0": {
+        "scope": "one public WAV; compatibility only",
+        "ready": {
+          "backend": "vulkan",
+          "capabilities": {
+            "maximum_request_bytes": 16777216,
+            "maximum_response_bytes": 1048576,
+            "protocol_version": 3,
+            "supports_cancel": true,
+            "supports_decoding_options": true,
+            "supports_health": true,
+            "supports_shutdown": true,
+            "supports_token_timestamps": true,
+            "supports_window": true
+          },
+          "protocol_version": 3,
+          "request_id": "quantized-1",
+          "type": "ready",
+          "roundtrip_seconds": 0.008621800000000804
+        },
+        "load": {
+          "backend": "vulkan",
+          "protocol_version": 3,
+          "request_id": "quantized-2",
+          "type": "model_loaded",
+          "roundtrip_seconds": 0.9214004999999997
+        },
+        "result": {
+          "audio_secs": 10.5600004196167,
+          "backend": "vulkan",
+          "operation_id": "public-quantized-compatibility",
+          "protocol_version": 3,
+          "request_id": "quantized-3",
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "transcribe_secs": 9.497847557067871,
+          "type": "result",
+          "roundtrip_seconds": 9.5280465
+        },
+        "errors": {
+          "word_errors": 1,
+          "reference_words": 19,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "wer": 0.05263157894736842,
+          "cer": 0.010101010101010102
+        }
+      },
+      "large_turbo_q8_0": {
+        "scope": "one public WAV; compatibility only",
+        "ready": {
+          "backend": "vulkan",
+          "capabilities": {
+            "maximum_request_bytes": 16777216,
+            "maximum_response_bytes": 1048576,
+            "protocol_version": 3,
+            "supports_cancel": true,
+            "supports_decoding_options": true,
+            "supports_health": true,
+            "supports_shutdown": true,
+            "supports_token_timestamps": true,
+            "supports_window": true
+          },
+          "protocol_version": 3,
+          "request_id": "quantized-1",
+          "type": "ready",
+          "roundtrip_seconds": 0.012817800000004353
+        },
+        "load": {
+          "backend": "vulkan",
+          "protocol_version": 3,
+          "request_id": "quantized-2",
+          "type": "model_loaded",
+          "roundtrip_seconds": 1.2422830000000031
+        },
+        "result": {
+          "audio_secs": 10.5600004196167,
+          "backend": "vulkan",
+          "operation_id": "public-quantized-compatibility",
+          "protocol_version": 3,
+          "request_id": "quantized-3",
+          "text": "However, due to the slow communication channels, styles in the West could lag behind by 25 to 30 years.",
+          "transcribe_secs": 0.11871159821748734,
+          "type": "result",
+          "roundtrip_seconds": 0.14854690000000118
+        },
+        "errors": {
+          "word_errors": 1,
+          "reference_words": 19,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "wer": 0.05263157894736842,
+          "cer": 0.010101010101010102
+        }
+      }
+    }
+  },
+  "completed_at": "2026-10-19T09:50:17.012Z",
+  "quality_passed": null
+}

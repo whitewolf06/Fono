@@ -13,7 +13,7 @@ use crate::application::transcription_contract::{
 };
 use crate::error::AppResult;
 use crate::stt::{SttEngine, WorkerPaths};
-use crate::types::{AccelerationMode, Transcript, WhisperModelSize};
+use crate::types::{AccelerationMode, Transcript, WhisperArtifact};
 use fono_core::OperationCancellation;
 
 /// The only dependency the use case needs from the STT infrastructure.
@@ -136,8 +136,8 @@ pub fn configured_model_identifier(model_path: &std::path::Path) -> AppResult<St
         .file_name()
         .and_then(|filename| filename.to_str())
         .ok_or(crate::error::AppError::ModelNotLoaded)?;
-    WhisperModelSize::from_filename(filename)
-        .map(|model| model.api_identifier().to_string())
+    WhisperArtifact::from_filename(filename)
+        .map(|model| model.variant)
         .ok_or(crate::error::AppError::ModelNotLoaded)
 }
 

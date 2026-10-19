@@ -1,5 +1,5 @@
 //! Stable speech-model identity, independent of a backend's local file path.
-use super::{Settings, WhisperModelSize};
+use super::{Settings, WhisperArtifact, WhisperModelSize};
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +19,21 @@ pub struct ModelId {
 }
 
 impl ModelId {
+    pub fn whisper_artifact(&self) -> AppResult<WhisperArtifact> {
+        if self.engine == SttEngine::Whisper {
+            if let Some(model) = WhisperArtifact::all()?
+                .into_iter()
+                .find(|m| m.variant == self.variant)
+            {
+                return Ok(model);
+            }
+        }
+        Err(AppError::Config(format!(
+            "Unknown managed Whisper model: {}",
+            self.public_id()
+        )))
+    }
+
     pub fn public_id(&self) -> String {
         match self.engine {
             SttEngine::Whisper => self.variant.clone(),
@@ -62,8 +77,8 @@ impl SttModelSelection {
         // Settings may move between platforms. Preserve the exact original
         // path, including custom models; only inspect its final component.
         let filename = path.rsplit(['/', '\\']).next().unwrap_or(&path);
-        let id = WhisperModelSize::from_filename(filename)
-            .map(ModelId::whisper)
+        let id = WhisperArtifact::from_filename(filename)
+            .map(|model| model.id())
             .unwrap_or(ModelId {
                 engine: SttEngine::Whisper,
                 variant: "custom".into(),
@@ -89,9 +104,9 @@ impl SttModelSelection {
         if self.id.engine == SttEngine::Whisper && self.id.variant == "custom" {
             return Ok(());
         }
-        let size = self.id.whisper_size()?;
+        let artifact = self.id.whisper_artifact()?;
         let filename = self.local_path.rsplit(['/', '\\']).next();
-        if filename != Some(size.filename()) {
+        if filename != Some(artifact.filename.as_str()) {
             return Err(AppError::Config(
                 "STT model identity does not match its file".into(),
             ));
@@ -202,6 +217,8 @@ mod tests {
     fn legacy_known_and_custom_paths_survive_migration_and_roundtrip() {
         for (path, variant) in [
             (r"D:\models\ggml-large-v3-turbo.bin", "large_turbo"),
+            (r"D:\models\ggml-small-q5_1.bin", "small_q5_1"),
+            ("/models/ggml-large-v3-turbo-q8_0.bin", "large_turbo_q8_0"),
             ("/models/my-own-q5.bin", "custom"),
         ] {
             let mut settings: Settings = serde_json::from_value(serde_json::json!({

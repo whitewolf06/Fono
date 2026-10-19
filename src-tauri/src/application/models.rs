@@ -30,7 +30,7 @@ pub async fn download_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
             "Offline STT is unavailable in this build".into(),
         ));
     }
-    download_whisper_model(app, id.whisper_size()?.api_identifier().into()).await
+    whisper_download::download_whisper_artifact(app, id.whisper_artifact()?).await
 }
 
 pub async fn set_stt_model(app: &AppHandle, _state: &AppState, id: ModelId) -> AppResult<()> {
@@ -41,7 +41,7 @@ pub async fn set_stt_model(app: &AppHandle, _state: &AppState, id: ModelId) -> A
         let _activity = activity;
         let _transaction = transaction;
         let filename = if id.engine == SttEngine::Whisper {
-            id.whisper_size()?.filename().to_owned()
+            id.whisper_artifact()?.filename
         } else {
             #[cfg(feature = "offline-stt")]
             {
@@ -88,12 +88,12 @@ pub async fn remove_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
                 "Offline STT is unavailable in this build".into(),
             ));
         }
-        let size = id.whisper_size()?;
+        let artifact = id.whisper_artifact()?;
         let _registration =
-            download::DownloadRegistration::begin(format!("whisper:{}", size.api_identifier()))?;
+            download::DownloadRegistration::begin(format!("whisper:{}", artifact.variant))?;
         let selected = app.state::<AppState>().settings().whisper_model_path;
         store::remove_model_file(
-            &state::models_dir()?.join(size.filename()),
+            &state::models_dir()?.join(artifact.filename),
             selected.as_deref(),
         )
     })

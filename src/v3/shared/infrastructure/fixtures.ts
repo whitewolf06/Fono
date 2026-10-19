@@ -93,6 +93,19 @@ export const demoModels = (): SpeechModel[] =>
       status: "available",
       progress: 0,
     },
+    ...[
+      ["small_q5_1", "Small · Q5_1", 190085487],
+      ["small_q8_0", "Small · Q8_0", 264464607],
+      ["large_turbo_q5_0", "Large v3 Turbo · Q5_0", 574041195],
+      ["large_turbo_q8_0", "Large v3 Turbo · Q8_0", 874188075],
+    ].map(([id, label, bytes]) => ({
+      id: String(id),
+      name: `Whisper ${label}`,
+      size: `${Math.round(Number(bytes) / 1048576)} МБ`,
+      description: "Квантованная модель. Качество зависит от записи.",
+      status: "available",
+      progress: 0,
+    })),
   ]
     .map((model): SpeechModel => ({
       ...model,

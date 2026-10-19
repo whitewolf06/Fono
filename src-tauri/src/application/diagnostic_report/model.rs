@@ -1,7 +1,6 @@
 //! Closed fields form the redaction boundary: arbitrary text cannot enter a report.
 use crate::types::{
     AccelerationMode, AiMode, InjectionMode, LlmConnectionKind, PipelineState, Settings,
-    WhisperModelSize,
 };
 use crate::types::{WakeWordBackend, WakeWordStatus};
 use fono_core::OperationSource;
@@ -74,8 +73,14 @@ pub(super) fn model_label(settings: &Settings) -> &'static str {
     std::path::Path::new(path)
         .file_name()
         .and_then(|name| name.to_str())
-        .and_then(WhisperModelSize::from_filename)
-        .map(|model| model.api_identifier())
+        .and_then(|filename| match filename {
+            "ggml-small-q5_1.bin" => Some("small_q5_1"),
+            "ggml-small-q8_0.bin" => Some("small_q8_0"),
+            "ggml-large-v3-turbo-q5_0.bin" => Some("large_turbo_q5_0"),
+            "ggml-large-v3-turbo-q8_0.bin" => Some("large_turbo_q8_0"),
+            _ => crate::types::WhisperModelSize::from_filename(filename)
+                .map(|model| model.api_identifier()),
+        })
         .unwrap_or("пользовательская модель")
 }
 pub(super) fn backend_label(device: &str) -> &'static str {
