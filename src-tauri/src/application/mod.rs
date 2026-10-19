@@ -25,6 +25,7 @@ pub mod models;
 pub mod personal_dictionary;
 pub mod project_site;
 pub mod rest_api;
+pub mod segmented_transcription;
 pub mod service_control;
 pub mod speech_analysis_queue;
 pub mod speech_gate;

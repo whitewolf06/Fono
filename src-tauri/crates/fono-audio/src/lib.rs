@@ -7,6 +7,7 @@
 pub mod audio_source;
 pub mod error;
 pub mod speech_boundaries;
+pub mod speech_segments;
 pub use speech_boundaries::{recorded_speech_bounds, RecordedSpeechDecision, SpeechBounds};
 #[cfg(feature = "speech-vad")]
 pub mod speech_vad;

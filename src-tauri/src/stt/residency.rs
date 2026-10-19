@@ -17,6 +17,8 @@ fn exclusive<T>(handle: &Arc<T>) -> bool {
 fn resident_gpu(state: &EngineState) -> (bool, bool) {
     match state {
         EngineState::Empty => (false, false),
+        #[cfg(feature = "offline-stt")]
+        EngineState::Offline { .. } => (false, false),
         EngineState::Worker { session, device } => {
             let gpu = matches!(*device, "CUDA" | "Vulkan") && session.has_resources();
             (gpu, gpu && exclusive(session) && session.is_idle())

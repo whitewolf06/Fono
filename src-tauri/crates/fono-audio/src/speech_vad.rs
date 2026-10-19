@@ -25,6 +25,7 @@ pub struct StreamingSpeechVad {
     last_speech: Option<u64>,
     has_speech: bool,
     recorded: RecordedSpeechDecision,
+    closed_speech_end: Option<u64>,
 }
 impl StreamingSpeechVad {
     pub fn new(model_path: &Path) -> AudioResult<Self> {
@@ -54,6 +55,7 @@ impl StreamingSpeechVad {
             last_speech: None,
             has_speech: false,
             recorded: RecordedSpeechDecision::default(),
+            closed_speech_end: None,
         })
     }
     pub fn accept(&mut self, samples: &[i16]) -> SpeechVadDecision {
@@ -133,6 +135,7 @@ impl StreamingSpeechVad {
             if let Some(segment) = self.detector.front() {
                 let start = segment.start().max(0) as u64;
                 let end = start + segment.n().max(0) as u64;
+                self.closed_speech_end = Some(end);
                 self.last_speech = Some(self.last_speech.unwrap_or_default().max(end));
                 self.has_speech = true;
                 if recording::sustained_signal(segment.samples()) {
@@ -151,6 +154,14 @@ impl StreamingSpeechVad {
         self.last_speech = None;
         self.has_speech = false;
         self.recorded = RecordedSpeechDecision::default();
+        self.closed_speech_end = None;
+    }
+
+    /// End of the latest closed neural segment, including forced duration
+    /// closes. Callers must confirm silence separately. Unlike
+    /// `last_speech_sample`, this excludes detector hangover.
+    pub fn closed_speech_end_sample(&self) -> Option<u64> {
+        self.closed_speech_end
     }
 }
 

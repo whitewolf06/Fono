@@ -5,7 +5,7 @@ resolver = "2"
 [package]
 license = "MIT"
 name = "fono"
-version = "0.7.30"
+version = "0.7.31"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -33,6 +33,7 @@ fono-wake = { version = "0.1.0", path = "crates/fono-wake", default-features = f
 fono-stt-protocol = { version = "0.1.0", path = "crates/fono-stt-protocol", features = ["inference"] }
 fono-core = { version = "0.1.0", path = "crates/fono-core" }
 fono-audio = { version = "0.1.0", path = "crates/fono-audio", default-features = false }
+sherpa-onnx = { version = "=1.13.4", optional = true, default-features = false, features = ["shared"] }
 
 # Сериализация
 serde = { version = "1.0", features = ["derive"] }
@@ -106,10 +107,11 @@ tauri-plugin-updater = "=2.12.0"
 [features]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so
 # a normal installer does not require CUDA/CUBLAS on the target machine.
-default = ["speech-vad"]
+default = ["speech-vad", "offline-stt"]
 speech-vad = ["fono-audio/speech-vad"]
+offline-stt = ["dep:sherpa-onnx", "speech-vad"]
 # Contributor profile: real speech VAD and embedded CPU Whisper, with no GPU workers.
-cpu-only = ["speech-vad"]
+cpu-only = ["speech-vad", "offline-stt"]
 wake-word = ["dep:fono-wake"]
 experimental-live = []
 # Встроенное GPU-ускорение через CUDA для явной сборки с CUDA Toolkit.

@@ -2,6 +2,11 @@ use super::*;
 
 pub(super) enum EngineState {
     Empty,
+    #[cfg(feature = "offline-stt")]
+    Offline {
+        engine: Arc<super::offline::SherpaRecognizer>,
+        model_path: String,
+    },
     Embedded {
         engine: Arc<EmbeddedRecognizer>,
         device: &'static str,
@@ -40,6 +45,8 @@ pub(super) type SttReadinessObserver = Arc<dyn Fn(SttReadiness) + Send + Sync>;
 
 #[derive(Clone)]
 pub(super) enum ActiveEngine {
+    #[cfg(feature = "offline-stt")]
+    Offline(Arc<super::offline::SherpaRecognizer>),
     Embedded(Arc<EmbeddedRecognizer>),
     Worker(Arc<WorkerMailbox>),
 }
@@ -51,6 +58,8 @@ impl EngineState {
             Self::Empty => None,
             Self::Embedded { engine, .. } => Some(engine.model()),
             Self::Worker { session, .. } => Some(session.model()),
+            #[cfg(feature = "offline-stt")]
+            Self::Offline { engine, .. } => Some(engine.model()),
         }
     }
     pub(super) fn compatible(&self, model_path: &str, candidate: &EngineCandidate) -> bool {
@@ -66,6 +75,14 @@ impl EngineState {
             (Self::Worker { session, .. }, EngineCandidate::Worker { backend, path, .. }) => {
                 session.compatible_with(model_path, *backend, path)
             }
+            #[cfg(feature = "offline-stt")]
+            (
+                Self::Offline {
+                    model_path: current,
+                    ..
+                },
+                EngineCandidate::Offline,
+            ) => current == model_path,
             _ => false,
         }
     }
@@ -73,6 +90,8 @@ impl EngineState {
     pub(super) fn device(&self) -> String {
         match self {
             Self::Empty => "CPU".into(),
+            #[cfg(feature = "offline-stt")]
+            Self::Offline { .. } => "CPU".into(),
             Self::Embedded { device, .. } | Self::Worker { device, .. } => (*device).into(),
         }
     }
@@ -80,6 +99,8 @@ impl EngineState {
     pub(super) fn active(&self) -> Option<ActiveEngine> {
         match self {
             Self::Empty => None,
+            #[cfg(feature = "offline-stt")]
+            Self::Offline { engine, .. } => Some(ActiveEngine::Offline(Arc::clone(engine))),
             Self::Embedded { engine, .. } => Some(ActiveEngine::Embedded(Arc::clone(engine))),
             Self::Worker { session, .. } => session
                 .has_resources()
@@ -89,6 +110,10 @@ impl EngineState {
 
     pub(super) fn contains(&self, active: &ActiveEngine) -> bool {
         match (self, active) {
+            #[cfg(feature = "offline-stt")]
+            (Self::Offline { engine, .. }, ActiveEngine::Offline(active)) => {
+                Arc::ptr_eq(engine, active)
+            }
             (Self::Embedded { engine, .. }, ActiveEngine::Embedded(active)) => {
                 Arc::ptr_eq(engine, active)
             }
@@ -103,6 +128,8 @@ impl EngineState {
 impl ActiveEngine {
     pub(super) fn recognizer(&self) -> &dyn super::recognizer::Recognizer {
         match self {
+            #[cfg(feature = "offline-stt")]
+            Self::Offline(engine) => engine.as_ref(),
             Self::Embedded(engine) => engine.as_ref(),
             Self::Worker(session) => session.as_ref(),
         }
@@ -114,6 +141,14 @@ impl ActiveEngine {
 
     pub(super) fn health(&self, device: String) -> SttHealth {
         match self {
+            #[cfg(feature = "offline-stt")]
+            Self::Offline(engine) => {
+                if engine.is_idle() {
+                    SttHealth::Ready { device }
+                } else {
+                    SttHealth::Busy { device }
+                }
+            }
             Self::Embedded(engine) => {
                 if engine.is_idle() {
                     SttHealth::Ready { device }

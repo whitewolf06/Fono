@@ -23,9 +23,11 @@ pub enum CancellationSupport {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct RecognizerCapabilities {
+    pub max_segment_samples: usize,
     pub window_transcription: bool,
     pub initial_prompt: bool,
     pub language_detection: bool,
+    pub automatic_language: bool,
     pub token_timestamps: bool,
     pub decoding_options: bool,
     pub cancellation: CancellationSupport,
@@ -34,9 +36,11 @@ pub struct RecognizerCapabilities {
 impl RecognizerCapabilities {
     pub(super) fn whisper(decoding_options: bool) -> Self {
         Self {
+            max_segment_samples: 30 * 16_000,
             window_transcription: true,
             initial_prompt: true,
             language_detection: true,
+            automatic_language: true,
             token_timestamps: true,
             decoding_options,
             cancellation: CancellationSupport::Cooperative,
@@ -63,6 +67,8 @@ pub(super) struct RecognizerLoad<'a> {
     pub candidate: &'a EngineCandidate,
     pub cleanup: Arc<WorkerCleanupSupervisor>,
     pub cancellation: &'a OperationCancellation,
+    #[cfg(feature = "offline-stt")]
+    pub speech_vad: Option<&'a std::path::Path>,
 }
 
 /// One synchronous interface for embedded, process-isolated and future offline
@@ -113,7 +119,7 @@ pub(super) fn run<T>(
 
 pub(super) fn load(request: RecognizerLoad<'_>) -> AppResult<EngineState> {
     run(request.cancellation, || {
-        request.model.validate()?;
+        super::validate_model_selection(request.model)?;
         match request.candidate {
             EngineCandidate::Embedded { use_gpu } => {
                 let engine = EmbeddedRecognizer::load(&request)?;
@@ -133,6 +139,14 @@ pub(super) fn load(request: RecognizerLoad<'_>) -> AppResult<EngineState> {
                     device,
                 })
             }
+            #[cfg(feature = "offline-stt")]
+            EngineCandidate::Offline => {
+                let engine = super::offline::SherpaRecognizer::load(&request)?;
+                Ok(EngineState::Offline {
+                    engine: Arc::new(engine),
+                    model_path: request.model.local_path.clone(),
+                })
+            }
         }
     })
 }
@@ -145,7 +159,7 @@ fn validate(recognizer: &dyn Recognizer, options: RecognitionOptions<'_>) -> App
             "Recognizer does not support the selected decoding options".into(),
         ));
     }
-    if options.language == "auto" && !capabilities.language_detection {
+    if options.language == "auto" && !capabilities.automatic_language {
         return Err(AppError::Config(
             "Recognizer does not support automatic language detection".into(),
         ));

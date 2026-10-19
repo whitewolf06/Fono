@@ -37,6 +37,9 @@ pub(crate) fn probe_cuda_worker(
 use routing::{ActiveEngine, EngineState, SttReadinessObserver};
 pub use routing::{SttHealth, SttReadiness};
 mod embedded;
+#[cfg(feature = "offline-stt")]
+mod offline;
+pub mod offline_models;
 mod recovery;
 mod residency;
 pub use recovery::{RecoverySelection, RecoverySelectionProvider};
@@ -122,7 +125,7 @@ impl SttEngine {
         valid: Option<recovery::LoadFence<'_>>,
     ) -> AppResult<()> {
         recognizer::check_cancellation(cancellation)?;
-        model.validate()?;
+        validate_model_selection(model)?;
         let model_path = Path::new(&model.local_path);
         let _activity = crate::application::updates::activity::lease()?;
         if self.cleanup.is_pending() {
@@ -141,7 +144,23 @@ impl SttEngine {
             return Err(error);
         }
         let model_path_string = model_path.to_string_lossy().to_string();
-        let candidates = worker_paths.candidates(acceleration);
+        let candidates = if model.id.engine == crate::types::SttEngine::Whisper {
+            worker_paths.candidates(acceleration)
+        } else {
+            #[cfg(feature = "offline-stt")]
+            {
+                match acceleration {
+                    AccelerationMode::Auto | AccelerationMode::Cpu => {
+                        vec![EngineCandidate::Offline]
+                    }
+                    AccelerationMode::Cuda | AccelerationMode::Vulkan => Vec::new(),
+                }
+            }
+            #[cfg(not(feature = "offline-stt"))]
+            {
+                Vec::new()
+            }
+        };
         if candidates.is_empty() {
             let error = AppError::BackendUnavailable(error_backend(acceleration));
             self.load_readiness(
@@ -214,6 +233,8 @@ impl SttEngine {
                 candidate: &candidate,
                 cleanup: Arc::clone(&self.cleanup),
                 cancellation,
+                #[cfg(feature = "offline-stt")]
+                speech_vad: worker_paths.speech_vad.as_deref(),
             });
             match loaded {
                 Ok(loaded) => {
@@ -543,6 +564,23 @@ fn error_backend(acceleration: AccelerationMode) -> RecognitionBackend {
 
 fn gpu_backend_compiled() -> bool {
     cfg!(any(feature = "cuda", feature = "vulkan"))
+}
+
+fn validate_model_selection(model: &SttModelSelection) -> AppResult<()> {
+    if model.id.engine == crate::types::SttEngine::Whisper {
+        model.validate()
+    } else {
+        #[cfg(feature = "offline-stt")]
+        {
+            offline_models::validate_selection(model)
+        }
+        #[cfg(not(feature = "offline-stt"))]
+        {
+            Err(AppError::Config(
+                "Offline STT is not enabled in this build".into(),
+            ))
+        }
+    }
 }
 
 #[cfg(test)]

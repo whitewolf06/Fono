@@ -4,6 +4,8 @@ use super::*;
 pub struct WorkerPaths {
     pub cuda: Option<PathBuf>,
     pub vulkan: Option<PathBuf>,
+    /// Shared packaged VAD for offline segmentation; no additional runtime.
+    pub speech_vad: Option<PathBuf>,
     // Keep verified file handles alive through worker start and recovery.
     pub(crate) cuda_package: Option<crate::application::cuda_packages::VerifiedPackage>,
     // Protocol fixtures inject their own cmd processes, never GPU inference.
@@ -12,6 +14,11 @@ pub struct WorkerPaths {
 }
 
 impl WorkerPaths {
+    pub fn with_speech_vad(mut self, path: PathBuf) -> Self {
+        self.speech_vad = Some(path);
+        self
+    }
+
     pub fn from_resource_dir(resource_dir: &Path) -> Self {
         if cfg!(feature = "cpu-only") {
             return Self::default();
@@ -25,6 +32,7 @@ impl WorkerPaths {
             // CUDA is installed only from a separately signed package. A
             // stale DLL/executable in bundled resources is never executable.
             cuda: None,
+            speech_vad: None,
             vulkan: worker_if_present(nested.join("fono-stt-vulkan-worker.exe"))
                 .or_else(|| worker_if_present(direct.join("fono-stt-vulkan-worker.exe")))
                 .or_else(|| {
@@ -128,6 +136,7 @@ impl WorkerPaths {
         Self {
             cuda,
             vulkan,
+            speech_vad: None,
             cuda_package: None,
             allow_fake_workers: true,
         }
@@ -136,6 +145,7 @@ impl WorkerPaths {
 
 pub fn worker_paths_for_app(app: &AppHandle) -> WorkerPaths {
     let mut paths = bundled_worker_paths(app);
+    paths.speech_vad = crate::application::speech_gate::model_path(app).ok();
     if !cfg!(feature = "cpu-only") {
         // The cache owns locked, fully verified files. It is initialized on a
         // blocking thread and replaced atomically with the durable pointer;
@@ -178,6 +188,8 @@ fn worker_if_present(path: PathBuf) -> Option<PathBuf> {
 }
 
 pub(super) enum EngineCandidate {
+    #[cfg(feature = "offline-stt")]
+    Offline,
     Embedded {
         use_gpu: bool,
     },

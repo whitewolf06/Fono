@@ -39,9 +39,11 @@ impl Recognizer for OfflineFixture {
     }
     fn capabilities(&self) -> RecognizerCapabilities {
         RecognizerCapabilities {
+            max_segment_samples: 25 * 16_000,
             window_transcription: true,
             initial_prompt: false,
             language_detection: false,
+            automatic_language: false,
             token_timestamps: false,
             decoding_options: false,
             cancellation: CancellationSupport::BetweenSegments,
