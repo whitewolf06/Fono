@@ -22,6 +22,8 @@ use fono_core::{
     OperationCancellation, OperationCoordinator, OperationEvent, OperationPhase, OperationResource,
     OperationSnapshot, OperationSource, TerminalReason,
 };
+#[cfg(feature = "speech-vad")]
+pub mod capture_segments;
 #[cfg(test)]
 mod capture_tests;
 pub mod completion;
@@ -66,6 +68,8 @@ pub struct Pipeline {
     session_settings: Mutex<Option<(u64, crate::types::Settings)>>,
     processing_frozen_for: AtomicU64,
     meter_operation: AtomicU64,
+    #[cfg(feature = "speech-vad")]
+    capture_segments: capture_segments::CaptureSegments,
 }
 
 impl Pipeline {
@@ -96,6 +100,8 @@ impl Pipeline {
             session_settings: Mutex::new(None),
             processing_frozen_for: AtomicU64::new(0),
             meter_operation: AtomicU64::new(0),
+            #[cfg(feature = "speech-vad")]
+            capture_segments: capture_segments::CaptureSegments::default(),
         }
     }
 

@@ -13,6 +13,8 @@ impl Pipeline {
         let _capture = self.recording.lock();
         let event = self.operations.cancel(operation);
         if event.is_some() {
+            #[cfg(feature = "speech-vad")]
+            self.capture_segments.stop(operation);
             self.scheduler.release_reservation(operation);
             tracing::debug!(operation, "pipeline: cancellation requested");
         }
@@ -32,6 +34,8 @@ impl Pipeline {
         operation_id: u64,
         reason: TerminalReason,
     ) -> Option<OperationEvent> {
+        #[cfg(feature = "speech-vad")]
+        self.capture_segments.stop(operation_id);
         self.scheduler.release_reservation(operation_id);
         self.operations.finish(operation_id, reason)
     }
@@ -216,6 +220,8 @@ impl Pipeline {
 
         if event.is_some() {
             if matches!(state, PipelineState::Idle | PipelineState::Error) {
+                #[cfg(feature = "speech-vad")]
+                self.capture_segments.stop(operation_id);
                 self.scheduler.release_reservation(operation_id);
             }
             if matches!(

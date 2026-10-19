@@ -109,9 +109,15 @@ fn start_configured(
             tracing::error!(%error, "start_dictation: capture failed");
             error
         })?;
-    if !pipeline.set_session_settings_for(operation, settings) {
+    if !pipeline.set_session_settings_for(operation, settings.clone()) {
         pipeline.stop_recording_for(operation)?;
         return Err(AppError::Cancelled("Диктовка отменена".into()));
+    }
+    #[cfg(feature = "speech-vad")]
+    if !force_standard && matches!(source, OperationSource::Ui | OperationSource::Hotkey) {
+        if let Err(error) = super::capture_segments::maybe_start(&app, operation, &settings) {
+            tracing::warn!(operation, %error, "capture pretranscription unavailable; ordinary Stop remains available");
+        }
     }
     drop(admission);
     super::workflow::capture_target(&app, operation, source);

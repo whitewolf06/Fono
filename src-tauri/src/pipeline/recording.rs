@@ -170,6 +170,10 @@ impl Pipeline {
         if !*recording {
             return Ok(());
         }
+        let operation = self.capture_operation.load(Ordering::Acquire);
+        #[cfg(feature = "speech-vad")]
+        self.capture_segments.stop(operation);
+        self.scheduler.promote_stop(operation);
         let stopped = self.audio_owner.stop();
         *self.stopped_capture_drops.lock() = self
             .audio_owner

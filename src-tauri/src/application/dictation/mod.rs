@@ -1,6 +1,8 @@
 //! Shared capture, recognition and completion for ordinary and diagnostic dictation.
 mod capture;
 mod capture_activation;
+#[cfg(feature = "speech-vad")]
+mod capture_segments;
 mod diagnostic_sample;
 mod diagnostics;
 mod lifecycle;
