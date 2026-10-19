@@ -1,12 +1,15 @@
 //! Speech model readiness and selection; downloads live in bounded adapters.
+mod catalog;
 mod download;
+mod store;
+pub use catalog::{list_stt_models, SttModelInfo};
 #[cfg(feature = "wake-word")]
 mod wake_download;
 mod whisper_download;
 use crate::{
     error::{AppError, AppResult},
     state::{self, AppState},
-    types::{WhisperModelInfo, WhisperModelSize},
+    types::{ModelId, WhisperModelInfo, WhisperModelSize},
 };
 pub use download::{cancel_download, has_active_downloads};
 use std::path::Path;
@@ -14,6 +17,46 @@ use tauri::{AppHandle, Manager};
 #[cfg(feature = "wake-word")]
 pub use wake_download::{download_kws_model, is_kws_model_downloaded};
 pub use whisper_download::download_whisper_model;
+
+pub async fn download_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
+    download_whisper_model(app, id.whisper_size()?.api_identifier().into()).await
+}
+
+pub async fn set_stt_model(app: &AppHandle, state: &AppState, id: ModelId) -> AppResult<()> {
+    let size = id.whisper_size()?;
+    let activity = crate::application::updates::activity::lease()?;
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        state::models_dir().map(|directory| {
+            directory
+                .join(size.filename())
+                .to_string_lossy()
+                .into_owned()
+        })
+    })
+    .await
+    .map_err(|_| AppError::Internal("model path task failed".into()))??;
+    set_whisper_model(app, state, path).await
+}
+
+pub async fn remove_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
+    let size = id.whisper_size()?;
+    let activity = crate::application::updates::activity::lease()?;
+    let transaction = crate::application::updates::settings_transaction(&app).await;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        let _transaction = transaction;
+        let _registration =
+            download::DownloadRegistration::begin(format!("whisper:{}", size.api_identifier()))?;
+        let selected = app.state::<AppState>().settings().whisper_model_path;
+        store::remove_model_file(
+            &state::models_dir()?.join(size.filename()),
+            selected.as_deref(),
+        )
+    })
+    .await
+    .map_err(|_| AppError::Internal("model removal task failed".into()))?
+}
 /// Starts a best-effort background preload of the model selected in persisted
 /// settings.  It deliberately does not make application startup fail: the
 /// typed STT readiness IPC remains the source of truth for a missing model or
@@ -79,7 +122,7 @@ pub fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
                 meta.map(|item| item.len()),
             )
         } else {
-            (None, Some(size.approx_bytes()))
+            (None, Some(size.exact_bytes()))
         };
         out.push(WhisperModelInfo {
             filename: filename.to_string(),

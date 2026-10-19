@@ -15,6 +15,9 @@ pub struct Settings {
     pub audio_device_id: Option<String>,
     #[serde(default)]
     pub whisper_model_path: Option<String>,
+    /// Canonical model selection; legacy path is retained as a compatibility mirror.
+    #[serde(default)]
+    pub stt_model: Option<SttModelSelection>,
     #[serde(default = "default_language")]
     pub language: String,
     /// Exact local canonical spellings; disabled by default, entries retained.
@@ -150,6 +153,7 @@ impl Default for Settings {
             dictation_mode: DictationMode::Standard,
             audio_device_id: None,
             whisper_model_path: None,
+            stt_model: None,
             language: default_language(),
             personal_dictionary_enabled: false,
             personal_dictionary_entries: Vec::new(),

@@ -98,6 +98,18 @@ impl WhisperModelSize {
             * 1024
     }
 
+    /// Exact GGML file sizes from upstream LFS pointers (F-01.1).
+    pub fn exact_bytes(&self) -> u64 {
+        match self {
+            Self::Tiny => 77_691_713,
+            Self::Base => 147_951_465,
+            Self::Small => 487_601_967,
+            Self::Medium => 1_533_763_059,
+            Self::Large => 3_095_033_483,
+            Self::LargeTurbo => 1_624_555_275,
+        }
+    }
+
     /// SHA-256 published for the exact files behind the Hugging Face URLs.
     /// Source: https://huggingface.co/ggerganov/whisper.cpp/tree/main
     pub fn sha256(&self) -> &'static str {

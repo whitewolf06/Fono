@@ -27,6 +27,35 @@ export interface WhisperModelInfo {
   bytes: number | null;
 }
 
+export type SttEngine = "whisper" | "giga_am" | "parakeet";
+export interface ModelId {
+  engine: SttEngine;
+  variant: string;
+}
+export interface SttModelSelection {
+  id: ModelId;
+  local_path: string;
+}
+export interface SttModelInfo {
+  id: ModelId;
+  filename: string;
+  url: string;
+  sha256: string;
+  bytes: number;
+  license: string;
+  license_url: string;
+  languages: string[];
+  multilingual: boolean;
+  punctuation: boolean;
+  capabilities: {
+    transcription: boolean;
+    initial_prompt: boolean;
+    language_detection: boolean;
+  };
+  local_path: string | null;
+  installed_bytes: number | null;
+}
+
 export type WhisperModelSize =
   "tiny" | "base" | "small" | "medium" | "large" | "large_turbo";
 
@@ -91,6 +120,7 @@ export interface Settings {
   audio_device_id: string | null;
   /** Путь к Whisper-модели (.bin) */
   whisper_model_path: string | null;
+  stt_model?: SttModelSelection | null;
   /** Язык распознавания ("auto", "ru", "en", ...) */
   language: string;
   /** Optional local final-text replacements, never applied to raw transcripts. */

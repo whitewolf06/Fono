@@ -68,6 +68,12 @@ impl AppState {
     }
 
     pub fn set_settings(&self, mut settings: Settings) {
+        // This infallible setter is used after validated settings transactions.
+        // Preserve previous state if an internal caller supplies an unavailable engine.
+        if let Err(error) = settings.reconcile_stt_model(None) {
+            tracing::error!(%error, "invalid STT model selection");
+            return;
+        }
         settings.enforce_classic_dictation();
         settings.enforce_wake_availability();
         settings.migrate_processing_prompts();

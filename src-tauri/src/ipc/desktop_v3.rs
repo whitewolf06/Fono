@@ -212,23 +212,8 @@ pub async fn get_selected_model_metadata(
 }
 #[tauri::command]
 pub async fn remove_whisper_model(app: AppHandle, size: String) -> AppResult<()> {
-    super::blocking::run(move || remove_model(&app, &size)).await
-}
-
-fn remove_model(app: &AppHandle, size: &str) -> AppResult<()> {
-    let settings = app.state::<AppState>().settings();
-    let model = crate::application::models::list_whisper_models()?
-        .into_iter()
-        .find(|m| m.size.api_identifier() == size)
-        .ok_or_else(|| AppError::Config("Неизвестная модель".into()))?;
-    let file = model
-        .local_path
-        .ok_or_else(|| AppError::Config("Модель не установлена".into()))?;
-    if settings.whisper_model_path.as_deref() == Some(file.as_str()) {
-        return Err(AppError::Config(
-            "Сначала выберите другую модель распознавания".into(),
-        ));
-    }
-    std::fs::remove_file(file)?;
-    Ok(())
+    let size =
+        serde_json::from_value::<crate::types::WhisperModelSize>(serde_json::Value::String(size))
+            .map_err(|_| AppError::Config("Unknown Whisper model".into()))?;
+    crate::application::models::remove_stt_model(app, crate::types::ModelId::whisper(size)).await
 }

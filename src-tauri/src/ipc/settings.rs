@@ -55,6 +55,7 @@ pub async fn save_settings(
     settings.enforce_wake_availability();
     settings.migrate_processing_prompts();
     let old_settings = state.settings();
+    settings.reconcile_stt_model(Some(&old_settings))?;
     // Update checks are owned by their explicit opt-in command. A stale full
     // settings form, including an older renderer, cannot silently change it.
     settings.update_checks_enabled = old_settings.update_checks_enabled;

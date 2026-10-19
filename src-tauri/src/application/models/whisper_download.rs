@@ -1,5 +1,6 @@
-use super::download::{
-    copy_verified, download_client, emit_download, ensure_success, DownloadRegistration,
+use super::{
+    download::{download_client, emit_download, ensure_success, DownloadRegistration},
+    store::install_verified_model,
 };
 use crate::{
     error::{AppError, AppResult},
@@ -17,8 +18,8 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
     let registration = DownloadRegistration::begin(download_id.clone())?;
     let url = model_size.url().to_string();
     let expected_sha256 = model_size.sha256().to_string();
+    let expected_bytes = model_size.exact_bytes();
     let target = state::models_dir()?.join(&filename);
-    let staging = target.with_extension("bin.part");
     if target.exists() {
         return Err(AppError::Config(format!(
             "model already exists at {}; keeping existing file",
@@ -44,11 +45,11 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
                 .map_err(|error| AppError::Config(format!("GET {url}: {error}")))?;
             ensure_success(&response, "Whisper model")?;
             let total = response.content_length();
-            let mut file = std::fs::File::create(&staging)?;
-            let receipt = copy_verified(
+            let receipt = install_verified_model(
                 &mut response,
-                &mut file,
-                total,
+                &target,
+                expected_bytes,
+                &expected_sha256,
                 &registration.cancellation,
                 |bytes| {
                     emit_download(
@@ -60,31 +61,17 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
                         total,
                     );
                 },
+                || {
+                    emit_download(
+                        &app_clone,
+                        &download_id,
+                        &filename,
+                        ModelDownloadPhaseV1::Verifying,
+                        expected_bytes,
+                        Some(expected_bytes),
+                    )
+                },
             )?;
-            file.sync_all()?;
-            drop(file);
-
-            emit_download(
-                &app_clone,
-                &download_id,
-                &filename,
-                ModelDownloadPhaseV1::Verifying,
-                receipt.bytes,
-                total,
-            );
-            if receipt.sha256 != expected_sha256 {
-                return Err(AppError::Config(format!(
-                    "checksum mismatch for {filename}: expected {expected_sha256}, got {}",
-                    receipt.sha256
-                )));
-            }
-            if target.exists() {
-                return Err(AppError::Config(format!(
-                    "model already exists at {}; keeping existing file",
-                    target.display()
-                )));
-            }
-            std::fs::rename(&staging, &target)?;
             emit_download(
                 &app_clone,
                 &download_id,
@@ -104,9 +91,6 @@ pub async fn download_whisper_model(app: AppHandle, size: String) -> AppResult<(
                 0,
                 None,
             );
-        }
-        if result.is_err() {
-            let _ = std::fs::remove_file(&staging);
         }
         result
     })

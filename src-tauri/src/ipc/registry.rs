@@ -51,6 +51,10 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::audio::list_audio_devices,
         // whisper
         crate::ipc::models::list_whisper_models,
+        crate::ipc::models::list_stt_models,
+        crate::ipc::models::download_stt_model,
+        crate::ipc::models::set_stt_model,
+        crate::ipc::models::remove_stt_model,
         crate::ipc::models::download_whisper_model,
         crate::ipc::models::set_whisper_model,
         // kws wake word model

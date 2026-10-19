@@ -249,6 +249,7 @@ pub fn load_settings() -> AppResult<Option<Settings>> {
         .map_err(AppError::Config)?;
     let normalized_mode = settings.enforce_classic_dictation();
     let normalized_wake = settings.enforce_wake_availability();
+    let migrated_stt_model = settings.reconcile_stt_model(None)?;
     let migrated_profiles = settings.migrate_llm_profiles();
     let migrated_prompts = settings.migrate_processing_prompts();
     let legacy_secret = if let Some(api_key) = settings.llm_api_key.take() {
@@ -273,7 +274,13 @@ pub fn load_settings() -> AppResult<Option<Settings>> {
     settings.has_llm_api_key = settings
         .llm_profile(Some(crate::types::LlmProfile::DEFAULT_ID))
         .is_some_and(|profile| profile.has_api_key);
-    if legacy || migrated_profiles || normalized_mode || migrated_prompts || normalized_wake {
+    if legacy
+        || migrated_profiles
+        || normalized_mode
+        || migrated_prompts
+        || normalized_wake
+        || migrated_stt_model
+    {
         save_versioned_json_atomically(&path, &settings)?;
     }
     {
@@ -286,6 +293,7 @@ pub fn save_settings(settings: &Settings) -> AppResult<()> {
     let _guard = PERSISTENCE_LOCK.lock();
     let path = settings_path()?;
     let mut settings = settings.clone();
+    settings.reconcile_stt_model(None)?;
     settings.enforce_classic_dictation();
     settings.enforce_wake_availability();
     settings.migrate_processing_prompts();

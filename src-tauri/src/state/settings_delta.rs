@@ -37,6 +37,15 @@ impl AppState {
 }
 
 fn merge_delta(latest: &Settings, base: &Settings, candidate: &Settings) -> AppResult<Settings> {
+    let mut normalized_candidate = candidate.clone();
+    normalized_candidate.reconcile_stt_model(Some(base))?;
+    let candidate = &normalized_candidate;
+    let mut normalized_base = base.clone();
+    normalized_base.reconcile_stt_model(None)?;
+    let base = &normalized_base;
+    let mut normalized_latest = latest.clone();
+    normalized_latest.reconcile_stt_model(None)?;
+    let latest = &normalized_latest;
     let base_json = serde_json::to_value(base)?;
     let candidate_json = serde_json::to_value(candidate)?;
     let mut latest_json = serde_json::to_value(latest)?;
@@ -86,6 +95,7 @@ fn merge_delta(latest: &Settings, base: &Settings, candidate: &Settings) -> AppR
         };
     }
     merged.enforce_classic_dictation();
+    merged.reconcile_stt_model(None)?;
     merged.enforce_wake_availability();
     Ok(merged)
 }
@@ -104,6 +114,28 @@ mod tests {
     use crate::{error::AppError, types::DictationMode};
     use parking_lot::Mutex;
     use std::sync::{atomic::AtomicU64, Arc, Barrier};
+
+    #[test]
+    fn stale_legacy_preferences_do_not_restore_a_previous_model() {
+        let base = Settings {
+            whisper_model_path: Some("/models/ggml-tiny.bin".into()),
+            ..Settings::default()
+        };
+        let mut latest = base.clone();
+        latest.whisper_model_path = Some("/models/ggml-small.bin".into());
+        let mut candidate = base.clone();
+        candidate.language = "en".into();
+        let merged = merge_delta(&latest, &base, &candidate).unwrap();
+        assert_eq!(merged.language, "en");
+        assert_eq!(
+            merged.whisper_model_path.as_deref(),
+            Some("/models/ggml-small.bin")
+        );
+        assert_eq!(
+            merged.stt_model.unwrap().id,
+            crate::types::ModelId::whisper(crate::types::WhisperModelSize::Small)
+        );
+    }
 
     fn isolated_state(settings: Settings) -> AppState {
         AppState {

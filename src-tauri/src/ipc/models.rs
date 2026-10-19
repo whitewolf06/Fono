@@ -4,7 +4,31 @@ use tauri::{AppHandle, State};
 
 use crate::error::AppResult;
 use crate::state::AppState;
-use crate::types::WhisperModelInfo;
+use crate::types::{ModelId, WhisperModelInfo};
+
+#[tauri::command]
+pub async fn list_stt_models() -> AppResult<Vec<crate::application::models::SttModelInfo>> {
+    super::blocking::run(crate::application::models::list_stt_models).await
+}
+
+#[tauri::command]
+pub async fn download_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
+    crate::application::models::download_stt_model(app, id).await
+}
+
+#[tauri::command]
+pub async fn set_stt_model(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: ModelId,
+) -> AppResult<()> {
+    crate::application::models::set_stt_model(&app, state.inner(), id).await
+}
+
+#[tauri::command]
+pub async fn remove_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
+    crate::application::models::remove_stt_model(app, id).await
+}
 
 #[tauri::command]
 pub async fn list_whisper_models() -> AppResult<Vec<WhisperModelInfo>> {
