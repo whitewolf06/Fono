@@ -29,6 +29,20 @@ pub trait TranscriptionRuntime: Send + Sync {
         language: &str,
         cancellation: OperationCancellation,
     ) -> AppResult<Transcript>;
+
+    fn transcribe_with_progress(
+        &self,
+        pcm_samples: &[i16],
+        language: &str,
+        cancellation: OperationCancellation,
+        _progress: &(dyn Fn(f32) + Sync),
+    ) -> AppResult<(
+        Transcript,
+        Vec<super::transcription_contract::SubtitleSegment>,
+    )> {
+        self.transcribe(pcm_samples, language, cancellation)
+            .map(|transcript| (transcript, Vec::new()))
+    }
 }
 
 /// Adapter for the existing shared engine. It configures the same runtime used
@@ -103,6 +117,15 @@ where
         request: TranscriptionRequest,
         cancellation: OperationCancellation,
     ) -> TranscriptionServiceResult<TranscriptionResult> {
+        self.transcribe_with_progress(request, cancellation, &|_| {})
+    }
+
+    pub fn transcribe_with_progress(
+        &self,
+        request: TranscriptionRequest,
+        cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> TranscriptionServiceResult<TranscriptionResult> {
         validate_request(&request)?;
         if cancellation.is_cancelled() {
             return Err(TranscriptionServiceError::Cancelled(
@@ -120,14 +143,18 @@ where
                 )));
             }
         }
-        let transcript = self
+        let (transcript, segments) = self
             .runtime
-            .transcribe(&request.pcm_samples, &request.language, cancellation)
+            .transcribe_with_progress(
+                &request.pcm_samples,
+                &request.language,
+                cancellation,
+                progress,
+            )
             .map_err(TranscriptionServiceError::from)?;
-        Ok(TranscriptionResult::from_transcript(
-            transcript,
-            configured_model,
-        ))
+        let mut result = TranscriptionResult::from_transcript(transcript, configured_model);
+        result.segments = segments;
+        Ok(result)
     }
 }
 

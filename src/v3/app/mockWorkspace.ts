@@ -1,3 +1,4 @@
+import { createMockFiles } from "../features/files/infrastructure/mockFiles";
 import { reactive } from "vue";
 import { openProjectSite } from "../shared/infrastructure/browser";
 import { createBrowserFeedbackChannel } from "../features/feedback";
@@ -211,6 +212,7 @@ export function createMockWorkspace(): Workspace {
     triggerCapture: createTriggerCapture(state),
     commands: createCommandsPort(state),
     service: createServicePort(state),
+    files: createMockFiles(state),
     history: {
       async setIncluded(id, included) {
         const entry = state.history.find((item) => item.id === id);

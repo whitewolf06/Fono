@@ -387,6 +387,9 @@ fn upload_error(error: UploadError) -> axum::response::Response {
         UploadError::Audio(AudioIngestError::CorruptedAudio(_)) => {
             api_error(StatusCode::UNPROCESSABLE_ENTITY, "corrupted_audio")
         }
+        UploadError::Audio(AudioIngestError::Cancelled(_)) => {
+            api_error(StatusCode::CONFLICT, "preparation_cancelled")
+        }
         UploadError::Audio(AudioIngestError::Io(message)) | UploadError::Internal(message) => {
             tracing::error!(%message, "local transcription upload failed");
             api_error(StatusCode::INTERNAL_SERVER_ERROR, "upload_failed")

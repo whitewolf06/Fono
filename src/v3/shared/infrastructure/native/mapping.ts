@@ -390,7 +390,11 @@ export function historyFromNative(e: DictationHistoryEntry): Dictation {
 export function jobFromNative(j: LocalTranscriptionJob): ServiceJob {
   return {
     id: j.id,
-    name: "Задача " + j.id.slice(0, 8),
+    name: j.file_name || "Задача " + j.id.slice(0, 8),
+    file: !!j.file_name,
+    preparing: j.state === "preparing",
+    progress: j.progress ?? undefined,
+    hasTimestamps: !!j.result?.segments?.length,
     state:
       j.state === "completed"
         ? "done"

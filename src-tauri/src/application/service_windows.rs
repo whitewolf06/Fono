@@ -14,9 +14,14 @@ pub(super) fn transcribe_windows(
     samples: &[i16],
     cancellation: &OperationCancellation,
     mut window: impl FnMut(&[i16], u64, Option<&str>) -> (AppResult<WindowTranscript>, bool),
-) -> AppResult<Transcript> {
+    progress: &(dyn Fn(f32) + Sync),
+) -> AppResult<(
+    Transcript,
+    Vec<crate::application::transcription_contract::SubtitleSegment>,
+)> {
     let mut start = 0;
     let mut agreement = LiveAgreement::default();
+    let mut words = Vec::new();
     let mut inference_secs = 0.0;
     let mut detected_language = None;
     let device = loop {
@@ -55,19 +60,23 @@ pub(super) fn transcribe_windows(
                 .words
                 .retain(|word| word.end_sample <= (end as u64).saturating_sub(EDGE_HOLD_SAMPLES));
         }
-        agreement.accept(&hypothesis, end as u64, true);
+        words.extend(agreement.accept_timed(&hypothesis, end as u64, true).1);
+        progress(end as f32 / samples.len().max(1) as f32);
         if final_window {
             break device;
         }
         start = end.saturating_sub(OVERLAP_SAMPLES);
     };
-    Ok(Transcript {
-        text: agreement.committed,
-        detected_language,
-        transcribe_secs: Some(inference_secs),
-        audio_secs: Some(samples.len() as f32 / 16_000.0),
-        device,
-    })
+    Ok((
+        Transcript {
+            text: agreement.committed,
+            detected_language,
+            transcribe_secs: Some(inference_secs),
+            audio_secs: Some(samples.len() as f32 / 16_000.0),
+            device,
+        },
+        crate::application::transcript_export::cues(&words, samples.len() as u64),
+    ))
 }
 
 #[cfg(test)]
@@ -90,18 +99,63 @@ mod tests {
         }
     }
     #[test]
+    fn thirty_minute_file_keeps_global_offsets_across_preemption_and_exports_last_cue() {
+        let samples = vec![0; 1800 * 16_000];
+        let mut calls = Vec::new();
+        let progress = std::sync::Mutex::new(Vec::new());
+        let (transcript, cues) = transcribe_windows(
+            &samples,
+            &OperationCancellation::default(),
+            |_, start, _| {
+                calls.push(start);
+                if calls.len() == 2 {
+                    return (Err(AppError::Cancelled("dictation preempted".into())), true);
+                }
+                (Ok(hypothesis(start, &format!("Сегмент {start}."))), false)
+            },
+            &|fraction| progress.lock().unwrap().push(fraction),
+        )
+        .unwrap();
+        assert_eq!(calls[1], calls[2]);
+        assert_eq!(transcript.audio_secs, Some(1800.0));
+        assert!(cues.len() > 90);
+        assert!(cues
+            .windows(2)
+            .all(|pair| pair[0].end_ms <= pair[1].start_ms));
+        assert!(cues.last().unwrap().start_ms > 1_780_000);
+        assert_eq!(progress.lock().unwrap().last(), Some(&1.0));
+        let mut result =
+            crate::application::transcription_contract::TranscriptionResult::from_transcript(
+                transcript,
+                "base".into(),
+            );
+        result.segments = cues;
+        assert!(crate::application::transcript_export::render(
+            &result,
+            crate::application::transcript_export::ExportFormat::Srt
+        )
+        .unwrap()
+        .contains("00:29:"));
+    }
+    #[test]
     fn scheduler_preemption_retries_identical_checkpoint_without_cancelling_job() {
         let cancellation = OperationCancellation::default();
         let mut offsets = Vec::new();
-        let result = transcribe_windows(&vec![0; 1000], &cancellation, |_, start, _| {
-            offsets.push(start);
-            if offsets.len() <= 20 {
-                (Err(AppError::Cancelled("preempted".into())), true)
-            } else {
-                (Ok(hypothesis(start, "Текст")), false)
-            }
-        })
-        .unwrap();
+        let result = transcribe_windows(
+            &vec![0; 1000],
+            &cancellation,
+            |_, start, _| {
+                offsets.push(start);
+                if offsets.len() <= 20 {
+                    (Err(AppError::Cancelled("preempted".into())), true)
+                } else {
+                    (Ok(hypothesis(start, "Текст")), false)
+                }
+            },
+            &|_| {},
+        )
+        .unwrap()
+        .0;
         assert_eq!(offsets, vec![0; 21]);
         assert_eq!(result.text, "Текст");
         assert!(!cancellation.is_cancelled());
@@ -109,10 +163,15 @@ mod tests {
     #[test]
     fn job_cancellation_stops_retries_and_never_publishes_late_result() {
         let cancellation = OperationCancellation::default();
-        let result = transcribe_windows(&[0; 1000], &cancellation, |_, start, _| {
-            cancellation.cancel();
-            (Ok(hypothesis(start, "Поздний текст")), false)
-        });
+        let result = transcribe_windows(
+            &[0; 1000],
+            &cancellation,
+            |_, start, _| {
+                cancellation.cancel();
+                (Ok(hypothesis(start, "Поздний текст")), false)
+            },
+            &|_| {},
+        );
         assert!(matches!(result, Err(AppError::Cancelled(_))));
     }
     #[test]
@@ -125,8 +184,10 @@ mod tests {
                 lengths.push(samples.len());
                 (Ok(hypothesis(start, "да")), false)
             },
+            &|_| {},
         )
-        .unwrap();
+        .unwrap()
+        .0;
         assert_eq!(lengths.len(), 3);
         assert!(lengths.iter().all(|length| *length <= WINDOW_SAMPLES));
         assert_eq!(result.audio_secs, Some(45.0));

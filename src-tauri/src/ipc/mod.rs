@@ -5,6 +5,7 @@ pub mod desktop_v3;
 pub mod diagnostic_report;
 pub mod diagnostics;
 pub mod dictation;
+pub mod files;
 pub mod llm;
 pub mod memory;
 pub mod models;

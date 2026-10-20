@@ -13,6 +13,10 @@ export const router = createRouter({
         import("../features/history/presentation/HistoryPage.vue"),
     },
     {
+      path: "/files",
+      component: () => import("../features/files/presentation/FilesPage.vue"),
+    },
+    {
       path: "/releases",
       component: () =>
         import("../features/releases/presentation/ReleasesPage.vue"),

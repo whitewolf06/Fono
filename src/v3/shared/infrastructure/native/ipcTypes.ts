@@ -563,6 +563,7 @@ export type LocalTranscriptionJobState =
   | "cancelled";
 
 export interface LocalTranscriptionResult {
+  segments?: { start_ms: number; end_ms: number; text: string }[];
   protocol_version: number;
   text: string;
   detected_language: string | null;
@@ -573,6 +574,8 @@ export interface LocalTranscriptionResult {
 }
 
 export interface LocalTranscriptionJob {
+  file_name?: string | null;
+  progress?: number | null;
   id: string;
   requested_language: string;
   state: LocalTranscriptionJobState;

@@ -13,6 +13,7 @@ pub mod dictation;
 pub mod dictation_result;
 pub mod dictation_tail_diagnostics;
 pub mod feedback_form;
+pub mod file_transcription;
 pub(crate) mod gpu_memory;
 pub(crate) mod history_events;
 pub mod hotkeys;
@@ -33,6 +34,7 @@ pub mod speech_analysis_queue;
 pub mod speech_gate;
 pub(crate) mod trainer_ai;
 pub(crate) mod trainer_report;
+pub mod transcript_export;
 #[cfg(feature = "speech-vad")]
 pub(crate) mod transcription_context;
 pub mod transcription_contract;

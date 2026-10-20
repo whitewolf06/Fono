@@ -72,12 +72,43 @@ pub enum AudioIngestError {
     DurationLimit(String),
     CorruptedAudio(String),
     Io(String),
+    Cancelled(String),
 }
 
 pub fn decode_file(
     path: &Path,
     policy: AudioIngestPolicy,
 ) -> Result<NormalizedAudio, AudioIngestError> {
+    decode_file_cancellable(path, policy, &fono_core::OperationCancellation::default())
+}
+
+pub fn public_error(error: &AudioIngestError) -> &'static str {
+    match error {
+        AudioIngestError::UnsupportedAudio(_) => "Поддерживаются WAV, MP3, FLAC и OGG.",
+        AudioIngestError::FileTooLarge(_) => "Размер файла превышает 100 МиБ.",
+        AudioIngestError::DurationLimit(_) => "Длительность файла превышает 3 часа.",
+        AudioIngestError::Cancelled(_) => "Подготовка файла отменена.",
+        AudioIngestError::CorruptedAudio(_) => "Не удалось прочитать аудиодорожку. Проверьте файл.",
+        AudioIngestError::Io(_) => "Не удалось открыть аудиофайл. Проверьте доступ к нему.",
+    }
+}
+
+fn check_cancel(cancellation: &fono_core::OperationCancellation) -> Result<(), AudioIngestError> {
+    if cancellation.is_cancelled() {
+        Err(AudioIngestError::Cancelled(
+            "audio preparation cancelled".into(),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+pub fn decode_file_cancellable(
+    path: &Path,
+    policy: AudioIngestPolicy,
+    cancellation: &fono_core::OperationCancellation,
+) -> Result<NormalizedAudio, AudioIngestError> {
+    check_cancel(cancellation)?;
     let extension = allowed_extension(path)?;
     let metadata =
         std::fs::metadata(path).map_err(|error| AudioIngestError::Io(error.to_string()))?;
@@ -129,6 +160,7 @@ pub fn decode_file(
             source_sample_rate,
             source_channels,
             policy,
+            cancellation,
         );
     }
     let mut decoder = get_codecs()
@@ -139,6 +171,7 @@ pub fn decode_file(
     let mut source_channels = None;
 
     loop {
+        check_cancel(cancellation)?;
         let packet = match format.next_packet() {
             Ok(packet) => packet,
             Err(SymphoniaError::IoError(error))
@@ -200,6 +233,7 @@ fn decode_ogg_opus(
     source_sample_rate: u32,
     source_channels: usize,
     policy: AudioIngestPolicy,
+    cancellation: &fono_core::OperationCancellation,
 ) -> Result<NormalizedAudio, AudioIngestError> {
     if source_sample_rate != OPUS_SAMPLE_RATE {
         return Err(AudioIngestError::UnsupportedAudio(format!(
@@ -215,6 +249,7 @@ fn decode_ogg_opus(
     let mut decoded = vec![0_i16; MAX_OPUS_PACKET_SAMPLES * source_channels];
 
     loop {
+        check_cancel(cancellation)?;
         let packet = match format.next_packet() {
             Ok(packet) => packet,
             Err(SymphoniaError::IoError(error))

@@ -46,6 +46,20 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
         language: &str,
         job_cancellation: OperationCancellation,
     ) -> AppResult<Transcript> {
+        self.transcribe_with_progress(pcm_samples, language, job_cancellation, &|_| {})
+            .map(|r| r.0)
+    }
+
+    fn transcribe_with_progress(
+        &self,
+        pcm_samples: &[i16],
+        language: &str,
+        job_cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> AppResult<(
+        Transcript,
+        Vec<super::transcription_contract::SubtitleSegment>,
+    )> {
         let pipeline = self.app.state::<Pipeline>();
         let (operation_id, operation_cancellation) = pipeline.start_service_transcription()?;
         // Worker request IDs already isolate cancellation. A separate namespace
@@ -117,23 +131,34 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                         let preempted =
                             permit.cancellation.is_cancelled() && !cancellation.is_cancelled();
                         drop(permit);
+                        if result.is_ok() && !preempted {
+                            progress(
+                                (start as usize + window.len()) as f32
+                                    / pcm_samples.len().max(1) as f32,
+                            );
+                        }
                         (result, preempted)
                     },
                 )?;
-                return Ok(Transcript {
-                    text: result.text,
-                    detected_language: result.detected_language,
-                    transcribe_secs: Some(result.transcribe_secs),
-                    audio_secs: Some(result.audio_secs),
-                    device: Some(
-                        match result.backend {
-                            fono_stt_protocol::BackendKind::Cpu => "CPU",
-                            fono_stt_protocol::BackendKind::Cuda => "CUDA",
-                            fono_stt_protocol::BackendKind::Vulkan => "Vulkan",
-                        }
-                        .into(),
-                    ),
-                });
+                // Offline engines without token timing deliberately remain TXT-only.
+                let cues = super::transcript_export::cues(&result.words, pcm_samples.len() as u64);
+                return Ok((
+                    Transcript {
+                        text: result.text,
+                        detected_language: result.detected_language,
+                        transcribe_secs: Some(result.transcribe_secs),
+                        audio_secs: Some(result.audio_secs),
+                        device: Some(
+                            match result.backend {
+                                fono_stt_protocol::BackendKind::Cpu => "CPU",
+                                fono_stt_protocol::BackendKind::Cuda => "CUDA",
+                                fono_stt_protocol::BackendKind::Vulkan => "Vulkan",
+                            }
+                            .into(),
+                        ),
+                    },
+                    cues,
+                ));
             }
             service_windows::transcribe_windows(
                 pcm_samples,
@@ -165,6 +190,7 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                     drop(permit);
                     (result, preempted)
                 },
+                progress,
             )
         })();
         let reason = match &result {

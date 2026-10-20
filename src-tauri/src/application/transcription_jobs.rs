@@ -1,7 +1,8 @@
 //! Bounded in-memory job queue for non-interactive transcription.
 
 use std::collections::{BTreeMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -30,6 +31,10 @@ pub struct TranscriptionJob {
     pub id: String,
     #[serde(default = "default_requested_language")]
     pub requested_language: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub progress: Option<f32>,
     pub state: JobState,
     pub created_at_ms: u64,
     pub started_at_ms: Option<u64>,
@@ -43,6 +48,8 @@ impl TranscriptionJob {
         Self {
             id,
             requested_language,
+            file_name: None,
+            progress: None,
             state: JobState::Queued,
             created_at_ms: now_epoch_ms(),
             started_at_ms: None,
@@ -89,6 +96,15 @@ pub trait TranscriptionJobs: Send + Sync {
         &self,
         request: TranscriptionRequest,
     ) -> Result<TranscriptionJob, TranscriptionServiceError>;
+    fn submit_file(
+        &self,
+        _path: PathBuf,
+        _language: String,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        Err(TranscriptionServiceError::InvalidRequest(
+            "file input is unavailable".into(),
+        ))
+    }
     fn get_job(&self, id: &str) -> Option<TranscriptionJob>;
     fn cancel_job(&self, id: &str) -> Option<TranscriptionJob>;
     fn run_next_job(&self) -> Option<TranscriptionJob>;
@@ -143,8 +159,13 @@ impl InteractiveActivity for NoInteractiveActivity {
     }
 }
 
+enum JobInput {
+    Pcm(TranscriptionRequest),
+    File { path: PathBuf, language: String },
+}
 struct QueuedJob {
-    request: TranscriptionRequest,
+    input: Option<JobInput>,
+    _activity: crate::application::updates::activity::ActivityLease<'static>,
     cancellation: OperationCancellation,
 }
 
@@ -159,7 +180,6 @@ pub struct TranscriptionJobQueue<R, G> {
     service: TranscriptionService<R>,
     interactive: G,
     capacity: usize,
-    next_id: AtomicU64,
     // Only owned data/atomic mutations happen under this nonpoisoning lock.
     // Runtime and observer callbacks always execute after dropping the guard.
     state: Mutex<QueueState>,
@@ -178,7 +198,6 @@ where
             service,
             interactive,
             capacity,
-            next_id: AtomicU64::new(0),
             state: Mutex::new(QueueState::default()),
             observer: None,
         }
@@ -193,7 +212,19 @@ where
         &self,
         request: TranscriptionRequest,
     ) -> Result<TranscriptionJob, TranscriptionServiceError> {
-        let _update_admission = crate::application::updates::activity::begin().map_err(|_| {
+        self.submit_input(JobInput::Pcm(request))
+    }
+
+    pub fn submit_file(
+        &self,
+        path: PathBuf,
+        language: String,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_input(JobInput::File { path, language })
+    }
+
+    fn submit_input(&self, input: JobInput) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        let activity = crate::application::updates::activity::lease().map_err(|_| {
             TranscriptionServiceError::Busy("application update is installing".into())
         })?;
         let _configuration =
@@ -206,17 +237,25 @@ where
                 "transcription queue is full".into(),
             ));
         }
-        let id = format!(
-            "tr_{:016x}",
-            self.next_id.fetch_add(1, Ordering::Relaxed).wrapping_add(1)
-        );
-        let job = TranscriptionJob::queued(id.clone(), request.language.clone());
+        // Stable across lazy runtime/API restarts and durable history.
+        let id = format!("tr_{}", uuid::Uuid::new_v4().simple());
+        let (language, name) = match &input {
+            JobInput::Pcm(request) => (request.language.clone(), None),
+            JobInput::File { path, language } => (
+                language.clone(),
+                path.file_name().map(|n| n.to_string_lossy().into_owned()),
+            ),
+        };
+        let mut job = TranscriptionJob::queued(id.clone(), language);
+        job.file_name = name;
+        job.progress = Some(0.0);
         state.pending.push_back(id.clone());
         state.work.insert(
             id.clone(),
             QueuedJob {
-                request,
+                input: Some(input),
                 cancellation: OperationCancellation::default(),
+                _activity: activity,
             },
         );
         state.jobs.insert(id, job.clone());
@@ -241,9 +280,15 @@ where
             job.error = Some(TranscriptionServiceError::Cancelled("job cancelled".into()));
         }
         let cancelled = job.clone();
+        let retired = if state.work.get(id).is_some_and(|work| work.input.is_some()) {
+            state.work.remove(id)
+        } else {
+            None
+        };
         prune_terminal_jobs(&mut state);
         drop(state);
         self.notify(&cancelled);
+        drop(retired); // Keep cancellation persistence admitted, outside the queue lock.
         Some(cancelled)
     }
 
@@ -267,10 +312,21 @@ where
                 }
             }
         }
+        let pending: Vec<_> = state
+            .work
+            .iter()
+            .filter_map(|(id, work)| work.input.is_some().then_some(id.clone()))
+            .collect();
+        let retired: Vec<_> = pending
+            .iter()
+            .filter_map(|id| state.work.remove(id))
+            .collect();
+        prune_terminal_jobs(&mut state);
         drop(state);
         for job in cancelled_jobs {
             self.notify(&job);
         }
+        drop(retired);
     }
 
     /// Runs at most one queued job. The service host calls this from its worker
@@ -281,12 +337,12 @@ where
         if self.interactive.is_active() {
             return None;
         }
-        let (id, request, cancellation, preparing) = {
+        let (id, input, cancellation, preparing) = {
             let mut state = self.state.lock();
             let id = state.pending.pop_front()?;
-            let (request, cancellation) = {
-                let work = state.work.get(&id)?;
-                (work.request.clone(), work.cancellation.clone())
+            let (input, cancellation) = {
+                let work = state.work.get_mut(&id)?;
+                (work.input.take()?, work.cancellation.clone())
             };
             let job = state.jobs.get_mut(&id)?;
             if job.state == JobState::Cancelled {
@@ -294,28 +350,82 @@ where
             }
             job.state = JobState::Preparing;
             job.started_at_ms = Some(now_epoch_ms());
-            (id, request, cancellation, job.clone())
+            (id, input, cancellation, job.clone())
         };
         drop(configuration);
         self.notify(&preparing);
-        let transcribing = {
-            let mut state = self.state.lock();
-            let job = state.jobs.get_mut(&id)?;
-            job.state = JobState::Transcribing;
-            job.clone()
-        };
-        self.notify(&transcribing);
-        let outcome = self.service.transcribe_cancellable(request, cancellation);
+        let outcome = (|| {
+            let request = match input {
+                JobInput::Pcm(request) => request,
+                JobInput::File { path, language } => {
+                    let audio = super::audio_ingest::decode_file_cancellable(
+                        &path,
+                        super::audio_ingest::AudioIngestPolicy::default(),
+                        &cancellation,
+                    )
+                    .map_err(|error| {
+                        if cancellation.is_cancelled() {
+                            TranscriptionServiceError::Cancelled(
+                                "file preparation cancelled".into(),
+                            )
+                        } else {
+                            TranscriptionServiceError::InvalidRequest(
+                                super::audio_ingest::public_error(&error).into(),
+                            )
+                        }
+                    })?;
+                    audio.into_transcription_request(language, None)
+                }
+            };
+            if cancellation.is_cancelled() {
+                return Err(TranscriptionServiceError::Cancelled("job cancelled".into()));
+            }
+            let transcribing = {
+                let mut state = self.state.lock();
+                let job = state.jobs.get_mut(&id).expect("active job retained");
+                if job.is_terminal() {
+                    return Err(TranscriptionServiceError::Cancelled("job cancelled".into()));
+                }
+                job.state = JobState::Transcribing;
+                job.clone()
+            };
+            self.notify(&transcribing);
+            self.service
+                .transcribe_with_progress(request, cancellation, &|fraction| {
+                    let changed = {
+                        let mut state = self.state.lock();
+                        state
+                            .jobs
+                            .get_mut(&id)
+                            .filter(|job| !job.is_terminal())
+                            .and_then(|job| {
+                                // Native events are bounded to percentage changes/window checkpoints.
+                                let fraction = (fraction.clamp(0.0, 0.99) * 100.0).floor() / 100.0;
+                                if job.progress.is_some_and(|old| old >= fraction) {
+                                    return None;
+                                }
+                                job.progress = Some(fraction);
+                                Some(job.clone())
+                            })
+                    };
+                    if let Some(job) = changed {
+                        self.notify(&job);
+                    }
+                })
+        })();
         let mut state = self.state.lock();
         let job = state.jobs.get_mut(&id)?;
         if job.state == JobState::Cancelled {
             let cancelled = job.clone();
-            state.work.remove(&id);
+            let retired = state.work.remove(&id);
+            drop(state);
+            drop(retired);
             return Some(cancelled);
         }
         match outcome {
             Ok(result) => {
                 job.state = JobState::Completed;
+                job.progress = Some(1.0);
                 job.result = Some(result);
             }
             Err(TranscriptionServiceError::Cancelled(message)) => {
@@ -329,9 +439,10 @@ where
         }
         job.finished_at_ms = Some(now_epoch_ms());
         let completed = job.clone();
-        state.work.remove(&id);
+        let retired = state.work.remove(&id);
         prune_terminal_jobs(&mut state);
         drop(state);
+        drop(retired);
         self.notify(&completed);
         Some(completed)
     }
@@ -374,6 +485,13 @@ where
     ) -> Result<TranscriptionJob, TranscriptionServiceError> {
         self.submit(request)
     }
+    fn submit_file(
+        &self,
+        path: PathBuf,
+        language: String,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_file(path, language)
+    }
     fn get_job(&self, id: &str) -> Option<TranscriptionJob> {
         self.get(id)
     }
@@ -399,11 +517,19 @@ fn now_epoch_ms() -> u64 {
 }
 
 fn prune_terminal_jobs(state: &mut QueueState) {
-    let terminal_ids: Vec<_> = state
+    let mut terminal_ids: Vec<_> = state
         .jobs
         .iter()
-        .filter_map(|(id, job)| job.is_terminal().then_some(id.clone()))
+        .filter_map(|(id, job)| {
+            (job.is_terminal() && !state.work.contains_key(id)).then_some(id.clone())
+        })
         .collect();
+    terminal_ids.sort_by_key(|id| {
+        state
+            .jobs
+            .get(id)
+            .map(|j| (j.created_at_ms, j.finished_at_ms))
+    });
     let excess = terminal_ids
         .len()
         .saturating_sub(MAX_RETAINED_TERMINAL_JOBS);
@@ -463,6 +589,104 @@ mod tests {
             language: "auto".into(),
             model: Some("base".into()),
         }
+    }
+
+    #[test]
+    fn file_preparation_reuses_decoder_and_cancelled_pending_paths_are_never_opened() {
+        let queue = TranscriptionJobQueue::new(
+            TranscriptionService::new(Runtime {
+                calls: AtomicUsize::new(0),
+            }),
+            NoInteractiveActivity,
+            4,
+        );
+        let missing = queue
+            .submit_file(PathBuf::from("private-folder/not-there.wav"), "auto".into())
+            .unwrap();
+        assert!(crate::application::updates::activity::is_busy());
+        queue.cancel(&missing.id).unwrap();
+        assert!(queue.run_next().is_none());
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/audio/tone-16k-mono.wav");
+        let job = queue.submit_file(fixture, "ru".into()).unwrap();
+        assert_eq!(job.file_name.as_deref(), Some("tone-16k-mono.wav"));
+        let result = queue.run_next().unwrap();
+        assert_eq!(result.state, JobState::Completed);
+        assert_eq!(result.progress, Some(1.0));
+        assert_eq!(queue.service.runtime().calls.load(Ordering::Relaxed), 1);
+        assert!(queue.state.lock().work.is_empty());
+    }
+
+    #[test]
+    fn cancel_and_shutdown_keep_actual_work_admitted_until_native_return() {
+        struct BlockingRuntime {
+            started: std::sync::mpsc::Sender<()>,
+            finish: Mutex<std::sync::mpsc::Receiver<()>>,
+        }
+        impl TranscriptionRuntime for BlockingRuntime {
+            fn configured_model(&self) -> AppResult<String> {
+                Ok("base".into())
+            }
+            fn transcribe(
+                &self,
+                _: &[i16],
+                _: &str,
+                _: OperationCancellation,
+            ) -> AppResult<Transcript> {
+                unreachable!()
+            }
+            fn transcribe_with_progress(
+                &self,
+                _: &[i16],
+                _: &str,
+                _: OperationCancellation,
+                progress: &(dyn Fn(f32) + Sync),
+            ) -> AppResult<(
+                Transcript,
+                Vec<super::super::transcription_contract::SubtitleSegment>,
+            )> {
+                progress(0.5);
+                self.started.send(()).unwrap();
+                self.finish
+                    .lock()
+                    .recv_timeout(Duration::from_secs(5))
+                    .unwrap();
+                Ok((
+                    Transcript {
+                        text: "late".into(),
+                        detected_language: None,
+                        transcribe_secs: None,
+                        audio_secs: None,
+                        device: None,
+                    },
+                    Vec::new(),
+                ))
+            }
+        }
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let queue = Arc::new(TranscriptionJobQueue::new(
+            TranscriptionService::new(BlockingRuntime {
+                started: started_tx,
+                finish: Mutex::new(finish_rx),
+            }),
+            NoInteractiveActivity,
+            4,
+        ));
+        let job = queue.submit(request()).unwrap();
+        let active_queue = queue.clone();
+        let worker = std::thread::spawn(move || active_queue.run_next().unwrap());
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(queue.get(&job.id).unwrap().progress, Some(0.5));
+        queue.cancel_all();
+        assert_eq!(queue.get(&job.id).unwrap().state, JobState::Cancelled);
+        assert!(crate::application::updates::activity::is_busy());
+        assert!(queue.state.lock().work.contains_key(&job.id));
+        finish_tx.send(()).unwrap();
+        let terminal = worker.join().unwrap();
+        assert_eq!(terminal.state, JobState::Cancelled);
+        assert!(terminal.result.is_none());
+        assert!(queue.state.lock().work.is_empty());
     }
 
     #[test]

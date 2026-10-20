@@ -1,3 +1,4 @@
+import { createNativeFiles } from "../features/files/infrastructure/nativeFiles";
 import { reactive } from "vue";
 import type { Workspace, WorkspaceState } from "../shared/domain/contracts";
 import { defaults } from "../features/preferences/domain/preferences";
@@ -289,6 +290,7 @@ export function createNativeWorkspace(): Workspace {
     },
     trainer,
     commands: nativeCommands(ctx),
+    files: createNativeFiles(call, ctx.readService),
     service: {
       async cancel(id) {
         await call("cancel_local_transcription_job", { id });

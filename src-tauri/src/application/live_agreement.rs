@@ -18,6 +18,16 @@ impl LiveAgreement {
         audio_end: u64,
         final_window: bool,
     ) -> String {
+        self.accept_timed(hypothesis, audio_end, final_window).0
+    }
+
+    /// The exact words accepted by the same overlap policy as dictation.
+    pub fn accept_timed(
+        &mut self,
+        hypothesis: &WindowTranscript,
+        audio_end: u64,
+        final_window: bool,
+    ) -> (String, Vec<TimedSegment>) {
         // Whisper token times drift. Anchor the accepted lexical suffix first;
         // every word after it is new even when its end equals the old cursor.
         let anchor = overlap_anchor(&self.seen, &hypothesis.words);
@@ -75,7 +85,7 @@ impl LiveAgreement {
         self.committed.push_str(&appended);
         self.draft = join_words(remaining[accepted..].iter().map(|word| word.text.as_str()));
         self.previous = remaining[accepted..].to_vec();
-        appended
+        (appended, remaining[..accepted].to_vec())
     }
 
     pub fn reset_hypothesis(&mut self) {

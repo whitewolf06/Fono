@@ -69,6 +69,8 @@ impl StubJobs {
             job: Mutex::new(TranscriptionJob {
                 id: "tr_0000000000000001".into(),
                 requested_language: "auto".into(),
+                file_name: None,
+                progress: None,
                 state: crate::application::transcription_jobs::JobState::Queued,
                 created_at_ms: 0,
                 started_at_ms: None,
@@ -85,6 +87,8 @@ impl StubJobs {
             job: Mutex::new(TranscriptionJob {
                 id: "unused".into(),
                 requested_language: "auto".into(),
+                file_name: None,
+                progress: None,
                 state: crate::application::transcription_jobs::JobState::Queued,
                 created_at_ms: 0,
                 started_at_ms: None,

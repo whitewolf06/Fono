@@ -28,6 +28,17 @@ pub struct TranscriptionResult {
     pub transcribe_seconds: Option<f32>,
     pub model: String,
     pub backend: Option<String>,
+    /// Real recognizer timestamps on the original file timeline. Old results
+    /// remain readable; missing timing never becomes fabricated subtitles.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub segments: Vec<SubtitleSegment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubtitleSegment {
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub text: String,
 }
 
 impl TranscriptionResult {
@@ -40,6 +51,7 @@ impl TranscriptionResult {
             transcribe_seconds: transcript.transcribe_secs,
             model,
             backend: transcript.device,
+            segments: Vec::new(),
         }
     }
 }

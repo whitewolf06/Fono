@@ -182,6 +182,10 @@ export interface LaunchApp {
   path: string;
 }
 export interface ServiceJob {
+  file?: boolean;
+  progress?: number;
+  preparing?: boolean;
+  hasTimestamps?: boolean;
   id: string;
   name: string;
   state: "queued" | "running" | "done" | "error" | "cancelled";
@@ -332,6 +336,7 @@ export interface Workspace {
   trainer: TrainerPort;
   commands: CommandsPort;
   service: ServicePort;
+  files: import("../../features/files/domain/files").FilesPort;
   report: DiagnosticReportPort;
   feedback: import("../../features/feedback/domain/channel").FeedbackChannelPort;
   updates: UpdatesPort;

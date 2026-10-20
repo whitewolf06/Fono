@@ -24,6 +24,7 @@ const ui = useInteraction();
 const version = __FONO_FRONTEND_BUILD__.version;
 const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
   { to: "/", title: "Главная", icon: "home" },
+  { to: "/files", title: "Файлы", icon: "file" },
   { to: "/history", title: "История", icon: "clock" },
   { to: "/trainer", title: "Речевой тренер", icon: "activity" },
   { to: "/commands", title: "Голосовые команды", icon: "microphone" },
