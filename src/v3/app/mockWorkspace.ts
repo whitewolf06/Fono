@@ -93,7 +93,19 @@ export function createMockWorkspace(): Workspace {
   selectLatest(state, state.history[0]);
   const dictation = createDictationPort(state);
   const trainer = createMockTrainer(state);
-  const selection = createMockSelectionCapture();
+  const selection = createMockSelectionCapture({
+    preferences: () => state.preferences,
+    accepted: (text) =>
+      state.history.unshift({
+        id: `selection-demo-${Date.now()}`,
+        text,
+        title: text.slice(0, 64),
+        createdAt: new Date().toISOString(),
+        duration: 0,
+        analyticsIncluded: false,
+        findings: [],
+      }),
+  });
   const updates = createMockUpdates(__FONO_FRONTEND_BUILD__.version);
   const cudaPackages = createMockCudaPackages();
   const wake = createMockWake(state);

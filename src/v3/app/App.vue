@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
-import { RouterLink, RouterView, useRouter } from "vue-router";
+import { RouterLink, RouterView, useRouter, useRoute } from "vue-router";
 import {
   WlButton,
   WlDialog,
@@ -19,6 +19,7 @@ import QuickSettings from "../features/preferences/presentation/QuickSettings.vu
 import SidebarExtras from "./presentation/SidebarExtras.vue";
 const workspace = useWorkspace();
 const router = useRouter();
+const route = useRoute();
 const ui = useInteraction();
 const version = __FONO_FRONTEND_BUILD__.version;
 const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
@@ -185,5 +186,5 @@ onUnmounted(() => {
     v-if="workspace.native && workspace.state.commandProposal"
   />
   <WlToast />
-  <SelectionPreview />
+  <SelectionPreview v-if="workspace.native || route.path !== '/overlay'" />
 </template>

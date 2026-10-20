@@ -6,6 +6,9 @@ export interface SelectionSnapshot {
   message?: string;
   edit?: SelectionEditSnapshot;
   delivery?: SelectionDeliverySnapshot;
+  autoInsert?: boolean;
+  historyEnabled?: boolean;
+  historyMessage?: string;
 }
 export interface SelectionEditSnapshot {
   phase:
@@ -53,6 +56,7 @@ export interface SelectionCapturePort {
   armReplacement(operationId: number, resultId: number): Promise<void>;
   cancelDelivery(operationId: number, resultId: number): Promise<void>;
   copyResult(operationId: number, resultId: number): Promise<void>;
+  insertResult(operationId: number, resultId: number): Promise<void>;
   demoReplace?(): Promise<void>;
   refresh?(): Promise<void>;
   dispose(): void;

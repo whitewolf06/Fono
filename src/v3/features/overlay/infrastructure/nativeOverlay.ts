@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { createNativeSelectionCapture } from "../../selection/infrastructure/nativeSelection";
 import type {
   DictationOutcomeEvent,
   DictationOutcomeKind,
@@ -83,9 +84,14 @@ export function createNativeOverlay() {
   const visibility = bindNativeVisibility(() => {
     void hydration
       .load(readiness)
-      .then(() => refreshSession(false))
+      .then(() => Promise.all([refreshSession(false), selection.refresh?.()]))
       .catch(fail);
   });
+  const selection = createNativeSelectionCapture(
+    call,
+    subscribe,
+    visibility.visible,
+  );
   let moveTimer: ReturnType<typeof setTimeout> | undefined;
   let sessionRevision = 0;
   let queued = false;
@@ -106,6 +112,7 @@ export function createNativeOverlay() {
     state,
     () => controls.state.error,
     fail,
+    () => selection.state.current,
   );
   function applySettings() {
     if (settings) state.preferences = preferencesFromNative(settings, []);
@@ -331,6 +338,7 @@ export function createNativeOverlay() {
       .catch(fail);
   return {
     state,
+    selection,
     processing: controls.state,
     chooseProcessing: (choice: OverlayProcessingChoice) => {
       state.error = "";
@@ -385,6 +393,7 @@ export function createNativeOverlay() {
       visibility.dispose();
       clearTimeout(moveTimer);
       controls.dispose();
+      selection.dispose();
       releaseLayout();
       releases.forEach((stop) => stop());
     },

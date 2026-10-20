@@ -190,6 +190,7 @@
   --fono-history-stat-width: 150px;
   --fono-live-notice-width: 640px;
   --fono-overlay-text-lines: 2;
+  --fono-selection-text-height: 120px;
   --fono-control-height: 34px;
   --fono-motion-fast: 160ms;
   --fono-wave-idle: 8s;

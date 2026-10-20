@@ -41,9 +41,13 @@ function close() {
       />
       <p class="muted">
         Фрагмент хранится только в памяти Fono до закрытия. В историю он не
-        записывается. Отправка в ИИ запускается отдельной кнопкой ниже.
+        записывается. При включённом сохранении правок в историю попадёт только
+        принятый результат. Отправка в ИИ запускается отдельной кнопкой ниже.
       </p>
       <SelectionEditor />
+      <p v-if="current.historyMessage" role="alert" class="error-text">
+        {{ current.historyMessage }}
+      </p>
     </template>
     <p v-else role="alert" class="error-text">{{ current.message }}</p>
     <p v-if="error" role="alert" class="error-text">{{ error }}</p>

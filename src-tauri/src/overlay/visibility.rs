@@ -21,7 +21,10 @@ fn read(app: &AppHandle) -> Snapshot {
     Snapshot {
         phase: app.state::<crate::pipeline::Pipeline>().state(),
         enabled: state.settings().overlay_enabled,
-        pending: crate::application::dictation::workflow::has_pending(app),
+        pending: crate::application::dictation::workflow::has_pending(app)
+            || app
+                .state::<crate::application::selection_capture::Runtime>()
+                .is_active(),
         preview: super::has_preview(app),
     }
 }

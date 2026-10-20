@@ -3,13 +3,37 @@ import type {
   SelectionCapturePort,
   SelectionSnapshot,
 } from "../domain/selection";
-export function createMockSelectionCapture(): SelectionCapturePort {
+interface Options {
+  preferences?: () => {
+    selectionAutoInsert: boolean;
+    selectionHistoryEnabled: boolean;
+    historyEnabled: boolean;
+  };
+  accepted?: (text: string) => void;
+}
+export function createMockSelectionCapture(
+  options: Options = {},
+): SelectionCapturePort {
   const state = reactive<{ current: SelectionSnapshot | null }>({
     current: null,
   });
   let next = 0,
     disposed = false;
   let attempted = false;
+  let archived = false;
+  function archive(current: SelectionSnapshot) {
+    const p = options.preferences?.();
+    if (
+      !archived &&
+      current.historyEnabled &&
+      p?.selectionHistoryEnabled &&
+      p.historyEnabled &&
+      current.edit?.result
+    ) {
+      archived = true;
+      options.accepted?.(current.edit.result);
+    }
+  }
   function owned(id: number) {
     return !disposed && state.current?.operationId === id
       ? state.current
@@ -39,10 +63,14 @@ export function createMockSelectionCapture(): SelectionCapturePort {
     demo() {
       if (disposed) return;
       attempted = false;
+      archived = false;
+      const p = options.preferences?.();
       state.current = {
         operationId: ++next,
         phase: "ready",
         source: "demo",
+        autoInsert: p?.selectionAutoInsert ?? false,
+        historyEnabled: !!(p?.selectionHistoryEnabled && p.historyEnabled),
         text: "Пример выделенного фрагмента. В браузерном демо Fono не читает другие приложения и не использует буфер обмена.",
         edit: { phase: "idle", instruction: "" },
         delivery: { phase: "idle", replaceAllowed: false },
@@ -108,6 +136,19 @@ export function createMockSelectionCapture(): SelectionCapturePort {
         resultId: editId,
       };
       current.delivery = { phase: "idle", replaceAllowed: !attempted };
+      if (
+        current.autoInsert &&
+        options.preferences?.().selectionAutoInsert &&
+        !attempted
+      ) {
+        attempted = true;
+        current.delivery = {
+          phase: "submitted",
+          resultId: editId,
+          replaceAllowed: false,
+        };
+        archive(current);
+      }
     },
     async armReplacement(id, resultId) {
       const current = owned(id);
@@ -144,6 +185,33 @@ export function createMockSelectionCapture(): SelectionCapturePort {
           "Результат уже изменился. Повторите преобразование выделения.",
         );
       current.delivery = { phase: "copied", replaceAllowed: !attempted };
+      archive(current);
+    },
+    async insertResult(id, resultId) {
+      const current = owned(id);
+      if (
+        !current?.delivery?.replaceAllowed ||
+        current.edit?.resultId !== resultId ||
+        current.edit.operationId ||
+        attempted
+      )
+        throw new Error(
+          "Повторная замена этого выделения недоступна. Скопируйте результат или получите выделение заново.",
+        );
+      attempted = true;
+      current.delivery = {
+        phase: "replacing",
+        resultId,
+        replaceAllowed: false,
+      };
+      await Promise.resolve();
+      if (owned(id)?.delivery?.phase !== "replacing") return;
+      current.delivery = {
+        phase: "submitted",
+        resultId,
+        replaceAllowed: false,
+      };
+      archive(current);
     },
     async demoReplace() {
       const current = state.current,
@@ -173,6 +241,7 @@ export function createMockSelectionCapture(): SelectionCapturePort {
         resultId,
         replaceAllowed: false,
       };
+      archive(current);
     },
     dispose() {
       disposed = true;

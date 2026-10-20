@@ -41,6 +41,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
           "selectionHotkey",
           "selectionCaptureEnabled",
           "selectionClipboardFallback",
+          "selectionAutoInsert",
           "hotkeyMode",
           "commandHotkey",
           "processingTrigger",
@@ -72,9 +73,11 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
     },
     async toggle(key, value) {
       if (
-        ["selectionCaptureEnabled", "selectionClipboardFallback"].includes(
-          key,
-        ) &&
+        [
+          "selectionCaptureEnabled",
+          "selectionClipboardFallback",
+          "selectionAutoInsert",
+        ].includes(key) &&
         (captureSettingsLocked(state.phase) || state.triggerCaptureActive)
       )
         throw new Error("Сначала завершите текущую диктовку или выбор кнопки.");

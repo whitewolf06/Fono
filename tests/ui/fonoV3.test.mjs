@@ -307,6 +307,8 @@ test("native selection adapter only reads an authorized memory snapshot and canc
     phase: "ready",
     text: "private selected fragment",
     source: "ui_automation",
+    auto_insert: false,
+    history_enabled: false,
     target: "must not pass",
     digest: "must not pass",
   };
@@ -333,6 +335,8 @@ test("native selection adapter only reads an authorized memory snapshot and canc
     phase: "ready",
     text: "private selected fragment",
     source: "ui_automation",
+    autoInsert: false,
+    historyEnabled: false,
   });
   await port.cancel(6);
   assert.equal(calls.length, 1);
@@ -693,6 +697,186 @@ test("selection fields and preview distinguish a demo from real text and offer c
   assert.match(all, /историю он не записывается/);
   assert.match(all, /Отправка в ИИ запускается отдельной кнопкой/);
   assert.match(all, /Закрыть/);
+});
+
+test("selection overlay shares the port, explains transfer and keeps uncertain results copyable", async () => {
+  const { default: Overlay } = await server.ssrLoadModule(
+    "/src/v3/features/selection/presentation/SelectionOverlay.vue",
+  );
+  workspace.selection.demo();
+  const port = workspace.selection;
+  const id = port.state.current.operationId;
+  await port.transform(id, "Сделай формальнее", true);
+  await port.insertResult(id, port.state.current.edit.resultId);
+  port.state.current.delivery = { phase: "uncertain", replaceAllowed: false };
+  const app = createSSRApp({
+    render: () =>
+      h(Overlay, {
+        port,
+        native: true,
+        preferences: workspace.state.preferences,
+      }),
+  });
+  app.use(WlConfig).use(WlToastService);
+  const html = await renderToString(app);
+  assert.match(html, /Инструкция:/);
+  assert.match(html, /Сделай формальнее/);
+  assert.match(html, /Результат правки/);
+  assert.match(html, /текст получит провайдер/);
+  assert.match(html, /повтор отключён/);
+  assert.match(html, /Копировать/);
+  assert.match(html, /Отмена/);
+  assert.doesNotMatch(html, /<textarea|<input|PRIVATE OS ERROR/);
+  await port.copyResult(id, port.state.current.edit.resultId);
+  assert.equal(port.state.current.delivery.phase, "copied");
+  assert.equal(port.state.current.delivery.replaceAllowed, false);
+});
+
+test("overlay cancellation retains text during work and blocks a late replacement or archive", async () => {
+  const { cancelSelection } = await server.ssrLoadModule(
+    "/src/v3/features/selection/application/cancelSelection.ts",
+  );
+  workspace.state.preferences.selectionHistoryEnabled = true;
+  const initial = workspace.state.history.length;
+  const port = workspace.selection;
+  port.demo();
+  const id = port.state.current.operationId;
+  const source = port.state.current.text;
+  await port.transform(id, "Сделай формальнее", true);
+  const result = port.state.current.edit.result;
+  await port.startInstruction(id);
+  await cancelSelection(port);
+  assert.equal(port.state.current.text, source);
+  assert.equal(port.state.current.edit.result, result);
+  await port.transform(id, "Сделай формальнее", true);
+  const insert = port.insertResult(id, port.state.current.edit.resultId);
+  await cancelSelection(port);
+  await insert;
+  assert.equal(port.state.current.edit.result, result);
+  assert.equal(port.state.current.delivery.phase, "blocked");
+  assert.equal(workspace.state.history.length, initial);
+  await port.copyResult(id, port.state.current.edit.resultId);
+  assert.equal(port.state.current.delivery.phase, "copied");
+  assert.equal(workspace.state.history.length, initial + 1);
+  await cancelSelection(port);
+  assert.equal(port.state.current, null);
+});
+
+test("selection history is opt-in at capture and acceptance, stores one final result only", async () => {
+  const initial = workspace.state.history.length;
+  const p = workspace.state.preferences;
+  assert.equal(p.selectionHistoryEnabled, false);
+  assert.equal(p.selectionAutoInsert, false);
+  const port = workspace.selection;
+  port.demo();
+  let id = port.state.current.operationId;
+  await port.transform(id, "Переведи на английский", true);
+  p.selectionHistoryEnabled = true;
+  await port.copyResult(id, port.state.current.edit.resultId);
+  assert.equal(
+    workspace.state.history.length,
+    initial,
+    "late opt-in cannot authorize an earlier capture",
+  );
+  port.demo();
+  id = port.state.current.operationId;
+  await port.transform(id, "Сделай формальнее", true);
+  const result = port.state.current.edit.result;
+  assert.equal(
+    workspace.state.history.length,
+    initial,
+    "LLM generation is not acceptance",
+  );
+  p.historyEnabled = false;
+  await port.copyResult(id, port.state.current.edit.resultId);
+  assert.equal(
+    workspace.state.history.length,
+    initial,
+    "revoked global history wins",
+  );
+  p.historyEnabled = true;
+  await port.insertResult(id, port.state.current.edit.resultId);
+  await port.copyResult(id, port.state.current.edit.resultId);
+  assert.equal(workspace.state.history.length, initial + 1);
+  assert.equal(workspace.state.history[0].text, result);
+  assert.equal(workspace.state.history[0].original, undefined);
+  assert.equal(workspace.state.history[0].metadata, undefined);
+  assert.equal(workspace.state.history[0].analyticsIncluded, false);
+  assert.ok([...storage.values()].every((raw) => !raw.includes(result)));
+});
+
+test("automatic selection insertion requires an earlier opt-in and cancellation prevents late archive", async () => {
+  const p = workspace.state.preferences;
+  const port = workspace.selection;
+  const initial = workspace.state.history.length;
+  port.demo();
+  p.selectionAutoInsert = true;
+  let id = port.state.current.operationId;
+  await port.transform(id, "Сократи до трёх пунктов", true);
+  assert.equal(port.state.current.delivery.phase, "idle");
+  p.selectionHistoryEnabled = true;
+  port.demo();
+  id = port.state.current.operationId;
+  p.selectionAutoInsert = false;
+  await port.transform(id, "Сделай формальнее", true);
+  assert.equal(port.state.current.delivery.phase, "idle", "revocation wins");
+  p.selectionAutoInsert = true;
+  port.demo();
+  id = port.state.current.operationId;
+  await port.transform(id, "Сделай формальнее", true);
+  assert.equal(port.state.current.delivery.phase, "submitted");
+  assert.equal(workspace.state.history.length, initial + 1);
+  await assert.rejects(
+    port.insertResult(id, port.state.current.edit.resultId),
+    /Повторная замена/,
+  );
+  port.demo();
+  id = port.state.current.operationId;
+  const pending = port.transform(id, "Переведи на английский", true);
+  await port.cancel(id);
+  port.demo();
+  const successor = port.state.current.operationId;
+  await pending;
+  assert.equal(port.state.current.operationId, successor);
+  assert.equal(workspace.state.history.length, initial + 1);
+});
+
+test("direct overlay delivery sends exact selection and result IDs, never renderer output", async () => {
+  const { createNativeSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/nativeSelection.ts",
+  );
+  const calls = [];
+  const snapshot = {
+    operation_id: 10,
+    phase: "ready",
+    text: "private material",
+    source: "ui_automation",
+    auto_insert: false,
+    history_enabled: false,
+    edit: {
+      phase: "ready",
+      instruction: "shorten",
+      result: "short result",
+      result_id: 11,
+    },
+    delivery: { phase: "idle", replace_allowed: true },
+  };
+  const port = createNativeSelectionCapture(
+    async (command, args) => {
+      calls.push([command, args]);
+      return command === "get_selection_capture" ? snapshot : undefined;
+    },
+    async () => () => {},
+  );
+  await port.refresh();
+  await port.insertResult(9, 11);
+  assert.ok(calls.every(([name]) => name === "get_selection_capture"));
+  await port.insertResult(10, 11);
+  assert.deepEqual(
+    calls.find(([name]) => name === "insert_selection_result"),
+    ["insert_selection_result", { operationId: 10, resultId: 11 }],
+  );
+  port.dispose();
 });
 
 test("last result survives disabled and cleared history; raw archive requires consent", async () => {

@@ -2,7 +2,16 @@
 import { computed, onUnmounted } from "vue";
 import OverlayPreview from "./OverlayPreview.vue";
 import { createNativeOverlay } from "../infrastructure/nativeOverlay";
+import SelectionOverlay from "../../selection/presentation/SelectionOverlay.vue";
 const overlay = createNativeOverlay();
+const showSelection = computed(
+  () =>
+    overlay.selection.state.current &&
+    !overlay.state.pending &&
+    !["listening", "silence", "transcribing", "processing"].includes(
+      overlay.state.phase,
+    ),
+);
 const phase = computed(() =>
   overlay.state.preview && overlay.state.phase === "idle"
     ? "listening"
@@ -31,6 +40,7 @@ onUnmounted(overlay.dispose);
 <template>
   <div class="native-overlay" @pointerdown="drag">
     <OverlayPreview
+      v-if="!showSelection"
       :preferences="overlay.state.preferences"
       :phase="phase"
       :outcome="overlay.state.dictationOutcome"
@@ -54,6 +64,12 @@ onUnmounted(overlay.dispose);
       @copy="overlay.copy"
       @processing-change="overlay.chooseProcessing"
       @help-change="overlay.setHelp"
+    />
+    <SelectionOverlay
+      v-else
+      :port="overlay.selection"
+      :preferences="overlay.state.preferences"
+      native
     />
   </div>
 </template>

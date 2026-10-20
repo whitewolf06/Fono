@@ -34,6 +34,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
           "selectionCaptureEnabled",
           "selectionHotkey",
           "selectionClipboardFallback",
+          "selectionAutoInsert",
           "hotkey",
           "hotkeyMode",
           "commandHotkey",

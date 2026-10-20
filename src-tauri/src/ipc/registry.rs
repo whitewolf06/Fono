@@ -89,6 +89,7 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::selection::arm_selection_replace,
         crate::ipc::selection::cancel_selection_delivery,
         crate::ipc::selection::copy_selection_result,
+        crate::ipc::selection::insert_selection_result,
         // overlay
         crate::ipc::settings::save_overlay_position,
         crate::overlay::get_overlay_preview,

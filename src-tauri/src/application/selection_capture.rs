@@ -14,6 +14,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub(crate) mod delivery;
 pub(crate) mod edit;
+mod privacy;
 
 #[derive(Clone, Serialize)]
 pub(crate) struct Snapshot {
@@ -24,6 +25,9 @@ pub(crate) struct Snapshot {
     pub message: Option<String>,
     pub edit: edit::EditSnapshot,
     pub delivery: delivery::DeliverySnapshot,
+    pub auto_insert: bool,
+    pub history_enabled: bool,
+    pub history_message: Option<String>,
 }
 struct Active {
     id: u64,
@@ -32,6 +36,7 @@ struct Active {
     _lease: ActivityLease<'static>,
     edit: edit::Editor,
     delivery: delivery::Delivery,
+    privacy: privacy::Policy,
 }
 impl Drop for Active {
     fn drop(&mut self) {
@@ -53,6 +58,9 @@ pub(crate) struct Runtime {
 }
 
 impl Runtime {
+    pub(crate) fn is_active(&self) -> bool {
+        self.slot.lock().active.is_some()
+    }
     pub(crate) fn snapshot(&self) -> Option<Snapshot> {
         let slot = self.slot.lock();
         let a = slot.active.as_ref()?;
@@ -69,6 +77,9 @@ impl Runtime {
             message,
             edit: a.edit.snapshot(),
             delivery: a.delivery.snapshot(a.edit.can_replace()),
+            auto_insert: a.privacy.auto_insert,
+            history_enabled: a.privacy.history_enabled,
+            history_message: a.privacy.message.clone(),
         })
     }
     pub(crate) fn cancel(&self, id: u64) -> bool {
@@ -85,7 +96,15 @@ impl Runtime {
         slot.closed = true;
         slot.active.take();
     }
+    #[cfg(test)]
     fn begin(&self, lease: ActivityLease<'static>) -> AppResult<(u64, OperationCancellation)> {
+        self.begin_with_policy(lease, privacy::Policy::default())
+    }
+    fn begin_with_policy(
+        &self,
+        lease: ActivityLease<'static>,
+        privacy: privacy::Policy,
+    ) -> AppResult<(u64, OperationCancellation)> {
         let mut slot = self.slot.lock();
         if slot.closed || slot.active.is_some() {
             return Err(AppError::Busy(
@@ -101,6 +120,7 @@ impl Runtime {
             _lease: lease,
             edit: edit::Editor::default(),
             delivery: delivery::Delivery::default(),
+            privacy,
         });
         Ok((id, cancel))
     }
@@ -129,6 +149,8 @@ impl Runtime {
 
 fn notify(app: &AppHandle) {
     let _ = app.emit_to("settings", "selection-capture-changed", ());
+    let _ = app.emit_to("overlay", "selection-capture-changed", ());
+    crate::overlay::request_visibility(app);
 }
 pub(crate) fn cancel(app: &AppHandle, id: u64) {
     if app.state::<Runtime>().cancel(id) {
@@ -172,7 +194,10 @@ pub(crate) fn request(app: AppHandle) {
     let Ok(configuration) = configuration else {
         return;
     };
-    let Ok((id, cancellation)) = runtime.begin(work_lease.clone()) else {
+    let Ok((id, cancellation)) = runtime.begin_with_policy(
+        work_lease.clone(),
+        privacy::Policy::from_settings(&settings),
+    ) else {
         return;
     };
     notify(&app);
@@ -185,23 +210,7 @@ pub(crate) fn request(app: AppHandle) {
             return;
         }
         notify(&app);
-        // Foreground is changed only after the explicit read and clipboard cleanup.
-        let ui_app = app.clone();
-        let ui_lease = _work_lease.clone();
-        let _ = app.run_on_main_thread(move || {
-            let _lease = ui_lease;
-            if ui_app
-                .state::<Runtime>()
-                .snapshot()
-                .is_some_and(|s| s.operation_id == id)
-            {
-                if let Some(window) = ui_app.get_webview_window("settings") {
-                    let _ = window.show();
-                    let _ = window.unminimize();
-                    let _ = window.set_focus();
-                }
-            }
-        });
+        // The existing non-activating overlay keeps the source field focused.
     });
 }
 
@@ -250,7 +259,7 @@ mod tests {
         assert!(runtime.snapshot().unwrap().text.is_none());
         assert!(runtime.complete(id, Ok(fixture(id))));
         let json = serde_json::to_value(runtime.snapshot().unwrap()).unwrap();
-        assert_eq!(json.as_object().unwrap().len(), 7);
+        assert_eq!(json.as_object().unwrap().len(), 10);
         assert!(json.get("target").is_none());
         assert!(json.get("digest").is_none());
         runtime.close();

@@ -97,7 +97,8 @@ impl Delivery {
         let copy = p.copy;
         let cancelled = p.cancel.is_cancelled();
         let phase = match &result {
-            Ok(_) if copy => "copied",
+            Ok(_) if copy && !cancelled => "copied",
+            Ok(_) if copy => "idle",
             Err(_) if copy => "idle",
             Ok(r) if !cancelled && !r.paused && !r.uncertain && r.bytes == expected => "submitted",
             Ok(r) if r.bytes == 0 && !r.uncertain => "blocked",
@@ -140,6 +141,29 @@ pub(crate) fn arm(app: &AppHandle, selection: u64, result: u64) -> AppResult<()>
         a.delivery.arm(result)
     })?;
     notify(app);
+    Ok(())
+}
+pub(super) fn auto_submit(app: &AppHandle, selection: u64, result: u64) {
+    let settings = app.state::<AppState>().settings();
+    let armed = with_active(app, selection, |a| {
+        if !a.privacy.auto_allowed(&settings) || !a.edit.can_replace() {
+            return Ok(false);
+        }
+        a.edit.output(result, true)?;
+        a.delivery.arm(result)?;
+        Ok(true)
+    });
+    if matches!(armed, Ok(true)) {
+        if let Err(error) = submit(app.clone(), selection, result) {
+            reject(app, selection, result, error);
+        }
+    }
+}
+pub(crate) fn insert(app: AppHandle, selection: u64, result: u64) -> AppResult<()> {
+    arm(&app, selection, result)?;
+    if let Err(error) = submit(app.clone(), selection, result) {
+        reject(&app, selection, result, error);
+    }
     Ok(())
 }
 pub(crate) fn disarm(app: &AppHandle, selection: u64, result: u64) {
@@ -245,7 +269,14 @@ fn finish(
     expected: usize,
 ) {
     let _ = with_active(app, selection, |a| {
-        a.delivery.finish(operation, result, expected);
+        let accepted = a.delivery.pending.as_ref().map(|p| p.result);
+        if a.delivery.finish(operation, result, expected)
+            && matches!(a.delivery.outcome, Some("submitted" | "copied"))
+        {
+            if let Some(result) = accepted {
+                privacy::archive(app, a, result);
+            }
+        }
         Ok(())
     });
     notify(app);

@@ -35,6 +35,8 @@ const persistedKeys: (keyof Preferences)[] = [
   "selectionCaptureEnabled",
   "selectionHotkey",
   "selectionClipboardFallback",
+  "selectionAutoInsert",
+  "selectionHistoryEnabled",
   "hotkeyMode",
   "commandHotkey",
   "processingEnabled",

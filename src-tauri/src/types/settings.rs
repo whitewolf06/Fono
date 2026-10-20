@@ -44,6 +44,10 @@ pub struct Settings {
     #[serde(default)]
     pub selection_clipboard_fallback: bool,
     #[serde(default)]
+    pub selection_auto_insert: bool,
+    #[serde(default)]
+    pub selection_history_enabled: bool,
+    #[serde(default)]
     pub wake_word_enabled: bool,
     #[serde(default = "default_wake_word")]
     pub wake_word: String,
@@ -176,6 +180,8 @@ impl Default for Settings {
             selection_capture_enabled: false,
             selection_hotkey: default_selection_hotkey(),
             selection_clipboard_fallback: false,
+            selection_auto_insert: false,
+            selection_history_enabled: false,
             wake_word_enabled: false,
             wake_word: default_wake_word(),
             wake_backend: default_wake_backend(),

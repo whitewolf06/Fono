@@ -74,6 +74,8 @@ export interface Preferences {
   selectionCaptureEnabled: boolean;
   selectionHotkey: string;
   selectionClipboardFallback: boolean;
+  selectionAutoInsert: boolean;
+  selectionHistoryEnabled: boolean;
   hotkeyMode: "hold" | "toggle";
   commandHotkey: string;
   wakeThreshold: number;

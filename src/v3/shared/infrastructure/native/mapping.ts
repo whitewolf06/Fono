@@ -80,6 +80,8 @@ export function preferencesFromNative(
       .map((x) => x.trim())
       .join(" + "),
     selectionClipboardFallback: s.selection_clipboard_fallback ?? false,
+    selectionAutoInsert: s.selection_auto_insert ?? false,
+    selectionHistoryEnabled: s.selection_history_enabled ?? false,
     commandHotkey: s.command_hotkey
       .split("+")
       .map((x) => x.trim())
@@ -161,6 +163,8 @@ export function applyPreferences(
     dictationTrigger: "dictation_trigger",
     selectionCaptureEnabled: "selection_capture_enabled",
     selectionClipboardFallback: "selection_clipboard_fallback",
+    selectionAutoInsert: "selection_auto_insert",
+    selectionHistoryEnabled: "selection_history_enabled",
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",

@@ -138,6 +138,8 @@ export interface Settings {
   selection_capture_enabled?: boolean;
   selection_hotkey?: string;
   selection_clipboard_fallback?: boolean;
+  selection_auto_insert?: boolean;
+  selection_history_enabled?: boolean;
   dictation_trigger?:
     | "shortcut"
     | "right_alt"

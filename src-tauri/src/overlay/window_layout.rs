@@ -26,7 +26,10 @@ pub(super) fn apply(app: &AppHandle, window: &WebviewWindow) -> AppResult<Overla
         .map(|p| (p.overlay_scale, p.overlay_mini_mode))
         .unwrap_or((settings.overlay_scale, settings.overlay_mini_mode));
     let mode = display_mode(
-        crate::application::dictation::workflow::has_pending(app),
+        crate::application::dictation::workflow::has_pending(app)
+            || app
+                .state::<crate::application::selection_capture::Runtime>()
+                .is_active(),
         phase == PipelineState::Listening,
         preview.is_some(),
         settings.hotkey_mode == HotkeyMode::Toggle && settings.overlay_quick_processing,

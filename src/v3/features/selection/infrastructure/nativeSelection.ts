@@ -95,6 +95,11 @@ export function selectionFromNative(value: unknown): SelectionSnapshot | null {
     operationId: Number(s.operation_id),
     phase: s.phase as SelectionSnapshot["phase"],
   };
+  result.autoInsert = s.auto_insert === true;
+  result.historyEnabled = s.history_enabled === true;
+  if (typeof s.history_message === "string")
+    result.historyMessage =
+      "Результат готов, но сохранить его в историю не удалось. Скопируйте текст перед закрытием.";
   if (s.phase === "ready") {
     if (
       typeof s.text !== "string" ||
@@ -168,6 +173,8 @@ export function createNativeSelectionCapture(
       action(id, "cancel_selection_delivery", { resultId }),
     copyResult: (id, resultId) =>
       action(id, "copy_selection_result", { resultId }),
+    insertResult: (id, resultId) =>
+      action(id, "insert_selection_result", { resultId }),
     startInstruction: (id) => action(id, "start_selection_instruction"),
     stopInstruction: (id, editOperationId) =>
       action(id, "stop_selection_instruction", { editOperationId }),

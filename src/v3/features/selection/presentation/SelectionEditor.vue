@@ -140,7 +140,12 @@ const status = computed(
         aria-label="Результат преобразования выделения"
       />
       <p class="muted">
-        Оригинал доступен выше. Замена выполняется только после подтверждения.
+        Оригинал доступен выше.
+        {{
+          current?.autoInsert
+            ? "Для этого выделения выбрана автоматическая вставка после LLM."
+            : "Замена выполняется только после подтверждения."
+        }}
       </p>
       <SelectionDelivery
         :instruction-matches="instruction === edit.instruction"

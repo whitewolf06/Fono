@@ -5,7 +5,7 @@ use crate::{
 use tauri::{AppHandle, Manager, WebviewWindow};
 
 fn require_main(window: &WebviewWindow) -> AppResult<()> {
-    if window.label() != "settings" {
+    if !matches!(window.label(), "settings" | "overlay") {
         return Err(AppError::Config(
             "Выделение доступно только в главном окне Fono.".into(),
         ));
@@ -19,11 +19,7 @@ pub(crate) fn get_selection_capture(
     app: AppHandle,
     window: WebviewWindow,
 ) -> AppResult<Option<Snapshot>> {
-    if window.label() != "settings" {
-        return Err(AppError::Config(
-            "Выделение доступно только в главном окне Fono.".into(),
-        ));
-    }
+    require_main(&window)?;
     Ok(app.state::<Runtime>().snapshot())
 }
 
@@ -33,11 +29,7 @@ pub(crate) fn cancel_selection_capture(
     window: WebviewWindow,
     operation_id: u64,
 ) -> AppResult<()> {
-    if window.label() != "settings" {
-        return Err(AppError::Config(
-            "Выделение доступно только в главном окне Fono.".into(),
-        ));
-    }
+    require_main(&window)?;
     selection_capture::cancel(&app, operation_id);
     Ok(())
 }
@@ -131,4 +123,21 @@ pub(crate) async fn copy_selection_result(
 ) -> AppResult<()> {
     require_main(&window)?;
     selection_capture::delivery::copy(app, operation_id, result_id)
+}
+
+#[tauri::command]
+pub(crate) async fn insert_selection_result(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+    result_id: u64,
+) -> AppResult<()> {
+    // Only the non-activating overlay offers direct insertion. The main editor
+    // must arm and return to the source field through the separate shortcut.
+    if window.label() != "overlay" {
+        return Err(AppError::Config(
+            "Прямая замена доступна только в индикаторе Fono.".into(),
+        ));
+    }
+    selection_capture::delivery::insert(app, operation_id, result_id)
 }

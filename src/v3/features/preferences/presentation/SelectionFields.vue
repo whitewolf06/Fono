@@ -38,6 +38,17 @@ const draft = defineModel<Preferences>({ required: true });
       Без подтверждённого выделения и в защищённых полях получение отклоняется.
       Сочетание не должно пересекаться с диктовкой и голосовыми командами.
     </p>
+    <PreferenceToggle
+      name="selectionAutoInsert"
+      :disabled="active || workspace.state.triggerCaptureActive"
+      label="Вставлять правку сразу после LLM"
+      description="По умолчанию результат ждёт подтверждения. При включении он заменит исходное выделение после проверки поля. Настройка действует для новых выделений."
+    />
+    <PreferenceToggle
+      name="selectionHistoryEnabled"
+      label="Сохранять результат правки в историю"
+      description="Только после успешного копирования или отправки в поле, один раз. Общая история тоже должна быть включена. Оригинал и инструкция не сохраняются. Настройка действует для новых выделений."
+    />
     <WlButton
       v-if="!workspace.native && workspace.selection.demo"
       @click="workspace.selection.demo()"

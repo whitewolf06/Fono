@@ -178,6 +178,9 @@ fn phase(app: &AppHandle, work: &Work, phase: &'static str) {
 }
 fn complete(app: &AppHandle, work: &Work, voice: bool, result: AppResult<String>) {
     if with_editor(app, work.selection, |e| e.complete(work.id, voice, result)) == Some(true) {
+        if !voice {
+            delivery::auto_submit(app, work.selection, work.id);
+        }
         notify(app);
     }
 }

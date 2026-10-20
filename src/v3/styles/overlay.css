@@ -179,3 +179,16 @@
   overflow: visible;
   box-shadow: none;
 }
+.selection-overlay {
+  text-align: start;
+}
+.selection-overlay .actions {
+  flex-wrap: wrap;
+}
+.selection-overlay-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: var(--fono-selection-text-height);
+  overflow-y: auto;
+  user-select: text;
+}

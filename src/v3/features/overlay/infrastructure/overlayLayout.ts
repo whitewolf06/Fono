@@ -14,6 +14,8 @@ export function bindOverlayLayout(
   state: LayoutState,
   processingError: () => string,
   fail: (error: unknown) => void,
+  selection?: () =>
+    import("../../selection/domain/selection").SelectionSnapshot | null,
 ) {
   let disposed = false,
     queued = false;
@@ -94,6 +96,10 @@ export function bindOverlayLayout(
     [
       () => state.helpOpen,
       () => state.phase,
+      () => selection?.()?.operationId,
+      () => selection?.()?.edit?.phase,
+      () => selection?.()?.edit?.resultId,
+      () => selection?.()?.delivery?.phase,
       () => state.pending?.sessionId,
       () => state.pending?.phase,
       () => state.preferences.overlayCompact,

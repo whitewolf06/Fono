@@ -10,6 +10,7 @@ import { useOverlayDemo } from "../application/useOverlayDemo";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import OverlayPreview from "./OverlayPreview.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
+import SelectionOverlay from "../../selection/presentation/SelectionOverlay.vue";
 const workspace = useWorkspace();
 const { state } = workspace;
 const demoPreferences = ref({ ...state.preferences });
@@ -163,5 +164,18 @@ const phases: Phase[] = [
     <small v-if="copyMessage" class="muted" role="status">{{
       copyMessage
     }}</small>
+    <template v-if="!workspace.native">
+      <div class="section-header">
+        <h3>Правка выделения · демо</h3>
+        <WlButton @click="workspace.selection.demo?.()"
+          >Пример правки в индикаторе</WlButton
+        >
+      </div>
+      <SelectionOverlay
+        :port="workspace.selection"
+        :preferences="state.preferences"
+        :native="false"
+      />
+    </template>
   </div>
 </template>
