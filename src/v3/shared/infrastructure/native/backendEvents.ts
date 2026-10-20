@@ -50,7 +50,12 @@ interface Payloads {
   service: null;
   history_changed: null;
   gpu_memory_changed: GpuMemoryStatus;
-  audio_level: { operation_id: number; level: number; elapsed_ms: number };
+  audio_level: {
+    operation_id: number;
+    level: number;
+    elapsed_ms: number;
+    pretranscription?: import("../../domain/pretranscription").PretranscriptionStatus;
+  };
   error: { code: string; message: string; operation_id: number | null };
 }
 export type BackendEventV1 = {

@@ -243,6 +243,146 @@ function state() {
   };
 }
 
+test("pretranscription is opt-in, maps older settings, and preserves classic mode", () => {
+  const raw = structuredClone(rawDefaults);
+  delete raw.pretranscription_enabled;
+  assert.equal(
+    mapping.preferencesFromNative(raw, []).pretranscriptionEnabled,
+    false,
+  );
+  const next = mapping.applyPreferences(
+    raw,
+    { pretranscriptionEnabled: true },
+    [],
+  );
+  assert.equal(next.pretranscription_enabled, true);
+  assert.equal(next.dictation_mode, "standard");
+  assert.equal(
+    mapping.preferencesFromNative(next, []).pretranscriptionEnabled,
+    true,
+  );
+});
+
+test("pretranscription toggle stays pending until persisted and rolls back a failed save", async () => {
+  const s = state();
+  const stored = structuredClone(rawDefaults);
+  let release;
+  const saving = new Promise((resolve) => {
+    release = resolve;
+  });
+  invoke = async (command, args) => {
+    if (command === "get_settings") return structuredClone(stored);
+    if (command === "save_settings") {
+      await saving;
+      Object.assign(stored, args.settings);
+    }
+    if (["get_dictation_history", "list_audio_devices"].includes(command))
+      return [];
+    if (command === "get_stt_memory_status") throw new Error("not supported");
+  };
+  const ctx = createContext(s);
+  const task = nativeSettings(ctx).toggle("pretranscriptionEnabled", true);
+  assert.equal(s.pending.pretranscriptionEnabled, true);
+  assert.equal(stored.pretranscription_enabled, false);
+  release();
+  await task;
+  assert.equal(s.pending.pretranscriptionEnabled, false);
+  assert.equal(stored.pretranscription_enabled, true);
+  const reopened = state();
+  await createContext(reopened).readSettings();
+  assert.equal(reopened.preferences.pretranscriptionEnabled, true);
+  invoke = async (command) => {
+    if (command === "get_settings") return structuredClone(stored);
+    if (command === "save_settings")
+      throw new Error("controlled settings failure");
+  };
+  await assert.rejects(
+    nativeSettings(ctx).toggle("pretranscriptionEnabled", false),
+  );
+  assert.equal(s.pending.pretranscriptionEnabled, false);
+  assert.equal(s.preferences.pretranscriptionEnabled, true);
+  assert.equal(stored.pretranscription_enabled, true);
+});
+
+test("pretranscription cannot change during capture, processing or pending decisions", async () => {
+  for (const phase of [
+    "listening",
+    "silence",
+    "transcribing",
+    "processing",
+    "awaiting_action",
+  ]) {
+    const s = state();
+    s.phase = phase;
+    const settings = nativeSettings(createContext(s));
+    await assert.rejects(
+      settings.toggle("pretranscriptionEnabled", true),
+      /Сначала завершите/,
+    );
+    await assert.rejects(
+      settings.save({ pretranscriptionEnabled: true }),
+      /Сначала завершите/,
+    );
+    assert.equal(s.preferences.pretranscriptionEnabled, false);
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("pretranscription events belong to the current recording and cannot revive after Stop", () => {
+  const s = state();
+  const native = nativeDictation(createContext(s));
+  const progress = {
+    operation_id: 31,
+    available: true,
+    phase: "waiting",
+    completed_segments: 0,
+    start_after_ms: 15000,
+  };
+  const snapshot = {
+    operation_id: 31,
+    source: "ui",
+    state: "listening",
+    level: 0,
+    last: null,
+    pretranscription: progress,
+  };
+  native.snapshot(snapshot);
+  assert.equal(s.pretranscription.phase, "waiting");
+  native.level({
+    operation_id: 31,
+    level: 0.1,
+    elapsed_ms: 16000,
+    pretranscription: { ...progress, phase: "recognizing" },
+  });
+  assert.equal(s.pretranscription.phase, "recognizing");
+  native.snapshot({
+    ...snapshot,
+    state: "transcribing",
+    pretranscription: { ...progress, phase: "inactive" },
+  });
+  native.level({
+    operation_id: 31,
+    level: 1,
+    elapsed_ms: 17000,
+    pretranscription: { ...progress, phase: "recognizing" },
+  });
+  assert.equal(s.pretranscription.phase, "inactive");
+  native.snapshot({
+    ...snapshot,
+    operation_id: 32,
+    pretranscription: { ...progress, operation_id: 32 },
+  });
+  native.level({
+    operation_id: 31,
+    level: 1,
+    elapsed_ms: 18000,
+    pretranscription: { ...progress, phase: "recognizing" },
+  });
+  assert.equal(s.pretranscription.operation_id, 32);
+  assert.equal(s.pretranscription.phase, "waiting");
+  native.dispose();
+});
+
 test("native workspace has no steady idle IPC and audio events are operation-scoped", async () => {
   const workspace = createNativeWorkspace();
   try {

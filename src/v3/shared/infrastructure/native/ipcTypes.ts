@@ -118,6 +118,7 @@ export interface WakeWordCapabilities {
 }
 
 export interface Settings {
+  pretranscription_enabled?: boolean;
   /** Обычная диктовка или последовательная вставка устойчивых фрагментов. */
   dictation_mode: "standard" | "live";
   /** device_id микрофона или null = системный default */
@@ -350,6 +351,7 @@ export interface WakeProfileValidationStatus {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  pretranscription_enabled: false,
   dictation_mode: "standard",
   audio_device_id: null,
   whisper_model_path: null,

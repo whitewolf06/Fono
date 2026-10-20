@@ -29,6 +29,7 @@ pub(super) fn sync(app: &AppHandle, state: PipelineState) {
                     operation_id: operation,
                     level: pipeline.current_level().clamp(0.0, 1.0),
                     elapsed_ms: started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                    pretranscription: pipeline.pretranscription_status_for(operation),
                 },
             );
         }

@@ -5,6 +5,7 @@ use crate::{
 
 pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> AppResult<()> {
     let capture_changed = previous.dictation_mode != next.dictation_mode
+        || previous.pretranscription_enabled != next.pretranscription_enabled
         || previous.audio_device_id != next.audio_device_id
         || previous.whisper_model_path != next.whisper_model_path
         || previous.stt_model != next.stt_model
@@ -34,6 +35,19 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pretranscription_can_change_only_between_operations() {
+        let previous = Settings::default();
+        let next = Settings {
+            pretranscription_enabled: true,
+            ..previous.clone()
+        };
+        assert!(validate(false, &previous, &next).is_ok());
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(true, &next, &previous).is_err());
+        assert!(validate(true, &next, &next).is_ok());
+    }
 
     #[test]
     fn decoding_strategy_and_thread_changes_apply_only_between_sessions() {

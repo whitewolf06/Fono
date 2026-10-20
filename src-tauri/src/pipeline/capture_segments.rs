@@ -1,5 +1,6 @@
 //! One bounded capture consumer owns segmentation, scheduling and checkpoints.
 //! No PCM queue: while STT runs, audio stays in the existing bounded writer.
+use super::pretranscription::{Phase, Status, START_AFTER_MS};
 use super::scheduler::SttScheduler;
 use crate::{
     application::updates::activity::{self, ActivityLease},
@@ -17,7 +18,7 @@ use std::{
     collections::BTreeMap,
     path::PathBuf,
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicU8, AtomicUsize, Ordering},
         Arc,
     },
     thread::{self, JoinHandle},
@@ -68,6 +69,7 @@ pub struct CaptureSegmentTask {
     cancellation: OperationCancellation,
     stop: OperationCancellation,
     completed: Arc<AtomicUsize>,
+    phase: Arc<AtomicU8>,
     handle: Option<JoinHandle<AppResult<CaptureSegmentBatch>>>,
 }
 
@@ -144,13 +146,25 @@ impl CaptureSegments {
         let stop = OperationCancellation::default();
         let completed = Arc::new(AtomicUsize::new(0));
         let worker_completed = completed.clone();
+        let phase = Arc::new(AtomicU8::new(Phase::Waiting as u8));
+        let worker_phase = phase.clone();
         let worker_stop = stop.clone();
         let handle = thread::Builder::new()
             .name("fono-capture-stt".into())
             .spawn(move || {
                 let _activity = activity;
                 let _slot = slot;
-                run(input, worker_stop, recognize, worker_completed)
+                let result = run(
+                    input,
+                    worker_stop.clone(),
+                    recognize,
+                    worker_completed,
+                    &worker_phase,
+                );
+                if result.is_err() || !worker_stop.is_cancelled() {
+                    worker_phase.store(Phase::Fallback as u8, Ordering::Release);
+                }
+                result
             })
             .map_err(|error| AppError::Internal(format!("capture segment start: {error}")))?;
         tasks.insert(
@@ -160,6 +174,7 @@ impl CaptureSegments {
                 cancellation,
                 stop,
                 completed,
+                phase,
                 handle: Some(handle),
             },
         );
@@ -174,6 +189,25 @@ impl CaptureSegments {
 
     pub(super) fn take(&self, operation: u64) -> Option<CaptureSegmentTask> {
         self.0.lock().remove(&operation)
+    }
+
+    pub(super) fn status(&self, operation: u64) -> Option<Status> {
+        let tasks = self.0.lock();
+        let task = tasks.get(&operation)?;
+        let phase = match task.phase.load(Ordering::Acquire) {
+            value if value == Phase::Waiting as u8 => Phase::Waiting,
+            value if value == Phase::Listening as u8 => Phase::Listening,
+            value if value == Phase::Queued as u8 => Phase::Queued,
+            value if value == Phase::Recognizing as u8 => Phase::Recognizing,
+            _ => Phase::Fallback,
+        };
+        Some(Status {
+            operation_id: operation,
+            available: true,
+            phase,
+            completed_segments: task.completed_segments(),
+            start_after_ms: START_AFTER_MS,
+        })
     }
 }
 
@@ -197,6 +231,7 @@ fn run(
         &OperationCancellation,
     ) -> AppResult<WindowTranscript>,
     completed: Arc<AtomicUsize>,
+    phase: &AtomicU8,
 ) -> AppResult<CaptureSegmentBatch> {
     let mut batch = CaptureSegmentBatch {
         operation_id: input.operation,
@@ -242,6 +277,9 @@ fn run(
             thread::sleep(Duration::from_millis(20));
             continue;
         }
+        if phase.load(Ordering::Acquire) == Phase::Waiting as u8 {
+            phase.store(Phase::Listening as u8, Ordering::Release);
+        }
         cursor += samples.len() as u64;
         let mut closed = None;
         segmenter
@@ -260,6 +298,7 @@ fn run(
         let mut transcript = None;
         if speech.has_speech {
             loop {
+                phase.store(Phase::Queued as u8, Ordering::Release);
                 let permit = match input.scheduler.acquire_capture(input.operation, &cancelled) {
                     Ok(permit) => permit,
                     Err(_) if cancelled.is_cancelled() => break,
@@ -270,6 +309,7 @@ fn run(
                     }
                     Err(error) => return Err(error),
                 };
+                phase.store(Phase::Recognizing as u8, Ordering::Release);
                 let result = recognize(
                     &segment.samples,
                     segment.range.start as u64,
@@ -313,6 +353,7 @@ fn run(
             transcript,
         });
         completed.store(batch.results.len(), Ordering::Release);
+        phase.store(Phase::Listening as u8, Ordering::Release);
     }
 }
 

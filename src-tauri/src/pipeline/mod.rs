@@ -29,6 +29,7 @@ mod capture_tests;
 pub mod completion;
 mod meter;
 mod operation;
+pub mod pretranscription;
 mod processing_choice;
 mod publication;
 mod recording;

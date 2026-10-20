@@ -18,6 +18,7 @@ import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import AudioFields from "./AudioFields.vue";
+import PretranscriptionField from "./PretranscriptionField.vue";
 import ModelManager from "./ModelManager.vue";
 import ActivationFields from "./ActivationFields.vue";
 import ProcessingFields from "./ProcessingFields.vue";
@@ -151,7 +152,8 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
           <UpdatesPanel :unsaved="dirty" />
         </div>
         <template v-else-if="section === 'audio'"
-          ><AudioFields v-model="draft" /><CudaPackagePanel
+          ><AudioFields
+            v-model="draft" /><PretranscriptionField /><CudaPackagePanel
             v-if="whisperSelected"
             :unsaved="dirty" /><DictionaryFields
             v-model="draft" /><ModelManager

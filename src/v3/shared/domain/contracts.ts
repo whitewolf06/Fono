@@ -54,6 +54,7 @@ export type QuickPanel =
   | "hotkey"
   | "command-hotkey";
 export interface Preferences {
+  pretranscriptionEnabled: boolean;
   dictationMode: DictationMode;
   microphone: string;
   model: string;
@@ -203,6 +204,7 @@ export type Scenario =
   | "live-backlog"
   | "live-insertion-error";
 export interface WorkspaceState {
+  pretranscription?: import("./pretranscription").PretranscriptionStatus;
   sttReadiness?: {
     state: "unloaded" | "loading" | "ready" | "failed";
     device?: string;

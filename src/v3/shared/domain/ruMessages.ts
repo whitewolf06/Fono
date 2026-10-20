@@ -1,5 +1,28 @@
 /** Existing Russian UI wording. Keep identifiers stable for the future locale port. */
 export const ruMessages = {
+  "pretranscription.label": "Распознавать фразы во время записи",
+  "pretranscription.saving": "Сохраняем настройку…",
+  "pretranscription.ready": "Текст готов: выберите действие с диктовкой.",
+  "pretranscription.hint":
+    "После 15 секунд Fono начнёт распознавать законченные фразы в фоне. Итоговый текст появится после остановки записи. Пока включается вручную: качество длинной диктовки ещё проверяется.",
+  "pretranscription.demo":
+    "Демонстрационный режим: фоновое распознавание не запускается.",
+  "pretranscription.unknown": "Получаем состояние распознавания…",
+  "pretranscription.unavailable":
+    "В этой сборке предварительное распознавание недоступно.",
+  "pretranscription.off": "Выключено: запись распознаётся после остановки.",
+  "pretranscription.idle": "Включено для следующей длинной диктовки.",
+  "pretranscription.inactive":
+    "В этой записи предварительное распознавание не запущено.",
+  "pretranscription.waiting": "Ожидаем {seconds} секунд записи.",
+  "pretranscription.listening":
+    "Ждём паузу в речи. Подготовлено фрагментов: {count}.",
+  "pretranscription.queued":
+    "Фрагмент ожидает распознавания. Подготовлено: {count}.",
+  "pretranscription.recognizing": "Распознаём фрагмент. Подготовлено: {count}.",
+  "pretranscription.fallback":
+    "Предварительное распознавание недоступно. Запись будет распознана после остановки.",
+  "pretranscription.finishing": "Запись остановлена: готовим итоговый текст.",
   "common.details": "Подробнее",
   "common.retry": "Попробовать снова",
   "common.cancel": "Отмена",

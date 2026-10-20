@@ -11,6 +11,7 @@ import {
   validateProcessingPrompts,
 } from "./processingPrompts";
 export const defaults: Preferences = {
+  pretranscriptionEnabled: false,
   dictationMode: "standard",
   microphone: "system",
   model: "small",

@@ -115,6 +115,7 @@ pub struct AudioLevelEventV1 {
     pub operation_id: u64,
     pub level: f32,
     pub elapsed_ms: u64,
+    pub pretranscription: crate::pipeline::pretranscription::Status,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

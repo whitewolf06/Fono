@@ -71,6 +71,105 @@ fn wait_until(mut ready: impl FnMut() -> bool) {
 }
 
 #[test]
+fn fifteen_second_threshold_and_worker_progress_describe_actual_work() {
+    use super::super::pretranscription::{Phase, START_AFTER_SAMPLES};
+    let pipeline = pipeline(1);
+    let operation = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    let length = pipeline.recording_end() as usize;
+    assert!(length < START_AFTER_SAMPLES);
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let mut first = true;
+    pipeline
+        .start_capture_segments_for(
+            operation,
+            vad_path(),
+            START_AFTER_SAMPLES,
+            move |samples, _, _, _| {
+                if first {
+                    first = false;
+                    started_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                }
+                Ok(transcript(samples.len(), "prefix"))
+            },
+        )
+        .unwrap();
+    thread::sleep(Duration::from_millis(50));
+    assert_eq!(
+        pipeline.pretranscription_status_for(operation).phase,
+        Phase::Waiting
+    );
+    assert!(started_rx.try_recv().is_err());
+    let scheduler = pipeline.scheduler();
+    let permit = scheduler
+        .acquire(true, &OperationCancellation::default())
+        .unwrap();
+    let writer = pipeline.writer.lock().as_ref().unwrap().clone();
+    assert!(!writer
+        .lock()
+        .append(&vec![0; START_AFTER_SAMPLES - length - 1], 5 * 60 * 16_000));
+    thread::sleep(Duration::from_millis(40));
+    assert_eq!(
+        pipeline.pretranscription_status_for(operation).phase,
+        Phase::Waiting
+    );
+    assert!(!writer.lock().append(&[0], 5 * 60 * 16_000));
+    wait_until(|| pipeline.pretranscription_status_for(operation).phase == Phase::Queued);
+    assert!(started_rx.try_recv().is_err());
+    drop(permit);
+    started_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+    let status = pipeline.pretranscription_status_for(operation);
+    assert_eq!(status.phase, Phase::Recognizing);
+    assert_eq!(status.completed_segments, 0);
+    assert_eq!(status.start_after_ms, 15_000);
+    release_tx.send(()).unwrap();
+    wait_until(|| pipeline.completed_capture_segments_for(operation) == Some(1));
+    assert_eq!(
+        pipeline.pretranscription_status_for(operation + 1).phase,
+        Phase::Inactive
+    );
+    assert_eq!(pipeline.state(), crate::types::PipelineState::Listening);
+    let captured = pipeline.stop_recording_for(operation).unwrap().unwrap();
+    assert_eq!(captured.len(), START_AFTER_SAMPLES);
+    assert_eq!(
+        pipeline.pretranscription_status_for(operation).phase,
+        Phase::Inactive
+    );
+    let batch = pipeline
+        .take_capture_segments_for(operation)
+        .unwrap()
+        .finish()
+        .unwrap();
+    assert_eq!(batch.results.len(), 1);
+}
+
+#[test]
+fn capture_worker_failure_is_reported_without_losing_the_full_recording() {
+    use super::super::pretranscription::Phase;
+    let pipeline = pipeline(1);
+    let operation = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    let length = pipeline.recording_end() as usize;
+    pipeline
+        .start_capture_segments_for(operation, vad_path(), 0, |_, _, _, _| {
+            Err(AppError::Stt("controlled failure".into()))
+        })
+        .unwrap();
+    wait_until(|| pipeline.pretranscription_status_for(operation).phase == Phase::Fallback);
+    let captured = pipeline.stop_recording_for(operation).unwrap().unwrap();
+    assert_eq!(captured.len(), length);
+    assert!(pipeline
+        .take_capture_segments_for(operation)
+        .unwrap()
+        .finish()
+        .is_err());
+}
+
+#[test]
 fn capture_consumer_keeps_an_ordered_private_prefix_and_leaves_the_tail_to_stop() {
     let pipeline = pipeline(2);
     let operation = pipeline

@@ -74,7 +74,11 @@ pub(super) async fn run_measured(
         {
             return Ok(None);
         }
-        if let Some(prefix) = prefix {
+        // Opting in must not change the decoding path for a short dictation,
+        // even though its idle capture consumer has already been registered.
+        if let Some(prefix) = prefix
+            .filter(|_| samples.len() >= crate::pipeline::pretranscription::START_AFTER_SAMPLES)
+        {
             if super::segment_completion::validate_prefix(
                 session.operation,
                 &session.settings,

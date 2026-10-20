@@ -9,6 +9,7 @@ import {
   ensureWakeAvailable,
 } from "../../../shared/domain/wakeAvailability";
 import { mockProcessing } from "./mockProcessing";
+import { captureSettingsLocked } from "../../../shared/domain/pretranscription";
 import { clonePreferences } from "../domain/processingPrompts";
 import {
   compatibleModelPreferences,
@@ -27,6 +28,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       if (
         [
           "dictationMode",
+          "pretranscriptionEnabled",
           "model",
           "language",
           "acceleration",
@@ -93,6 +95,11 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     save,
     async toggle(key, value) {
       if (state.pending[key]) return;
+      if (
+        key === "pretranscriptionEnabled" &&
+        captureSettingsLocked(state.phase)
+      )
+        throw new Error("Сначала завершите текущую диктовку.");
       if (key === "wakeEnabled" && value) ensureWakeAvailable();
       if (key === "wakeEnabled" && value && state.wakeSetup?.verified === false)
         throw new Error(

@@ -11,6 +11,9 @@ pub struct Settings {
     pub whisper_threads: Option<u8>,
     #[serde(default)]
     pub dictation_mode: DictationMode,
+    /// Opt-in until long-recording quality has been qualified.
+    #[serde(default)]
+    pub pretranscription_enabled: bool,
     #[serde(default)]
     pub audio_device_id: Option<String>,
     #[serde(default)]
@@ -151,6 +154,7 @@ impl Default for Settings {
             whisper_decoding: DecodingStrategy::Fast,
             whisper_threads: None,
             dictation_mode: DictationMode::Standard,
+            pretranscription_enabled: false,
             audio_device_id: None,
             whisper_model_path: None,
             stt_model: None,
@@ -342,5 +346,20 @@ mod wake_calibration_settings_tests {
         .expect("legacy settings deserialize");
 
         assert!(settings.wake_calibration_profile.is_none());
+    }
+
+    #[test]
+    fn pretranscription_is_opt_in_and_survives_settings_roundtrip() {
+        let legacy: Settings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(!legacy.pretranscription_enabled);
+        assert!(!Settings::default().pretranscription_enabled);
+        let enabled = Settings {
+            pretranscription_enabled: true,
+            ..legacy
+        };
+        let restored: Settings =
+            serde_json::from_value(serde_json::to_value(enabled).unwrap()).unwrap();
+        assert!(restored.pretranscription_enabled);
+        assert_eq!(restored.dictation_mode, DictationMode::Standard);
     }
 }

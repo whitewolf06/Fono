@@ -1,6 +1,7 @@
 import type { NativeContext } from "./context";
 import type { DictationPort, Phase } from "../../domain/contracts";
 import type { DictationOutcomeEvent } from "../../domain/dictationOutcome";
+import type { PretranscriptionStatus } from "../../domain/pretranscription";
 import { call } from "./ipc";
 import { createNativeSessionSync } from "./sessionSync";
 import { createNativeResultObserver } from "./sessionResult";
@@ -138,6 +139,8 @@ export function nativeDictation(ctx: NativeContext) {
   }
   function snapshot(value: NativeSnapshot) {
     if (value.operation_id > 0 && value.operation_id < currentOperation) return;
+    if (value.pretranscription?.operation_id === value.operation_id)
+      state.pretranscription = value.pretranscription;
     if (
       state.live &&
       value.operation_id > Number(state.live.sessionId) &&
@@ -345,12 +348,28 @@ export function nativeDictation(ctx: NativeContext) {
     accept: observe(accept),
     snapshot: observe(snapshot),
     outcome: observe(outcome),
-    level(value: { operation_id: number; level: number; elapsed_ms: number }) {
+    level(value: {
+      operation_id: number;
+      level: number;
+      elapsed_ms: number;
+      pretranscription?: PretranscriptionStatus;
+    }) {
       if (
         value.operation_id !== currentOperation ||
         state.phase !== "listening"
       )
         return;
+      if (value.pretranscription?.operation_id === value.operation_id) {
+        const previous = state.pretranscription;
+        if (
+          previous?.operation_id !== value.pretranscription.operation_id ||
+          previous.phase !== value.pretranscription.phase ||
+          previous.completed_segments !==
+            value.pretranscription.completed_segments
+        )
+          sync.invalidate();
+        state.pretranscription = value.pretranscription;
+      }
       state.audioLevel = Math.min(1, Math.max(0, value.level * 8));
       state.testSignal = state.audioLevel;
       state.elapsed = Math.max(0, value.elapsed_ms / 1000);

@@ -79,6 +79,31 @@ test("save errors roll back toggles and preserve committed fields", async () => 
   assert.equal(workspace.state.preferences.language, "ru");
 });
 
+test("pretranscription demo persists only its setting and rolls back when capture wins a save race", async () => {
+  assert.equal(workspace.state.preferences.pretranscriptionEnabled, false);
+  await workspace.settings.toggle("pretranscriptionEnabled", true);
+  const reopened = createWorkspace();
+  try {
+    assert.equal(reopened.state.preferences.pretranscriptionEnabled, true);
+    assert.equal(reopened.state.pretranscription, undefined);
+  } finally {
+    reopened.dispose();
+  }
+  workspace.state.scenario = "save-error";
+  await assert.rejects(
+    workspace.settings.toggle("pretranscriptionEnabled", false),
+  );
+  assert.equal(workspace.state.preferences.pretranscriptionEnabled, true);
+  workspace.state.scenario = "normal";
+  const saving = workspace.settings.toggle("pretranscriptionEnabled", false);
+  assert.equal(workspace.state.pending.pretranscriptionEnabled, true);
+  workspace.dictation.start();
+  await assert.rejects(saving, /Сначала завершите/);
+  assert.equal(workspace.state.preferences.pretranscriptionEnabled, true);
+  assert.equal(workspace.state.pending.pretranscriptionEnabled, false);
+  workspace.dictation.cancel();
+});
+
 test("mock offline model activation keeps CPU/language capabilities and prevents deleting the selected package", async () => {
   const id = "giga_am:v3_e2e_rnnt_int8";
   const model = workspace.state.models.find((m) => m.id === id);

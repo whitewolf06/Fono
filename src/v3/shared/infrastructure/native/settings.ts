@@ -6,6 +6,7 @@ import { nativeWake } from "./wake";
 import { ensureWakeAvailable } from "../../domain/wakeAvailability";
 import { modelId } from "../../domain/speechModels";
 import { nativeProcessing } from "../../../features/preferences/infrastructure/nativeProcessing";
+import { captureSettingsLocked } from "../../domain/pretranscription";
 export function nativeSettings(ctx: NativeContext): SettingsPort {
   const { state } = ctx;
   return {
@@ -15,6 +16,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
       if (
         [
           "dictationMode",
+          "pretranscriptionEnabled",
           "gpuModelResidency",
           "whisperDecoding",
           "whisperThreads",
@@ -50,6 +52,11 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
     },
     async toggle(key, value) {
       if (state.pending[key]) return;
+      if (
+        key === "pretranscriptionEnabled" &&
+        captureSettingsLocked(state.phase)
+      )
+        throw new Error("Сначала завершите текущую диктовку.");
       if (key === "wakeEnabled" && value) ensureWakeAvailable();
       const previous = state.preferences[key];
       state.pending[key] = true;

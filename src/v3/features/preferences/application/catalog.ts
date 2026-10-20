@@ -209,6 +209,13 @@ export const searchIndex: {
   },
 ];
 
+searchIndex.push({
+  label: "Распознавать фразы во время записи",
+  section: "audio",
+  field: "pretranscriptionEnabled",
+  keywords: "предварительное фоновое распознавание длинная диктовка пауза",
+});
+
 if (LIVE_DICTATION_ENABLED)
   searchIndex.unshift({
     label: "Режим диктовки",

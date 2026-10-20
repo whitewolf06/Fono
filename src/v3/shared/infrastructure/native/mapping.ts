@@ -39,6 +39,7 @@ export function preferencesFromNative(
     : undefined;
   return {
     ...defaults,
+    pretranscriptionEnabled: s.pretranscription_enabled === true,
     dictationMode: availableDictationMode(s.dictation_mode),
     microphone: s.audio_device_id || "system",
     model:
@@ -148,6 +149,7 @@ export function applyPreferences(
     p = { ...p, ...compatibleModelPreferences(selected, p) };
   const has = (key: keyof Preferences) => key in patch;
   const pairs = {
+    pretranscriptionEnabled: "pretranscription_enabled",
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",

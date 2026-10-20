@@ -72,6 +72,58 @@ function inputAttributes(html) {
   return input[1];
 }
 
+test("pretranscription field renders actual worker state, pending and unavailable builds", async () => {
+  const { default: Field } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/presentation/PretranscriptionField.vue",
+  );
+  async function render({
+    native = true,
+    phase = "listening",
+    progress = "queued",
+    available = true,
+    pending = false,
+  } = {}) {
+    const app = createSSRApp({ render: () => h(Field) });
+    app.use(WlConfig);
+    app.use(WlToastService);
+    app.provide(workspaceKey, {
+      native,
+      state: {
+        preferences: { pretranscriptionEnabled: true },
+        pending: { pretranscriptionEnabled: pending },
+        phase,
+        pretranscription: {
+          operation_id: 8,
+          available,
+          phase: progress,
+          completed_segments: 2,
+          start_after_ms: 15000,
+        },
+      },
+    });
+    app.provide(interactionKey, { confirm: async () => false });
+    return renderToString(app);
+  }
+  const queued = await render();
+  assert.match(queued, /Фрагмент ожидает распознавания/);
+  assert.match(queued, /Подготовлено: 2/);
+  assert.match(inputAttributes(queued), /disabled/);
+  assert.match(await render({ progress: "waiting" }), /Ожидаем 15 секунд/);
+  assert.match(await render({ pending: true }), /Сохраняем настройку/);
+  assert.match(await render({ phase: "awaiting_action" }), /Текст готов/);
+  const unavailable = await render({ phase: "idle", available: false });
+  assert.match(unavailable, /В этой сборке.*недоступно/);
+  assert.match(inputAttributes(unavailable), /disabled/);
+  const mock = await render({
+    native: false,
+    phase: "idle",
+    progress: "recognizing",
+  });
+  assert.match(mock, /Демонстрационный режим/);
+  assert.doesNotMatch(mock, /Распознаём фрагмент/);
+  assert.doesNotMatch(inputAttributes(mock), /disabled/);
+});
+
 function assertChecked(html, expected) {
   const input = inputAttributes(html);
   assert.match(input, /role="switch"/);

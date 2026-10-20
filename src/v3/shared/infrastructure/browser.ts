@@ -10,6 +10,7 @@ export async function openProjectSite(): Promise<void> {
 }
 // Persist demo preferences only. Transcripts, tokens and instructions never enter browser storage.
 const persistedKeys: (keyof Preferences)[] = [
+  "pretranscriptionEnabled",
   "dictationMode",
   "microphone",
   "model",

@@ -1,5 +1,4 @@
-//! Native adapter for F-02's capture consumer. Enabling the user flow follows
-//! Stop aggregation (FONO-122) and the setting/quality decision (FONO-123).
+//! Opt-in capture recognition; only Stop publishes the combined result.
 use crate::{
     error::{AppError, AppResult},
     pipeline::Pipeline,
@@ -7,11 +6,8 @@ use crate::{
 };
 use tauri::{AppHandle, Manager};
 
-const CAPTURE_STT_AVAILABLE: bool = false;
-const START_AFTER_SAMPLES: usize = 15 * 16_000;
-
 pub(super) fn maybe_start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool> {
-    if !CAPTURE_STT_AVAILABLE {
+    if !settings.pretranscription_enabled {
         return Ok(false);
     }
     start(app, operation, settings)
@@ -29,7 +25,7 @@ fn start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool
     pipeline.start_capture_segments_for(
         operation,
         vad_path,
-        START_AFTER_SAMPLES,
+        crate::pipeline::pretranscription::START_AFTER_SAMPLES,
         move |samples, start, context, cancellation| {
             stt.ensure_model_loaded(&model, settings.acceleration, &workers, cancellation)?;
             let context = context.filter(|_| {
