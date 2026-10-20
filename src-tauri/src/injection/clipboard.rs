@@ -50,7 +50,12 @@ const PRIVACY_FORMATS: [&str; 3] = [
     "CanUploadToCloudClipboard",
 ];
 
-type Guard = Option<(TextTarget, OperationCancellation)>;
+type InputGuard = (
+    TextTarget,
+    OperationCancellation,
+    Option<super::target::InputPreflight>,
+);
+type Guard = Option<InputGuard>;
 
 enum Command {
     Selection {
@@ -328,7 +333,7 @@ impl Owner {
     fn inject(
         &mut self,
         text: &str,
-        guard: Option<&(TextTarget, OperationCancellation)>,
+        guard: Option<&InputGuard>,
         lease: ActivityLease<'static>,
     ) -> AppResult<()> {
         if self.pending.is_some() {
@@ -336,7 +341,7 @@ impl Owner {
             return Err(failure("clipboard restoration is still pending"));
         }
         super::modifiers::wait_for_release(|| {
-            guard.is_some_and(|(_, cancel)| cancel.is_cancelled())
+            guard.is_some_and(|(_, cancel, _)| cancel.is_cancelled())
         })?;
         ensure_target(guard)?;
         let window = unsafe { GetForegroundWindow() };
@@ -382,11 +387,19 @@ impl Owner {
             self.restore();
             return Err(error);
         }
-        if guard.is_some_and(|(_, cancel)| cancel.is_cancelled())
+        if guard.is_some_and(|(_, cancel, _)| cancel.is_cancelled())
             || unsafe { GetForegroundWindow() } != window
         {
             self.restore();
             return Err(failure("clipboard injection was cancelled before input"));
+        }
+        if let Some(check) = guard.and_then(|(_, _, check)| check.as_ref()) {
+            if !check() || ensure_target(guard).is_err() {
+                self.restore();
+                return Err(failure(
+                    "Поле или выделение изменилось. Выделите фрагмент заново.",
+                ));
+            }
         }
         match super::send_ctrl_v() {
             Ok(()) => {
@@ -487,9 +500,9 @@ impl Drop for Owner {
     }
 }
 
-fn ensure_target(guard: Option<&(TextTarget, OperationCancellation)>) -> AppResult<()> {
+fn ensure_target(guard: Option<&InputGuard>) -> AppResult<()> {
     if guard
-        .is_some_and(|(target, cancel)| cancel.is_cancelled() || !super::target::matches(target))
+        .is_some_and(|(target, cancel, _)| cancel.is_cancelled() || !super::target::matches(target))
     {
         return Err(failure("clipboard destination is unavailable"));
     }

@@ -156,7 +156,26 @@ pub fn inject_via_clipboard_checked(
     target: target::TextTarget,
     cancel: fono_core::OperationCancellation,
 ) -> AppResult<()> {
-    clipboard::inject(text, Some((target, cancel)))
+    clipboard::inject(text, Some((target, cancel, None)))
+}
+
+pub(crate) fn inject_via_clipboard_preflight(
+    text: &str,
+    target: target::TextTarget,
+    cancel: fono_core::OperationCancellation,
+    preflight: Option<target::InputPreflight>,
+) -> AppResult<()> {
+    #[cfg(windows)]
+    {
+        clipboard::inject(text, Some((target, cancel, preflight)))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (text, target, cancel, preflight);
+        Err(AppError::Injection(
+            "Вставка поддерживается только в Windows".into(),
+        ))
+    }
 }
 #[cfg(not(windows))]
 pub fn inject_via_clipboard_checked(

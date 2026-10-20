@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import { WlButton, WlField, WlTextarea } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
+import SelectionDelivery from "./SelectionDelivery.vue";
 const workspace = useWorkspace();
 const current = computed(() => workspace.selection.state.current);
 const edit = computed(() => current.value?.edit);
@@ -14,7 +15,13 @@ watch(
   },
   { immediate: true },
 );
-const active = computed(() => Boolean(edit.value?.operationId));
+const active = computed(
+  () =>
+    Boolean(edit.value?.operationId) ||
+    ["replacing", "copying", "cancelling"].includes(
+      current.value?.delivery?.phase ?? "idle",
+    ),
+);
 const { run, busy, error } = useFeedback();
 function start() {
   const id = current.value?.operationId;
@@ -133,8 +140,11 @@ const status = computed(
         aria-label="Результат преобразования выделения"
       />
       <p class="muted">
-        Оригинал сохранён. Текст в исходном приложении не меняется.
+        Оригинал доступен выше. Замена выполняется только после подтверждения.
       </p>
+      <SelectionDelivery
+        :instruction-matches="instruction === edit.instruction"
+      />
     </template>
   </section>
 </template>

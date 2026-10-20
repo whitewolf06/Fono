@@ -1,4 +1,4 @@
-//! Separate explicit selection lifecycle; no audio, LLM, history or replacement.
+//! Explicit selection lifecycle with isolated editing and confirmed delivery.
 use super::updates::activity::{self, ActivityLease};
 use crate::{
     error::{AppError, AppResult},
@@ -12,6 +12,7 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Emitter, Manager};
 
+pub(crate) mod delivery;
 pub(crate) mod edit;
 
 #[derive(Clone, Serialize)]
@@ -22,6 +23,7 @@ pub(crate) struct Snapshot {
     pub source: Option<SelectionSource>,
     pub message: Option<String>,
     pub edit: edit::EditSnapshot,
+    pub delivery: delivery::DeliverySnapshot,
 }
 struct Active {
     id: u64,
@@ -29,11 +31,13 @@ struct Active {
     result: Option<AppResult<CapturedSelection>>,
     _lease: ActivityLease<'static>,
     edit: edit::Editor,
+    delivery: delivery::Delivery,
 }
 impl Drop for Active {
     fn drop(&mut self) {
         self.cancel.cancel();
         self.edit.cancel();
+        self.delivery.cancel();
         selection::release(self.id);
     }
 }
@@ -64,6 +68,7 @@ impl Runtime {
             source,
             message,
             edit: a.edit.snapshot(),
+            delivery: a.delivery.snapshot(a.edit.can_replace()),
         })
     }
     pub(crate) fn cancel(&self, id: u64) -> bool {
@@ -95,6 +100,7 @@ impl Runtime {
             result: None,
             _lease: lease,
             edit: edit::Editor::default(),
+            delivery: delivery::Delivery::default(),
         });
         Ok((id, cancel))
     }
@@ -137,6 +143,14 @@ pub(crate) fn request(app: AppHandle) {
     }
     let runtime = app.state::<Runtime>();
     if let Some(active) = runtime.snapshot() {
+        if active.delivery.phase == "armed" {
+            if let Some(result) = active.delivery.result_id {
+                if let Err(error) = delivery::submit(app.clone(), active.operation_id, result) {
+                    delivery::reject(&app, active.operation_id, result, error);
+                }
+            }
+            return;
+        }
         cancel(&app, active.operation_id);
         return;
     }
@@ -236,7 +250,7 @@ mod tests {
         assert!(runtime.snapshot().unwrap().text.is_none());
         assert!(runtime.complete(id, Ok(fixture(id))));
         let json = serde_json::to_value(runtime.snapshot().unwrap()).unwrap();
-        assert_eq!(json.as_object().unwrap().len(), 6);
+        assert_eq!(json.as_object().unwrap().len(), 7);
         assert!(json.get("target").is_none());
         assert!(json.get("digest").is_none());
         runtime.close();

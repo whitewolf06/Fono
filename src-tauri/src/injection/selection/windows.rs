@@ -26,6 +26,13 @@ use std::sync::{
 };
 
 enum Command {
+    Verify {
+        operation: u64,
+        original: CapturedSelection,
+        cancel: OperationCancellation,
+        _lease: ActivityLease<'static>,
+        reply: Sender<bool>,
+    },
     Read {
         operation: u64,
         cancel: OperationCancellation,
@@ -71,6 +78,19 @@ static WORKER: Lazy<std::io::Result<Worker>> = Lazy::new(|| {
                     break;
                 }
                 match command {
+                    Command::Verify {
+                        operation,
+                        original,
+                        cancel,
+                        _lease,
+                        reply,
+                    } => {
+                        let valid = !cancel.is_cancelled()
+                            && automation.as_ref().is_some_and(|a| {
+                                verify_range(a, operation, &original, retained.as_ref())
+                            });
+                        let _ = reply.send(valid && !cancel.is_cancelled());
+                    }
                     Command::Release {
                         operation: id,
                         _lease,
@@ -113,6 +133,118 @@ static WORKER: Lazy<std::io::Result<Worker>> = Lazy::new(|| {
         })?;
     Ok(Worker { tx, closed })
 });
+
+// This check is invoked only by an explicit replacement, never ambient guards.
+fn verify(operation: u64, original: CapturedSelection, cancel: OperationCancellation) -> bool {
+    let Some(Ok(worker)) = Lazy::get(&WORKER) else {
+        return false;
+    };
+    if worker.closed.load(Ordering::Acquire) {
+        return false;
+    }
+    let Ok(lease) = crate::application::updates::activity::lease() else {
+        return false;
+    };
+    let (reply, result) = bounded(1);
+    if worker
+        .tx
+        .try_send(Command::Verify {
+            operation,
+            original,
+            cancel,
+            _lease: lease,
+            reply,
+        })
+        .is_err()
+    {
+        return false;
+    }
+    result.recv().unwrap_or(false)
+}
+
+unsafe fn verify_range(
+    a: &IUIAutomation,
+    operation: u64,
+    original: &CapturedSelection,
+    retained: Option<&(u64, IUIAutomationTextRange)>,
+) -> bool {
+    let Some((owner, saved)) = retained.filter(|(id, _)| *id == operation) else {
+        return false;
+    };
+    if *owner != operation || !original.belongs_to(operation) {
+        return false;
+    }
+    let Some((target, element)) = super::super::target::selection_target(a) else {
+        return false;
+    };
+    if target != original.target {
+        return false;
+    }
+    let Ok(pattern) = element.GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
+    else {
+        return false;
+    };
+    let Ok(ranges) = pattern.GetSelection() else {
+        return false;
+    };
+    if ranges.Length().ok() != Some(1) {
+        return false;
+    }
+    let Ok(current) = ranges.GetElement(0) else {
+        return false;
+    };
+    if !current.Compare(saved).map(|v| v.as_bool()).unwrap_or(false) {
+        return false;
+    }
+    current
+        .GetText((MAX_UTF16 + 1) as i32)
+        .map(|text| text == original.text.as_str())
+        .unwrap_or(false)
+        && super::super::target::matches(&original.target)
+}
+
+pub(super) fn replace(
+    operation: u64,
+    original: CapturedSelection,
+    text: &str,
+    mode: crate::types::InjectionMode,
+    cancel: OperationCancellation,
+) -> AppResult<super::super::target::AppendResult> {
+    // A clipboard fallback cannot perform a nested Ctrl+C validation while the
+    // same clipboard owner prepares Ctrl+V. Refuse that combination, never skip proof.
+    if original.source == SelectionSource::Clipboard
+        && mode == crate::types::InjectionMode::Clipboard
+    {
+        return Err(error(
+            "Это поле не поддерживает безопасную замену через буфер. Скопируйте результат.",
+        ));
+    }
+    let target = original.target.clone();
+    let validation_cancel = cancel.clone();
+    let preflight = Arc::new(move || {
+        if validation_cancel.is_cancelled() {
+            return false;
+        }
+        match original.anchor {
+            SelectionAnchor::UiAutomation { .. } => {
+                verify(operation, original.clone(), validation_cancel.clone())
+            }
+            SelectionAnchor::ClassicEdit { start, end } => {
+                matches_classic(&original.target, start, end)
+                    && super::super::clipboard::selection_text(
+                        &original.target,
+                        start,
+                        end,
+                        validation_cancel.clone(),
+                    )
+                    .map(|text| text == original.text)
+                    .unwrap_or(false)
+                    && matches_classic(&original.target, start, end)
+            }
+        }
+    });
+    super::super::target::append_with_preflight(&target, text, mode, &cancel, Some(preflight))
+}
 
 pub(super) fn capture(
     operation: u64,

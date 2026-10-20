@@ -24,6 +24,7 @@ pub(crate) enum SelectionAnchor {
     ClassicEdit { start: u32, end: u32 },
 }
 
+#[derive(Clone)]
 pub(crate) struct CapturedSelection {
     pub(crate) text: String,
     pub(crate) source: SelectionSource,
@@ -103,6 +104,30 @@ pub(crate) fn capture(
     {
         let _ = (operation, cancel, fallback, lease);
         Err(error("Получение выделения доступно только в Windows."))
+    }
+}
+
+pub(crate) fn replace(
+    operation: u64,
+    original: CapturedSelection,
+    text: &str,
+    mode: crate::types::InjectionMode,
+    cancel: OperationCancellation,
+) -> AppResult<super::target::AppendResult> {
+    if !original.belongs_to(operation) {
+        return Err(error(
+            "Поле или выделение изменилось. Выделите фрагмент заново.",
+        ));
+    }
+    validate_text(text.to_owned())?;
+    #[cfg(windows)]
+    {
+        windows::replace(operation, original, text, mode, cancel)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (original, mode, cancel);
+        Err(error("Вставка поддерживается только в Windows"))
     }
 }
 

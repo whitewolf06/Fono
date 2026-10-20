@@ -5,6 +5,7 @@ use crate::{
     types::InjectionMode,
 };
 use fono_core::OperationCancellation;
+pub(crate) type InputPreflight = std::sync::Arc<dyn Fn() -> bool + Send + Sync>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextTarget {
@@ -51,6 +52,16 @@ pub fn append(
     mode: InjectionMode,
     cancel: &OperationCancellation,
 ) -> AppResult<AppendResult> {
+    append_with_preflight(target, text, mode, cancel, None)
+}
+
+pub(crate) fn append_with_preflight(
+    target: &TextTarget,
+    text: &str,
+    mode: InjectionMode,
+    cancel: &OperationCancellation,
+    preflight: Option<InputPreflight>,
+) -> AppResult<AppendResult> {
     if cancel.is_cancelled() || !matches(target) {
         return Ok(AppendResult {
             bytes: 0,
@@ -59,9 +70,9 @@ pub fn append(
         });
     }
     match mode {
-        InjectionMode::SendInput => platform::append(target, text, cancel),
+        InjectionMode::SendInput => platform::append(target, text, cancel, preflight.as_deref()),
         InjectionMode::Clipboard => {
-            super::inject_via_clipboard_checked(text, target.clone(), cancel.clone())?;
+            super::inject_via_clipboard_preflight(text, target.clone(), cancel.clone(), preflight)?;
             Ok(AppendResult {
                 bytes: text.len(),
                 paused: false,
@@ -77,7 +88,12 @@ mod platform {
     pub fn capture() -> AppResult<Option<TextTarget>> {
         Ok(None)
     }
-    pub fn append(_: &TextTarget, _: &str, _: &OperationCancellation) -> AppResult<AppendResult> {
+    pub fn append(
+        _: &TextTarget,
+        _: &str,
+        _: &OperationCancellation,
+        _: Option<&(dyn Fn() -> bool + Send + Sync)>,
+    ) -> AppResult<AppendResult> {
         Err(AppError::Injection(
             "Живая вставка доступна в Windows".into(),
         ))
@@ -225,6 +241,7 @@ mod platform {
         target: &TextTarget,
         text: &str,
         cancel: &OperationCancellation,
+        preflight: Option<&(dyn Fn() -> bool + Send + Sync)>,
     ) -> AppResult<AppendResult> {
         let mut bytes = 0;
         let mut chars = text.char_indices().peekable();
@@ -236,6 +253,18 @@ mod platform {
                     paused: true,
                     uncertain: false,
                 });
+            }
+            // Selection content is read only for an explicitly confirmed replacement,
+            // once before the first batch. Later batches retain the metadata guard.
+            if let Some(check) = preflight.filter(|_| bytes == 0) {
+                if !check() || cancel.is_cancelled() || !super::matches(target) {
+                    return Ok(AppendResult {
+                        bytes: 0,
+                        paused: true,
+                        uncertain: false,
+                    });
+                }
+                super::super::modifiers::ensure_released()?;
             }
             let batch: Vec<_> = chars.by_ref().take(8).collect();
             let inputs: Vec<_> = batch

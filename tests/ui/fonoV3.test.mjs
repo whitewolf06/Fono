@@ -504,7 +504,7 @@ test("native selection edits send instruction and exact IDs without renderer sup
   port.dispose();
 });
 
-test("native selection editor explains transfer and never offers external replacement", async () => {
+test("native selection editor explains transfer and never offers an immediate external replacement", async () => {
   const { createMockSelectionCapture } = await server.ssrLoadModule(
     "/src/v3/features/selection/infrastructure/mockSelection.ts",
   );
@@ -527,6 +527,150 @@ test("native selection editor explains transfer and never offers external replac
   assert.match(all, /Отмена не возвращает уже отправленные данные/);
   assert.match(all, /Продиктовать инструкцию/);
   assert.doesNotMatch(all, />Вставить</);
+  port.dispose();
+});
+
+test("replacement needs a fresh result, explicit confirmation and a separate target action", async () => {
+  const { createMockSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/mockSelection.ts",
+  );
+  const port = createMockSelectionCapture();
+  port.demo();
+  const id = port.state.current.operationId,
+    original = port.state.current.text;
+  await port.transform(id, "Сделай формальнее", true);
+  const first = port.state.current.edit.resultId;
+  assert.equal(port.state.current.delivery.phase, "idle");
+  await assert.rejects(port.demoReplace(), /недоступна/);
+  await assert.rejects(port.armReplacement(id, first + 1), /недоступна/);
+  await port.armReplacement(id, first);
+  assert.equal(port.state.current.delivery.phase, "armed");
+  await port.transform(id, "Переведи на английский", true);
+  const next = port.state.current.edit.resultId;
+  assert.notEqual(first, next);
+  assert.equal(port.state.current.delivery.phase, "idle");
+  await assert.rejects(port.armReplacement(id, first), /недоступна/);
+  await port.armReplacement(id, next);
+  await port.cancelDelivery(id, first);
+  assert.equal(port.state.current.delivery.phase, "armed");
+  await port.demoReplace();
+  assert.equal(port.state.current.delivery.phase, "submitted");
+  assert.equal(port.state.current.text, original);
+  await assert.rejects(port.demoReplace(), /недоступна/);
+  await assert.rejects(port.armReplacement(id, next), /недоступна/);
+  await port.copyResult(id, next);
+  assert.equal(port.state.current.delivery.phase, "copied");
+  await port.transform(id, "Сократи до трёх пунктов", true);
+  await assert.rejects(
+    port.armReplacement(id, port.state.current.edit.resultId),
+    /недоступна/,
+  );
+  assert.equal(storage.size, 0);
+  port.dispose();
+});
+
+test("cancel and closing a replacement prevent late delivery into a successor selection", async () => {
+  const { createMockSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/mockSelection.ts",
+  );
+  const port = createMockSelectionCapture();
+  port.demo();
+  const id = port.state.current.operationId;
+  await port.transform(id, "Сделай формальнее", true);
+  const result = port.state.current.edit.resultId;
+  await port.armReplacement(id, result);
+  await port.cancelDelivery(id, result);
+  await assert.rejects(port.demoReplace(), /недоступна/);
+  await port.armReplacement(id, result);
+  const pending = port.demoReplace();
+  await port.cancel(id);
+  port.demo();
+  await pending;
+  assert.notEqual(port.state.current.operationId, id);
+  assert.equal(port.state.current.delivery.phase, "idle");
+  assert.equal(port.state.current.edit.result, undefined);
+  await assert.rejects(port.copyResult(id, result), /изменился/);
+  port.dispose();
+});
+
+test("native replacement adapter sends exact IDs, strips private proof and does no implicit insertion", async () => {
+  const { createNativeSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/nativeSelection.ts",
+  );
+  const calls = [];
+  const snapshot = {
+    operation_id: 1,
+    phase: "ready",
+    text: "private original",
+    source: "ui_automation",
+    edit: {
+      phase: "ready",
+      result_id: 3,
+      instruction: "formal",
+      result: "result",
+    },
+    delivery: {
+      phase: "idle",
+      replace_allowed: true,
+      target: "PRIVATE TARGET",
+      digest: "PRIVATE PROOF",
+      message: "PRIVATE ERROR",
+    },
+  };
+  const port = createNativeSelectionCapture(
+    async (name, args) => {
+      calls.push([name, args]);
+      return snapshot;
+    },
+    async () => () => {},
+  );
+  await port.refresh();
+  assert.ok(calls.every(([name]) => name === "get_selection_capture"));
+  assert.equal(port.state.current.edit.resultId, 3);
+  assert.ok(!JSON.stringify(port.state.current.delivery).includes("PRIVATE"));
+  await port.armReplacement(1, 3);
+  await port.cancelDelivery(1, 3);
+  await port.copyResult(1, 3);
+  for (const name of [
+    "arm_selection_replace",
+    "cancel_selection_delivery",
+    "copy_selection_result",
+  ]) {
+    assert.deepEqual(calls.find(([command]) => command === name)[1], {
+      operationId: 1,
+      resultId: 3,
+    });
+  }
+  assert.ok(calls.every(([name]) => !/insert|submit|foreground/.test(name)));
+  port.dispose();
+});
+
+test("confirmed replacement explains returning to the original selection and leaves copy available", async () => {
+  const { createMockSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/mockSelection.ts",
+  );
+  const { default: Preview } = await server.ssrLoadModule(
+    "/src/v3/features/selection/presentation/SelectionPreview.vue",
+  );
+  const { workspaceKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/workspace.ts",
+  );
+  const port = createMockSelectionCapture();
+  port.demo();
+  const id = port.state.current.operationId;
+  await port.transform(id, "Сделай формальнее", true);
+  await port.armReplacement(id, port.state.current.edit.resultId);
+  const app = createSSRApp({ render: () => h(Preview) });
+  app.use(WlConfig).use(WlToastService);
+  app.provide(workspaceKey, { ...workspace, native: true, selection: port });
+  const context = {};
+  const html = await renderToString(app, context);
+  const all = html + Object.values(context.teleports || {}).join("");
+  assert.match(all, /Подтвердить замену/);
+  assert.match(all, /Копировать результат/);
+  assert.match(all, /Вернитесь в исходное поле с тем же выделением/);
+  assert.match(all, /Отменить замену/);
+  assert.doesNotMatch(all, /Смоделировать замену/);
   port.dispose();
 });
 

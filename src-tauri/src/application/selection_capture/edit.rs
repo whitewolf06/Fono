@@ -11,6 +11,7 @@ pub(crate) struct EditSnapshot {
     operation_id: Option<u64>,
     instruction: String,
     result: Option<String>,
+    result_id: Option<u64>,
     message: Option<String>,
 }
 
@@ -28,6 +29,8 @@ struct Job {
 pub(super) struct Editor {
     instruction: String,
     result: Option<String>,
+    result_id: Option<u64>,
+    result_current: bool,
     message: Option<String>,
     job: Option<Job>,
 }
@@ -53,6 +56,7 @@ impl Editor {
             operation_id: self.job.as_ref().map(|j| j.id),
             instruction: self.instruction.clone(),
             result: self.result.clone(),
+            result_id: self.result_id,
             message: self.message.clone(),
         }
     }
@@ -64,6 +68,7 @@ impl Editor {
         }
         let control = Control::default();
         self.message = None;
+        self.result_current = false;
         self.job = Some(Job {
             id,
             phase,
@@ -85,8 +90,13 @@ impl Editor {
                 Ok(value) if voice => {
                     self.instruction = value;
                     self.result = None;
+                    self.result_id = None;
                 }
-                Ok(value) => self.result = Some(value),
+                Ok(value) => {
+                    self.result = Some(value);
+                    self.result_id = Some(id);
+                    self.result_current = true;
+                }
                 Err(error) => {
                     self.message = Some(error.user_error().params.detail.unwrap_or_else(|| {
                         "Не удалось преобразовать выделение. Оригинал сохранён; повторите действие."
@@ -97,6 +107,20 @@ impl Editor {
         }
         self.job = None;
         true
+    }
+    pub(super) fn can_replace(&self) -> bool {
+        self.job.is_none() && self.result_current && self.result_id.is_some()
+    }
+    pub(super) fn output(&self, result_id: u64, fresh: bool) -> AppResult<String> {
+        if self.job.is_some()
+            || self.result_id != Some(result_id)
+            || (fresh && !self.result_current)
+        {
+            return Err(AppError::Cancelled(
+                "Результат уже изменился. Повторите преобразование выделения.".into(),
+            ));
+        }
+        self.result.clone().ok_or_else(stale)
     }
 }
 
@@ -116,6 +140,7 @@ fn begin(app: &AppHandle, selection: u64, phase: &'static str) -> AppResult<Work
         .as_mut()
         .filter(|a| a.id == selection)
         .ok_or_else(stale)?;
+    a.delivery.invalidate_prepared()?;
     let material = match a.result.as_ref() {
         Some(Ok(value)) if value.belongs_to(selection) => value.text.clone(),
         _ => return Err(stale()),
@@ -272,5 +297,26 @@ mod tests {
         e.complete(3, false, Err(AppError::Llm("PRIVATE URL AND TEXT".into())));
         assert!(!e.snapshot().message.unwrap().contains("PRIVATE"));
         assert_eq!(e.result.as_deref(), Some("Уважаемые коллеги"));
+    }
+    #[test]
+    fn only_the_latest_successful_result_can_be_armed_after_failure_or_cancel() {
+        let mut e = Editor::default();
+        e.begin(1, "processing").unwrap();
+        e.complete(1, false, Ok("first result".into()));
+        assert_eq!(e.output(1, true).unwrap(), "first result");
+        assert!(e.output(2, true).is_err());
+        e.begin(2, "processing").unwrap();
+        assert!(e.output(1, false).is_err());
+        e.complete(2, false, Err(AppError::Llm("error".into())));
+        assert!(e.output(1, true).is_err());
+        assert_eq!(e.output(1, false).unwrap(), "first result");
+        e.begin(3, "processing").unwrap();
+        e.cancel();
+        e.complete(3, false, Ok("late cancelled".into()));
+        assert!(e.output(1, true).is_err());
+        e.begin(4, "processing").unwrap();
+        e.complete(4, false, Ok("new result".into()));
+        assert!(e.output(1, false).is_err());
+        assert_eq!(e.output(4, true).unwrap(), "new result");
     }
 }

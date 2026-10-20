@@ -5,6 +5,7 @@ export interface SelectionSnapshot {
   source?: "ui_automation" | "clipboard" | "demo";
   message?: string;
   edit?: SelectionEditSnapshot;
+  delivery?: SelectionDeliverySnapshot;
 }
 export interface SelectionEditSnapshot {
   phase:
@@ -18,6 +19,23 @@ export interface SelectionEditSnapshot {
   operationId?: number;
   instruction: string;
   result?: string;
+  resultId?: number;
+  message?: string;
+}
+export interface SelectionDeliverySnapshot {
+  phase:
+    | "idle"
+    | "armed"
+    | "replacing"
+    | "copying"
+    | "cancelling"
+    | "submitted"
+    | "blocked"
+    | "uncertain"
+    | "copied";
+  operationId?: number;
+  resultId?: number;
+  replaceAllowed: boolean;
   message?: string;
 }
 export interface SelectionCapturePort {
@@ -32,6 +50,10 @@ export interface SelectionCapturePort {
     transferConfirmed: boolean,
   ): Promise<void>;
   demo?(): void;
+  armReplacement(operationId: number, resultId: number): Promise<void>;
+  cancelDelivery(operationId: number, resultId: number): Promise<void>;
+  copyResult(operationId: number, resultId: number): Promise<void>;
+  demoReplace?(): Promise<void>;
   refresh?(): Promise<void>;
   dispose(): void;
 }

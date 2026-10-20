@@ -98,3 +98,37 @@ pub(crate) async fn transform_selection(
         input.transfer_confirmed,
     )
 }
+
+#[tauri::command]
+pub(crate) fn arm_selection_replace(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+    result_id: u64,
+) -> AppResult<()> {
+    require_main(&window)?;
+    selection_capture::delivery::arm(&app, operation_id, result_id)
+}
+
+#[tauri::command]
+pub(crate) fn cancel_selection_delivery(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+    result_id: u64,
+) -> AppResult<()> {
+    require_main(&window)?;
+    selection_capture::delivery::disarm(&app, operation_id, result_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub(crate) async fn copy_selection_result(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+    result_id: u64,
+) -> AppResult<()> {
+    require_main(&window)?;
+    selection_capture::delivery::copy(app, operation_id, result_id)
+}

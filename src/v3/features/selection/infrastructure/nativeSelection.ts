@@ -3,6 +3,7 @@ import type {
   SelectionCapturePort,
   SelectionSnapshot,
   SelectionEditSnapshot,
+  SelectionDeliverySnapshot,
 } from "../domain/selection";
 import { createCoalescedRead } from "../../../shared/infrastructure/native/coalescedRead";
 import catalog from "../../../shared/infrastructure/native/userErrorCatalog.json";
@@ -38,11 +39,47 @@ function editFromNative(value: unknown): SelectionEditSnapshot | undefined {
     edit.operationId = Number(e.operation_id);
   if (typeof e.result === "string" && e.result.length <= 32768)
     edit.result = e.result;
+  if (Number.isSafeInteger(e.result_id) && Number(e.result_id) > 0)
+    edit.resultId = Number(e.result_id);
   if (typeof e.message === "string")
     edit.message = catalog.details.includes(e.message)
       ? e.message
       : "Не удалось преобразовать выделение. Оригинал сохранён; повторите действие.";
   return edit;
+}
+
+function deliveryFromNative(
+  value: unknown,
+): SelectionDeliverySnapshot | undefined {
+  if (!value || typeof value !== "object") return;
+  const d = value as Record<string, unknown>;
+  if (
+    ![
+      "idle",
+      "armed",
+      "replacing",
+      "copying",
+      "cancelling",
+      "submitted",
+      "blocked",
+      "uncertain",
+      "copied",
+    ].includes(String(d.phase))
+  )
+    return;
+  const result: SelectionDeliverySnapshot = {
+    phase: d.phase as SelectionDeliverySnapshot["phase"],
+    replaceAllowed: d.replace_allowed === true,
+  };
+  if (Number.isSafeInteger(d.operation_id) && Number(d.operation_id) > 0)
+    result.operationId = Number(d.operation_id);
+  if (Number.isSafeInteger(d.result_id) && Number(d.result_id) > 0)
+    result.resultId = Number(d.result_id);
+  if (typeof d.message === "string")
+    result.message = catalog.details.includes(d.message)
+      ? d.message
+      : "Действие не подтверждено. Результат доступен для копирования; повторная вставка заблокирована.";
+  return result;
 }
 
 export function selectionFromNative(value: unknown): SelectionSnapshot | null {
@@ -76,6 +113,8 @@ export function selectionFromNative(value: unknown): SelectionSnapshot | null {
         : "Не удалось безопасно получить выделение. Повторите действие или выберите другое поле.";
   const edit = editFromNative(s.edit);
   if (edit) result.edit = edit;
+  const delivery = deliveryFromNative(s.delivery);
+  if (delivery) result.delivery = delivery;
   return result;
 }
 export function createNativeSelectionCapture(
@@ -123,6 +162,12 @@ export function createNativeSelectionCapture(
   return {
     state,
     refresh: read.refresh,
+    armReplacement: (id, resultId) =>
+      action(id, "arm_selection_replace", { resultId }),
+    cancelDelivery: (id, resultId) =>
+      action(id, "cancel_selection_delivery", { resultId }),
+    copyResult: (id, resultId) =>
+      action(id, "copy_selection_result", { resultId }),
     startInstruction: (id) => action(id, "start_selection_instruction"),
     stopInstruction: (id, editOperationId) =>
       action(id, "stop_selection_instruction", { editOperationId }),
