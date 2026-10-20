@@ -1,6 +1,46 @@
 use super::*;
 
 #[test]
+fn glossary_is_canonical_bounded_data_and_disabled_settings_send_nothing() {
+    use crate::{
+        application::personal_dictionary::GlossarySnapshot,
+        types::{PersonalDictionaryEntry, Settings},
+    };
+    let mut settings = Settings {
+        personal_dictionary_enabled: true,
+        personal_dictionary_entries: vec![PersonalDictionaryEntry {
+            written: "Kubernetes".into(),
+            spoken: vec!["PRIVATE PRONUNCIATION".into()],
+        }],
+        ..Default::default()
+    };
+    let snapshot = GlossarySnapshot::from_settings(&settings);
+    let prompt =
+        instructions_with_glossary(TextPreset::Clean, None, None, snapshot.terms()).unwrap();
+    assert!(prompt.contains("Kubernetes"));
+    assert!(!prompt.contains("PRIVATE"));
+    assert!(prompt.contains("не добавляй отсутствующие термины"));
+    settings.personal_dictionary_enabled = false;
+    let disabled = GlossarySnapshot::from_settings(&settings);
+    assert_eq!(
+        instructions_with_glossary(TextPreset::Clean, None, None, disabled.terms()).unwrap(),
+        instructions(TextPreset::Clean, None, None).unwrap()
+    );
+    assert_eq!(settings.personal_dictionary_entries.len(), 1);
+    assert!(
+        instructions_with_glossary(TextPreset::Raw, None, None, snapshot.terms())
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        !instructions_with_glossary(TextPreset::Clean, None, None, &["PRIVATE\nBAD".into()])
+            .unwrap_err()
+            .to_string()
+            .contains("PRIVATE")
+    );
+}
+
+#[test]
 fn legacy_command_settings_in_ordinary_dictation_select_editor_not_answer_prompt() {
     let settings: crate::types::Settings =
         serde_json::from_value(serde_json::json!({"ai_mode":"command"})).unwrap();

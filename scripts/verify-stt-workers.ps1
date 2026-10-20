@@ -15,47 +15,10 @@ $protocolVersion = [int]$Matches[1]
 foreach ($backend in $Backends) {
     $executable = Join-Path $WorkersDirectory "fono-stt-$backend-worker.exe"
     if (!(Test-Path -LiteralPath $executable -PathType Leaf)) { throw "Missing $backend worker: $executable" }
-    $start = New-Object Diagnostics.ProcessStartInfo
-    $start.FileName = $executable
-    $start.WorkingDirectory = $WorkersDirectory
-    $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true
-    $start.RedirectStandardInput = $true
-    $start.RedirectStandardOutput = $true
-    $start.RedirectStandardError = $true
-    $process = New-Object Diagnostics.Process
-    $process.StartInfo = $start
-    $started = $false
-    try {
-        if (!$process.Start()) { throw "Cannot start $backend worker" }
-        $started = $true
-        $stderr = $process.StandardError.ReadToEndAsync()
-        $request = @{ type = 'hello'; protocol_version = $protocolVersion; request_id = 'release-verification' } | ConvertTo-Json -Compress
-        $process.StandardInput.WriteLine($request)
-        $process.StandardInput.Flush()
-        $responseTask = $process.StandardOutput.ReadLineAsync()
-        if (!$responseTask.Wait(5000)) { throw "$backend worker handshake timed out" }
-        $response = $responseTask.Result | ConvertFrom-Json
-        if ($response.type -ne 'ready' -or $response.protocol_version -ne $protocolVersion -or $response.request_id -ne 'release-verification' -or $response.backend -ne $backend) {
-            throw "$backend worker is incompatible with STT protocol $protocolVersion; rebuild workers"
-        }
-        foreach ($capability in @('supports_window', 'supports_cancel', 'supports_token_timestamps', 'supports_health', 'supports_shutdown', 'supports_decoding_options')) {
-            if (!$response.capabilities.$capability) { throw "$backend worker lacks $capability" }
-        }
-        if ($response.capabilities.protocol_version -ne $protocolVersion -or $response.capabilities.maximum_request_bytes -lt 16777216 -or $response.capabilities.maximum_response_bytes -lt 1048576) {
-            throw "$backend worker publishes incompatible transport limits"
-        }
-        Write-Host "$backend worker: protocol $protocolVersion, window timestamps and cancellation verified"
-    } finally {
-        if ($started) {
-            try { $process.StandardInput.Close() } catch {}
-            if (!$process.HasExited -and !$process.WaitForExit(1000)) { $process.Kill(); $process.WaitForExit() }
-        }
-        $process.Dispose()
-    }
-}
-
-foreach ($backend in $Backends) {
-    & node (Join-Path $PSScriptRoot 'worker-contract.mjs') (Join-Path $WorkersDirectory "fono-stt-$backend-worker.exe") $backend
+    # The shared contract verifies the handshake, every required capability,
+    # transport limits and lifecycle. Avoid a second PowerShell ReadLineAsync
+    # transport with different timeout/framing behavior.
+    & node (Join-Path $PSScriptRoot 'worker-contract.mjs') $executable $backend
     if ($LASTEXITCODE -ne 0) { throw "$backend worker failed the shared process contract" }
+    Write-Host "$backend worker: protocol $protocolVersion, capabilities and process contract verified"
 }

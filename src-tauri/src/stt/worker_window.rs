@@ -56,6 +56,7 @@ impl WorkerSession {
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
         decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
     ) -> AppResult<WindowTranscript> {
         self.validate_decoding(decoding)?;
         let meta = self.next_meta("window", Some(operation_id.to_string()));
@@ -64,6 +65,7 @@ impl WorkerSession {
                 meta,
                 model_path: self.model_path.clone(),
                 language: language.into(),
+                glossary: glossary.to_vec(),
                 context: context.map(str::to_owned),
                 audio_start_sample,
                 samples_i16_base64: encode_samples_i16_base64(samples),
@@ -99,6 +101,7 @@ impl WorkerMailbox {
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
         decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
     ) -> AppResult<WindowTranscript> {
         if cancellation.is_cancelled() {
             return Err(AppError::Cancelled("window cancelled before queue".into()));
@@ -110,6 +113,7 @@ impl WorkerMailbox {
                 samples: samples.to_vec(),
                 language: language.into(),
                 decoding,
+                glossary: glossary.to_vec(),
                 context: context.map(str::to_owned),
                 operation_id,
                 cancellation: cancellation.clone(),

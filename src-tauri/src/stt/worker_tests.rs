@@ -28,7 +28,7 @@ const EOF_FIXTURE_TIMEOUT: Duration = Duration::from_secs(5);
 #[cfg(windows)]
 #[test]
 fn common_recognizer_preserves_worker_model_device_and_negotiated_capabilities() {
-    let fixture = WorkerFixture::create("echo {\"type\":\"result\",\"protocol_version\":3,\"request_id\":\"transcribe-3\",\"operation_id\":\"dictation-transcribe-3\",\"text\":\"contract result\",\"audio_secs\":0.01,\"transcribe_secs\":0.02,\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang");
+    let fixture = WorkerFixture::create("echo {\"type\":\"result\",\"protocol_version\":4,\"request_id\":\"transcribe-3\",\"operation_id\":\"dictation-transcribe-3\",\"text\":\"contract result\",\"audio_secs\":0.01,\"transcribe_secs\":0.02,\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang");
     let model_path = fixture.directory.join("ggml-small.bin");
     fs::write(&model_path, b"protocol fixture, not a neural model").unwrap();
     let model = SttModelSelection::from_whisper_path(model_path.to_string_lossy().into_owned());
@@ -67,7 +67,7 @@ fn common_recognizer_preserves_worker_model_device_and_negotiated_capabilities()
 #[cfg(windows)]
 #[test]
 fn old_worker_rejects_nondefault_decoding_before_consuming_a_request() {
-    let fixture = WorkerFixture::create("echo {\"type\":\"pong\",\"protocol_version\":3,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang");
+    let fixture = WorkerFixture::create("echo {\"type\":\"pong\",\"protocol_version\":4,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang");
     let mut session = fixture.start();
     let error = session
         .transcribe_cancellable_with_options(
@@ -78,6 +78,7 @@ fn old_worker_rejects_nondefault_decoding_before_consuming_a_request() {
                 strategy: fono_stt_protocol::DecodingStrategy::Accurate,
                 threads: None,
             },
+            &[],
         )
         .unwrap_err();
     assert!(matches!(error, AppError::Config(_)));
@@ -112,7 +113,7 @@ impl WorkerFixture {
         fs::write(
                 &script,
                 format!(
-                    "@echo off\r\nset /p request=\r\necho {{\"type\":\"ready\",\"protocol_version\":3,\"request_id\":\"hello-1\",\"backend\":\"cuda\",\"capabilities\":{{\"protocol_version\":3,\"supports_health\":true,\"supports_shutdown\":true,\"supports_window\":true,\"supports_cancel\":true,\"supports_token_timestamps\":true,\"maximum_request_bytes\":16777216,\"maximum_response_bytes\":1048576}}}}\r\nset /p request=\r\necho {{\"type\":\"model_loaded\",\"protocol_version\":3,\"request_id\":\"load-2\",\"backend\":\"cuda\"}}\r\nset /p request=\r\n{after_load}\r\n"
+                    "@echo off\r\nset /p request=\r\necho {{\"type\":\"ready\",\"protocol_version\":4,\"request_id\":\"hello-1\",\"backend\":\"cuda\",\"capabilities\":{{\"protocol_version\":4,\"supports_health\":true,\"supports_shutdown\":true,\"supports_window\":true,\"supports_cancel\":true,\"supports_token_timestamps\":true,\"maximum_request_bytes\":16777216,\"maximum_response_bytes\":1048576}}}}\r\nset /p request=\r\necho {{\"type\":\"model_loaded\",\"protocol_version\":4,\"request_id\":\"load-2\",\"backend\":\"cuda\"}}\r\nset /p request=\r\n{after_load}\r\n"
                 ),
             )
             .expect("write worker fixture");
@@ -132,13 +133,13 @@ impl WorkerFixture {
 while ($null -ne ($line = [Console]::In.ReadLine())) {
     if ([string]::IsNullOrWhiteSpace($line)) { continue }
     $request = ConvertFrom-Json -InputObject $line
-    if ($request.protocol_version -ne 3 -or
+    if ($request.protocol_version -ne 4 -or
         [string]::IsNullOrWhiteSpace([string]$request.request_id)) {
         throw 'Invalid fixture request metadata'
     }
     $response = [ordered]@{
         type = ''
-        protocol_version = 3
+        protocol_version = 4
         request_id = [string]$request.request_id
         backend = 'cuda'
     }
@@ -146,7 +147,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
         'hello' {
             $response['type'] = 'ready'
             $response['capabilities'] = @{
-                protocol_version = 3
+                protocol_version = 4
                 supports_health = $true
                 supports_shutdown = $true
                 supports_window = $true
@@ -211,9 +212,9 @@ fn assert_session_is_terminated(session: &mut WorkerSession) {
 #[test]
 fn package_probe_requires_strict_hello_without_loading_a_model() {
     let fixture = WorkerFixture::create("");
-    let ready = "{\"type\":\"ready\",\"protocol_version\":3,\"request_id\":\"hello-1\",\"backend\":\"cuda\",\"capabilities\":{\"protocol_version\":3,\"supports_health\":true,\"supports_shutdown\":true,\"supports_window\":true,\"supports_cancel\":true,\"supports_token_timestamps\":true,\"maximum_request_bytes\":16777216,\"maximum_response_bytes\":1048576}}";
+    let ready = "{\"type\":\"ready\",\"protocol_version\":4,\"request_id\":\"hello-1\",\"backend\":\"cuda\",\"capabilities\":{\"protocol_version\":4,\"supports_health\":true,\"supports_shutdown\":true,\"supports_window\":true,\"supports_cancel\":true,\"supports_token_timestamps\":true,\"maximum_request_bytes\":16777216,\"maximum_response_bytes\":1048576}}";
     let script = format!(
-        "@echo off\r\nset /p request=\r\necho {ready}\r\nset /p request=\r\necho {{\"type\":\"shutting_down\",\"protocol_version\":3,\"request_id\":\"shutdown-2\",\"backend\":\"cuda\"}}\r\nexit /b 0\r\n"
+        "@echo off\r\nset /p request=\r\necho {ready}\r\nset /p request=\r\necho {{\"type\":\"shutting_down\",\"protocol_version\":4,\"request_id\":\"shutdown-2\",\"backend\":\"cuda\"}}\r\nexit /b 0\r\n"
     );
     fs::write(&fixture.script, &script).unwrap();
     WorkerSession::probe(fixture.script.clone(), None)
@@ -272,6 +273,7 @@ fn base64_transport_measurement_for_typical_recording_lengths() {
             meta: RequestMeta::new("measurement", Some("measurement-operation".into())),
             model_path: "model.bin".into(),
             language: "auto".into(),
+            glossary: Vec::new(),
             samples_i16_base64: encoded,
             decoding: fono_stt_protocol::DecodingOptions::default(),
         };
@@ -296,6 +298,7 @@ fn maximum_recording_fits_the_versioned_transport_frame() {
         meta: RequestMeta::new("maximum", Some("maximum-operation".into())),
         model_path: "model.bin".into(),
         language: "auto".into(),
+        glossary: Vec::new(),
         samples_i16_base64: encoded,
         decoding: fono_stt_protocol::DecodingOptions::default(),
     };
@@ -376,7 +379,7 @@ fn worker_exit_before_response_terminates_the_session() {
 #[test]
 fn foreign_request_id_terminates_the_session() {
     let fixture = WorkerFixture::create(
-            "echo {\"type\":\"result\",\"protocol_version\":3,\"request_id\":\"foreign\",\"operation_id\":\"dictation-transcribe-3\",\"text\":\"x\",\"audio_secs\":0.01,\"transcribe_secs\":0.01,\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
+            "echo {\"type\":\"result\",\"protocol_version\":4,\"request_id\":\"foreign\",\"operation_id\":\"dictation-transcribe-3\",\"text\":\"x\",\"audio_secs\":0.01,\"transcribe_secs\":0.01,\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
         );
     let mut session = fixture.start();
 
@@ -434,7 +437,7 @@ fn cancelled_transcription_terminates_hung_worker() {
 #[test]
 fn mailbox_health_uses_the_owner_thread_protocol_session() {
     let fixture = WorkerFixture::create(
-            "echo {\"type\":\"pong\",\"protocol_version\":3,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
+            "echo {\"type\":\"pong\",\"protocol_version\":4,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
         );
     let mailbox = WorkerMailbox::start(fixture.start());
 
@@ -887,7 +890,7 @@ fn ordinary_wrong_operation_or_backend_retires_and_faults_the_protocol_worker() 
         ("vulkan", "dictation-transcribe-3"),
     ] {
         let fixture = WorkerFixture::create(&format!(
-            "echo {{\"type\":\"result\",\"protocol_version\":3,\"request_id\":\"transcribe-3\",\"operation_id\":\"{operation}\",\"backend\":\"{backend}\",\"text\":\"wrong result\",\"audio_secs\":0.1,\"transcribe_secs\":0.01}}\r\n:hang\r\ngoto hang"
+            "echo {{\"type\":\"result\",\"protocol_version\":4,\"request_id\":\"transcribe-3\",\"operation_id\":\"{operation}\",\"backend\":\"{backend}\",\"text\":\"wrong result\",\"audio_secs\":0.1,\"transcribe_secs\":0.01}}\r\n:hang\r\ngoto hang"
         ));
         let mailbox = WorkerMailbox::start(fixture.start());
         let (fault_tx, fault_rx) = bounded(1);
@@ -924,7 +927,7 @@ fn one_hundred_failed_worker_sessions_are_recoverable() {
 #[test]
 fn health_ping_uses_the_versioned_request_and_response() {
     let fixture = WorkerFixture::create(
-            "echo {\"type\":\"pong\",\"protocol_version\":3,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
+            "echo {\"type\":\"pong\",\"protocol_version\":4,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\n:hang\r\ngoto hang",
         );
     let mut session = fixture.start();
 

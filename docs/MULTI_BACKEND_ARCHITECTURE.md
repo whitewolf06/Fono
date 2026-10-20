@@ -38,7 +38,7 @@ Vulkan worker — CMake-проект `src-tauri/crates/fono-stt-vulkan-worker`
 старые ресурсы освобождаются вне routing lock. Readiness имеет состояния
 `unloaded`, `loading`, `ready`, `failed`.
 
-## Worker protocol 3
+## Worker protocol 4
 
 Источник контракта — `src-tauri/crates/fono-stt-protocol/src/lib.rs`.
 Transport — JSON Lines через `stdin`/`stdout`; `stderr` используется
@@ -73,10 +73,20 @@ token timestamps и допустимые размеры frames. `load` выпо�
 Точный режим включает Beam Search 5;
 число потоков можно задать явно от 1 до 8. Выбор берётся из снимка настроек
 конкретной операции. Улучшение WER точным режимом требует измерения на корпусе.
-Capability `supports_decoding_options` сохраняет совместимость protocol 3:
+Capability `supports_decoding_options` проверяется внутри protocol 4:
 worker без неё принимает прежний режим, а нестандартный выбор отклоняется
 клиентом до отправки запроса. В точном режиме обе реализации сохраняют
 vendor fallback `greedy.best_of=-1`, как `whisper-rs 0.16` при Beam Search.
+
+Protocol 4 добавляет отдельный `glossary` в batch/window requests. Максимум —
+32 канонических написания и 896 UTF-8 байт с разделителями; пустое поле не
+отправляется. Термины проверяются до загрузки модели. CPU/CUDA и Vulkan
+токенизируют их выбранной моделью, сохраняют целые термины и ограничивают общий
+prompt 224 токенами. Контекст предыдущего окна использует оставшийся бюджет.
+Владелец токенов живёт до завершения inference. Workers protocol 3 требуют
+пересборки: молча игнорировать новые подсказки нельзя. Текущие greedy-пакеты
+GigaAM/Parakeet публикуют `hotwords: false`; неподдерживаемые подсказки до них
+не доходят. Подробности и ограничения качества — [FONO-132](improvement-fono132.md).
 
 ## Lifecycle и scheduling
 

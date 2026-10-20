@@ -121,16 +121,22 @@ pub(super) async fn run_measured(
     let scheduler = pipeline.scheduler();
     let language = session.settings.language.clone();
     let decoding = session.settings.decoding_options();
+    let glossary = if session.source == fono_core::OperationSource::Diagnostics {
+        crate::application::personal_dictionary::GlossarySnapshot::default()
+    } else {
+        crate::application::personal_dictionary::GlossarySnapshot::from_settings(&session.settings)
+    };
     let cancellation = session.cancellation.clone();
     let activity = crate::application::updates::activity::lease()?;
     let task = tauri::async_runtime::spawn_blocking(move || {
         let _activity = activity;
         let permit = scheduler.acquire(true, &cancellation)?;
-        stt.transcribe_cancellable_with_options(
+        stt.transcribe_cancellable_with_glossary(
             &samples,
             &language,
             permit.cancellation.clone(),
             decoding,
+            glossary.terms(),
         )
     });
     let result = await_task(task, session.cancellation.clone(), "transcribe").await?;

@@ -22,6 +22,7 @@ export const defaults: Preferences = {
   whisperThreads: null,
   gpuModelResidency: "resident",
   dictionaryEnabled: false,
+  dictionaryLlmEnabled: false,
   dictionaryEntries: [],
   wakeEnabled: false,
   wakePhrase: "Эй, фоно",
@@ -79,6 +80,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "whisperThreads",
     "gpuModelResidency",
     "dictionaryEntries",
+    "dictionaryLlmEnabled",
   ],
   activation: [
     "dictationMode",

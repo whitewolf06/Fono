@@ -2,11 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u16 = 3;
+pub const PROTOCOL_VERSION: u16 = 4;
 pub const MAX_REQUEST_FRAME_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_RESPONSE_FRAME_BYTES: usize = 1024 * 1024;
 
 mod decoding;
+pub mod prompt;
 mod timestamps;
 pub use decoding::{DecodingOptions, DecodingStrategy};
 pub use timestamps::{words_from_pieces, TimedPiece, TimedSegment, WindowTranscript};
@@ -93,6 +94,8 @@ pub enum WorkerRequest {
         meta: RequestMeta,
         model_path: String,
         language: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        glossary: Vec<String>,
         /// PCM i16 little-endian encoded as base64.
         samples_i16_base64: String,
         #[serde(default, skip_serializing_if = "DecodingOptions::is_default")]
@@ -103,6 +106,8 @@ pub enum WorkerRequest {
         meta: RequestMeta,
         model_path: String,
         language: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        glossary: Vec<String>,
         context: Option<String>,
         audio_start_sample: u64,
         samples_i16_base64: String,
@@ -233,11 +238,13 @@ mod tests {
             meta: RequestMeta::new("request-1", Some("operation-7".into())),
             model_path: "model.bin".into(),
             language: "auto".into(),
+            glossary: Vec::new(),
             samples_i16_base64: "AAE=".into(),
             decoding: DecodingOptions::default(),
         };
         let json = serde_json::to_string(&request).unwrap();
         let decoded = serde_json::from_str::<WorkerRequest>(&json).unwrap();
+        assert!(!json.contains("glossary"));
         assert_eq!(decoded.meta().protocol_version, PROTOCOL_VERSION);
         assert_eq!(decoded.meta().request_id, "request-1");
         assert_eq!(decoded.meta().operation_id.as_deref(), Some("operation-7"));
@@ -278,6 +285,7 @@ mod tests {
             meta: RequestMeta::new("window-1", Some("7".into())),
             model_path: "модель.bin".into(),
             language: "ru".into(),
+            glossary: Vec::new(),
             context: Some("Fono".into()),
             audio_start_sample: 16000,
             samples_i16_base64: "AAA=".into(),

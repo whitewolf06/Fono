@@ -35,6 +35,7 @@ pub struct CaptureSegmentProfile {
     acceleration: crate::types::AccelerationMode,
     language: String,
     decoding: fono_stt_protocol::DecodingOptions,
+    glossary_key: [u8; 32],
 }
 
 impl From<&crate::types::Settings> for CaptureSegmentProfile {
@@ -44,6 +45,18 @@ impl From<&crate::types::Settings> for CaptureSegmentProfile {
             acceleration: settings.acceleration,
             language: settings.language.clone(),
             decoding: settings.decoding_options(),
+            glossary_key: {
+                use sha2::Digest;
+                sha2::Sha256::digest(
+                    crate::application::personal_dictionary::GlossarySnapshot::from_settings(
+                        settings,
+                    )
+                    .terms()
+                    .join("\0")
+                    .as_bytes(),
+                )
+                .into()
+            },
         }
     }
 }

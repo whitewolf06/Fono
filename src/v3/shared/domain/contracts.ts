@@ -64,6 +64,7 @@ export interface Preferences {
   whisperThreads: number | null;
   gpuModelResidency: GpuModelResidency;
   dictionaryEnabled: boolean;
+  dictionaryLlmEnabled: boolean;
   dictionaryEntries: PersonalDictionaryEntry[];
   wakeEnabled: boolean;
   wakePhrase: string;

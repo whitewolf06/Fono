@@ -54,6 +54,7 @@ pub(crate) fn handle(
             language,
             samples_i16_base64,
             decoding,
+            glossary,
         } => transcribe(
             meta,
             &model_path,
@@ -63,6 +64,7 @@ pub(crate) fn handle(
             false,
             &samples_i16_base64,
             decoding,
+            &glossary,
             loaded,
             cancelled,
         ),
@@ -74,6 +76,7 @@ pub(crate) fn handle(
             audio_start_sample,
             samples_i16_base64,
             decoding,
+            glossary,
         } => transcribe(
             meta,
             &model_path,
@@ -83,6 +86,7 @@ pub(crate) fn handle(
             true,
             &samples_i16_base64,
             decoding,
+            &glossary,
             loaded,
             cancelled,
         ),
@@ -116,9 +120,13 @@ fn transcribe(
     timed: bool,
     encoded: &str,
     decoding: fono_stt_protocol::DecodingOptions,
+    glossary: &[String],
     loaded: &mut Loaded,
     cancelled: &AtomicBool,
 ) -> WorkerResponse {
+    if let Err(message) = fono_stt_protocol::prompt::validate(glossary) {
+        return error(meta, "prompt", message.into());
+    }
     if let Err(message) = decoding.validate() {
         return error(meta, "decoding", message);
     }
@@ -136,7 +144,7 @@ fn transcribe(
         Ok(inference) => inference,
         Err(message) => return error(meta, "model_load", message),
     };
-    let transcript = match inference.transcribe_with_options(
+    let transcript = match inference.transcribe_with_glossary(
         &samples,
         language,
         context,
@@ -145,6 +153,7 @@ fn transcribe(
         timed,
         &[cancelled],
         decoding,
+        glossary,
     ) {
         Ok(transcript) => transcript,
         Err(message) => {
@@ -241,6 +250,7 @@ mod tests {
             meta: RequestMeta::new("window", Some("1".into())),
             model_path: "missing.bin".into(),
             language: "ru".into(),
+            glossary: Vec::new(),
             context: None,
             audio_start_sample: 16000,
             samples_i16_base64: "AAA=".into(),

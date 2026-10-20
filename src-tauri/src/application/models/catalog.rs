@@ -6,6 +6,7 @@ use serde::Serialize;
 pub struct ModelCapabilities {
     pub transcription: bool,
     pub initial_prompt: bool,
+    pub hotwords: bool,
     pub language_detection: bool,
     pub language_selection: bool,
     pub decoding_options: bool,
@@ -47,6 +48,7 @@ pub fn describe(artifact: WhisperArtifact) -> SttModelInfo {
         capabilities: ModelCapabilities {
             transcription: true,
             initial_prompt: true,
+            hotwords: false,
             language_detection: true,
             language_selection: true,
             decoding_options: true,
@@ -96,6 +98,7 @@ pub fn list_stt_models() -> AppResult<Vec<SttModelInfo>> {
             capabilities: ModelCapabilities {
                 transcription: true,
                 initial_prompt: false,
+                hotwords: false,
                 language_detection: false,
                 language_selection: false,
                 decoding_options: false,

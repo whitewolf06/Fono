@@ -54,6 +54,30 @@ impl SttEngine {
         audio_start_sample: u64,
         decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<WindowTranscript> {
+        self.transcribe_window_with_glossary(
+            samples,
+            language,
+            context,
+            operation_id,
+            cancellation,
+            audio_start_sample,
+            decoding,
+            &[],
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn transcribe_window_with_glossary(
+        &self,
+        samples: &[i16],
+        language: &str,
+        context: Option<&str>,
+        operation_id: u64,
+        cancellation: &OperationCancellation,
+        audio_start_sample: u64,
+        decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
+    ) -> AppResult<WindowTranscript> {
         decoding.validate().map_err(AppError::Config)?;
         if self.cleanup.is_pending() {
             return Err(super::worker_cleanup_busy());
@@ -71,7 +95,11 @@ impl SttEngine {
             active.recognizer(),
             samples,
             recognizer::WindowOptions {
-                recognition: RecognitionOptions { language, decoding },
+                recognition: RecognitionOptions {
+                    language,
+                    decoding,
+                    glossary,
+                },
                 context,
                 operation_id,
                 audio_start_sample,

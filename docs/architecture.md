@@ -125,7 +125,7 @@ recovery получает текущий slot через provider. Подроб�
 
 Routing lock удерживается при выборе или замене backend-а. Длительная работа
 выполняется выбранной session; worker mailbox принадлежит owner thread.
-Workers используют **protocol 3** с handshake, capabilities, request/operation
+Workers используют **protocol 4** с handshake, capabilities, request/operation
 IDs, ограничениями frames, health и shutdown. Отмена поддерживающих её workers
 не требует штатно уничтожать прогретую модель; при нарушении протокола или
 зависании supervisor закрывает повреждённую session. Embedded Whisper имеет

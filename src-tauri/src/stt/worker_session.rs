@@ -210,7 +210,7 @@ impl WorkerSession {
 
     #[cfg(test)]
     pub(super) fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
-        self.transcribe_with_cancellation(samples, language, None, fono_stt_protocol::DecodingOptions::default())
+        self.transcribe_with_cancellation(samples, language, None, fono_stt_protocol::DecodingOptions::default(), &[])
     }
 
     fn validate_decoding(&self, decoding: fono_stt_protocol::DecodingOptions) -> AppResult<()> {
@@ -228,7 +228,7 @@ impl WorkerSession {
         language: &str,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
-        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default())
+        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default(), &[])
     }
 
     pub(super) fn transcribe_cancellable_with_options(
@@ -237,8 +237,9 @@ impl WorkerSession {
         language: &str,
         cancellation: &OperationCancellation,
         decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
     ) -> AppResult<Transcript> {
-        self.transcribe_with_cancellation(samples, language, Some(cancellation), decoding)
+        self.transcribe_with_cancellation(samples, language, Some(cancellation), decoding, glossary)
     }
 
     fn transcribe_with_cancellation(
@@ -247,6 +248,7 @@ impl WorkerSession {
         language: &str,
         cancellation: Option<&OperationCancellation>,
         decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
     ) -> AppResult<Transcript> {
         self.validate_decoding(decoding)?;
         let meta = self.next_meta("transcribe", None);
@@ -260,6 +262,7 @@ impl WorkerSession {
                 },
                 model_path: self.model_path.clone(),
                 language: language.into(),
+                glossary: glossary.to_vec(),
                 samples_i16_base64: encode_samples_i16_base64(samples),
                 decoding,
             },

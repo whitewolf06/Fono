@@ -96,11 +96,13 @@ pub async fn preview_processing_text(
             super::blocking::run(move || Ok(LlmClient::from_profile(&profile, model.as_deref())))
                 .await?;
         let result = client
-            .process_preset(
+            .process_preset_with_glossary(
                 &input.text,
                 input.preset,
                 input.target_language,
                 input.choice(&settings),
+                crate::application::personal_dictionary::GlossarySnapshot::for_llm(&settings)
+                    .terms(),
             )
             .await?;
         (result, client.selected_model().map(str::to_owned))

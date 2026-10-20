@@ -51,6 +51,7 @@ export interface SttModelInfo {
   capabilities: {
     transcription: boolean;
     initial_prompt: boolean;
+    hotwords?: boolean;
     language_detection: boolean;
     language_selection: boolean;
     decoding_options: boolean;
@@ -130,6 +131,7 @@ export interface Settings {
   language: string;
   /** Optional local final-text replacements, never applied to raw transcripts. */
   personal_dictionary_enabled: boolean;
+  personal_dictionary_llm_enabled?: boolean;
   personal_dictionary_entries: { written: string; spoken: string[] }[];
   update_checks_enabled: boolean;
   /** Глобальная горячая клавиша push-to-talk, напр. "Ctrl+Space" */

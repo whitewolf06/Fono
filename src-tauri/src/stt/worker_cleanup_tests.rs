@@ -6,7 +6,7 @@ use super::*;
 const CLEANUP_TEST_BOUND: Duration = Duration::from_secs(5);
 
 const SHUTDOWN_ACK: &str =
-    "echo {\"type\":\"shutting_down\",\"protocol_version\":3,\"request_id\":\"shutdown-3\"}";
+    "echo {\"type\":\"shutting_down\",\"protocol_version\":4,\"request_id\":\"shutdown-3\"}";
 
 struct ResetForcedKillFailure(Arc<WorkerChild>);
 
@@ -155,7 +155,7 @@ fn cancelled_request_cleans_up_before_a_fresh_session_uses_the_same_supervisor()
     assert_session_is_terminated(&mut session);
 
     let fresh = WorkerFixture::create(
-        "echo {\"type\":\"pong\",\"protocol_version\":3,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\nset /p request=\r\necho {\"type\":\"shutting_down\",\"protocol_version\":3,\"request_id\":\"shutdown-4\"}\r\n:hang\r\ngoto hang",
+        "echo {\"type\":\"pong\",\"protocol_version\":4,\"request_id\":\"ping-3\",\"backend\":\"cuda\"}\r\nset /p request=\r\necho {\"type\":\"shutting_down\",\"protocol_version\":4,\"request_id\":\"shutdown-4\"}\r\n:hang\r\ngoto hang",
     );
     let mut replacement = start_with_supervisor(&fresh, &supervisor);
     replacement

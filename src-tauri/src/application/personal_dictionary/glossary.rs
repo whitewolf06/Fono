@@ -1,4 +1,4 @@
-//! Bounded, immutable terms for the future STT/LLM glossary integration (F-03).
+//! Bounded, immutable canonical terms for STT and LLM (F-03).
 //! Construct from the operation's settings snapshot, never read mutable settings
 //! during inference. This module neither sends terms nor changes the transcript.
 
@@ -6,22 +6,25 @@ use super::{normalize, validate};
 use crate::types::Settings;
 use std::collections::HashSet;
 
-const MAX_TERMS: usize = 32;
-const MAX_BYTES: usize = 896;
-pub const MAX_WHISPER_PROMPT_TOKENS: usize = 224;
+pub use fono_stt_protocol::prompt::WhisperGlossaryPrompt;
+#[cfg(test)]
+const MAX_WHISPER_PROMPT_TOKENS: usize = fono_stt_protocol::prompt::MAX_PROMPT_TOKENS;
+use fono_stt_protocol::prompt::{MAX_BYTES, MAX_TERMS};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GlossarySnapshot {
     terms: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct WhisperGlossaryPrompt {
-    pub text: String,
-    pub tokens: Vec<i32>,
-}
-
 impl GlossarySnapshot {
+    /// Older local-only consent never silently authorizes provider disclosure.
+    pub fn for_llm(settings: &Settings) -> Self {
+        if settings.personal_dictionary_llm_enabled {
+            Self::from_settings(settings)
+        } else {
+            Self::default()
+        }
+    }
     pub fn from_settings(settings: &Settings) -> Self {
         if !settings.personal_dictionary_enabled
             || validate(&settings.personal_dictionary_entries).is_err()
@@ -56,28 +59,13 @@ impl GlossarySnapshot {
 
     /// Enforce the actual selected Whisper tokenizer's budget. Do not estimate
     /// tokens from UTF-8 length or cut a token stream midway through a term.
-    /// F-03 will pass these owned tokens through set_tokens, avoiding the
+    /// CPU/CUDA use these owned tokens through set_tokens, avoiding the
     /// whisper-rs initial_prompt CString allocation path.
     pub fn whisper_prompt<E>(
         &self,
-        mut tokenize: impl FnMut(&str) -> Result<Vec<i32>, E>,
+        tokenize: impl FnMut(&str) -> Result<Vec<i32>, E>,
     ) -> Result<WhisperGlossaryPrompt, E> {
-        let mut prompt = WhisperGlossaryPrompt::default();
-        for term in &self.terms {
-            let candidate = if prompt.text.is_empty() {
-                term.clone()
-            } else {
-                format!("{}, {term}", prompt.text)
-            };
-            let tokens = tokenize(&candidate)?;
-            if tokens.len() <= MAX_WHISPER_PROMPT_TOKENS {
-                prompt = WhisperGlossaryPrompt {
-                    text: candidate,
-                    tokens,
-                };
-            }
-        }
-        Ok(prompt)
+        fono_stt_protocol::prompt::build(&self.terms, None, tokenize)
     }
 }
 
@@ -122,6 +110,20 @@ mod tests {
     }
 
     #[test]
+    fn old_local_only_consent_does_not_authorize_llm_terms() {
+        let mut settings = settings();
+        assert!(GlossarySnapshot::for_llm(&settings).terms().is_empty());
+        settings.personal_dictionary_llm_enabled = true;
+        assert_eq!(
+            GlossarySnapshot::for_llm(&settings).terms(),
+            ["Kubernetes", "Fono"]
+        );
+        settings.personal_dictionary_enabled = false;
+        assert!(GlossarySnapshot::for_llm(&settings).terms().is_empty());
+        assert_eq!(settings.personal_dictionary_entries.len(), 2);
+    }
+
+    #[test]
     fn snapshot_is_frozen_and_contains_only_bounded_canonical_spellings() {
         let mut settings = settings();
         let snapshot = GlossarySnapshot::from_settings(&settings);
@@ -147,7 +149,7 @@ mod tests {
             .whisper_prompt::<()>(|text| Ok(vec![1; if text.contains(',') { 225 } else { 224 }]))
             .unwrap();
         assert_eq!(prompt.text, "Kubernetes");
-        assert_eq!(prompt.tokens.len(), 224);
+        assert_eq!(prompt.tokens.len(), MAX_WHISPER_PROMPT_TOKENS);
         assert!(snapshot
             .whisper_prompt::<&str>(|_| Err("tokenization failed"))
             .is_err());

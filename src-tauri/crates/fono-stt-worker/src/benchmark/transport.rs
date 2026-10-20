@@ -120,6 +120,7 @@ impl Worker {
             meta,
             model_path: self.model.clone(),
             language: language.into(),
+            glossary: Vec::new(),
             context: context.map(str::to_owned),
             audio_start_sample: start,
             samples_i16_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
@@ -139,6 +140,7 @@ impl Worker {
             meta,
             model_path: self.model.clone(),
             language: language.into(),
+            glossary: Vec::new(),
             samples_i16_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
             decoding: fono_stt_protocol::DecodingOptions::default(),
         })? {

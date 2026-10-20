@@ -47,6 +47,8 @@ impl Runtime<'_> {
         let model = settings
             .selected_stt_model()
             .ok_or(AppError::ModelNotSelected)?;
+        let glossary =
+            crate::application::personal_dictionary::GlossarySnapshot::from_settings(settings);
         complete(
             operation,
             settings,
@@ -79,7 +81,7 @@ impl Runtime<'_> {
                 let context =
                     context.filter(|_| self.stt.capabilities().is_some_and(|c| c.initial_prompt));
                 self.stt
-                    .transcribe_window_with_options(
+                    .transcribe_window_with_glossary(
                         window,
                         &settings.language,
                         context,
@@ -87,6 +89,7 @@ impl Runtime<'_> {
                         &permit.cancellation,
                         start,
                         settings.decoding_options(),
+                        glossary.terms(),
                     )
                     .map(Some)
             },

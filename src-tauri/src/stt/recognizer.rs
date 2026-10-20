@@ -26,6 +26,7 @@ pub struct RecognizerCapabilities {
     pub max_segment_samples: usize,
     pub window_transcription: bool,
     pub initial_prompt: bool,
+    pub hotwords: bool,
     pub language_detection: bool,
     pub automatic_language: bool,
     pub token_timestamps: bool,
@@ -39,6 +40,7 @@ impl RecognizerCapabilities {
             max_segment_samples: 30 * 16_000,
             window_transcription: true,
             initial_prompt: true,
+            hotwords: false,
             language_detection: true,
             automatic_language: true,
             token_timestamps: true,
@@ -52,6 +54,7 @@ impl RecognizerCapabilities {
 pub(super) struct RecognitionOptions<'a> {
     pub language: &'a str,
     pub decoding: DecodingOptions,
+    pub glossary: &'a [String],
 }
 
 #[derive(Clone, Copy)]
@@ -170,10 +173,14 @@ fn validate(recognizer: &dyn Recognizer, options: RecognitionOptions<'_>) -> App
 pub(super) fn transcribe(
     recognizer: &dyn Recognizer,
     samples: &[i16],
-    options: RecognitionOptions<'_>,
+    mut options: RecognitionOptions<'_>,
     cancellation: &OperationCancellation,
 ) -> AppResult<Transcript> {
     run(cancellation, || {
+        let capabilities = recognizer.capabilities();
+        if !capabilities.initial_prompt && !capabilities.hotwords {
+            options.glossary = &[];
+        }
         validate(recognizer, options)?;
         recognizer.transcribe(samples, options, cancellation)
     })
@@ -182,10 +189,14 @@ pub(super) fn transcribe(
 pub(super) fn transcribe_window(
     recognizer: &dyn Recognizer,
     samples: &[i16],
-    options: WindowOptions<'_>,
+    mut options: WindowOptions<'_>,
     cancellation: &OperationCancellation,
 ) -> AppResult<WindowTranscript> {
     run(cancellation, || {
+        let capabilities = recognizer.capabilities();
+        if !capabilities.initial_prompt && !capabilities.hotwords {
+            options.recognition.glossary = &[];
+        }
         validate(recognizer, options.recognition)?;
         let capabilities = recognizer.capabilities();
         if !capabilities.window_transcription {

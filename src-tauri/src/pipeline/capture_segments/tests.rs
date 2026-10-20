@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn prefix_profile_cannot_cross_glossary_changes_but_disabled_entries_stay_private() {
+    let mut settings = crate::types::Settings {
+        personal_dictionary_enabled: true,
+        personal_dictionary_entries: vec![crate::types::PersonalDictionaryEntry {
+            written: "Fono".into(),
+            spoken: vec!["фоно".into()],
+        }],
+        ..Default::default()
+    };
+    let initial = CaptureSegmentProfile::from(&settings);
+    settings.personal_dictionary_entries[0].written = "WhiteLife".into();
+    assert_ne!(initial, CaptureSegmentProfile::from(&settings));
+    settings.personal_dictionary_enabled = false;
+    let disabled = CaptureSegmentProfile::from(&settings);
+    settings.personal_dictionary_entries[0].written = "PRIVATE".into();
+    assert_eq!(disabled, CaptureSegmentProfile::from(&settings));
+}
 use crate::{
     audio::{AudioRecorder, RecordingWriter},
     pipeline::Pipeline,

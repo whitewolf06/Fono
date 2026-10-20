@@ -1,7 +1,7 @@
 //! Optional local canonical spelling for the final ordinary dictation result.
 //! Canonicalization is one deterministic replacement pass, never a command
-//! recognizer. GlossarySnapshot prepares the bounded F-03 contract without
-//! sending terms to any model. Original transcripts and entries stay intact.
+//! recognizer. GlossarySnapshot supplies bounded canonical hints only when enabled.
+//! Final replacements never rewrite original transcripts or dictionary entries.
 mod glossary;
 mod replacements;
 mod validation;

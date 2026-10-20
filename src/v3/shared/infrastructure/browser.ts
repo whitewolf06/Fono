@@ -26,6 +26,7 @@ const persistedKeys: (keyof Preferences)[] = [
   "whisperThreads",
   "gpuModelResidency",
   "dictionaryEnabled",
+  "dictionaryLlmEnabled",
   "wakeEnabled",
   "wakePhrase",
   "wakeLanguage",

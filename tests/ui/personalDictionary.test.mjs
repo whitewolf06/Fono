@@ -143,6 +143,20 @@ test("native preferences roundtrip reactive draft entries and disabling does not
   assert.deepEqual(rawDefaults.personal_dictionary_entries, []);
 });
 
+test("LLM glossary disclosure defaults off, roundtrips independently and stores no terms in the browser", async () => {
+  assert.equal(workspace.state.preferences.dictionaryLlmEnabled, false);
+  const entries = [{ written: "PRIVATE TERM", spoken: ["private variant"] }];
+  const enabled = mapping.applyPreferences(rawDefaults, {dictionaryEnabled: true, dictionaryLlmEnabled: true, dictionaryEntries: entries}, []);
+  assert.equal(enabled.personal_dictionary_llm_enabled, true);
+  assert.equal(mapping.preferencesFromNative(enabled, []).dictionaryLlmEnabled, true);
+  await workspace.settings.save({dictionaryEnabled: true, dictionaryLlmEnabled: true, dictionaryEntries: entries});
+  await workspace.settings.toggle("dictionaryEnabled", false);
+  assert.deepEqual(workspace.state.preferences.dictionaryEntries, entries);
+  assert.equal(workspace.state.preferences.dictionaryLlmEnabled, true);
+  const serialized = [...storage.values()].join();
+  assert.ok(!serialized.includes("PRIVATE") && !serialized.includes("private variant"));
+});
+
 test("ordinary result and archive use dictionary spelling while original stays untouched", async () => {
   await workspace.settings.save({
     processingEnabled: false,

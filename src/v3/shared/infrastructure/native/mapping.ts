@@ -64,6 +64,7 @@ export function preferencesFromNative(
         : null,
     gpuModelResidency: availableGpuModelResidency(s.gpu_model_residency),
     dictionaryEnabled: s.personal_dictionary_enabled ?? false,
+    dictionaryLlmEnabled: s.personal_dictionary_llm_enabled ?? false,
     dictionaryEntries: (s.personal_dictionary_entries ?? []).map((entry) => ({
       written: entry.written,
       spoken: [...entry.spoken],
@@ -172,6 +173,7 @@ export function applyPreferences(
     whisperThreads: "whisper_threads",
     gpuModelResidency: "gpu_model_residency",
     dictionaryEnabled: "personal_dictionary_enabled",
+    dictionaryLlmEnabled: "personal_dictionary_llm_enabled",
     wakeEnabled: "wake_word_enabled",
     wakePhrase: "wake_word",
     silenceMs: "wake_dictation_silence_ms",

@@ -4,6 +4,7 @@
 #include "pcm.hpp"
 #include "timestamps.hpp"
 #include "decoding.hpp"
+#include "prompt.hpp"
 #include <atomic>
 #include <chrono>
 #include <cctype>
@@ -11,7 +12,7 @@
 #include <thread>
 
 using json = nlohmann::json;
-constexpr int PROTOCOL_VERSION = 3;
+constexpr int PROTOCOL_VERSION = 4;
 constexpr size_t MAX_REQUEST_FRAME_BYTES = 16 * 1024 * 1024;
 constexpr size_t MAX_RESPONSE_FRAME_BYTES = 1024 * 1024;
 
@@ -54,6 +55,7 @@ inline json transcribe(const json & request, std::optional<LoadedModel> & loaded
     const auto language = request.value("language", "auto");
     const auto context = request.contains("context") && request["context"].is_string() ? request["context"].get<std::string>() : "";
     const auto decoding = decoding_options(request);
+    if (!valid_glossary(request.value("glossary", json::array()))) { return worker_error(id, "prompt", "invalid or oversized glossary", operation); }
     if (!decoding) { return worker_error(id, "decoding", "unsupported Whisper decoding options", operation); }
     if (language.find('\0') != std::string::npos || context.find('\0') != std::string::npos) { return worker_error(id, "transcribe", "language/context contains a null byte", operation); }
     std::string audio_error;
@@ -77,7 +79,9 @@ inline json transcribe(const json & request, std::optional<LoadedModel> & loaded
     params.print_timestamps = false; params.print_special = false;
     params.no_timestamps = !timed; params.token_timestamps = timed;
     params.language = language.empty() || language == "auto" ? nullptr : language.c_str();
-    if (!context.empty()) { params.initial_prompt = context.c_str(); }
+    const auto tokens = prompt_tokens(loaded->context.get(), request.value("glossary", json::array()), context);
+    if (!tokens) { return worker_error(id, "prompt", "invalid or oversized glossary prompt", operation); }
+    if (!tokens->empty()) { params.prompt_tokens = tokens->data(); params.prompt_n_tokens = static_cast<int>(tokens->size()); }
     params.abort_callback = [](void * signal) { return static_cast<std::atomic_bool *>(signal)->load(); };
     params.abort_callback_user_data = &cancelled;
     const auto started = std::chrono::steady_clock::now();

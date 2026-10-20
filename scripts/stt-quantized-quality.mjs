@@ -98,7 +98,7 @@ async function workerProbe(worker, model, entry, log) {
       child.stdin.write(
         JSON.stringify({
           type,
-          protocol_version: 3,
+          protocol_version: 4,
           request_id,
           operation_id: "public-quantized-compatibility",
           ...payload,
@@ -119,7 +119,7 @@ async function workerProbe(worker, model, entry, log) {
         if (response.done) throw new Error("Worker EOF");
         const value = JSON.parse(response.value);
         if (
-          value.protocol_version !== 3 ||
+          value.protocol_version !== 4 ||
           value.request_id !== request_id ||
           value.type === "error"
         )
@@ -140,7 +140,7 @@ async function workerProbe(worker, model, entry, log) {
       ready.backend !== "vulkan" ||
       !ready.capabilities.supports_decoding_options
     )
-      throw new Error("Expected protocol-3 Vulkan worker");
+      throw new Error("Expected protocol-4 Vulkan worker");
     const load = await request("load", { model_path: model });
     if (load.type !== "model_loaded")
       throw new Error("Worker model load failed");

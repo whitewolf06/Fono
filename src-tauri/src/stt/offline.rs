@@ -159,6 +159,7 @@ impl Recognizer for SherpaRecognizer {
             max_segment_samples: MAXIMUM,
             window_transcription: true,
             initial_prompt: false,
+            hotwords: false,
             language_detection: false,
             automatic_language: true,
             token_timestamps: true,

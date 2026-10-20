@@ -33,11 +33,15 @@ pub(super) async fn selected(
     let process = async {
         let client = client_for_settings(&session.settings).await?;
         client
-            .process_preset(
+            .process_preset_with_glossary(
                 &transcript.text,
                 preset,
                 language,
                 session.settings.processing_prompts.choice(preset),
+                crate::application::personal_dictionary::GlossarySnapshot::for_llm(
+                    &session.settings,
+                )
+                .terms(),
             )
             .await
     };
@@ -69,11 +73,15 @@ pub(super) async fn process(
     let process = async {
         let client = client_for_settings(&session.settings).await?;
         client
-            .process_preset(
+            .process_preset_with_glossary(
                 &transcript.text,
                 preset,
                 super::workflow::effective_language(&session.settings),
                 session.settings.processing_prompts.choice(preset),
+                crate::application::personal_dictionary::GlossarySnapshot::for_llm(
+                    &session.settings,
+                )
+                .terms(),
             )
             .await
     };

@@ -34,7 +34,7 @@ impl Recognizer for WorkerMailbox {
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
         self.transcribe_cancellable_with_options(
-            samples, options.language, cancellation, options.decoding,
+            samples, options.language, cancellation, options.decoding, options.glossary,
         )
     }
 
@@ -52,6 +52,7 @@ impl Recognizer for WorkerMailbox {
             cancellation,
             options.audio_start_sample,
             options.recognition.decoding,
+            options.recognition.glossary,
         )
     }
 }
@@ -110,6 +111,7 @@ impl WorkerMailbox {
                         samples,
                         language,
                         decoding,
+                        glossary,
                         context,
                         operation_id,
                         cancellation,
@@ -127,6 +129,7 @@ impl WorkerMailbox {
                             &cancellation,
                             audio_start_sample,
                             decoding,
+                            &glossary,
                         );
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = session.stdin_tx.is_some();
@@ -144,6 +147,7 @@ impl WorkerMailbox {
                         samples,
                         language,
                         decoding,
+                        glossary,
                         cancellation,
                         response_tx,
                         activity,
@@ -151,7 +155,7 @@ impl WorkerMailbox {
                         let _activity = activity;
                         thread_busy.store(true, Ordering::Release);
                         let result =
-                            session.transcribe_cancellable_with_options(&samples, &language, &cancellation, decoding);
+                            session.transcribe_cancellable_with_options(&samples, &language, &cancellation, decoding, &glossary);
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = session.stdin_tx.is_some();
                         if !keep_running {
@@ -264,7 +268,7 @@ impl WorkerMailbox {
         language: &str,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
-        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default())
+        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default(), &[])
     }
 
     pub(super) fn transcribe_cancellable_with_options(
@@ -273,6 +277,7 @@ impl WorkerMailbox {
         language: &str,
         cancellation: &OperationCancellation,
         decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
     ) -> AppResult<Transcript> {
         if cancellation.is_cancelled() {
             return Err(AppError::Cancelled(
@@ -286,6 +291,7 @@ impl WorkerMailbox {
                 samples: samples.to_vec(),
                 language: language.into(),
                 decoding,
+                glossary: glossary.to_vec(),
                 cancellation: cancellation.clone(),
                 response_tx,
                 activity,

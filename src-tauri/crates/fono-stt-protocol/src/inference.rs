@@ -93,17 +93,43 @@ impl InferenceState {
         cancellation_signals: &[&AtomicBool],
         decoding: DecodingOptions,
     ) -> Result<WindowTranscript, String> {
+        self.transcribe_with_glossary(
+            samples,
+            language,
+            context,
+            audio_start_sample,
+            backend,
+            timed,
+            cancellation_signals,
+            decoding,
+            &[],
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn transcribe_with_glossary(
+        &mut self,
+        samples: &[i16],
+        language: &str,
+        context: Option<&str>,
+        audio_start_sample: u64,
+        backend: BackendKind,
+        timed: bool,
+        cancellation_signals: &[&AtomicBool],
+        decoding: DecodingOptions,
+        glossary: &[String],
+    ) -> Result<WindowTranscript, String> {
         decoding.validate()?;
+        crate::prompt::validate(glossary).map_err(str::to_owned)?;
         if language.contains('\0') || context.is_some_and(|text| text.contains('\0')) {
             return Err("language/context contains a null byte".into());
         }
         // whisper-rs 0.16 set_initial_prompt leaks CString::into_raw. Tokenize
         // into an owned Vec instead; set_tokens borrows it through full.
-        let prompt_tokens = context
-            .filter(|text| !text.is_empty())
-            .map(|text| self.context.tokenize(text, text.len().max(1)))
-            .transpose()
-            .map_err(|error| error.to_string())?;
+        let prompt = crate::prompt::build(glossary, context, |text| {
+            self.context.tokenize(text, text.len().max(1))
+        })
+        .map_err(|_| "Whisper prompt tokenization failed".to_owned())?;
         let guard = AbortGuard {
             signals: cancellation_signals,
         };
@@ -123,8 +149,8 @@ impl InferenceState {
         params.set_single_segment(!timed);
         params.set_no_timestamps(!timed);
         params.set_token_timestamps(timed);
-        if let Some(tokens) = &prompt_tokens {
-            params.set_tokens(tokens);
+        if !prompt.tokens.is_empty() {
+            params.set_tokens(&prompt.tokens);
         }
         // SAFETY: no mutable context access; guard outlives synchronous full.
         unsafe {

@@ -61,9 +61,21 @@ fn run() -> Result<(), String> {
     }
     let arguments: Vec<_> = std::env::args().collect();
     if arguments.len() < 3 {
-        return Err("usage: fono-stt-quality MODEL.bin explicit-corpus.json [--strategy fast|accurate] [--threads 1..8]".into());
+        return Err("usage: fono-stt-quality MODEL.bin explicit-corpus.json [--strategy fast|accurate] [--threads 1..8] [--glossary canonical-terms.json]".into());
     }
-    let decoding = decoding_options(&arguments[3..])?;
+    let mut flags = arguments[3..].to_vec();
+    let glossary: Vec<String> =
+        if let Some(index) = flags.iter().position(|flag| flag == "--glossary") {
+            let path = flags.get(index + 1).ok_or("missing glossary JSON path")?;
+            let terms = serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+            flags.drain(index..=index + 1);
+            terms
+        } else {
+            Vec::new()
+        };
+    fono_stt_protocol::prompt::validate(&glossary).map_err(str::to_owned)?;
+    let decoding = decoding_options(&flags)?;
     let corpus: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&arguments[2]).map_err(|error| error.to_string())?)
             .map_err(|error| error.to_string())?;
@@ -76,6 +88,12 @@ fn run() -> Result<(), String> {
     parameters.use_gpu(false);
     let context = WhisperContext::new_with_params(&arguments[1], parameters)
         .map_err(|error| error.to_string())?;
+    let prompt_tokens = fono_stt_protocol::prompt::build(&glossary, None, |text| {
+        context.tokenize(text, text.len().max(1))
+    })
+    .map_err(|e| e.to_string())?
+    .tokens
+    .len();
     let mut engine = InferenceState::new(Arc::new(context))?;
     let load_seconds = load_started.elapsed().as_secs_f64();
     let mut results = Vec::new();
@@ -94,7 +112,7 @@ fn run() -> Result<(), String> {
         let samples = wav::load(Path::new(path))?;
         if cold.is_none() {
             let started = Instant::now();
-            let transcript = engine.transcribe_with_options(
+            let transcript = engine.transcribe_with_glossary(
                 &samples,
                 language,
                 None,
@@ -103,6 +121,7 @@ fn run() -> Result<(), String> {
                 false,
                 &[],
                 decoding,
+                &glossary,
             )?;
             cold = Some(
                 serde_json::json!({"id":entry["id"], "seconds":started.elapsed().as_secs_f64(),
@@ -110,7 +129,7 @@ fn run() -> Result<(), String> {
             );
         }
         let started = Instant::now();
-        let transcript = engine.transcribe_with_options(
+        let transcript = engine.transcribe_with_glossary(
             &samples,
             language,
             None,
@@ -119,6 +138,7 @@ fn run() -> Result<(), String> {
             false,
             &[],
             decoding,
+            &glossary,
         )?;
         let seconds = started.elapsed().as_secs_f64();
         let audio_seconds = samples.len() as f64 / 16000.0;
@@ -130,7 +150,7 @@ fn run() -> Result<(), String> {
     println!(
         "{}",
         serde_json::json!({"schema":1,"backend":"cpu","model_load_seconds":load_seconds,
-        "threads":decoding.effective_threads(),"decoding":decoding,
+        "threads":decoding.effective_threads(),"decoding":decoding,"glossary_terms":glossary.len(),"prompt_tokens":prompt_tokens,
         "cold":cold,"entries":results})
     );
     Ok(())

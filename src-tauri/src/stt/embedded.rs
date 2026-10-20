@@ -57,9 +57,13 @@ impl Recognizer for EmbeddedRecognizer {
         options: RecognitionOptions<'_>,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
-        self.engine
-            .lock()
-            .transcribe(samples, options.language, cancellation, options.decoding)
+        self.engine.lock().transcribe(
+            samples,
+            options.language,
+            cancellation,
+            options.decoding,
+            options.glossary,
+        )
     }
 
     fn transcribe_window(
@@ -70,11 +74,10 @@ impl Recognizer for EmbeddedRecognizer {
     ) -> AppResult<WindowTranscript> {
         self.engine.lock().transcribe_window(
             samples,
-            options.recognition.language,
             options.context,
             cancellation,
             options.audio_start_sample,
-            options.recognition.decoding,
+            options.recognition,
         )
     }
 }
@@ -123,11 +126,12 @@ impl EmbeddedEngine {
         language: &str,
         cancellation: &OperationCancellation,
         decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
     ) -> AppResult<Transcript> {
         let backend = self.backend();
         let signals: Vec<_> = cancellation.atomic_signals().collect();
-        let result = self.inference.transcribe_with_options(
-            samples, language, None, 0, backend, false, &signals, decoding,
+        let result = self.inference.transcribe_with_glossary(
+            samples, language, None, 0, backend, false, &signals, decoding, glossary,
         );
         result.map(super::window::to_transcript).map_err(|message| {
             if cancellation.is_cancelled() {
@@ -141,24 +145,24 @@ impl EmbeddedEngine {
     pub(super) fn transcribe_window(
         &mut self,
         samples: &[i16],
-        language: &str,
         context: Option<&str>,
         cancellation: &OperationCancellation,
         audio_start_sample: u64,
-        decoding: fono_stt_protocol::DecodingOptions,
+        options: RecognitionOptions<'_>,
     ) -> AppResult<WindowTranscript> {
         let backend = self.backend();
         let signals: Vec<_> = cancellation.atomic_signals().collect();
         self.inference
-            .transcribe_with_options(
+            .transcribe_with_glossary(
                 samples,
-                language,
+                options.language,
                 context,
                 audio_start_sample,
                 backend,
                 true,
                 &signals,
-                decoding,
+                options.decoding,
+                options.glossary,
             )
             .map_err(|message| {
                 if cancellation.is_cancelled() {

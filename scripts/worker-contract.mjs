@@ -162,6 +162,18 @@ export async function workerContract(executable, backend) {
       );
       cases.push(`threads_${threads}_rejected_before_model_load`);
     }
+    for (const glossary of [
+      ["private\nterm"],
+      Array(33).fill("term"),
+      ["x".repeat(897)],
+    ]) {
+      await send(
+        { ...inference, request_id: `glossary-${cases.length}`, glossary },
+        "error",
+        "prompt",
+      );
+      cases.push("invalid_glossary_rejected_before_model_load");
+    }
     child.stdin.write(
       `${JSON.stringify({ ...envelope("cancel_request", "cancel-idle"), target_request_id: "missing" })}\n`,
     );

@@ -27,6 +27,8 @@ pub struct Settings {
     #[serde(default)]
     pub personal_dictionary_enabled: bool,
     #[serde(default)]
+    pub personal_dictionary_llm_enabled: bool,
+    #[serde(default)]
     pub personal_dictionary_entries: Vec<PersonalDictionaryEntry>,
     /// Automatic network checks are optional; explicit checks remain available.
     #[serde(default)]
@@ -172,6 +174,7 @@ impl Default for Settings {
             stt_model: None,
             language: default_language(),
             personal_dictionary_enabled: false,
+            personal_dictionary_llm_enabled: false,
             personal_dictionary_entries: Vec::new(),
             update_checks_enabled: false,
             hotkey: default_hotkey(),

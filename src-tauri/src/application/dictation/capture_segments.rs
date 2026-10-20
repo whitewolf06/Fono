@@ -22,6 +22,8 @@ fn start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool
     let workers = crate::stt::worker_paths_for_app(app);
     let vad_path = super::super::speech_gate::model_path(app)?;
     let settings = settings.clone();
+    let glossary =
+        crate::application::personal_dictionary::GlossarySnapshot::from_settings(&settings);
     pipeline.start_capture_segments_for(
         operation,
         vad_path,
@@ -32,7 +34,7 @@ fn start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool
                 stt.capabilities()
                     .is_some_and(|capabilities| capabilities.initial_prompt)
             });
-            stt.transcribe_window_with_options(
+            stt.transcribe_window_with_glossary(
                 samples,
                 &settings.language,
                 context,
@@ -40,6 +42,7 @@ fn start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool
                 cancellation,
                 start,
                 settings.decoding_options(),
+                glossary.terms(),
             )
         },
     )

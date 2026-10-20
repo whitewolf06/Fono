@@ -42,6 +42,7 @@ impl Recognizer for OfflineFixture {
             max_segment_samples: 25 * 16_000,
             window_transcription: true,
             initial_prompt: false,
+            hotwords: false,
             language_detection: false,
             automatic_language: false,
             token_timestamps: false,
@@ -52,9 +53,13 @@ impl Recognizer for OfflineFixture {
     fn transcribe(
         &self,
         _: &[i16],
-        _: RecognitionOptions<'_>,
+        options: RecognitionOptions<'_>,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
+        assert!(
+            options.glossary.is_empty(),
+            "unsupported hotwords must not reach this backend"
+        );
         self.calls.fetch_add(1, Ordering::AcqRel);
         if self.cancel_on_return {
             cancellation.cancel();
@@ -95,8 +100,34 @@ impl Recognizer for OfflineFixture {
 fn options() -> RecognitionOptions<'static> {
     RecognitionOptions {
         language: "ru",
+        glossary: &[],
         decoding: DecodingOptions::default(),
     }
+}
+
+#[test]
+fn unsupported_backend_receives_neither_whisper_terms_nor_hotwords() {
+    let fixture = OfflineFixture::new(false);
+    let terms = ["PRIVATE TERM".into()];
+    let opts = RecognitionOptions {
+        glossary: &terms,
+        ..options()
+    };
+    let cancellation = OperationCancellation::default();
+    transcribe(&fixture, &[1; 160], opts, &cancellation).unwrap();
+    transcribe_window(
+        &fixture,
+        &[1; 160],
+        WindowOptions {
+            recognition: opts,
+            context: None,
+            operation_id: 1,
+            audio_start_sample: 0,
+        },
+        &cancellation,
+    )
+    .unwrap();
+    assert_eq!(fixture.calls.load(Ordering::Acquire), 2);
 }
 
 #[test]
@@ -333,7 +364,7 @@ fn embedded_whisper_public_wav_contract() {
         let samples = &audio.pcm_samples;
         let language = entry["language"].as_str().unwrap();
         let expected = direct
-            .transcribe(samples, language, &cancel, decoding)
+            .transcribe(samples, language, &cancel, decoding, &[])
             .unwrap();
         let actual = routed
             .transcribe_cancellable_with_options(samples, language, cancel.clone(), decoding)
@@ -345,7 +376,17 @@ fn embedded_whisper_public_wav_contract() {
         assert_eq!(actual.audio_secs, expected.audio_secs);
         let context = Some("Fono");
         let expected = direct
-            .transcribe_window(samples, language, context, &cancel, 32_000, decoding)
+            .transcribe_window(
+                samples,
+                context,
+                &cancel,
+                32_000,
+                RecognitionOptions {
+                    language,
+                    decoding,
+                    glossary: &[],
+                },
+            )
             .unwrap();
         let actual = routed
             .transcribe_window_with_options(

@@ -31,7 +31,7 @@ cmake --build target-codex-review/release/build/whisper-rs-sys-10a4d8d8bf24a3cb/
 
 Сохранить работающий C++/CMake-путь Vulkan и Rust-путь CUDA. Текущий Rust-кандидат для Vulkan не собран воспроизводимо, а версии whisper.cpp расходятся. Удаление C++ сейчас убрало бы проверяемый путь поставки без подготовленной замены.
 
-Обе реализации обязаны проходить один исполняемый process contract — `scripts/worker-contract.mjs`, вызываемый из `verify-stt-workers.ps1` и `build:workers`. Он проверяет protocol 3, capabilities, ping, неверную версию, повреждённый PCM/base64/JSON, границу frame с учётом LF, восстановление после ошибки frame, idle cancel без отдельного ответа и штатный shutdown.
+Обе реализации обязаны проходить один исполняемый process contract — `scripts/worker-contract.mjs`, вызываемый из `verify-stt-workers.ps1` и `build:workers`. Он проверяет protocol 4, capabilities, ping, неверную версию, повреждённый PCM/base64/JSON, границу frame с учётом LF, восстановление после ошибки frame, idle cancel без отдельного ответа и штатный shutdown.
 
 Быстрый режим сохраняет и существующую разницу декодирования: Rust CPU/CUDA явно использует Greedy `best_of=1`, а прежний C++ Vulkan получал `best_of=5` из `whisper_full_default_params`. Унификация этих значений без GPU-замеров изменила бы fallback-поведение. Точный режим включается отдельно: Beam Search 5 и vendor fallback `greedy.best_of=-1` в обеих реализациях, как в `whisper-rs 0.16`.
 

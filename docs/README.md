@@ -21,7 +21,7 @@ Fono — голосовой ввод для Windows с локальным рас
 | [Архитектура](architecture.md)                 | Слои, жизненный цикл диктовки, аудио, хранение и обновления |
 | [Архитектурные решения](adr/README.md)         | Контекст, альтернативы и последствия принятых решений       |
 | [Фронтенд](frontend-architecture.md)           | Vue V3, порты, события, browser mock и native runtime       |
-| [STT backend-ы](MULTI_BACKEND_ARCHITECTURE.md) | CPU/GPU, protocol 3, scheduler и владение моделью           |
+| [STT backend-ы](MULTI_BACKEND_ARCHITECTURE.md) | CPU/GPU, protocol 4, scheduler и владение моделью           |
 | [Политика зависимостей](dependency-policy.md)  | Lock-файлы, лицензии и supply-chain проверки                |
 | [CI и обновления](fono-ci-updates.md)          | Workflow, ресурсы, подпись и канал выпуска                  |
 | [Автоматические проверки](testing.md)          | Команды frontend, Rust, release scripts и feature matrix    |

@@ -340,6 +340,7 @@ impl SttEngine {
             language,
             None,
             fono_stt_protocol::DecodingOptions::default(),
+            &[],
         )
     }
 
@@ -354,6 +355,7 @@ impl SttEngine {
             language,
             Some(&cancellation),
             fono_stt_protocol::DecodingOptions::default(),
+            &[],
         )
     }
 
@@ -363,7 +365,7 @@ impl SttEngine {
         language: &str,
         decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<Transcript> {
-        self.transcribe_internal(samples, language, None, decoding)
+        self.transcribe_internal(samples, language, None, decoding, &[])
     }
 
     pub fn transcribe_cancellable_with_options(
@@ -373,7 +375,18 @@ impl SttEngine {
         cancellation: OperationCancellation,
         decoding: fono_stt_protocol::DecodingOptions,
     ) -> AppResult<Transcript> {
-        self.transcribe_internal(samples, language, Some(&cancellation), decoding)
+        self.transcribe_internal(samples, language, Some(&cancellation), decoding, &[])
+    }
+
+    pub fn transcribe_cancellable_with_glossary(
+        &self,
+        samples: &[i16],
+        language: &str,
+        cancellation: OperationCancellation,
+        decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
+    ) -> AppResult<Transcript> {
+        self.transcribe_internal(samples, language, Some(&cancellation), decoding, glossary)
     }
 
     fn transcribe_internal(
@@ -382,6 +395,7 @@ impl SttEngine {
         language: &str,
         cancellation: Option<&OperationCancellation>,
         decoding: fono_stt_protocol::DecodingOptions,
+        glossary: &[String],
     ) -> AppResult<Transcript> {
         decoding.validate().map_err(AppError::Config)?;
         if self.cleanup.is_pending() {
@@ -397,7 +411,11 @@ impl SttEngine {
         let result = recognizer::transcribe(
             active.recognizer(),
             samples,
-            RecognitionOptions { language, decoding },
+            RecognitionOptions {
+                language,
+                decoding,
+                glossary,
+            },
             cancellation.unwrap_or(&default_cancellation),
         );
         if result.is_err()

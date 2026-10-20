@@ -1,0 +1,368 @@
+{
+  "schema": 1,
+  "task": "FONO-132",
+  "version": "0.7.47",
+  "date": "2026-10-20",
+  "license": "CC-BY-4.0 (public corpus and derived transcripts); Fono code remains MIT",
+  "attribution": "FLEURS, The Google and HuggingFace Datasets Authors (2022).",
+  "source_card": "https://huggingface.co/datasets/google/fleurs/blob/437d9e667fa3a2a08a1957f810bf2c3b5050d221/README.md",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.en",
+  "scope": "One fixed public-WAV CPU Whisper tiny comparison before LLM and final replacements; no microphone, no personal voice, no GPU inference qualification.",
+  "selection": "Fixed before comparison: 6 public RU/EN clips with proper names and technical terms. No microphone, no post-replacement.",
+  "model": {
+    "file": "ggml-tiny.bin",
+    "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
+  },
+  "runner_sha256": "8ac428a1fb9bd5a885dfb4060fe776aa8ffb3c2c023abc463deac9a1dfadf38d",
+  "decoding": {
+    "strategy": "fast",
+    "threads": 2
+  },
+  "terms": [
+    "Sintra",
+    "Lord Byron",
+    "Marianas",
+    "Мадагаскар",
+    "Аристотеля",
+    "Катрина",
+    "Буша",
+    "Новоорлеанской",
+    "цезий",
+    "йод"
+  ],
+  "baseline": {
+    "word_errors": 26,
+    "character_errors": 45,
+    "reference_words": 111,
+    "reference_characters": 772,
+    "wer": 0.23423423423423423,
+    "cer": 0.05829015544041451,
+    "canonical_terms_found": [
+      "Lord Byron",
+      "Катрина"
+    ],
+    "canonical_term_recall": 0.2,
+    "prompt_tokens": 0
+  },
+  "glossary": {
+    "word_errors": 27,
+    "character_errors": 45,
+    "reference_words": 111,
+    "reference_characters": 772,
+    "wer": 0.24324324324324326,
+    "cer": 0.05829015544041451,
+    "canonical_terms_found": [
+      "Lord Byron",
+      "Marianas",
+      "Мадагаскар",
+      "Катрина",
+      "Буша",
+      "йод"
+    ],
+    "canonical_term_recall": 0.6,
+    "prompt_tokens": 45
+  },
+  "entries": [
+    {
+      "id": "en-03",
+      "language": "en",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "437d9e667fa3a2a08a1957f810bf2c3b5050d221",
+        "locale": "en_us",
+        "split": "test",
+        "sentence_id": 1950,
+        "filename": "10167324587744183095.wav",
+        "archive_member": "test/10167324587744183095.wav",
+        "archive_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/en_us/audio/test.tar.gz",
+        "metadata_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/en_us/test.tsv",
+        "sha256": "260bdd1a15e1d35bcc5d91667516ca3bc659285e10f94872182715bcd7880398"
+      },
+      "wav_sha256": "b8cb83b3c888314ce3ac369bb9dfe87869ee4f871558f5b2af51587f8db99b78",
+      "reference": "to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron",
+      "baseline": {
+        "audio_seconds": 11.4599375,
+        "errors": {
+          "cer": 0.06451612903225806,
+          "character_errors": 12,
+          "reference_characters": 186,
+          "reference_words": 33,
+          "wer": 0.18181818181818182,
+          "word_errors": 6
+        },
+        "id": "en-03",
+        "language": "en",
+        "rtf": 0.09267855082106687,
+        "text": "To the north and with an easy reach is a romantic and fascinating town of Sinatra, which was made famous to foreigners after a glowing account of its splendrous recorded by Lord Byron.",
+        "warm_seconds": 1.0620904
+      },
+      "glossary": {
+        "audio_seconds": 11.4599375,
+        "errors": {
+          "cer": 0.0913978494623656,
+          "character_errors": 17,
+          "reference_characters": 186,
+          "reference_words": 33,
+          "wer": 0.24242424242424243,
+          "word_errors": 8
+        },
+        "id": "en-03",
+        "language": "en",
+        "rtf": 0.1096147688414531,
+        "text": "To the north and with an easy reach is a romantic, infestinating town of Sinatra, which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron.",
+        "warm_seconds": 1.2561784
+      }
+    },
+    {
+      "id": "en-07",
+      "language": "en",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "437d9e667fa3a2a08a1957f810bf2c3b5050d221",
+        "locale": "en_us",
+        "split": "test",
+        "sentence_id": 1876,
+        "filename": "10323357556845456822.wav",
+        "archive_member": "test/10323357556845456822.wav",
+        "archive_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/en_us/audio/test.tar.gz",
+        "metadata_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/en_us/test.tsv",
+        "sha256": "6b3081a29a5bb6fc6434e8525690edc26b23844841e119c916183f4ba1863372"
+      },
+      "wav_sha256": "d62f8ee29fa043d883a0ed1b1ff73d67ef24d835cfbafed5cc1a26896d37c5a8",
+      "reference": "the northern marianas emergency management office said that there were no damages reported in the nation",
+      "baseline": {
+        "audio_seconds": 10.7999375,
+        "errors": {
+          "cer": 0.019230769230769232,
+          "character_errors": 2,
+          "reference_characters": 104,
+          "reference_words": 16,
+          "wer": 0.125,
+          "word_errors": 2
+        },
+        "id": "en-07",
+        "language": "en",
+        "rtf": 0.08854541056371854,
+        "text": "The Northern Marianna's Emergency Management Office said that there were no damages reported in the nation.",
+        "warm_seconds": 0.9562849
+      },
+      "glossary": {
+        "audio_seconds": 10.7999375,
+        "errors": {
+          "cer": 0,
+          "character_errors": 0,
+          "reference_characters": 104,
+          "reference_words": 16,
+          "wer": 0,
+          "word_errors": 0
+        },
+        "id": "en-07",
+        "language": "en",
+        "rtf": 0.10818548718453232,
+        "text": "The Northern Marianas Emergency Management Office said that there were no damages reported in the nation.",
+        "warm_seconds": 1.1683965
+      }
+    },
+    {
+      "id": "ru-02",
+      "language": "ru",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "437d9e667fa3a2a08a1957f810bf2c3b5050d221",
+        "locale": "ru_ru",
+        "split": "test",
+        "sentence_id": 1781,
+        "filename": "10002861505982796062.wav",
+        "archive_member": "test/10002861505982796062.wav",
+        "archive_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/audio/test.tar.gz",
+        "metadata_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/test.tsv",
+        "sha256": "81673ad2f0eb6a463e13fd9d5a442d1469e745f9a67565a3b9d20fbff395599a"
+      },
+      "wav_sha256": "768f000ee09a379e07e4f5fd1cf709dcc2a39fe2f508f450a29ad36111d0a75a",
+      "reference": "мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы",
+      "baseline": {
+        "audio_seconds": 11.5199375,
+        "errors": {
+          "cer": 0.030303030303030304,
+          "character_errors": 3,
+          "reference_characters": 99,
+          "reference_words": 14,
+          "wer": 0.14285714285714285,
+          "word_errors": 2
+        },
+        "id": "ru-02",
+        "language": "ru",
+        "rtf": 0.11225770973149812,
+        "text": "Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы.",
+        "warm_seconds": 1.2932018
+      },
+      "glossary": {
+        "audio_seconds": 11.5199375,
+        "errors": {
+          "cer": 0.010101010101010102,
+          "character_errors": 1,
+          "reference_characters": 99,
+          "reference_words": 14,
+          "wer": 0.07142857142857142,
+          "word_errors": 1
+        },
+        "id": "ru-02",
+        "language": "ru",
+        "rtf": 0.10742671998003463,
+        "text": "Мадагаскар намного больше других и является самобытным континентом, в то, что касается дикой природы.",
+        "warm_seconds": 1.2375491
+      }
+    },
+    {
+      "id": "ru-03",
+      "language": "ru",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "437d9e667fa3a2a08a1957f810bf2c3b5050d221",
+        "locale": "ru_ru",
+        "split": "test",
+        "sentence_id": 1926,
+        "filename": "10008070632189747443.wav",
+        "archive_member": "test/10008070632189747443.wav",
+        "archive_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/audio/test.tar.gz",
+        "metadata_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/test.tsv",
+        "sha256": "78e9c886fbfc247dc7743f9dc7473006b7a50b9401f1db9af16926cf9dae0d04"
+      },
+      "wav_sha256": "2f170a1cda78a11d8801fa1513379139804e3b07825b9f143067691290388760",
+      "reference": "во всех научных вопросах включая психологию были приняты взгляды аристотеля",
+      "baseline": {
+        "audio_seconds": 8.6399375,
+        "errors": {
+          "cer": 0.02666666666666667,
+          "character_errors": 2,
+          "reference_characters": 75,
+          "reference_words": 10,
+          "wer": 0.1,
+          "word_errors": 1
+        },
+        "id": "ru-03",
+        "language": "ru",
+        "rtf": 0.15897875418658988,
+        "text": "Во всех научных вопросах включая психологию были приняты взгляды рестотеля.",
+        "warm_seconds": 1.3735665
+      },
+      "glossary": {
+        "audio_seconds": 8.6399375,
+        "errors": {
+          "cer": 0.013333333333333334,
+          "character_errors": 1,
+          "reference_characters": 75,
+          "reference_words": 10,
+          "wer": 0.1,
+          "word_errors": 1
+        },
+        "id": "ru-03",
+        "language": "ru",
+        "rtf": 0.12664444621271853,
+        "text": "Во всех научных вопросах включая психологию, были приняты взгляды арестотеля.",
+        "warm_seconds": 1.0942001
+      }
+    },
+    {
+      "id": "ru-05",
+      "language": "ru",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "437d9e667fa3a2a08a1957f810bf2c3b5050d221",
+        "locale": "ru_ru",
+        "split": "test",
+        "sentence_id": 1751,
+        "filename": "10015465823387918619.wav",
+        "archive_member": "test/10015465823387918619.wav",
+        "archive_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/audio/test.tar.gz",
+        "metadata_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/test.tsv",
+        "sha256": "5c7a6328c4afe385fc75dd0023ae094c6548d56eadebf71817a9d5482adb1176"
+      },
+      "wav_sha256": "e4be4011c6cbed0bafc1e399622641d7a20dece770a5a82345bc9494c7e0c6fc",
+      "reference": "причиной дебатов стали разногласия относительно затрат на оказание материальной поддержки и восстановление зданий после урагана катрина который некоторые фискальные консерваторы в шутку назвали новоорлеанской сделкой буша",
+      "baseline": {
+        "audio_seconds": 19.4399375,
+        "errors": {
+          "cer": 0.06334841628959276,
+          "character_errors": 14,
+          "reference_characters": 221,
+          "reference_words": 26,
+          "wer": 0.34615384615384615,
+          "word_errors": 9
+        },
+        "id": "ru-05",
+        "language": "ru",
+        "rtf": 0.09417726265838047,
+        "text": "Причиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления станей после урогана Катрина, который некоторые фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буши\".",
+        "warm_seconds": 1.8308001
+      },
+      "glossary": {
+        "audio_seconds": 19.4399375,
+        "errors": {
+          "cer": 0.09049773755656108,
+          "character_errors": 20,
+          "reference_characters": 221,
+          "reference_words": 26,
+          "wer": 0.5,
+          "word_errors": 13
+        },
+        "id": "ru-05",
+        "language": "ru",
+        "rtf": 0.06853596108526583,
+        "text": "При чиной дебатов стали разногласия относительно затратно оказания материальной поддержки и восстановления стани после урога на Катрина, который не катрии фискальные консерваторы в шутку назвали \"Навар Лианской сделкой Буша\".",
+        "warm_seconds": 1.3323348
+      }
+    },
+    {
+      "id": "ru-07",
+      "language": "ru",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "437d9e667fa3a2a08a1957f810bf2c3b5050d221",
+        "locale": "ru_ru",
+        "split": "test",
+        "sentence_id": 1692,
+        "filename": "10024935581249406669.wav",
+        "archive_member": "test/10024935581249406669.wav",
+        "archive_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/audio/test.tar.gz",
+        "metadata_url": "https://huggingface.co/datasets/google/fleurs/resolve/437d9e667fa3a2a08a1957f810bf2c3b5050d221/data/ru_ru/test.tsv",
+        "sha256": "2866329aac3f03a28dde4826d910a06c191df3c7921155b3431ec5b3d0b77e8a"
+      },
+      "wav_sha256": "9178d192908509d79b31ee9ecb7aafc10a44c190deac35323a738b7700c64c1c",
+      "reference": "согласно ядерному управлению японии на заводе были обнаружены радиоактивный цезий и йод",
+      "baseline": {
+        "audio_seconds": 7.1999375,
+        "errors": {
+          "cer": 0.13793103448275862,
+          "character_errors": 12,
+          "reference_characters": 87,
+          "reference_words": 12,
+          "wer": 0.5,
+          "word_errors": 6
+        },
+        "id": "ru-07",
+        "language": "ru",
+        "rtf": 0.2367194437451714,
+        "text": "Соклассной ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей иют.",
+        "warm_seconds": 1.7043652
+      },
+      "glossary": {
+        "audio_seconds": 7.1999375,
+        "errors": {
+          "cer": 0.06896551724137931,
+          "character_errors": 6,
+          "reference_characters": 87,
+          "reference_words": 12,
+          "wer": 0.3333333333333333,
+          "word_errors": 4
+        },
+        "id": "ru-07",
+        "language": "ru",
+        "rtf": 0.15120103473120428,
+        "text": "Сокласно ядерному управлению Епонии на заводе были обнаружены радиоактивной цивей и йод",
+        "warm_seconds": 1.088638
+      }
+    }
+  ],
+  "conclusion": "Canonical term recall improves, aggregate WER regresses by one word, CER unchanged. No tuning or extra corpus selection. Wider quality acceptance remains open."
+}
