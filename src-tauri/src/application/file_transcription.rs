@@ -13,14 +13,40 @@ pub struct SubmitFilesResult {
     pub rejected: usize,
 }
 
+#[derive(Clone, Copy)]
+enum DialogKind {
+    Audio,
+    Transcript(ExportFormat),
+    Json { save: bool },
+}
+impl DialogKind {
+    fn save(self) -> bool {
+        matches!(self, Self::Transcript(_) | Self::Json { save: true })
+    }
+}
+
 pub async fn dialog(app: AppHandle, export: Option<ExportFormat>) -> AppResult<Vec<PathBuf>> {
+    run_dialog(
+        app,
+        export
+            .map(DialogKind::Transcript)
+            .unwrap_or(DialogKind::Audio),
+    )
+    .await
+}
+
+pub async fn json_dialog(app: AppHandle, save: bool) -> AppResult<Vec<PathBuf>> {
+    run_dialog(app, DialogKind::Json { save }).await
+}
+
+async fn run_dialog(app: AppHandle, kind: DialogKind) -> AppResult<Vec<PathBuf>> {
     let activity = super::updates::activity::lease()?;
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let owner = app.clone();
     app.run_on_main_thread(move || {
         // Closing/cancelling the IPC waiter never releases the actual dialog lease.
         let _activity = activity;
-        let _ = sender.send(native_dialog(&owner, export));
+        let _ = sender.send(native_dialog(&owner, kind));
     })
     .map_err(|_| AppError::Internal("Не удалось открыть выбор файла.".into()))?;
     receiver
@@ -29,7 +55,7 @@ pub async fn dialog(app: AppHandle, export: Option<ExportFormat>) -> AppResult<V
 }
 
 #[cfg(windows)]
-fn native_dialog(app: &AppHandle, export: Option<ExportFormat>) -> AppResult<Vec<PathBuf>> {
+fn native_dialog(app: &AppHandle, kind: DialogKind) -> AppResult<Vec<PathBuf>> {
     use windows::{
         core::{PCWSTR, PWSTR},
         Win32::UI::Controls::Dialogs::*,
@@ -41,9 +67,10 @@ fn native_dialog(app: &AppHandle, export: Option<ExportFormat>) -> AppResult<Vec
         .hwnd()
         .map_err(|_| AppError::Internal("Основное окно недоступно.".into()))?;
     let mut buffer = vec![0u16; 65_536];
-    let filter = match export {
-        None => "Аудиофайлы\0*.wav;*.mp3;*.flac;*.ogg\0\0".to_string(),
-        Some(format) => format!(
+    let filter = match kind {
+        DialogKind::Json { .. } => "JSON сниппетов\0*.json\0\0".to_string(),
+        DialogKind::Audio => "Аудиофайлы\0*.wav;*.mp3;*.flac;*.ogg\0\0".to_string(),
+        DialogKind::Transcript(format) => format!(
             "{}\0*.{}\0\0",
             format.extension().to_uppercase(),
             format.extension()
@@ -51,18 +78,19 @@ fn native_dialog(app: &AppHandle, export: Option<ExportFormat>) -> AppResult<Vec
     }
     .encode_utf16()
     .collect::<Vec<_>>();
-    let extension = export
-        .map(|f| {
-            format!("{}\0", f.extension())
-                .encode_utf16()
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let extension = match kind {
+        DialogKind::Audio => None,
+        DialogKind::Json { .. } => Some("json"),
+        DialogKind::Transcript(format) => Some(format.extension()),
+    }
+    .map(|ext| format!("{ext}\0").encode_utf16().collect::<Vec<_>>())
+    .unwrap_or_default();
     let mut options = OPENFILENAMEW {
         lStructSize: std::mem::size_of::<OPENFILENAMEW>() as u32,
         hwndOwner: windows::Win32::Foundation::HWND(hwnd.0),
         lpstrFile: PWSTR(buffer.as_mut_ptr()),
         nMaxFile: buffer.len() as u32,
+        nFilterIndex: 1,
         lpstrFilter: PCWSTR(filter.as_ptr()),
         lpstrDefExt: if extension.is_empty() {
             PCWSTR::null()
@@ -72,15 +100,20 @@ fn native_dialog(app: &AppHandle, export: Option<ExportFormat>) -> AppResult<Vec
         Flags: OFN_EXPLORER
             | OFN_NOCHANGEDIR
             | OFN_PATHMUSTEXIST
-            | if export.is_some() {
+            | if kind.save() {
                 OFN_OVERWRITEPROMPT
             } else {
-                OFN_ALLOWMULTISELECT | OFN_FILEMUSTEXIST
+                OFN_FILEMUSTEXIST
+                    | if matches!(kind, DialogKind::Audio) {
+                        OFN_ALLOWMULTISELECT
+                    } else {
+                        OPEN_FILENAME_FLAGS(0)
+                    }
             },
         ..Default::default()
     };
     let accepted = unsafe {
-        if export.is_some() {
+        if kind.save() {
             GetSaveFileNameW(&mut options)
         } else {
             GetOpenFileNameW(&mut options)
@@ -99,7 +132,7 @@ fn native_dialog(app: &AppHandle, export: Option<ExportFormat>) -> AppResult<Vec
 }
 
 #[cfg(not(windows))]
-fn native_dialog(_: &AppHandle, _: Option<ExportFormat>) -> AppResult<Vec<PathBuf>> {
+fn native_dialog(_: &AppHandle, _: DialogKind) -> AppResult<Vec<PathBuf>> {
     Err(AppError::Config("Выбор файлов доступен в Windows.".into()))
 }
 

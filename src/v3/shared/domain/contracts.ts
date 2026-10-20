@@ -55,6 +55,8 @@ export type QuickPanel =
   | "hotkey"
   | "command-hotkey";
 export interface Preferences {
+  snippetsEnabled: boolean;
+  snippets: import("../../features/snippets/domain/snippets").Snippet[];
   applicationProfiles: ApplicationProfile[];
   pretranscriptionEnabled: boolean;
   dictationMode: DictationMode;
@@ -337,6 +339,7 @@ export interface Workspace {
   commands: CommandsPort;
   service: ServicePort;
   files: import("../../features/files/domain/files").FilesPort;
+  snippetTransfer: import("../../features/snippets/domain/snippets").SnippetTransferPort;
   report: DiagnosticReportPort;
   feedback: import("../../features/feedback/domain/channel").FeedbackChannelPort;
   updates: UpdatesPort;

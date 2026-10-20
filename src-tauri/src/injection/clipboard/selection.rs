@@ -161,7 +161,7 @@ fn copy_owner_matches(owner: HWND, target: &TextTarget) -> bool {
             || unsafe { IsChild(HWND(target.window as *mut _), owner) }.as_bool())
 }
 
-fn read_unicode() -> AppResult<String> {
+pub(super) fn read_unicode() -> AppResult<String> {
     let handle = unsafe { GetClipboardData(13) }
         .map_err(|_| failure("Приложение не передало выделенный текст в буфер."))?;
     let handle = HGLOBAL(handle.0);

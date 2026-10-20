@@ -26,6 +26,7 @@ import OverlayFields from "./OverlayFields.vue";
 import PrivacyFields from "./PrivacyFields.vue";
 import DiagnosticsPanel from "./DiagnosticsPanel.vue";
 import DictionaryFields from "./DictionaryFields.vue";
+import SnippetFields from "../../snippets/presentation/SnippetFields.vue";
 import ApplicationProfiles from "./ApplicationProfiles.vue";
 import { UpdatesPanel } from "../../updates";
 import CudaPackagePanel from "../../cuda-packages/presentation/CudaPackagePanel.vue";
@@ -158,7 +159,7 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
             v-model="draft" /><PretranscriptionField /><CudaPackagePanel
             v-if="whisperSelected"
             :unsaved="dirty" /><DictionaryFields
-            v-model="draft" /><ModelManager
+            v-model="draft" /><SnippetFields v-model="draft" /><ModelManager
         /></template>
         <ActivationFields
           v-else-if="section === 'activation'"

@@ -1,3 +1,4 @@
+import { validateSnippets } from "../../snippets/domain/snippets";
 import type {
   Preferences,
   Section,
@@ -14,6 +15,8 @@ import {
 } from "./processingPrompts";
 export const defaults: Preferences = {
   applicationProfiles: [],
+  snippetsEnabled: false,
+  snippets: [],
   pretranscriptionEnabled: false,
   dictationMode: "standard",
   microphone: "system",
@@ -82,6 +85,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "whisperThreads",
     "gpuModelResidency",
     "dictionaryEntries",
+    "snippets",
     "dictionaryLlmEnabled",
   ],
   activation: [
@@ -211,6 +215,8 @@ export function validatePreferences(p: Preferences): string | null {
     return "Выберите режим хранения модели в видеопамяти.";
   if (typeof p.overlayQuickProcessing !== "boolean")
     return "Выберите, показывать ли быстрые настройки обработки.";
+  const snippetError = validateSnippets(p.snippets);
+  if (snippetError) return snippetError;
   const dictionaryError = validateDictionary(p.dictionaryEntries);
   if (dictionaryError) return dictionaryError;
   if (!["hold", "toggle"].includes(p.hotkeyMode))

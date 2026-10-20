@@ -46,6 +46,8 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::files::choose_transcription_files,
         crate::ipc::files::submit_transcription_files,
         crate::ipc::files::export_transcription_file,
+        crate::ipc::snippets::import_snippets,
+        crate::ipc::snippets::export_snippets,
         crate::ipc::text::copy_dictation_text,
         crate::ipc::text::reinsert_dictation,
         crate::ipc::voice::get_pending_command_proposal,

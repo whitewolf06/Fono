@@ -65,6 +65,8 @@ export function preferencesFromNative(
         ? s.whisper_threads!
         : null,
     gpuModelResidency: availableGpuModelResidency(s.gpu_model_residency),
+    snippetsEnabled: s.snippets_enabled ?? false,
+    snippets: (s.snippets ?? []).map((entry) => ({ ...entry })),
     dictionaryEnabled: s.personal_dictionary_enabled ?? false,
     dictionaryLlmEnabled: s.personal_dictionary_llm_enabled ?? false,
     dictionaryEntries: (s.personal_dictionary_entries ?? []).map((entry) => ({
@@ -176,6 +178,7 @@ export function applyPreferences(
     whisperDecoding: "whisper_decoding",
     whisperThreads: "whisper_threads",
     gpuModelResidency: "gpu_model_residency",
+    snippetsEnabled: "snippets_enabled",
     dictionaryEnabled: "personal_dictionary_enabled",
     dictionaryLlmEnabled: "personal_dictionary_llm_enabled",
     wakeEnabled: "wake_word_enabled",
@@ -201,6 +204,8 @@ export function applyPreferences(
   next.wake_word_enabled = availableWakeEnabled(next.wake_word_enabled);
   if (has("microphone"))
     next.audio_device_id = p.microphone === "system" ? null : p.microphone;
+  if (has("snippets"))
+    next.snippets = p.snippets.map((entry) => ({ ...entry }));
   if (has("dictionaryEntries"))
     next.personal_dictionary_entries = p.dictionaryEntries.map((entry) => ({
       written: entry.written,

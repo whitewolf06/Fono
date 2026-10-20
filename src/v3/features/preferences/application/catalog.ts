@@ -223,6 +223,13 @@ searchIndex.push({
   keywords: "exe code telegram terminal стиль перевод язык вставка профиль",
 });
 searchIndex.push({
+  label: "Голосовые сниппеты",
+  section: "audio",
+  field: "snippets",
+  keywords:
+    "сниппет макрос подпись шаблон json импорт экспорт date time clipboard",
+});
+searchIndex.push({
   label: "Распознавать фразы во время записи",
   section: "audio",
   field: "pretranscriptionEnabled",

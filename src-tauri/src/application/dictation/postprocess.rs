@@ -16,6 +16,19 @@ pub(super) async fn selected(
     language: Option<super::workflow::TranslationLanguage>,
     enabled: bool,
 ) -> crate::error::AppResult<Option<String>> {
+    if let Some(snippet) =
+        crate::application::snippets::matching(&session.settings, &transcript.text)
+    {
+        let result = crate::application::snippets::expand_native(
+            snippet.clone(),
+            session.cancellation.clone(),
+        )
+        .await;
+        if !session.active("snippet expansion returned") || session.cancellation.is_cancelled() {
+            return Ok(None);
+        }
+        return result.map(Some);
+    }
     if !enabled {
         return Ok(Some(transcript.text.clone()));
     }

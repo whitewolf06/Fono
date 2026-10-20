@@ -34,6 +34,10 @@ pub struct Settings {
     pub personal_dictionary_llm_enabled: bool,
     #[serde(default)]
     pub personal_dictionary_entries: Vec<PersonalDictionaryEntry>,
+    #[serde(default)]
+    pub snippets_enabled: bool,
+    #[serde(default)]
+    pub snippets: Vec<crate::application::snippets::Snippet>,
     /// Automatic network checks are optional; explicit checks remain available.
     #[serde(default)]
     pub update_checks_enabled: bool,
@@ -182,6 +186,8 @@ impl Default for Settings {
             personal_dictionary_enabled: false,
             personal_dictionary_llm_enabled: false,
             personal_dictionary_entries: Vec::new(),
+            snippets_enabled: false,
+            snippets: Vec::new(),
             update_checks_enabled: false,
             hotkey: default_hotkey(),
             hotkey_mode: HotkeyMode::Hold,

@@ -438,6 +438,7 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
     .map_err(AppError::Config)?;
     settings.processing_prompts.validate()?;
     crate::application::personal_dictionary::validate(&settings.personal_dictionary_entries)?;
+    crate::application::snippets::validate(&settings.snippets)?;
     crate::overlay::validate_appearance(settings.overlay_scale, settings.overlay_opacity)?;
     crate::application::hotkeys::validation::validate(settings)?;
     if !settings.wake_word_threshold.is_finite()

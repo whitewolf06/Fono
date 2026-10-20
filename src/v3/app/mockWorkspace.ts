@@ -1,3 +1,4 @@
+import { createBrowserSnippetTransfer } from "../features/snippets/infrastructure/browserSnippets";
 import { createMockFiles } from "../features/files/infrastructure/mockFiles";
 import { reactive } from "vue";
 import { openProjectSite } from "../shared/infrastructure/browser";
@@ -213,6 +214,7 @@ export function createMockWorkspace(): Workspace {
     commands: createCommandsPort(state),
     service: createServicePort(state),
     files: createMockFiles(state),
+    snippetTransfer: createBrowserSnippetTransfer(),
     history: {
       async setIncluded(id, included) {
         const entry = state.history.find((item) => item.id === id);

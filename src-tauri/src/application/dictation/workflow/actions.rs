@@ -123,14 +123,18 @@ async fn execute(
         }
         PendingAction::Cancel => unreachable!(),
     };
-    let final_text = if action == PendingAction::Complete && choice.result_text.is_some() {
-        final_text
-    } else {
-        crate::application::personal_dictionary::canonicalize_dictation(
-            &session.settings,
-            &final_text,
-        )
-    };
+    let used_snippet = action != PendingAction::InsertRaw
+        && crate::application::snippets::matching(&session.settings, &data.transcript.text)
+            .is_some();
+    let final_text =
+        if used_snippet || (action == PendingAction::Complete && choice.result_text.is_some()) {
+            final_text
+        } else {
+            crate::application::personal_dictionary::canonicalize_dictation(
+                &session.settings,
+                &final_text,
+            )
+        };
     if !session.active("pending before insertion") {
         return Ok(session.interrupted());
     }
@@ -228,6 +232,9 @@ async fn execute(
                     } else {
                         AiMode::Clean
                     };
+                }
+                if used_snippet {
+                    settings = crate::application::snippets::archive_settings(&settings);
                 }
                 dictation_result::archive_session(
                     app,

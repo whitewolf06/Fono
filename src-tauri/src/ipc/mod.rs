@@ -15,6 +15,7 @@ pub mod project;
 pub mod selection;
 pub mod service;
 pub mod settings;
+pub mod snippets;
 pub mod system;
 pub mod text;
 pub mod trainer;

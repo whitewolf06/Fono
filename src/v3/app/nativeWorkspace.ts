@@ -1,3 +1,4 @@
+import { createNativeSnippetTransfer } from "../features/snippets/infrastructure/nativeSnippets";
 import { createNativeFiles } from "../features/files/infrastructure/nativeFiles";
 import { reactive } from "vue";
 import type { Workspace, WorkspaceState } from "../shared/domain/contracts";
@@ -291,6 +292,7 @@ export function createNativeWorkspace(): Workspace {
     trainer,
     commands: nativeCommands(ctx),
     files: createNativeFiles(call, ctx.readService),
+    snippetTransfer: createNativeSnippetTransfer(call),
     service: {
       async cancel(id) {
         await call("cancel_local_transcription_job", { id });

@@ -132,6 +132,8 @@ export interface Settings {
   language: string;
   /** Optional local final-text replacements, never applied to raw transcripts. */
   personal_dictionary_enabled: boolean;
+  snippets_enabled?: boolean;
+  snippets?: import("../../../features/snippets/domain/snippets").Snippet[];
   personal_dictionary_llm_enabled?: boolean;
   personal_dictionary_entries: { written: string; spoken: string[] }[];
   update_checks_enabled: boolean;
@@ -372,6 +374,8 @@ export const DEFAULT_SETTINGS: Settings = {
   whisper_model_path: null,
   language: "auto",
   personal_dictionary_enabled: false,
+  snippets_enabled: false,
+  snippets: [],
   personal_dictionary_entries: [],
   update_checks_enabled: false,
   hotkey: "Ctrl+Space",

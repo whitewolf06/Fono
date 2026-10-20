@@ -172,7 +172,10 @@ async fn stop_once(
     {
         return Ok(session.interrupted());
     }
-    if !copy_only
+    let is_snippet =
+        crate::application::snippets::matching(&session.settings, &transcript.text).is_some();
+    if !is_snippet
+        && !copy_only
         && session.source != OperationSource::Hotkey
         && super::workflow::should_defer(&session.settings)
     {
@@ -219,15 +222,19 @@ async fn stop_once(
     let Some(final_text) = processed else {
         return Ok(session.interrupted());
     };
-    if session.settings.ai_mode == crate::types::AiMode::Off {
+    if is_snippet || session.settings.ai_mode == crate::types::AiMode::Off {
         diagnostic.postprocessor_skipped();
     } else {
         diagnostic.postprocessor_succeeded(final_text != transcript.text);
     }
-    let final_text = crate::application::personal_dictionary::canonicalize_dictation(
-        &session.settings,
-        &final_text,
-    );
+    let final_text = if is_snippet {
+        final_text
+    } else {
+        crate::application::personal_dictionary::canonicalize_dictation(
+            &session.settings,
+            &final_text,
+        )
+    };
     let history_timings = report.history_timings();
     if !session.active("before injection") {
         return Ok(session.interrupted());
@@ -294,7 +301,11 @@ async fn stop_once(
             ..transcript
         }));
     }
-    let archive_settings = session.settings.clone();
+    let archive_settings = if is_snippet {
+        crate::application::snippets::archive_settings(&session.settings)
+    } else {
+        session.settings.clone()
+    };
     let archive_transcript = transcript.clone();
     let archive_text = final_text.clone();
     if dictation_result::commit_for_operation(app.clone(), operation, receipt, move |app| {

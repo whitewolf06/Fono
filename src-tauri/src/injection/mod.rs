@@ -40,6 +40,20 @@ pub fn copy_text(text: &str) -> AppResult<()> {
     clipboard::copy(text)
 }
 
+#[cfg(windows)]
+pub(crate) fn read_snippet_clipboard(
+    cancel: fono_core::OperationCancellation,
+) -> AppResult<String> {
+    clipboard::read_snippet(cancel)
+}
+
+#[cfg(not(windows))]
+pub(crate) fn read_snippet_clipboard(_: fono_core::OperationCancellation) -> AppResult<String> {
+    Err(AppError::Config(
+        "Буфер обмена сниппета доступен в Windows.".into(),
+    ))
+}
+
 #[cfg(not(windows))]
 pub fn copy_text(_text: &str) -> AppResult<()> {
     Err(AppError::Config(

@@ -58,6 +58,11 @@ type InputGuard = (
 type Guard = Option<InputGuard>;
 
 enum Command {
+    ReadSnippet {
+        cancel: OperationCancellation,
+        lease: ActivityLease<'static>,
+        reply: Sender<AppResult<String>>,
+    },
     Selection {
         target: TextTarget,
         start: u32,
@@ -125,6 +130,21 @@ pub(super) fn copy(text: &str) -> AppResult<()> {
     result
         .recv()
         .map_err(|_| failure("clipboard owner disconnected"))?
+}
+
+/// Explicit {clipboard} variable only. Reads the original clipboard on its
+/// existing owner thread, without Ctrl+C or modifying any external field.
+pub(super) fn read_snippet(cancel: OperationCancellation) -> AppResult<String> {
+    let lease = activity::lease()?;
+    let (reply, result) = bounded(1);
+    worker()?.post(Command::ReadSnippet {
+        cancel,
+        lease,
+        reply,
+    })?;
+    result
+        .recv()
+        .map_err(|_| failure("Не удалось прочитать буфер обмена для сниппета."))?
 }
 
 pub(super) fn selection_text(
@@ -269,6 +289,35 @@ impl Owner {
             }
             while let Ok(command) = rx.try_recv() {
                 match command {
+                    Command::ReadSnippet {
+                        cancel,
+                        lease,
+                        reply,
+                    } => {
+                        let _lease = lease;
+                        let result = (|| {
+                            if shutting_down || cancel.is_cancelled() {
+                                return Err(AppError::Cancelled(
+                                    "Чтение сниппета отменено.".into(),
+                                ));
+                            }
+                            self.restore();
+                            if self.pending.is_some() {
+                                return Err(failure(
+                                    "Буфер ещё восстанавливается. Повторите сниппет.",
+                                ));
+                            }
+                            let _opened = Opened::new(self.window)?;
+                            let text = selection::read_unicode().map_err(|_| failure("В буфере нет доступного текста до 32 тысяч символов. Повторите сниппет."))?;
+                            if cancel.is_cancelled() {
+                                return Err(AppError::Cancelled(
+                                    "Чтение сниппета отменено.".into(),
+                                ));
+                            }
+                            Ok(text)
+                        })();
+                        let _ = reply.send(result);
+                    }
                     Command::Selection {
                         target,
                         start,
