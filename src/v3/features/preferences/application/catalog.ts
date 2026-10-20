@@ -21,7 +21,7 @@ export const sections: {
   },
   {
     id: "activation",
-    title: "Голосовая активация",
+    title: "Кнопки и активация",
     icon: "lightning",
     description: "Начало диктовки без лишних действий.",
   },
@@ -85,7 +85,8 @@ export const searchIndex: {
     label: "Горячая клавиша",
     section: "activation",
     field: "hotkey",
-    keywords: "hotkey shortcut ctrl space сочетание",
+    keywords:
+      "hotkey shortcut ctrl space сочетание кнопка мышь педаль usb capslock alt триггер",
   },
   {
     label: "Режим горячей клавиши",

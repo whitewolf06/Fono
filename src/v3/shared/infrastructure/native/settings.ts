@@ -7,11 +7,22 @@ import { ensureWakeAvailable } from "../../domain/wakeAvailability";
 import { modelId } from "../../domain/speechModels";
 import { nativeProcessing } from "../../../features/preferences/infrastructure/nativeProcessing";
 import { captureSettingsLocked } from "../../domain/pretranscription";
+import { triggerConflict } from "../../domain/triggers";
 export function nativeSettings(ctx: NativeContext): SettingsPort {
   const { state } = ctx;
   return {
     ...nativeProcessing(),
     async save(patch) {
+      if (state.triggerCaptureActive)
+        throw new Error("Сначала завершите выбор кнопки.");
+      if (
+        ["dictationTrigger", "hotkey", "hotkeyMode", "commandHotkey"].some(
+          (key) => key in patch,
+        )
+      ) {
+        const conflict = triggerConflict({ ...state.preferences, ...patch });
+        if (conflict) throw new Error(conflict);
+      }
       if (patch.wakeEnabled) ensureWakeAvailable();
       if (
         [
@@ -21,6 +32,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
           "whisperDecoding",
           "whisperThreads",
           "hotkey",
+          "dictationTrigger",
           "hotkeyMode",
           "commandHotkey",
           "processingTrigger",

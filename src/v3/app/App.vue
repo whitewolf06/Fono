@@ -41,7 +41,10 @@ onMounted(() => {
     },
   );
   releaseShortcut = bindShortcut(
-    () => workspace.state.preferences.hotkey,
+    () =>
+      workspace.state.preferences.dictationTrigger === "shortcut"
+        ? workspace.state.preferences.hotkey
+        : "",
     () => {
       if (ui.state.quick || ui.state.confirmation) return;
       if (

@@ -13,7 +13,7 @@ let server,
   rawDefaults,
   defaults;
 let calls, invoke, callbacks, listeners;
-test("native preference saves preserve the selected hook trigger until its UI is added", () => {
+test("native preference mapping exposes, saves and preserves every selected trigger", () => {
   for (const trigger of [
     "shortcut",
     "right_alt",
@@ -23,6 +23,15 @@ test("native preference saves preserve the selected hook trigger until its UI is
     "x_button2",
   ]) {
     const raw = { ...rawDefaults, dictation_trigger: trigger };
+    assert.equal(
+      mapping.preferencesFromNative(raw, []).dictationTrigger,
+      trigger,
+    );
+    assert.equal(
+      mapping.applyPreferences(rawDefaults, { dictationTrigger: trigger }, [])
+        .dictation_trigger,
+      trigger,
+    );
     const saved = mapping.applyPreferences(
       raw,
       { hotkeyMode: "toggle", verboseLogging: true },
@@ -33,6 +42,20 @@ test("native preference saves preserve the selected hook trigger until its UI is
     assert.equal(raw.hotkey_mode, rawDefaults.hotkey_mode);
   }
 });
+test("unrelated native saves do not impose the trigger editor syntax on legacy shortcuts", async () => {
+  const state = {
+    preferences: { ...defaults, hotkey: "Control+Space" },
+    phase: "idle",
+  };
+  const saved = [];
+  const port = nativeSettings({
+    state,
+    save: async (patch) => saved.push(patch),
+  });
+  await port.save({ verboseLogging: true });
+  assert.deepEqual(saved, [{ verboseLogging: true }]);
+});
+
 test("quantized Whisper keeps artifact identity, readable precision and installed selection", () => {
   const models = [
     "small_q5_1",

@@ -132,6 +132,7 @@ function choose(patch: Partial<IndicatorChoice>) {
       :state="indicator"
       :compact="preferences.overlayCompact"
       :hotkey-mode="preferences.hotkeyMode"
+      :dictation-trigger="preferences.dictationTrigger"
       :quick="quick"
       :saving="processingSaving"
       :can-finish="interactive && canFinish"

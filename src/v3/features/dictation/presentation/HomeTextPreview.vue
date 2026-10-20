@@ -9,6 +9,7 @@ import {
 import { RouterLink, onBeforeRouteLeave } from "vue-router";
 import { WlButton, WlTextarea } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
+import { triggerLabel } from "../../../shared/domain/triggers";
 import { useFeedback } from "../../../shared/application/feedback";
 import { useInteraction } from "../../../shared/application/interaction";
 import { protectUnload } from "../../../shared/infrastructure/browser";
@@ -205,7 +206,7 @@ function beginEdit() {
     </template>
     <div v-else class="latest-empty">
       Нажмите «Начать запись» или используйте
-      {{ workspace.state.preferences.hotkey }}.
+      {{ triggerLabel(workspace.state.preferences) }}.
     </div>
     <div
       v-if="!active && live?.pendingText && live.insertionState === 'failed'"

@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
+import { triggerLabel } from "../../../shared/domain/triggers";
 import { useFeedback } from "../../../shared/application/feedback";
 const workspace = useWorkspace();
 const { run } = useFeedback();
@@ -24,8 +25,8 @@ const canResume = computed(
 <template>
   <p v-if="liveMode && !recording && !working" class="live-notice">
     Выберите поле в приложении и нажмите
-    {{ workspace.state.preferences.hotkey }}. Кнопка записи здесь выводит текст
-    в Fono.
+    {{ triggerLabel(workspace.state.preferences) }}. Кнопка записи здесь выводит
+    текст в Fono.
   </p>
   <p
     v-if="live && recording"

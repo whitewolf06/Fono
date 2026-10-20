@@ -16,6 +16,7 @@ pub mod settings;
 pub mod system;
 pub mod text;
 pub mod trainer;
+pub mod trigger_capture;
 pub mod updates;
 pub mod voice;
 #[cfg(feature = "wake-word")]

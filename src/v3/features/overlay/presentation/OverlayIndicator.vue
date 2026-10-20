@@ -25,6 +25,7 @@ const props = withDefaults(
     canFinish?: boolean;
     canRetry?: boolean;
     hotkeyMode?: "hold" | "toggle";
+    dictationTrigger?: string;
   }>(),
   { quick: true, saving: false, canFinish: true },
 );
@@ -188,7 +189,11 @@ watch(recording, (value) => {
     </div>
     <DictationNotice v-if="notice" :notice="notice" :show-title="false" />
     <div v-if="panel" :id="panelId" class="overlay-indicator-panel">
-      <OverlayIndicatorHelp v-if="panel === 'help'" :hotkey-mode="hotkeyMode" />
+      <OverlayIndicatorHelp
+        v-if="panel === 'help'"
+        :hotkey-mode="hotkeyMode"
+        :dictation-trigger="dictationTrigger"
+      />
       <template v-else-if="panel === 'processing'">
         <strong>Стиль постобработки</strong>
         <div

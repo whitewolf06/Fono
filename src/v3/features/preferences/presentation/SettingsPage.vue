@@ -178,11 +178,14 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
               ? "Есть несохранённые изменения"
               : "Выключатели применяются сразу"
           }}</small
-          ><WlButton :disabled="!dirty || busy" size="sm" @click="reset"
+          ><WlButton
+            :disabled="!dirty || busy || workspace.state.triggerCaptureActive"
+            size="sm"
+            @click="reset"
             >Отмена</WlButton
           ><WlButton
             variant="primary"
-            :disabled="!dirty"
+            :disabled="!dirty || workspace.state.triggerCaptureActive"
             :loading="busy"
             size="sm"
             @click="run(save, 'Настройки сохранены')"

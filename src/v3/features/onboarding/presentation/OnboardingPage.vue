@@ -25,6 +25,7 @@ const fields: (keyof Preferences)[][] = [
   ["model", "language", "acceleration"],
   [
     "hotkey",
+    "dictationTrigger",
     "hotkeyMode",
     "commandHotkey",
     "dictationMode",

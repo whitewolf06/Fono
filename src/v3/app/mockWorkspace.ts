@@ -15,6 +15,7 @@ import type {
 import { defaults } from "../features/preferences/domain/preferences";
 import { clonePreferences } from "../features/preferences/domain/processingPrompts";
 import { createSettingsPort } from "../features/preferences/infrastructure/mockSettings";
+import { createTriggerCapture } from "../shared/infrastructure/triggerCapture";
 import { createMockWake } from "../features/preferences/infrastructure/mockWake";
 import {
   createDictationPort,
@@ -192,6 +193,7 @@ export function createMockWorkspace(): Workspace {
     wake,
     dictation,
     settings: createSettingsPort(state),
+    triggerCapture: createTriggerCapture(state),
     commands: createCommandsPort(state),
     service: createServicePort(state),
     history: {

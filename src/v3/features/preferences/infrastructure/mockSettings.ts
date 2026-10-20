@@ -25,9 +25,15 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
   async function save(patch: Partial<WorkspaceState["preferences"]>) {
     if (patch.wakeEnabled) ensureWakeAvailable();
     const guardCapture = () => {
+      if (state.triggerCaptureActive)
+        throw new Error("Сначала завершите выбор кнопки.");
       if (
         [
           "dictationMode",
+          "dictationTrigger",
+          "hotkey",
+          "hotkeyMode",
+          "commandHotkey",
           "pretranscriptionEnabled",
           "model",
           "language",

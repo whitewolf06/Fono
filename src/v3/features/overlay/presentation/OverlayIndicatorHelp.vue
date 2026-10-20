@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
-withDefaults(defineProps<{ hotkeyMode?: "hold" | "toggle" }>(), {
-  hotkeyMode: "toggle",
-});
+withDefaults(
+  defineProps<{ hotkeyMode?: "hold" | "toggle"; dictationTrigger?: string }>(),
+  {
+    hotkeyMode: "toggle",
+  },
+);
 </script>
 <template>
   <p>
@@ -27,8 +30,12 @@ withDefaults(defineProps<{ hotkeyMode?: "hold" | "toggle" }>(), {
     <AppIcon name="keyboard" :size="15" /><span
       ><strong>{{
         hotkeyMode === "hold"
-          ? "Отпустить сочетание клавиш"
-          : "Повторное сочетание клавиш"
+          ? "Отпустить кнопку диктовки"
+          : ["right_alt", "right_ctrl", "caps_lock"].includes(
+                dictationTrigger || "",
+              )
+            ? "Повторное двойное нажатие"
+            : "Повторное нажатие кнопки диктовки"
       }}</strong>
       — завершить запись и вставить текст в исходное поле и закрыть
       индикатор.</span

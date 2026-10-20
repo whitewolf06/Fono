@@ -4,6 +4,7 @@ import FonoWordmark from "../../../shared/FonoWordmark.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
+import { triggerLabel } from "../../../shared/domain/triggers";
 import VoiceTools from "./VoiceTools.vue";
 import HomeServices from "./HomeServices.vue";
 import RecordControl from "./RecordControl.vue";
@@ -24,14 +25,20 @@ const ui = useInteraction();
         <WlButton
           size="sm"
           variant="soft"
-          :aria-label="'Изменить горячую клавишу ' + state.preferences.hotkey"
+          :aria-label="
+            'Изменить кнопку диктовки ' + triggerLabel(state.preferences)
+          "
           @click="ui.openQuick('hotkey')"
-          >{{ state.preferences.hotkey
+          >{{ triggerLabel(state.preferences)
           }}<template #icon
             ><AppIcon name="edit" :size="12" /></template></WlButton
         ><small class="hero-hint">{{
           state.preferences.hotkeyMode === "toggle"
-            ? "нажмите для начала · ещё раз для завершения"
+            ? ["right_alt", "right_ctrl", "caps_lock"].includes(
+                state.preferences.dictationTrigger,
+              )
+              ? "дважды нажмите для начала · повторите для завершения"
+              : "нажмите для начала · ещё раз для завершения"
             : "удерживайте во время речи"
         }}</small>
       </div>

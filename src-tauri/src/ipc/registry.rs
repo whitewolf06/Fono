@@ -78,6 +78,8 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::settings::get_stt_readiness,
         crate::ipc::settings::get_stt_health,
         crate::ipc::settings::save_settings,
+        crate::ipc::trigger_capture::begin_trigger_capture,
+        crate::ipc::trigger_capture::end_trigger_capture,
         // overlay
         crate::ipc::settings::save_overlay_position,
         crate::overlay::get_overlay_preview,

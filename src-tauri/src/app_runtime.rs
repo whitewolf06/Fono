@@ -36,6 +36,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(ipc::desktop_v3::DesktopSession::default());
     app.manage(crate::cli::Runtime::default());
     app.manage(crate::application::hotkeys::HookRuntime::default());
+    app.manage(crate::application::hotkeys::capture::Runtime::default());
     app.manage(crate::application::service_control::ServiceControl::default());
     #[cfg(feature = "wake-word")]
     app.manage(crate::application::wake_calibration::WakeCalibrationService::default());
@@ -131,6 +132,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
 }
 
 pub(crate) fn shutdown(app: &tauri::AppHandle) {
+    if let Some(capture) = app.try_state::<crate::application::hotkeys::capture::Runtime>() {
+        capture.close();
+    }
     tracing::info!("Fono shutdown requested");
     if let Some(cli) = app.try_state::<crate::cli::Runtime>() {
         cli.shutdown();

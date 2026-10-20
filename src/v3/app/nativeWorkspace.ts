@@ -3,6 +3,7 @@ import type { Workspace, WorkspaceState } from "../shared/domain/contracts";
 import { defaults } from "../features/preferences/domain/preferences";
 import { createNativeContext } from "../shared/infrastructure/native/context";
 import { nativeSettings } from "../shared/infrastructure/native/settings";
+import { createTriggerCapture } from "../shared/infrastructure/triggerCapture";
 import {
   nativeDictation,
   type NativeResult,
@@ -252,6 +253,10 @@ export function createNativeWorkspace(): Workspace {
     refresh,
     wake,
     settings: nativeSettings(ctx),
+    triggerCapture: createTriggerCapture(state, {
+      begin: () => call<string>("begin_trigger_capture"),
+      end: (id) => call<void>("end_trigger_capture", { id }),
+    }),
     dictation: dictation.port,
     history: {
       async setIncluded(id, included) {

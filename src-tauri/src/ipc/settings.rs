@@ -163,10 +163,11 @@ fn save_settings_blocking(
         if let Err(error) =
             crate::application::hotkeys::register_all_shortcuts(app, &persisted_settings)
         {
+            tracing::warn!(%error, "trigger registration rejected");
             let rollback = restore_shortcuts(app, &old_settings);
             let _ = restore_profile_secrets(&previous_secrets);
             return Err(AppError::Config(format!(
-                "Не удалось зарегистрировать горячие клавиши: {error}. {rollback}"
+                "Не удалось включить новые триггеры. Сочетание может быть занято в Windows. {rollback}"
             )));
         }
     }
@@ -434,19 +435,7 @@ fn validate_settings(settings: &Settings) -> AppResult<()> {
     settings.processing_prompts.validate()?;
     crate::application::personal_dictionary::validate(&settings.personal_dictionary_entries)?;
     crate::overlay::validate_appearance(settings.overlay_scale, settings.overlay_opacity)?;
-    if settings.hotkey.trim().is_empty() || settings.command_hotkey.trim().is_empty() {
-        return Err(AppError::Config(
-            "Горячие клавиши не могут быть пустыми".into(),
-        ));
-    }
-    if settings
-        .hotkey
-        .eq_ignore_ascii_case(&settings.command_hotkey)
-    {
-        return Err(AppError::Config(
-            "Горячие клавиши диктовки и команд должны отличаться".into(),
-        ));
-    }
+    crate::application::hotkeys::validation::validate(settings)?;
     if !settings.wake_word_threshold.is_finite()
         || !settings.wake_word_sensitivity.is_finite()
         || !settings.wake_word_vad_threshold.is_finite()
@@ -527,7 +516,7 @@ fn restore_shortcuts(app: &AppHandle, settings: &Settings) -> String {
         Ok(()) => "Старые значения восстановлены.".to_string(),
         Err(error) => {
             tracing::error!("failed to restore previous shortcuts: {error}");
-            format!("Не удалось восстановить старые горячие клавиши: {error}")
+            "Не удалось восстановить старые горячие клавиши. Сохраните настройки заново или перезапустите Fono.".into()
         }
     }
 }

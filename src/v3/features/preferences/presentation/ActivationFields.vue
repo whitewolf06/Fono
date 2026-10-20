@@ -4,6 +4,7 @@ import { WlField, WlInput, WlSlider } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import type { Preferences } from "../../../shared/domain/contracts";
 import PreferenceToggle from "./PreferenceToggle.vue";
+import TriggerFields from "./TriggerFields.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 import {
@@ -67,43 +68,15 @@ const phraseOptions = computed(() => {
         ]"
         hint="Живая диктовка работает без ИИ. Паузы разделяют фразы, запись завершается явно."
       />
-      <WlField
-        v-slot="field"
-        id="hotkey"
-        label="Горячая клавиша"
-        :hint="
-          draft.hotkeyMode === 'toggle'
-            ? 'Нажмите, чтобы начать в выбранном поле. Нажмите снова, чтобы завершить.'
-            : 'Удерживайте сочетание во время речи. Отпустите для распознавания.'
-        "
-      >
-        <WlInput v-bind="field" v-model="draft.hotkey" />
-      </WlField>
-      <SelectField
-        id="hotkeyMode"
-        v-model="draft.hotkeyMode"
-        label="Как работает горячая клавиша"
-        :disabled="active"
-        :options="[
-          { value: 'hold', label: 'Удерживать · отпустить для завершения' },
-          { value: 'toggle', label: 'Нажать · повторное нажатие завершает' },
-        ]"
-        hint="В обоих вариантах текст появляется после завершения записи. Голосовая команда записывается удержанием своей клавиши."
-      />
     </template>
-    <WlField
-      v-if="!scope || scope === 'command-hotkey'"
-      v-slot="field"
-      id="commandHotkey"
-      label="Горячая клавиша команд"
-      :hint="
-        workspace.native
-          ? 'Удерживайте для записи голосовой команды.'
-          : 'В демо открывает проверку фразы.'
+    <TriggerFields
+      v-if="scope !== 'wake'"
+      v-model="draft"
+      :scope="
+        scope === 'hotkey' || scope === 'command-hotkey' ? scope : undefined
       "
-    >
-      <WlInput v-bind="field" v-model="draft.commandHotkey" />
-    </WlField>
+      :active="active"
+    />
     <template
       v-if="wakeCompiled && scope !== 'hotkey' && scope !== 'command-hotkey'"
     >

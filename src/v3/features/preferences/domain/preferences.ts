@@ -6,6 +6,7 @@ import type {
 import { validateWakePhrase } from "./wakePhrase";
 import { message } from "../../../shared/domain/messages";
 import { validateDictionary } from "../../../shared/domain/personalDictionary";
+import { triggerConflict } from "../../../shared/domain/triggers";
 import {
   emptyProcessingPrompts,
   validateProcessingPrompts,
@@ -27,6 +28,7 @@ export const defaults: Preferences = {
   wakeLanguage: "ru",
   silenceMs: 1600,
   hotkey: "Ctrl + Space",
+  dictationTrigger: "shortcut",
   hotkeyMode: "hold",
   commandHotkey: "Ctrl + Shift + Space",
   wakeThreshold: 0.55,
@@ -80,6 +82,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "wakeLanguage",
     "silenceMs",
     "hotkey",
+    "dictationTrigger",
     "hotkeyMode",
     "commandHotkey",
     "wakeThreshold",
@@ -141,7 +144,13 @@ export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
     "profile",
     "processingModel",
   ],
-  hotkey: ["hotkey", "hotkeyMode", "dictationMode"],
+  hotkey: [
+    "hotkey",
+    "dictationTrigger",
+    "hotkeyMode",
+    "dictationMode",
+    "commandHotkey",
+  ],
   "command-hotkey": ["commandHotkey"],
 };
 export const quickSections: Record<QuickPanel, Section> = {
@@ -200,20 +209,8 @@ export function validatePreferences(p: Preferences): string | null {
   if (promptsError) return promptsError;
   if (!["none", "en", "ru", "de", "fr", "es"].includes(p.processingTranslation))
     return "Выберите язык перевода.";
-  if (
-    !/^(Ctrl|Alt|Shift)(\s\+\s(Ctrl|Alt|Shift))*\s\+\s([A-Z0-9]|Space|F[1-9]|F1[0-2])$/.test(
-      p.hotkey,
-    )
-  )
-    return "Укажите сочетание, например Ctrl + Space или Alt + F9.";
-  if (p.hotkey === p.commandHotkey)
-    return "Клавиши диктовки и команд должны отличаться.";
-  if (
-    !/^(Ctrl|Alt|Shift)(\s\+\s(Ctrl|Alt|Shift))*\s\+\s([A-Z0-9]|Space|F[1-9]|F1[0-2])$/.test(
-      p.commandHotkey,
-    )
-  )
-    return "Укажите корректное сочетание для голосовых команд.";
+  const conflict = triggerConflict(p);
+  if (conflict) return conflict;
   const wakeError = validateWakePhrase(p.wakePhrase, p.wakeLanguage);
   if (wakeError) return wakeError;
   if (!["standard", "live"].includes(p.dictationMode))

@@ -16,6 +16,7 @@ import { measuredModel } from "../../domain/sttMeasurements";
 import { availableDictationMode } from "../../domain/dictationMode";
 import { availableWakeEnabled } from "../../domain/wakeAvailability";
 import { availableGpuModelResidency } from "../../domain/gpuMemory";
+import { availableTrigger } from "../../domain/triggers";
 import { historyMetadataFromNative } from "./historyMetadata";
 import {
   modelKey,
@@ -72,6 +73,7 @@ export function preferencesFromNative(
       .map((x) => x.trim())
       .join(" + "),
     hotkeyMode: s.hotkey_mode ?? "hold",
+    dictationTrigger: availableTrigger(s.dictation_trigger),
     commandHotkey: s.command_hotkey
       .split("+")
       .map((x) => x.trim())
@@ -150,6 +152,7 @@ export function applyPreferences(
   const has = (key: keyof Preferences) => key in patch;
   const pairs = {
     pretranscriptionEnabled: "pretranscription_enabled",
+    dictationTrigger: "dictation_trigger",
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",

@@ -70,6 +70,7 @@ export interface Preferences {
   wakeLanguage: "ru" | "en";
   silenceMs: number;
   hotkey: string;
+  dictationTrigger: import("./triggers").DictationTrigger;
   hotkeyMode: "hold" | "toggle";
   commandHotkey: string;
   wakeThreshold: number;
@@ -234,6 +235,7 @@ export interface WorkspaceState {
   jobs: ServiceJob[];
   profiles: ConnectionProfile[];
   phase: Phase;
+  triggerCaptureActive?: boolean;
   dictationOutcome?: DictationOutcomeKind;
   audioLevel: number;
   elapsed: number;
@@ -315,6 +317,7 @@ export interface Workspace {
   refresh?(): Promise<void>;
   state: WorkspaceState;
   settings: SettingsPort;
+  triggerCapture: import("./triggers").TriggerCapturePort;
   dictation: DictationPort;
   history: HistoryPort;
   trainer: TrainerPort;

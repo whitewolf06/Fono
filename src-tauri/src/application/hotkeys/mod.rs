@@ -1,9 +1,11 @@
 //! Native shortcut adapter shared by initial registration and settings updates.
+pub(crate) mod capture;
 #[cfg(any(windows, test))]
 mod gesture;
 #[cfg(windows)]
 mod hooks;
 mod state;
+pub(crate) mod validation;
 
 #[cfg(windows)]
 pub(crate) use hooks::HookRuntime;
@@ -47,6 +49,7 @@ pub(crate) fn register_all_shortcuts(
     app: &AppHandle,
     settings: &Settings,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    validation::validate(settings)?;
     let shortcuts = app.global_shortcut();
     let hooks = app.state::<HookRuntime>();
     hooks.stop();

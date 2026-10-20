@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { before, after, beforeEach, afterEach, test } from "node:test";
 import { createServer } from "vite";
-import { createApp, effectScope, nextTick } from "vue";
+import { createApp, createSSRApp, h, effectScope, nextTick } from "vue";
+import { renderToString } from "@vue/server-renderer";
 let server, createWorkspace, workspace, storage;
 before(async () => {
   storage = new Map();
@@ -30,6 +31,211 @@ afterEach(() => workspace?.dispose());
 after(async () => {
   await server?.close();
   delete globalThis.localStorage;
+});
+
+test("trigger conflicts compare modifier order and keep an inactive shortcut out of the way", async () => {
+  const { triggerConflict } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/triggers.ts",
+  );
+  const p = { ...workspace.state.preferences, hotkey: "Shift + Ctrl + Space" };
+  assert.match(triggerConflict(p), /должны отличаться/);
+  p.dictationTrigger = "right_ctrl";
+  assert.match(triggerConflict(p), /входит в сочетание/);
+  p.commandHotkey = "Alt + F9";
+  assert.equal(triggerConflict(p), null);
+  p.dictationTrigger = "right_alt";
+  assert.match(triggerConflict(p), /входит в сочетание/);
+  p.dictationTrigger = "x_button2";
+  p.hotkey = "unused legacy";
+  assert.equal(triggerConflict(p), null);
+  p.commandHotkey = "Alt + F4";
+  assert.match(triggerConflict(p), /закрывает окно/);
+});
+
+test("trigger changes wait for idle; failed saves keep the previous working selection", async () => {
+  for (const phase of [
+    "listening",
+    "silence",
+    "transcribing",
+    "processing",
+    "awaiting_action",
+  ]) {
+    workspace.state.phase = phase;
+    await assert.rejects(
+      workspace.settings.save({ dictationTrigger: "x_button1" }),
+      /завершите/,
+    );
+    assert.equal(workspace.state.preferences.dictationTrigger, "shortcut");
+  }
+  workspace.state.phase = "idle";
+  await workspace.settings.save({
+    dictationTrigger: "right_alt",
+    hotkeyMode: "toggle",
+  });
+  assert.equal(workspace.state.preferences.dictationTrigger, "right_alt");
+  const saved = storage.get("fono-v3-demo-preferences-v1");
+  workspace.state.scenario = "save-error";
+  await assert.rejects(
+    workspace.settings.save({ dictationTrigger: "x_button2" }),
+    /Не удалось сохранить/,
+  );
+  assert.equal(workspace.state.preferences.dictationTrigger, "right_alt");
+  assert.equal(storage.get("fono-v3-demo-preferences-v1"), saved);
+  workspace.state.scenario = "normal";
+  workspace.state.triggerCaptureActive = true;
+  await assert.rejects(
+    workspace.settings.save({ dictationTrigger: "caps_lock" }),
+    /выбор кнопки/,
+  );
+  workspace.state.triggerCaptureActive = false;
+});
+
+test("focused capture waits for release, uses physical key codes and releases its native session", async () => {
+  const { createTriggerCapture } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/triggerCapture.ts",
+  );
+  const previous = globalThis.window;
+  const listeners = new Map();
+  const calls = [];
+  globalThis.window = {
+    addEventListener: (name, fn) => listeners.set(name, fn),
+    removeEventListener: (name) => listeners.delete(name),
+  };
+  const emit = (name, fields) =>
+    listeners.get(name)?.({
+      type: name,
+      preventDefault() {},
+      stopImmediatePropagation() {},
+      ...fields,
+    });
+  try {
+    const results = [];
+    const port = createTriggerCapture(workspace.state, {
+      begin: async () => "id-1",
+      end: async (id) => calls.push(id),
+    });
+    const session = await port.capture((r) => results.push(r));
+    assert.equal(workspace.state.triggerCaptureActive, true);
+    emit("keydown", { code: "ControlRight", ctrlKey: true });
+    emit("keydown", { code: "KeyA", key: "ф", ctrlKey: true });
+    emit("keydown", { code: "KeyA", repeat: true, ctrlKey: true });
+    assert.equal(results.length, 0);
+    emit("keyup", { code: "KeyA" });
+    await session.cancel(); // Must coalesce with the in-flight restoration.
+    assert.deepEqual(results, [
+      {
+        kind: "captured",
+        candidate: { trigger: "shortcut", hotkey: "Ctrl + A" },
+      },
+    ]);
+    assert.deepEqual(calls, ["id-1"]);
+    assert.equal(workspace.state.triggerCaptureActive, false);
+    assert.equal(listeners.size, 0);
+    assert.equal(storage.size, 0);
+    for (const [name, fields, kind] of [
+      ["keyup", { code: "AltRight" }, "captured"],
+      ["mouseup", { button: 4 }, "captured"],
+      ["blur", {}, "cancelled"],
+      ["keydown", { code: "Escape" }, "cancelled"],
+      ["keydown", { code: "KeyQ", key: "private" }, "error"],
+    ]) {
+      const outcomes = [];
+      const next = await port.capture((r) => outcomes.push(r));
+      if (fields.code === "AltRight") emit("keydown", { code: "AltRight" });
+      if (name === "mouseup") emit("mousedown", fields);
+      emit(name, fields);
+      await next.cancel();
+      assert.equal(outcomes[0].kind, kind);
+      assert.equal(listeners.size, 0);
+      assert.equal(workspace.state.triggerCaptureActive, false);
+    }
+  } finally {
+    globalThis.window = previous;
+  }
+});
+
+test("capture restoration failure cannot accept a new trigger", async () => {
+  const { createTriggerCapture } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/triggerCapture.ts",
+  );
+  const previous = globalThis.window;
+  const listeners = new Map();
+  globalThis.window = {
+    addEventListener: (n, f) => listeners.set(n, f),
+    removeEventListener: (n) => listeners.delete(n),
+  };
+  try {
+    const results = [];
+    const port = createTriggerCapture(workspace.state, {
+      begin: async () => "id",
+      end: async () => {
+        throw new Error("private native detail");
+      },
+    });
+    const session = await port.capture((r) => results.push(r));
+    await assert.rejects(
+      port.capture(() => {}),
+      /завершите/,
+    );
+    listeners.get("mousedown")({
+      type: "mousedown",
+      button: 3,
+      preventDefault() {},
+      stopImmediatePropagation() {},
+    });
+    listeners.get("mouseup")({
+      type: "mouseup",
+      button: 3,
+      preventDefault() {},
+      stopImmediatePropagation() {},
+    });
+    await session.cancel();
+    assert.equal(results[0].kind, "error");
+    assert.ok(!JSON.stringify(results).includes("private"));
+    assert.equal(workspace.state.preferences.dictationTrigger, "shortcut");
+    assert.equal(workspace.state.triggerCaptureActive, false);
+  } finally {
+    globalThis.window = previous;
+  }
+});
+
+test("trigger UI names the actual button and explains double presses, conflicts and browser limits", async () => {
+  const { default: Fields } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/presentation/TriggerFields.vue",
+  );
+  const { workspaceKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/workspace.ts",
+  );
+  for (const trigger of [
+    "shortcut",
+    "right_alt",
+    "right_ctrl",
+    "caps_lock",
+    "x_button1",
+    "x_button2",
+  ]) {
+    const app = createSSRApp({
+      render: () =>
+        h(Fields, {
+          modelValue: {
+            ...workspace.state.preferences,
+            dictationTrigger: trigger,
+            hotkeyMode: "toggle",
+          },
+          active: false,
+        }),
+    });
+    app.provide(workspaceKey, workspace);
+    const html = await renderToString(app);
+    assert.match(html, /Выбрать кнопку нажатием/);
+    assert.match(html, /Педаль и USB-кнопка/);
+    assert.match(html, /В браузере проверяется только форма/);
+    if (["right_alt", "right_ctrl", "caps_lock"].includes(trigger))
+      assert.match(html, /Дважды нажмите кнопку/);
+    if (trigger === "right_ctrl")
+      assert.match(html, /входит в сочетание команд/);
+    if (trigger === "right_alt") assert.match(html, /AltGr/);
+  }
 });
 
 test("last result survives disabled and cleared history; raw archive requires consent", async () => {
