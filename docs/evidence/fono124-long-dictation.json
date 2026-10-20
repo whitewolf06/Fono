@@ -1,0 +1,3655 @@
+{
+  "schema": 1,
+  "task": "FONO-124",
+  "app_version": "0.7.39",
+  "collected_at": "2026-10-20T10:19:42.277Z",
+  "scope": "Bounded public-WAV native core replay, not microphone, desktop end-to-end, release or owner acceptance.",
+  "attempts": {
+    "cpu": 1,
+    "vulkan": 1
+  },
+  "full_plan_accepted": false,
+  "default_enabled": false,
+  "measurement_limits": {
+    "capture_latency": "Recorded times include one extra tail VAD audit and are conservative upper bounds. Final harness moves this audit after the timer; no measurements repeated after that correction.",
+    "memory": "100ms sampled private bytes of the native test process; allocator retention and test/runtime overhead included; GPU worker RAM and VRAM excluded.",
+    "api": "Production STT scheduler service lane, not HTTP end-to-end load.",
+    "corpus": "Four consecutive RU and six consecutive EN whole FLEURS clips, padded to exactly 60 seconds; not natural monologues.",
+    "baseline": "Current ordinary full-batch Stop on identical decoded PCM/model/settings/backend. Historical CI-03 short-clip baseline not changed or re-established."
+  },
+  "collector_corrections": {
+    "final_collector_sha256": "4db03933eefe10fe5fddfbff8830a7b7941e6a79e55580729c2a7e88a9e3a223",
+    "cpu_offline_rescore": {
+      "reason": "Correct strict identity check: decoded PCM16 f32 roundtrip, not raw WAV data. No inference repeated.",
+      "collector_sha256": "3f2b8c6f966f85e61660f67e553b6f7b84f9ebd33534d623e04a40fe531a66d3",
+      "native_raw_sha256": "9d6bd2ac8283db986739fa45c1dc5b6178fcc904d8b996b2dc7deb14d3d3fbc0",
+      "native_process_runs": 1
+    },
+    "decoded_pcm": "Strict expected hash models production Symphonia PCM16 -> f32 -> i16 roundtrip; EN has 61 changed samples by one LSB, both variants share the same decoded samples.",
+    "worker_resolution": "Vulkan used resources/stt-workers; SHA256 verified identical to the recorded stt-base copy."
+  },
+  "gpu_failure": {
+    "language": "en",
+    "phase": "capture prefix join",
+    "kind": "worker_request_timeout",
+    "timeout_seconds": 34,
+    "completed_pairs": 1,
+    "unmeasured": [
+      "EN paired WER/CER/Stop",
+      "GPU cancellation",
+      "real GPU timeout fallback outcome"
+    ]
+  },
+  "rows": [
+    {
+      "backend": "CPU",
+      "language": "ru",
+      "status": "completed_pair",
+      "baseline_errors": {
+        "word_errors": 35,
+        "reference_words": 62,
+        "character_errors": 192,
+        "reference_characters": 453,
+        "wer": 0.5645161290322581,
+        "cer": 0.423841059602649
+      },
+      "capture_errors": {
+        "word_errors": 15,
+        "reference_words": 62,
+        "character_errors": 25,
+        "reference_characters": 453,
+        "wer": 0.24193548387096775,
+        "cer": 0.05518763796909492
+      },
+      "wer_not_worse": true,
+      "batch_stop_ready_seconds": 1.2881651,
+      "capture_stop_ready_upper_seconds": 1.4113196000000001,
+      "processed_seconds": 48.881,
+      "tail_seconds": 11.119,
+      "prefix_ranges": 5,
+      "full_batch_fallback": false,
+      "scheduler_service_wait_seconds": 61.4115551,
+      "batch_driver_max_private_bytes": 785276928,
+      "capture_driver_max_private_bytes": 803155968
+    },
+    {
+      "backend": "CPU",
+      "language": "en",
+      "status": "completed_pair",
+      "baseline_errors": {
+        "word_errors": 89,
+        "reference_words": 124,
+        "character_errors": 472,
+        "reference_characters": 714,
+        "wer": 0.717741935483871,
+        "cer": 0.6610644257703081
+      },
+      "capture_errors": {
+        "word_errors": 20,
+        "reference_words": 124,
+        "character_errors": 44,
+        "reference_characters": 714,
+        "wer": 0.16129032258064516,
+        "cer": 0.06162464985994398
+      },
+      "wer_not_worse": true,
+      "batch_stop_ready_seconds": 3.195539,
+      "capture_stop_ready_upper_seconds": 1.271343,
+      "processed_seconds": 52.657,
+      "tail_seconds": 7.343,
+      "prefix_ranges": 7,
+      "full_batch_fallback": false,
+      "scheduler_service_wait_seconds": 61.2554121,
+      "batch_driver_max_private_bytes": 789925888,
+      "capture_driver_max_private_bytes": 804794368
+    },
+    {
+      "backend": "Vulkan",
+      "language": "ru",
+      "status": "completed_pair",
+      "baseline_errors": {
+        "word_errors": 35,
+        "reference_words": 62,
+        "character_errors": 192,
+        "reference_characters": 453,
+        "wer": 0.5645161290322581,
+        "cer": 0.423841059602649
+      },
+      "capture_errors": {
+        "word_errors": 15,
+        "reference_words": 62,
+        "character_errors": 24,
+        "reference_characters": 453,
+        "wer": 0.24193548387096775,
+        "cer": 0.052980132450331126
+      },
+      "wer_not_worse": true,
+      "batch_stop_ready_seconds": 7.6377008,
+      "capture_stop_ready_upper_seconds": 5.5046218,
+      "processed_seconds": 48.881,
+      "tail_seconds": 11.119,
+      "prefix_ranges": 5,
+      "full_batch_fallback": false,
+      "scheduler_service_wait_seconds": 65.4866597,
+      "batch_driver_max_private_bytes": 36880384,
+      "capture_driver_max_private_bytes": 45064192
+    }
+  ],
+  "cpu": {
+    "schema": 1,
+    "lineage": {
+      "run_id": "cf8ccbe0-d07b-46ee-9cf1-baaa8f0b2084",
+      "source_revision": "3efe312ad891af8c1a60dcafe12fc900c150f6ce",
+      "app_version": "0.7.39",
+      "source_inputs_sha256": "f1faeb5353b57b17f8b124387a62e6614c8143470018c2c4378e1babd0ebd838",
+      "source_inputs": [
+        {
+          "path": ".github/workflows/stt-quality.yml",
+          "sha256": "208dc865560982dd6f59439787f9aeac48e9d4af851a40db97237f177a22fa5f"
+        },
+        {
+          "path": "scripts/bootstrap-ci-resources.ps1",
+          "sha256": "ac7db9c9d0b9adee25c7f4713ad5c3fbf66067fbdd86af6b8706bf7415a1f7ed"
+        },
+        {
+          "path": "scripts/long-dictation-quality.mjs",
+          "sha256": "2bb325bc620e59f36322bf12997953711a6117d0edf57cc4d2d006f3be60052d"
+        },
+        {
+          "path": "scripts/native-test-runtime.mjs",
+          "sha256": "5a015cb04fb2d8b93e2e75ab0deda9f3659f3bda90302b7fd48d32f29d3438d3"
+        },
+        {
+          "path": "scripts/prepare-stt-quality-corpus.py",
+          "sha256": "9270c4dbdbbc613965dcc1f1b092576684947983bcb865d8b6ebf2d82a859e54"
+        },
+        {
+          "path": "scripts/stage4-quality.mjs",
+          "sha256": "6194380af83a60de6220ecf32d8577fcb13b2592e8ddc9213c28ce5cc87297fd"
+        },
+        {
+          "path": "scripts/stage5-quality.mjs",
+          "sha256": "904b5f73e2b3185ad3a945ab4f7d6b87422c6eeabfc9e112a77981a6c0b96691"
+        },
+        {
+          "path": "scripts/stt-quality-lineage.mjs",
+          "sha256": "c9eca9c3fec1b08110d9607db67923fe07bf31bf04acd19be923c1a3bd5b373d"
+        },
+        {
+          "path": "scripts/stt-quality.mjs",
+          "sha256": "bdfbf1ddae1f54b5706666cd7a202b896b38ffee3234198ce797629c1e1acccc"
+        },
+        {
+          "path": "src-tauri/.cargo/config.toml",
+          "sha256": "26770295187010df6b1dc90c387fed5865d67552e93f33cf6bd031fc32c2ac34"
+        },
+        {
+          "path": "src-tauri/Cargo.lock",
+          "sha256": "0719c6307d90625d16348f93ffec4e2b8294ba0fe9808923459fb98ee0c5155a"
+        },
+        {
+          "path": "src-tauri/Cargo.toml",
+          "sha256": "a391fefea7fd8236112079ee5de5d7ca4a56062c4032f6955669bbddb33e7787"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/Cargo.toml",
+          "sha256": "4b8a6faee280aa7e60dae21681111c418d4c729c784246018678d12e248d58e0"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/resample-wav.rs",
+          "sha256": "fb8cac0e0d2955108c93143cbcc9fe9b3189a3d86ac885dd4df411f7cbc197e7"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/support/pcm_wav.rs",
+          "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/trim-vad-wav.rs",
+          "sha256": "f1fe521038820dbc4fef2383fe309c266f0816a7daeff63fe6ee11c0e2a74b8b"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/capture.rs",
+          "sha256": "26dbd2c53c629396df09cf25f9e0164c4fa950cbabcb235e9e3d095c0311f1e0"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/convert.rs",
+          "sha256": "3661a3ee659d18d4380829a0413c082efaf68002435fce166ee64a0d72832ae8"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/hub.rs",
+          "sha256": "00a6bf1c31ff0828ccd65219cdbb554e7675adec9a3884ac1b9648e2e19582ae"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/mod.rs",
+          "sha256": "19fe4fe273e27b79bfde0ec5cf38726cc96968fabc473a2a6de33b313534a6ea"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/owner.rs",
+          "sha256": "762fe980227afe5190d2e884ce03ca5d0e2a870b96da357fb9038658d4358aae"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+          "sha256": "6bd3297a94d21d7443fb751ca8110eb59a4622aa9ea39131534054931e99a58c"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/ring.rs",
+          "sha256": "1924d01fe8c0dba849a35861ac83097e36a80fb62c9c4c1e22be5f9810f12f45"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/error.rs",
+          "sha256": "9b357265781170155af2d59cea32da61541bcb99bd3d5a754144dc2236a47c7b"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/lib.rs",
+          "sha256": "e19e7319030d3667783704eabe1bb9e96a638ab929eca7f5da68c714c855ef0d"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_boundaries.rs",
+          "sha256": "27b5c2f87ca2febb30e287e26ba62bee5ca4287c4af14bf6c4cb7e81026f73d7"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_segments.rs",
+          "sha256": "b8a5f6f030599b20f90ed90a3ca5d31ed36b629abeb7af14949b4f716931014c"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_segments/streaming.rs",
+          "sha256": "4799429e35ea54732c0ba49fa340f35b26c5c53b0348626f61b633a32dd57622"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_segments/streaming/tests.rs",
+          "sha256": "0f7bbcf8ec50e0734ba11389a291686355f61c0e930b8f1959d7aeaeef0f587f"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad.rs",
+          "sha256": "06fee6539bb299b2cd9076418ae1c0cb840666aa0a82f566da83b5d58f52ff35"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad/recording.rs",
+          "sha256": "d9f2b8ac3cc64af55e7b727deed4c4aaa4f104d85f3d72af9a271f0d2ad2dbf9"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad/tests.rs",
+          "sha256": "de2e0e4bc102fb789fb29df413bbe27e0f24fb5705867ef858aa41751da434a2"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/tests/resampler_allocations.rs",
+          "sha256": "f2edbd9a60cf04a4ce1925d37ea631d431a7c511e83997e10abb3fd8735b5035"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/Cargo.toml",
+          "sha256": "3360b3c68539171480a64335fbea8887da8b361fb0335d112aa458b6ad600b3c"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/decoding.rs",
+          "sha256": "e1ca0710f586589a05a039d0d6d76b6b4bd8ad3eb2dab2e3c9bb0c9f5286857b"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/inference_options.rs",
+          "sha256": "002eca3a96c0af57c107d1190f68a6798757ef958ba6bdf31c5758bd17e19ba4"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/inference.rs",
+          "sha256": "f11e42adc03af4abebf5053ee4c5d90926efb94b8982859f41ad5f6a5ef45c57"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/lib.rs",
+          "sha256": "d9e5c4b2caded612ce8593647d44a7deb2ff5ec8fc7e9b2453a0d840840e9d7d"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/timestamps.rs",
+          "sha256": "fc2eff125ac6e4904a398399ae511c22df0749f016a21611ed469f172619c80c"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/Cargo.toml",
+          "sha256": "1afc9d6cffb4993b6295f7fd3c68e382e3ccb366d317c28edeb0f14e95740625"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/metrics.rs",
+          "sha256": "b81da8458c5078273c8aa74d7e9cb9935aac6dc0462ecc5aad61ae41163453b7"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/transport.rs",
+          "sha256": "1a40e0639afeb3c3a307bd9cc616bf52ac42f7401a39b4dff8a23cbd393d1c99"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/wav.rs",
+          "sha256": "4c74aa702595a852fcfe7bad5efefa77acffd81fee794509eb983e1b8183b69b"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-bench.rs",
+          "sha256": "a7e9828c7248c9fac32b1495ed1e65b3e640635bc0c7d06fad636e9a7cbfcdfe"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-quality.rs",
+          "sha256": "da23128dce445f6941ec8b2d879e27933f584973626800fd0a8e3f8ebc727029"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/control.rs",
+          "sha256": "fec3f87d5fda50c0a10fbe2d0c847c460a1878b3f85c0e5a3507a1fac5973401"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/framing.rs",
+          "sha256": "bfe724371932139b215994d3588adae4392db87940db5a459a54c6064f50ea29"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/main.rs",
+          "sha256": "5813d1caed93e57c6a900e0dfe6bd6eb55437a81dd9f496615d03c847c3c8a8d"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/runtime.rs",
+          "sha256": "66aa54d4570031a4cc3463b9a63ca60685033ac0c4a7727a2cc09a78a1b5f38d"
+        },
+        {
+          "path": "src-tauri/rust-toolchain.toml",
+          "sha256": "5a357c16adbb4740c3264b315c59c4882c286072146d7198757096197b498c52"
+        },
+        {
+          "path": "src-tauri/src/app_commands/mod.rs",
+          "sha256": "881df87a4203a8135d4f5e61cd7c1abad287f7fb1e496a3c39faa50537bc5cde"
+        },
+        {
+          "path": "src-tauri/src/app_runtime.rs",
+          "sha256": "c40dea1981ab936d28b2dd15707a70c00dec002177dc925296095cc11d5b4293"
+        },
+        {
+          "path": "src-tauri/src/application/audio_ingest.rs",
+          "sha256": "eb2764281fe3e04a33bfe1de087a1592cc87da653df5471561746dee77fae81d"
+        },
+        {
+          "path": "src-tauri/src/application/capture_configuration/mod.rs",
+          "sha256": "6ae469f5dd7d3513cda0d8e41873fffc2be2bb272d442ac9b9753aec67742656"
+        },
+        {
+          "path": "src-tauri/src/application/capture_configuration/tests.rs",
+          "sha256": "1f4e66856a87394901f1d3778d669ff10f390c0c825d21ab9ea766e065e17302"
+        },
+        {
+          "path": "src-tauri/src/application/command_proposal.rs",
+          "sha256": "9ef6a3589dd317696ffaf1a6258ec94ee6c956771122bb01d8ada14b9525f000"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_activation.rs",
+          "sha256": "648a975928cddbda34b175f436fe5aa176311a05866c0251543602440f326ff7"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/download.rs",
+          "sha256": "508009074180a3c533b4040f2bc34987be90a0929b1514ce464b7afe0d4bc83a"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/manifest.rs",
+          "sha256": "fee4deb791fbd72eaf650760d3c36908a398f74b4af84525a61cde976df2f226"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/mod.rs",
+          "sha256": "0b8458210f014a244b7265f4bb20917c538f8ff8abd80fd024f834b64b517808"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/sealing.rs",
+          "sha256": "ce53dbbbcb6a2bf7fa9b4e8a6333314520f3f5bf7f6e54258eb4ee7b0e30c919"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/storage.rs",
+          "sha256": "afc882a81c76faad6523e4b410dbc98a314250507855e7715179d48107d8c64f"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/tests.rs",
+          "sha256": "299357dcf9d266c539c12e5d3abc976d77278ae74485eee6a51183c759688d61"
+        },
+        {
+          "path": "src-tauri/src/application/desktop_transcription_runtime.rs",
+          "sha256": "b752d192eed8ff15946e331c36b114f4b31f483b97874d08c19f43dc51ae7624"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/mod.rs",
+          "sha256": "86b20a22321a79457458c6def5e6c4912031eda21366be3c21e3522589158c11"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/model.rs",
+          "sha256": "46f3d240bb70ab06b5a6bc1f97317589870c1223bf9985c476e69ef70c5ee62c"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/render.rs",
+          "sha256": "cc6a0b535dec7c3c3554369abbc2e8ffd9809ead9c5235b3c96e5788a701ed1b"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/telemetry.rs",
+          "sha256": "d5b61a0a38f7df602b30c6d06f5de8d66e10dead23c0d60e17c238a73d2e9bd1"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/tests.rs",
+          "sha256": "4a1674ccf089fc3b9616f76f7ac3b49b606de2f8b24d85f76ded7545e70cc62d"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostics.rs",
+          "sha256": "72a104acdc876785f58a468159add3198fe682af764ffdcc35431555ec1cd5b5"
+        },
+        {
+          "path": "src-tauri/src/application/dictation_result.rs",
+          "sha256": "d7190006a7004e834f52d5ece17314b32ffd6bfe31af4d96553f904831a1a333"
+        },
+        {
+          "path": "src-tauri/src/application/dictation_tail_diagnostics.rs",
+          "sha256": "66ad3445ceea07f31a9501e0768d083580ef2eb19fc9a8c55f3213b696832b33"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/capture_activation.rs",
+          "sha256": "fbb007fbd3020d9f914f1934ec61f10f7b80dda460d811263fa64bf9b16cdd71"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/capture_segments.rs",
+          "sha256": "0a151831ef82cbdde958b2ef6fea7f657bdfd680e0964d86e3a99b3644c46f3f"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/capture.rs",
+          "sha256": "91b89b61d73187f52cbfaaab3238c67b6a0795874fe33fb7c51bc4d9ed3e535b"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/diagnostic_sample.rs",
+          "sha256": "0da544fd5dc809fb19c6a8ea1762f9d74afadb8b731bf2edf63a61b496566019"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/diagnostics.rs",
+          "sha256": "91d6862f799b95f54a8156ae42e2b0f474001c97c532f7097f66adcb6621b1a4"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/lifecycle.rs",
+          "sha256": "61ef3a18c93e2b7f15282cf5c67ef9d2c0fec91b73c71a2ec680b6b2fe4893ec"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/mod.rs",
+          "sha256": "4db4fef808a0ee32c0d7cef8fdaac3424f5ac961e056d97b2b568d57fc373280"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/outcome.rs",
+          "sha256": "9f31107350b2a30f355f02f35f3a74702ce83806737d816207da2c8ae4a81fcb"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/postprocess.rs",
+          "sha256": "b38cb11ff7b4659416dc17a435bd9f769ebfcf346f68111313893023456006db"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/processing_test_tests.rs",
+          "sha256": "a3846f7aa7f54beaea92d9436fa4b21a90b6d8067c072a6d2cc490c3de499470"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/processing_test.rs",
+          "sha256": "14b08a330400e5b7756b6b287ab87aacbba85e5c713f853e6f63ce73862aab69"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/recognition.rs",
+          "sha256": "89a4be871df2caacc608eebce87480256a8811f3b535435a15a793394cd2664f"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/recognition/segments.rs",
+          "sha256": "3a143b4083a9c4a1524296adb16b942b574fcfe6f63c71cc917afa7ba21d9783"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/segment_completion.rs",
+          "sha256": "c039f66218352c3e6bbbca6444ebf4234076b5538666036e7bdc36abe8e844ca"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/segment_completion/quality.rs",
+          "sha256": "31817329ff625a3602a87e3aa751e04180adf8b41feb5803407b07ad2b71d8a8"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/segment_completion/tests.rs",
+          "sha256": "13cde1ff3e022aef4d64d6880190116c986f0317b218d00fd552d5748c426e91"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/standard.rs",
+          "sha256": "f26883fa10af4206ea91aed3648e5536f9b8f2f3d3bb4d2e1133e3a8a4d10653"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/actions.rs",
+          "sha256": "f6a158ff6452491641442169f2e735d1d133e9ecdf456bc2746c2f999f3fbe31"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/destination.rs",
+          "sha256": "dcee6b11f848be84ac3417424ab59909f8344b249b60327f3e31bda92c34a83f"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/insertion.rs",
+          "sha256": "4b4ccf503342f7dedcde40e4dc74a03e4b69f096db9ec255ede6b4937e7ce8d5"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/mod.rs",
+          "sha256": "27b08f9f2357356ca03dba744f3522632c76c6b9e966cf6fafe0bd83c30e4e87"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_choice.rs",
+          "sha256": "6a376d1987a67fbab117f23935d75618c8576968f398eab5b74f84a3d95bcdcf"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_choice/tests.rs",
+          "sha256": "6a8c9095eff81d8211db2f393040d2751f8509072e4c6333c77296dfa4359047"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_dismissal.rs",
+          "sha256": "52ed5396fce6012faa4237b258c9a4fcf94a8f8759cdd735ac8dfaa14c515f91"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_flush.rs",
+          "sha256": "2ec7dc6e7f469e009b3d2089ce54558e521af097d8ed92f593cc9c2c108275b9"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/state.rs",
+          "sha256": "7b0b2469efa9ce1701ccc95180f629851588e9cf39451c0f65a9d18dbc020888"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/state/tests.rs",
+          "sha256": "e399d2462b24486b2116a4de575fe6c7477dd4ff9536c93476104af0cdd20276"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/types.rs",
+          "sha256": "1ebed0e454e941285357886b1e345ad9d6b2ffa85e93498d2f02c0a2317e3350"
+        },
+        {
+          "path": "src-tauri/src/application/feedback_form.rs",
+          "sha256": "2dd08449b5994fed0ec0b8d59ff0881d6d0ee45e8925825b099491f5a949a69c"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/mod.rs",
+          "sha256": "1761bef483b632e10f2fb2c871907696e748f1973bc28d30323758b51c5a538e"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/policy.rs",
+          "sha256": "a6dd0cc5ac9fb15c83475dfe4ecdbcf7c81fa3b193fc19f28791e64505577143"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/runtime.rs",
+          "sha256": "174acb79ff21302807be5e37f35b559ddfb6f682eaa886dc12bc25edbcd21d35"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/windows.rs",
+          "sha256": "95c04251701faa6a7c62d454080ec5641367e2836bed74ef8e7b1f058c232d3d"
+        },
+        {
+          "path": "src-tauri/src/application/history_events.rs",
+          "sha256": "affe08d2b6063d23412e7ddc327abab5b4d40c3a989a9b3d0eb1bdcdcdd9b486"
+        },
+        {
+          "path": "src-tauri/src/application/hotkeys/mod.rs",
+          "sha256": "711298524a4b2ff84d99cfb9e1ef5ec59d7c30b39161c0de1e9a87ebb11b8f5a"
+        },
+        {
+          "path": "src-tauri/src/application/hotkeys/state.rs",
+          "sha256": "8adafd3baf983540af816231fca564f56f8e55fcbc88ffdd0430d20cb8765df2"
+        },
+        {
+          "path": "src-tauri/src/application/hotkeys/state/tests.rs",
+          "sha256": "59e41807705fc3516bf1e101ff48f3d742cfcf760718785847ae4ec504c95938"
+        },
+        {
+          "path": "src-tauri/src/application/live_agreement.rs",
+          "sha256": "5230aa0beab209a4e131c9e42b1ecacd4a23c01e2744ed6f5cc29bd5542f49f6"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/insertion.rs",
+          "sha256": "354b9bf5db7293b9d90426293826954724ddf5b19560ece2dafb549c3501d80c"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/mod.rs",
+          "sha256": "7d9326e0e60b69ada567ca9a10f71c0809832034fb3bebae34bd5ba155bd50c6"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/runtime.rs",
+          "sha256": "da6e29be26ca16ec2080f2cd328b667d54ffbb6d472e68c55344f051df7b27a9"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/runtime/decode.rs",
+          "sha256": "4e4dfe590ad998bc944a5862140238f8a8f4f4791255b3405aff59efbc9db2a8"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/runtime/terminal.rs",
+          "sha256": "cf8aa5b8f7dc44173cb74e95240f7ac73b382ca5f9b27e7216c4c8bf9223fbbb"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/session.rs",
+          "sha256": "320419fed8502faeb8252ca5c2e01e1f97ee2c98514120bef0ddcb7790bb807e"
+        },
+        {
+          "path": "src-tauri/src/application/live_windows.rs",
+          "sha256": "81582b8960e12e7eae907610143ec5a4cdd0d6ab1cdbe8c30d2a7afade7856b2"
+        },
+        {
+          "path": "src-tauri/src/application/local_transcription_service.rs",
+          "sha256": "d0b7b6214ad40bf1a30e846460ab439e01da11c5473db8343c3e18b6e11a486a"
+        },
+        {
+          "path": "src-tauri/src/application/mod.rs",
+          "sha256": "0e23bba207d8411f0633e85257fd3b9ab1f9f3c05107f5f75986c6d52b5f91a7"
+        },
+        {
+          "path": "src-tauri/src/application/models.rs",
+          "sha256": "5bc2ab794e0739d6802b536b7c8bd67188426efe1a54bfa12e7c2fa2480ba086"
+        },
+        {
+          "path": "src-tauri/src/application/models/catalog.rs",
+          "sha256": "de4b0db86262fe3b06508289e6ef3292d8dabd549d0a2bb46d8d5057ac7a6f84"
+        },
+        {
+          "path": "src-tauri/src/application/models/download.rs",
+          "sha256": "0913a41e3e16ab3fde9c8b1d27292d997949d0b7c4cfac98dee3dd6ab6d350ef"
+        },
+        {
+          "path": "src-tauri/src/application/models/offline_package.rs",
+          "sha256": "ecd7b7cfbdab4f3b96d632873b61bcdd009907609eefece576d0a342824dcaa6"
+        },
+        {
+          "path": "src-tauri/src/application/models/selection_rollback.rs",
+          "sha256": "743df495b71802b4959c583cf704ddea8e31b31ce017d259f15e34e6492fe4ee"
+        },
+        {
+          "path": "src-tauri/src/application/models/store.rs",
+          "sha256": "407434c4a26e2005a8bb4ffddb553b2085fdeeed4f116c12c1f6ba97b78cdffb"
+        },
+        {
+          "path": "src-tauri/src/application/models/wake_download.rs",
+          "sha256": "230995809d364132ed290513b60227a951345557f47111c929ac4c0f80ce8693"
+        },
+        {
+          "path": "src-tauri/src/application/models/wake_download/archive.rs",
+          "sha256": "c4c102664722ac60bf47422af4c94f3802c81f0f674c481e2166ea2495929cb5"
+        },
+        {
+          "path": "src-tauri/src/application/models/whisper_download.rs",
+          "sha256": "191abda7e4209288597f1ddd2e65311acd2afa8dec9751b027437b8f32778411"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/glossary.rs",
+          "sha256": "26cd205616c862fe1866ed23865df02cb18f7c0c0b3735183020cdb813b58840"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/mod.rs",
+          "sha256": "7cf8e5cc416b0b0e812030113a13063b6119359ddc9c2319bbad0daf93503297"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/replacements.rs",
+          "sha256": "596645b4222189691fb6e4b8eb476c9f2166a8bbd48d2bee745e7717ad154c75"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/validation.rs",
+          "sha256": "b4282e2399ad89ac58dbc50c36e74aabeec68782e8efee9e10ee2384275cc718"
+        },
+        {
+          "path": "src-tauri/src/application/project_site.rs",
+          "sha256": "926d2c5eb0e912d1351b42faedce1d91e8262c44ab70b5ad8b9d912b8a784f5f"
+        },
+        {
+          "path": "src-tauri/src/application/rest_api.rs",
+          "sha256": "d1f8dd558923262ad0540e26b47f16153f2cf865224600cc9ba2fe54c3be51d5"
+        },
+        {
+          "path": "src-tauri/src/application/rest_api/tests.rs",
+          "sha256": "350612018f1b95e8667efa7a72e74c7c8da9a9a948f9b9a6fa78699583f9b7bb"
+        },
+        {
+          "path": "src-tauri/src/application/segmented_transcription.rs",
+          "sha256": "ef033144d9a77d866911e4eb2c7092ee5db6f5a57b37cbff4286424c611005d6"
+        },
+        {
+          "path": "src-tauri/src/application/service_control.rs",
+          "sha256": "b23fe63114b7c4bdbb9bd0e83fd79d9857698c93d64fe1fed7989566a503efb4"
+        },
+        {
+          "path": "src-tauri/src/application/service_windows.rs",
+          "sha256": "b1ea9b538f1331a3f9dcc38ee7afea9053fbabba8145b774f67f4a17e47cecf6"
+        },
+        {
+          "path": "src-tauri/src/application/speech_analysis_queue.rs",
+          "sha256": "3418fdc55bfd51e813fd2e439f61fb035b77f139d7416b9d57f353bfe9cbb7a7"
+        },
+        {
+          "path": "src-tauri/src/application/speech_gate.rs",
+          "sha256": "840ce9dda389a0470094ddfb1aa623b6318c31e76faba9fce7042c1da6fe8045"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_ai/mod.rs",
+          "sha256": "5300b78a895c6885a2c6f5bad0c33e62c516ebb18c73bdf27c49dfd5eaf0b608"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_ai/payload.rs",
+          "sha256": "88b6df5c63361fd7c37f37268e1a582dc61bc78959ad8eee5b549b0d47b5d95a"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_ai/requests.rs",
+          "sha256": "61fab92f229f7a9c15f1ff7fcaf57a7c386e8ab651114589351ab637e81408e2"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_report/mod.rs",
+          "sha256": "aab2b1157a8796d0c0cc504fec0c8660d426229148274db0050a30477e220861"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_report/model.rs",
+          "sha256": "6ce83ecf1bab230a488a455142afd401ca89859d501e061afbae0cf1a7206558"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_report/tests.rs",
+          "sha256": "4843fe647adaa7d96e1d55c6a4d1f8bf85746de885034015cd62946f8724f5c2"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_context.rs",
+          "sha256": "ddc45903bedcf2011c35bda47bdfdfa18a777332f8bcd7bdc25bb5baeafd0003"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_contract.rs",
+          "sha256": "e5da3eff041237148b7fe39212c9f821f81bb7ffb4745172518dfc67b1b605af"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_jobs.rs",
+          "sha256": "255fcbe4cbbb55bbd903dad0214aefbe447239355e9779b8dba80ac704171353"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_service.rs",
+          "sha256": "3e60694020319b7418faf1c6b05c8ae040aade9876cf7905e90c3f4376c45ec7"
+        },
+        {
+          "path": "src-tauri/src/application/updates/activity.rs",
+          "sha256": "7b2972d33941e0cf19c0f7b601e19e4fa0406a6acf9fdbc1d909dfbd0febdf23"
+        },
+        {
+          "path": "src-tauri/src/application/updates/automatic.rs",
+          "sha256": "ff381d7cd4029c952e1c9b1fd66f375017263a39afd0d0308db4e8a8a5bb8cc5"
+        },
+        {
+          "path": "src-tauri/src/application/updates/automatic/tests.rs",
+          "sha256": "4df818fa3dad4b113a47efc79e44f24306400afedd71a121341eeb71f54ac1a3"
+        },
+        {
+          "path": "src-tauri/src/application/updates/configuration.rs",
+          "sha256": "b55c0171de164eac9024333e46c25746dc774d6f4977fd4dc857dbb8b2af7a92"
+        },
+        {
+          "path": "src-tauri/src/application/updates/mod.rs",
+          "sha256": "2876483943cb084d40d37045badd2dd139ed64cefd4216d4a5e85eb839ec869f"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime.rs",
+          "sha256": "af8045d15a3e313e86a5e4c8296d06a3e24c2116ddcd4a1fdbe61f990ef04532"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime/check.rs",
+          "sha256": "5be0eee37e641243bc3f964e49a6b8193ddc260a8a3f23d47ddffb1d8ab5cfbe"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime/tests.rs",
+          "sha256": "a47f919a725a590706aa421d878347e396a0902e3aa8c8e7348a3e5d8b656098"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime/transfer.rs",
+          "sha256": "464ba5b41c6383d84ca7b0502be664cc4ecbbf9e31b18bd670153217495faf63"
+        },
+        {
+          "path": "src-tauri/src/application/updates/state.rs",
+          "sha256": "fd847df70c35341fcb52deb1fa1375fe2d78d8ffd8f5eba005e12c5cca739904"
+        },
+        {
+          "path": "src-tauri/src/application/voice_dictation.rs",
+          "sha256": "60b4ed7678129504c80f18c8337721db6fef9cd0b0cdde7dab17513654c09b87"
+        },
+        {
+          "path": "src-tauri/src/application/wake_calibration.rs",
+          "sha256": "c2f464cdf11ada99416cc67bc78cf6ebb30e5ed41b3ca2679056694f89cc7509"
+        },
+        {
+          "path": "src-tauri/src/application/wake_calibration/rules.rs",
+          "sha256": "ee5a77e0f9e0cdedd6093a9887ca7e82a77b2fd55141174dace3f89a69780c60"
+        },
+        {
+          "path": "src-tauri/src/application/wake_calibration/state.rs",
+          "sha256": "58190987526d1e9903497e9dffb8a796bc7d04918c70bc42aebc36ef977f665a"
+        },
+        {
+          "path": "src-tauri/src/application/wake_dictation.rs",
+          "sha256": "7b68e0a3775765df9ba50b2c4e7ed056fb9b41ef4f87e99af93fa5804a69ad87"
+        },
+        {
+          "path": "src-tauri/src/application/wake_runtime.rs",
+          "sha256": "fbd0c6b97043ba2bf3b4f3a228879e74661d0755b0a2b892a17375a1512e4417"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/mod.rs",
+          "sha256": "9cec77206830d2de95b7dee025c7955322406f0fc50458065e62fd4b4d0b7513"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/rules.rs",
+          "sha256": "6248caa75869f68bfa33a8e1db5e31002e5ec9cce83416fd97d947e429119e61"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/service.rs",
+          "sha256": "04d2b34020df73b2adc241a7d5417d869e92651c6cdeae5dfc2cfc4d10a8c7dd"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/state.rs",
+          "sha256": "e0f2c6cfcc88fb6a98d31767811186512f1f7ac0f97a5bdff36027247cdbf170"
+        },
+        {
+          "path": "src-tauri/src/application/wake.rs",
+          "sha256": "169968652fc07c625819ac1a09394319d93d0237d83b686264b17f6be438acca"
+        },
+        {
+          "path": "src-tauri/src/application/wake/lifecycle.rs",
+          "sha256": "bb6d36bd280b703ce491d5244170ba2cde484ca174411ed424c8d44f532edb1f"
+        },
+        {
+          "path": "src-tauri/src/application/wake/text.rs",
+          "sha256": "89450c953dab25239970e468b7dd207a54a47cfcfd7e8817e023315fa4587068"
+        },
+        {
+          "path": "src-tauri/src/audio/buffer.rs",
+          "sha256": "501299f58cdf90bd04cb4cc8890f17f67c4d8d921c43dff4fa15675ecdec961b"
+        },
+        {
+          "path": "src-tauri/src/audio/mod.rs",
+          "sha256": "74e577ce363fcbd700c9dd4c1cc44f2189e6f4df46c9cdbf4ec4d245045e38da"
+        },
+        {
+          "path": "src-tauri/src/autostart.rs",
+          "sha256": "3287c1289c38bbaa56f02e9173808a3a1d0c164b37977e664c45fd8932598f96"
+        },
+        {
+          "path": "src-tauri/src/crash_log.rs",
+          "sha256": "e5b93c325ca1eebf00216635d6f8d783aaaeb425a0affefbd8a20354f26230a5"
+        },
+        {
+          "path": "src-tauri/src/error.rs",
+          "sha256": "e1c966a9a153a819bca11ce6234a0b127650337e2f4d786b13ef740904947f4d"
+        },
+        {
+          "path": "src-tauri/src/events.rs",
+          "sha256": "61f8934cb2fb3fac030cd8680d6ac09e7524f3f3615efdfc615bc4eb9afc6c2d"
+        },
+        {
+          "path": "src-tauri/src/history.rs",
+          "sha256": "14ad85f1d6ff62b859cb6bf9fcfb3846eec478fd11f59ea84b7b4fd1a31eed25"
+        },
+        {
+          "path": "src-tauri/src/history/analytics.rs",
+          "sha256": "66ec0e21747300808cc5db5438781abc944ddb4980d9d4f94145912e29a6393c"
+        },
+        {
+          "path": "src-tauri/src/history/changes.rs",
+          "sha256": "fd5e8783485fd639114990eeacf0d238e6bff75698ced11ef11beaba1b2a490c"
+        },
+        {
+          "path": "src-tauri/src/history/recommendations.rs",
+          "sha256": "4184ef7daac293f1683b8b1720de457b30c8a2f3641e7cce946021a12fe054dc"
+        },
+        {
+          "path": "src-tauri/src/history/source.rs",
+          "sha256": "5b0a59328c6d7201dad5202dbd6190265564e24440cf11ab9446172b67ae9912"
+        },
+        {
+          "path": "src-tauri/src/history/storage.rs",
+          "sha256": "62808a61558e3d133b8de6ee1852ca7f401fb587d1bcfac0725e213d44eb0cd4"
+        },
+        {
+          "path": "src-tauri/src/history/tests.rs",
+          "sha256": "36c7830142ebfe399969ae2be64c69113c85d049acf751a9b7797dac5af9ef61"
+        },
+        {
+          "path": "src-tauri/src/injection/clipboard.rs",
+          "sha256": "800161f91414eac6a7a9356e09b4ffb1247daf798153e14940cf53762c14c3c5"
+        },
+        {
+          "path": "src-tauri/src/injection/mod.rs",
+          "sha256": "f24d96acb8efe3df72e13bf31113dbb220cdfea10c51a1ecd0f30504b409300e"
+        },
+        {
+          "path": "src-tauri/src/injection/modifiers.rs",
+          "sha256": "b8ee7b75e5a7221e70abeca2b157cfe417cdf3ec4b8171e4a986f97a307a92f9"
+        },
+        {
+          "path": "src-tauri/src/injection/target.rs",
+          "sha256": "2646b7ffe9777cd0d0552e7ddb4266b74cd6471ec49ea135804ccd619061f7f0"
+        },
+        {
+          "path": "src-tauri/src/ipc/audio.rs",
+          "sha256": "ce996f05c5510ea4c77d91b4e2e0f4ecc55d387ba7c6c86ead1c06e54a34b250"
+        },
+        {
+          "path": "src-tauri/src/ipc/blocking.rs",
+          "sha256": "91a2f7c3c02cc4d8a95ae719fdd40fb69a5ccf35faf54b8c4f52d236cd21943b"
+        },
+        {
+          "path": "src-tauri/src/ipc/cuda_packages.rs",
+          "sha256": "299f38dea6be5d9a1cd0e1274f36c4d129cd8c5a084b0265a17c9695216e5416"
+        },
+        {
+          "path": "src-tauri/src/ipc/desktop_v3.rs",
+          "sha256": "a79c63547575f1330525f1a4ad5719654bc3fd0e1e36525b1872e13b8ef44c29"
+        },
+        {
+          "path": "src-tauri/src/ipc/diagnostic_report.rs",
+          "sha256": "3eb9b2a02b84311815ad173ae7334e979d4e3a446d39d34495070fedf422c2fe"
+        },
+        {
+          "path": "src-tauri/src/ipc/diagnostics.rs",
+          "sha256": "b08ae6b6dcc787836d3083c9a75d4e0eab8ca969707a627e9b053a5ca55aba13"
+        },
+        {
+          "path": "src-tauri/src/ipc/dictation.rs",
+          "sha256": "113402226f2bcef908eef9e8a3a7e3489fb4d8486352311e9a88aa5c5e192a5f"
+        },
+        {
+          "path": "src-tauri/src/ipc/llm.rs",
+          "sha256": "21dc77f0cbd169a390e30f743e1c527dc715a528a3b724f8c07d6e31ddebb3f1"
+        },
+        {
+          "path": "src-tauri/src/ipc/memory.rs",
+          "sha256": "f53177210e9ad33db0d43d93d8645a277a212d5e95f7cceb71d7ad5aabaed027"
+        },
+        {
+          "path": "src-tauri/src/ipc/mod.rs",
+          "sha256": "536a7bdbc710f4cda27c3001d661308e22330c32db807bcf3b59c26e58a70553"
+        },
+        {
+          "path": "src-tauri/src/ipc/models.rs",
+          "sha256": "721346df04ab2078a527311566d2410650d783adaa44e3d8dc29ac41995319d1"
+        },
+        {
+          "path": "src-tauri/src/ipc/processing_capture.rs",
+          "sha256": "59f5fd02b2d0585039cab1e7b5b43cd399b26651e694a4de5a7f176b7d12bc4c"
+        },
+        {
+          "path": "src-tauri/src/ipc/processing.rs",
+          "sha256": "85a4de338b3dd5b1100db99ec4f6d5e63ef178b2be0eee115b4be2ca3b5c574f"
+        },
+        {
+          "path": "src-tauri/src/ipc/processing/tests.rs",
+          "sha256": "da142aba0827420015eed0750a40df03d7808750646a50c9ea4ce6b608dcf312"
+        },
+        {
+          "path": "src-tauri/src/ipc/project.rs",
+          "sha256": "44f57f20134ca3373c63a98a58977ac980499f9d430732c976c3e1ff04768e77"
+        },
+        {
+          "path": "src-tauri/src/ipc/registry.rs",
+          "sha256": "01a67d0392068bace63364cb9297124b37c02404a9f0fea70172cf1f55e448ce"
+        },
+        {
+          "path": "src-tauri/src/ipc/service.rs",
+          "sha256": "ad974ac8f4e6d265878ea25f575fc1deacb37e5af6617415df7d334706057423"
+        },
+        {
+          "path": "src-tauri/src/ipc/settings.rs",
+          "sha256": "8c4ae1b74003722949a7b19ff31474707aa6b352176513ce7b124453bc9d8331"
+        },
+        {
+          "path": "src-tauri/src/ipc/settings/active.rs",
+          "sha256": "78fe103ca3293e0e51088453cee7c7c72e39644bfec467479799d12d607ea5a4"
+        },
+        {
+          "path": "src-tauri/src/ipc/settings/wake.rs",
+          "sha256": "3fca739fbf0aa1f80f360319fb9edf6050b48ef3757d3d531e2d00b7bf3278d2"
+        },
+        {
+          "path": "src-tauri/src/ipc/system.rs",
+          "sha256": "81be5edd3c20e80e5746c733820c18513c599ece4c15a06f69867cd8d8f416ab"
+        },
+        {
+          "path": "src-tauri/src/ipc/text.rs",
+          "sha256": "4ce5ed1de0c7d4159642bd0c4979595e828a336a6d86fe079eb81b3b98af8de1"
+        },
+        {
+          "path": "src-tauri/src/ipc/trainer.rs",
+          "sha256": "ca929f3db17041aa93ee5f8b991f58d1346e3d705509b52dadfb987d7c2f697d"
+        },
+        {
+          "path": "src-tauri/src/ipc/updates.rs",
+          "sha256": "54ea443459a3e6469e6e710430fdf313e22a7d9a8ae67042f7d1f1b3920574d8"
+        },
+        {
+          "path": "src-tauri/src/ipc/voice.rs",
+          "sha256": "88e1194f1581ec0e6e3630d4d4975d3094cf78258edee8548399dbd69691a59d"
+        },
+        {
+          "path": "src-tauri/src/ipc/wake.rs",
+          "sha256": "c443e989301bb5af849a010a67d5d92aee02983468da6fde2eac3c9ea6c687c2"
+        },
+        {
+          "path": "src-tauri/src/lib.rs",
+          "sha256": "4f30845cb8e01c1f602be52c4930f84a97b06227704ff22aa585489d3c4f92b0"
+        },
+        {
+          "path": "src-tauri/src/llm/mod.rs",
+          "sha256": "51bb5c060ef8173788b725814687b9821692c51178418844867218567e950726"
+        },
+        {
+          "path": "src-tauri/src/llm/presets.rs",
+          "sha256": "418dbc09eb963f9a9cc7d3e85a640d8c0b008493ed898d94039b97a5db3f20a1"
+        },
+        {
+          "path": "src-tauri/src/llm/presets/tests.rs",
+          "sha256": "75a4d07796fbf67ed751bbe1d859941f3577855d9a0b483091715fdb3ab39160"
+        },
+        {
+          "path": "src-tauri/src/llm/speech.rs",
+          "sha256": "7a0d51d258ed09943f872294bf6f5fd00f39db1b276ef5356d9149b376927d3d"
+        },
+        {
+          "path": "src-tauri/src/llm/tests.rs",
+          "sha256": "195cd476d42347719d95cc9ade756a351bc3dd0e5e2d4da5db3dd59f251869c9"
+        },
+        {
+          "path": "src-tauri/src/logging.rs",
+          "sha256": "79029cd27c0d9377eb8b38212793fa0ffe0691fef017eced2f9005aaccca64f2"
+        },
+        {
+          "path": "src-tauri/src/main.rs",
+          "sha256": "182a3fbbee82a488813ea0903cddad844ed5cf2653876c9b6c2606e3ec596215"
+        },
+        {
+          "path": "src-tauri/src/overlay_geometry_tests.rs",
+          "sha256": "42587492be4093da5bfaf9aa7e5b23b3047c7b7b8344278b0734693be2398674"
+        },
+        {
+          "path": "src-tauri/src/overlay_geometry.rs",
+          "sha256": "31fef6e5a342b83d98c11c9517f5e6f48ec408b6154b3050d7003e5e52abae45"
+        },
+        {
+          "path": "src-tauri/src/overlay.rs",
+          "sha256": "fb69e7c1046eee7de7c1a7a640360ef2abb537bf19c5351a88e1ed7bfbd344c3"
+        },
+        {
+          "path": "src-tauri/src/overlay/dispatch.rs",
+          "sha256": "1195435e462a8a83128ad46b19ea96549e501e847b45abb38dd5e7b707a78a41"
+        },
+        {
+          "path": "src-tauri/src/overlay/dispatch/tests.rs",
+          "sha256": "a843bb06e7eb6804f8e66ab23336f300971f93db896ff1be8a8765c0460132ee"
+        },
+        {
+          "path": "src-tauri/src/overlay/position.rs",
+          "sha256": "e1ddf90e6a8b905738f4bb83ef946dd54473fc9917c94ddbe0f45f4b74b1dda5"
+        },
+        {
+          "path": "src-tauri/src/overlay/visibility.rs",
+          "sha256": "352f5c28cec69c635d3515a4eb2679b6cc81d365b3f3859bc7b1c4ca285c38b1"
+        },
+        {
+          "path": "src-tauri/src/overlay/window_layout.rs",
+          "sha256": "f937c9e5cd4829d535a40422dd232ca5559b831357d05d6197d2fc13b1ae1a48"
+        },
+        {
+          "path": "src-tauri/src/pipeline/capture_segments.rs",
+          "sha256": "9490afa40ae179314c1da2295633123e466ae99c1997945b3fe9c21bb124fc1c"
+        },
+        {
+          "path": "src-tauri/src/pipeline/capture_segments/tests.rs",
+          "sha256": "44c8ee7fd9bd93a0fbcaf3d7214e1e0a1ecc59ae862719fd333b660e700ff454"
+        },
+        {
+          "path": "src-tauri/src/pipeline/capture_tests.rs",
+          "sha256": "56d992a5736a79c7817391110d3f1959e0541a588b993a6ea670870c2b14cb50"
+        },
+        {
+          "path": "src-tauri/src/pipeline/completion.rs",
+          "sha256": "0c8179d78f6a598a66b743e4a16cb7e0d796ac088c445f7f1694b36a2c5669db"
+        },
+        {
+          "path": "src-tauri/src/pipeline/meter.rs",
+          "sha256": "41cb225a0ad70314377d19b36e50f40c7678443c82c4093700e54175ea23845d"
+        },
+        {
+          "path": "src-tauri/src/pipeline/mod.rs",
+          "sha256": "ef05e82097dffccf59393187b63788d54b768502ae36d4715fbc8e6577b227af"
+        },
+        {
+          "path": "src-tauri/src/pipeline/operation.rs",
+          "sha256": "74ac5f0136be3d2404344c704caf46d3dd8ce5f81a7c34c05e7cba335b9ca96a"
+        },
+        {
+          "path": "src-tauri/src/pipeline/pretranscription.rs",
+          "sha256": "f9838ab34d2b0a2f16c21602c6c13f3fb264133d8aca979b3116c6516810aa26"
+        },
+        {
+          "path": "src-tauri/src/pipeline/processing_choice.rs",
+          "sha256": "6e822b81fb0a96eb063fadc1cc55a9542688dd1c201ee28387b87bd86947f646"
+        },
+        {
+          "path": "src-tauri/src/pipeline/processing_choice/tests.rs",
+          "sha256": "de18d09ffcc89566b8ce1862b4731a9932d239672dd005bee83781bb09f1adc2"
+        },
+        {
+          "path": "src-tauri/src/pipeline/publication.rs",
+          "sha256": "2db24e6c596792b7a0175abe999acaa0d8980f8d3f1461c454f1b3534e95c82b"
+        },
+        {
+          "path": "src-tauri/src/pipeline/recording.rs",
+          "sha256": "44ac41a43b1d24d4506b1fd2682887c025cec1b77caaac0205e6d432cb7f4917"
+        },
+        {
+          "path": "src-tauri/src/pipeline/scheduler.rs",
+          "sha256": "3336686ac2d536d64e66220feaf4bb56cb5097328e242ac1d94e5b96dd2b983d"
+        },
+        {
+          "path": "src-tauri/src/pipeline/session_control_dismissal_tests.rs",
+          "sha256": "9ff08e356f85349e50de3e7592da224ed0c827bfae73db7cd843b368af077629"
+        },
+        {
+          "path": "src-tauri/src/pipeline/session_control.rs",
+          "sha256": "6b23028b02b253b9bf3e6bcbe15eca6c7eb5887ffc774d911b3b20539aef3c20"
+        },
+        {
+          "path": "src-tauri/src/pipeline/tests.rs",
+          "sha256": "8bb506158c9c864659475c23082790eb21090eb006c86db675163a54c872b096"
+        },
+        {
+          "path": "src-tauri/src/secrets.rs",
+          "sha256": "7ce50b43192c26908c1c4f569ac19b2009ce43a15ac39fa052e77b6aef64a371"
+        },
+        {
+          "path": "src-tauri/src/service_history.rs",
+          "sha256": "0bb31f60b178ae3ff69b03a5c6fd408d1db5da182ed71aaf8bda47009c5dcb00"
+        },
+        {
+          "path": "src-tauri/src/single_instance.rs",
+          "sha256": "a323c502e629fc50b012ce209632a2022a00b180a11f727f3abcc30165ec3381"
+        },
+        {
+          "path": "src-tauri/src/speech_metrics.rs",
+          "sha256": "6b5307b16527b0f837a1973f6a9c831986ce0d6bc4e4d3b72315f4affb832bca"
+        },
+        {
+          "path": "src-tauri/src/state.rs",
+          "sha256": "6b29d7fd8e89722ecaf1d9d0a36802558928affc52c8caee9803278a76a417a1"
+        },
+        {
+          "path": "src-tauri/src/state/persistence.rs",
+          "sha256": "5447a6c9cf1d9df7fbf653218105b150eca9df2a37aae08ea723582695a54672"
+        },
+        {
+          "path": "src-tauri/src/state/persistence/tests.rs",
+          "sha256": "af47a6a787e1059b2a8ea0beac7ca7b74cbccf41287f8fedbadd4619832d7799"
+        },
+        {
+          "path": "src-tauri/src/state/settings_delta.rs",
+          "sha256": "47110c1d25fefce79b1ecbdb241947017f1772279b4a50640cc5de504dbcee90"
+        },
+        {
+          "path": "src-tauri/src/stt/comparison_tests.rs",
+          "sha256": "02e02ef1fc2277383bf7eb3d4453708d9af866adaf260b84b083c68af78eb8cf"
+        },
+        {
+          "path": "src-tauri/src/stt/embedded.rs",
+          "sha256": "2c5cedfce5841c0315cb5364eb60a76e7252231a61a1c75b81bb3671a66c25f3"
+        },
+        {
+          "path": "src-tauri/src/stt/lifecycle_soak_config.rs",
+          "sha256": "99d4fcb93020117baae356b2962f76108d168ddde2b00fa754f3518a3c577234"
+        },
+        {
+          "path": "src-tauri/src/stt/lifecycle_soak_win32.rs",
+          "sha256": "be435a376f87c087098c0b56447898d34b89f917a87788f0e27159fbc5cc02d5"
+        },
+        {
+          "path": "src-tauri/src/stt/lifecycle_soak.rs",
+          "sha256": "8987d8157f52d522b7278a318019427e76d9a6017fc20498aa22b9bfb22d46c2"
+        },
+        {
+          "path": "src-tauri/src/stt/mod.rs",
+          "sha256": "35ae63ef19bf0cbcbb1c91d5b4025ad2e6b6bb715e3b6bdaafffd05afc0246d5"
+        },
+        {
+          "path": "src-tauri/src/stt/offline_models.rs",
+          "sha256": "0d42b3d0a10eec69f32c0aaece69cf892a4ca4d68713867f4e707abac7c76119"
+        },
+        {
+          "path": "src-tauri/src/stt/offline_tests.rs",
+          "sha256": "18f6fe79c344a5b0ca0080a4a59df7ec4fb9275c7794cd0ee6ff91cde4761ef0"
+        },
+        {
+          "path": "src-tauri/src/stt/offline.rs",
+          "sha256": "8ffe86398e6f7a5cbd3365f3c765a1896851c2ca1265d4ef899cb7b5341a5579"
+        },
+        {
+          "path": "src-tauri/src/stt/paths.rs",
+          "sha256": "7a552304f646637a32d2be2b4ecd6c550be05a382c4b6d3f8af817ddf566491d"
+        },
+        {
+          "path": "src-tauri/src/stt/recognizer_tests.rs",
+          "sha256": "bec0eaee016ff8f9e781bebfaec303574f48af5dc06f08fe7efcd5ec5c132a85"
+        },
+        {
+          "path": "src-tauri/src/stt/recognizer.rs",
+          "sha256": "c4e99739bd81906b6b2bc289069201a33027487b5fddecfe890c1f629ea716d8"
+        },
+        {
+          "path": "src-tauri/src/stt/recovery.rs",
+          "sha256": "3df3921179c40fea72fb476f11619d6bc9daa315979bd6bf1bb5a350238f533b"
+        },
+        {
+          "path": "src-tauri/src/stt/residency.rs",
+          "sha256": "dfd73a98237ba4f7b1df3ad704efa4793dc4a673812ab09f6c7c71cdb2a49467"
+        },
+        {
+          "path": "src-tauri/src/stt/routing.rs",
+          "sha256": "f98e71c3f1b77c2b72cce555531d35efbd099d53d163abab67ba951e1d4d95d6"
+        },
+        {
+          "path": "src-tauri/src/stt/tests.rs",
+          "sha256": "78f7323f241188790d4e165b411589b623d491ccbc3835c64eb0719514f4d2eb"
+        },
+        {
+          "path": "src-tauri/src/stt/window.rs",
+          "sha256": "3af0932559a5144d9acc93823bbf162ab19b6c74aa6fc83fe219e11aa819c841"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_cleanup_tests.rs",
+          "sha256": "5064837916f284953f773259675ec2869447d553e2ce118bada46f819915f344"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_cleanup.rs",
+          "sha256": "c7eb35fde4cdb48c942aadc2b227ea4cc5eea3f6d7bc7d1aa37d4147761b99e5"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_mailbox.rs",
+          "sha256": "838bf61ba922dfdd44c464debb020a5e284a428956eb8e08e740f835bbad0a00"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_request.rs",
+          "sha256": "9530ed058a4a8275dc880860b2266251e7d36d0445a8461965ac7905a10179de"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_session.rs",
+          "sha256": "9ec263e5e5a60a1d214a60efc54522c4dce83e75337955153637f63b0402ea0d"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_tests.rs",
+          "sha256": "b740d00f8d89f33e4a3ff74f496d355839bb0dc95fa924a4ec3142b1f1f97ad8"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_transport.rs",
+          "sha256": "f6343d7ac7af1f8d3b7f3235e2ec5dceb690a336c9c13a5ab12bc8beffbf1ec0"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_window.rs",
+          "sha256": "64cf084d5f24ac5e7de37e5f3f931f09196ac86b902dcb2e5627814885e5f170"
+        },
+        {
+          "path": "src-tauri/src/stt/worker.rs",
+          "sha256": "12f0db8b82badf8d99acf3a2253e80f4b7bf71f363cc94bb5a373016d38ba0f8"
+        },
+        {
+          "path": "src-tauri/src/tray.rs",
+          "sha256": "ec659d70a1d6537ac8322f683a27f5b274941836901b5e78a5b68a6470c84fa6"
+        },
+        {
+          "path": "src-tauri/src/types.rs",
+          "sha256": "2b8c413b5390f8906f0cd12f5b364710bec94945bd299cbfdf9aac620561da30"
+        },
+        {
+          "path": "src-tauri/src/types/commands.rs",
+          "sha256": "ac7a9ebbc2e6151d62d11e274b0a8c5bd9ecc0faecd45f3a9068bc25d4869c6b"
+        },
+        {
+          "path": "src-tauri/src/types/defaults.rs",
+          "sha256": "5b782eb38f5d9114af4a22b0eda5400df928d37e94b53d008b3b795561ffee89"
+        },
+        {
+          "path": "src-tauri/src/types/history_metadata.rs",
+          "sha256": "1e765c63d677f33220d6e2ac5a1ebb0d9296400a13dd8cf1144d1b46cd34965b"
+        },
+        {
+          "path": "src-tauri/src/types/history.rs",
+          "sha256": "b10c3c906808022b471ca703cc65d75580475cc8bb19b4a0c9db3fb1a5567fcf"
+        },
+        {
+          "path": "src-tauri/src/types/models.rs",
+          "sha256": "bfb696f36d0923775f55b5d14e4118f62a36e21594cecd3255dcf7ceb0e7e819"
+        },
+        {
+          "path": "src-tauri/src/types/processing_prompts.rs",
+          "sha256": "fc5c1b5804d0cf17b890c343439ff36d915b8ade9a5eeaa138be8890c40df9e6"
+        },
+        {
+          "path": "src-tauri/src/types/processing_prompts/tests.rs",
+          "sha256": "c5e13107da12956c06388c05154782a968156fd76e6cc7c93a883fc4ce1808f5"
+        },
+        {
+          "path": "src-tauri/src/types/processing.rs",
+          "sha256": "e0f4b53fd4c39da5e3ac2741c798fadf5667b6b7682e9a3f4bebd1666e0ca301"
+        },
+        {
+          "path": "src-tauri/src/types/settings.rs",
+          "sha256": "63993aaa31cba929e6be93f2990f69529708f079674583ecae79609cf7f76a7f"
+        },
+        {
+          "path": "src-tauri/src/types/stt_models.rs",
+          "sha256": "9eb834fe8ab9a5710fd5de9674a8be28af83d00cf57426ba70549d443cd12770"
+        },
+        {
+          "path": "src-tauri/src/types/wake_availability.rs",
+          "sha256": "662ec205541872502c2799985a397c3d2bf03adb1ce7a7409f00455dc9af08dc"
+        },
+        {
+          "path": "src-tauri/src/types/wake_compat.rs",
+          "sha256": "eb431ac6be216a2868ee8d3989b4861d1c9c2d3f705e8d0d057c8a35ac511689"
+        },
+        {
+          "path": "src-tauri/src/types/wake_profile.rs",
+          "sha256": "6899149518baa04dbdf49ceed16cd44a0fb1660b4de10a5fb0f7d57042876c0f"
+        },
+        {
+          "path": "src-tauri/src/types/whisper_artifacts.rs",
+          "sha256": "ddee42556988d5d3f175da97a118abe93a8b413594e866b0502df23190a111b9"
+        },
+        {
+          "path": "src-tauri/src/vad/mod.rs",
+          "sha256": "8ac37745b032a6a302e7eaa61643432dd787c27b5dd18d6f64e10d9ad2f379cc"
+        },
+        {
+          "path": "src-tauri/src/verbose.rs",
+          "sha256": "40675156698e17d8ae0ffeee778cbcf5c5e847a9f90d90d1710855f13930eeb2"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/baseline.json",
+          "sha256": "6189e7e0a2426b35ec694c390c7de6c826df9eea8315a086f196e6b724f3558c"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/manifest.json",
+          "sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2"
+        }
+      ]
+    },
+    "created_at": "2026-10-20T10:06:38.237Z",
+    "backend": "cpu",
+    "machine": {
+      "os": "10.0.26200",
+      "arch": "x64",
+      "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+      "logical_cpus": 16
+    },
+    "model": {
+      "basename": "ggml-tiny.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
+    },
+    "model_sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+    "runner_sha256": "44bd20fe69f19c933be6d5cde09c9b5ca8d07dbb13a57ed4bda1e68edf7f482c",
+    "vad_sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+    "native_runtime": [
+      {
+        "filename": "onnxruntime.dll",
+        "sha256": "daa77083a45bf525da0dde9e87f85d8eb146f58f9c9aa7124ca84545e1c0f148"
+      },
+      {
+        "filename": "onnxruntime_providers_shared.dll",
+        "sha256": "190d10767c321f324d3785368a0b752d9c5a9e06cb5d4d97bb176f58bdb652f3"
+      },
+      {
+        "filename": "sherpa-onnx-c-api.dll",
+        "sha256": "3db688ca9e6408c958f45986adc68ed9158522e28c7567b7ffee9312a553c777"
+      },
+      {
+        "filename": "sherpa-onnx-cxx-api.dll",
+        "sha256": "3e8b308e9235a3e7398b2c89b43ebb7f813f216aade661b2f246d42656517777"
+      }
+    ],
+    "worker_sha256": null,
+    "corpus": {
+      "schema": 1,
+      "corpus": "fono-fleurs-derived-long-v1",
+      "license": "CC-BY-4.0",
+      "attribution": "FLEURS, The Google and HuggingFace Datasets Authors (2022).",
+      "source_card": "https://huggingface.co/datasets/google/fleurs/blob/437d9e667fa3a2a08a1957f810bf2c3b5050d221/README.md",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.en",
+      "source_manifest_sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2",
+      "recipe": "Consecutive whole CI-03 clips; silence distributed before/between clips; final 100ms silence; exactly 60s.",
+      "limitations": "Two derived multi-speaker smoke WAVs, not natural monologues or owner microphone acceptance.",
+      "entries": [
+        {
+          "id": "ru-long-60s",
+          "language": "ru",
+          "path": "ru-long-60s.wav",
+          "samples": 960000,
+          "sha256": "472601e3a3439b724695d9984aecce7d8b5e1b392897e2ed609df2545250dec8",
+          "pcm_sha256": "289db0599c0c0dd616c0df6266e68641ee0f8943b85b3a791a2619ada2d36f2a",
+          "sources": [
+            {
+              "id": "ru-01",
+              "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed",
+              "start": 59600,
+              "end": 330320
+            },
+            {
+              "id": "ru-02",
+              "sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97",
+              "start": 389920,
+              "end": 574240
+            },
+            {
+              "id": "ru-03",
+              "sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa",
+              "start": 633840,
+              "end": 772080
+            },
+            {
+              "id": "ru-04",
+              "sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf",
+              "start": 831680,
+              "end": 958400
+            }
+          ],
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы во всех научных вопросах включая психологию были приняты взгляды аристотеля в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией",
+          "decoded_pcm_sha256": "289db0599c0c0dd616c0df6266e68641ee0f8943b85b3a791a2619ada2d36f2a"
+        },
+        {
+          "id": "en-long-60s",
+          "language": "en",
+          "path": "en-long-60s.wav",
+          "samples": 960000,
+          "sha256": "f3303e501fe040139d1c631c7f7d94d6580861f501fa94287768699d8cd44bf9",
+          "pcm_sha256": "8edd24c266ae19e871996534c65855eee787277c5403932c290a2dbefc90bb0f",
+          "sources": [
+            {
+              "id": "en-01",
+              "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7",
+              "start": 20320,
+              "end": 189280
+            },
+            {
+              "id": "en-02",
+              "sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f",
+              "start": 209600,
+              "end": 349760
+            },
+            {
+              "id": "en-03",
+              "sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6",
+              "start": 370080,
+              "end": 553440
+            },
+            {
+              "id": "en-04",
+              "sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c",
+              "start": 573760,
+              "end": 665920
+            },
+            {
+              "id": "en-05",
+              "sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82",
+              "start": 686240,
+              "end": 755360
+            },
+            {
+              "id": "en-06",
+              "sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b",
+              "start": 775680,
+              "end": 958400
+            }
+          ],
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron the cabbage juice changes color depending on how acidic or basic alkaline the chemical is many people don't think about them as dinosaurs because they have feathers and can fly the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others",
+          "decoded_pcm_sha256": "6ad85a7190bb07d209b850129466885901f7f1b8b803b015083bd304490ac501"
+        }
+      ]
+    },
+    "completed": true,
+    "quality_policy": "Paired ordinary batch baseline, same PCM/model/settings/backend; no WER margin.",
+    "native": {
+      "cancel": {
+        "active_inferences_after_join": 0,
+        "activity_busy_after_cleanup": false,
+        "cleanup_seconds": 0.7039692,
+        "idle_100ms_cpu_seconds": 0,
+        "join_seconds": 0.603446,
+        "recognizer_active_at_cancel": true,
+        "scheduler_busy_after_join": false
+      },
+      "completed": true,
+      "device": "CPU",
+      "entries": [
+        {
+          "baseline": {
+            "device": "CPU",
+            "memory": {
+              "after": {
+                "cpu_seconds": 11.71875,
+                "handles": 225,
+                "pid": 31196,
+                "private_bytes": 785068032,
+                "threads": 7
+              },
+              "before": {
+                "cpu_seconds": 3.359375,
+                "handles": 225,
+                "pid": 31196,
+                "private_bytes": 776744960,
+                "threads": 7
+              },
+              "interval_ms": 100,
+              "sampled_max_private_bytes": 785276928,
+              "samples": 6,
+              "scope": "native test process only; GPU worker RAM and VRAM are not included"
+            },
+            "stop_ready_seconds": 1.2881651,
+            "text": "В древнем китай использовали уникальный способ обозначения передов времени. Вовсе хналучных вопросах включая психологию были приняты взгляды рестотеля. В различных местах рима были установлены большие телезионные экраны с помощью которых люди могли наблюдать с ремонией."
+          },
+          "capture": {
+            "calls": [
+              {
+                "cancelled": false,
+                "context_bytes": 0,
+                "end": 306960,
+                "finished_seconds": 24.8436057,
+                "start": 0,
+                "started_seconds": 20.2164197
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 191,
+                "end": 555280,
+                "finished_seconds": 38.3569748,
+                "start": 338704,
+                "started_seconds": 35.1606737
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 186,
+                "end": 782096,
+                "finished_seconds": 51.0228551,
+                "start": 582416,
+                "started_seconds": 49.3663599
+              }
+            ],
+            "completed_at_stop": 5,
+            "device": "CPU",
+            "feed_seconds": 60.0003957,
+            "full_batch_fallback": false,
+            "join_seconds": 0.245401,
+            "memory": {
+              "after": {
+                "cpu_seconds": 65.15625,
+                "handles": 224,
+                "pid": 31196,
+                "private_bytes": 792174592,
+                "threads": 6
+              },
+              "before": {
+                "cpu_seconds": 11.8125,
+                "handles": 225,
+                "pid": 31196,
+                "private_bytes": 785092608,
+                "threads": 9
+              },
+              "interval_ms": 100,
+              "sampled_max_private_bytes": 803155968,
+              "samples": 112,
+              "scope": "native test process only; GPU worker RAM and VRAM are not included"
+            },
+            "prefix": [
+              {
+                "end": 306960,
+                "speech": true,
+                "start": 0
+              },
+              {
+                "end": 338704,
+                "speech": false,
+                "start": 306960
+              },
+              {
+                "end": 555280,
+                "speech": true,
+                "start": 338704
+              },
+              {
+                "end": 582416,
+                "speech": false,
+                "start": 555280
+              },
+              {
+                "end": 782096,
+                "speech": true,
+                "start": 582416
+              }
+            ],
+            "processed_until": 782096,
+            "remaining_seconds": 11.119,
+            "stop_ready_seconds": 1.4113196000000001,
+            "tail": [
+              {
+                "end": 960000,
+                "forced": false,
+                "start": 782096
+              }
+            ],
+            "text": "В древнем китай использовали уникальный способ обозначения передов в греймени. Каждый тапки Тая или каждое семья, находившаяся у власти. Были особо династии. Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы. Во всех научных вопросах включая психологию, были приняты взгляды рестотеля. В различных местах рима были установлены большей телевизионные экраны, с помощью которых люди могли наблюдать с ремонией."
+          },
+          "id": "ru-long-60s",
+          "language": "ru",
+          "operation_id": 1,
+          "pcm_sha256": "289db0599c0c0dd616c0df6266e68641ee0f8943b85b3a791a2619ada2d36f2a",
+          "samples": 960000,
+          "service_scheduler": {
+            "entered_before_interactive_finish": false,
+            "wait_seconds": 61.4115551
+          }
+        },
+        {
+          "baseline": {
+            "device": "CPU",
+            "memory": {
+              "after": {
+                "cpu_seconds": 78.796875,
+                "handles": 224,
+                "pid": 31196,
+                "private_bytes": 789712896,
+                "threads": 6
+              },
+              "before": {
+                "cpu_seconds": 65.984375,
+                "handles": 224,
+                "pid": 31196,
+                "private_bytes": 788586496,
+                "threads": 6
+              },
+              "interval_ms": 100,
+              "sampled_max_private_bytes": 789925888,
+              "samples": 5,
+              "scope": "native test process only; GPU worker RAM and VRAM are not included"
+            },
+            "stop_ready_seconds": 3.195539,
+            "text": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence. The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others."
+          },
+          "capture": {
+            "calls": [
+              {
+                "cancelled": false,
+                "context_bytes": 0,
+                "end": 46352,
+                "finished_seconds": 15.8257417,
+                "start": 0,
+                "started_seconds": 15.0572966
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 8,
+                "end": 176912,
+                "finished_seconds": 17.5710076,
+                "start": 46352,
+                "started_seconds": 15.8878677
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 94,
+                "end": 350992,
+                "finished_seconds": 23.9823209,
+                "start": 198416,
+                "started_seconds": 22.3560607
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 116,
+                "end": 651536,
+                "finished_seconds": 47.5230078,
+                "start": 350992,
+                "started_seconds": 41.2362495
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 192,
+                "end": 751376,
+                "finished_seconds": 49.1829943,
+                "start": 651536,
+                "started_seconds": 47.5863271
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 84,
+                "end": 842512,
+                "finished_seconds": 54.0982908,
+                "start": 751376,
+                "started_seconds": 53.0394845
+              }
+            ],
+            "completed_at_stop": 7,
+            "device": "CPU",
+            "feed_seconds": 60.0003711,
+            "full_batch_fallback": false,
+            "join_seconds": 0.2489727,
+            "memory": {
+              "after": {
+                "cpu_seconds": 146.625,
+                "handles": 224,
+                "pid": 31196,
+                "private_bytes": 793350144,
+                "threads": 6
+              },
+              "before": {
+                "cpu_seconds": 78.96875,
+                "handles": 227,
+                "pid": 31196,
+                "private_bytes": 789778432,
+                "threads": 8
+              },
+              "interval_ms": 100,
+              "sampled_max_private_bytes": 804794368,
+              "samples": 103,
+              "scope": "native test process only; GPU worker RAM and VRAM are not included"
+            },
+            "prefix": [
+              {
+                "end": 46352,
+                "speech": true,
+                "start": 0
+              },
+              {
+                "end": 176912,
+                "speech": true,
+                "start": 46352
+              },
+              {
+                "end": 198416,
+                "speech": false,
+                "start": 176912
+              },
+              {
+                "end": 350992,
+                "speech": true,
+                "start": 198416
+              },
+              {
+                "end": 651536,
+                "speech": true,
+                "start": 350992
+              },
+              {
+                "end": 751376,
+                "speech": true,
+                "start": 651536
+              },
+              {
+                "end": 842512,
+                "speech": true,
+                "start": 751376
+              }
+            ],
+            "processed_until": 842512,
+            "remaining_seconds": 7.343,
+            "stop_ready_seconds": 1.271343,
+            "tail": [
+              {
+                "end": 960000,
+                "forced": false,
+                "start": 842512
+              }
+            ],
+            "text": "However. Due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. All now is alongside the world's safe for you, always begin with a capital letter, even in the middle of a sentence. To the north and with an easy reach is a romantic, infestinating town of Sinatra, in which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron. The cabbage juice changes its color depending on how acidic, basic, alkaline, the chemical. Many people don't think about the messengers because they have feathers and can fly. The hospital has followed protocol for infection control. Including separating the patient from others to prevent possible infection of others."
+          },
+          "id": "en-long-60s",
+          "language": "en",
+          "operation_id": 2,
+          "pcm_sha256": "6ad85a7190bb07d209b850129466885901f7f1b8b803b015083bd304490ac501",
+          "samples": 960000,
+          "service_scheduler": {
+            "entered_before_interactive_finish": false,
+            "wait_seconds": 61.2554121
+          }
+        }
+      ],
+      "model": {
+        "engine": "whisper",
+        "variant": "tiny"
+      },
+      "policy": {
+        "feed_interval_ms": 100,
+        "feed_samples": 1600,
+        "start_after_samples": 240000,
+        "stop_ready_scope": "native recognizer text; excludes LLM, UI and insertion",
+        "threads": 8
+      },
+      "profile": "debug",
+      "schema": 1
+    },
+    "process": {
+      "status": 0,
+      "error": null
+    },
+    "entries": [
+      {
+        "baseline": {
+          "device": "CPU",
+          "memory": {
+            "after": {
+              "cpu_seconds": 11.71875,
+              "handles": 225,
+              "pid": 31196,
+              "private_bytes": 785068032,
+              "threads": 7
+            },
+            "before": {
+              "cpu_seconds": 3.359375,
+              "handles": 225,
+              "pid": 31196,
+              "private_bytes": 776744960,
+              "threads": 7
+            },
+            "interval_ms": 100,
+            "sampled_max_private_bytes": 785276928,
+            "samples": 6,
+            "scope": "native test process only; GPU worker RAM and VRAM are not included"
+          },
+          "stop_ready_seconds": 1.2881651,
+          "text": "В древнем китай использовали уникальный способ обозначения передов времени. Вовсе хналучных вопросах включая психологию были приняты взгляды рестотеля. В различных местах рима были установлены большие телезионные экраны с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "word_errors": 35,
+            "reference_words": 62,
+            "character_errors": 192,
+            "reference_characters": 453,
+            "wer": 0.5645161290322581,
+            "cer": 0.423841059602649
+          }
+        },
+        "capture": {
+          "calls": [
+            {
+              "cancelled": false,
+              "context_bytes": 0,
+              "end": 306960,
+              "finished_seconds": 24.8436057,
+              "start": 0,
+              "started_seconds": 20.2164197
+            },
+            {
+              "cancelled": false,
+              "context_bytes": 191,
+              "end": 555280,
+              "finished_seconds": 38.3569748,
+              "start": 338704,
+              "started_seconds": 35.1606737
+            },
+            {
+              "cancelled": false,
+              "context_bytes": 186,
+              "end": 782096,
+              "finished_seconds": 51.0228551,
+              "start": 582416,
+              "started_seconds": 49.3663599
+            }
+          ],
+          "completed_at_stop": 5,
+          "device": "CPU",
+          "feed_seconds": 60.0003957,
+          "full_batch_fallback": false,
+          "join_seconds": 0.245401,
+          "memory": {
+            "after": {
+              "cpu_seconds": 65.15625,
+              "handles": 224,
+              "pid": 31196,
+              "private_bytes": 792174592,
+              "threads": 6
+            },
+            "before": {
+              "cpu_seconds": 11.8125,
+              "handles": 225,
+              "pid": 31196,
+              "private_bytes": 785092608,
+              "threads": 9
+            },
+            "interval_ms": 100,
+            "sampled_max_private_bytes": 803155968,
+            "samples": 112,
+            "scope": "native test process only; GPU worker RAM and VRAM are not included"
+          },
+          "prefix": [
+            {
+              "end": 306960,
+              "speech": true,
+              "start": 0
+            },
+            {
+              "end": 338704,
+              "speech": false,
+              "start": 306960
+            },
+            {
+              "end": 555280,
+              "speech": true,
+              "start": 338704
+            },
+            {
+              "end": 582416,
+              "speech": false,
+              "start": 555280
+            },
+            {
+              "end": 782096,
+              "speech": true,
+              "start": 582416
+            }
+          ],
+          "processed_until": 782096,
+          "remaining_seconds": 11.119,
+          "stop_ready_seconds": 1.4113196000000001,
+          "tail": [
+            {
+              "end": 960000,
+              "forced": false,
+              "start": 782096
+            }
+          ],
+          "text": "В древнем китай использовали уникальный способ обозначения передов в греймени. Каждый тапки Тая или каждое семья, находившаяся у власти. Были особо династии. Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы. Во всех научных вопросах включая психологию, были приняты взгляды рестотеля. В различных местах рима были установлены большей телевизионные экраны, с помощью которых люди могли наблюдать с ремонией.",
+          "errors": {
+            "word_errors": 15,
+            "reference_words": 62,
+            "character_errors": 25,
+            "reference_characters": 453,
+            "wer": 0.24193548387096775,
+            "cer": 0.05518763796909492
+          }
+        },
+        "id": "ru-long-60s",
+        "language": "ru",
+        "operation_id": 1,
+        "pcm_sha256": "289db0599c0c0dd616c0df6266e68641ee0f8943b85b3a791a2619ada2d36f2a",
+        "samples": 960000,
+        "service_scheduler": {
+          "entered_before_interactive_finish": false,
+          "wait_seconds": 61.4115551
+        },
+        "wer_not_worse": true,
+        "stop_latency_improved": false,
+        "tail_reused": true
+      },
+      {
+        "baseline": {
+          "device": "CPU",
+          "memory": {
+            "after": {
+              "cpu_seconds": 78.796875,
+              "handles": 224,
+              "pid": 31196,
+              "private_bytes": 789712896,
+              "threads": 6
+            },
+            "before": {
+              "cpu_seconds": 65.984375,
+              "handles": 224,
+              "pid": 31196,
+              "private_bytes": 788586496,
+              "threads": 6
+            },
+            "interval_ms": 100,
+            "sampled_max_private_bytes": 789925888,
+            "samples": 5,
+            "scope": "native test process only; GPU worker RAM and VRAM are not included"
+          },
+          "stop_ready_seconds": 3.195539,
+          "text": "All now is alongside the world's safe for you, always begin with a capital letter, even the middle of a sentence. The hospital has followed protocol for infection control, including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "word_errors": 89,
+            "reference_words": 124,
+            "character_errors": 472,
+            "reference_characters": 714,
+            "wer": 0.717741935483871,
+            "cer": 0.6610644257703081
+          }
+        },
+        "capture": {
+          "calls": [
+            {
+              "cancelled": false,
+              "context_bytes": 0,
+              "end": 46352,
+              "finished_seconds": 15.8257417,
+              "start": 0,
+              "started_seconds": 15.0572966
+            },
+            {
+              "cancelled": false,
+              "context_bytes": 8,
+              "end": 176912,
+              "finished_seconds": 17.5710076,
+              "start": 46352,
+              "started_seconds": 15.8878677
+            },
+            {
+              "cancelled": false,
+              "context_bytes": 94,
+              "end": 350992,
+              "finished_seconds": 23.9823209,
+              "start": 198416,
+              "started_seconds": 22.3560607
+            },
+            {
+              "cancelled": false,
+              "context_bytes": 116,
+              "end": 651536,
+              "finished_seconds": 47.5230078,
+              "start": 350992,
+              "started_seconds": 41.2362495
+            },
+            {
+              "cancelled": false,
+              "context_bytes": 192,
+              "end": 751376,
+              "finished_seconds": 49.1829943,
+              "start": 651536,
+              "started_seconds": 47.5863271
+            },
+            {
+              "cancelled": false,
+              "context_bytes": 84,
+              "end": 842512,
+              "finished_seconds": 54.0982908,
+              "start": 751376,
+              "started_seconds": 53.0394845
+            }
+          ],
+          "completed_at_stop": 7,
+          "device": "CPU",
+          "feed_seconds": 60.0003711,
+          "full_batch_fallback": false,
+          "join_seconds": 0.2489727,
+          "memory": {
+            "after": {
+              "cpu_seconds": 146.625,
+              "handles": 224,
+              "pid": 31196,
+              "private_bytes": 793350144,
+              "threads": 6
+            },
+            "before": {
+              "cpu_seconds": 78.96875,
+              "handles": 227,
+              "pid": 31196,
+              "private_bytes": 789778432,
+              "threads": 8
+            },
+            "interval_ms": 100,
+            "sampled_max_private_bytes": 804794368,
+            "samples": 103,
+            "scope": "native test process only; GPU worker RAM and VRAM are not included"
+          },
+          "prefix": [
+            {
+              "end": 46352,
+              "speech": true,
+              "start": 0
+            },
+            {
+              "end": 176912,
+              "speech": true,
+              "start": 46352
+            },
+            {
+              "end": 198416,
+              "speech": false,
+              "start": 176912
+            },
+            {
+              "end": 350992,
+              "speech": true,
+              "start": 198416
+            },
+            {
+              "end": 651536,
+              "speech": true,
+              "start": 350992
+            },
+            {
+              "end": 751376,
+              "speech": true,
+              "start": 651536
+            },
+            {
+              "end": 842512,
+              "speech": true,
+              "start": 751376
+            }
+          ],
+          "processed_until": 842512,
+          "remaining_seconds": 7.343,
+          "stop_ready_seconds": 1.271343,
+          "tail": [
+            {
+              "end": 960000,
+              "forced": false,
+              "start": 842512
+            }
+          ],
+          "text": "However. Due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. All now is alongside the world's safe for you, always begin with a capital letter, even in the middle of a sentence. To the north and with an easy reach is a romantic, infestinating town of Sinatra, in which was made famous, to foreigners after a glowing account of its splendrous recorded by Lord Byron. The cabbage juice changes its color depending on how acidic, basic, alkaline, the chemical. Many people don't think about the messengers because they have feathers and can fly. The hospital has followed protocol for infection control. Including separating the patient from others to prevent possible infection of others.",
+          "errors": {
+            "word_errors": 20,
+            "reference_words": 124,
+            "character_errors": 44,
+            "reference_characters": 714,
+            "wer": 0.16129032258064516,
+            "cer": 0.06162464985994398
+          }
+        },
+        "id": "en-long-60s",
+        "language": "en",
+        "operation_id": 2,
+        "pcm_sha256": "6ad85a7190bb07d209b850129466885901f7f1b8b803b015083bd304490ac501",
+        "samples": 960000,
+        "service_scheduler": {
+          "entered_before_interactive_finish": false,
+          "wait_seconds": 61.2554121
+        },
+        "wer_not_worse": true,
+        "stop_latency_improved": true,
+        "tail_reused": true
+      }
+    ],
+    "acceptance": {
+      "wer_not_worse_each_language": true,
+      "prefix_reused_each_language": true,
+      "latency_improved_each_language": false,
+      "cancel_drained": true,
+      "default_enabled": false
+    },
+    "offline_analysis": {
+      "reason": "Correct strict identity check: decoded PCM16 f32 roundtrip, not raw WAV data. No inference repeated.",
+      "collector_sha256": "3f2b8c6f966f85e61660f67e553b6f7b84f9ebd33534d623e04a40fe531a66d3",
+      "native_raw_sha256": "9d6bd2ac8283db986739fa45c1dc5b6178fcc904d8b996b2dc7deb14d3d3fbc0",
+      "native_process_runs": 1
+    }
+  },
+  "vulkan": {
+    "schema": 1,
+    "lineage": {
+      "run_id": "2be5de0c-7eff-4fbd-b2f0-0793c21238ca",
+      "source_revision": "3efe312ad891af8c1a60dcafe12fc900c150f6ce",
+      "app_version": "0.7.39",
+      "source_inputs_sha256": "e2d53b379c7a536a223224651f3880df7ef1e095a8e370a81a7f80955e6cf7c5",
+      "source_inputs": [
+        {
+          "path": ".github/workflows/stt-quality.yml",
+          "sha256": "208dc865560982dd6f59439787f9aeac48e9d4af851a40db97237f177a22fa5f"
+        },
+        {
+          "path": "scripts/bootstrap-ci-resources.ps1",
+          "sha256": "ac7db9c9d0b9adee25c7f4713ad5c3fbf66067fbdd86af6b8706bf7415a1f7ed"
+        },
+        {
+          "path": "scripts/long-dictation-quality.mjs",
+          "sha256": "3f2b8c6f966f85e61660f67e553b6f7b84f9ebd33534d623e04a40fe531a66d3"
+        },
+        {
+          "path": "scripts/native-test-runtime.mjs",
+          "sha256": "5a015cb04fb2d8b93e2e75ab0deda9f3659f3bda90302b7fd48d32f29d3438d3"
+        },
+        {
+          "path": "scripts/prepare-stt-quality-corpus.py",
+          "sha256": "9270c4dbdbbc613965dcc1f1b092576684947983bcb865d8b6ebf2d82a859e54"
+        },
+        {
+          "path": "scripts/stage4-quality.mjs",
+          "sha256": "6194380af83a60de6220ecf32d8577fcb13b2592e8ddc9213c28ce5cc87297fd"
+        },
+        {
+          "path": "scripts/stage5-quality.mjs",
+          "sha256": "904b5f73e2b3185ad3a945ab4f7d6b87422c6eeabfc9e112a77981a6c0b96691"
+        },
+        {
+          "path": "scripts/stt-quality-lineage.mjs",
+          "sha256": "c9eca9c3fec1b08110d9607db67923fe07bf31bf04acd19be923c1a3bd5b373d"
+        },
+        {
+          "path": "scripts/stt-quality.mjs",
+          "sha256": "bdfbf1ddae1f54b5706666cd7a202b896b38ffee3234198ce797629c1e1acccc"
+        },
+        {
+          "path": "src-tauri/.cargo/config.toml",
+          "sha256": "26770295187010df6b1dc90c387fed5865d67552e93f33cf6bd031fc32c2ac34"
+        },
+        {
+          "path": "src-tauri/Cargo.lock",
+          "sha256": "0719c6307d90625d16348f93ffec4e2b8294ba0fe9808923459fb98ee0c5155a"
+        },
+        {
+          "path": "src-tauri/Cargo.toml",
+          "sha256": "a391fefea7fd8236112079ee5de5d7ca4a56062c4032f6955669bbddb33e7787"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/Cargo.toml",
+          "sha256": "4b8a6faee280aa7e60dae21681111c418d4c729c784246018678d12e248d58e0"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/resample-wav.rs",
+          "sha256": "fb8cac0e0d2955108c93143cbcc9fe9b3189a3d86ac885dd4df411f7cbc197e7"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/support/pcm_wav.rs",
+          "sha256": "fa30a91c349133bd7f00a3487f3f8f8c465057ca3cf7a7d4d8034e04417ffb27"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/examples/trim-vad-wav.rs",
+          "sha256": "f1fe521038820dbc4fef2383fe309c266f0816a7daeff63fe6ee11c0e2a74b8b"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/capture.rs",
+          "sha256": "26dbd2c53c629396df09cf25f9e0164c4fa950cbabcb235e9e3d095c0311f1e0"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/convert.rs",
+          "sha256": "3661a3ee659d18d4380829a0413c082efaf68002435fce166ee64a0d72832ae8"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/hub.rs",
+          "sha256": "00a6bf1c31ff0828ccd65219cdbb554e7675adec9a3884ac1b9648e2e19582ae"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/mod.rs",
+          "sha256": "19fe4fe273e27b79bfde0ec5cf38726cc96968fabc473a2a6de33b313534a6ea"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/owner.rs",
+          "sha256": "762fe980227afe5190d2e884ce03ca5d0e2a870b96da357fb9038658d4358aae"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+          "sha256": "6bd3297a94d21d7443fb751ca8110eb59a4622aa9ea39131534054931e99a58c"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/audio_source/ring.rs",
+          "sha256": "1924d01fe8c0dba849a35861ac83097e36a80fb62c9c4c1e22be5f9810f12f45"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/error.rs",
+          "sha256": "9b357265781170155af2d59cea32da61541bcb99bd3d5a754144dc2236a47c7b"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/lib.rs",
+          "sha256": "e19e7319030d3667783704eabe1bb9e96a638ab929eca7f5da68c714c855ef0d"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_boundaries.rs",
+          "sha256": "27b5c2f87ca2febb30e287e26ba62bee5ca4287c4af14bf6c4cb7e81026f73d7"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_segments.rs",
+          "sha256": "b8a5f6f030599b20f90ed90a3ca5d31ed36b629abeb7af14949b4f716931014c"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_segments/streaming.rs",
+          "sha256": "4799429e35ea54732c0ba49fa340f35b26c5c53b0348626f61b633a32dd57622"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_segments/streaming/tests.rs",
+          "sha256": "0f7bbcf8ec50e0734ba11389a291686355f61c0e930b8f1959d7aeaeef0f587f"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad.rs",
+          "sha256": "06fee6539bb299b2cd9076418ae1c0cb840666aa0a82f566da83b5d58f52ff35"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad/recording.rs",
+          "sha256": "d9f2b8ac3cc64af55e7b727deed4c4aaa4f104d85f3d72af9a271f0d2ad2dbf9"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/src/speech_vad/tests.rs",
+          "sha256": "de2e0e4bc102fb789fb29df413bbe27e0f24fb5705867ef858aa41751da434a2"
+        },
+        {
+          "path": "src-tauri/crates/fono-audio/tests/resampler_allocations.rs",
+          "sha256": "f2edbd9a60cf04a4ce1925d37ea631d431a7c511e83997e10abb3fd8735b5035"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/Cargo.toml",
+          "sha256": "3360b3c68539171480a64335fbea8887da8b361fb0335d112aa458b6ad600b3c"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/decoding.rs",
+          "sha256": "e1ca0710f586589a05a039d0d6d76b6b4bd8ad3eb2dab2e3c9bb0c9f5286857b"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/inference_options.rs",
+          "sha256": "002eca3a96c0af57c107d1190f68a6798757ef958ba6bdf31c5758bd17e19ba4"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/inference.rs",
+          "sha256": "f11e42adc03af4abebf5053ee4c5d90926efb94b8982859f41ad5f6a5ef45c57"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/lib.rs",
+          "sha256": "d9e5c4b2caded612ce8593647d44a7deb2ff5ec8fc7e9b2453a0d840840e9d7d"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-protocol/src/timestamps.rs",
+          "sha256": "fc2eff125ac6e4904a398399ae511c22df0749f016a21611ed469f172619c80c"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/Cargo.toml",
+          "sha256": "1afc9d6cffb4993b6295f7fd3c68e382e3ccb366d317c28edeb0f14e95740625"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/metrics.rs",
+          "sha256": "b81da8458c5078273c8aa74d7e9cb9935aac6dc0462ecc5aad61ae41163453b7"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/transport.rs",
+          "sha256": "1a40e0639afeb3c3a307bd9cc616bf52ac42f7401a39b4dff8a23cbd393d1c99"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/benchmark/wav.rs",
+          "sha256": "4c74aa702595a852fcfe7bad5efefa77acffd81fee794509eb983e1b8183b69b"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-bench.rs",
+          "sha256": "a7e9828c7248c9fac32b1495ed1e65b3e640635bc0c7d06fad636e9a7cbfcdfe"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/bin/fono-stt-quality.rs",
+          "sha256": "da23128dce445f6941ec8b2d879e27933f584973626800fd0a8e3f8ebc727029"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/control.rs",
+          "sha256": "fec3f87d5fda50c0a10fbe2d0c847c460a1878b3f85c0e5a3507a1fac5973401"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/framing.rs",
+          "sha256": "bfe724371932139b215994d3588adae4392db87940db5a459a54c6064f50ea29"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/main.rs",
+          "sha256": "5813d1caed93e57c6a900e0dfe6bd6eb55437a81dd9f496615d03c847c3c8a8d"
+        },
+        {
+          "path": "src-tauri/crates/fono-stt-worker/src/runtime.rs",
+          "sha256": "66aa54d4570031a4cc3463b9a63ca60685033ac0c4a7727a2cc09a78a1b5f38d"
+        },
+        {
+          "path": "src-tauri/rust-toolchain.toml",
+          "sha256": "5a357c16adbb4740c3264b315c59c4882c286072146d7198757096197b498c52"
+        },
+        {
+          "path": "src-tauri/src/app_commands/mod.rs",
+          "sha256": "881df87a4203a8135d4f5e61cd7c1abad287f7fb1e496a3c39faa50537bc5cde"
+        },
+        {
+          "path": "src-tauri/src/app_runtime.rs",
+          "sha256": "c40dea1981ab936d28b2dd15707a70c00dec002177dc925296095cc11d5b4293"
+        },
+        {
+          "path": "src-tauri/src/application/audio_ingest.rs",
+          "sha256": "eb2764281fe3e04a33bfe1de087a1592cc87da653df5471561746dee77fae81d"
+        },
+        {
+          "path": "src-tauri/src/application/capture_configuration/mod.rs",
+          "sha256": "6ae469f5dd7d3513cda0d8e41873fffc2be2bb272d442ac9b9753aec67742656"
+        },
+        {
+          "path": "src-tauri/src/application/capture_configuration/tests.rs",
+          "sha256": "1f4e66856a87394901f1d3778d669ff10f390c0c825d21ab9ea766e065e17302"
+        },
+        {
+          "path": "src-tauri/src/application/command_proposal.rs",
+          "sha256": "9ef6a3589dd317696ffaf1a6258ec94ee6c956771122bb01d8ada14b9525f000"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_activation.rs",
+          "sha256": "648a975928cddbda34b175f436fe5aa176311a05866c0251543602440f326ff7"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/download.rs",
+          "sha256": "508009074180a3c533b4040f2bc34987be90a0929b1514ce464b7afe0d4bc83a"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/manifest.rs",
+          "sha256": "fee4deb791fbd72eaf650760d3c36908a398f74b4af84525a61cde976df2f226"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/mod.rs",
+          "sha256": "0b8458210f014a244b7265f4bb20917c538f8ff8abd80fd024f834b64b517808"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/sealing.rs",
+          "sha256": "ce53dbbbcb6a2bf7fa9b4e8a6333314520f3f5bf7f6e54258eb4ee7b0e30c919"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/storage.rs",
+          "sha256": "afc882a81c76faad6523e4b410dbc98a314250507855e7715179d48107d8c64f"
+        },
+        {
+          "path": "src-tauri/src/application/cuda_packages/tests.rs",
+          "sha256": "299357dcf9d266c539c12e5d3abc976d77278ae74485eee6a51183c759688d61"
+        },
+        {
+          "path": "src-tauri/src/application/desktop_transcription_runtime.rs",
+          "sha256": "b752d192eed8ff15946e331c36b114f4b31f483b97874d08c19f43dc51ae7624"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/mod.rs",
+          "sha256": "86b20a22321a79457458c6def5e6c4912031eda21366be3c21e3522589158c11"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/model.rs",
+          "sha256": "46f3d240bb70ab06b5a6bc1f97317589870c1223bf9985c476e69ef70c5ee62c"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/render.rs",
+          "sha256": "cc6a0b535dec7c3c3554369abbc2e8ffd9809ead9c5235b3c96e5788a701ed1b"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/telemetry.rs",
+          "sha256": "d5b61a0a38f7df602b30c6d06f5de8d66e10dead23c0d60e17c238a73d2e9bd1"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostic_report/tests.rs",
+          "sha256": "4a1674ccf089fc3b9616f76f7ac3b49b606de2f8b24d85f76ded7545e70cc62d"
+        },
+        {
+          "path": "src-tauri/src/application/diagnostics.rs",
+          "sha256": "72a104acdc876785f58a468159add3198fe682af764ffdcc35431555ec1cd5b5"
+        },
+        {
+          "path": "src-tauri/src/application/dictation_result.rs",
+          "sha256": "d7190006a7004e834f52d5ece17314b32ffd6bfe31af4d96553f904831a1a333"
+        },
+        {
+          "path": "src-tauri/src/application/dictation_tail_diagnostics.rs",
+          "sha256": "66ad3445ceea07f31a9501e0768d083580ef2eb19fc9a8c55f3213b696832b33"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/capture_activation.rs",
+          "sha256": "fbb007fbd3020d9f914f1934ec61f10f7b80dda460d811263fa64bf9b16cdd71"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/capture_segments.rs",
+          "sha256": "0a151831ef82cbdde958b2ef6fea7f657bdfd680e0964d86e3a99b3644c46f3f"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/capture.rs",
+          "sha256": "91b89b61d73187f52cbfaaab3238c67b6a0795874fe33fb7c51bc4d9ed3e535b"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/diagnostic_sample.rs",
+          "sha256": "0da544fd5dc809fb19c6a8ea1762f9d74afadb8b731bf2edf63a61b496566019"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/diagnostics.rs",
+          "sha256": "91d6862f799b95f54a8156ae42e2b0f474001c97c532f7097f66adcb6621b1a4"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/lifecycle.rs",
+          "sha256": "61ef3a18c93e2b7f15282cf5c67ef9d2c0fec91b73c71a2ec680b6b2fe4893ec"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/mod.rs",
+          "sha256": "4db4fef808a0ee32c0d7cef8fdaac3424f5ac961e056d97b2b568d57fc373280"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/outcome.rs",
+          "sha256": "9f31107350b2a30f355f02f35f3a74702ce83806737d816207da2c8ae4a81fcb"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/postprocess.rs",
+          "sha256": "b38cb11ff7b4659416dc17a435bd9f769ebfcf346f68111313893023456006db"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/processing_test_tests.rs",
+          "sha256": "a3846f7aa7f54beaea92d9436fa4b21a90b6d8067c072a6d2cc490c3de499470"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/processing_test.rs",
+          "sha256": "14b08a330400e5b7756b6b287ab87aacbba85e5c713f853e6f63ce73862aab69"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/recognition.rs",
+          "sha256": "89a4be871df2caacc608eebce87480256a8811f3b535435a15a793394cd2664f"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/recognition/segments.rs",
+          "sha256": "3a143b4083a9c4a1524296adb16b942b574fcfe6f63c71cc917afa7ba21d9783"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/segment_completion.rs",
+          "sha256": "c039f66218352c3e6bbbca6444ebf4234076b5538666036e7bdc36abe8e844ca"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/segment_completion/quality.rs",
+          "sha256": "31817329ff625a3602a87e3aa751e04180adf8b41feb5803407b07ad2b71d8a8"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/segment_completion/tests.rs",
+          "sha256": "13cde1ff3e022aef4d64d6880190116c986f0317b218d00fd552d5748c426e91"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/standard.rs",
+          "sha256": "f26883fa10af4206ea91aed3648e5536f9b8f2f3d3bb4d2e1133e3a8a4d10653"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/actions.rs",
+          "sha256": "f6a158ff6452491641442169f2e735d1d133e9ecdf456bc2746c2f999f3fbe31"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/destination.rs",
+          "sha256": "dcee6b11f848be84ac3417424ab59909f8344b249b60327f3e31bda92c34a83f"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/insertion.rs",
+          "sha256": "4b4ccf503342f7dedcde40e4dc74a03e4b69f096db9ec255ede6b4937e7ce8d5"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/mod.rs",
+          "sha256": "27b08f9f2357356ca03dba744f3522632c76c6b9e966cf6fafe0bd83c30e4e87"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_choice.rs",
+          "sha256": "6a376d1987a67fbab117f23935d75618c8576968f398eab5b74f84a3d95bcdcf"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_choice/tests.rs",
+          "sha256": "6a8c9095eff81d8211db2f393040d2751f8509072e4c6333c77296dfa4359047"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_dismissal.rs",
+          "sha256": "52ed5396fce6012faa4237b258c9a4fcf94a8f8759cdd735ac8dfaa14c515f91"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/overlay_flush.rs",
+          "sha256": "2ec7dc6e7f469e009b3d2089ce54558e521af097d8ed92f593cc9c2c108275b9"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/state.rs",
+          "sha256": "7b0b2469efa9ce1701ccc95180f629851588e9cf39451c0f65a9d18dbc020888"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/state/tests.rs",
+          "sha256": "e399d2462b24486b2116a4de575fe6c7477dd4ff9536c93476104af0cdd20276"
+        },
+        {
+          "path": "src-tauri/src/application/dictation/workflow/types.rs",
+          "sha256": "1ebed0e454e941285357886b1e345ad9d6b2ffa85e93498d2f02c0a2317e3350"
+        },
+        {
+          "path": "src-tauri/src/application/feedback_form.rs",
+          "sha256": "2dd08449b5994fed0ec0b8d59ff0881d6d0ee45e8925825b099491f5a949a69c"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/mod.rs",
+          "sha256": "1761bef483b632e10f2fb2c871907696e748f1973bc28d30323758b51c5a538e"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/policy.rs",
+          "sha256": "a6dd0cc5ac9fb15c83475dfe4ecdbcf7c81fa3b193fc19f28791e64505577143"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/runtime.rs",
+          "sha256": "174acb79ff21302807be5e37f35b559ddfb6f682eaa886dc12bc25edbcd21d35"
+        },
+        {
+          "path": "src-tauri/src/application/gpu_memory/windows.rs",
+          "sha256": "95c04251701faa6a7c62d454080ec5641367e2836bed74ef8e7b1f058c232d3d"
+        },
+        {
+          "path": "src-tauri/src/application/history_events.rs",
+          "sha256": "affe08d2b6063d23412e7ddc327abab5b4d40c3a989a9b3d0eb1bdcdcdd9b486"
+        },
+        {
+          "path": "src-tauri/src/application/hotkeys/mod.rs",
+          "sha256": "711298524a4b2ff84d99cfb9e1ef5ec59d7c30b39161c0de1e9a87ebb11b8f5a"
+        },
+        {
+          "path": "src-tauri/src/application/hotkeys/state.rs",
+          "sha256": "8adafd3baf983540af816231fca564f56f8e55fcbc88ffdd0430d20cb8765df2"
+        },
+        {
+          "path": "src-tauri/src/application/hotkeys/state/tests.rs",
+          "sha256": "59e41807705fc3516bf1e101ff48f3d742cfcf760718785847ae4ec504c95938"
+        },
+        {
+          "path": "src-tauri/src/application/live_agreement.rs",
+          "sha256": "5230aa0beab209a4e131c9e42b1ecacd4a23c01e2744ed6f5cc29bd5542f49f6"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/insertion.rs",
+          "sha256": "354b9bf5db7293b9d90426293826954724ddf5b19560ece2dafb549c3501d80c"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/mod.rs",
+          "sha256": "7d9326e0e60b69ada567ca9a10f71c0809832034fb3bebae34bd5ba155bd50c6"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/runtime.rs",
+          "sha256": "da6e29be26ca16ec2080f2cd328b667d54ffbb6d472e68c55344f051df7b27a9"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/runtime/decode.rs",
+          "sha256": "4e4dfe590ad998bc944a5862140238f8a8f4f4791255b3405aff59efbc9db2a8"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/runtime/terminal.rs",
+          "sha256": "cf8aa5b8f7dc44173cb74e95240f7ac73b382ca5f9b27e7216c4c8bf9223fbbb"
+        },
+        {
+          "path": "src-tauri/src/application/live_dictation/session.rs",
+          "sha256": "320419fed8502faeb8252ca5c2e01e1f97ee2c98514120bef0ddcb7790bb807e"
+        },
+        {
+          "path": "src-tauri/src/application/live_windows.rs",
+          "sha256": "81582b8960e12e7eae907610143ec5a4cdd0d6ab1cdbe8c30d2a7afade7856b2"
+        },
+        {
+          "path": "src-tauri/src/application/local_transcription_service.rs",
+          "sha256": "d0b7b6214ad40bf1a30e846460ab439e01da11c5473db8343c3e18b6e11a486a"
+        },
+        {
+          "path": "src-tauri/src/application/mod.rs",
+          "sha256": "0e23bba207d8411f0633e85257fd3b9ab1f9f3c05107f5f75986c6d52b5f91a7"
+        },
+        {
+          "path": "src-tauri/src/application/models.rs",
+          "sha256": "5bc2ab794e0739d6802b536b7c8bd67188426efe1a54bfa12e7c2fa2480ba086"
+        },
+        {
+          "path": "src-tauri/src/application/models/catalog.rs",
+          "sha256": "de4b0db86262fe3b06508289e6ef3292d8dabd549d0a2bb46d8d5057ac7a6f84"
+        },
+        {
+          "path": "src-tauri/src/application/models/download.rs",
+          "sha256": "0913a41e3e16ab3fde9c8b1d27292d997949d0b7c4cfac98dee3dd6ab6d350ef"
+        },
+        {
+          "path": "src-tauri/src/application/models/offline_package.rs",
+          "sha256": "ecd7b7cfbdab4f3b96d632873b61bcdd009907609eefece576d0a342824dcaa6"
+        },
+        {
+          "path": "src-tauri/src/application/models/selection_rollback.rs",
+          "sha256": "743df495b71802b4959c583cf704ddea8e31b31ce017d259f15e34e6492fe4ee"
+        },
+        {
+          "path": "src-tauri/src/application/models/store.rs",
+          "sha256": "407434c4a26e2005a8bb4ffddb553b2085fdeeed4f116c12c1f6ba97b78cdffb"
+        },
+        {
+          "path": "src-tauri/src/application/models/wake_download.rs",
+          "sha256": "230995809d364132ed290513b60227a951345557f47111c929ac4c0f80ce8693"
+        },
+        {
+          "path": "src-tauri/src/application/models/wake_download/archive.rs",
+          "sha256": "c4c102664722ac60bf47422af4c94f3802c81f0f674c481e2166ea2495929cb5"
+        },
+        {
+          "path": "src-tauri/src/application/models/whisper_download.rs",
+          "sha256": "191abda7e4209288597f1ddd2e65311acd2afa8dec9751b027437b8f32778411"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/glossary.rs",
+          "sha256": "26cd205616c862fe1866ed23865df02cb18f7c0c0b3735183020cdb813b58840"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/mod.rs",
+          "sha256": "7cf8e5cc416b0b0e812030113a13063b6119359ddc9c2319bbad0daf93503297"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/replacements.rs",
+          "sha256": "596645b4222189691fb6e4b8eb476c9f2166a8bbd48d2bee745e7717ad154c75"
+        },
+        {
+          "path": "src-tauri/src/application/personal_dictionary/validation.rs",
+          "sha256": "b4282e2399ad89ac58dbc50c36e74aabeec68782e8efee9e10ee2384275cc718"
+        },
+        {
+          "path": "src-tauri/src/application/project_site.rs",
+          "sha256": "926d2c5eb0e912d1351b42faedce1d91e8262c44ab70b5ad8b9d912b8a784f5f"
+        },
+        {
+          "path": "src-tauri/src/application/rest_api.rs",
+          "sha256": "d1f8dd558923262ad0540e26b47f16153f2cf865224600cc9ba2fe54c3be51d5"
+        },
+        {
+          "path": "src-tauri/src/application/rest_api/tests.rs",
+          "sha256": "350612018f1b95e8667efa7a72e74c7c8da9a9a948f9b9a6fa78699583f9b7bb"
+        },
+        {
+          "path": "src-tauri/src/application/segmented_transcription.rs",
+          "sha256": "ef033144d9a77d866911e4eb2c7092ee5db6f5a57b37cbff4286424c611005d6"
+        },
+        {
+          "path": "src-tauri/src/application/service_control.rs",
+          "sha256": "b23fe63114b7c4bdbb9bd0e83fd79d9857698c93d64fe1fed7989566a503efb4"
+        },
+        {
+          "path": "src-tauri/src/application/service_windows.rs",
+          "sha256": "b1ea9b538f1331a3f9dcc38ee7afea9053fbabba8145b774f67f4a17e47cecf6"
+        },
+        {
+          "path": "src-tauri/src/application/speech_analysis_queue.rs",
+          "sha256": "3418fdc55bfd51e813fd2e439f61fb035b77f139d7416b9d57f353bfe9cbb7a7"
+        },
+        {
+          "path": "src-tauri/src/application/speech_gate.rs",
+          "sha256": "840ce9dda389a0470094ddfb1aa623b6318c31e76faba9fce7042c1da6fe8045"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_ai/mod.rs",
+          "sha256": "5300b78a895c6885a2c6f5bad0c33e62c516ebb18c73bdf27c49dfd5eaf0b608"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_ai/payload.rs",
+          "sha256": "88b6df5c63361fd7c37f37268e1a582dc61bc78959ad8eee5b549b0d47b5d95a"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_ai/requests.rs",
+          "sha256": "61fab92f229f7a9c15f1ff7fcaf57a7c386e8ab651114589351ab637e81408e2"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_report/mod.rs",
+          "sha256": "aab2b1157a8796d0c0cc504fec0c8660d426229148274db0050a30477e220861"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_report/model.rs",
+          "sha256": "6ce83ecf1bab230a488a455142afd401ca89859d501e061afbae0cf1a7206558"
+        },
+        {
+          "path": "src-tauri/src/application/trainer_report/tests.rs",
+          "sha256": "4843fe647adaa7d96e1d55c6a4d1f8bf85746de885034015cd62946f8724f5c2"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_context.rs",
+          "sha256": "ddc45903bedcf2011c35bda47bdfdfa18a777332f8bcd7bdc25bb5baeafd0003"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_contract.rs",
+          "sha256": "e5da3eff041237148b7fe39212c9f821f81bb7ffb4745172518dfc67b1b605af"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_jobs.rs",
+          "sha256": "255fcbe4cbbb55bbd903dad0214aefbe447239355e9779b8dba80ac704171353"
+        },
+        {
+          "path": "src-tauri/src/application/transcription_service.rs",
+          "sha256": "3e60694020319b7418faf1c6b05c8ae040aade9876cf7905e90c3f4376c45ec7"
+        },
+        {
+          "path": "src-tauri/src/application/updates/activity.rs",
+          "sha256": "7b2972d33941e0cf19c0f7b601e19e4fa0406a6acf9fdbc1d909dfbd0febdf23"
+        },
+        {
+          "path": "src-tauri/src/application/updates/automatic.rs",
+          "sha256": "ff381d7cd4029c952e1c9b1fd66f375017263a39afd0d0308db4e8a8a5bb8cc5"
+        },
+        {
+          "path": "src-tauri/src/application/updates/automatic/tests.rs",
+          "sha256": "4df818fa3dad4b113a47efc79e44f24306400afedd71a121341eeb71f54ac1a3"
+        },
+        {
+          "path": "src-tauri/src/application/updates/configuration.rs",
+          "sha256": "b55c0171de164eac9024333e46c25746dc774d6f4977fd4dc857dbb8b2af7a92"
+        },
+        {
+          "path": "src-tauri/src/application/updates/mod.rs",
+          "sha256": "2876483943cb084d40d37045badd2dd139ed64cefd4216d4a5e85eb839ec869f"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime.rs",
+          "sha256": "af8045d15a3e313e86a5e4c8296d06a3e24c2116ddcd4a1fdbe61f990ef04532"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime/check.rs",
+          "sha256": "5be0eee37e641243bc3f964e49a6b8193ddc260a8a3f23d47ddffb1d8ab5cfbe"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime/tests.rs",
+          "sha256": "a47f919a725a590706aa421d878347e396a0902e3aa8c8e7348a3e5d8b656098"
+        },
+        {
+          "path": "src-tauri/src/application/updates/runtime/transfer.rs",
+          "sha256": "464ba5b41c6383d84ca7b0502be664cc4ecbbf9e31b18bd670153217495faf63"
+        },
+        {
+          "path": "src-tauri/src/application/updates/state.rs",
+          "sha256": "fd847df70c35341fcb52deb1fa1375fe2d78d8ffd8f5eba005e12c5cca739904"
+        },
+        {
+          "path": "src-tauri/src/application/voice_dictation.rs",
+          "sha256": "60b4ed7678129504c80f18c8337721db6fef9cd0b0cdde7dab17513654c09b87"
+        },
+        {
+          "path": "src-tauri/src/application/wake_calibration.rs",
+          "sha256": "c2f464cdf11ada99416cc67bc78cf6ebb30e5ed41b3ca2679056694f89cc7509"
+        },
+        {
+          "path": "src-tauri/src/application/wake_calibration/rules.rs",
+          "sha256": "ee5a77e0f9e0cdedd6093a9887ca7e82a77b2fd55141174dace3f89a69780c60"
+        },
+        {
+          "path": "src-tauri/src/application/wake_calibration/state.rs",
+          "sha256": "58190987526d1e9903497e9dffb8a796bc7d04918c70bc42aebc36ef977f665a"
+        },
+        {
+          "path": "src-tauri/src/application/wake_dictation.rs",
+          "sha256": "7b68e0a3775765df9ba50b2c4e7ed056fb9b41ef4f87e99af93fa5804a69ad87"
+        },
+        {
+          "path": "src-tauri/src/application/wake_runtime.rs",
+          "sha256": "fbd0c6b97043ba2bf3b4f3a228879e74661d0755b0a2b892a17375a1512e4417"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/mod.rs",
+          "sha256": "9cec77206830d2de95b7dee025c7955322406f0fc50458065e62fd4b4d0b7513"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/rules.rs",
+          "sha256": "6248caa75869f68bfa33a8e1db5e31002e5ec9cce83416fd97d947e429119e61"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/service.rs",
+          "sha256": "04d2b34020df73b2adc241a7d5417d869e92651c6cdeae5dfc2cfc4d10a8c7dd"
+        },
+        {
+          "path": "src-tauri/src/application/wake_validation/state.rs",
+          "sha256": "e0f2c6cfcc88fb6a98d31767811186512f1f7ac0f97a5bdff36027247cdbf170"
+        },
+        {
+          "path": "src-tauri/src/application/wake.rs",
+          "sha256": "169968652fc07c625819ac1a09394319d93d0237d83b686264b17f6be438acca"
+        },
+        {
+          "path": "src-tauri/src/application/wake/lifecycle.rs",
+          "sha256": "bb6d36bd280b703ce491d5244170ba2cde484ca174411ed424c8d44f532edb1f"
+        },
+        {
+          "path": "src-tauri/src/application/wake/text.rs",
+          "sha256": "89450c953dab25239970e468b7dd207a54a47cfcfd7e8817e023315fa4587068"
+        },
+        {
+          "path": "src-tauri/src/audio/buffer.rs",
+          "sha256": "501299f58cdf90bd04cb4cc8890f17f67c4d8d921c43dff4fa15675ecdec961b"
+        },
+        {
+          "path": "src-tauri/src/audio/mod.rs",
+          "sha256": "74e577ce363fcbd700c9dd4c1cc44f2189e6f4df46c9cdbf4ec4d245045e38da"
+        },
+        {
+          "path": "src-tauri/src/autostart.rs",
+          "sha256": "3287c1289c38bbaa56f02e9173808a3a1d0c164b37977e664c45fd8932598f96"
+        },
+        {
+          "path": "src-tauri/src/crash_log.rs",
+          "sha256": "e5b93c325ca1eebf00216635d6f8d783aaaeb425a0affefbd8a20354f26230a5"
+        },
+        {
+          "path": "src-tauri/src/error.rs",
+          "sha256": "e1c966a9a153a819bca11ce6234a0b127650337e2f4d786b13ef740904947f4d"
+        },
+        {
+          "path": "src-tauri/src/events.rs",
+          "sha256": "61f8934cb2fb3fac030cd8680d6ac09e7524f3f3615efdfc615bc4eb9afc6c2d"
+        },
+        {
+          "path": "src-tauri/src/history.rs",
+          "sha256": "14ad85f1d6ff62b859cb6bf9fcfb3846eec478fd11f59ea84b7b4fd1a31eed25"
+        },
+        {
+          "path": "src-tauri/src/history/analytics.rs",
+          "sha256": "66ec0e21747300808cc5db5438781abc944ddb4980d9d4f94145912e29a6393c"
+        },
+        {
+          "path": "src-tauri/src/history/changes.rs",
+          "sha256": "fd5e8783485fd639114990eeacf0d238e6bff75698ced11ef11beaba1b2a490c"
+        },
+        {
+          "path": "src-tauri/src/history/recommendations.rs",
+          "sha256": "4184ef7daac293f1683b8b1720de457b30c8a2f3641e7cce946021a12fe054dc"
+        },
+        {
+          "path": "src-tauri/src/history/source.rs",
+          "sha256": "5b0a59328c6d7201dad5202dbd6190265564e24440cf11ab9446172b67ae9912"
+        },
+        {
+          "path": "src-tauri/src/history/storage.rs",
+          "sha256": "62808a61558e3d133b8de6ee1852ca7f401fb587d1bcfac0725e213d44eb0cd4"
+        },
+        {
+          "path": "src-tauri/src/history/tests.rs",
+          "sha256": "36c7830142ebfe399969ae2be64c69113c85d049acf751a9b7797dac5af9ef61"
+        },
+        {
+          "path": "src-tauri/src/injection/clipboard.rs",
+          "sha256": "800161f91414eac6a7a9356e09b4ffb1247daf798153e14940cf53762c14c3c5"
+        },
+        {
+          "path": "src-tauri/src/injection/mod.rs",
+          "sha256": "f24d96acb8efe3df72e13bf31113dbb220cdfea10c51a1ecd0f30504b409300e"
+        },
+        {
+          "path": "src-tauri/src/injection/modifiers.rs",
+          "sha256": "b8ee7b75e5a7221e70abeca2b157cfe417cdf3ec4b8171e4a986f97a307a92f9"
+        },
+        {
+          "path": "src-tauri/src/injection/target.rs",
+          "sha256": "2646b7ffe9777cd0d0552e7ddb4266b74cd6471ec49ea135804ccd619061f7f0"
+        },
+        {
+          "path": "src-tauri/src/ipc/audio.rs",
+          "sha256": "ce996f05c5510ea4c77d91b4e2e0f4ecc55d387ba7c6c86ead1c06e54a34b250"
+        },
+        {
+          "path": "src-tauri/src/ipc/blocking.rs",
+          "sha256": "91a2f7c3c02cc4d8a95ae719fdd40fb69a5ccf35faf54b8c4f52d236cd21943b"
+        },
+        {
+          "path": "src-tauri/src/ipc/cuda_packages.rs",
+          "sha256": "299f38dea6be5d9a1cd0e1274f36c4d129cd8c5a084b0265a17c9695216e5416"
+        },
+        {
+          "path": "src-tauri/src/ipc/desktop_v3.rs",
+          "sha256": "a79c63547575f1330525f1a4ad5719654bc3fd0e1e36525b1872e13b8ef44c29"
+        },
+        {
+          "path": "src-tauri/src/ipc/diagnostic_report.rs",
+          "sha256": "3eb9b2a02b84311815ad173ae7334e979d4e3a446d39d34495070fedf422c2fe"
+        },
+        {
+          "path": "src-tauri/src/ipc/diagnostics.rs",
+          "sha256": "b08ae6b6dcc787836d3083c9a75d4e0eab8ca969707a627e9b053a5ca55aba13"
+        },
+        {
+          "path": "src-tauri/src/ipc/dictation.rs",
+          "sha256": "113402226f2bcef908eef9e8a3a7e3489fb4d8486352311e9a88aa5c5e192a5f"
+        },
+        {
+          "path": "src-tauri/src/ipc/llm.rs",
+          "sha256": "21dc77f0cbd169a390e30f743e1c527dc715a528a3b724f8c07d6e31ddebb3f1"
+        },
+        {
+          "path": "src-tauri/src/ipc/memory.rs",
+          "sha256": "f53177210e9ad33db0d43d93d8645a277a212d5e95f7cceb71d7ad5aabaed027"
+        },
+        {
+          "path": "src-tauri/src/ipc/mod.rs",
+          "sha256": "536a7bdbc710f4cda27c3001d661308e22330c32db807bcf3b59c26e58a70553"
+        },
+        {
+          "path": "src-tauri/src/ipc/models.rs",
+          "sha256": "721346df04ab2078a527311566d2410650d783adaa44e3d8dc29ac41995319d1"
+        },
+        {
+          "path": "src-tauri/src/ipc/processing_capture.rs",
+          "sha256": "59f5fd02b2d0585039cab1e7b5b43cd399b26651e694a4de5a7f176b7d12bc4c"
+        },
+        {
+          "path": "src-tauri/src/ipc/processing.rs",
+          "sha256": "85a4de338b3dd5b1100db99ec4f6d5e63ef178b2be0eee115b4be2ca3b5c574f"
+        },
+        {
+          "path": "src-tauri/src/ipc/processing/tests.rs",
+          "sha256": "da142aba0827420015eed0750a40df03d7808750646a50c9ea4ce6b608dcf312"
+        },
+        {
+          "path": "src-tauri/src/ipc/project.rs",
+          "sha256": "44f57f20134ca3373c63a98a58977ac980499f9d430732c976c3e1ff04768e77"
+        },
+        {
+          "path": "src-tauri/src/ipc/registry.rs",
+          "sha256": "01a67d0392068bace63364cb9297124b37c02404a9f0fea70172cf1f55e448ce"
+        },
+        {
+          "path": "src-tauri/src/ipc/service.rs",
+          "sha256": "ad974ac8f4e6d265878ea25f575fc1deacb37e5af6617415df7d334706057423"
+        },
+        {
+          "path": "src-tauri/src/ipc/settings.rs",
+          "sha256": "8c4ae1b74003722949a7b19ff31474707aa6b352176513ce7b124453bc9d8331"
+        },
+        {
+          "path": "src-tauri/src/ipc/settings/active.rs",
+          "sha256": "78fe103ca3293e0e51088453cee7c7c72e39644bfec467479799d12d607ea5a4"
+        },
+        {
+          "path": "src-tauri/src/ipc/settings/wake.rs",
+          "sha256": "3fca739fbf0aa1f80f360319fb9edf6050b48ef3757d3d531e2d00b7bf3278d2"
+        },
+        {
+          "path": "src-tauri/src/ipc/system.rs",
+          "sha256": "81be5edd3c20e80e5746c733820c18513c599ece4c15a06f69867cd8d8f416ab"
+        },
+        {
+          "path": "src-tauri/src/ipc/text.rs",
+          "sha256": "4ce5ed1de0c7d4159642bd0c4979595e828a336a6d86fe079eb81b3b98af8de1"
+        },
+        {
+          "path": "src-tauri/src/ipc/trainer.rs",
+          "sha256": "ca929f3db17041aa93ee5f8b991f58d1346e3d705509b52dadfb987d7c2f697d"
+        },
+        {
+          "path": "src-tauri/src/ipc/updates.rs",
+          "sha256": "54ea443459a3e6469e6e710430fdf313e22a7d9a8ae67042f7d1f1b3920574d8"
+        },
+        {
+          "path": "src-tauri/src/ipc/voice.rs",
+          "sha256": "88e1194f1581ec0e6e3630d4d4975d3094cf78258edee8548399dbd69691a59d"
+        },
+        {
+          "path": "src-tauri/src/ipc/wake.rs",
+          "sha256": "c443e989301bb5af849a010a67d5d92aee02983468da6fde2eac3c9ea6c687c2"
+        },
+        {
+          "path": "src-tauri/src/lib.rs",
+          "sha256": "4f30845cb8e01c1f602be52c4930f84a97b06227704ff22aa585489d3c4f92b0"
+        },
+        {
+          "path": "src-tauri/src/llm/mod.rs",
+          "sha256": "51bb5c060ef8173788b725814687b9821692c51178418844867218567e950726"
+        },
+        {
+          "path": "src-tauri/src/llm/presets.rs",
+          "sha256": "418dbc09eb963f9a9cc7d3e85a640d8c0b008493ed898d94039b97a5db3f20a1"
+        },
+        {
+          "path": "src-tauri/src/llm/presets/tests.rs",
+          "sha256": "75a4d07796fbf67ed751bbe1d859941f3577855d9a0b483091715fdb3ab39160"
+        },
+        {
+          "path": "src-tauri/src/llm/speech.rs",
+          "sha256": "7a0d51d258ed09943f872294bf6f5fd00f39db1b276ef5356d9149b376927d3d"
+        },
+        {
+          "path": "src-tauri/src/llm/tests.rs",
+          "sha256": "195cd476d42347719d95cc9ade756a351bc3dd0e5e2d4da5db3dd59f251869c9"
+        },
+        {
+          "path": "src-tauri/src/logging.rs",
+          "sha256": "79029cd27c0d9377eb8b38212793fa0ffe0691fef017eced2f9005aaccca64f2"
+        },
+        {
+          "path": "src-tauri/src/main.rs",
+          "sha256": "182a3fbbee82a488813ea0903cddad844ed5cf2653876c9b6c2606e3ec596215"
+        },
+        {
+          "path": "src-tauri/src/overlay_geometry_tests.rs",
+          "sha256": "42587492be4093da5bfaf9aa7e5b23b3047c7b7b8344278b0734693be2398674"
+        },
+        {
+          "path": "src-tauri/src/overlay_geometry.rs",
+          "sha256": "31fef6e5a342b83d98c11c9517f5e6f48ec408b6154b3050d7003e5e52abae45"
+        },
+        {
+          "path": "src-tauri/src/overlay.rs",
+          "sha256": "fb69e7c1046eee7de7c1a7a640360ef2abb537bf19c5351a88e1ed7bfbd344c3"
+        },
+        {
+          "path": "src-tauri/src/overlay/dispatch.rs",
+          "sha256": "1195435e462a8a83128ad46b19ea96549e501e847b45abb38dd5e7b707a78a41"
+        },
+        {
+          "path": "src-tauri/src/overlay/dispatch/tests.rs",
+          "sha256": "a843bb06e7eb6804f8e66ab23336f300971f93db896ff1be8a8765c0460132ee"
+        },
+        {
+          "path": "src-tauri/src/overlay/position.rs",
+          "sha256": "e1ddf90e6a8b905738f4bb83ef946dd54473fc9917c94ddbe0f45f4b74b1dda5"
+        },
+        {
+          "path": "src-tauri/src/overlay/visibility.rs",
+          "sha256": "352f5c28cec69c635d3515a4eb2679b6cc81d365b3f3859bc7b1c4ca285c38b1"
+        },
+        {
+          "path": "src-tauri/src/overlay/window_layout.rs",
+          "sha256": "f937c9e5cd4829d535a40422dd232ca5559b831357d05d6197d2fc13b1ae1a48"
+        },
+        {
+          "path": "src-tauri/src/pipeline/capture_segments.rs",
+          "sha256": "9490afa40ae179314c1da2295633123e466ae99c1997945b3fe9c21bb124fc1c"
+        },
+        {
+          "path": "src-tauri/src/pipeline/capture_segments/tests.rs",
+          "sha256": "44c8ee7fd9bd93a0fbcaf3d7214e1e0a1ecc59ae862719fd333b660e700ff454"
+        },
+        {
+          "path": "src-tauri/src/pipeline/capture_tests.rs",
+          "sha256": "56d992a5736a79c7817391110d3f1959e0541a588b993a6ea670870c2b14cb50"
+        },
+        {
+          "path": "src-tauri/src/pipeline/completion.rs",
+          "sha256": "0c8179d78f6a598a66b743e4a16cb7e0d796ac088c445f7f1694b36a2c5669db"
+        },
+        {
+          "path": "src-tauri/src/pipeline/meter.rs",
+          "sha256": "41cb225a0ad70314377d19b36e50f40c7678443c82c4093700e54175ea23845d"
+        },
+        {
+          "path": "src-tauri/src/pipeline/mod.rs",
+          "sha256": "ef05e82097dffccf59393187b63788d54b768502ae36d4715fbc8e6577b227af"
+        },
+        {
+          "path": "src-tauri/src/pipeline/operation.rs",
+          "sha256": "74ac5f0136be3d2404344c704caf46d3dd8ce5f81a7c34c05e7cba335b9ca96a"
+        },
+        {
+          "path": "src-tauri/src/pipeline/pretranscription.rs",
+          "sha256": "f9838ab34d2b0a2f16c21602c6c13f3fb264133d8aca979b3116c6516810aa26"
+        },
+        {
+          "path": "src-tauri/src/pipeline/processing_choice.rs",
+          "sha256": "6e822b81fb0a96eb063fadc1cc55a9542688dd1c201ee28387b87bd86947f646"
+        },
+        {
+          "path": "src-tauri/src/pipeline/processing_choice/tests.rs",
+          "sha256": "de18d09ffcc89566b8ce1862b4731a9932d239672dd005bee83781bb09f1adc2"
+        },
+        {
+          "path": "src-tauri/src/pipeline/publication.rs",
+          "sha256": "2db24e6c596792b7a0175abe999acaa0d8980f8d3f1461c454f1b3534e95c82b"
+        },
+        {
+          "path": "src-tauri/src/pipeline/recording.rs",
+          "sha256": "44ac41a43b1d24d4506b1fd2682887c025cec1b77caaac0205e6d432cb7f4917"
+        },
+        {
+          "path": "src-tauri/src/pipeline/scheduler.rs",
+          "sha256": "3336686ac2d536d64e66220feaf4bb56cb5097328e242ac1d94e5b96dd2b983d"
+        },
+        {
+          "path": "src-tauri/src/pipeline/session_control_dismissal_tests.rs",
+          "sha256": "9ff08e356f85349e50de3e7592da224ed0c827bfae73db7cd843b368af077629"
+        },
+        {
+          "path": "src-tauri/src/pipeline/session_control.rs",
+          "sha256": "6b23028b02b253b9bf3e6bcbe15eca6c7eb5887ffc774d911b3b20539aef3c20"
+        },
+        {
+          "path": "src-tauri/src/pipeline/tests.rs",
+          "sha256": "8bb506158c9c864659475c23082790eb21090eb006c86db675163a54c872b096"
+        },
+        {
+          "path": "src-tauri/src/secrets.rs",
+          "sha256": "7ce50b43192c26908c1c4f569ac19b2009ce43a15ac39fa052e77b6aef64a371"
+        },
+        {
+          "path": "src-tauri/src/service_history.rs",
+          "sha256": "0bb31f60b178ae3ff69b03a5c6fd408d1db5da182ed71aaf8bda47009c5dcb00"
+        },
+        {
+          "path": "src-tauri/src/single_instance.rs",
+          "sha256": "a323c502e629fc50b012ce209632a2022a00b180a11f727f3abcc30165ec3381"
+        },
+        {
+          "path": "src-tauri/src/speech_metrics.rs",
+          "sha256": "6b5307b16527b0f837a1973f6a9c831986ce0d6bc4e4d3b72315f4affb832bca"
+        },
+        {
+          "path": "src-tauri/src/state.rs",
+          "sha256": "6b29d7fd8e89722ecaf1d9d0a36802558928affc52c8caee9803278a76a417a1"
+        },
+        {
+          "path": "src-tauri/src/state/persistence.rs",
+          "sha256": "5447a6c9cf1d9df7fbf653218105b150eca9df2a37aae08ea723582695a54672"
+        },
+        {
+          "path": "src-tauri/src/state/persistence/tests.rs",
+          "sha256": "af47a6a787e1059b2a8ea0beac7ca7b74cbccf41287f8fedbadd4619832d7799"
+        },
+        {
+          "path": "src-tauri/src/state/settings_delta.rs",
+          "sha256": "47110c1d25fefce79b1ecbdb241947017f1772279b4a50640cc5de504dbcee90"
+        },
+        {
+          "path": "src-tauri/src/stt/comparison_tests.rs",
+          "sha256": "02e02ef1fc2277383bf7eb3d4453708d9af866adaf260b84b083c68af78eb8cf"
+        },
+        {
+          "path": "src-tauri/src/stt/embedded.rs",
+          "sha256": "2c5cedfce5841c0315cb5364eb60a76e7252231a61a1c75b81bb3671a66c25f3"
+        },
+        {
+          "path": "src-tauri/src/stt/lifecycle_soak_config.rs",
+          "sha256": "99d4fcb93020117baae356b2962f76108d168ddde2b00fa754f3518a3c577234"
+        },
+        {
+          "path": "src-tauri/src/stt/lifecycle_soak_win32.rs",
+          "sha256": "be435a376f87c087098c0b56447898d34b89f917a87788f0e27159fbc5cc02d5"
+        },
+        {
+          "path": "src-tauri/src/stt/lifecycle_soak.rs",
+          "sha256": "8987d8157f52d522b7278a318019427e76d9a6017fc20498aa22b9bfb22d46c2"
+        },
+        {
+          "path": "src-tauri/src/stt/mod.rs",
+          "sha256": "35ae63ef19bf0cbcbb1c91d5b4025ad2e6b6bb715e3b6bdaafffd05afc0246d5"
+        },
+        {
+          "path": "src-tauri/src/stt/offline_models.rs",
+          "sha256": "0d42b3d0a10eec69f32c0aaece69cf892a4ca4d68713867f4e707abac7c76119"
+        },
+        {
+          "path": "src-tauri/src/stt/offline_tests.rs",
+          "sha256": "18f6fe79c344a5b0ca0080a4a59df7ec4fb9275c7794cd0ee6ff91cde4761ef0"
+        },
+        {
+          "path": "src-tauri/src/stt/offline.rs",
+          "sha256": "8ffe86398e6f7a5cbd3365f3c765a1896851c2ca1265d4ef899cb7b5341a5579"
+        },
+        {
+          "path": "src-tauri/src/stt/paths.rs",
+          "sha256": "7a552304f646637a32d2be2b4ecd6c550be05a382c4b6d3f8af817ddf566491d"
+        },
+        {
+          "path": "src-tauri/src/stt/recognizer_tests.rs",
+          "sha256": "bec0eaee016ff8f9e781bebfaec303574f48af5dc06f08fe7efcd5ec5c132a85"
+        },
+        {
+          "path": "src-tauri/src/stt/recognizer.rs",
+          "sha256": "c4e99739bd81906b6b2bc289069201a33027487b5fddecfe890c1f629ea716d8"
+        },
+        {
+          "path": "src-tauri/src/stt/recovery.rs",
+          "sha256": "3df3921179c40fea72fb476f11619d6bc9daa315979bd6bf1bb5a350238f533b"
+        },
+        {
+          "path": "src-tauri/src/stt/residency.rs",
+          "sha256": "dfd73a98237ba4f7b1df3ad704efa4793dc4a673812ab09f6c7c71cdb2a49467"
+        },
+        {
+          "path": "src-tauri/src/stt/routing.rs",
+          "sha256": "f98e71c3f1b77c2b72cce555531d35efbd099d53d163abab67ba951e1d4d95d6"
+        },
+        {
+          "path": "src-tauri/src/stt/tests.rs",
+          "sha256": "78f7323f241188790d4e165b411589b623d491ccbc3835c64eb0719514f4d2eb"
+        },
+        {
+          "path": "src-tauri/src/stt/window.rs",
+          "sha256": "3af0932559a5144d9acc93823bbf162ab19b6c74aa6fc83fe219e11aa819c841"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_cleanup_tests.rs",
+          "sha256": "5064837916f284953f773259675ec2869447d553e2ce118bada46f819915f344"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_cleanup.rs",
+          "sha256": "c7eb35fde4cdb48c942aadc2b227ea4cc5eea3f6d7bc7d1aa37d4147761b99e5"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_mailbox.rs",
+          "sha256": "838bf61ba922dfdd44c464debb020a5e284a428956eb8e08e740f835bbad0a00"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_request.rs",
+          "sha256": "9530ed058a4a8275dc880860b2266251e7d36d0445a8461965ac7905a10179de"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_session.rs",
+          "sha256": "9ec263e5e5a60a1d214a60efc54522c4dce83e75337955153637f63b0402ea0d"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_tests.rs",
+          "sha256": "b740d00f8d89f33e4a3ff74f496d355839bb0dc95fa924a4ec3142b1f1f97ad8"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_transport.rs",
+          "sha256": "f6343d7ac7af1f8d3b7f3235e2ec5dceb690a336c9c13a5ab12bc8beffbf1ec0"
+        },
+        {
+          "path": "src-tauri/src/stt/worker_window.rs",
+          "sha256": "64cf084d5f24ac5e7de37e5f3f931f09196ac86b902dcb2e5627814885e5f170"
+        },
+        {
+          "path": "src-tauri/src/stt/worker.rs",
+          "sha256": "12f0db8b82badf8d99acf3a2253e80f4b7bf71f363cc94bb5a373016d38ba0f8"
+        },
+        {
+          "path": "src-tauri/src/tray.rs",
+          "sha256": "ec659d70a1d6537ac8322f683a27f5b274941836901b5e78a5b68a6470c84fa6"
+        },
+        {
+          "path": "src-tauri/src/types.rs",
+          "sha256": "2b8c413b5390f8906f0cd12f5b364710bec94945bd299cbfdf9aac620561da30"
+        },
+        {
+          "path": "src-tauri/src/types/commands.rs",
+          "sha256": "ac7a9ebbc2e6151d62d11e274b0a8c5bd9ecc0faecd45f3a9068bc25d4869c6b"
+        },
+        {
+          "path": "src-tauri/src/types/defaults.rs",
+          "sha256": "5b782eb38f5d9114af4a22b0eda5400df928d37e94b53d008b3b795561ffee89"
+        },
+        {
+          "path": "src-tauri/src/types/history_metadata.rs",
+          "sha256": "1e765c63d677f33220d6e2ac5a1ebb0d9296400a13dd8cf1144d1b46cd34965b"
+        },
+        {
+          "path": "src-tauri/src/types/history.rs",
+          "sha256": "b10c3c906808022b471ca703cc65d75580475cc8bb19b4a0c9db3fb1a5567fcf"
+        },
+        {
+          "path": "src-tauri/src/types/models.rs",
+          "sha256": "bfb696f36d0923775f55b5d14e4118f62a36e21594cecd3255dcf7ceb0e7e819"
+        },
+        {
+          "path": "src-tauri/src/types/processing_prompts.rs",
+          "sha256": "fc5c1b5804d0cf17b890c343439ff36d915b8ade9a5eeaa138be8890c40df9e6"
+        },
+        {
+          "path": "src-tauri/src/types/processing_prompts/tests.rs",
+          "sha256": "c5e13107da12956c06388c05154782a968156fd76e6cc7c93a883fc4ce1808f5"
+        },
+        {
+          "path": "src-tauri/src/types/processing.rs",
+          "sha256": "e0f4b53fd4c39da5e3ac2741c798fadf5667b6b7682e9a3f4bebd1666e0ca301"
+        },
+        {
+          "path": "src-tauri/src/types/settings.rs",
+          "sha256": "63993aaa31cba929e6be93f2990f69529708f079674583ecae79609cf7f76a7f"
+        },
+        {
+          "path": "src-tauri/src/types/stt_models.rs",
+          "sha256": "9eb834fe8ab9a5710fd5de9674a8be28af83d00cf57426ba70549d443cd12770"
+        },
+        {
+          "path": "src-tauri/src/types/wake_availability.rs",
+          "sha256": "662ec205541872502c2799985a397c3d2bf03adb1ce7a7409f00455dc9af08dc"
+        },
+        {
+          "path": "src-tauri/src/types/wake_compat.rs",
+          "sha256": "eb431ac6be216a2868ee8d3989b4861d1c9c2d3f705e8d0d057c8a35ac511689"
+        },
+        {
+          "path": "src-tauri/src/types/wake_profile.rs",
+          "sha256": "6899149518baa04dbdf49ceed16cd44a0fb1660b4de10a5fb0f7d57042876c0f"
+        },
+        {
+          "path": "src-tauri/src/types/whisper_artifacts.rs",
+          "sha256": "ddee42556988d5d3f175da97a118abe93a8b413594e866b0502df23190a111b9"
+        },
+        {
+          "path": "src-tauri/src/vad/mod.rs",
+          "sha256": "8ac37745b032a6a302e7eaa61643432dd787c27b5dd18d6f64e10d9ad2f379cc"
+        },
+        {
+          "path": "src-tauri/src/verbose.rs",
+          "sha256": "40675156698e17d8ae0ffeee778cbcf5c5e847a9f90d90d1710855f13930eeb2"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/baseline.json",
+          "sha256": "6189e7e0a2426b35ec694c390c7de6c826df9eea8315a086f196e6b724f3558c"
+        },
+        {
+          "path": "src-tauri/tests/fixtures/stt-quality/manifest.json",
+          "sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2"
+        }
+      ]
+    },
+    "created_at": "2026-10-20T10:11:56.009Z",
+    "backend": "vulkan",
+    "machine": {
+      "os": "10.0.26200",
+      "arch": "x64",
+      "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+      "logical_cpus": 16
+    },
+    "model": {
+      "basename": "ggml-tiny.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
+    },
+    "model_sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+    "runner_sha256": "44bd20fe69f19c933be6d5cde09c9b5ca8d07dbb13a57ed4bda1e68edf7f482c",
+    "vad_sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+    "native_runtime": [
+      {
+        "filename": "onnxruntime.dll",
+        "sha256": "daa77083a45bf525da0dde9e87f85d8eb146f58f9c9aa7124ca84545e1c0f148"
+      },
+      {
+        "filename": "onnxruntime_providers_shared.dll",
+        "sha256": "190d10767c321f324d3785368a0b752d9c5a9e06cb5d4d97bb176f58bdb652f3"
+      },
+      {
+        "filename": "sherpa-onnx-c-api.dll",
+        "sha256": "3db688ca9e6408c958f45986adc68ed9158522e28c7567b7ffee9312a553c777"
+      },
+      {
+        "filename": "sherpa-onnx-cxx-api.dll",
+        "sha256": "3e8b308e9235a3e7398b2c89b43ebb7f813f216aade661b2f246d42656517777"
+      }
+    ],
+    "worker_sha256": "614775923ad8bc1de1afeab19494c3a148934b7c1684adb2d32ef3d20a722fb8",
+    "corpus": {
+      "schema": 1,
+      "corpus": "fono-fleurs-derived-long-v1",
+      "license": "CC-BY-4.0",
+      "attribution": "FLEURS, The Google and HuggingFace Datasets Authors (2022).",
+      "source_card": "https://huggingface.co/datasets/google/fleurs/blob/437d9e667fa3a2a08a1957f810bf2c3b5050d221/README.md",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.en",
+      "source_manifest_sha256": "64471b68027d178791624ae1a3ff06be8c52e496e7433123fcd72a7171980ca2",
+      "recipe": "Consecutive whole CI-03 clips; silence distributed before/between clips; final 100ms silence; exactly 60s.",
+      "limitations": "Two derived multi-speaker smoke WAVs, not natural monologues or owner microphone acceptance.",
+      "entries": [
+        {
+          "id": "ru-long-60s",
+          "language": "ru",
+          "path": "ru-long-60s.wav",
+          "samples": 960000,
+          "sha256": "472601e3a3439b724695d9984aecce7d8b5e1b392897e2ed609df2545250dec8",
+          "pcm_sha256": "289db0599c0c0dd616c0df6266e68641ee0f8943b85b3a791a2619ada2d36f2a",
+          "decoded_pcm_sha256": "289db0599c0c0dd616c0df6266e68641ee0f8943b85b3a791a2619ada2d36f2a",
+          "sources": [
+            {
+              "id": "ru-01",
+              "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed",
+              "start": 59600,
+              "end": 330320
+            },
+            {
+              "id": "ru-02",
+              "sha256": "63642d843d0843a568c26d78c4bfa96dbcb63f30089cb8d0731cc5da1fcd1b97",
+              "start": 389920,
+              "end": 574240
+            },
+            {
+              "id": "ru-03",
+              "sha256": "ecba29a8d004031693e2f37eb71f5a945ea4b51f24df895c4e53e58b2020c9fa",
+              "start": 633840,
+              "end": 772080
+            },
+            {
+              "id": "ru-04",
+              "sha256": "904bcffd6bfbc713d49da1925f85ca71775f963b85948b6974aad7e63b6835bf",
+              "start": 831680,
+              "end": 958400
+            }
+          ],
+          "reference": "в древнем китае использовали уникальный способ обозначения периодов времени каждый этап китая или каждая семья находившаяся у власти были особой династией мадагаскар намного больше других и является самобытным континентом в том что касается дикой природы во всех научных вопросах включая психологию были приняты взгляды аристотеля в различных местах рима были установлены большие телевизионные экраны с помощью которых люди могли наблюдать за церемонией"
+        },
+        {
+          "id": "en-long-60s",
+          "language": "en",
+          "path": "en-long-60s.wav",
+          "samples": 960000,
+          "sha256": "f3303e501fe040139d1c631c7f7d94d6580861f501fa94287768699d8cd44bf9",
+          "pcm_sha256": "8edd24c266ae19e871996534c65855eee787277c5403932c290a2dbefc90bb0f",
+          "decoded_pcm_sha256": "6ad85a7190bb07d209b850129466885901f7f1b8b803b015083bd304490ac501",
+          "sources": [
+            {
+              "id": "en-01",
+              "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7",
+              "start": 20320,
+              "end": 189280
+            },
+            {
+              "id": "en-02",
+              "sha256": "fd99727983733f9771077fe1a030fcc44ea7e16be1e9396cff525db2886a8f0f",
+              "start": 209600,
+              "end": 349760
+            },
+            {
+              "id": "en-03",
+              "sha256": "b4aea90be63667ffe68bd0c67fcc11b6a5bc334a4566df8153c074b37e2760d6",
+              "start": 370080,
+              "end": 553440
+            },
+            {
+              "id": "en-04",
+              "sha256": "ec5d38ffea7eca7d3288d850796671e7d9eb4f6cd2e39298b8a8c6131eee855c",
+              "start": 573760,
+              "end": 665920
+            },
+            {
+              "id": "en-05",
+              "sha256": "5fda1c914915f9fcd856b11739eb88570deb747c0a492c841255f13383d00e82",
+              "start": 686240,
+              "end": 755360
+            },
+            {
+              "id": "en-06",
+              "sha256": "c15df2cdf2811dde17f6086317a9aeb0f2cb4a9967204c6beac2cd87fadfb93b",
+              "start": 775680,
+              "end": 958400
+            }
+          ],
+          "reference": "however due to the slow communication channels styles in the west could lag behind by 25 to 30 year all nouns alongside the word sie for you always begin with a capital letter even in the middle of a sentence to the north and within easy reach is the romantic and fascinating town of sintra and which was made famous to foreigners after a glowing account of its splendours recorded by lord byron the cabbage juice changes color depending on how acidic or basic alkaline the chemical is many people don't think about them as dinosaurs because they have feathers and can fly the hospital has followed protocol for infection control including separating the patient from others to prevent possible infection of others"
+        }
+      ]
+    },
+    "completed": false,
+    "quality_policy": "Paired ordinary batch baseline, same PCM/model/settings/backend; no WER margin.",
+    "native": {
+      "completed": false,
+      "device": "Vulkan",
+      "entries": [
+        {
+          "baseline": {
+            "device": "Vulkan",
+            "memory": {
+              "after": {
+                "cpu_seconds": 3.265625,
+                "handles": 226,
+                "pid": 83440,
+                "private_bytes": 27242496,
+                "threads": 10
+              },
+              "before": {
+                "cpu_seconds": 0.59375,
+                "handles": 226,
+                "pid": 83440,
+                "private_bytes": 25276416,
+                "threads": 11
+              },
+              "interval_ms": 100,
+              "sampled_max_private_bytes": 36880384,
+              "samples": 13,
+              "scope": "native test process only; GPU worker RAM and VRAM are not included"
+            },
+            "stop_ready_seconds": 7.6377008,
+            "text": "В древнем китай использовали уникальный способ обозначения передов времени. Вовсе хналучных вопросах включая психологию были приняты взгляды рестотеля. В различных местах рима были установлены большие телезионные экраны с помощью которых люди могли наблюдать с ремонией."
+          },
+          "capture": {
+            "calls": [
+              {
+                "cancelled": false,
+                "context_bytes": 0,
+                "end": 306960,
+                "finished_seconds": 42.5503063,
+                "start": 0,
+                "started_seconds": 20.2444925
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 191,
+                "end": 555280,
+                "finished_seconds": 50.2307315,
+                "start": 338704,
+                "started_seconds": 43.9533734
+              },
+              {
+                "cancelled": false,
+                "context_bytes": 186,
+                "end": 782096,
+                "finished_seconds": 51.2371341,
+                "start": 582416,
+                "started_seconds": 51.0077602
+              }
+            ],
+            "completed_at_stop": 5,
+            "device": "Vulkan",
+            "feed_seconds": 60.0038241,
+            "full_batch_fallback": false,
+            "join_seconds": 1.4684097,
+            "memory": {
+              "after": {
+                "cpu_seconds": 20.078125,
+                "handles": 225,
+                "pid": 83440,
+                "private_bytes": 28827648,
+                "threads": 10
+              },
+              "before": {
+                "cpu_seconds": 3.4375,
+                "handles": 229,
+                "pid": 83440,
+                "private_bytes": 28270592,
+                "threads": 12
+              },
+              "interval_ms": 100,
+              "sampled_max_private_bytes": 45064192,
+              "samples": 109,
+              "scope": "native test process only; GPU worker RAM and VRAM are not included"
+            },
+            "prefix": [
+              {
+                "end": 306960,
+                "speech": true,
+                "start": 0
+              },
+              {
+                "end": 338704,
+                "speech": false,
+                "start": 306960
+              },
+              {
+                "end": 555280,
+                "speech": true,
+                "start": 338704
+              },
+              {
+                "end": 582416,
+                "speech": false,
+                "start": 555280
+              },
+              {
+                "end": 782096,
+                "speech": true,
+                "start": 582416
+              }
+            ],
+            "processed_until": 782096,
+            "remaining_seconds": 11.119,
+            "stop_ready_seconds": 5.5046218,
+            "tail": [
+              {
+                "end": 960000,
+                "forced": false,
+                "start": 782096
+              }
+            ],
+            "text": "В древнем китай использовали уникальный способ обозначения передов в греймени. Каждый тап китай или каждое семья, находившаяся у власти. Были особо династии. Модогаскар намного больше других и является самобытным континентом, в то, что касается дикой природы. Во всех научных вопросах включая психологию были приняты взгляды рестотеля. В различных местах рима были установлены большей телевизионные экраны с помощью которых люди могли наблюдать с ремонией."
+          },
+          "id": "ru-long-60s",
+          "language": "ru",
+          "operation_id": 1,
+          "pcm_sha256": "289db0599c0c0dd616c0df6266e68641ee0f8943b85b3a791a2619ada2d36f2a",
+          "samples": 960000,
+          "service_scheduler": {
+            "entered_before_interactive_finish": false,
+            "wait_seconds": 65.4866597
+          }
+        }
+      ],
+      "model": {
+        "engine": "whisper",
+        "variant": "tiny"
+      },
+      "policy": {
+        "feed_interval_ms": 100,
+        "feed_samples": 1600,
+        "start_after_samples": 240000,
+        "stop_ready_scope": "native recognizer text; excludes LLM, UI and insertion",
+        "threads": 8
+      },
+      "profile": "debug",
+      "schema": 1
+    },
+    "process": {
+      "status": 101,
+      "error": null
+    }
+  }
+}

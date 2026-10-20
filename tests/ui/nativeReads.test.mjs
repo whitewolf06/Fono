@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { before, beforeEach, after, test } from "node:test";
 import { createServer } from "vite";
 
-let server, createCoalescedRead, createContext, defaults, rawDefaults, call;
+let server,
+  createCoalescedRead,
+  createContext,
+  defaults,
+  rawDefaults,
+  call,
+  waitForDesktopReady;
 let invoke, calls;
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 function deferred() {
@@ -30,6 +36,9 @@ before(async () => {
   ({ call } = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/native/ipc.ts",
   ));
+  ({ waitForDesktopReady } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/startupReady.ts",
+  ));
   ({ defaults } = await server.ssrLoadModule(
     "/src/v3/features/preferences/domain/preferences.ts",
   ));
@@ -52,6 +61,68 @@ beforeEach(() => {
 after(async () => {
   await server?.close();
   delete globalThis.window;
+});
+
+test("desktop startup waits for native setup with one subscription and one read", async () => {
+  let ready,
+    released = 0,
+    reads = 0,
+    mounted = false;
+  const pending = waitForDesktopReady({
+    listen: async (callback) => {
+      ready = callback;
+      return () => released++;
+    },
+    read: async () => {
+      reads++;
+      return false;
+    },
+  }).then(() => {
+    mounted = true;
+  });
+  await flush();
+  assert.equal(mounted, false);
+  assert.equal(reads, 1);
+  ready();
+  await pending;
+  assert.equal(mounted, true);
+  assert.equal(released, 1);
+});
+
+test("desktop startup handles already ready and the subscribe/read race", async () => {
+  for (const alreadyReady of [true, false]) {
+    let release = 0,
+      ready;
+    await waitForDesktopReady({
+      listen: async (callback) => {
+        ready = callback;
+        return () => release++;
+      },
+      read: async () => {
+        if (!alreadyReady) ready();
+        return alreadyReady;
+      },
+    });
+    assert.equal(release, 1);
+  }
+});
+
+test("desktop startup timeout cleans up even a late listener", async () => {
+  let release = 0;
+  const subscription = deferred();
+  await assert.rejects(
+    waitForDesktopReady(
+      {
+        listen: () => subscription.promise,
+        read: async () => false,
+      },
+      15,
+    ),
+    /timed out/,
+  );
+  subscription.resolve(() => release++);
+  await flush();
+  assert.equal(release, 1);
 });
 function state() {
   return {

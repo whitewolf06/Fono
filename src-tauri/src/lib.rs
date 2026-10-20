@@ -29,6 +29,10 @@ pub mod types;
 pub mod vad;
 pub mod verbose;
 
+#[cfg(all(test, windows))]
+#[path = "stt/lifecycle_soak_win32.rs"]
+mod test_process;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::install_crash_hook();

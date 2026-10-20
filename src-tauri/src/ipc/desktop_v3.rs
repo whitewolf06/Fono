@@ -16,6 +16,13 @@ pub struct DesktopSession {
     pub outcome: Mutex<Option<crate::events::DictationOutcomeEventV1>>,
 }
 
+/// Safe even while configured windows are being created, before app setup.
+#[tauri::command]
+pub fn get_runtime_ready(app: AppHandle) -> bool {
+    app.try_state::<crate::app_runtime::RuntimeReady>()
+        .is_some()
+}
+
 impl DesktopSession {
     /// A late result cannot replace a newer session or reverse cancellation.
     pub(crate) fn record_outcome(&self, outcome: crate::events::DictationOutcomeEventV1) -> bool {

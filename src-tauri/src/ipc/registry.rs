@@ -3,6 +3,7 @@
 pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         // state
+        crate::ipc::desktop_v3::get_runtime_ready,
         crate::ipc::desktop_v3::get_desktop_snapshot,
         crate::ipc::memory::get_stt_memory_status,
         crate::ipc::desktop_v3::improve_text,

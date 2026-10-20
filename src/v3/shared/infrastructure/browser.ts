@@ -5,6 +5,12 @@ import { availableWakeEnabled } from "../domain/wakeAvailability";
 import { clonePreferences } from "../../features/preferences/domain/processingPrompts";
 import { PROJECT_SITE_URL } from "../domain/project";
 const storageKey = "fono-v3-demo-preferences-v1";
+export function showStartupFailure(): void {
+  const root = document.getElementById("app");
+  if (root)
+    root.textContent =
+      "Не удалось дождаться запуска Fono. Перезапустите приложение.";
+}
 export async function openProjectSite(): Promise<void> {
   window.open(PROJECT_SITE_URL, "_blank", "noopener,noreferrer");
 }

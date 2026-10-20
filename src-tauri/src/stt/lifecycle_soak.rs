@@ -7,8 +7,7 @@ use serde_json::{json, Value};
 
 #[path = "lifecycle_soak_config.rs"]
 mod config;
-#[path = "lifecycle_soak_win32.rs"]
-mod win32;
+use crate::test_process as win32;
 use config::{Config, MODEL_SHA256};
 
 type Result<T> = std::result::Result<T, String>;

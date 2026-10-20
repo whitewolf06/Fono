@@ -80,6 +80,7 @@ jobs:
           npm run test:v3
           npm run test:release
           npm run test:quality:stage5
+          node --test scripts/long-dictation-quality.test.mjs
           npm run test:soak:contracts
           npm run test:cpu
           npm run docs:check
@@ -95,8 +96,8 @@ jobs:
     env:
       LIBCLANG_PATH: C:\Program Files\LLVM\bin
       FONO_BUILD_REVISION: ${{ github.sha }}
-      # Cargo embeds assets because fono enables Tauri custom-protocol. This inert
-      # compile fixture needs no npm packages and does not exercise the real UI.
+      # Inert frontend fixture also supports explicit custom-protocol checks;
+      # it needs no npm packages and does not exercise the real UI.
       # JSON Merge Patch removes only GPU workers; pinned Sherpa/VAD stay real.
       # This job never builds a release; the signed-update workflow uses dist.
       TAURI_CONFIG: '{"build":{"frontendDist":"../scripts/ci-native-frontend"},"bundle":{"resources":{"resources/stt-base/fono-stt-vulkan-worker.exe":null}}}'

@@ -5,7 +5,7 @@ resolver = "2"
 [package]
 license = "MIT"
 name = "fono"
-version = "0.7.38"
+version = "0.7.39"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -25,7 +25,7 @@ sha2 = "0.10"
 
 [dependencies]
 # Tauri core
-tauri = { version = "2.1", features = ["tray-icon", "custom-protocol"] }
+tauri = { version = "2.1", features = ["tray-icon"] }
 tauri-plugin-global-shortcut = "2.0"
 
 # Wake word subsystem
@@ -105,6 +105,8 @@ uuid = { version = "1", features = ["v4"] }
 tauri-plugin-updater = "=2.12.0"
 
 [features]
+# Tauri CLI enables embedded assets for build; dev must use its live devUrl.
+custom-protocol = ["tauri/custom-protocol"]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so
 # a normal installer does not require CUDA/CUBLAS on the target machine.
 default = ["speech-vad", "offline-stt"]

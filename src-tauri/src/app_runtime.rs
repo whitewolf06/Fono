@@ -8,6 +8,8 @@ use fono_audio::AudioHub;
 use fono_wake::{WakeWordConfig, WakeWordHandle};
 use tauri::{Manager, WindowEvent};
 
+pub(crate) struct RuntimeReady;
+
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Only the primary process may load settings and own services.
     crate::logging::init();
@@ -45,19 +47,6 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     // Настраиваемые горячие клавиши диктовки: hold или toggle.
     setup_global_shortcut(app)?;
 
-    // Закрытие окна настроек сворачивает его в трей, а не уничтожает.
-    // Это позволяет снова открыть окно из трея.
-    if let Some(settings_window) = app.get_webview_window("settings") {
-        let settings_window_clone = settings_window.clone();
-        settings_window.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = settings_window_clone.hide();
-                tracing::info!("settings window hidden to tray");
-            }
-        });
-    }
-
     // Применяем сохранённые настройки и политику хранения аналитики.
     let settings = app.state::<AppState>().settings();
     crate::verbose::set_verbose(settings.verbose_logging);
@@ -87,9 +76,6 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             app.handle().clone(),
         )?,
     );
-    if let Err(error) = crate::overlay::restore_position(app.handle(), &settings) {
-        tracing::warn!(%error, "could not restore overlay position");
-    }
 
     #[cfg(feature = "wake-word")]
     {
@@ -118,6 +104,27 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
+    // Tauri normally creates configured windows before setup. WebView2 can
+    // execute their scripts during creation, so all IPC state must exist first.
+    // Both configs use create:false; preserve their settings when building here.
+    app.manage(RuntimeReady);
+    for config in &app.config().app.windows {
+        tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
+    }
+    if let Some(window) = app.get_webview_window("settings") {
+        let settings_window = window.clone();
+        window.on_window_event(move |event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = settings_window.hide();
+                tracing::info!("settings window hidden to tray");
+            }
+        });
+    }
+    if let Err(error) = crate::overlay::restore_position(app.handle(), &settings) {
+        tracing::warn!(%error, "could not restore overlay position");
+    }
+    let _ = tauri::Emitter::emit(app, "fono-runtime-ready", true);
     Ok(())
 }
 

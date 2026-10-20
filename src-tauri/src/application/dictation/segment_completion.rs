@@ -12,6 +12,88 @@ use fono_core::OperationCancellation;
 use fono_stt_protocol::{BackendKind, WindowTranscript};
 use std::path::Path;
 
+/// The same blocking Stop implementation is used by desktop and public-WAV replay.
+pub(super) struct Runtime<'a> {
+    pub stt: &'a crate::stt::SttEngine,
+    pub scheduler: &'a std::sync::Arc<crate::pipeline::scheduler::SttScheduler>,
+}
+
+impl Runtime<'_> {
+    pub fn finish(
+        &self,
+        operation: u64,
+        settings: &Settings,
+        samples: &[i16],
+        batch: CaptureSegmentBatch,
+        cancelled: &OperationCancellation,
+        paths: impl FnOnce() -> AppResult<(std::path::PathBuf, crate::stt::WorkerPaths)>,
+    ) -> AppResult<Transcript> {
+        check_cancel(cancelled)?;
+        if batch.processed_until == samples.len() {
+            return complete(
+                operation,
+                settings,
+                samples,
+                batch,
+                &[],
+                cancelled,
+                |_, _, _| unreachable!("no remaining PCM"),
+            );
+        }
+        let (vad_path, workers) = paths()?;
+        let ranges = tail_ranges(samples, batch.processed_until, &vad_path, cancelled)?;
+        let mut gate = fono_audio::StreamingSpeechVad::new(&vad_path)
+            .map_err(|error| AppError::Stt(error.to_string()))?;
+        let model = settings
+            .selected_stt_model()
+            .ok_or(AppError::ModelNotSelected)?;
+        complete(
+            operation,
+            settings,
+            samples,
+            batch,
+            &ranges,
+            cancelled,
+            |window, start, context| {
+                // A short forced-cut fragment needs whole-capture fallback, not loss.
+                if window.len() < fono_audio::speech_vad::MIN_RECORDING_SAMPLES {
+                    return Err(AppError::Config(
+                        "short tail requires complete-capture fallback".into(),
+                    ));
+                }
+                let speech = gate
+                    .analyze_recording(window, || cancelled.is_cancelled())
+                    .ok_or_else(|| {
+                        AppError::Cancelled("tail speech validation cancelled".into())
+                    })?;
+                if !speech.has_speech {
+                    return Ok(None);
+                }
+                let permit = self.scheduler.acquire(true, cancelled)?;
+                self.stt.ensure_model_loaded(
+                    &model,
+                    settings.acceleration,
+                    &workers,
+                    &permit.cancellation,
+                )?;
+                let context =
+                    context.filter(|_| self.stt.capabilities().is_some_and(|c| c.initial_prompt));
+                self.stt
+                    .transcribe_window_with_options(
+                        window,
+                        &settings.language,
+                        context,
+                        operation,
+                        &permit.cancellation,
+                        start,
+                        settings.decoding_options(),
+                    )
+                    .map(Some)
+            },
+        )
+    }
+}
+
 pub(super) fn validate_prefix(
     operation: u64,
     settings: &Settings,
@@ -209,3 +291,6 @@ impl Combined {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(test, windows))]
+mod quality;
