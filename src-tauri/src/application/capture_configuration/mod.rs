@@ -39,6 +39,13 @@ fn busy() -> AppError {
 }
 
 impl Gate {
+    fn try_begin_capture(&self) -> AppResult<CaptureAdmission<'_>> {
+        let guard = self.0.try_lock().ok_or_else(busy)?;
+        if guard.configuring {
+            return Err(busy());
+        }
+        Ok(CaptureAdmission { _guard: guard })
+    }
     fn begin_capture(&self) -> AppResult<CaptureAdmission<'_>> {
         let guard = self.0.lock();
         if guard.configuring {
@@ -74,6 +81,11 @@ impl Drop for Reservation<'_> {
 /// Hold through reading settings and registering the synchronous capture start.
 pub(crate) fn begin_capture() -> AppResult<CaptureAdmission<'static>> {
     GATE.begin_capture()
+}
+
+/// CLI admission must not wait on another start's microphone I/O.
+pub(crate) fn try_begin_capture() -> AppResult<CaptureAdmission<'static>> {
+    GATE.try_begin_capture()
 }
 
 /// Atomically validate idle/capture policy and prevent new capture admissions.

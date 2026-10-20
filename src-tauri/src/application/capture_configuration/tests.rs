@@ -5,6 +5,18 @@ use std::sync::{
 };
 
 #[test]
+fn cli_reservation_never_waits_for_capture_or_configuration_work() {
+    let gate = Gate::default();
+    let capture = gate.begin_capture().unwrap();
+    assert!(gate.try_begin_capture().is_err());
+    drop(capture);
+    let reservation = gate.reserve_configuration(|| Ok(())).unwrap();
+    assert!(gate.try_begin_capture().is_err());
+    drop(reservation);
+    assert!(gate.try_begin_capture().is_ok());
+}
+
+#[test]
 fn reserved_configuration_rejects_capture_and_concurrent_writer() {
     let gate = Gate::default();
     let reservation = gate.reserve_configuration(|| Ok(())).unwrap();

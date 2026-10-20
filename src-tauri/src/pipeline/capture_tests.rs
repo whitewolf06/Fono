@@ -65,6 +65,42 @@ fn fixture() -> (Pipeline, Arc<CaptureProbe>) {
 }
 
 #[test]
+fn cli_reserves_identity_without_audio_and_native_start_reuses_it() {
+    let (pipeline, probe) = fixture();
+    let operation = pipeline.reserve_capture(OperationSource::Hotkey).unwrap();
+    assert_eq!(probe.starts.load(Ordering::SeqCst), 0);
+    assert_eq!(pipeline.operation_id(), operation);
+    assert!(!pipeline.is_recording());
+    assert!(pipeline.reserve_capture(OperationSource::Hotkey).is_err());
+    assert_eq!(
+        pipeline.start_reserved_capture(operation, None).unwrap(),
+        operation
+    );
+    assert_eq!(probe.starts.load(Ordering::SeqCst), 1);
+    pipeline.set_command_capture(operation, true);
+    assert!(pipeline.is_command_capture(operation));
+    assert!(!pipeline.is_command_capture(operation + 1));
+    pipeline.stop_recording_for(operation).unwrap();
+    pipeline.finish_operation(operation, TerminalReason::Completed);
+}
+
+#[test]
+fn cancelled_queued_start_cannot_open_audio_or_replace_successor() {
+    let (pipeline, probe) = fixture();
+    let old = pipeline.reserve_capture(OperationSource::Hotkey).unwrap();
+    pipeline.cancel_for(old).unwrap();
+    let next = pipeline.reserve_capture(OperationSource::Ui).unwrap();
+    assert!(pipeline.start_reserved_capture(old, None).is_err());
+    assert_eq!(probe.starts.load(Ordering::SeqCst), 0);
+    assert_eq!(pipeline.operation_id(), next);
+    pipeline.start_reserved_capture(next, None).unwrap();
+    assert!(pipeline.stop_recording_for(old).unwrap().is_none());
+    assert_eq!(probe.starts.load(Ordering::SeqCst), 1);
+    pipeline.stop_recording_for(next).unwrap();
+    pipeline.finish_operation(next, TerminalReason::Completed);
+}
+
+#[test]
 fn old_stop_after_cancel_and_restart_cannot_detach_the_new_capture() {
     let (pipeline, probe) = fixture();
     pipeline

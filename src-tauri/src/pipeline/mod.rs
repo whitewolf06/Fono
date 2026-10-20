@@ -50,6 +50,7 @@ const INITIAL_RECORDING_CAPACITY: usize = RECORDING_SAMPLE_RATE * 30;
 pub struct Pipeline {
     recording: Mutex<bool>,
     capture_operation: AtomicU64,
+    command_operation: AtomicU64,
     stopped_capture_drops: Mutex<Option<(u64, u64)>>,
     /// Arc-буфер накопленных сэмплов, разделяемый с аудио-callback'ом cpal.
     writer: Mutex<Option<RecordingWriter>>,
@@ -88,6 +89,7 @@ impl Pipeline {
         Self {
             recording: Mutex::new(false),
             capture_operation: AtomicU64::new(0),
+            command_operation: AtomicU64::new(0),
             stopped_capture_drops: Mutex::new(None),
             writer: Mutex::new(None),
             audio_owner,

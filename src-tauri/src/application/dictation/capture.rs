@@ -8,7 +8,7 @@ use crate::{
     error::{AppError, AppResult},
     pipeline::{self, Pipeline},
     state::AppState,
-    types::PipelineState,
+    types::{PipelineState, Settings},
 };
 use fono_core::{OperationSource, TerminalReason};
 use tauri::{AppHandle, Manager};
@@ -62,6 +62,39 @@ pub(crate) fn start_command_operation(app: AppHandle) -> AppResult<u64> {
     start_configured(app, OperationSource::Hotkey, &[], None, true)
 }
 
+pub(crate) struct ReservedCapture {
+    pub operation: u64,
+    settings: Settings,
+}
+
+/// Memory-only CLI admission; the operation and snapshot exist before queueing.
+pub(crate) fn reserve_operation(app: &AppHandle) -> AppResult<ReservedCapture> {
+    let _admission = crate::application::capture_configuration::try_begin_capture()?;
+    ensure_capture_allowed(app)?;
+    let pipeline = app.state::<Pipeline>();
+    let settings = app.state::<AppState>().settings();
+    let operation = pipeline.reserve_capture(OperationSource::Hotkey)?;
+    if !pipeline.set_session_settings_for(operation, settings.clone()) {
+        return Err(AppError::Cancelled("Диктовка отменена".into()));
+    }
+    Ok(ReservedCapture {
+        operation,
+        settings,
+    })
+}
+
+pub(crate) fn start_reserved_operation(app: AppHandle, capture: ReservedCapture) -> AppResult<u64> {
+    let admission = crate::application::capture_configuration::begin_capture()?;
+    ensure_capture_allowed(&app)?;
+    app.state::<Pipeline>().start_reserved_capture(
+        capture.operation,
+        capture.settings.audio_device_id.as_deref(),
+    )?;
+    configure_recording(&app, capture.operation, &capture.settings, false)?;
+    drop(admission);
+    activate_recording(app, capture.operation, OperationSource::Hotkey, false)
+}
+
 pub(crate) fn ensure_capture_allowed(app: &AppHandle) -> AppResult<()> {
     #[cfg(feature = "experimental-live")]
     if crate::application::live_dictation::is_active(app) {
@@ -84,9 +117,8 @@ fn start_configured(
 ) -> AppResult<u64> {
     let admission = crate::application::capture_configuration::begin_capture()?;
     ensure_capture_allowed(&app)?;
-    let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
-    let settings = state.settings();
+    let settings = app.state::<AppState>().settings();
     #[cfg(feature = "experimental-live")]
     if !force_standard
         && settings.dictation_mode == crate::types::DictationMode::Live
@@ -109,17 +141,50 @@ fn start_configured(
             tracing::error!(%error, "start_dictation: capture failed");
             error
         })?;
+    configure_recording(&app, operation, &settings, force_standard)?;
+    drop(admission);
+    activate_recording(app.clone(), operation, source, force_standard)
+}
+
+fn configure_recording(
+    app: &AppHandle,
+    operation: u64,
+    settings: &Settings,
+    force_standard: bool,
+) -> AppResult<()> {
+    let pipeline = app.state::<Pipeline>();
+    pipeline.set_command_capture(operation, force_standard);
     if !pipeline.set_session_settings_for(operation, settings.clone()) {
         pipeline.stop_recording_for(operation)?;
         return Err(AppError::Cancelled("Диктовка отменена".into()));
     }
     #[cfg(feature = "speech-vad")]
-    if !force_standard && matches!(source, OperationSource::Ui | OperationSource::Hotkey) {
-        if let Err(error) = super::capture_segments::maybe_start(&app, operation, &settings) {
+    if !force_standard
+        && pipeline
+            .current_operation()
+            .filter(|current| current.id == operation)
+            .is_some_and(|operation| {
+                matches!(
+                    operation.source,
+                    OperationSource::Ui | OperationSource::Hotkey
+                )
+            })
+    {
+        if let Err(error) = super::capture_segments::maybe_start(app, operation, settings) {
             tracing::warn!(operation, %error, "capture pretranscription unavailable; ordinary Stop remains available");
         }
     }
-    drop(admission);
+    Ok(())
+}
+
+fn activate_recording(
+    app: AppHandle,
+    operation: u64,
+    source: OperationSource,
+    command: bool,
+) -> AppResult<u64> {
+    let state = app.state::<AppState>();
+    let pipeline = app.state::<Pipeline>();
     super::workflow::capture_target(&app, operation, source);
     // The focus probe above deliberately runs outside all admission/capture
     // locks. Cancel may finish this operation while its provider is responding.
@@ -146,7 +211,7 @@ fn start_configured(
     ) {
         return Err(AppError::Cancelled("Диктовка отменена".into()));
     }
-    arm_recording_safety_timeout(app.clone(), operation, force_standard);
+    arm_recording_safety_timeout(app.clone(), operation, command);
     Ok(operation)
 }
 

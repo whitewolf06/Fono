@@ -9,7 +9,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use sha2::{Digest, Sha256};
-use tauri::{plugin::TauriPlugin, Manager, Runtime};
+use tauri::{plugin::TauriPlugin, Runtime};
 
 /// The Windows plugin keys its mutex from the application identifier, not dbus_id.
 /// Debug review profiles must not activate or stop the installed application.
@@ -165,25 +165,9 @@ impl Drop for StartupGuard {
     }
 }
 
-pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
-    // The plugin already forwards argv (including the executable) and cwd to
-    // this callback. Keep the hook for F-04; until CLI commands are implemented,
-    // discard them without logging, persistence, events or command execution.
-    tauri_plugin_single_instance::init(|app, _args, _cwd| {
-        let Some(window) = app.get_webview_window("settings") else {
-            tracing::warn!("could not find settings window after a second launch");
-            return;
-        };
-        if window.show().is_err() {
-            tracing::warn!("could not show settings window after a second launch");
-        }
-        if window.unminimize().is_err() {
-            tracing::warn!("could not restore settings window after a second launch");
-        }
-        if window.set_focus().is_err() {
-            tracing::warn!("could not focus settings window after a second launch");
-        }
-    })
+pub(crate) fn plugin() -> TauriPlugin<tauri::Wry> {
+    // The pinned transport includes argv[0]. Ignore cwd and never execute a shell.
+    tauri_plugin_single_instance::init(|app, args, _cwd| crate::cli::forwarded(app, args))
 }
 
 #[cfg(test)]

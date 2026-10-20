@@ -1,6 +1,11 @@
 //! Bounded capture buffers and operation-fenced physical audio ownership.
 use super::*;
 
+enum CaptureOperation {
+    New(OperationSource),
+    Reserved(u64),
+}
+
 impl Pipeline {
     pub fn recording_window(&self, from: u64, maximum: usize) -> (u64, Vec<i16>) {
         self.writer
@@ -64,13 +69,80 @@ impl Pipeline {
         cursor: Option<(u64, u64)>,
         live: bool,
     ) -> AppResult<u64> {
+        self.start_capture_inner(
+            device_id,
+            pre_roll,
+            CaptureOperation::New(source),
+            cursor,
+            live,
+        )
+    }
+
+    /// Allocate identity before queueing native work. Never wait on audio I/O
+    /// from the single-instance callback (the capture lock may be opening a device).
+    pub(crate) fn reserve_capture(&self, source: OperationSource) -> AppResult<u64> {
         let _update_admission = crate::application::updates::activity::begin()?;
+        let recording = self
+            .recording
+            .try_lock()
+            .ok_or_else(|| AppError::Busy("Запись ещё запускается или завершается".into()))?;
+        if *recording || self.capture_operation.load(Ordering::Acquire) != 0 {
+            return Err(AppError::Busy(
+                "Запись ещё запускается или завершается".into(),
+            ));
+        }
+        Ok(self.operations.start(source)?.id)
+    }
+
+    pub(crate) fn start_reserved_capture(
+        &self,
+        operation: u64,
+        device_id: Option<&str>,
+    ) -> AppResult<u64> {
+        self.start_capture_inner(
+            device_id,
+            &[],
+            CaptureOperation::Reserved(operation),
+            None,
+            false,
+        )
+    }
+
+    pub(crate) fn set_command_capture(&self, operation: u64, command: bool) {
+        self.while_operation(operation, || {
+            self.command_operation
+                .store(if command { operation } else { 0 }, Ordering::Release);
+        });
+    }
+
+    pub(crate) fn is_command_capture(&self, operation: u64) -> bool {
+        operation != 0 && self.command_operation.load(Ordering::Acquire) == operation
+    }
+
+    fn start_capture_inner(
+        &self,
+        device_id: Option<&str>,
+        pre_roll: &[i16],
+        requested: CaptureOperation,
+        cursor: Option<(u64, u64)>,
+        live: bool,
+    ) -> AppResult<u64> {
+        // A lease excludes installation for the real work without holding the
+        // admission mutex across device I/O (CLI Stop/Cancel must stay responsive).
+        let _update_admission = crate::application::updates::activity::lease()?;
         let mut recording = self.recording.lock();
         if *recording {
             tracing::warn!("start_recording called while already recording");
             return Err(AppError::Busy("audio recording is already active".into()));
         }
-        let operation = self.operations.start(source)?;
+        let operation = match requested {
+            CaptureOperation::New(source) => self.operations.start(source)?,
+            CaptureOperation::Reserved(id) => self
+                .current_operation()
+                .filter(|current| current.id == id && current.phase == OperationPhase::Recording)
+                .ok_or_else(|| AppError::Cancelled("Диктовка уже завершена или заменена".into()))?,
+        };
+        let source = operation.source;
         self.operations
             .acquire_resource(operation.id, OperationResource::Audio)?;
         if pre_roll.len() > MAX_RECORDING_SAMPLES {

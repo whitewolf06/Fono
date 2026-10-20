@@ -34,6 +34,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(audio_hub);
     app.manage(crate::overlay::OverlayRuntime::default());
     app.manage(ipc::desktop_v3::DesktopSession::default());
+    app.manage(crate::cli::Runtime::default());
     app.manage(crate::application::hotkeys::HookRuntime::default());
     app.manage(crate::application::service_control::ServiceControl::default());
     #[cfg(feature = "wake-word")]
@@ -131,6 +132,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
 
 pub(crate) fn shutdown(app: &tauri::AppHandle) {
     tracing::info!("Fono shutdown requested");
+    if let Some(cli) = app.try_state::<crate::cli::Runtime>() {
+        cli.shutdown();
+    }
     // Stop input admission and unhook/join its owning thread before capture teardown.
     if let Some(hooks) = app.try_state::<crate::application::hotkeys::HookRuntime>() {
         hooks.stop();
