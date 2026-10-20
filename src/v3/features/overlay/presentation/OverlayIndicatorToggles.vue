@@ -9,7 +9,7 @@ import AppIcon from "../../../shared/presentation/AppIcon.vue";
 defineProps<{
   choice: IndicatorChoice;
   disabled: boolean;
-  panel: "help" | "processing" | "translation" | null;
+  panel: "help" | "processing" | "translation" | "recognition" | null;
   panelId: string;
 }>();
 defineEmits<{

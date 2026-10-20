@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { before, after, beforeEach, test } from "node:test";
-import { createSSRApp, h, reactive } from "vue";
+import { createSSRApp, effectScope, h, reactive } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createServer } from "vite";
 
@@ -163,6 +163,58 @@ const saved = (preset, targetLanguage = null) => ({
   processing_target_language: targetLanguage,
 });
 
+test("recognition choices coalesce with style, Stop awaits the last language, and failed save restores the confirmed language", async () => {
+  const profile = { ...choice(), recognitionLanguage: "en" };
+  const { state, controls, dispose } = setup({ sessionChoice: profile }),
+    saves = saveChoices(),
+    stops = [];
+  try {
+    controls.choose({ ...profile, recognitionLanguage: "ru" });
+    const failed = controls.finish(async () => stops.push("stop"));
+    saves[0].reject(new Error("Не удалось сохранить выбор"));
+    await assert.rejects(failed, /Не удалось сохранить/);
+    assert.equal(state.processingChoice.recognitionLanguage, "en");
+    assert.equal(state.sessionChoice.recognitionLanguage, "en");
+    controls.choose({ ...profile, recognitionLanguage: "ru" });
+    controls.choose({
+      ...profile,
+      preset: "formal",
+      recognitionLanguage: "auto",
+    });
+    const finish = controls.finish(async () =>
+      stops.push(state.sessionChoice.recognitionLanguage),
+    );
+    saves[1].resolve({ ...saved("clean"), language: "ru" });
+    await flush();
+    assert.deepEqual(stops, []);
+    assert.equal(saves[2].request.recognitionLanguage, "auto");
+    saves[2].resolve({ ...saved("formal"), language: "auto" });
+    await finish;
+    assert.deepEqual(stops, ["auto"]);
+  } finally {
+    dispose();
+  }
+});
+
+test("late language response cannot overwrite a successor session", async () => {
+  const { state, controls, commits, dispose } = setup({
+      sessionChoice: { ...choice(), recognitionLanguage: "ru" },
+    }),
+    saves = saveChoices();
+  try {
+    controls.choose({ ...choice(), recognitionLanguage: "en" });
+    state.sessionId = 5;
+    state.sessionChoice = { ...choice(), recognitionLanguage: "auto" };
+    saves[0].resolve({ ...saved("clean"), language: "en" });
+    await flush();
+    assert.equal(state.sessionChoice.recognitionLanguage, "auto");
+    assert.equal(state.processingChoice, null);
+    assert.equal(commits.length, 0);
+  } finally {
+    dispose();
+  }
+});
+
 test("profile confirmed choice survives a failed manual save and a successful override keeps its other settings", async () => {
   const profile = {
     preset: "task",
@@ -287,6 +339,7 @@ test("persistence failure visibly rolls back choice and blocks Finish until a su
       ...choice(),
       processingEnabled: true,
       translationEnabled: rawDefaults.processing_translation_enabled,
+      recognitionLanguage: rawDefaults.language,
     });
     assert.match(controls.state.error, /Не удалось сохранить/);
     await assert.rejects(
@@ -431,6 +484,74 @@ function buttons(html) {
     (m) => m[0],
   );
 }
+
+test("recognition selector follows session model capability, stays independent of translation, and locks after recording", async () => {
+  const html = await render(
+    { language: "ru", processingTranslation: "en" },
+    {
+      processingChoice: {
+        ...choice("clean", "en"),
+        recognitionLanguage: "auto",
+      },
+    },
+  );
+  assert.match(
+    buttons(html).find((b) =>
+      b.includes('aria-label="Выбрать язык распознавания"'),
+    ),
+    />Авто<\/button>/,
+  );
+  for (const phase of ["transcribing", "processing", "awaiting_action"]) {
+    const locked = await render({}, { phase });
+    assert.match(
+      buttons(locked).find((b) =>
+        b.includes('aria-label="Выбрать язык распознавания"'),
+      ),
+      /disabled/,
+    );
+  }
+  const mono = await render(
+    { model: "small" },
+    { recognition: { options: [], fixedLanguage: "ru" } },
+  );
+  assert.doesNotMatch(mono, /aria-label="Выбрать язык распознавания"/);
+  assert.match(mono, /Только RU/);
+  assert.match(mono, /многоязычная модель Whisper/);
+  const automatic = await render({ model: "parakeet:tdt_0.6b_v3_int8" });
+  assert.doesNotMatch(automatic, /aria-label="Выбрать язык распознавания"/);
+  assert.match(automatic, /Язык: авто/);
+  const unknown = await render(
+    {},
+    { recognition: { options: [], fixedLanguage: null } },
+  );
+  assert.doesNotMatch(unknown, /aria-label="Выбрать язык распознавания"/);
+});
+
+test("browser demo applies language only while recording and refuses unavailable model choices", async () => {
+  const { useOverlayDemo } = await server.ssrLoadModule(
+    "/src/v3/features/overlay/application/useOverlayDemo.ts",
+  );
+  const preferences = { ...defaults },
+    scope = effectScope();
+  const demo = scope.run(() => useOverlayDemo(() => preferences));
+  try {
+    demo.chooseProcessing({ ...choice(), recognitionLanguage: "en" });
+    assert.equal(preferences.language, "en");
+    demo.select("awaiting_action");
+    demo.chooseProcessing({ ...choice(), recognitionLanguage: "ru" });
+    assert.equal(preferences.language, "en");
+    demo.select("listening");
+    preferences.model = "giga_am:v3_e2e_rnnt_int8";
+    demo.chooseProcessing({ ...choice(), recognitionLanguage: "auto" });
+    assert.equal(
+      preferences.language,
+      "en",
+      "read-only monolingual backend cannot promise a language override",
+    );
+  } finally {
+    scope.stop();
+  }
+});
 
 test("recording shows switches even with processing off so it can be enabled during toggle capture", async () => {
   const enabled = await render();

@@ -10,6 +10,7 @@ import type {
   OverlayProcessingChoice,
 } from "../../../shared/domain/processing";
 import { processDemoText } from "../../dictation";
+import { previewRecognitionCapability } from "../../../shared/domain/recognition";
 
 export function useOverlayDemo(getPreferences?: () => Preferences) {
   const sampleText =
@@ -245,7 +246,18 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
       )
         return;
       const preferences = getPreferences?.();
+      if (
+        choice.recognitionLanguage !== undefined &&
+        (!["listening", "silence"].includes(phase.value) ||
+          !preferences ||
+          !previewRecognitionCapability(preferences.model).options.includes(
+            choice.recognitionLanguage as "ru" | "en" | "auto",
+          ))
+      )
+        return;
       if (preferences) {
+        if (choice.recognitionLanguage !== undefined)
+          preferences.language = choice.recognitionLanguage;
         preferences.processingMode = choice.preset;
         preferences.processingTranslation = choice.targetLanguage ?? "none";
         if (choice.processingEnabled !== undefined)

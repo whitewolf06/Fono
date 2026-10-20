@@ -123,6 +123,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "cloudConsent",
   ],
   overlay: [
+    "language",
     "overlayEnabled",
     "overlayCompact",
     "overlayQuickProcessing",

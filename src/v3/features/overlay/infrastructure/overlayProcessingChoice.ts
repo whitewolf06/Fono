@@ -58,6 +58,9 @@ export function createOverlayProcessingQueue(options: Options, debounceMs = 0) {
             settings.processing_preset ??
             (settings.ai_mode === "format" ? "format" : "clean"),
           targetLanguage: settings.processing_target_language ?? null,
+          ...(entry.request.recognitionLanguage === undefined
+            ? {}
+            : { recognitionLanguage: settings.language }),
           ...(entry.request.processingEnabled === undefined
             ? {}
             : { processingEnabled: settings.ai_mode !== "off" }),

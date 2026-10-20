@@ -5,6 +5,8 @@ export interface ApplicationSessionPreferences extends OverlayProcessingChoice {
   profileName: string | null;
   processingEnabled: boolean;
   translationEnabled: boolean;
+  recognitionLanguage: string;
+  recognition: import("./recognition").OverlayRecognitionCapability;
 }
 export interface ApplicationProfile {
   id: string;

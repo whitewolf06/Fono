@@ -13,6 +13,106 @@ fn request(id: Option<u64>) -> OverlayProcessingChoiceRequest {
         target_language: Some(TranslationLanguage::En),
         processing_enabled: None,
         translation_enabled: None,
+        recognition_language: None,
+    }
+}
+
+fn whisper_settings() -> Settings {
+    Settings {
+        language: "ru".into(),
+        whisper_model_path: Some("/models/ggml-small.bin".into()),
+        ..Settings::default()
+    }
+}
+
+#[test]
+fn recognition_language_is_saved_for_exact_capture_and_next_session_only_after_persistence() {
+    let base = whisper_settings();
+    let mut session = Settings {
+        language: "auto".into(),
+        active_application_profile: Some("IDE".into()),
+        ..base.clone()
+    };
+    let mut choice = request(Some(5));
+    choice.recognition_language = Some("en".into());
+    assert!(
+        persist_choice(&choice, &base, Some(&mut session), None, |_, _| Err(
+            AppError::Config("save failure".into())
+        ))
+        .is_err()
+    );
+    assert_eq!(session.language, "auto");
+    assert_eq!(base.language, "ru");
+    let saved = persist_choice(&choice, &base, Some(&mut session), None, |_, next| {
+        Ok(next.clone())
+    })
+    .unwrap();
+    assert_eq!(saved.language, "en");
+    assert_eq!(session.language, "en");
+    assert_eq!(session.active_application_profile.as_deref(), Some("IDE"));
+    let restarted: Settings = serde_json::from_value(serde_json::to_value(saved).unwrap()).unwrap();
+    assert_eq!(restarted.language, "en");
+    assert!(restarted.active_application_profile.is_none());
+    let snapshot = serde_json::to_value(
+        crate::application::application_profiles::SessionPreferences::new(5, &session),
+    )
+    .unwrap();
+    assert_eq!(snapshot["recognitionLanguage"], "en");
+    assert_eq!(
+        snapshot["recognition"]["options"],
+        serde_json::json!(["ru", "en", "auto"])
+    );
+    choice.recognition_language = Some("auto".into());
+    let saved = persist_choice(&choice, &restarted, Some(&mut session), None, |_, next| {
+        Ok(next.clone())
+    })
+    .unwrap();
+    assert_eq!(saved.language, "auto");
+    assert_eq!(session.language, "auto");
+}
+
+#[test]
+fn recognition_rejects_unsupported_model_in_either_snapshot_and_never_changes_pending_text() {
+    let base = whisper_settings();
+    let mut choice = request(Some(5));
+    choice.recognition_language = Some("en".into());
+    for spec in crate::stt::offline_models::specifications().unwrap() {
+        let offline = Settings {
+            stt_model: Some(crate::types::SttModelSelection {
+                id: spec.id,
+                local_path: "/models/offline".into(),
+            }),
+            ..base.clone()
+        };
+        for (global, mut session) in [(base.clone(), offline.clone()), (offline, base.clone())] {
+            let before = session.language.clone();
+            assert!(
+                persist_choice(&choice, &global, Some(&mut session), None, |_, _| panic!(
+                    "unsupported language reached disk"
+                ))
+                .is_err()
+            );
+            assert_eq!(session.language, before);
+        }
+    }
+    let mut snapshot = pending();
+    let mut pending_settings = base.clone();
+    assert!(persist_choice(
+        &choice,
+        &base,
+        None,
+        Some((&mut snapshot, &mut pending_settings)),
+        |_, _| panic!("recognition already finished")
+    )
+    .is_err());
+    assert_eq!(pending_settings.language, base.language);
+    assert_eq!(snapshot.original_text, "test");
+    for language in ["de", "", "EN", "unknown"] {
+        choice.recognition_language = Some(language.into());
+        assert!(persist_choice(&choice, &base, None, None, |_, _| panic!(
+            "invalid language reached disk"
+        ))
+        .is_err());
     }
 }
 fn pending() -> PendingDictation {

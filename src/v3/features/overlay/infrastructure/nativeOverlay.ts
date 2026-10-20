@@ -49,6 +49,10 @@ export function createNativeOverlay() {
     sessionId: null as number | null,
     processingChoice: null as OverlayProcessingChoice | null,
     sessionChoice: null as OverlayProcessingChoice | null,
+    recognition: {
+      options: [],
+      fixedLanguage: null,
+    } as import("../../../shared/domain/recognition").OverlayRecognitionCapability,
     applicationProfile: null as string | null,
     helpOpen: false,
     copying: false,
@@ -105,6 +109,7 @@ export function createNativeOverlay() {
     state,
     () => settings,
     (s) => {
+      sessionRevision++;
       settings = s;
       applySettings();
     },
@@ -259,6 +264,10 @@ export function createNativeOverlay() {
       const session = v.session_preferences;
       state.sessionChoice =
         session?.sessionId === state.sessionId ? session : null;
+      state.recognition =
+        state.sessionChoice && session
+          ? session.recognition
+          : (v.recognition ?? { options: [], fixedLanguage: null });
       state.applicationProfile =
         session?.sessionId === state.sessionId ? session.profileName : null;
       pending.observeOperation(v.operation_id);

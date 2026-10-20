@@ -16,6 +16,7 @@ import { dictationNotice } from "../../../shared/domain/dictationNotice";
 import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
 import OverlayIndicatorToggles from "./OverlayIndicatorToggles.vue";
 import OverlayIndicatorHelp from "./OverlayIndicatorHelp.vue";
+import { recognitionOptions } from "../../../shared/domain/recognition";
 const props = withDefaults(
   defineProps<{
     state: IndicatorState;
@@ -38,7 +39,9 @@ const emit = defineEmits<{
   panelChange: [open: boolean];
   retry: [];
 }>();
-const panel = ref<"help" | "processing" | "translation" | null>(null);
+const panel = ref<"help" | "processing" | "translation" | "recognition" | null>(
+  null,
+);
 const panelId = useId();
 const labels: Record<IndicatorPhase, string> = {
   recording: "Слушаю вас",
@@ -133,15 +136,47 @@ watch(recording, (value) => {
         />
       </div>
       <div class="overlay-indicator-right">
-        <OverlayIndicatorToggles
-          v-if="quick"
-          :choice="state"
-          :disabled="!recording || saving"
-          :panel="panel"
-          :panel-id="panelId"
-          @choose="(patch) => emit('choose', patch)"
-          @configure="configure"
-        />
+        <div v-if="quick" class="overlay-indicator-settings">
+          <button
+            v-if="state.recognition?.options.length"
+            type="button"
+            class="overlay-indicator-recognition"
+            aria-label="Выбрать язык распознавания"
+            :title="`Язык распознавания: ${recognitionOptions.find((item) => item.value === state.recognitionLanguage)?.label ?? state.recognitionLanguage}`"
+            :aria-expanded="panel === 'recognition'"
+            :aria-controls="panelId"
+            :disabled="!recording || saving"
+            @click="configure('recognition')"
+          >
+            {{
+              recognitionOptions.find(
+                (item) => item.value === state.recognitionLanguage,
+              )?.label ?? state.recognitionLanguage
+            }}
+          </button>
+          <small
+            v-else-if="state.recognition?.fixedLanguage"
+            class="overlay-indicator-language-hint"
+            :title="
+              state.recognition.fixedLanguage === 'ru'
+                ? 'Модель распознаёт только русский. Для выбора языка нужна многоязычная модель Whisper.'
+                : 'Эта модель сама определяет язык. Для ручного выбора нужна модель Whisper.'
+            "
+            >{{
+              state.recognition.fixedLanguage === "ru"
+                ? "Только RU"
+                : "Язык: авто"
+            }}</small
+          >
+          <OverlayIndicatorToggles
+            :choice="state"
+            :disabled="!recording || saving"
+            :panel="panel"
+            :panel-id="panelId"
+            @choose="(patch) => emit('choose', patch)"
+            @configure="configure"
+          />
+        </div>
         <div
           class="overlay-indicator-actions"
           role="group"
@@ -219,6 +254,31 @@ watch(recording, (value) => {
           </button>
         </div>
         <small>Применится при завершении текущей записи.</small>
+      </template>
+      <template v-else-if="panel === 'recognition'">
+        <strong>Язык распознавания</strong>
+        <div
+          class="overlay-indicator-options"
+          role="group"
+          aria-label="Язык распознавания"
+        >
+          <button
+            v-for="option in recognitionOptions.filter((item) =>
+              state.recognition?.options.includes(item.value),
+            )"
+            :key="option.value"
+            type="button"
+            :aria-pressed="state.recognitionLanguage === option.value"
+            :disabled="!recording || saving"
+            @click="emit('choose', { recognitionLanguage: option.value })"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <small
+          >Применится к этой записи и следующим диктовкам. Авто — определить
+          язык по речи.</small
+        >
       </template>
       <template v-else>
         <strong>Язык перевода</strong>

@@ -27,6 +27,7 @@ export type ProcessingTrigger = "automatic" | "manual";
 export type TranslationLanguage = "en" | "ru" | "de" | "fr" | "es";
 export type ProcessingTranslation = "none" | TranslationLanguage;
 export interface OverlayProcessingChoice {
+  recognitionLanguage?: string;
   preset: ProcessingPreset;
   targetLanguage: TranslationLanguage | null;
   processingEnabled?: boolean;

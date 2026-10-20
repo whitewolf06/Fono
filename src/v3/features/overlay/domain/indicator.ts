@@ -6,6 +6,7 @@ import type {
 export type IndicatorPhase =
   "recording" | "transcribing" | "processing" | "ready" | "error" | "closed";
 export interface IndicatorChoice {
+  recognitionLanguage?: string;
   postprocessingOn: boolean;
   translationOn: boolean;
   style: ProcessingPreset;
@@ -13,6 +14,7 @@ export interface IndicatorChoice {
 }
 /** Presentation state shared by the real adapter and browser preview. */
 export interface IndicatorState extends IndicatorChoice {
+  recognition?: import("../../../shared/domain/recognition").OverlayRecognitionCapability;
   phase: IndicatorPhase;
   sessionId: number;
   elapsedMs: number;

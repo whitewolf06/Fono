@@ -93,6 +93,8 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
     draft.value.processingEnabled = choice.processingEnabled;
   if (choice.translationEnabled !== undefined)
     draft.value.processingTranslationEnabled = choice.translationEnabled;
+  if (choice.recognitionLanguage !== undefined)
+    draft.value.language = choice.recognitionLanguage;
 }
 </script>
 <template>
@@ -110,7 +112,7 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
       id="overlayQuickProcessing"
       name="overlayQuickProcessing"
       label="Быстрые настройки обработки"
-      description="В режиме повторного нажатия показывать стиль и перевод в индикаторе. Выбор запоминается для следующих диктовок."
+      description="В режиме повторного нажатия показывать язык распознавания, стиль и перевод. Выбор запоминается для следующих диктовок."
     /><label id="overlayScale"
       >Масштаб · {{ draft.overlayScale }}%<WlSlider
         v-model="draft.overlayScale"

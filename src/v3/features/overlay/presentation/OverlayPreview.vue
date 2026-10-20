@@ -13,6 +13,10 @@ import type {
   OverlayProcessingChoice,
 } from "../../../shared/domain/processing";
 import type { IndicatorChoice, IndicatorState } from "../domain/indicator";
+import {
+  previewRecognitionCapability,
+  type OverlayRecognitionCapability,
+} from "../../../shared/domain/recognition";
 import OverlayIndicator from "./OverlayIndicator.vue";
 const props = withDefaults(
   defineProps<{
@@ -27,6 +31,7 @@ const props = withDefaults(
     live?: LiveDictation | null;
     pending?: PendingDictation | null;
     processingChoice?: OverlayProcessingChoice | null;
+    recognition?: OverlayRecognitionCapability;
     applicationProfile?: string | null;
     processingSaving?: boolean;
     processingError?: string;
@@ -104,6 +109,11 @@ const indicator = computed<IndicatorState>(() => {
         props.preferences.processingTranslationEnabled),
     style: choice.value.preset,
     language: choice.value.targetLanguage ?? "en",
+    recognitionLanguage:
+      choice.value.recognitionLanguage ?? props.preferences.language,
+    recognition:
+      props.recognition ??
+      previewRecognitionCapability(props.preferences.model),
   };
 });
 const quick = computed(
@@ -118,6 +128,12 @@ function choose(patch: Partial<IndicatorChoice>) {
     targetLanguage: patch.language ?? current.language,
     processingEnabled: patch.postprocessingOn ?? current.postprocessingOn,
     translationEnabled: patch.translationOn ?? current.translationOn,
+    ...(current.phase === "recording" && current.recognition?.options.length
+      ? {
+          recognitionLanguage:
+            patch.recognitionLanguage ?? current.recognitionLanguage,
+        }
+      : {}),
   });
 }
 </script>

@@ -21,6 +21,7 @@ pub struct OverlayProcessingChoiceRequest {
     pub target_language: Option<TranslationLanguage>,
     pub processing_enabled: Option<bool>,
     pub translation_enabled: Option<bool>,
+    pub recognition_language: Option<String>,
 }
 
 fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -39,27 +40,34 @@ pub(crate) async fn update(
     // waiting for another settings writer, so installation cannot overtake us.
     let _activity = updates::activity::lease()?;
     let _transaction = updates::settings_transaction(&app).await;
-    let _configuration = capture_configuration::reserve_configuration(|| Ok(()))?;
-    let pipeline = app.state::<Pipeline>();
-    let state = app.state::<AppState>();
-    let runtime = app.state::<Runtime>();
-    let persisted = pipeline.with_processing_choice(request.session_id, |phase, session| {
-        let mut store = runtime.store.lock();
-        let pending = editable_pending(&mut store, request.session_id, phase)?;
-        let base = state.settings();
-        persist_choice(
-            &request,
-            &base,
-            session,
-            pending.map(|record| (&mut record.snapshot, &mut record.data.session.settings)),
-            |base, candidate| state.persist_settings_delta(base, candidate),
-        )
-    })?;
-    // Both snapshots and disk now agree. Publish only after releasing capture
-    // and pending locks; clients can receive Stop/Cancel in either event order.
-    crate::events::emit_settings(&app, &persisted);
-    super::publish(&app);
-    Ok(without_secrets(persisted))
+    let persisted = tauri::async_runtime::spawn_blocking(move || {
+        // The disk transaction and its admission lease outlive a cancelled IPC waiter.
+        let _activity = _activity;
+        let _transaction = _transaction;
+        let _configuration = capture_configuration::reserve_configuration(|| Ok(()))?;
+        let pipeline = app.state::<Pipeline>();
+        let state = app.state::<AppState>();
+        let runtime = app.state::<Runtime>();
+        let persisted = pipeline.with_processing_choice(request.session_id, |phase, session| {
+            let mut store = runtime.store.lock();
+            let pending = editable_pending(&mut store, request.session_id, phase)?;
+            let base = state.settings();
+            persist_choice(
+                &request,
+                &base,
+                session,
+                pending.map(|record| (&mut record.snapshot, &mut record.data.session.settings)),
+                |base, candidate| state.persist_settings_delta(base, candidate),
+            )
+        })?;
+        // Publish after releasing capture/pending locks, even if the IPC waiter left.
+        crate::events::emit_settings(&app, &persisted);
+        super::publish(&app);
+        Ok::<_, AppError>(without_secrets(persisted))
+    })
+    .await
+    .map_err(|_| AppError::Internal("Не удалось сохранить выбор индикатора".into()))??;
+    Ok(persisted)
 }
 
 fn editable_pending<T>(
@@ -99,6 +107,9 @@ fn apply_choice(settings: &mut Settings, request: &OverlayProcessingChoiceReques
     if let Some(enabled) = request.translation_enabled {
         settings.processing_translation_enabled = enabled;
     }
+    if let Some(language) = &request.recognition_language {
+        settings.language = language.clone();
+    }
 }
 
 fn persist_choice(
@@ -108,6 +119,23 @@ fn persist_choice(
     pending: Option<(&mut super::PendingDictation, &mut Settings)>,
     persist: impl FnOnce(&Settings, &Settings) -> AppResult<Settings>,
 ) -> AppResult<Settings> {
+    if let Some(language) = &request.recognition_language {
+        if pending.is_some() {
+            return Err(AppError::Busy(
+                "Распознавание уже завершено. Язык можно выбрать во время записи".into(),
+            ));
+        }
+        // Both the current operation and future dictations must support this choice.
+        for settings in std::iter::once(base).chain(session.as_deref()) {
+            if !settings
+                .overlay_recognition_capability()
+                .options
+                .contains(language)
+            {
+                return Err(AppError::Config("Эта модель не поддерживает ручной выбор языка. Выберите многоязычную модель Whisper в настройках".into()));
+            }
+        }
+    }
     let mut candidate = base.clone();
     apply_choice(&mut candidate, request);
     let persisted = persist(base, &candidate)?;

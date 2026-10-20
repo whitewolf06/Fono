@@ -44,6 +44,7 @@ export function createOverlayControls(
             targetLanguage: s.processing_target_language ?? null,
             processingEnabled: s.ai_mode !== "off",
             translationEnabled: s.processing_translation_enabled,
+            recognitionLanguage: s.language,
           }
         : {
             preset: state.preferences.processingMode,
@@ -53,12 +54,16 @@ export function createOverlayControls(
                 : state.preferences.processingTranslation,
             processingEnabled: state.preferences.processingEnabled,
             translationEnabled: state.preferences.processingTranslationEnabled,
+            recognitionLanguage: state.preferences.language,
           };
     },
     isCurrent: (id) => !disposed() && context() === id,
     commit: (s, request) => {
       commitSettings(s);
       state.processingChoice = {
+        ...(request.recognitionLanguage === undefined
+          ? {}
+          : { recognitionLanguage: s.language }),
         ...(request.processingEnabled === undefined
           ? {}
           : { processingEnabled: request.processingEnabled }),

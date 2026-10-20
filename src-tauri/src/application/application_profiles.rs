@@ -112,6 +112,8 @@ pub struct SessionPreferences {
     pub target_language: Option<TranslationLanguage>,
     pub processing_enabled: bool,
     pub translation_enabled: bool,
+    pub recognition_language: String,
+    pub recognition: crate::types::OverlayRecognitionCapability,
 }
 impl SessionPreferences {
     pub fn new(session_id: u64, settings: &Settings) -> Self {
@@ -122,6 +124,8 @@ impl SessionPreferences {
             target_language: settings.processing_target_language,
             processing_enabled: settings.ai_mode != AiMode::Off,
             translation_enabled: settings.processing_translation_enabled,
+            recognition_language: settings.language.clone(),
+            recognition: settings.overlay_recognition_capability(),
         }
     }
 }

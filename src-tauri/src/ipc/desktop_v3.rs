@@ -99,6 +99,7 @@ pub struct LastDictation {
 }
 #[derive(Serialize)]
 pub struct DesktopSnapshot {
+    recognition: OverlayRecognitionCapability,
     session_preferences: Option<crate::application::application_profiles::SessionPreferences>,
     pretranscription: crate::pipeline::pretranscription::Status,
     state: PipelineState,
@@ -112,12 +113,19 @@ pub struct DesktopSnapshot {
 pub fn get_desktop_snapshot(app: AppHandle) -> DesktopSnapshot {
     let pipeline = app.state::<Pipeline>();
     let operation = pipeline.current_operation();
+    let session_settings = operation
+        .as_ref()
+        .and_then(|operation| pipeline.session_settings_for(operation.id));
     DesktopSnapshot {
+        recognition: session_settings
+            .as_ref()
+            .unwrap_or(&app.state::<AppState>().settings())
+            .overlay_recognition_capability(),
         session_preferences: operation.as_ref().and_then(|operation| {
-            pipeline.session_settings_for(operation.id).map(|settings| {
+            session_settings.as_ref().map(|settings| {
                 crate::application::application_profiles::SessionPreferences::new(
                     operation.id,
-                    &settings,
+                    settings,
                 )
             })
         }),

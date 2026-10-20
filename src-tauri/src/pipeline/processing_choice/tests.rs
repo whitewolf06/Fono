@@ -69,6 +69,7 @@ fn selection_commits_before_concurrent_stop_can_snapshot_it() {
                     let settings = settings.unwrap();
                     settings.processing_preset = Some(TextPreset::Formal);
                     settings.processing_target_language = Some(TranslationLanguage::En);
+                    settings.language = "en".into();
                     Ok(())
                 })
                 .unwrap();
@@ -84,6 +85,7 @@ fn selection_commits_before_concurrent_stop_can_snapshot_it() {
         release_tx.send(()).unwrap();
         choice.join().unwrap();
         let settings = stop.join().unwrap();
+        assert_eq!(settings.language, "en");
         assert_eq!(settings.processing_preset, Some(TextPreset::Formal));
         assert_eq!(
             settings.processing_target_language,

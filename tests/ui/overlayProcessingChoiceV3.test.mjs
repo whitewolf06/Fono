@@ -155,21 +155,25 @@ test("settings preview choices stay in the overlay draft until Save; Reset cance
     );
     form.draft.processingMode = "formal";
     form.draft.processingTranslation = "en";
+    form.draft.language = "en";
     assert.equal(form.dirty.value, true);
     assert.equal(workspace.state.preferences.processingMode, "clean");
     assert.equal(storage.size, 0);
     form.reset();
     assert.equal(form.draft.processingMode, "clean");
+    assert.equal(form.draft.language, preferences.defaults.language);
     assert.equal(form.dirty.value, false);
     form.draft.processingMode = "task";
     form.draft.processingTranslation = "de";
+    form.draft.language = "auto";
     await form.save();
     await nextTick();
     assert.deepEqual(commits, [
-      { processingMode: "task", processingTranslation: "de" },
+      { language: "auto", processingMode: "task", processingTranslation: "de" },
     ]);
     assert.equal(form.dirty.value, false);
     assert.equal(browser.readPreferences().processingTranslation, "de");
+    assert.equal(browser.readPreferences().language, "auto");
   } finally {
     scope.stop();
     delete globalThis.window;

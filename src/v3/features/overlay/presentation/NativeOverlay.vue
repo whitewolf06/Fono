@@ -53,6 +53,7 @@ onUnmounted(overlay.dispose);
       :processing-choice="
         overlay.state.processingChoice ?? overlay.state.sessionChoice
       "
+      :recognition="overlay.state.recognition"
       :application-profile="overlay.state.applicationProfile"
       :processing-saving="
         overlay.processing.pending || overlay.processing.saving

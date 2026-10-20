@@ -136,6 +136,34 @@
   gap: var(--fono-space-1);
   width: var(--fono-indicator-toggle-width);
 }
+.overlay-indicator-settings {
+  display: grid;
+  gap: var(--fono-space-1);
+  width: var(--fono-indicator-toggle-width);
+}
+.overlay-indicator-recognition {
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius-sm);
+  padding: var(--fono-space-1) var(--fono-space-2);
+  background: var(--fono-night);
+  color: var(--fono-text);
+  font-size: var(--fono-type-xs);
+  cursor: pointer;
+}
+.overlay-indicator-recognition:hover:not(:disabled),
+.overlay-indicator-recognition[aria-expanded="true"] {
+  border-color: var(--wl-accent-border);
+  background: var(--fono-accent-soft);
+}
+.overlay-indicator-recognition:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.overlay-indicator-language-hint {
+  text-align: center;
+  font-size: var(--fono-type-xs);
+  color: var(--fono-muted);
+}
 .overlay-indicator-toggle {
   display: grid;
   grid-template-columns:
