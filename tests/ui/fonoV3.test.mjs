@@ -387,6 +387,149 @@ test("native selection adapter only reads an authorized memory snapshot and canc
   assert.equal(calls.length, count);
 });
 
+test("selection instruction is separate, consent is explicit and three demo edits keep the original", async () => {
+  const { createMockSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/mockSelection.ts",
+  );
+  const port = createMockSelectionCapture();
+  port.demo();
+  const id = port.state.current.operationId,
+    original = port.state.current.text;
+  await port.startInstruction(id);
+  assert.equal(port.state.current.edit.phase, "recording");
+  assert.equal(port.state.current.edit.result, undefined);
+  await port.stopInstruction(id, port.state.current.edit.operationId);
+  assert.equal(port.state.current.edit.instruction, "Сделай формальнее");
+  assert.equal(port.state.current.text, original);
+  await assert.rejects(
+    port.transform(id, "Сделай формальнее", false),
+    /Подтвердите отправку/,
+  );
+  assert.equal(port.state.current.edit.result, undefined);
+  for (const [instruction, expected] of [
+    ["Сделай формальнее", /демонстрационный результат/],
+    ["Переведи на английский", /This is a demonstration/],
+    ["Сократи до трёх пунктов", /• Выделенный фрагмент/],
+  ]) {
+    await port.transform(id, instruction, true);
+    assert.match(port.state.current.edit.result, expected);
+    assert.equal(port.state.current.edit.instruction, instruction);
+    assert.equal(port.state.current.text, original);
+  }
+  assert.equal(storage.size, 0);
+  port.dispose();
+});
+
+test("cancelled selection edit cannot publish a late result or clear the next instruction", async () => {
+  const { createMockSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/mockSelection.ts",
+  );
+  const port = createMockSelectionCapture();
+  port.demo();
+  const id = port.state.current.operationId,
+    original = port.state.current.text;
+  const pending = port.transform(id, "Переведи на английский", true);
+  const old = port.state.current.edit.operationId;
+  await port.cancelEdit(id, old);
+  await pending;
+  assert.equal(port.state.current.edit.result, undefined);
+  assert.equal(port.state.current.text, original);
+  await port.startInstruction(id);
+  const next = port.state.current.edit.operationId;
+  await port.cancelEdit(id, old);
+  assert.equal(port.state.current.edit.operationId, next);
+  await port.stopInstruction(id, next);
+  assert.equal(port.state.current.edit.instruction, "Сделай формальнее");
+  const late = port.transform(id, "Сократи до трёх пунктов", true);
+  await port.cancel(id);
+  await late;
+  assert.equal(port.state.current, null);
+  port.dispose();
+});
+
+test("native selection edits send instruction and exact IDs without renderer supplied material", async () => {
+  const { createNativeSelectionCapture, selectionFromNative } =
+    await server.ssrLoadModule(
+      "/src/v3/features/selection/infrastructure/nativeSelection.ts",
+    );
+  const calls = [];
+  const snapshot = {
+    operation_id: 7,
+    phase: "ready",
+    text: "PRIVATE ORIGINAL",
+    source: "ui_automation",
+    target: "PRIVATE TARGET",
+    edit: {
+      phase: "recording",
+      operation_id: 8,
+      instruction: "Отдельная инструкция",
+      result: null,
+      message: "PRIVATE ERROR",
+      digest: "PRIVATE DIGEST",
+    },
+  };
+  const port = createNativeSelectionCapture(
+    async (command, args) => {
+      calls.push([command, args]);
+      return snapshot;
+    },
+    async () => () => {},
+  );
+  await port.refresh();
+  await port.transform(6, "ignored", true);
+  assert.ok(calls.every(([command]) => command === "get_selection_capture"));
+  await port.transform(7, "Сделай формальнее", true);
+  assert.deepEqual(
+    calls.find(([name]) => name === "transform_selection"),
+    [
+      "transform_selection",
+      {
+        operationId: 7,
+        input: { instruction: "Сделай формальнее", transferConfirmed: true },
+      },
+    ],
+  );
+  await port.stopInstruction(7, 8);
+  await port.cancelEdit(7, 8);
+  assert.deepEqual(
+    calls.find(([name]) => name === "cancel_selection_edit")[1],
+    { operationId: 7, editOperationId: 8 },
+  );
+  const parsed = selectionFromNative(snapshot);
+  assert.ok(!JSON.stringify(parsed).includes("PRIVATE TARGET"));
+  assert.ok(!JSON.stringify(parsed.edit).includes("PRIVATE"));
+  assert.ok(
+    calls.every(([name]) => !/command_proposal|clipboard|insert/.test(name)),
+  );
+  port.dispose();
+});
+
+test("native selection editor explains transfer and never offers external replacement", async () => {
+  const { createMockSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/mockSelection.ts",
+  );
+  const { default: Preview } = await server.ssrLoadModule(
+    "/src/v3/features/selection/presentation/SelectionPreview.vue",
+  );
+  const { workspaceKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/workspace.ts",
+  );
+  const port = createMockSelectionCapture();
+  port.demo();
+  const app = createSSRApp({ render: () => h(Preview) });
+  app.use(WlConfig).use(WlToastService);
+  app.provide(workspaceKey, { ...workspace, native: true, selection: port });
+  const context = {};
+  const html = await renderToString(app, context);
+  const all = html + Object.values(context.teleports || {}).join("");
+  assert.match(all, /Преобразовать в LLM/);
+  assert.match(all, /текст получит его провайдер/);
+  assert.match(all, /Отмена не возвращает уже отправленные данные/);
+  assert.match(all, /Продиктовать инструкцию/);
+  assert.doesNotMatch(all, />Вставить</);
+  port.dispose();
+});
+
 test("selection fields and preview distinguish a demo from real text and offer cancellation", async () => {
   const { default: Preview } = await server.ssrLoadModule(
     "/src/v3/features/selection/presentation/SelectionPreview.vue",
@@ -403,7 +546,8 @@ test("selection fields and preview distinguish a demo from real text and offer c
   const all = html + Object.values(context.teleports || {}).join("");
   assert.match(all, /Выделенный текст/);
   assert.match(all, /Демонстрационный фрагмент/);
-  assert.match(all, /историю и ИИ он не отправляется/);
+  assert.match(all, /историю он не записывается/);
+  assert.match(all, /Отправка в ИИ запускается отдельной кнопкой/);
   assert.match(all, /Закрыть/);
 });
 

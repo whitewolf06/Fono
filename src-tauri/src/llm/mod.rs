@@ -6,6 +6,7 @@
 //! будущих команд: «ответь на email», «кратко перескажи» и т.п.).
 
 pub(crate) mod presets;
+pub(crate) mod selection;
 mod speech;
 pub(crate) use speech::SpeechPeriodRecommendation;
 use speech::{

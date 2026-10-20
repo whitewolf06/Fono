@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { WlButton, WlDialog, WlTextarea } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
+import SelectionEditor from "./SelectionEditor.vue";
 const workspace = useWorkspace();
 const current = computed(() => workspace.selection.state.current);
 const { run, busy, error } = useFeedback();
@@ -35,13 +36,14 @@ function close() {
       <WlTextarea
         :model-value="current.text"
         readonly
-        :rows="8"
+        :rows="4"
         aria-label="Полученный выделенный текст"
       />
       <p class="muted">
-        Фрагмент хранится только в памяти Fono до закрытия. В историю и ИИ он не
-        отправляется. Текст в исходном приложении не меняется.
+        Фрагмент хранится только в памяти Fono до закрытия. В историю он не
+        записывается. Отправка в ИИ запускается отдельной кнопкой ниже.
       </p>
+      <SelectionEditor />
     </template>
     <p v-else role="alert" class="error-text">{{ current.message }}</p>
     <p v-if="error" role="alert" class="error-text">{{ error }}</p>

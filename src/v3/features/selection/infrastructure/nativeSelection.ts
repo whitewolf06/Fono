@@ -2,6 +2,7 @@ import { reactive } from "vue";
 import type {
   SelectionCapturePort,
   SelectionSnapshot,
+  SelectionEditSnapshot,
 } from "../domain/selection";
 import { createCoalescedRead } from "../../../shared/infrastructure/native/coalescedRead";
 import catalog from "../../../shared/infrastructure/native/userErrorCatalog.json";
@@ -10,6 +11,39 @@ type Subscribe = (
   channel: string,
   handler: (value: unknown) => void,
 ) => Promise<() => void>;
+
+function editFromNative(value: unknown): SelectionEditSnapshot | undefined {
+  if (!value || typeof value !== "object") return;
+  const e = value as Record<string, unknown>;
+  if (
+    ![
+      "idle",
+      "starting",
+      "recording",
+      "recognizing",
+      "processing",
+      "cancelling",
+      "ready",
+    ].includes(String(e.phase))
+  )
+    return;
+  const edit: SelectionEditSnapshot = {
+    phase: e.phase as SelectionEditSnapshot["phase"],
+    instruction:
+      typeof e.instruction === "string" && e.instruction.length <= 4096
+        ? e.instruction
+        : "",
+  };
+  if (Number.isSafeInteger(e.operation_id) && Number(e.operation_id) > 0)
+    edit.operationId = Number(e.operation_id);
+  if (typeof e.result === "string" && e.result.length <= 32768)
+    edit.result = e.result;
+  if (typeof e.message === "string")
+    edit.message = catalog.details.includes(e.message)
+      ? e.message
+      : "Не удалось преобразовать выделение. Оригинал сохранён; повторите действие.";
+  return edit;
+}
 
 export function selectionFromNative(value: unknown): SelectionSnapshot | null {
   if (!value || typeof value !== "object") return null;
@@ -40,6 +74,8 @@ export function selectionFromNative(value: unknown): SelectionSnapshot | null {
       typeof s.message === "string" && catalog.details.includes(s.message)
         ? s.message
         : "Не удалось безопасно получить выделение. Повторите действие или выберите другое поле.";
+  const edit = editFromNative(s.edit);
+  if (edit) result.edit = edit;
   return result;
 }
 export function createNativeSelectionCapture(
@@ -59,6 +95,15 @@ export function createNativeSelectionCapture(
     },
     () => !disposed && visible(),
   );
+  async function action(
+    operationId: number,
+    command: string,
+    args: Record<string, unknown> = {},
+  ) {
+    if (disposed || state.current?.operationId !== operationId) return;
+    await call(command, { operationId, ...args });
+    await read.refresh();
+  }
   void subscribe("selection-capture-changed", () => {
     if (!visible()) {
       state.current = null;
@@ -78,6 +123,15 @@ export function createNativeSelectionCapture(
   return {
     state,
     refresh: read.refresh,
+    startInstruction: (id) => action(id, "start_selection_instruction"),
+    stopInstruction: (id, editOperationId) =>
+      action(id, "stop_selection_instruction", { editOperationId }),
+    cancelEdit: (id, editOperationId) =>
+      action(id, "cancel_selection_edit", { editOperationId }),
+    transform: (id, instruction, transferConfirmed) =>
+      action(id, "transform_selection", {
+        input: { instruction, transferConfirmed },
+      }),
     async cancel(operationId) {
       if (disposed || state.current?.operationId !== operationId) return;
       await call("cancel_selection_capture", { operationId });

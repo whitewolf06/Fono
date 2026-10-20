@@ -38,12 +38,12 @@ pub(crate) struct ProcessingCaptureRuntime(Mutex<Option<CaptureSlot<OperationSco
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CaptureStarted {
-    session_id: u64,
+    pub(crate) session_id: u64,
 }
 
 #[derive(Serialize)]
 pub(crate) struct CaptureResult {
-    text: String,
+    pub(crate) text: String,
 }
 
 fn stale() -> AppError {
@@ -129,10 +129,15 @@ pub(crate) async fn finish(app: AppHandle, id: u64) -> AppResult<CaptureResult> 
 
 async fn recognize(app: &AppHandle, id: u64) -> AppResult<CaptureResult> {
     let session = Session::current(app, id)?;
-    let samples = app
-        .state::<Pipeline>()
-        .stop_recording_for(id)?
-        .ok_or_else(stale)?;
+    let stop_app = app.clone();
+    let stop_lease = crate::application::updates::activity::lease()?;
+    let samples = tauri::async_runtime::spawn_blocking(move || {
+        let _lease = stop_lease;
+        stop_app.state::<Pipeline>().stop_recording_for(id)
+    })
+    .await
+    .map_err(|_| AppError::Internal("Не удалось завершить запись инструкции.".into()))??
+    .ok_or_else(stale)?;
     if samples.is_empty() {
         return Ok(CaptureResult {
             text: String::new(),

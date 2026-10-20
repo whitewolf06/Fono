@@ -4,6 +4,15 @@ use crate::{
 };
 use tauri::{AppHandle, Manager, WebviewWindow};
 
+fn require_main(window: &WebviewWindow) -> AppResult<()> {
+    if window.label() != "settings" {
+        return Err(AppError::Config(
+            "Выделение доступно только в главном окне Fono.".into(),
+        ));
+    }
+    Ok(())
+}
+
 // Memory snapshots only. Neither IPC nor ambient refresh initiates a field read.
 #[tauri::command]
 pub(crate) fn get_selection_capture(
@@ -31,4 +40,61 @@ pub(crate) fn cancel_selection_capture(
     }
     selection_capture::cancel(&app, operation_id);
     Ok(())
+}
+
+#[tauri::command]
+pub(crate) async fn start_selection_instruction(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+) -> AppResult<()> {
+    require_main(&window)?;
+    selection_capture::edit::start_voice(app, operation_id)
+}
+
+#[tauri::command]
+pub(crate) fn stop_selection_instruction(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+    edit_operation_id: u64,
+) -> AppResult<()> {
+    require_main(&window)?;
+    selection_capture::edit::stop_voice(&app, operation_id, edit_operation_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn cancel_selection_edit(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+    edit_operation_id: u64,
+) -> AppResult<()> {
+    require_main(&window)?;
+    selection_capture::edit::cancel(&app, operation_id, edit_operation_id);
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SelectionEditInput {
+    instruction: String,
+    transfer_confirmed: bool,
+}
+
+#[tauri::command]
+pub(crate) async fn transform_selection(
+    app: AppHandle,
+    window: WebviewWindow,
+    operation_id: u64,
+    input: SelectionEditInput,
+) -> AppResult<()> {
+    require_main(&window)?;
+    selection_capture::edit::transform(
+        app,
+        operation_id,
+        input.instruction,
+        input.transfer_confirmed,
+    )
 }

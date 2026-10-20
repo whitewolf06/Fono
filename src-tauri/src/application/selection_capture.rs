@@ -12,6 +12,8 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Emitter, Manager};
 
+pub(crate) mod edit;
+
 #[derive(Clone, Serialize)]
 pub(crate) struct Snapshot {
     pub operation_id: u64,
@@ -19,16 +21,19 @@ pub(crate) struct Snapshot {
     pub text: Option<String>,
     pub source: Option<SelectionSource>,
     pub message: Option<String>,
+    pub edit: edit::EditSnapshot,
 }
 struct Active {
     id: u64,
     cancel: OperationCancellation,
     result: Option<AppResult<CapturedSelection>>,
     _lease: ActivityLease<'static>,
+    edit: edit::Editor,
 }
 impl Drop for Active {
     fn drop(&mut self) {
         self.cancel.cancel();
+        self.edit.cancel();
         selection::release(self.id);
     }
 }
@@ -58,6 +63,7 @@ impl Runtime {
             text,
             source,
             message,
+            edit: a.edit.snapshot(),
         })
     }
     pub(crate) fn cancel(&self, id: u64) -> bool {
@@ -88,6 +94,7 @@ impl Runtime {
             cancel: cancel.clone(),
             result: None,
             _lease: lease,
+            edit: edit::Editor::default(),
         });
         Ok((id, cancel))
     }
@@ -229,7 +236,7 @@ mod tests {
         assert!(runtime.snapshot().unwrap().text.is_none());
         assert!(runtime.complete(id, Ok(fixture(id))));
         let json = serde_json::to_value(runtime.snapshot().unwrap()).unwrap();
-        assert_eq!(json.as_object().unwrap().len(), 5);
+        assert_eq!(json.as_object().unwrap().len(), 6);
         assert!(json.get("target").is_none());
         assert!(json.get("digest").is_none());
         runtime.close();
