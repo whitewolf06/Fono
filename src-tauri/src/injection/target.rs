@@ -5,6 +5,8 @@ use crate::{
     types::InjectionMode,
 };
 use fono_core::OperationCancellation;
+mod executable;
+pub(crate) use executable::for_target as executable_name;
 pub(crate) type InputPreflight = std::sync::Arc<dyn Fn() -> bool + Send + Sync>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

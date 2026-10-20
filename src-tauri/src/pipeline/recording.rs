@@ -94,16 +94,27 @@ impl Pipeline {
         Ok(self.operations.start(source)?.id)
     }
 
+    #[cfg(test)]
     pub(crate) fn start_reserved_capture(
         &self,
         operation: u64,
         device_id: Option<&str>,
     ) -> AppResult<u64> {
+        self.start_reserved_capture_with(operation, device_id, &[], None)
+    }
+
+    pub(crate) fn start_reserved_capture_with(
+        &self,
+        operation: u64,
+        device_id: Option<&str>,
+        pre_roll: &[i16],
+        cursor: Option<(u64, u64)>,
+    ) -> AppResult<u64> {
         self.start_capture_inner(
             device_id,
-            &[],
+            pre_roll,
             CaptureOperation::Reserved(operation),
-            None,
+            cursor,
             false,
         )
     }
@@ -117,6 +128,29 @@ impl Pipeline {
 
     pub(crate) fn is_command_capture(&self, operation: u64) -> bool {
         operation != 0 && self.command_operation.load(Ordering::Acquire) == operation
+    }
+
+    /// Failed setup owns only its unfrozen capture. A concurrent Stop keeps its
+    /// frozen snapshot and drain; a successor's audio is never touched.
+    pub(crate) fn abort_capture_setup(&self, operation: u64) -> bool {
+        let mut recording = self.recording.lock();
+        if self.current_operation().is_some_and(|current| {
+            current.id == operation
+                && (current.phase != OperationPhase::Recording
+                    || self.processing_frozen_for.load(Ordering::Acquire) == operation)
+        }) {
+            return false;
+        }
+        if self.operations.cancel(operation).is_some() {
+            self.scheduler.release_reservation(operation);
+        }
+        if self.capture_operation.load(Ordering::Acquire) == operation
+            && self.stop_capture_locked(&mut recording).is_ok()
+        {
+            self.writer.lock().take();
+            self.capture_operation.store(0, Ordering::Release);
+        }
+        true
     }
 
     fn start_capture_inner(
@@ -139,7 +173,11 @@ impl Pipeline {
             CaptureOperation::New(source) => self.operations.start(source)?,
             CaptureOperation::Reserved(id) => self
                 .current_operation()
-                .filter(|current| current.id == id && current.phase == OperationPhase::Recording)
+                .filter(|current| {
+                    current.id == id
+                        && current.phase == OperationPhase::Recording
+                        && self.processing_frozen_for.load(Ordering::Acquire) != id
+                })
                 .ok_or_else(|| AppError::Cancelled("Диктовка уже завершена или заменена".into()))?,
         };
         let source = operation.source;

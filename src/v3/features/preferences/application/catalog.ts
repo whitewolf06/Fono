@@ -217,6 +217,12 @@ export const searchIndex: {
 ];
 
 searchIndex.push({
+  label: "Профили приложений",
+  section: "general",
+  field: "application-profiles",
+  keywords: "exe code telegram terminal стиль перевод язык вставка профиль",
+});
+searchIndex.push({
   label: "Распознавать фразы во время записи",
   section: "audio",
   field: "pretranscriptionEnabled",

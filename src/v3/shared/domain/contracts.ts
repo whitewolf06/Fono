@@ -3,6 +3,7 @@ import type { DictationMetadata } from "./historyMetadata";
 import type { DiagnosticReportPort } from "./diagnosticReport";
 import type { UpdatesPort } from "./updates";
 import type { GpuModelResidency, GpuMemoryStatus } from "./gpuMemory";
+import type { ApplicationProfile } from "./applicationProfiles";
 import type {
   PendingDictation,
   PendingDictationRequest,
@@ -54,6 +55,7 @@ export type QuickPanel =
   | "hotkey"
   | "command-hotkey";
 export interface Preferences {
+  applicationProfiles: ApplicationProfile[];
   pretranscriptionEnabled: boolean;
   dictationMode: DictationMode;
   microphone: string;

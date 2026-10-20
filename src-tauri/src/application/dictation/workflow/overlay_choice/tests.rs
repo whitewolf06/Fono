@@ -56,6 +56,50 @@ fn failed_save_changes_neither_capture_nor_pending_snapshot() {
 }
 
 #[test]
+fn manual_choice_overrides_profile_only_after_save_and_preserves_its_language_and_insertion() {
+    let base = Settings::default();
+    let mut session = Settings {
+        processing_preset: Some(TextPreset::Task),
+        language: "en".into(),
+        injection_mode: crate::types::InjectionMode::SendInput,
+        active_application_profile: Some("IDE".into()),
+        ..base.clone()
+    };
+    let snapshot = session.clone();
+    assert!(persist_choice(
+        &request(Some(5)),
+        &base,
+        Some(&mut session),
+        None,
+        |_, _| Err(AppError::Config("save failed".into()))
+    )
+    .is_err());
+    assert_eq!(session.processing_preset, snapshot.processing_preset);
+    let persisted = persist_choice(
+        &request(Some(5)),
+        &base,
+        Some(&mut session),
+        None,
+        |_, next| Ok(next.clone()),
+    )
+    .unwrap();
+    assert_eq!(session.processing_preset, Some(TextPreset::Formal));
+    assert_eq!(
+        session.processing_target_language,
+        Some(TranslationLanguage::En)
+    );
+    assert_eq!(session.language, "en");
+    assert_eq!(
+        session.injection_mode,
+        crate::types::InjectionMode::SendInput
+    );
+    assert_eq!(session.active_application_profile.as_deref(), Some("IDE"));
+    assert_eq!(persisted.language, base.language);
+    assert_eq!(persisted.injection_mode, base.injection_mode);
+    assert!(persisted.active_application_profile.is_none());
+}
+
+#[test]
 fn choice_survives_restart_and_changes_only_the_two_processing_fields() {
     let base = Settings {
         ai_mode: AiMode::Clean,

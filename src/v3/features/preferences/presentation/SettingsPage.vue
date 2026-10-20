@@ -26,6 +26,7 @@ import OverlayFields from "./OverlayFields.vue";
 import PrivacyFields from "./PrivacyFields.vue";
 import DiagnosticsPanel from "./DiagnosticsPanel.vue";
 import DictionaryFields from "./DictionaryFields.vue";
+import ApplicationProfiles from "./ApplicationProfiles.vue";
 import { UpdatesPanel } from "../../updates";
 import CudaPackagePanel from "../../cuda-packages/presentation/CudaPackagePanel.vue";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -138,6 +139,7 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
               { value: 'sendinput', label: 'Эмуляция нажатий клавиш' },
             ]"
           />
+          <ApplicationProfiles v-model="draft" />
           <section id="about" class="about-fono">
             <h3>Fono {{ version }}</h3>
             <p>Голосовой ввод и управление компьютером.</p>

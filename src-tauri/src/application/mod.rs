@@ -1,5 +1,6 @@
 //! Application-level use cases behind the Tauri IPC facade.
 
+pub mod application_profiles;
 pub mod audio_ingest;
 pub(crate) mod capture_configuration;
 pub mod command_proposal;

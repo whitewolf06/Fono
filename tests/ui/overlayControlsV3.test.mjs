@@ -163,6 +163,55 @@ const saved = (preset, targetLanguage = null) => ({
   processing_target_language: targetLanguage,
 });
 
+test("profile confirmed choice survives a failed manual save and a successful override keeps its other settings", async () => {
+  const profile = {
+    preset: "task",
+    targetLanguage: "de",
+    processingEnabled: false,
+    translationEnabled: true,
+  };
+  const { state, controls, dispose } = setup({ sessionChoice: { ...profile } }),
+    saves = saveChoices();
+  try {
+    controls.choose({ ...profile, preset: "formal" });
+    saves[0].reject(new Error("save failed"));
+    await flush();
+    assert.deepEqual({ ...state.processingChoice }, profile);
+    controls.choose({ ...profile, preset: "raw" });
+    saves[1].resolve({
+      ...saved("raw", "de"),
+      ai_mode: "off",
+      processing_translation_enabled: true,
+    });
+    await flush();
+    assert.equal(state.sessionChoice.preset, "raw");
+    assert.equal(state.sessionChoice.processingEnabled, false);
+    assert.equal(state.sessionChoice.targetLanguage, "de");
+  } finally {
+    dispose();
+  }
+});
+
+test("overlay renders only the chosen profile label from session context", async () => {
+  const html = await renderToString(
+    createSSRApp({
+      render: () =>
+        h(OverlayPreview, {
+          preferences: defaults,
+          applicationProfile: "IDE",
+          processingChoice: {
+            preset: "task",
+            targetLanguage: null,
+            processingEnabled: true,
+            translationEnabled: false,
+          },
+        }),
+    }),
+  );
+  assert.match(html, /Профиль: IDE/);
+  assert.ok(!html.includes("code.exe"));
+});
+
 test("recording controls persist immediately and Finish awaits the latest selected style and translation", async () => {
   const { state, controls, commits, dispose } = setup(),
     saves = saveChoices(),

@@ -428,6 +428,7 @@ pub async fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
+    crate::application::application_profiles::validate(&settings.application_profiles)?;
     settings.validate_stt_preferences()?;
     crate::types::DecodingOptions {
         strategy: settings.whisper_decoding,

@@ -50,7 +50,10 @@ onUnmounted(overlay.dispose);
       :live="overlay.state.live"
       :pending="pending"
       :copying="overlay.state.copying"
-      :processing-choice="overlay.state.processingChoice"
+      :processing-choice="
+        overlay.state.processingChoice ?? overlay.state.sessionChoice
+      "
+      :application-profile="overlay.state.applicationProfile"
       :processing-saving="
         overlay.processing.pending || overlay.processing.saving
       "

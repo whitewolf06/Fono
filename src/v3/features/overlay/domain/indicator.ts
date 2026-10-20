@@ -22,4 +22,5 @@ export interface IndicatorState extends IndicatorChoice {
   insertionBlocked?: boolean;
   copying: boolean;
   status?: string;
+  applicationProfile?: string | null;
 }

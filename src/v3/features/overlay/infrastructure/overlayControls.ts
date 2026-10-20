@@ -15,6 +15,7 @@ interface State {
   preview: unknown;
   pending: PendingDictation | null;
   processingChoice: OverlayProcessingChoice | null;
+  sessionChoice?: OverlayProcessingChoice | null;
 }
 export function createOverlayControls(
   state: State,
@@ -32,6 +33,8 @@ export function createOverlayControls(
   }
   const queue = createOverlayProcessingQueue({
     readConfirmed: () => {
+      if (state.sessionChoice && context() !== null && context() !== undefined)
+        return { ...state.sessionChoice };
       const s = settings();
       return s
         ? {
@@ -65,6 +68,11 @@ export function createOverlayControls(
         preset: request.preset,
         targetLanguage: request.targetLanguage,
       };
+      if (state.sessionChoice)
+        state.sessionChoice = {
+          ...state.sessionChoice,
+          ...state.processingChoice,
+        };
     },
     rollback: (_error, confirmed) => {
       state.processingChoice = confirmed;

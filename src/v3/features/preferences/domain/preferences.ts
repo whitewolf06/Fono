@@ -4,6 +4,7 @@ import type {
   QuickPanel,
 } from "../../../shared/domain/contracts";
 import { validateWakePhrase } from "./wakePhrase";
+import { validateApplicationProfiles } from "../../../shared/domain/applicationProfiles";
 import { message } from "../../../shared/domain/messages";
 import { validateDictionary } from "../../../shared/domain/personalDictionary";
 import { triggerConflict } from "../../../shared/domain/triggers";
@@ -12,6 +13,7 @@ import {
   validateProcessingPrompts,
 } from "./processingPrompts";
 export const defaults: Preferences = {
+  applicationProfiles: [],
   pretranscriptionEnabled: false,
   dictationMode: "standard",
   microphone: "system",
@@ -70,7 +72,7 @@ export const defaults: Preferences = {
   verboseLogging: false,
 };
 export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
-  general: ["autostart", "insertion"],
+  general: ["autostart", "insertion", "applicationProfiles"],
   audio: [
     "microphone",
     "model",
@@ -194,6 +196,8 @@ export const profiles = [
   { value: "cloud", label: "В облаке · OpenAI (демо)" },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  const profileError = validateApplicationProfiles(p.applicationProfiles);
+  if (profileError) return profileError;
   if (!["fast", "accurate"].includes(p.whisperDecoding))
     return message("decoding.invalidMode");
   if (

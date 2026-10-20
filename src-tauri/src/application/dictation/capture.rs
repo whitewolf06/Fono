@@ -84,15 +84,68 @@ pub(crate) fn reserve_operation(app: &AppHandle) -> AppResult<ReservedCapture> {
 }
 
 pub(crate) fn start_reserved_operation(app: AppHandle, capture: ReservedCapture) -> AppResult<u64> {
-    let admission = crate::application::capture_configuration::begin_capture()?;
-    ensure_capture_allowed(&app)?;
-    app.state::<Pipeline>().start_reserved_capture(
-        capture.operation,
-        capture.settings.audio_device_id.as_deref(),
-    )?;
-    configure_recording(&app, capture.operation, &capture.settings, false)?;
-    drop(admission);
-    activate_recording(app, capture.operation, OperationSource::Hotkey, false)
+    prepare_reserved(app, capture, OperationSource::Hotkey, &[], None, false)
+}
+
+fn prepare_reserved(
+    app: AppHandle,
+    capture: ReservedCapture,
+    source: OperationSource,
+    pre_roll: &[i16],
+    cursor: Option<(u64, u64)>,
+    command: bool,
+) -> AppResult<u64> {
+    let operation = capture.operation;
+    let _activity = crate::application::updates::activity::lease().map_err(|error| {
+        app.state::<Pipeline>().abort_capture_setup(operation);
+        error
+    })?;
+    let result = (|| {
+        let admission = crate::application::capture_configuration::begin_capture()?;
+        ensure_capture_allowed(&app)?;
+        let pipeline = app.state::<Pipeline>();
+        // Keep capturing onset while focus providers resolve. Profiles never
+        // change the microphone, and inference starts only after their snapshot.
+        pipeline.start_reserved_capture_with(
+            operation,
+            capture.settings.audio_device_id.as_deref(),
+            pre_roll,
+            cursor,
+        )?;
+        drop(admission);
+        // Resolve identity outside capture/configuration locks and before any overlay.
+        super::workflow::capture_target(&app, operation, source);
+        let executable = if !command
+            && source != OperationSource::Diagnostics
+            && capture
+                .settings
+                .application_profiles
+                .iter()
+                .any(|p| p.enabled)
+        {
+            super::workflow::target_for(&app, operation)
+                .and_then(|target| crate::injection::target::executable_name(&target))
+        } else {
+            None
+        };
+        let settings = crate::application::application_profiles::resolve(
+            capture.settings,
+            executable.as_deref(),
+        );
+        settings.validate_stt_preferences()?;
+        let admission = crate::application::capture_configuration::begin_capture()?;
+        ensure_capture_allowed(&app)?;
+        configure_recording(&app, operation, &settings, command)?;
+        drop(admission);
+        activate_recording(app.clone(), operation, command)
+    })();
+    if result.is_err() {
+        let pipeline = app.state::<Pipeline>();
+        if pipeline.abort_capture_setup(operation) {
+            super::workflow::clear_target(&app, operation);
+        }
+    }
+    result
 }
 
 pub(crate) fn ensure_capture_allowed(app: &AppHandle) -> AppResult<()> {
@@ -128,22 +181,27 @@ fn start_configured(
     }
     #[cfg(not(feature = "experimental-live"))]
     let _ = force_standard;
-    let operation = pipeline
-        .start_capture(
-            settings.audio_device_id.as_deref(),
-            pre_roll,
-            source,
-            cursor,
-            false,
-        )
-        .map_err(|error| {
-            emit_pipeline_error(&app, &error.to_string());
-            tracing::error!(%error, "start_dictation: capture failed");
-            error
-        })?;
-    configure_recording(&app, operation, &settings, force_standard)?;
+    let operation = pipeline.reserve_capture(source).map_err(|error| {
+        emit_pipeline_error(&app, &error.to_string());
+        tracing::error!(%error, "start_dictation: capture failed");
+        error
+    })?;
+    pipeline.set_command_capture(operation, force_standard);
+    if !pipeline.initialize_session_settings_for(operation, settings.clone()) {
+        return Err(AppError::Cancelled("Диктовка отменена".into()));
+    }
     drop(admission);
-    activate_recording(app.clone(), operation, source, force_standard)
+    prepare_reserved(
+        app,
+        ReservedCapture {
+            operation,
+            settings,
+        },
+        source,
+        pre_roll,
+        cursor,
+        force_standard,
+    )
 }
 
 fn configure_recording(
@@ -154,8 +212,9 @@ fn configure_recording(
 ) -> AppResult<()> {
     let pipeline = app.state::<Pipeline>();
     pipeline.set_command_capture(operation, force_standard);
-    if !pipeline.set_session_settings_for(operation, settings.clone()) {
-        pipeline.stop_recording_for(operation)?;
+    if !pipeline.initialize_session_settings_for(operation, settings.clone()) {
+        // A Stop may already own the frozen capture and its PCM drain.
+        // Failed setup cleanup is fenced separately and must not steal it.
         return Err(AppError::Cancelled("Диктовка отменена".into()));
     }
     #[cfg(feature = "speech-vad")]
@@ -177,15 +236,9 @@ fn configure_recording(
     Ok(())
 }
 
-fn activate_recording(
-    app: AppHandle,
-    operation: u64,
-    source: OperationSource,
-    command: bool,
-) -> AppResult<u64> {
+fn activate_recording(app: AppHandle, operation: u64, command: bool) -> AppResult<u64> {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();
-    super::workflow::capture_target(&app, operation, source);
     // The focus probe above deliberately runs outside all admission/capture
     // locks. Cancel may finish this operation while its provider is responding.
     // An old start must not pause WakeWord after idle cleanup already resumed it.

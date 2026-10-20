@@ -87,6 +87,12 @@ pub(crate) fn capture_target(app: &AppHandle, operation: u64, source: OperationS
             .install(operation, target);
     });
 }
+pub(crate) fn target_for(app: &AppHandle, operation: u64) -> Option<TextTarget> {
+    app.state::<Runtime>()
+        .capture_target
+        .lock()
+        .target(operation)
+}
 pub(super) fn clear_target(app: &AppHandle, operation: u64) {
     let runtime = app.state::<Runtime>();
     runtime.capture_target.lock().clear(operation);

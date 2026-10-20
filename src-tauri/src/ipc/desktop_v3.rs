@@ -99,6 +99,7 @@ pub struct LastDictation {
 }
 #[derive(Serialize)]
 pub struct DesktopSnapshot {
+    session_preferences: Option<crate::application::application_profiles::SessionPreferences>,
     pretranscription: crate::pipeline::pretranscription::Status,
     state: PipelineState,
     level: f32,
@@ -112,6 +113,14 @@ pub fn get_desktop_snapshot(app: AppHandle) -> DesktopSnapshot {
     let pipeline = app.state::<Pipeline>();
     let operation = pipeline.current_operation();
     DesktopSnapshot {
+        session_preferences: operation.as_ref().and_then(|operation| {
+            pipeline.session_settings_for(operation.id).map(|settings| {
+                crate::application::application_profiles::SessionPreferences::new(
+                    operation.id,
+                    &settings,
+                )
+            })
+        }),
         pretranscription: pipeline
             .pretranscription_status_for(operation.as_ref().map_or(0, |operation| operation.id)),
         state: Pipeline::project_state(operation.as_ref()),

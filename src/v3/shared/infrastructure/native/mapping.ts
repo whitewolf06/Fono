@@ -12,6 +12,7 @@ import type {
   ServiceJob,
 } from "../../domain/contracts";
 import { defaults } from "../../../features/preferences/domain/preferences";
+import { cloneApplicationProfiles } from "../../domain/applicationProfiles";
 import { measuredModel } from "../../domain/sttMeasurements";
 import { availableDictationMode } from "../../domain/dictationMode";
 import { availableWakeEnabled } from "../../domain/wakeAvailability";
@@ -40,6 +41,7 @@ export function preferencesFromNative(
     : undefined;
   return {
     ...defaults,
+    applicationProfiles: cloneApplicationProfiles(s.application_profiles ?? []),
     pretranscriptionEnabled: s.pretranscription_enabled === true,
     dictationMode: availableDictationMode(s.dictation_mode),
     microphone: s.audio_device_id || "system",
@@ -159,6 +161,8 @@ export function applyPreferences(
   if ("model" in patch)
     p = { ...p, ...compatibleModelPreferences(selected, p) };
   const has = (key: keyof Preferences) => key in patch;
+  if (has("applicationProfiles"))
+    next.application_profiles = cloneApplicationProfiles(p.applicationProfiles);
   const pairs = {
     pretranscriptionEnabled: "pretranscription_enabled",
     dictationTrigger: "dictation_trigger",

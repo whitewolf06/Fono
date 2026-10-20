@@ -79,6 +79,14 @@
 .overlay-indicator-summary {
   min-width: 0;
 }
+.overlay-indicator-profile {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fono-muted);
+  font-size: var(--fono-type-xs);
+}
 .overlay-indicator-status {
   display: flex;
   align-items: baseline;

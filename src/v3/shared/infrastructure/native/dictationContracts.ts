@@ -16,6 +16,9 @@ export type NativeDictationOutcome =
   | { kind: "completed" | "deferred"; transcript: Transcript }
   | { kind: Exclude<DictationOutcomeKind, "completed" | "deferred"> };
 export interface NativeSnapshot {
+  session_preferences?:
+    | import("../../domain/applicationProfiles").ApplicationSessionPreferences
+    | null;
   pretranscription?: import("../../domain/pretranscription").PretranscriptionStatus;
   outcome?: DictationOutcomeEvent | null;
   state: PipelineState;

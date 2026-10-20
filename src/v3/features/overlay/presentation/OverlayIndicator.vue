@@ -113,6 +113,12 @@ watch(recording, (value) => {
         </button>
       </div>
       <div class="overlay-indicator-summary" aria-live="polite">
+        <small
+          v-if="state.applicationProfile"
+          class="overlay-indicator-profile"
+          :title="state.applicationProfile"
+          >Профиль: {{ state.applicationProfile }}</small
+        >
         <div class="overlay-indicator-status">
           <strong :title="status">{{ status }}</strong
           ><small>{{ clock }}</small>

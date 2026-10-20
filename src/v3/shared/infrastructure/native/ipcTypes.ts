@@ -119,6 +119,7 @@ export interface WakeWordCapabilities {
 }
 
 export interface Settings {
+  application_profiles?: import("../../domain/applicationProfiles").ApplicationProfile[];
   pretranscription_enabled?: boolean;
   /** Обычная диктовка или последовательная вставка устойчивых фрагментов. */
   dictation_mode: "standard" | "live";

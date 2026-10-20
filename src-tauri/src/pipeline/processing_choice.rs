@@ -8,6 +8,23 @@ use fono_core::{OperationCancellation, OperationPhase, OperationSnapshot};
 use std::sync::atomic::Ordering;
 
 impl Pipeline {
+    /// A late native identity lookup cannot replace a frozen/finished session.
+    pub(crate) fn initialize_session_settings_for(
+        &self,
+        operation: u64,
+        settings: Settings,
+    ) -> bool {
+        let _capture = self.recording.lock();
+        if self.processing_frozen_for.load(Ordering::Acquire) == operation
+            || !self.current_operation().is_some_and(|current| {
+                current.id == operation && current.phase == OperationPhase::Recording
+            })
+        {
+            return false;
+        }
+        *self.session_settings.lock() = Some((operation, settings));
+        true
+    }
     /// Restore a failed shortcut completion only while its exact capture is editable.
     pub(crate) fn while_editable_recording(&self, operation: u64, apply: impl FnOnce()) -> bool {
         let recording = self.recording.lock();

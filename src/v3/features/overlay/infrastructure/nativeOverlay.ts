@@ -48,6 +48,8 @@ export function createNativeOverlay() {
     preview: null as Preview | null,
     sessionId: null as number | null,
     processingChoice: null as OverlayProcessingChoice | null,
+    sessionChoice: null as OverlayProcessingChoice | null,
+    applicationProfile: null as string | null,
     helpOpen: false,
     copying: false,
   });
@@ -254,6 +256,11 @@ export function createNativeOverlay() {
       if (v.operation_id > 0 && v.operation_id < operation) return;
       if (!pending.current(ticket)) return;
       state.sessionId = v.operation_id > 0 ? v.operation_id : null;
+      const session = v.session_preferences;
+      state.sessionChoice =
+        session?.sessionId === state.sessionId ? session : null;
+      state.applicationProfile =
+        session?.sessionId === state.sessionId ? session.profileName : null;
       pending.observeOperation(v.operation_id);
       pending.apply(dictation, ticket);
       // Pending and snapshot are separate native reads. A terminal snapshot

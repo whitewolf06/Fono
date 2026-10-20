@@ -85,6 +85,65 @@ fn cli_reserves_identity_without_audio_and_native_start_reuses_it() {
 }
 
 #[test]
+fn late_profile_lookup_cannot_open_frozen_capture_or_replace_successor() {
+    use crate::types::{Settings, TextPreset};
+    let (pipeline, probe) = fixture();
+    let old = pipeline.reserve_capture(OperationSource::Hotkey).unwrap();
+    let profile = Settings {
+        processing_preset: Some(TextPreset::Task),
+        active_application_profile: Some("IDE".into()),
+        ..Settings::default()
+    };
+    assert!(pipeline.initialize_session_settings_for(old, profile.clone()));
+    let (_, _, frozen) = pipeline
+        .freeze_session_for_completion(old, Settings::default)
+        .unwrap();
+    assert_eq!(frozen.processing_preset, Some(TextPreset::Task));
+    assert!(!pipeline.initialize_session_settings_for(old, Settings::default()));
+    assert!(pipeline.start_reserved_capture(old, None).is_err());
+    assert_eq!(probe.starts.load(Ordering::SeqCst), 0);
+    assert!(!pipeline.abort_capture_setup(old));
+    assert!(pipeline.is_operation_active(old));
+    pipeline.cancel_for(old).unwrap();
+    let next = pipeline.reserve_capture(OperationSource::Ui).unwrap();
+    assert!(pipeline.initialize_session_settings_for(next, Settings::default()));
+    assert!(!pipeline.initialize_session_settings_for(old, profile));
+    assert!(pipeline
+        .session_settings_for(next)
+        .unwrap()
+        .active_application_profile
+        .is_none());
+    pipeline.cancel_for(next).unwrap();
+}
+
+#[test]
+fn profile_setup_failure_drains_only_its_capture_and_never_successor_audio() {
+    let (pipeline, probe) = fixture();
+    let old = pipeline.reserve_capture(OperationSource::Hotkey).unwrap();
+    pipeline
+        .start_reserved_capture_with(old, None, &[41, 42], None)
+        .unwrap();
+    assert_eq!(pipeline.recording_window(0, 8).1, vec![41, 42, 1]);
+    assert!(pipeline.abort_capture_setup(old));
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 1);
+    let next = pipeline.reserve_capture(OperationSource::Hotkey).unwrap();
+    pipeline.start_reserved_capture(next, None).unwrap();
+    assert!(pipeline.abort_capture_setup(old));
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 1);
+    assert!(pipeline.is_operation_active(next));
+    assert!(pipeline.is_recording());
+    pipeline
+        .freeze_session_for_completion(next, crate::types::Settings::default)
+        .unwrap();
+    assert!(!pipeline.initialize_session_settings_for(next, crate::types::Settings::default()));
+    assert!(!pipeline.abort_capture_setup(next));
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 1);
+    assert!(pipeline.is_recording());
+    pipeline.stop_recording_for(next).unwrap();
+    pipeline.finish_operation(next, TerminalReason::Completed);
+}
+
+#[test]
 fn cancelled_queued_start_cannot_open_audio_or_replace_successor() {
     let (pipeline, probe) = fixture();
     let old = pipeline.reserve_capture(OperationSource::Hotkey).unwrap();

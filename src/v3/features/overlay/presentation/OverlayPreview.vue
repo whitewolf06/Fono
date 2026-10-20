@@ -27,6 +27,7 @@ const props = withDefaults(
     live?: LiveDictation | null;
     pending?: PendingDictation | null;
     processingChoice?: OverlayProcessingChoice | null;
+    applicationProfile?: string | null;
     processingSaving?: boolean;
     processingError?: string;
     copying?: boolean;
@@ -80,6 +81,7 @@ const indicator = computed<IndicatorState>(() => {
               ? "error"
               : "closed";
   return {
+    applicationProfile: props.applicationProfile,
     phase,
     sessionId: pending?.sessionId ?? 0,
     elapsedMs: props.elapsed * 1000,

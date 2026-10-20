@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
+    pub application_profiles: Vec<crate::application::application_profiles::ApplicationProfile>,
+    #[serde(skip)]
+    pub active_application_profile: Option<String>,
+    #[serde(default)]
     pub whisper_decoding: DecodingStrategy,
     #[serde(default)]
     pub whisper_threads: Option<u8>,
@@ -165,6 +169,8 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            application_profiles: Vec::new(),
+            active_application_profile: None,
             whisper_decoding: DecodingStrategy::Fast,
             whisper_threads: None,
             dictation_mode: DictationMode::Standard,
