@@ -31,6 +31,9 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
         [
           "dictationMode",
           "dictationTrigger",
+          "selectionCaptureEnabled",
+          "selectionHotkey",
+          "selectionClipboardFallback",
           "hotkey",
           "hotkeyMode",
           "commandHotkey",

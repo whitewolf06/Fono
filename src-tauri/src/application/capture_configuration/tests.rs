@@ -1,4 +1,15 @@
 use super::*;
+#[test]
+fn explicit_selection_does_not_wait_for_an_in_progress_capture_admission() {
+    let gate = Gate::default();
+    let capture = gate.begin_capture().unwrap();
+    assert!(gate.try_reserve_configuration(|| Ok(())).is_err());
+    drop(capture);
+    let reservation = gate.try_reserve_configuration(|| Ok(())).unwrap();
+    assert!(gate.try_begin_capture().is_err());
+    drop(reservation);
+    assert!(gate.try_begin_capture().is_ok());
+}
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     mpsc,

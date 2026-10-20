@@ -16,6 +16,7 @@ import { defaults } from "../features/preferences/domain/preferences";
 import { clonePreferences } from "../features/preferences/domain/processingPrompts";
 import { createSettingsPort } from "../features/preferences/infrastructure/mockSettings";
 import { createTriggerCapture } from "../shared/infrastructure/triggerCapture";
+import { createMockSelectionCapture } from "../features/selection/infrastructure/mockSelection";
 import { createMockWake } from "../features/preferences/infrastructure/mockWake";
 import {
   createDictationPort,
@@ -92,6 +93,7 @@ export function createMockWorkspace(): Workspace {
   selectLatest(state, state.history[0]);
   const dictation = createDictationPort(state);
   const trainer = createMockTrainer(state);
+  const selection = createMockSelectionCapture();
   const updates = createMockUpdates(__FONO_FRONTEND_BUILD__.version);
   const cudaPackages = createMockCudaPackages();
   const wake = createMockWake(state);
@@ -193,6 +195,7 @@ export function createMockWorkspace(): Workspace {
     wake,
     dictation,
     settings: createSettingsPort(state),
+    selection,
     triggerCapture: createTriggerCapture(state),
     commands: createCommandsPort(state),
     service: createServicePort(state),
@@ -270,6 +273,7 @@ export function createMockWorkspace(): Workspace {
       saveWizardStep(step);
     },
     dispose() {
+      selection.dispose();
       disposed = true;
       trainer.dispose();
       updates.dispose();

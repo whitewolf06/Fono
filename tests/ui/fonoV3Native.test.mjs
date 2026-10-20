@@ -195,6 +195,7 @@ beforeEach(() => {
         monitoring: "disabled",
         message: "",
       };
+    if (command === "get_selection_capture") return null;
     if (command === "get_cuda_package_status")
       return {
         phase: "not_installed",

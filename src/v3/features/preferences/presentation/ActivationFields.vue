@@ -5,6 +5,7 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import type { Preferences } from "../../../shared/domain/contracts";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import TriggerFields from "./TriggerFields.vue";
+import SelectionFields from "./SelectionFields.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 import {
@@ -77,6 +78,7 @@ const phraseOptions = computed(() => {
       "
       :active="active"
     />
+    <SelectionFields v-if="!scope" v-model="draft" :active="active" />
     <template
       v-if="wakeCompiled && scope !== 'hotkey' && scope !== 'command-hotkey'"
     >

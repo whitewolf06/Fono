@@ -74,6 +74,12 @@ export function preferencesFromNative(
       .join(" + "),
     hotkeyMode: s.hotkey_mode ?? "hold",
     dictationTrigger: availableTrigger(s.dictation_trigger),
+    selectionCaptureEnabled: s.selection_capture_enabled ?? false,
+    selectionHotkey: (s.selection_hotkey || "Ctrl+Alt+Space")
+      .split("+")
+      .map((x) => x.trim())
+      .join(" + "),
+    selectionClipboardFallback: s.selection_clipboard_fallback ?? false,
     commandHotkey: s.command_hotkey
       .split("+")
       .map((x) => x.trim())
@@ -153,6 +159,8 @@ export function applyPreferences(
   const pairs = {
     pretranscriptionEnabled: "pretranscription_enabled",
     dictationTrigger: "dictation_trigger",
+    selectionCaptureEnabled: "selection_capture_enabled",
+    selectionClipboardFallback: "selection_clipboard_fallback",
     microphone: "audio_device_id",
     language: "language",
     acceleration: "acceleration",
@@ -205,6 +213,8 @@ export function applyPreferences(
   if (selected) validateModelPreferences(selected, p);
   if (has("hotkey")) next.hotkey = p.hotkey.replaceAll(" ", "");
   if (has("hotkeyMode")) next.hotkey_mode = p.hotkeyMode;
+  if (has("selectionHotkey"))
+    next.selection_hotkey = p.selectionHotkey.replaceAll(" ", "");
   if (has("processingTrigger")) next.processing_workflow = p.processingTrigger;
   if (has("processingMode")) next.processing_preset = p.processingMode;
   if (has("processingTranslation"))

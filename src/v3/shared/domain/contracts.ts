@@ -71,6 +71,9 @@ export interface Preferences {
   silenceMs: number;
   hotkey: string;
   dictationTrigger: import("./triggers").DictationTrigger;
+  selectionCaptureEnabled: boolean;
+  selectionHotkey: string;
+  selectionClipboardFallback: boolean;
   hotkeyMode: "hold" | "toggle";
   commandHotkey: string;
   wakeThreshold: number;
@@ -318,6 +321,7 @@ export interface Workspace {
   state: WorkspaceState;
   settings: SettingsPort;
   triggerCapture: import("./triggers").TriggerCapturePort;
+  selection: import("../../features/selection/domain/selection").SelectionCapturePort;
   dictation: DictationPort;
   history: HistoryPort;
   trainer: TrainerPort;

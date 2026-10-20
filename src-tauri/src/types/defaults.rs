@@ -1,6 +1,9 @@
 //! Serialization defaults shared by the preference DTOs.
 
 use super::{AiMode, InjectionMode, LlmProvider, WakeWordBackend, WhisperModelSize};
+pub(super) fn default_selection_hotkey() -> String {
+    "Ctrl+Alt+Space".into()
+}
 
 pub(super) fn default_use_gpu() -> bool {
     cfg!(any(feature = "cuda", feature = "vulkan"))

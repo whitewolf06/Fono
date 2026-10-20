@@ -80,6 +80,13 @@ pub(crate) fn register_all_shortcuts(
             );
         })?;
         hooks.start(app, settings.dictation_trigger, dictation_mode)?;
+        if settings.selection_capture_enabled {
+            shortcuts.on_shortcut(settings.selection_hotkey.as_str(), |app, _, event| {
+                if event.state == NativeState::Released {
+                    crate::application::selection_capture::request(app.clone());
+                }
+            })?;
+        }
         tracing::info!("dictation and voice command triggers registered");
         Ok(())
     })();

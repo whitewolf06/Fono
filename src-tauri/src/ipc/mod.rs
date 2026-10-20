@@ -11,6 +11,7 @@ pub mod models;
 pub mod processing;
 pub mod processing_capture;
 pub mod project;
+pub mod selection;
 pub mod service;
 pub mod settings;
 pub mod system;

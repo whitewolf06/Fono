@@ -103,6 +103,9 @@ fn save_settings_blocking(
         || old_settings.dictation_trigger != settings.dictation_trigger
         || old_settings.hotkey_mode != settings.hotkey_mode
         || old_settings.command_hotkey != settings.command_hotkey;
+    let shortcuts_changed = shortcuts_changed
+        || old_settings.selection_capture_enabled != settings.selection_capture_enabled
+        || old_settings.selection_hotkey != settings.selection_hotkey;
     let model_changed = old_settings.whisper_model_path != settings.whisper_model_path
         || old_settings.stt_model != settings.stt_model
         || old_settings.acceleration != settings.acceleration;

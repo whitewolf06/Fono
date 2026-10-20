@@ -57,6 +57,12 @@ export const searchIndex: {
   keywords: string;
 }[] = [
   {
+    label: "Получение выделения",
+    section: "activation",
+    field: "selectionHotkey",
+    keywords: "выделение текст uia clipboard copy ctrl+c буфер правка",
+  },
+  {
     label: "Микрофон",
     section: "audio",
     field: "microphone",

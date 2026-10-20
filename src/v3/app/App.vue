@@ -13,6 +13,7 @@ import { bindShortcut } from "../shared/infrastructure/browser";
 import AppIcon from "../shared/presentation/AppIcon.vue";
 import FonoWordmark from "../shared/FonoWordmark.vue";
 import CommandConfirmation from "../features/commands/presentation/CommandConfirmation.vue";
+import SelectionPreview from "../features/selection/presentation/SelectionPreview.vue";
 import PageLoadState from "../shared/presentation/PageLoadState.vue";
 import QuickSettings from "../features/preferences/presentation/QuickSettings.vue";
 import SidebarExtras from "./presentation/SidebarExtras.vue";
@@ -184,4 +185,5 @@ onUnmounted(() => {
     v-if="workspace.native && workspace.state.commandProposal"
   />
   <WlToast />
+  <SelectionPreview />
 </template>

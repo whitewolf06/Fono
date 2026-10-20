@@ -16,9 +16,14 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
       if (state.triggerCaptureActive)
         throw new Error("Сначала завершите выбор кнопки.");
       if (
-        ["dictationTrigger", "hotkey", "hotkeyMode", "commandHotkey"].some(
-          (key) => key in patch,
-        )
+        [
+          "dictationTrigger",
+          "hotkey",
+          "hotkeyMode",
+          "commandHotkey",
+          "selectionHotkey",
+          "selectionCaptureEnabled",
+        ].some((key) => key in patch)
       ) {
         const conflict = triggerConflict({ ...state.preferences, ...patch });
         if (conflict) throw new Error(conflict);
@@ -33,6 +38,9 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
           "whisperThreads",
           "hotkey",
           "dictationTrigger",
+          "selectionHotkey",
+          "selectionCaptureEnabled",
+          "selectionClipboardFallback",
           "hotkeyMode",
           "commandHotkey",
           "processingTrigger",
@@ -63,6 +71,13 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
         await nativeWake(ctx).load();
     },
     async toggle(key, value) {
+      if (
+        ["selectionCaptureEnabled", "selectionClipboardFallback"].includes(
+          key,
+        ) &&
+        (captureSettingsLocked(state.phase) || state.triggerCaptureActive)
+      )
+        throw new Error("Сначала завершите текущую диктовку или выбор кнопки.");
       if (state.pending[key]) return;
       if (
         key === "pretranscriptionEnabled" &&

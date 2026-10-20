@@ -243,6 +243,9 @@ test("activation form disables wake fields and setup but preserves both hotkeys"
   const { defaults } = await server.ssrLoadModule(
     "/src/v3/features/preferences/domain/preferences.ts",
   );
+  const { createMockSelectionCapture } = await server.ssrLoadModule(
+    "/src/v3/features/selection/infrastructure/mockSelection.ts",
+  );
   const app = createSSRApp({
     render: () =>
       h(ActivationFields, { modelValue: { ...defaults }, advanced: true }),
@@ -252,6 +255,7 @@ test("activation form disables wake fields and setup but preserves both hotkeys"
   app.provide(workspaceKey, {
     native: false,
     wake: {},
+    selection: createMockSelectionCapture(),
     state: { preferences: { ...defaults }, phase: "idle", pending: {} },
   });
   app.provide(interactionKey, { confirm: async () => false });

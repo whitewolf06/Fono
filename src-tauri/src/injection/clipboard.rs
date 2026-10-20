@@ -36,6 +36,7 @@ use windows::{
         },
     },
 };
+mod selection;
 
 const WAKE: u32 = WM_APP + 31;
 const RESTORE_TIMER: usize = 1;
@@ -52,6 +53,14 @@ const PRIVACY_FORMATS: [&str; 3] = [
 type Guard = Option<(TextTarget, OperationCancellation)>;
 
 enum Command {
+    Selection {
+        target: TextTarget,
+        start: u32,
+        end: u32,
+        cancel: OperationCancellation,
+        lease: ActivityLease<'static>,
+        reply: Sender<AppResult<String>>,
+    },
     Inject {
         text: String,
         guard: Guard,
@@ -105,6 +114,27 @@ pub(super) fn copy(text: &str) -> AppResult<()> {
     let (reply, result) = bounded(1);
     worker()?.post(Command::Copy {
         text: text.into(),
+        lease,
+        reply,
+    })?;
+    result
+        .recv()
+        .map_err(|_| failure("clipboard owner disconnected"))?
+}
+
+pub(super) fn selection_text(
+    target: &TextTarget,
+    start: u32,
+    end: u32,
+    cancel: OperationCancellation,
+) -> AppResult<String> {
+    let lease = activity::lease()?;
+    let (reply, result) = bounded(1);
+    worker()?.post(Command::Selection {
+        target: target.clone(),
+        start,
+        end,
+        cancel,
         lease,
         reply,
     })?;
@@ -234,6 +264,21 @@ impl Owner {
             }
             while let Ok(command) = rx.try_recv() {
                 match command {
+                    Command::Selection {
+                        target,
+                        start,
+                        end,
+                        cancel,
+                        lease,
+                        reply,
+                    } => {
+                        let result = if shutting_down {
+                            Err(failure("clipboard owner is shutting down"))
+                        } else {
+                            self.selection_text(&target, start, end, &cancel, lease)
+                        };
+                        let _ = reply.send(result);
+                    }
                     Command::Inject {
                         text,
                         guard,

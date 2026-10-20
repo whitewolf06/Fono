@@ -35,6 +35,16 @@ pub fn matches(target: &TextTarget) -> bool {
     platform::capture().ok().flatten().as_ref() == Some(target)
 }
 
+#[cfg(windows)]
+pub(super) unsafe fn selection_target(
+    automation: &windows::Win32::UI::Accessibility::IUIAutomation,
+) -> Option<(
+    TextTarget,
+    windows::Win32::UI::Accessibility::IUIAutomationElement,
+)> {
+    platform::query_element(automation)
+}
+
 pub fn append(
     target: &TextTarget,
     text: &str,
@@ -133,6 +143,15 @@ mod platform {
     }
 
     unsafe fn query(automation: &IUIAutomation) -> Option<TextTarget> {
+        query_element(automation).map(|(target, _)| target)
+    }
+
+    pub(super) unsafe fn query_element(
+        automation: &IUIAutomation,
+    ) -> Option<(
+        TextTarget,
+        windows::Win32::UI::Accessibility::IUIAutomationElement,
+    )> {
         let window = GetForegroundWindow();
         if window.0.is_null() {
             return None;
@@ -150,6 +169,7 @@ mod platform {
         let element = automation.GetFocusedElement().ok()?;
         if element.CurrentProcessId().ok()? as u32 != process
             || !element.CurrentIsEnabled().ok()?.as_bool()
+            || element.CurrentIsPassword().ok()?.as_bool()
         {
             return None;
         }
@@ -187,12 +207,15 @@ mod platform {
             if runtime_id.is_empty() || GetForegroundWindow() != window {
                 return None;
             }
-            Some(TextTarget {
-                window: window.0 as isize,
-                focus: info.hwndFocus.0 as isize,
-                process,
-                runtime_id,
-            })
+            Some((
+                TextTarget {
+                    window: window.0 as isize,
+                    focus: info.hwndFocus.0 as isize,
+                    process,
+                    runtime_id,
+                },
+                element,
+            ))
         })();
         let _ = SafeArrayDestroy(array);
         result

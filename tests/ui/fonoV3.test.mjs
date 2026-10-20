@@ -3,6 +3,7 @@ import { before, after, beforeEach, afterEach, test } from "node:test";
 import { createServer } from "vite";
 import { createApp, createSSRApp, h, effectScope, nextTick } from "vue";
 import { renderToString } from "@vue/server-renderer";
+import { WlConfig, WlToastService } from "@whitelife-core/ui-kit";
 let server, createWorkspace, workspace, storage;
 before(async () => {
   storage = new Map();
@@ -236,6 +237,174 @@ test("trigger UI names the actual button and explains double presses, conflicts 
       assert.match(html, /входит в сочетание команд/);
     if (trigger === "right_alt") assert.match(html, /AltGr/);
   }
+});
+
+test("selection preview is explicit demo memory and never enters history, result, storage or clipboard", async () => {
+  const history = JSON.stringify(workspace.state.history),
+    last = JSON.stringify(workspace.state.last);
+  assert.equal(workspace.selection.state.current, null);
+  assert.equal(workspace.state.preferences.selectionCaptureEnabled, false);
+  assert.equal(workspace.state.preferences.selectionClipboardFallback, false);
+  workspace.selection.demo();
+  const old = workspace.selection.state.current.operationId;
+  assert.equal(workspace.selection.state.current.source, "demo");
+  workspace.selection.demo();
+  const next = workspace.selection.state.current.operationId;
+  await workspace.selection.cancel(old);
+  assert.equal(workspace.selection.state.current.operationId, next);
+  assert.equal(JSON.stringify(workspace.state.history), history);
+  assert.equal(JSON.stringify(workspace.state.last), last);
+  assert.equal(storage.size, 0);
+  await workspace.selection.cancel(next);
+  assert.equal(workspace.selection.state.current, null);
+});
+
+test("selection settings roundtrip but cannot overlap a trigger or change during a session", async () => {
+  for (const phase of [
+    "listening",
+    "transcribing",
+    "processing",
+    "awaiting_action",
+  ]) {
+    workspace.state.phase = phase;
+    await assert.rejects(
+      workspace.settings.save({ selectionHotkey: "Ctrl + Alt + E" }),
+      /завершите/,
+    );
+  }
+  workspace.state.phase = "idle";
+  await workspace.settings.save({
+    selectionCaptureEnabled: true,
+    selectionClipboardFallback: true,
+    selectionHotkey: "Ctrl + Alt + E",
+  });
+  assert.equal(workspace.state.preferences.selectionHotkey, "Ctrl + Alt + E");
+  const saved = JSON.parse(storage.get("fono-v3-demo-preferences-v1"));
+  assert.equal(saved.selectionCaptureEnabled, true);
+  assert.equal(saved.selectionClipboardFallback, true);
+  assert.ok(!JSON.stringify(saved).includes("выделенного фрагмента"));
+  await assert.rejects(
+    workspace.settings.save({ selectionHotkey: "Ctrl + Shift + Space" }),
+    /конфликтует/,
+  );
+  await assert.rejects(
+    workspace.settings.save({ dictationTrigger: "right_alt" }),
+    /конфликтует/,
+  );
+  assert.equal(workspace.state.preferences.dictationTrigger, "shortcut");
+});
+
+test("native selection adapter only reads an authorized memory snapshot and cancels its exact identity", async () => {
+  const { createNativeSelectionCapture, selectionFromNative } =
+    await server.ssrLoadModule(
+      "/src/v3/features/selection/infrastructure/nativeSelection.ts",
+    );
+  const calls = [];
+  let notify;
+  let released = false;
+  let snapshot = {
+    operation_id: 7,
+    phase: "ready",
+    text: "private selected fragment",
+    source: "ui_automation",
+    target: "must not pass",
+    digest: "must not pass",
+  };
+  const port = createNativeSelectionCapture(
+    async (command, args) => {
+      calls.push([command, args]);
+      if (command === "cancel_selection_capture") snapshot = null;
+      return snapshot;
+    },
+    async (channel, listener) => {
+      assert.equal(channel, "selection-capture-changed");
+      notify = listener;
+      return () => {
+        released = true;
+      };
+    },
+  );
+  const flush = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+  await flush();
+  assert.deepEqual(port.state.current, {
+    operationId: 7,
+    phase: "ready",
+    text: "private selected fragment",
+    source: "ui_automation",
+  });
+  await port.cancel(6);
+  assert.equal(calls.length, 1);
+  await port.cancel(7);
+  assert.deepEqual(calls[1], ["cancel_selection_capture", { operationId: 7 }]);
+  assert.equal(port.state.current, null);
+  assert.ok(
+    calls.every(([name]) =>
+      ["get_selection_capture", "cancel_selection_capture"].includes(name),
+    ),
+  );
+  assert.equal(storage.size, 0);
+  assert.equal(
+    selectionFromNative({
+      operation_id: 1,
+      phase: "ready",
+      text: "",
+      source: "clipboard",
+    }),
+    null,
+  );
+  assert.equal(
+    selectionFromNative({
+      operation_id: 1,
+      phase: "ready",
+      text: "secret",
+      source: "unknown",
+    }),
+    null,
+  );
+  assert.equal(
+    selectionFromNative({
+      operation_id: 1,
+      phase: "ready",
+      text: "x".repeat(32769),
+      source: "ui_automation",
+    }),
+    null,
+  );
+  assert.ok(
+    !selectionFromNative({
+      operation_id: 1,
+      phase: "error",
+      message: "PRIVATE SOURCE PATH",
+    }).message.includes("PRIVATE"),
+  );
+  port.dispose();
+  assert.equal(released, true);
+  const count = calls.length;
+  notify(null);
+  await flush();
+  assert.equal(calls.length, count);
+});
+
+test("selection fields and preview distinguish a demo from real text and offer cancellation", async () => {
+  const { default: Preview } = await server.ssrLoadModule(
+    "/src/v3/features/selection/presentation/SelectionPreview.vue",
+  );
+  const { workspaceKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/workspace.ts",
+  );
+  workspace.selection.demo();
+  const app = createSSRApp({ render: () => h(Preview) });
+  app.use(WlConfig).use(WlToastService);
+  app.provide(workspaceKey, workspace);
+  const context = {};
+  const html = await renderToString(app, context);
+  const all = html + Object.values(context.teleports || {}).join("");
+  assert.match(all, /Выделенный текст/);
+  assert.match(all, /Демонстрационный фрагмент/);
+  assert.match(all, /историю и ИИ он не отправляется/);
+  assert.match(all, /Закрыть/);
 });
 
 test("last result survives disabled and cleared history; raw archive requires consent", async () => {

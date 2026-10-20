@@ -26,6 +26,7 @@ pub mod personal_dictionary;
 pub mod project_site;
 pub mod rest_api;
 pub mod segmented_transcription;
+pub(crate) mod selection_capture;
 pub mod service_control;
 pub mod speech_analysis_queue;
 pub mod speech_gate;

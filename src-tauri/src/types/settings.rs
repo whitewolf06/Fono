@@ -38,6 +38,12 @@ pub struct Settings {
     #[serde(default)]
     pub dictation_trigger: DictationTrigger,
     #[serde(default)]
+    pub selection_capture_enabled: bool,
+    #[serde(default = "default_selection_hotkey")]
+    pub selection_hotkey: String,
+    #[serde(default)]
+    pub selection_clipboard_fallback: bool,
+    #[serde(default)]
     pub wake_word_enabled: bool,
     #[serde(default = "default_wake_word")]
     pub wake_word: String,
@@ -167,6 +173,9 @@ impl Default for Settings {
             hotkey: default_hotkey(),
             hotkey_mode: HotkeyMode::Hold,
             dictation_trigger: DictationTrigger::Shortcut,
+            selection_capture_enabled: false,
+            selection_hotkey: default_selection_hotkey(),
+            selection_clipboard_fallback: false,
             wake_word_enabled: false,
             wake_word: default_wake_word(),
             wake_backend: default_wake_backend(),

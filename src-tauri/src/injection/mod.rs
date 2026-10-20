@@ -12,6 +12,7 @@ use crate::types::InjectionMode;
 #[cfg(windows)]
 mod clipboard;
 mod modifiers;
+pub(crate) mod selection;
 pub mod target;
 
 #[cfg(windows)]
@@ -169,25 +170,31 @@ pub fn inject_via_clipboard_checked(
 }
 
 pub fn shutdown() {
+    selection::shutdown();
     #[cfg(windows)]
     clipboard::shutdown();
 }
 
 #[cfg(windows)]
 fn send_ctrl_v() -> AppResult<()> {
+    send_ctrl_key(0x56)
+}
+
+#[cfg(windows)]
+fn send_ctrl_key(key: u16) -> AppResult<()> {
     const VK_CONTROL: u16 = 0x11;
-    const VK_V: u16 = 0x56;
+    let vk_v = key;
 
     let down_ctrl = key_input(VK_CONTROL, 0);
-    let down_v = key_input(VK_V, 0);
-    let up_v = key_input(VK_V, KEYEVENTF_KEYUP.0);
+    let down_v = key_input(vk_v, 0);
+    let up_v = key_input(vk_v, KEYEVENTF_KEYUP.0);
     let up_ctrl = key_input(VK_CONTROL, KEYEVENTF_KEYUP.0);
 
     let inputs = [down_ctrl, down_v, up_v, up_ctrl];
 
     modifiers::ensure_released()?;
     // Never emit our V-up while the user is physically holding V either.
-    if unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState(VK_V as i32) } as u16
+    if unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState(vk_v as i32) } as u16
         & 0x8000
         != 0
     {
@@ -207,7 +214,7 @@ fn send_ctrl_v() -> AppResult<()> {
             };
             let _ = SendInput(&releases, cbsize);
             return Err(AppError::Injection(format!(
-                "SendInput(Ctrl+V) отправил только {sent} из {} событий",
+                "SendInput(Ctrl+key) отправил только {sent} из {} событий",
                 inputs.len()
             )));
         }

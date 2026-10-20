@@ -58,7 +58,24 @@ impl Gate {
         &self,
         validate_active_operation: impl FnOnce() -> AppResult<()>,
     ) -> AppResult<ConfigurationReservation<'_>> {
-        let mut guard = self.0.lock();
+        self.reserve_with_guard(self.0.lock(), validate_active_operation)
+    }
+
+    fn try_reserve_configuration(
+        &self,
+        validate_active_operation: impl FnOnce() -> AppResult<()>,
+    ) -> AppResult<ConfigurationReservation<'_>> {
+        self.reserve_with_guard(
+            self.0.try_lock().ok_or_else(busy)?,
+            validate_active_operation,
+        )
+    }
+
+    fn reserve_with_guard(
+        &self,
+        mut guard: MutexGuard<'_, GateState>,
+        validate_active_operation: impl FnOnce() -> AppResult<()>,
+    ) -> AppResult<ConfigurationReservation<'_>> {
         if guard.configuring {
             return Err(busy());
         }
@@ -93,4 +110,10 @@ pub(crate) fn reserve_configuration(
     validate_active_operation: impl FnOnce() -> AppResult<()>,
 ) -> AppResult<ConfigurationReservation<'static>> {
     GATE.reserve_configuration(validate_active_operation)
+}
+
+pub(crate) fn try_reserve_configuration(
+    validate_active_operation: impl FnOnce() -> AppResult<()>,
+) -> AppResult<ConfigurationReservation<'static>> {
+    GATE.try_reserve_configuration(validate_active_operation)
 }

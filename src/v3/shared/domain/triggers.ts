@@ -53,6 +53,8 @@ export function triggerConflict(p: {
   dictationTrigger: DictationTrigger;
   hotkey: string;
   commandHotkey: string;
+  selectionCaptureEnabled?: boolean;
+  selectionHotkey?: string;
 }): string | null {
   if (!dictationTriggers.includes(p.dictationTrigger))
     return "Выберите кнопку диктовки.";
@@ -61,6 +63,21 @@ export function triggerConflict(p: {
     return "Укажите сочетание для команд, например Ctrl + Shift + Space.";
   if (command.join("+") === "Alt+F4")
     return "Alt + F4 закрывает окно. Выберите другое сочетание.";
+  if (p.selectionCaptureEnabled) {
+    const selection = shortcutParts(p.selectionHotkey || "");
+    if (!selection)
+      return "Укажите сочетание для выделения, например Ctrl + Alt + Space.";
+    if (selection.join("+") === "Alt+F4")
+      return "Alt + F4 закрывает окно. Выберите другое сочетание.";
+    if (
+      selection.join("+") === command.join("+") ||
+      (p.dictationTrigger === "shortcut" &&
+        selection.join("+") === shortcutParts(p.hotkey)?.join("+")) ||
+      (p.dictationTrigger === "right_ctrl" && selection.includes("Ctrl")) ||
+      (p.dictationTrigger === "right_alt" && selection.includes("Alt"))
+    )
+      return "Сочетание выделения конфликтует с диктовкой или голосовыми командами. Выберите другое сочетание.";
+  }
   if (p.dictationTrigger === "shortcut") {
     const dictation = shortcutParts(p.hotkey);
     if (!dictation)

@@ -4,6 +4,7 @@ import { defaults } from "../features/preferences/domain/preferences";
 import { createNativeContext } from "../shared/infrastructure/native/context";
 import { nativeSettings } from "../shared/infrastructure/native/settings";
 import { createTriggerCapture } from "../shared/infrastructure/triggerCapture";
+import { createNativeSelectionCapture } from "../features/selection/infrastructure/nativeSelection";
 import {
   nativeDictation,
   type NativeResult,
@@ -80,6 +81,11 @@ export function createNativeWorkspace(): Workspace {
     visibility.visible,
   );
   const trainer = createNativeTrainer(call, ctx.readHistory);
+  const selection = createNativeSelectionCapture(
+    call,
+    subscribe,
+    visibility.visible,
+  );
   const wake = nativeWake(ctx);
   let disposed = false;
   const sessionRead = createCoalescedRead(
@@ -230,7 +236,11 @@ export function createNativeWorkspace(): Workspace {
     try {
       await Promise.all(subscriptions);
       if (disposed || !visibility.visible()) return;
-      await Promise.all([ctx.refresh(), sttReadiness.refresh()]);
+      await Promise.all([
+        ctx.refresh(),
+        sttReadiness.refresh(),
+        selection.refresh?.(),
+      ]);
       if (disposed || !visibility.visible()) return;
       await sessionRead.refresh();
       await wake.load();
@@ -253,6 +263,7 @@ export function createNativeWorkspace(): Workspace {
     refresh,
     wake,
     settings: nativeSettings(ctx),
+    selection,
     triggerCapture: createTriggerCapture(state, {
       begin: () => call<string>("begin_trigger_capture"),
       end: (id) => call<void>("end_trigger_capture", { id }),
@@ -350,6 +361,7 @@ export function createNativeWorkspace(): Workspace {
       state.onboardingStep = step;
     },
     dispose() {
+      selection.dispose();
       disposed = true;
       sessionRead.dispose();
       sttReadiness.dispose();

@@ -18,6 +18,9 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
         || previous.hotkey_mode != next.hotkey_mode
         || previous.dictation_trigger != next.dictation_trigger
         || previous.command_hotkey != next.command_hotkey
+        || previous.selection_hotkey != next.selection_hotkey
+        || previous.selection_capture_enabled != next.selection_capture_enabled
+        || previous.selection_clipboard_fallback != next.selection_clipboard_fallback
         || previous.ai_mode != next.ai_mode
         || previous.processing_workflow != next.processing_workflow
         || previous.processing_preset != next.processing_preset

@@ -17,6 +17,21 @@ pub(crate) fn validate(settings: &Settings) -> AppResult<()> {
         Ok(key)
     };
     let command = parse(&settings.command_hotkey)?;
+    if settings.selection_capture_enabled {
+        let selection = parse(&settings.selection_hotkey)?;
+        let overlap = selection.id() == command.id()
+            || (settings.dictation_trigger == DictationTrigger::Shortcut
+                && parse(&settings.hotkey)?.id() == selection.id())
+            || (settings.dictation_trigger == DictationTrigger::RightCtrl
+                && selection.mods.contains(Modifiers::CONTROL))
+            || (settings.dictation_trigger == DictationTrigger::RightAlt
+                && selection.mods.contains(Modifiers::ALT))
+            || (settings.dictation_trigger == DictationTrigger::CapsLock
+                && selection.key == Code::CapsLock);
+        if overlap {
+            return Err(AppError::Config("Сочетание выделения конфликтует с диктовкой или голосовыми командами. Выберите другое сочетание.".into()));
+        }
+    }
     match settings.dictation_trigger {
         DictationTrigger::Shortcut if parse(&settings.hotkey)?.id() == command.id() => {
             return Err(AppError::Config(
@@ -41,6 +56,26 @@ fn overlap() -> AppError {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn selection_shortcut_checks_both_register_hotkeys_and_single_modifiers() {
+        let mut s = Settings {
+            selection_capture_enabled: true,
+            ..Settings::default()
+        };
+        assert!(validate(&s).is_ok());
+        s.selection_hotkey = "Shift+Control+Space".into();
+        assert!(validate(&s).is_err());
+        s.selection_hotkey = "Ctrl+Space".into();
+        assert!(validate(&s).is_err());
+        s.selection_hotkey = "Ctrl+Alt+Space".into();
+        s.dictation_trigger = DictationTrigger::RightAlt;
+        assert!(validate(&s).is_err());
+        s.selection_hotkey = "Ctrl+Shift+E".into();
+        assert!(validate(&s).is_ok());
+        s.selection_capture_enabled = false;
+        s.selection_hotkey = "unused legacy".into();
+        assert!(validate(&s).is_ok());
+    }
     use super::*;
     #[test]
     fn compares_parsed_shortcuts_and_rejects_reserved_close() {
