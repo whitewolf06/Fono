@@ -135,6 +135,13 @@ export interface Settings {
   /** Глобальная горячая клавиша push-to-talk, напр. "Ctrl+Space" */
   hotkey: string;
   hotkey_mode?: "hold" | "toggle";
+  dictation_trigger?:
+    | "shortcut"
+    | "right_alt"
+    | "right_ctrl"
+    | "caps_lock"
+    | "x_button1"
+    | "x_button2";
   processing_workflow?: "automatic" | "manual";
   processing_preset?: "raw" | "clean" | "format" | "task" | "formal" | null;
   processing_target_language?: "en" | "ru" | "de" | "fr" | "es" | null;

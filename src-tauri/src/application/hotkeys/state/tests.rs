@@ -167,3 +167,32 @@ fn late_flush_failure_cannot_restore_a_replaced_or_completed_capture() {
     key.restore_stop(42, recording(42));
     assert_eq!(key.operation, Some(43));
 }
+
+#[test]
+fn lost_input_can_cancel_only_the_recording_owned_by_this_trigger() {
+    let mut key = ShortcutState::default();
+    key.started(42);
+    assert_eq!(key.owned_recording(recording(42)), Some(42));
+    assert_eq!(key.owned_recording(recording(43)), None);
+    assert_eq!(key.owned_recording(None), None);
+    assert_eq!(
+        key.owned_recording(Some(ActiveCapture {
+            operation: 42,
+            recording: false
+        })),
+        None
+    );
+}
+
+#[test]
+fn input_loss_can_cancel_own_capture_while_stop_is_waiting_for_overlay_flush() {
+    let mut key = ShortcutState::default();
+    key.event(KeyEvent::Pressed, HotkeyMode::Hold, None);
+    key.started(42);
+    assert_eq!(
+        key.event(KeyEvent::Released, HotkeyMode::Hold, recording(42)),
+        Action::Stop(42)
+    );
+    assert_eq!(key.owned_recording(recording(42)), Some(42));
+    assert_eq!(key.owned_recording(recording(43)), None);
+}

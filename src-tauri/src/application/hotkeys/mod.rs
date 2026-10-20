@@ -1,5 +1,33 @@
 //! Native shortcut adapter shared by initial registration and settings updates.
+#[cfg(any(windows, test))]
+mod gesture;
+#[cfg(windows)]
+mod hooks;
 mod state;
+
+#[cfg(windows)]
+pub(crate) use hooks::HookRuntime;
+
+#[cfg(not(windows))]
+#[derive(Default)]
+pub(crate) struct HookRuntime {}
+
+#[cfg(not(windows))]
+impl HookRuntime {
+    pub fn stop(&self) {}
+    fn start(
+        &self,
+        _: &AppHandle,
+        trigger: DictationTrigger,
+        _: HotkeyMode,
+    ) -> Result<(), &'static str> {
+        if trigger == DictationTrigger::Shortcut {
+            Ok(())
+        } else {
+            Err("Триггеры клавиатуры и мыши доступны только в Windows.")
+        }
+    }
+}
 
 use std::sync::Arc;
 
@@ -10,7 +38,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState as NativeSta
 use crate::{
     events,
     pipeline::Pipeline,
-    types::{HotkeyMode, Settings},
+    types::{DictationTrigger, HotkeyMode, Settings},
 };
 use fono_core::OperationSource;
 use state::{Action, ActiveCapture, KeyEvent, ShortcutState};
@@ -20,45 +48,76 @@ pub(crate) fn register_all_shortcuts(
     settings: &Settings,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let shortcuts = app.global_shortcut();
+    let hooks = app.state::<HookRuntime>();
+    hooks.stop();
     shortcuts.unregister_all()?;
-    let dictation_state = Arc::new(Mutex::new(ShortcutState::default()));
-    let dictation_mode = settings.hotkey_mode;
-    shortcuts.on_shortcut(settings.hotkey.as_str(), move |app, _, event| {
-        handle(app, &dictation_state, event.state, dictation_mode, false);
-    })?;
-    tracing::info!(hotkey = %settings.hotkey, mode = ?dictation_mode, "dictation shortcut registered");
+    let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+        let dictation_state = Arc::new(Mutex::new(ShortcutState::default()));
+        let dictation_mode = settings.hotkey_mode;
+        if settings.dictation_trigger == DictationTrigger::Shortcut {
+            shortcuts.on_shortcut(settings.hotkey.as_str(), move |app, _, event| {
+                handle(
+                    app,
+                    &dictation_state,
+                    key_event(event.state),
+                    dictation_mode,
+                    false,
+                );
+            })?;
+        }
 
-    let command_state = Arc::new(Mutex::new(ShortcutState::default()));
-    shortcuts.on_shortcut(settings.command_hotkey.as_str(), move |app, _, event| {
-        handle(app, &command_state, event.state, HotkeyMode::Hold, true);
-    })?;
-    tracing::info!(hotkey = %settings.command_hotkey, "voice command shortcut registered");
-    Ok(())
+        let command_state = Arc::new(Mutex::new(ShortcutState::default()));
+        shortcuts.on_shortcut(settings.command_hotkey.as_str(), move |app, _, event| {
+            handle(
+                app,
+                &command_state,
+                key_event(event.state),
+                HotkeyMode::Hold,
+                true,
+            );
+        })?;
+        hooks.start(app, settings.dictation_trigger, dictation_mode)?;
+        tracing::info!("dictation and voice command triggers registered");
+        Ok(())
+    })();
+    if result.is_err() {
+        hooks.stop();
+        let _ = shortcuts.unregister_all();
+    }
+    result
+}
+
+fn key_event(event: NativeState) -> KeyEvent {
+    match event {
+        NativeState::Pressed => KeyEvent::Pressed,
+        NativeState::Released => KeyEvent::Released,
+    }
+}
+
+fn active_capture(app: &AppHandle) -> Option<ActiveCapture> {
+    let pipeline = app.state::<Pipeline>();
+    pipeline.current_operation().map(|operation| ActiveCapture {
+        operation: operation.id,
+        recording: pipeline.is_recording(),
+    })
 }
 
 fn handle(
     app: &AppHandle,
     state: &Arc<Mutex<ShortcutState>>,
-    event: NativeState,
+    event: KeyEvent,
     mode: HotkeyMode,
     command: bool,
 ) {
+    // Idle hooks do not block updates. Actual capture preparation and queued
+    // Stop/flush work hold admission until the real work has finished.
+    let Ok(activity) = super::updates::activity::lease() else {
+        return;
+    };
     // Hold the key state through synchronous capture startup. A quick release
     // cannot race ahead of storing the newly allocated operation identifier.
     let mut key = state.lock();
-    let pipeline = app.state::<Pipeline>();
-    let active = pipeline.current_operation().map(|operation| ActiveCapture {
-        operation: operation.id,
-        recording: pipeline.is_recording(),
-    });
-    let action = key.event(
-        match event {
-            NativeState::Pressed => KeyEvent::Pressed,
-            NativeState::Released => KeyEvent::Released,
-        },
-        mode,
-        active,
-    );
+    let action = key.event(event, mode, active_capture(app));
     if action == Action::Start {
         let started = if command {
             super::dictation::start_command_operation(app.clone())
@@ -88,6 +147,7 @@ fn handle(
         let app = app.clone();
         let key_state = Arc::clone(state);
         tauri::async_runtime::spawn(async move {
+            let _activity = activity;
             if command {
                 if let Err(error) = super::voice_dictation::run(&app, operation).await {
                     tracing::warn!(%error, "voice command failed");

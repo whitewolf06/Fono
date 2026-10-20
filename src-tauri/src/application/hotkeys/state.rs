@@ -1,7 +1,7 @@
 //! Pure key-edge state machine. A key release can stop only its own capture.
 use crate::types::HotkeyMode;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum KeyEvent {
     Pressed,
     Released,
@@ -24,6 +24,8 @@ pub(super) enum Action {
 pub(super) struct ShortcutState {
     key_down: bool,
     operation: Option<u64>,
+    #[cfg(any(windows, test))]
+    last_started: Option<u64>,
 }
 
 impl ShortcutState {
@@ -75,6 +77,10 @@ impl ShortcutState {
 
     pub fn started(&mut self, operation: u64) {
         self.operation = (operation != 0).then_some(operation);
+        #[cfg(any(windows, test))]
+        {
+            self.last_started = self.operation;
+        }
     }
 
     pub fn restore_stop(&mut self, operation: u64, active: Option<ActiveCapture>) {
@@ -83,6 +89,15 @@ impl ShortcutState {
         {
             self.operation = Some(operation);
         }
+    }
+
+    #[cfg(any(windows, test))]
+    pub fn owned_recording(&self, active: Option<ActiveCapture>) -> Option<u64> {
+        // Stop takes `operation` before an asynchronous overlay flush. A lost
+        // input stream must still be able to cancel that exact pending capture.
+        self.last_started.filter(|operation| {
+            active.is_some_and(|capture| capture.operation == *operation && capture.recording)
+        })
     }
 }
 

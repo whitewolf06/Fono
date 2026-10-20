@@ -100,6 +100,7 @@ fn save_settings_blocking(
         crate::application::wake_validation::ensure_profile_can_activate(&settings)?;
     }
     let shortcuts_changed = old_settings.hotkey != settings.hotkey
+        || old_settings.dictation_trigger != settings.dictation_trigger
         || old_settings.hotkey_mode != settings.hotkey_mode
         || old_settings.command_hotkey != settings.command_hotkey;
     let model_changed = old_settings.whisper_model_path != settings.whisper_model_path

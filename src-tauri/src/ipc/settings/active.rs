@@ -16,6 +16,7 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
         || previous.gpu_model_residency != next.gpu_model_residency
         || previous.hotkey != next.hotkey
         || previous.hotkey_mode != next.hotkey_mode
+        || previous.dictation_trigger != next.dictation_trigger
         || previous.command_hotkey != next.command_hotkey
         || previous.ai_mode != next.ai_mode
         || previous.processing_workflow != next.processing_workflow
@@ -109,6 +110,17 @@ mod tests {
         let previous = Settings::default();
         let next = Settings {
             hotkey_mode: crate::types::HotkeyMode::Toggle,
+            ..previous.clone()
+        };
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
+    }
+
+    #[test]
+    fn hook_selection_changes_only_between_operations() {
+        let previous = Settings::default();
+        let next = Settings {
+            dictation_trigger: crate::types::DictationTrigger::XButton1,
             ..previous.clone()
         };
         assert!(validate(true, &previous, &next).is_err());

@@ -5,7 +5,7 @@ resolver = "2"
 [package]
 license = "MIT"
 name = "fono"
-version = "0.7.39"
+version = "0.7.40"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -78,6 +78,7 @@ windows = { version = "0.58", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",
     "Win32_System_Threading",
+    "Win32_System_LibraryLoader",
     "Win32_System_Com",
     "Win32_System_DataExchange",
     "Win32_System_Memory",

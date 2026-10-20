@@ -13,6 +13,26 @@ let server,
   rawDefaults,
   defaults;
 let calls, invoke, callbacks, listeners;
+test("native preference saves preserve the selected hook trigger until its UI is added", () => {
+  for (const trigger of [
+    "shortcut",
+    "right_alt",
+    "right_ctrl",
+    "caps_lock",
+    "x_button1",
+    "x_button2",
+  ]) {
+    const raw = { ...rawDefaults, dictation_trigger: trigger };
+    const saved = mapping.applyPreferences(
+      raw,
+      { hotkeyMode: "toggle", verboseLogging: true },
+      [],
+    );
+    assert.equal(saved.dictation_trigger, trigger);
+    assert.equal(saved.hotkey_mode, "toggle");
+    assert.equal(raw.hotkey_mode, rawDefaults.hotkey_mode);
+  }
+});
 test("quantized Whisper keeps artifact identity, readable precision and installed selection", () => {
   const models = [
     "small_q5_1",

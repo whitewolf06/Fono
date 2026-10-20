@@ -36,6 +36,8 @@ pub struct Settings {
     #[serde(default)]
     pub hotkey_mode: HotkeyMode,
     #[serde(default)]
+    pub dictation_trigger: DictationTrigger,
+    #[serde(default)]
     pub wake_word_enabled: bool,
     #[serde(default = "default_wake_word")]
     pub wake_word: String,
@@ -164,6 +166,7 @@ impl Default for Settings {
             update_checks_enabled: false,
             hotkey: default_hotkey(),
             hotkey_mode: HotkeyMode::Hold,
+            dictation_trigger: DictationTrigger::Shortcut,
             wake_word_enabled: false,
             wake_word: default_wake_word(),
             wake_backend: default_wake_backend(),
