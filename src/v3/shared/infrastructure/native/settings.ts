@@ -171,6 +171,8 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
     playSample: playMicrophoneSample,
     listModels: (profileId) =>
       call<string[]>("list_llm_profile_models", { profileId }),
+    listLocalModels: (localPreset) =>
+      call<string[]>("list_llm_profile_models", { localPreset }),
     async testConnection(profileId) {
       try {
         const result = await call<string>("test_llm_profile", {

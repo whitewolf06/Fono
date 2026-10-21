@@ -54,7 +54,7 @@ async function remove(profile: ConnectionProfile) {
             provider: 'custom',
             location: 'local',
             url: 'http://127.0.0.1:1234/v1',
-            model: 'Qwen 3 · 8B',
+            model: '',
           }
         "
         ><template #icon><AppIcon name="plus" /></template

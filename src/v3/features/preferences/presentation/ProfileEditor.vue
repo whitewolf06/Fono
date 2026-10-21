@@ -1,17 +1,36 @@
 <script setup lang="ts">
 import { message as $t } from "../../../shared/domain/messages";
 
-import { computed, reactive } from "vue";
+import { computed, reactive, ref, watch, onBeforeUnmount } from "vue";
 import { WlDialog, WlField, WlInput, WlButton } from "@whitelife-core/ui-kit";
 import type { ConnectionProfile } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFormGuard } from "../../../shared/application/formGuard";
 import { useFeedback } from "../../../shared/application/feedback";
 import SelectField from "../../../shared/presentation/SelectField.vue";
+import { applyLocalPreset, localPresetFor } from "../domain/localLlmPresets";
+import { createLocalModelsLookup } from "../application/localModels";
 const props = defineProps<{ profile: ConnectionProfile }>();
 const emit = defineEmits<{ close: [] }>();
 const form = reactive({ ...props.profile });
 const workspace = useWorkspace();
+const template = ref("manual");
+const lookup = createLocalModelsLookup(workspace.settings);
+const localPreset = computed(() => localPresetFor(form));
+const lookupMessage = computed(() => {
+  const status = lookup.state.status;
+  return status === "idle" ? "" : $t(`localLlm.${status}`);
+});
+watch(() => [form.url, form.provider, form.location], lookup.reset, {
+  flush: "sync",
+});
+onBeforeUnmount(lookup.reset);
+function chooseTemplate(value: string | number) {
+  template.value = String(value);
+  lookup.reset();
+  if (value === "ollama" || value === "lmstudio")
+    Object.assign(form, applyLocalPreset(form, value));
+}
 
 const { busy, error, run } = useFeedback();
 const canDiscard = useFormGuard(
@@ -35,6 +54,18 @@ const visible = computed({
     :header="profile.id ? $t('ui.c5dc7ac1f2') : $t('ui.1770ea4ae6')"
     width="510px"
     ><div class="form-stack">
+      <SelectField
+        v-if="!profile.id"
+        :model-value="template"
+        :label="$t('localLlm.template')"
+        :hint="$t('localLlm.templateHint')"
+        :options="[
+          { value: 'manual', label: $t('localLlm.manual') },
+          { value: 'ollama', label: 'Ollama' },
+          { value: 'lmstudio', label: 'LM Studio' },
+        ]"
+        @update:model-value="chooseTemplate"
+      />
       <WlField v-slot="field" :label="$t('ui.0918b4ba92')"
         ><WlInput
           v-bind="field"
@@ -47,6 +78,7 @@ const visible = computed({
           :label="$t('ui.5592a52ad7')"
           :options="[
             { value: 'lmstudio', label: 'LM Studio' },
+            { value: 'ollama', label: 'Ollama' },
             { value: 'openai', label: 'OpenAI' },
             {
               value: 'custom',
@@ -80,12 +112,45 @@ const visible = computed({
           v-model="form.url"
           placeholder="http://127.0.0.1:1234/v1"
       /></WlField>
-      <WlField v-slot="field" :label="$t('ui.ce91e2c532')"
+      <div v-if="localPreset" class="form-stack">
+        <WlButton
+          size="sm"
+          :loading="lookup.state.status === 'checking'"
+          :disabled="lookup.state.status === 'checking' || busy"
+          @click="lookup.check(localPreset!)"
+          >{{ $t("localLlm.check") }}</WlButton
+        >
+        <p
+          v-if="lookup.state.status !== 'idle'"
+          role="status"
+          :class="
+            lookup.state.status === 'unavailable' ? 'error-text' : 'muted'
+          "
+        >
+          {{ lookupMessage }}
+        </p>
+        <p v-if="!workspace.native" class="notice">{{ $t("localLlm.demo") }}</p>
+        <p class="muted">{{ $t("localLlm.modelHint") }}</p>
+      </div>
+      <SelectField
+        v-if="lookup.state.models.length"
+        v-model="form.model"
+        :label="$t('ui.ce91e2c532')"
+        :options="lookup.state.models.map((value) => ({ value, label: value }))"
+      />
+      <WlField v-else v-slot="field" :label="$t('ui.ce91e2c532')"
         ><WlInput
           v-bind="field"
           v-model="form.model"
           :placeholder="$t('ui.2eea50c922')"
       /></WlField>
+      <WlButton
+        v-if="lookup.state.models.length"
+        size="sm"
+        variant="ghost"
+        @click="lookup.reset"
+        >{{ $t("localLlm.manualModel") }}</WlButton
+      >
       <WlField
         v-if="workspace.native"
         v-slot="field"

@@ -72,7 +72,7 @@ export interface AccelerationCapabilities {
   cuda: boolean;
   vulkan: boolean;
 }
-export type LlmProvider = "lmstudio" | "openai" | "custom";
+export type LlmProvider = "lmstudio" | "ollama" | "openai" | "custom";
 export type LlmConnectionKind = "local" | "cloud";
 export type SpeechLlmDataScope = "metrics_only" | "findings" | "original_text";
 export interface LlmProfile {

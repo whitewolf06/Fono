@@ -166,6 +166,14 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       }
       state.testSignal = 0;
     },
+    async listLocalModels(preset) {
+      await wait(250);
+      if (!state.aiAvailable)
+        throw new Error(uiMessage("localLlm.unavailable"));
+      return preset === "ollama"
+        ? ["demo-small:4b", "demo-large:8b"]
+        : ["demo-small-4b", "demo-large-8b"];
+    },
     async saveProfile(profile) {
       await wait(350);
       if (!profile.name.trim() || !profile.model.trim())

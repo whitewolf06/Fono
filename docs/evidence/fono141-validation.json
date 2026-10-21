@@ -1,0 +1,73 @@
+{
+  "task": "FONO-141",
+  "plan_id": "F-14.1",
+  "date": "2026-10-21",
+  "version": "0.7.57",
+  "base": "4ac2a84",
+  "blocking_dependencies": [],
+  "native": {
+    "passed": 631,
+    "failed": 0,
+    "ignored": 7,
+    "log": "build/checks/fono141-native-tests.log"
+  },
+  "audio": {
+    "passed": 44,
+    "failed": 0,
+    "ignored": 1,
+    "log": "build/checks/fono141-audio-tests.log"
+  },
+  "v3": {
+    "passed": 363,
+    "failed": 0,
+    "new_tests": 5,
+    "log": "build/checks/fono141-v3-tests.log"
+  },
+  "release_scripts": {
+    "passed": 48,
+    "failed": 0,
+    "owner_cache_tests_not_in_scope": 20,
+    "log": "build/checks/fono141-release-tests.log"
+  },
+  "checks_passed": [
+    "typecheck:v3",
+    "lint",
+    "production build",
+    "strict Clippy",
+    "minimal/CPU compilation",
+    "format:check",
+    "version:check",
+    "docs:check",
+    "Rust fmt",
+    "git diff --check"
+  ],
+  "browser": {
+    "cases": 12,
+    "locales": ["ru", "en"],
+    "presets": ["ollama", "lmstudio"],
+    "viewports": ["720x560", "900x720", "1440x900"],
+    "horizontal_overflows": 0,
+    "console_errors": 0,
+    "matrix": "build/checks/fono141-browser-matrix.json",
+    "profile_save_and_processing_selection": true,
+    "real_server_contacted": false
+  },
+  "discovery": {
+    "ipc": "list_llm_profile_models",
+    "targets": ["http://127.0.0.1:11434/v1", "http://127.0.0.1:1234/v1"],
+    "method": "GET /models",
+    "automatic_request_on_selection": false,
+    "transcript_sent": false,
+    "credentials_vault_read_by_draft_probe": false,
+    "authorization_header_in_fixture": false,
+    "saved_profile_path_preserved": true,
+    "timeout_seconds": 3,
+    "response_limit_bytes": 2097152
+  },
+  "pending": [
+    "Owner acceptance on real Ollama/LM Studio: generation, authentication and desktop restart persistence",
+    "Measured Russian cleanup model recommendations: fixed corpus, prompt, hardware, quality and latency"
+  ],
+  "release_published": false,
+  "owner_accepted": false
+}

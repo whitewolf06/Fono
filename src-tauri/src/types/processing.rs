@@ -23,6 +23,7 @@ pub enum InjectionMode {
 #[serde(rename_all = "lowercase")]
 pub enum LlmProvider {
     LmStudio,
+    Ollama,
     OpenAi,
     Custom,
 }

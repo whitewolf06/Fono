@@ -285,6 +285,7 @@ export interface SettingsPort {
   previewOverlay?(preferences: Preferences): Promise<void>;
   playSample(): Promise<void>;
   listModels?(profileId: string): Promise<string[]>;
+  listLocalModels(preset: "ollama" | "lmstudio"): Promise<string[]>;
   testConnection(profileId?: string): Promise<string>;
   saveProfile(profile: ConnectionProfile): Promise<void>;
   removeProfile(id: string): void;

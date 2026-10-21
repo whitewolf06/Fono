@@ -102,6 +102,33 @@ fn run_async<T>(future: impl std::future::Future<Output = T>) -> T {
 }
 
 #[test]
+fn anonymous_model_discovery_sends_only_get_without_auth_or_text() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+            .unwrap();
+        let mut bytes = [0_u8; 4096];
+        let size = stream.read(&mut bytes).unwrap();
+        let request = String::from_utf8_lossy(&bytes[..size]).into_owned();
+        let body = r#"{"data":[{"id":"local-small"},{"id":"local-large"}]}"#;
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
+        request
+    });
+    let client = LlmClient::new(format!("http://{address}/v1"), None, None);
+    assert_eq!(
+        run_async(client.list_models()).unwrap(),
+        vec!["local-small", "local-large"]
+    );
+    let request = server.join().unwrap();
+    assert!(request.starts_with("GET /v1/models HTTP/1.1\r\n"));
+    assert!(!request.to_ascii_lowercase().contains("authorization"));
+    assert_eq!(request.split_once("\r\n\r\n").unwrap().1, "");
+}
+
+#[test]
 fn response_content_trims_valid_content() {
     assert_eq!(
         response_content(response_with("  result  ")).unwrap(),
