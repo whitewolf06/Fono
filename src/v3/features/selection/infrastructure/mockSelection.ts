@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { reactive } from "vue";
 import type {
   SelectionCapturePort,
@@ -42,12 +43,12 @@ export function createMockSelectionCapture(
   function begin(id: number, phase: "recording" | "processing") {
     const current = owned(id);
     if (!current || current.edit?.operationId)
-      throw new Error("Дождитесь завершения текущего действия с выделением.");
+      throw new Error(uiMessage("ui.77a872e735"));
     if (
       current.delivery?.phase === "replacing" ||
       current.delivery?.phase === "copying"
     )
-      throw new Error("Дождитесь завершения текущего действия с выделением.");
+      throw new Error(uiMessage("ui.77a872e735"));
     current.delivery = { phase: "idle", replaceAllowed: false };
     current.edit = {
       instruction: current.edit?.instruction ?? "",
@@ -105,18 +106,13 @@ export function createMockSelectionCapture(
       };
     },
     async transform(id, instruction, transferConfirmed) {
-      if (!transferConfirmed)
-        throw new Error(
-          "Подтвердите отправку выделения и инструкции в выбранное LLM-подключение.",
-        );
+      if (!transferConfirmed) throw new Error(uiMessage("ui.eb68aab8c1"));
       if (
         !instruction.trim() ||
         new TextEncoder().encode(instruction).length > 4096 ||
         instruction.includes("\0")
       )
-        throw new Error(
-          "Введите инструкцию для выделения длиной до 4096 байт.",
-        );
+        throw new Error(uiMessage("ui.4b14561096"));
       const current = begin(id, "processing");
       const editId = current.edit!.operationId;
       current.edit!.instruction = instruction;
@@ -125,9 +121,9 @@ export function createMockSelectionCapture(
       const text = /переведи/i.test(instruction)
         ? "This is a demonstration of editing the selected text."
         : /сократи/i.test(instruction)
-          ? "• Выделенный фрагмент.\n• Пример обработки.\n• Только в памяти."
+          ? uiMessage("ui.3eaa910889")
           : /формаль/i.test(instruction)
-            ? "Это демонстрационный результат обработки выделенного фрагмента."
+            ? uiMessage("ui.d2ad976c63")
             : current.text;
       current.edit = {
         phase: "ready",
@@ -158,9 +154,7 @@ export function createMockSelectionCapture(
         attempted ||
         current.edit.operationId
       )
-        throw new Error(
-          "Повторная замена этого выделения недоступна. Скопируйте результат или получите выделение заново.",
-        );
+        throw new Error(uiMessage("ui.001e86fdb0"));
       current.delivery = { phase: "armed", resultId, replaceAllowed: true };
     },
     async cancelDelivery(id, resultId) {
@@ -181,9 +175,7 @@ export function createMockSelectionCapture(
           current.delivery?.phase ?? "idle",
         )
       )
-        throw new Error(
-          "Результат уже изменился. Повторите преобразование выделения.",
-        );
+        throw new Error(uiMessage("ui.f1a7443c7c"));
       current.delivery = { phase: "copied", replaceAllowed: !attempted };
       archive(current);
     },
@@ -195,9 +187,7 @@ export function createMockSelectionCapture(
         current.edit.operationId ||
         attempted
       )
-        throw new Error(
-          "Повторная замена этого выделения недоступна. Скопируйте результат или получите выделение заново.",
-        );
+        throw new Error(uiMessage("ui.001e86fdb0"));
       attempted = true;
       current.delivery = {
         phase: "replacing",
@@ -225,9 +215,7 @@ export function createMockSelectionCapture(
         current.edit?.resultId !== resultId ||
         attempted
       )
-        throw new Error(
-          "Повторная замена этого выделения недоступна. Скопируйте результат или получите выделение заново.",
-        );
+        throw new Error(uiMessage("ui.001e86fdb0"));
       attempted = true;
       current.delivery = {
         phase: "replacing",

@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+import { translateAuthored } from "../../../shared/domain/messages";
+
 import { computed, watch } from "vue";
 import { WlButton, WlCard } from "@whitelife-core/ui-kit";
 import type { Dictation } from "../../../shared/domain/contracts";
@@ -55,7 +61,9 @@ const technicalFacts = computed(() => {
     metadata.generationDurationMs >= 0
   )
     facts.push(
-      `Генерация ${formatMetric(metadata.generationDurationMs / 1000)} с`,
+      uiMessage("ui.60527957f2", {
+        v0: String(formatMetric(metadata.generationDurationMs / 1000)),
+      }),
     );
   return facts.join(" · ");
 });
@@ -70,9 +78,11 @@ function markerTitle(segment: TranscriptHighlight): string {
     chartCategories.find((category) => category.key === segment.category)
       ?.title || "";
   const markers = segment.markers
-    ?.map((marker) => `№${marker.number}: ${marker.title}`)
+    ?.map((marker) => `№${marker.number}: ${translateAuthored(marker.title)}`)
     .join("; ");
-  return markers ? `${title}. ${markers}` : title;
+  return markers
+    ? `${translateAuthored(title)}. ${markers}`
+    : translateAuthored(title);
 }
 </script>
 
@@ -86,18 +96,18 @@ function markerTitle(segment: TranscriptHighlight): string {
     </header>
     <dl class="trainer-detail-facts">
       <div>
-        <dt><AppIcon name="clock" :size="14" />Длительность</dt>
+        <dt><AppIcon name="clock" :size="14" />{{ $t("ui.2a32607189") }}</dt>
         <dd>{{ recordingDurationLabel(entry) }}</dd>
       </div>
       <div>
-        <dt>Слов</dt>
+        <dt>{{ $t("ui.bc9f773ccc") }}</dt>
         <dd>{{ wordCount(entry) }}</dd>
       </div>
       <div>
-        <dt>Маркеров</dt>
+        <dt>{{ $t("ui.5a83465bc1") }}</dt>
         <dd>
           {{ findingsCount(entry) }}
-          <small>· {{ formatMetric(density) }} на 100 слов</small>
+          <small>· {{ formatMetric(density) }} {{ $t("ui.03c04ee5b8") }}</small>
         </dd>
       </div>
     </dl>
@@ -107,7 +117,7 @@ function markerTitle(segment: TranscriptHighlight): string {
     <WlCard class="trainer-detail-card trainer-original">
       <template #title>
         <div class="trainer-original-heading">
-          <h3>Исходная расшифровка</h3>
+          <h3>{{ $t("ui.421252fcb5") }}</h3>
           <WlButton
             size="sm"
             variant="soft"
@@ -115,20 +125,20 @@ function markerTitle(segment: TranscriptHighlight): string {
             @click="
               run(
                 () => workspace.copy(entry.original || ''),
-                'Расшифровка скопирована',
+                $t('ui.26618376ef'),
               )
             "
           >
             <template #icon><AppIcon name="copy" :size="14" /></template
-            >Копировать
+            >{{ $t("ui.1ecddf40bf") }}
           </WlButton>
         </div>
       </template>
       <div
         class="trainer-original-text"
         role="group"
-        aria-label="Исходная расшифровка с речевыми маркерами"
-        title="Номера отмечают вхождения маркеров; цвета соответствуют категориям."
+        :aria-label="$t('ui.456b6e72c8')"
+        :title="$t('ui.111dfcd2c1')"
         tabindex="0"
       >
         <template
@@ -149,15 +159,12 @@ function markerTitle(segment: TranscriptHighlight): string {
             class="transcript-marker-number"
             :data-category="marker.category"
             :data-number="marker.number"
-            :title="`№${marker.number}: ${marker.title}`"
+            :title="`№${marker.number}: ${translateAuthored(marker.title)}`"
             aria-hidden="true"
           />
         </template>
       </div>
-      <dl
-        class="trainer-category-counts"
-        aria-label="Число речевых маркеров по категориям"
-      >
+      <dl class="trainer-category-counts" :aria-label="$t('ui.ce223b5d54')">
         <div
           v-for="category in categoryCounts"
           :key="category.key"
@@ -168,7 +175,7 @@ function markerTitle(segment: TranscriptHighlight): string {
               class="trainer-category-dot"
               :data-category="category.key"
               aria-hidden="true"
-            /><span>{{ category.title }}</span>
+            /><span>{{ translateAuthored(category.title) }}</span>
           </dt>
           <dd>{{ category.count }}</dd>
         </div>

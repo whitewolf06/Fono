@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import type { Dictation } from "../../../shared/domain/contracts";
 import { dictationFacts, dictationStages } from "../application/statistics";
@@ -8,11 +10,8 @@ const stages = computed(() => dictationStages(props.entry));
 </script>
 
 <template>
-  <section class="history-statistics" aria-label="Параметры этой диктовки">
-    <p v-if="entry.metadata?.demo" class="muted">
-      Демонстрационные значения. В браузере реальные задержки и backend не
-      измеряются.
-    </p>
+  <section class="history-statistics" :aria-label="$t('ui.5e15c58f37')">
+    <p v-if="entry.metadata?.demo" class="muted">{{ $t("ui.0852a5070f") }}</p>
     <dl>
       <div v-for="fact in facts" :key="fact.title">
         <dt>{{ fact.title }}</dt>
@@ -20,7 +19,7 @@ const stages = computed(() => dictationStages(props.entry));
       </div>
     </dl>
     <details v-if="stages.length" class="history-statistics-stages">
-      <summary>Этапы обработки</summary>
+      <summary>{{ $t("ui.4cda89f3d1") }}</summary>
       <dl>
         <div v-for="stage in stages" :key="stage.title">
           <dt>{{ stage.title }}</dt>
@@ -29,11 +28,10 @@ const stages = computed(() => dictationStages(props.entry));
       </dl>
     </details>
     <p class="history-statistics-note muted">
-      Генерация — от завершения записи до готового текста, включая загрузку
-      модели и обработку.
-      <template v-if="!entry.metadata || entry.metadata.legacy"
-        >Полные параметры старых записей не сохранялись.</template
-      >
+      {{ $t("ui.19b9956ba7") }}
+      <template v-if="!entry.metadata || entry.metadata.legacy">{{
+        $t("ui.600e1887b8")
+      }}</template>
     </p>
   </section>
 </template>

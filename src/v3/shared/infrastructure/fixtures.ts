@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../domain/messages";
 import type {
   Dictation,
   SpeechModel,
@@ -20,8 +21,9 @@ export function demoHistory(): Dictation[] {
       title: "Идея для команды",
       createdAt: date(0, 14),
       duration: 42,
-      original:
-        "Так, давайте, ну, соберём все идеи в одном месте. Мне кажется, это поможет нам быстрее договориться и ничего не потерять. Сначала запишем вопросы, потом выберем один понятный шаг. Вот, после встречи каждый сможет вернуться к заметке и спокойно проверить, что мы решили и кто берёт следующую часть работы.",
+      get original() {
+        return "Так, давайте, ну, соберём все идеи в одном месте. Мне кажется, это поможет нам быстрее договориться и ничего не потерять. Сначала запишем вопросы, потом выберем один понятный шаг. Вот, после встречи каждый сможет вернуться к заметке и спокойно проверить, что мы решили и кто берёт следующую часть работы.";
+      },
       text: "Давайте соберём все идеи в одном месте. Это поможет нам быстрее договориться и ничего не потерять.",
     },
     {
@@ -29,8 +31,9 @@ export function demoHistory(): Dictation[] {
       title: "Планы на завтра",
       createdAt: date(0, 11),
       duration: 28,
-      original:
-        "Завтра сначала проверю новый интерфейс, потом, потом отправлю команде короткий список замечаний. Хочу пройти обычный путь от открытия настроек до готовой записи. Если встречу ошибку, сохраню последовательность действий и ожидаемый результат. Так будет проще повторить проблему и понять, помогло ли исправление.",
+      get original() {
+        return "Завтра сначала проверю новый интерфейс, потом, потом отправлю команде короткий список замечаний. Хочу пройти обычный путь от открытия настроек до готовой записи. Если встречу ошибку, сохраню последовательность действий и ожидаемый результат. Так будет проще повторить проблему и понять, помогло ли исправление.";
+      },
       text: "Завтра сначала проверю новый интерфейс, потом отправлю команде короткий список замечаний.",
     },
     {
@@ -38,8 +41,9 @@ export function demoHistory(): Dictation[] {
       title: "Заметка о продукте",
       createdAt: date(1, 16),
       duration: 65,
-      original:
-        "Хочется, чтобы настройки были понятными. То есть чтобы важное всегда было под рукой, а остальное не отвлекало. Пользователь должен видеть, какие данные сохраняются и куда уйдёт запрос. Вернее, это нужно объяснить рядом с действием, пока человек выбирает подключение, а не после запуска обработки.",
+      get original() {
+        return "Хочется, чтобы настройки были понятными. То есть чтобы важное всегда было под рукой, а остальное не отвлекало. Пользователь должен видеть, какие данные сохраняются и куда уйдёт запрос. Вернее, это нужно объяснить рядом с действием, пока человек выбирает подключение, а не после запуска обработки.";
+      },
       text: "Хочется, чтобы важные настройки всегда были под рукой, а остальные не отвлекали.",
     },
     {
@@ -54,8 +58,9 @@ export function demoHistory(): Dictation[] {
       title: "Мысль для встречи",
       createdAt: date(9, 12),
       duration: 53,
-      original:
-        "Ну, мы можем начать с короткого примера и потом перейти к деталям. В общем, так будет понятнее.",
+      get original() {
+        return "Ну, мы можем начать с короткого примера и потом перейти к деталям. В общем, так будет понятнее.";
+      },
       text: "Можем начать с короткого примера и потом перейти к деталям. Так будет понятнее.",
     },
   ];
@@ -65,7 +70,9 @@ export const demoModels = (): SpeechModel[] =>
     {
       id: "tiny",
       name: "Whisper Tiny",
-      size: "75 МБ",
+      get size() {
+        return uiMessage("ui.8010d06f5c");
+      },
       description: "Whisper Tiny · FP16",
       status: "available",
       progress: 0,
@@ -73,7 +80,9 @@ export const demoModels = (): SpeechModel[] =>
     {
       id: "small",
       name: "Whisper Small",
-      size: "466 МБ",
+      get size() {
+        return uiMessage("ui.3e66528e58");
+      },
       description: "Whisper Small · FP16",
       status: "installed",
       progress: 100,
@@ -81,7 +90,9 @@ export const demoModels = (): SpeechModel[] =>
     {
       id: "medium",
       name: "Whisper Medium",
-      size: "1,5 ГБ",
+      get size() {
+        return uiMessage("ui.a9085685ad");
+      },
       description: "Whisper Medium · FP16",
       status: "available",
       progress: 0,
@@ -89,7 +100,9 @@ export const demoModels = (): SpeechModel[] =>
     {
       id: "large",
       name: "Whisper Large v3",
-      size: "3,1 ГБ",
+      get size() {
+        return uiMessage("ui.4b97c79d65");
+      },
       description: "Whisper Large v3 · FP16",
       status: "available",
       progress: 0,
@@ -97,7 +110,9 @@ export const demoModels = (): SpeechModel[] =>
     {
       id: "large_turbo",
       name: "Whisper Large v3 Turbo",
-      size: "1549 МБ",
+      get size() {
+        return uiMessage("ui.f695664385");
+      },
       description: "Whisper Large v3 Turbo · FP16",
       status: "available",
       progress: 0,
@@ -110,8 +125,14 @@ export const demoModels = (): SpeechModel[] =>
     ].map(([id, label, bytes]) => ({
       id: String(id),
       name: `Whisper ${label}`,
-      size: `${Math.round(Number(bytes) / 1048576)} МБ`,
-      description: "Квантованная модель. Качество зависит от записи.",
+      get size() {
+        return uiMessage("ui.242cbce257", {
+          v0: String(Math.round(Number(bytes) / 1048576)),
+        });
+      },
+      get description() {
+        return uiMessage("ui.ad90b71e88");
+      },
       status: "available",
       progress: 0,
     })),
@@ -134,8 +155,12 @@ export const demoModels = (): SpeechModel[] =>
         id: "giga_am:v3_e2e_rnnt_int8",
         engine: "giga_am",
         name: "GigaAM v3 · e2e RNNT INT8",
-        size: "221 МБ",
-        description: "Пакет e2e RNNT · INT8 encoder",
+        get size() {
+          return uiMessage("ui.23711ad055");
+        },
+        get description() {
+          return uiMessage("ui.a1afc7ac63");
+        },
         status: "available",
         progress: 0,
         license: "MIT",
@@ -152,8 +177,12 @@ export const demoModels = (): SpeechModel[] =>
         id: "parakeet:tdt_0.6b_v3_int8",
         engine: "parakeet",
         name: "Parakeet v3 · TDT 0.6B INT8",
-        size: "639 МБ",
-        description: "Пакет TDT · INT8",
+        get size() {
+          return uiMessage("ui.1d04dfc931");
+        },
+        get description() {
+          return uiMessage("ui.9e66790a63");
+        },
         status: "available",
         progress: 0,
         license: "CC-BY-4.0",
@@ -205,7 +234,7 @@ export const demoJobs = (): ServiceJob[] => [
     id: "job-02",
     name: "voice-message.ogg",
     state: "error",
-    error: "Формат не поддерживается. Отправьте WAV или MP3.",
+    error: uiMessage("ui.6e3c2f9944"),
     seconds: 0,
   },
 ];

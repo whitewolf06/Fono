@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import {
   WlAccordion,
@@ -22,7 +27,14 @@ const props = defineProps<{
 const emit = defineEmits<{ refresh: [] }>();
 const snapshot = computed(() => props.report.snapshot);
 const sourceOpenKeys = ref<string[]>([]);
-const sourceItems = [{ key: "trainer-sources", title: "Состав выборки" }];
+const sourceItems = [
+  {
+    key: "trainer-sources",
+    get title() {
+      return uiMessage("ui.74532ab623");
+    },
+  },
+];
 const markerCount = computed(() =>
   Object.values(snapshot.value.counts).reduce((sum, count) => sum + count, 0),
 );
@@ -47,19 +59,25 @@ const lastDate = computed(() =>
         <WlBadge
           :value="
             loading
-              ? 'Проверяем данные'
+              ? $t('ui.99683bbac5')
               : report.stale
-                ? 'Есть новые данные'
+                ? $t('ui.c0aae950c6')
                 : error
-                  ? 'Есть ошибка'
-                  : 'Актуален'
+                  ? $t('ui.04781e915d')
+                  : $t('ui.d1afd048fa')
           "
           :variant="report.stale || error ? 'warn' : 'success'"
         />
       </div>
       <div class="report-meta">
-        <span>Снимок: {{ time(snapshot.generatedAt) }} UTC</span>
-        <WlBadge v-if="!native" value="Демонстрация" variant="gray" />
+        <span
+          >{{ $t("ui.1a4e7337d2") }} {{ time(snapshot.generatedAt) }} UTC</span
+        >
+        <WlBadge
+          v-if="!native"
+          :value="$t('trainer.demoBadge')"
+          variant="gray"
+        />
       </div>
     </div>
     <WlButton
@@ -69,22 +87,32 @@ const lastDate = computed(() =>
       :disabled="busy || (!report.stale && !error)"
       @click="emit('refresh')"
     >
-      {{ error && !report.stale ? "Повторить проверку" : "Обновить отчёт" }}
+      {{ error && !report.stale ? $t("ui.40f9ba8446") : $t("ui.2f5039b886") }}
     </WlButton>
   </div>
   <p v-if="report.stale" class="notice report-stale" role="status">
-    Данные изменились. Обновите отчёт, чтобы учесть новые записи. Числа ниже
-    относятся к сохранённому снимку.
+    {{ $t("ui.6b1e362896") }}
   </p>
   <p v-if="error" class="error-text" role="alert">{{ error }}</p>
-  <div class="report-metrics" aria-label="Сводка периода">
+  <div class="report-metrics" :aria-label="$t('ui.8d8e6de88a')">
     <WlStatCard
-      label="Диктовок"
-      :value="`${snapshot.includedSessions} из ${sourceCount}`"
+      :label="$t('ui.d0d47198f3')"
+      :value="
+        $t('ui.582ebc1444', {
+          v0: String(snapshot.includedSessions),
+          v1: String(sourceCount),
+        })
+      "
     />
-    <WlStatCard label="Слов" :value="formatMetric(snapshot.totalWords)" />
-    <WlStatCard label="Маркеров" :value="String(markerCount)" />
-    <WlStatCard label="На 100 слов" :value="formatMetric(snapshot.density)" />
+    <WlStatCard
+      :label="$t('ui.bc9f773ccc')"
+      :value="formatMetric(snapshot.totalWords)"
+    />
+    <WlStatCard :label="$t('ui.5a83465bc1')" :value="String(markerCount)" />
+    <WlStatCard
+      :label="$t('ui.f6da67615a')"
+      :value="formatMetric(snapshot.density)"
+    />
   </div>
   <WlAccordion
     v-model:open-keys="sourceOpenKeys"
@@ -95,56 +123,52 @@ const lastDate = computed(() =>
       <div class="source-details">
         <dl class="source-counts">
           <div>
-            <dt>Исключено</dt>
+            <dt>{{ $t("ui.96636d8a9c") }}</dt>
             <dd>{{ snapshot.excludedSessions }}</dd>
           </div>
           <div>
-            <dt>В очереди</dt>
+            <dt>{{ $t("ui.b22a2454bd") }}</dt>
             <dd>{{ snapshot.pendingSessions }}</dd>
           </div>
           <div>
-            <dt>Без разбора</dt>
+            <dt>{{ $t("ui.6f37046b14") }}</dt>
             <dd>{{ snapshot.unavailableSessions }}</dd>
           </div>
         </dl>
-        <p>
-          В отчёт входят записи с сохранённой исходной расшифровкой и готовым
-          локальным разбором. Включение записи в аналитику не восстанавливает
-          исходник, если он не сохранялся.
-        </p>
+        <p>{{ $t("ui.00c9fa3cec") }}</p>
         <p class="muted">
           <template v-if="snapshot.historyLimit != null"
-            >Проверяются последние
-            {{ snapshot.historyLimit }} записей.</template
+            >{{ $t("ui.f1091025af") }} {{ snapshot.historyLimit }}
+            {{ $t("ui.f6c00b49f8") }}</template
           >
-          <template v-else
-            >Проверяются все сохранённые записи за выбранный период.</template
-          >
-          Исходные тексты хранятся до
-          {{ snapshot.retentionDays }} дней.<template
-            v-if="snapshot.coverageStart"
-          >
-            Доступная история — с
+          <template v-else>{{ $t("ui.60465b65ce") }}</template>
+          {{ $t("ui.d2c868a1b9") }} {{ snapshot.retentionDays }}
+          {{ $t("ui.2b351fed72")
+          }}<template v-if="snapshot.coverageStart">
+            {{ $t("ui.f707aae325") }}
             {{ date(snapshot.coverageStart) }}.</template
           >
-          Выбранный период может быть длиннее доступной истории.
+          {{ $t("ui.bca9fce474") }}
         </p>
         <div class="source-links">
-          <RouterLink class="text-link" to="/history"
-            >Открыть историю</RouterLink
-          ><RouterLink class="text-link" to="/settings/privacy"
-            >Хранение данных</RouterLink
-          ><small class="muted">Правила: {{ snapshot.rulesVersion }}</small>
+          <RouterLink class="text-link" to="/history">{{
+            $t("ui.f1d50bf770")
+          }}</RouterLink
+          ><RouterLink class="text-link" to="/settings/privacy">{{
+            $t("ui.deafab2929")
+          }}</RouterLink
+          ><small class="muted"
+            >{{ $t("ui.606bb27587") }} {{ snapshot.rulesVersion }}</small
+          >
         </div>
       </div>
     </template>
   </WlAccordion>
   <p v-if="!snapshot.includedSessions" class="notice report-sample">
-    Пока нет готовых диктовок за этот период. Состав выборки выше объясняет,
-    какие записи не вошли.
+    {{ $t("ui.3f87174cce") }}
   </p>
   <p v-else-if="snapshot.insufficientData" class="notice report-sample">
-    Мало данных для общего вывода. ИИ-разбор доступен от 3 диктовок и 100 слов.
+    {{ $t("ui.2246e5ba1e") }}
   </p>
 </template>
 

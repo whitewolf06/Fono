@@ -55,6 +55,7 @@ export type QuickPanel =
   | "hotkey"
   | "command-hotkey";
 export interface Preferences {
+  uiLanguage: import("./locale").UiLanguage;
   snippetsEnabled: boolean;
   snippets: import("../../features/snippets/domain/snippets").Snippet[];
   applicationProfiles: ApplicationProfile[];

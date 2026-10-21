@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../domain/messages";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { createEventHub } from "./eventHub";
@@ -73,8 +74,7 @@ export async function playMicrophoneSample() {
   try {
     await new Promise<void>((resolve, reject) => {
       audio.onended = () => resolve();
-      audio.onerror = () =>
-        reject(new Error("Не удалось воспроизвести образец"));
+      audio.onerror = () => reject(new Error(uiMessage("ui.a41a5065bc")));
       void audio.play().catch(reject);
     });
   } finally {

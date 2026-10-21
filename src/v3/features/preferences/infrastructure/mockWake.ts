@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { WorkspaceState } from "../../../shared/domain/contracts";
 import type { WakePort, WakeSetupState } from "../../../shared/domain/wake";
 import { ensureWakeAvailable } from "../../../shared/domain/wakeAvailability";
@@ -75,8 +76,18 @@ export function createMockWake(
     backend: "mock",
     customPhrase: true,
     languages: [
-      { value: "ru", label: "Русский" },
-      { value: "en", label: "Английский" },
+      {
+        value: "ru",
+        get label() {
+          return uiMessage("ui.6da140fdd4");
+        },
+      },
+      {
+        value: "en",
+        get label() {
+          return uiMessage("ui.e7c1ef1d8e");
+        },
+      },
     ],
   };
   function load() {
@@ -99,7 +110,7 @@ export function createMockWake(
     async test() {
       ensureWakeAvailable();
       await wait(400);
-      return "Демонстрация: фраза обнаружена. Микрофон и модель не используются.";
+      return uiMessage("ui.e6180eea2e");
     },
     async begin() {
       ensureWakeAvailable();
@@ -110,7 +121,7 @@ export function createMockWake(
     async record() {
       ensureWakeAvailable();
       const s = state.wakeSetup!;
-      if (!s.active) throw new Error("Сначала начните настройку фразы.");
+      if (!s.active) throw new Error(uiMessage("ui.ef6cfd311a"));
       const ticket = generation;
       await wait(300);
       if (ticket !== generation) return;
@@ -124,7 +135,7 @@ export function createMockWake(
     async beginValidation() {
       ensureWakeAvailable();
       const s = state.wakeSetup!;
-      if (!s.profileReady) throw new Error("Сначала запишите пять образцов.");
+      if (!s.profileReady) throw new Error(uiMessage("ui.8c1234f1f5"));
       s.validation = {
         active: true,
         completed: false,
@@ -138,8 +149,7 @@ export function createMockWake(
     async validate(kind) {
       ensureWakeAvailable();
       const s = state.wakeSetup!;
-      if (!s.validation.active)
-        throw new Error("Сначала начните контрольную проверку.");
+      if (!s.validation.active) throw new Error(uiMessage("ui.f3bf3087d0"));
       const ticket = generation;
       await wait(300);
       if (ticket !== generation) return;

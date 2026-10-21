@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, watch } from "vue";
 import { WlButton, WlCard } from "@whitelife-core/ui-kit";
 import type { TrainerSnapshot, TrainerTerm } from "../domain/report";
 import { formatMetric } from "../application/overview";
+import { uiIntlLocale } from "../../../shared/domain/locale";
 const props = defineProps<{ snapshot: TrainerSnapshot; stale: boolean }>();
 const emit = defineEmits<{ selectTerm: [term: TrainerTerm] }>();
 const showAllTerms = ref(false);
@@ -10,14 +16,22 @@ const terms = computed(() =>
   showAllTerms.value ? props.snapshot.terms : props.snapshot.terms.slice(0, 6),
 );
 const kindLabels = {
-  filler: "Слово-паразит",
-  repetition: "Повтор",
-  self_correction: "Самоисправление",
-  unfinished: "Незавершённая фраза",
+  get filler() {
+    return uiMessage("ui.a894b25009");
+  },
+  get repetition() {
+    return uiMessage("ui.4096048ce1");
+  },
+  get self_correction() {
+    return uiMessage("ui.c324a61d6c");
+  },
+  get unfinished() {
+    return uiMessage("ui.8e97136593");
+  },
 };
-const pluralRules = new Intl.PluralRules("ru-RU");
+const pluralRules = computed(() => new Intl.PluralRules(uiIntlLocale()));
 function countLabel(count: number, one: string, few: string, many: string) {
-  const category = pluralRules.select(count);
+  const category = pluralRules.value.select(count);
   return category === "one"
     ? one
     : category === "few" || category === "other"
@@ -36,26 +50,50 @@ watch(
   <WlCard
     class="term-ranking trainer-card"
     role="region"
-    aria-label="Рейтинг слов и речевых паттернов"
+    :aria-label="$t('ui.89ca82ed90')"
   >
     <div class="section-header">
-      <h3>Чаще встречаются</h3>
-      <span class="muted ranking-hint">Нажмите, чтобы открыть диктовки</span>
+      <h3>{{ $t("ui.0fbe9f755a") }}</h3>
+      <span class="muted ranking-hint">{{ $t("ui.fd755396fa") }}</span>
     </div>
-    <p v-if="stale" class="notice" role="status">
-      Рейтинг и связанные диктовки доступны после обновления отчёта.
-    </p>
+    <p v-if="stale" class="notice" role="status">{{ $t("ui.fc41e34a35") }}</p>
     <template v-else-if="snapshot.terms.length">
       <div class="term-table-heading" aria-hidden="true">
-        <span>Слово или паттерн</span><span>Раз</span><span>На 100 слов</span
-        ><span>Диктовок</span>
+        <span>{{ $t("ui.a59f33874a") }}</span
+        ><span>{{ $t("ui.ea3be88a83") }}</span
+        ><span>{{ $t("ui.f6da67615a") }}</span
+        ><span>{{ $t("ui.d0d47198f3") }}</span>
       </div>
       <div class="term-list">
         <button
           v-for="term in terms"
           :key="term.key"
           class="term-row"
-          :aria-label="`${term.label}, ${kindLabels[term.kind]}, ${term.count} ${countLabel(term.count, 'вхождение', 'вхождения', 'вхождений')}, ${formatMetric(term.density)} на 100 слов, ${term.affectedSessions} ${countLabel(term.affectedSessions, 'диктовка', 'диктовки', 'диктовок')}`"
+          :aria-label="
+            $t('ui.e275b383a9', {
+              v0: String(term.label),
+              v1: String(kindLabels[term.kind]),
+              v2: String(term.count),
+              v3: String(
+                countLabel(
+                  term.count,
+                  $t('ui.9c7829e2d5'),
+                  $t('ui.9966ab1a4a'),
+                  $t('ui.b9dfa7e6b3'),
+                ),
+              ),
+              v4: String(formatMetric(term.density)),
+              v5: String(term.affectedSessions),
+              v6: String(
+                countLabel(
+                  term.affectedSessions,
+                  $t('ui.6c0334829b'),
+                  $t('ui.682e643dad'),
+                  $t('ui.5b0b15f4e5'),
+                ),
+              ),
+            })
+          "
           @click="emit('selectTerm', term)"
         >
           <span class="term-label"
@@ -74,21 +112,17 @@ watch(
         @click="showAllTerms = !showAllTerms"
         >{{
           showAllTerms
-            ? "Показать главные"
-            : `Все паттерны · ${snapshot.terms.length}`
+            ? $t("ui.425b42b259")
+            : $t("ui.7a5b2d7224", { v0: String(snapshot.terms.length) })
         }}</WlButton
       >
     </template>
     <p v-else class="notice">
       {{
-        snapshot.includedSessions
-          ? "Речевые маркеры в этих диктовках не найдены."
-          : "Рейтинг появится после локального разбора записей."
+        snapshot.includedSessions ? $t("ui.8761d9414b") : $t("ui.ad7f42f44f")
       }}
     </p>
-    <p class="muted report-note ranking-note">
-      Наблюдения по исходному тексту. Контекст может менять значение маркера.
-    </p>
+    <p class="muted report-note ranking-note">{{ $t("ui.5ac7b5358a") }}</p>
   </WlCard>
 </template>
 

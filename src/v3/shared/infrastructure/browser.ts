@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../domain/messages";
 import type { Preferences } from "../domain/contracts";
 import { defaults } from "../../features/preferences/domain/preferences";
 import { availableDictationMode } from "../domain/dictationMode";
@@ -7,15 +8,14 @@ import { PROJECT_SITE_URL } from "../domain/project";
 const storageKey = "fono-v3-demo-preferences-v1";
 export function showStartupFailure(): void {
   const root = document.getElementById("app");
-  if (root)
-    root.textContent =
-      "Не удалось дождаться запуска Fono. Перезапустите приложение.";
+  if (root) root.textContent = uiMessage("ui.32c3b49aea");
 }
 export async function openProjectSite(): Promise<void> {
   window.open(PROJECT_SITE_URL, "_blank", "noopener,noreferrer");
 }
 // Persist demo preferences only. Transcripts, tokens and instructions never enter browser storage.
 const persistedKeys: (keyof Preferences)[] = [
+  "uiLanguage",
   "pretranscriptionEnabled",
   "dictationMode",
   "microphone",
@@ -100,6 +100,7 @@ export function readPreferences(): Preferences {
     if (!["ru", "en"].includes(String(safe.wakeLanguage)))
       safe.wakeLanguage = defaults.wakeLanguage;
     for (const [key, values] of Object.entries({
+      uiLanguage: ["auto", "ru", "en"],
       gpuModelResidency: ["resident", "adaptive"],
       whisperDecoding: ["fast", "accurate"],
       hotkeyMode: ["hold", "toggle"],
@@ -133,22 +134,17 @@ export function persistPreferences(prefs: Preferences): void {
   try {
     localStorage.setItem(storageKey, JSON.stringify(safe));
   } catch {
-    throw new Error(
-      "Не удалось сохранить настройки в браузере. Проверьте доступ к хранилищу.",
-    );
+    throw new Error(uiMessage("ui.d9c14e71ec"));
   }
 }
 export async function copyToClipboard(text: string): Promise<void> {
-  if (!navigator.clipboard)
-    throw new Error(
-      "Буфер обмена недоступен. Выделите текст и скопируйте вручную.",
-    );
+  if (!navigator.clipboard) throw new Error(uiMessage("ui.12ae2fb32d"));
   await navigator.clipboard.writeText(text);
 }
 export function playDemoSample(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!("speechSynthesis" in window)) {
-      reject(new Error("Прослушивание не поддерживается этим браузером."));
+      reject(new Error(uiMessage("ui.6e8bd3d830")));
       return;
     }
     const sample = new SpeechSynthesisUtterance(
@@ -156,8 +152,7 @@ export function playDemoSample(): Promise<void> {
     );
     sample.lang = "ru-RU";
     sample.onend = () => resolve();
-    sample.onerror = () =>
-      reject(new Error("Не удалось воспроизвести образец."));
+    sample.onerror = () => reject(new Error(uiMessage("ui.66b5d47e14")));
     window.speechSynthesis.speak(sample);
   });
 }

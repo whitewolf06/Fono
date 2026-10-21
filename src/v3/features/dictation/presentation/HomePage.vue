@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { WlButton } from "@whitelife-core/ui-kit";
 import FonoWordmark from "../../../shared/FonoWordmark.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
@@ -18,16 +20,14 @@ const ui = useInteraction();
     <header class="home-hero">
       <div class="hero-copy">
         <div class="eyebrow">
-          <AppIcon name="lightning" :size="13" />Голосовой ввод
+          <AppIcon name="lightning" :size="13" />{{ $t("ui.217a3eef75") }}
         </div>
         <h1 class="hero-title" aria-label="Fono"><FonoWordmark /></h1>
-        <p>Просто записывайте на лету.</p>
+        <p>{{ $t("ui.b079cfbcdc") }}</p>
         <WlButton
           size="sm"
           variant="soft"
-          :aria-label="
-            'Изменить кнопку диктовки ' + triggerLabel(state.preferences)
-          "
+          :aria-label="$t('ui.e3032720b1') + triggerLabel(state.preferences)"
           @click="ui.openQuick('hotkey')"
           >{{ triggerLabel(state.preferences)
           }}<template #icon
@@ -37,15 +37,15 @@ const ui = useInteraction();
             ? ["right_alt", "right_ctrl", "caps_lock"].includes(
                 state.preferences.dictationTrigger,
               )
-              ? "дважды нажмите для начала · повторите для завершения"
-              : "нажмите для начала · ещё раз для завершения"
-            : "удерживайте во время речи"
+              ? $t("ui.d9dd621d98")
+              : $t("ui.89a4e4659f")
+            : $t("ui.5ffda55a3e")
         }}</small>
       </div>
     </header>
     <VoiceTools /><HomeServices /><RecordControl /><HomeTextPreview />
     <footer v-if="!workspace.native" class="home-footnote">
-      Демонстрационные данные · настройки интерфейса сохраняются в этом браузере
+      {{ $t("ui.69371c1b2a") }}
     </footer>
   </div>
 </template>

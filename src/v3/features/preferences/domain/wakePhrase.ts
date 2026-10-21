@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { Preferences } from "../../../shared/domain/contracts";
 
 /** Matches native phrase normalization: punctuation separates words; ё becomes е. */
@@ -22,20 +23,17 @@ export function validateWakePhrase(
   phrase: string,
   language: Preferences["wakeLanguage"],
 ): string | null {
-  if (!["ru", "en"].includes(language))
-    return "Выберите русский или английский язык пробуждения.";
+  if (!["ru", "en"].includes(language)) return uiMessage("ui.f2146e144b");
   const normalized = normalizeWakePhrase(phrase);
   const words = normalized ? normalized.split(" ") : [];
-  if (words.length < 1 || words.length > 4)
-    return "Фраза пробуждения должна содержать от 1 до 4 слов.";
+  if (words.length < 1 || words.length > 4) return uiMessage("ui.2059fd1a33");
   const length = Array.from(normalized).length;
-  if (length < 3 || length > 80)
-    return "Укажите фразу пробуждения длиной от 3 до 80 символов.";
+  if (length < 3 || length > 80) return uiMessage("ui.0326a9c56f");
   const letters = normalized.match(/\p{L}/gu) || [];
   const alphabet = language === "ru" ? /^[а-я]$/ : /^[a-z]$/;
   if (!letters.every((letter) => alphabet.test(letter)))
     return language === "ru"
-      ? "Для русского пробуждения используйте кириллицу, например «Эй, фоно»."
-      : "Для английского пробуждения используйте латиницу, например «Hey, Fono».";
+      ? uiMessage("ui.df1612cd24")
+      : uiMessage("ui.a085454149");
   return null;
 }

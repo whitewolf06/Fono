@@ -1,3 +1,4 @@
+import { message as uiMessage } from "./messages";
 export const dictationTriggers = [
   "shortcut",
   "right_alt",
@@ -14,11 +15,19 @@ export function triggerLabel(p: {
   return p.dictationTrigger === "shortcut"
     ? p.hotkey
     : {
-        right_alt: "Правый Alt",
-        right_ctrl: "Правый Ctrl",
+        get right_alt() {
+          return uiMessage("ui.3424783930");
+        },
+        get right_ctrl() {
+          return uiMessage("ui.671c2fb9e5");
+        },
         caps_lock: "CapsLock",
-        x_button1: "Кнопка мыши 1",
-        x_button2: "Кнопка мыши 2",
+        get x_button1() {
+          return uiMessage("ui.b1039f55bd");
+        },
+        get x_button2() {
+          return uiMessage("ui.8fbdc02568");
+        },
       }[p.dictationTrigger];
 }
 export type TriggerCandidate = { trigger: DictationTrigger; hotkey?: string };
@@ -57,18 +66,14 @@ export function triggerConflict(p: {
   selectionHotkey?: string;
 }): string | null {
   if (!dictationTriggers.includes(p.dictationTrigger))
-    return "Выберите кнопку диктовки.";
+    return uiMessage("ui.de849c8613");
   const command = shortcutParts(p.commandHotkey);
-  if (!command)
-    return "Укажите сочетание для команд, например Ctrl + Shift + Space.";
-  if (command.join("+") === "Alt+F4")
-    return "Alt + F4 закрывает окно. Выберите другое сочетание.";
+  if (!command) return uiMessage("ui.2e0e3829fc");
+  if (command.join("+") === "Alt+F4") return uiMessage("ui.5a1a70cfc0");
   if (p.selectionCaptureEnabled) {
     const selection = shortcutParts(p.selectionHotkey || "");
-    if (!selection)
-      return "Укажите сочетание для выделения, например Ctrl + Alt + Space.";
-    if (selection.join("+") === "Alt+F4")
-      return "Alt + F4 закрывает окно. Выберите другое сочетание.";
+    if (!selection) return uiMessage("ui.ff7d801186");
+    if (selection.join("+") === "Alt+F4") return uiMessage("ui.5a1a70cfc0");
     if (
       selection.join("+") === command.join("+") ||
       (p.dictationTrigger === "shortcut" &&
@@ -76,21 +81,19 @@ export function triggerConflict(p: {
       (p.dictationTrigger === "right_ctrl" && selection.includes("Ctrl")) ||
       (p.dictationTrigger === "right_alt" && selection.includes("Alt"))
     )
-      return "Сочетание выделения конфликтует с диктовкой или голосовыми командами. Выберите другое сочетание.";
+      return uiMessage("ui.95934e52cc");
   }
   if (p.dictationTrigger === "shortcut") {
     const dictation = shortcutParts(p.hotkey);
-    if (!dictation)
-      return "Укажите сочетание, например Ctrl + Space или Alt + F9.";
-    if (dictation.join("+") === "Alt+F4")
-      return "Alt + F4 закрывает окно. Выберите другое сочетание.";
+    if (!dictation) return uiMessage("ui.93965741b1");
+    if (dictation.join("+") === "Alt+F4") return uiMessage("ui.5a1a70cfc0");
     if (dictation.join("+") === command.join("+"))
-      return "Клавиши диктовки и команд должны отличаться.";
+      return uiMessage("ui.aeab8bec93");
   }
   if (
     (p.dictationTrigger === "right_ctrl" && command.includes("Ctrl")) ||
     (p.dictationTrigger === "right_alt" && command.includes("Alt"))
   )
-    return "Кнопка диктовки входит в сочетание команд. Измените сочетание команд или выберите другую кнопку.";
+    return uiMessage("ui.ed5b729af1");
   return null;
 }

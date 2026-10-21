@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
+    pub ui_language: UiLanguage,
+    #[serde(default)]
     pub application_profiles: Vec<crate::application::application_profiles::ApplicationProfile>,
     #[serde(skip)]
     pub active_application_profile: Option<String>,
@@ -173,6 +175,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            ui_language: UiLanguage::Auto,
             application_profiles: Vec::new(),
             active_application_profile: None,
             whisper_decoding: DecodingStrategy::Fast,

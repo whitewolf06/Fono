@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, watch } from "vue";
 import { WlBadge, WlButton, WlCard, WlCheckbox } from "@whitelife-core/ui-kit";
 import type { TrainerReport } from "../domain/report";
@@ -27,9 +32,15 @@ const blocked = computed(() =>
   periodAiDisabledReason(props.report, shareText.value),
 );
 const scopeLabels = {
-  metrics_only: "числовые метрики",
-  findings: "метрики и примеры речевых маркеров",
-  original_text: "метрики и исходные расшифровки",
+  get metrics_only() {
+    return uiMessage("ui.6935b172a3");
+  },
+  get findings() {
+    return uiMessage("ui.a99905f9c8");
+  },
+  get original_text() {
+    return uiMessage("trainer.scopeOriginal");
+  },
 };
 watch(
   () => periodConsentKey(props.report, props.connectionKey),
@@ -40,24 +51,24 @@ watch(
 </script>
 
 <template>
-  <section class="period-ai" aria-label="ИИ-разбор периода">
+  <section class="period-ai" :aria-label="$t('ui.a40a4562d4')">
     <WlCard class="ai-controls trainer-card">
       <div class="section-header ai-heading">
         <div>
-          <h3>Выбранная LLM-модель для анализа</h3>
+          <h3>{{ $t("ui.b881eff258") }}</h3>
           <p class="selected-model">
-            {{ configuration.model || "Не выбрана" }}
+            {{ configuration.model || $t("ui.30bd8ad2b6") }}
           </p>
         </div>
         <RouterLink
           class="text-link"
           to="/settings/processing?field=trainerModel"
-          >Настройки ИИ</RouterLink
+          >{{ $t("ui.de885e7fab") }}</RouterLink
         >
       </div>
       <p class="report-connection">
-        <span class="muted">Подключение</span>
-        <strong>{{ configuration.profileName || "не выбрано" }}</strong>
+        <span class="muted">{{ $t("ui.ab71afb97f") }}</span>
+        <strong>{{ configuration.profileName || $t("ui.2afc8921e4") }}</strong>
       </p>
       <div
         v-if="configuration.dataScope !== 'metrics_only'"
@@ -65,26 +76,23 @@ watch(
       >
         <WlCheckbox v-model="shareText" :disabled="busy">{{
           configuration.dataScope === "original_text"
-            ? "Также передать исходные расшифровки учтённых диктовок"
-            : "Также передать примеры найденных речевых маркеров"
+            ? $t("ui.4f1810d07b")
+            : $t("ui.d55e6b59b9")
         }}</WlCheckbox>
         <p class="muted report-note">
           {{
             configuration.dataScope === "original_text"
-              ? "В запрос могут попасть полные личные тексты за этот период. Без этого выбора отправляются только числовые метрики."
-              : "В запрос попадут фрагменты исходных расшифровок с найденными маркерами. Без этого выбора отправляются только числовые метрики."
+              ? $t("ui.ebfde0a779")
+              : $t("ui.bf633d0d30")
           }}
         </p>
       </div>
       <p v-if="configuration.cloud" class="notice report-cloud">
-        Выбрано облачное подключение. При запуске
-        {{
-          shareText ? "числовые метрики и выбранные тексты" : "числовые метрики"
-        }}
-        будут переданы внешнему провайдеру.<template
-          v-if="!configuration.cloudConsent"
-        >
-          Сначала разрешите передачу данных в настройках ИИ.</template
+        {{ $t("ui.de6b778ddd") }}
+        {{ shareText ? $t("ui.305347b822") : $t("ui.6935b172a3") }}
+        {{ $t("ui.9ad35552e8")
+        }}<template v-if="!configuration.cloudConsent">
+          {{ $t("ui.16f87a1a74") }}</template
         >
       </p>
       <AiContextSummary v-if="aiContext" :context="aiContext" />
@@ -95,7 +103,7 @@ watch(
           :loading="analyzing"
           :disabled="busy || !!blocked"
           @click="emit('analyze', shareText)"
-          >Проанализировать период</WlButton
+          >{{ $t("ui.b010e98c9c") }}</WlButton
         ><WlButton
           v-if="analyzing || cancelling"
           size="sm"
@@ -103,11 +111,9 @@ watch(
           :loading="cancelling"
           :disabled="cancelling"
           @click="emit('cancel')"
-          >Отменить разбор</WlButton
+          >{{ $t("ui.d81229e511") }}</WlButton
         >
-        <p class="muted report-launch-note">
-          По умолчанию передаются только числовые метрики периода.
-        </p>
+        <p class="muted report-launch-note">{{ $t("ui.e5c09ae5b6") }}</p>
       </div>
       <p v-if="blocked" class="muted report-note" role="status">
         {{ blocked }}
@@ -117,13 +123,11 @@ watch(
       v-if="report.aiSummary"
       class="period-ai-result trainer-card"
       role="region"
-      aria-label="Сохранённый ИИ-разбор"
+      :aria-label="$t('ui.79041ca6ef')"
     >
-      <p v-if="report.aiStale" class="notice">
-        Этот ИИ-разбор относится к прежним данным или настройкам.
-      </p>
+      <p v-if="report.aiStale" class="notice">{{ $t("ui.507795031c") }}</p>
       <div class="saved-ai-heading">
-        <h4>Сохранённый разбор</h4>
+        <h4>{{ $t("ui.e7493c4455") }}</h4>
         <small class="muted"
           >{{ report.aiSummary.profileName }} · {{ report.aiSummary.model }} ·
           {{ time(report.aiSummary.generatedAt) }} UTC</small
@@ -131,7 +135,7 @@ watch(
       </div>
       <p class="summary-text">{{ report.aiSummary.summary }}</p>
       <p class="muted report-note">
-        Данные этого разбора: {{ scopeLabels[report.aiSummary.dataScope] }}.
+        {{ $t("ui.3591af7ac5") }} {{ scopeLabels[report.aiSummary.dataScope] }}.
       </p>
       <AiContextSummary
         v-if="report.aiSummary.context"
@@ -150,11 +154,11 @@ watch(
           </div>
           <dl class="priority-details">
             <div>
-              <dt>Основание</dt>
+              <dt>{{ $t("ui.0369683b41") }}</dt>
               <dd>{{ priority.basis }}</dd>
             </div>
             <div>
-              <dt>Практика</dt>
+              <dt>{{ $t("ui.64dd4b27bb") }}</dt>
               <dd>{{ priority.exercise }}</dd>
             </div>
           </dl>

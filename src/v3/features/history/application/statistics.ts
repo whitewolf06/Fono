@@ -1,7 +1,9 @@
+import { uiIntlLocale } from "../../../shared/domain/locale";
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { Dictation } from "../../../shared/domain/contracts";
 
 export function exactDateLabel(date: string): string {
-  return new Date(date).toLocaleString("ru-RU", {
+  return new Date(date).toLocaleString(uiIntlLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -17,12 +19,13 @@ export function durationLabel(milliseconds?: number | null): string {
     !Number.isFinite(milliseconds) ||
     milliseconds < 0
   )
-    return "Не сохранено";
-  if (milliseconds < 1000) return Math.round(milliseconds) + " мс";
+    return uiMessage("ui.c5805f8b9d");
+  if (milliseconds < 1000)
+    return Math.round(milliseconds) + uiMessage("ui.3d28ff50f5");
   return (
-    new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(
+    new Intl.NumberFormat(uiIntlLocale(), { maximumFractionDigits: 2 }).format(
       milliseconds / 1000,
-    ) + " с"
+    ) + uiMessage("ui.ddae8eb8bf")
   );
 }
 
@@ -31,7 +34,7 @@ export function recordingLabel(entry: Dictation): string {
   if (measured != null) return durationLabel(measured);
   return entry.duration > 0
     ? durationLabel(entry.duration * 1000)
-    : "Длительность не сохранена";
+    : uiMessage("ui.434f2cd9ac");
 }
 
 export function dictationFacts(
@@ -39,25 +42,48 @@ export function dictationFacts(
 ): { title: string; value: string }[] {
   const m = entry.metadata;
   const facts = [
-    { title: "Запись", value: recordingLabel(entry) },
     {
-      title: "Генерация текста",
+      get title() {
+        return uiMessage("ui.1d80e1757a");
+      },
+      value: recordingLabel(entry),
+    },
+    {
+      get title() {
+        return uiMessage("ui.b7f32afbe8");
+      },
       value: durationLabel(m?.generationDurationMs),
     },
-    { title: "Распознавание", value: durationLabel(m?.recognitionDurationMs) },
     {
-      title: "Фактический backend",
+      get title() {
+        return uiMessage("ui.7894eb1ac6");
+      },
+      value: durationLabel(m?.recognitionDurationMs),
+    },
+    {
+      get title() {
+        return uiMessage("ui.d4df82f58c");
+      },
       value: m?.backend
         ? { cpu: "CPU", cuda: "NVIDIA CUDA", vulkan: "Vulkan" }[m.backend]
-        : "Не сохранён",
+        : uiMessage("ui.b5eede8dfc"),
     },
-    { title: "Модель", value: m?.model || "Не сохранена" },
+    {
+      get title() {
+        return uiMessage("ui.f3bdf7cce3");
+      },
+      value: m?.model || uiMessage("ui.bf2a878be5"),
+    },
   ];
   if (m?.requestedAcceleration)
     facts.push({
-      title: "Выбранное ускорение",
+      get title() {
+        return uiMessage("ui.8e4f4c60d3");
+      },
       value: {
-        auto: "Авто",
+        get auto() {
+          return uiMessage("ui.8dca2f7831");
+        },
         cpu: "CPU",
         cuda: "NVIDIA CUDA",
         vulkan: "Vulkan",
@@ -65,47 +91,92 @@ export function dictationFacts(
     });
   if (m?.language)
     facts.push({
-      title: "Язык",
+      get title() {
+        return uiMessage("ui.5bd57038db");
+      },
       value:
-        { auto: "Авто", ru: "Русский", en: "Английский" }[m.language] ||
-        m.language,
+        {
+          get auto() {
+            return uiMessage("ui.8dca2f7831");
+          },
+          get ru() {
+            return uiMessage("ui.6da140fdd4");
+          },
+          get en() {
+            return uiMessage("ui.e7c1ef1d8e");
+          },
+        }[m.language] || m.language,
     });
   if (m?.processingMode)
     facts.push({
-      title: "Обработка текста (настройка)",
+      get title() {
+        return uiMessage("ui.5dc9695bc0");
+      },
       value: {
-        off: "Выключена",
-        raw: "Без изменений",
-        clean: "Очистка",
-        format: "Форматирование",
-        command: "Команда",
-        task: "Постановка задачи",
-        formal: "Деловое письмо",
+        get off() {
+          return uiMessage("ui.1e4b686990");
+        },
+        get raw() {
+          return uiMessage("ui.4274a06c5d");
+        },
+        get clean() {
+          return uiMessage("ui.b0f05e6f3d");
+        },
+        get format() {
+          return uiMessage("ui.65f12809f6");
+        },
+        get command() {
+          return uiMessage("ui.8b372c12c2");
+        },
+        get task() {
+          return uiMessage("ui.77102f0c76");
+        },
+        get formal() {
+          return uiMessage("ui.f7c565c215");
+        },
       }[m.processingMode],
     });
   if (m?.processingTrigger)
     facts.push({
-      title: "Запуск обработки",
+      get title() {
+        return uiMessage("ui.c0fe5b7e9a");
+      },
       value:
         m.processingTrigger === "manual"
-          ? "По выбору после записи"
-          : "Автоматически",
+          ? uiMessage("ui.66a8160b08")
+          : uiMessage("ui.353cf589e9"),
     });
   if (m?.processingTranslation)
     facts.push({
-      title: "Перевод результата",
+      get title() {
+        return uiMessage("ui.ea6f9eb94d");
+      },
       value: {
-        en: "Английский",
-        ru: "Русский",
-        de: "Немецкий",
-        fr: "Французский",
-        es: "Испанский",
+        get en() {
+          return uiMessage("ui.e7c1ef1d8e");
+        },
+        get ru() {
+          return uiMessage("ui.6da140fdd4");
+        },
+        get de() {
+          return uiMessage("ui.79c7568c22");
+        },
+        get fr() {
+          return uiMessage("ui.7518ed2eef");
+        },
+        get es() {
+          return uiMessage("ui.5097d628b8");
+        },
       }[m.processingTranslation],
     });
   if (m?.dictionaryEnabled !== undefined)
     facts.push({
-      title: "Личный словарь",
-      value: m.dictionaryEnabled ? "Включён" : "Выключен",
+      get title() {
+        return uiMessage("ui.4e7867b548");
+      },
+      value: m.dictionaryEnabled
+        ? uiMessage("ui.0b81629905")
+        : uiMessage("ui.5a577d9056"),
     });
   return facts;
 }
@@ -116,18 +187,26 @@ export function dictationStages(
   const m = entry.metadata;
   const stages = [];
   for (const [title, duration] of [
-    ["Подготовка модели", m?.modelLoadDurationMs],
-    ["Обработка текста", m?.processingDurationMs],
+    [uiMessage("ui.7c8a4ae5c5"), m?.modelLoadDurationMs],
+    [uiMessage("ui.d4a26d3502"), m?.processingDurationMs],
   ] as const) {
     if (duration != null && Number.isFinite(duration) && duration >= 0)
       stages.push({ title, value: durationLabel(duration) });
   }
   if (m?.detectedLanguage)
     stages.push({
-      title: "Определённый язык",
+      get title() {
+        return uiMessage("ui.7ad22789d3");
+      },
       value:
-        { ru: "Русский", en: "Английский" }[m.detectedLanguage] ||
-        m.detectedLanguage,
+        {
+          get ru() {
+            return uiMessage("ui.6da140fdd4");
+          },
+          get en() {
+            return uiMessage("ui.e7c1ef1d8e");
+          },
+        }[m.detectedLanguage] || m.detectedLanguage,
     });
   return stages;
 }

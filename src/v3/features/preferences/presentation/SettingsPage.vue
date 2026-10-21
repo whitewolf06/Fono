@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed, ref, watch, nextTick } from "vue";
 import {
   useRoute,
@@ -79,14 +81,14 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
 <template>
   <div class="page settings-page">
     <PageHeading
-      title="Настройки"
-      description="Частое — под рукой. Остальное — на своём месте."
+      :title="$t('ui.985b5e0f2c')"
+      :description="$t('ui.fdc56f94a6')"
     />
     <div class="settings-search">
       <AppIcon name="search" /><WlInput
         v-model="query"
-        aria-label="Поиск настроек"
-        placeholder="Поиск: микрофон, тишина, модель…"
+        :aria-label="$t('ui.50e5300abb')"
+        :placeholder="$t('ui.92d9d59819')"
       />
     </div>
     <div v-if="query.trim()" class="settings-results" aria-live="polite">
@@ -101,12 +103,10 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
         }}</small
         ><AppIcon name="chevron-right" />
       </button>
-      <p v-if="!results.length">
-        Ничего не найдено. Попробуйте «звук», «ИИ» или «история».
-      </p>
+      <p v-if="!results.length">{{ $t("ui.05b11c0956") }}</p>
     </div>
     <div v-else class="settings-layout">
-      <nav class="settings-nav" aria-label="Раздел настроек">
+      <nav class="settings-nav" :aria-label="$t('ui.ab71d4cec4')">
         <RouterLink
           v-for="item in sections"
           :key="item.id"
@@ -124,33 +124,59 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
           <p>{{ current.description }}</p>
         </header>
         <div v-if="section === 'general'" class="form-stack">
+          <SelectField
+            id="uiLanguage"
+            v-model="draft.uiLanguage"
+            :label="$t('ui.9089a73112')"
+            :options="[
+              {
+                value: 'auto',
+                get label() {
+                  return $t('ui.29e4a4bd7a');
+                },
+              },
+              {
+                value: 'ru',
+                get label() {
+                  return $t('ui.6da140fdd4');
+                },
+              },
+              { value: 'en', label: 'English' },
+            ]"
+          />
           <PreferenceToggle
             name="autostart"
-            label="Запускать вместе с Windows"
-            description="Fono будет готов к диктовке после входа в систему."
+            :label="$t('ui.b312f5a759')"
+            :description="$t('ui.b587cc4370')"
           /><SelectField
             id="insertion"
             v-model="draft.insertion"
-            label="Способ вставки текста"
+            :label="$t('ui.5e399aa003')"
             :options="[
               {
                 value: 'clipboard',
-                label: 'Через буфер обмена · рекомендуется',
+                get label() {
+                  return $t('ui.4e9b12d77d');
+                },
               },
-              { value: 'sendinput', label: 'Эмуляция нажатий клавиш' },
+              {
+                value: 'sendinput',
+                get label() {
+                  return $t('ui.f3cc63fc58');
+                },
+              },
             ]"
           />
           <ApplicationProfiles v-model="draft" />
           <section id="about" class="about-fono">
             <h3>Fono {{ version }}</h3>
-            <p>Голосовой ввод и управление компьютером.</p>
+            <p>{{ $t("ui.69f4caaaac") }}</p>
             <small
-              >Интерфейс V3 · WhiteUI 0.6.0{{
-                workspace.native ? "" : " · демонстрационный режим"
-              }}</small
-            ><RouterLink class="text-link" to="/onboarding"
-              >Пройти первоначальную настройку</RouterLink
-            >
+              >{{ $t("ui.edc3ee4f1c")
+              }}{{ workspace.native ? "" : $t("ui.e3348b9eff") }}</small
+            ><RouterLink class="text-link" to="/onboarding">{{
+              $t("ui.b6964d42aa")
+            }}</RouterLink>
           </section>
           <UpdatesPanel :unsaved="dirty" />
         </div>
@@ -176,23 +202,19 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
         <DiagnosticsPanel v-else />
         <p v-if="error" class="error-text" role="alert">{{ error }}</p>
         <footer v-if="section !== 'diagnostics'" class="settings-save">
-          <small>{{
-            dirty
-              ? "Есть несохранённые изменения"
-              : "Выключатели применяются сразу"
-          }}</small
+          <small>{{ dirty ? $t("ui.382dd64dc0") : $t("ui.10ab0c2bf1") }}</small
           ><WlButton
             :disabled="!dirty || busy || workspace.state.triggerCaptureActive"
             size="sm"
             @click="reset"
-            >Отмена</WlButton
+            >{{ $t("ui.8fbe9b75cb") }}</WlButton
           ><WlButton
             variant="primary"
             :disabled="!dirty || workspace.state.triggerCaptureActive"
             :loading="busy"
             size="sm"
-            @click="run(save, 'Настройки сохранены')"
-            >Сохранить</WlButton
+            @click="run(save, $t('ui.babdb58139'))"
+            >{{ $t("ui.b4d30cae52") }}</WlButton
           >
         </footer>
       </section>

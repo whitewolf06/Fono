@@ -1,3 +1,4 @@
+import { message as uiMessage } from "./messages";
 export type ProcessingPreset = "raw" | "clean" | "format" | "task" | "formal";
 export type PromptPreset = Exclude<ProcessingPreset, "raw">;
 export interface ProcessingPromptChoice {
@@ -71,17 +72,72 @@ export interface PendingDictationRequest {
   targetLanguage?: TranslationLanguage | null;
 }
 export const presetOptions = [
-  { value: "raw", label: "Без изменений" },
-  { value: "clean", label: "Очистка" },
-  { value: "format", label: "Структура" },
-  { value: "task", label: "Задача" },
-  { value: "formal", label: "Деловое письмо" },
+  {
+    value: "raw",
+    get label() {
+      return uiMessage("ui.4274a06c5d");
+    },
+  },
+  {
+    value: "clean",
+    get label() {
+      return uiMessage("ui.b0f05e6f3d");
+    },
+  },
+  {
+    value: "format",
+    get label() {
+      return uiMessage("ui.816655bd71");
+    },
+  },
+  {
+    value: "task",
+    get label() {
+      return uiMessage("ui.b9ce27191d");
+    },
+  },
+  {
+    value: "formal",
+    get label() {
+      return uiMessage("ui.f7c565c215");
+    },
+  },
 ] as const;
 export const translationOptions = [
-  { value: "none", label: "Без перевода" },
-  { value: "en", label: "Английский" },
-  { value: "ru", label: "Русский" },
-  { value: "de", label: "Немецкий" },
-  { value: "fr", label: "Французский" },
-  { value: "es", label: "Испанский" },
+  {
+    value: "none",
+    get label() {
+      return uiMessage("ui.c29017610e");
+    },
+  },
+  {
+    value: "en",
+    get label() {
+      return uiMessage("ui.e7c1ef1d8e");
+    },
+  },
+  {
+    value: "ru",
+    get label() {
+      return uiMessage("ui.6da140fdd4");
+    },
+  },
+  {
+    value: "de",
+    get label() {
+      return uiMessage("ui.79c7568c22");
+    },
+  },
+  {
+    value: "fr",
+    get label() {
+      return uiMessage("ui.7518ed2eef");
+    },
+  },
+  {
+    value: "es",
+    get label() {
+      return uiMessage("ui.5097d628b8");
+    },
+  },
 ] as const;

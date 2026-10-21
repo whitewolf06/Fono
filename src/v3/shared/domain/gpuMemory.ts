@@ -1,3 +1,4 @@
+import { message as uiMessage } from "./messages";
 export type GpuModelResidency = "resident" | "adaptive";
 
 export interface GpuMemoryStatus {
@@ -25,5 +26,8 @@ export function gpuMemoryUsage(status?: GpuMemoryStatus): string | null {
   )
     return null;
   const gib = (value: number) => (value / 1024 ** 3).toFixed(1);
-  return `${gib(status.usedBytes)} / ${gib(status.totalBytes)} ГБ видеопамяти занято`;
+  return uiMessage("ui.2baceeb33a", {
+    v0: String(gib(status.usedBytes)),
+    v1: String(gib(status.totalBytes)),
+  });
 }

@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 export interface Snippet {
   trigger: string;
   text: string;
@@ -26,7 +27,7 @@ export function normalizeTrigger(text: string): string {
 const count = (text: string) => Array.from(text).length;
 export function validateSnippets(entries: unknown): string | null {
   if (!Array.isArray(entries) || entries.length > snippetLimits.entries)
-    return "Можно сохранить до 64 сниппетов.";
+    return uiMessage("ui.7f85fae5a1");
   const triggers = new Set<string>();
   let total = 0;
   for (const entry of entries) {
@@ -40,47 +41,44 @@ export function validateSnippets(entries: unknown): string | null {
       typeof entry.text !== "string" ||
       typeof entry.enabled !== "boolean"
     )
-      return "У сниппета нужны trigger, text и enabled.";
+      return uiMessage("ui.125163b722");
     const trigger = normalizeTrigger(entry.trigger);
     if (
       !trigger ||
       count(entry.trigger) > snippetLimits.triggerChars ||
       /[?\p{Cc}]/u.test(entry.trigger)
     )
-      return "Триггер должен быть непустой фразой до 80 символов без вопроса и переноса строки.";
-    if (triggers.has(trigger))
-      return "Триггеры сниппетов должны различаться после нормализации.";
+      return uiMessage("ui.6e5de94ebd");
+    if (triggers.has(trigger)) return uiMessage("ui.d37d5edb40");
     triggers.add(trigger);
     if (
       !entry.text.trim() ||
       count(entry.text) > snippetLimits.textChars ||
       /[\p{Cc}]/u.test(entry.text.replace(/[\n\r\t]/g, ""))
     )
-      return "Текст сниппета должен содержать от 1 до 8192 символов без управляющих символов.";
+      return uiMessage("ui.79ba2e1a4c");
     total += count(entry.text) + count(entry.trigger);
   }
-  return total > snippetLimits.totalChars
-    ? "Общий размер сниппетов превышает 128 тысяч символов."
-    : null;
+  return total > snippetLimits.totalChars ? uiMessage("ui.685ba22547") : null;
 }
 export function parseSnippetJson(json: string): Snippet[] {
   if (new TextEncoder().encode(json).length > snippetLimits.jsonBytes)
-    throw new Error("JSON-файл превышает 1 МиБ.");
+    throw new Error(uiMessage("ui.7c128e2dc5"));
   let document: unknown;
   try {
     document = JSON.parse(json.replace(/^\uFEFF/, ""));
   } catch {
-    throw new Error("Некорректный JSON сниппетов.");
+    throw new Error(uiMessage("ui.f7886f874e"));
   }
   if (!document || typeof document !== "object" || Array.isArray(document))
-    throw new Error("Нужен JSON с version: 1 и массивом snippets.");
+    throw new Error(uiMessage("ui.4a001d0b4c"));
   const value = document as Record<string, unknown>;
   if (
     value.version !== 1 ||
     Object.keys(value).some((key) => !["version", "snippets"].includes(key)) ||
     !Array.isArray(value.snippets)
   )
-    throw new Error("Нужен JSON с version: 1 и массивом snippets.");
+    throw new Error(uiMessage("ui.4a001d0b4c"));
   const entries = value.snippets.map((entry) =>
     entry && typeof entry === "object"
       ? {

@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { WorkspaceState } from "../../../shared/domain/contracts";
 import { assertDraftAvailable } from "../domain/live";
 import { processDemoText } from "./mockText";
@@ -8,8 +9,7 @@ export function createMockDraftActions(
 ) {
   function assertAvailable() {
     assertDraftAvailable(state.live);
-    if (state.pendingDictation)
-      throw new Error("Сначала вставьте или отмените ожидающую диктовку.");
+    if (state.pendingDictation) throw new Error(uiMessage("ui.e4e045a4e4"));
   }
   return {
     chooseVariant(variant: "original" | "result") {
@@ -32,11 +32,9 @@ export function createMockDraftActions(
       assertAvailable();
       const preferences = { ...state.preferences };
       if (preferences.dictationMode === "live")
-        throw new Error("В живом режиме обработка через ИИ отключена.");
+        throw new Error(uiMessage("ui.6035ff10fb"));
       if (!preferences.processingEnabled || !state.last.draft.trim())
-        throw new Error(
-          "Включите обработку текста, чтобы использовать улучшение.",
-        );
+        throw new Error(uiMessage("ui.ea5df82a05"));
       const entryId = state.last.entry?.id;
       const previous = state.last.draft;
       const targetLanguage =
@@ -47,9 +45,7 @@ export function createMockDraftActions(
       const needsModel = preferences.processingMode !== "raw" || targetLanguage;
       if (needsModel) await delay(800);
       if (needsModel && !state.aiAvailable)
-        throw new Error(
-          "Модель недоступна. Текст не изменён — проверьте подключение.",
-        );
+        throw new Error(uiMessage("ui.dce066c693"));
       if (state.last.entry?.id !== entryId || state.last.draft !== previous)
         return;
       state.last.undo = previous;

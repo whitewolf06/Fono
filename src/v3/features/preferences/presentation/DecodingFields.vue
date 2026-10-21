@@ -5,11 +5,26 @@ import { message } from "../../../shared/domain/messages";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 const draft = defineModel<Preferences>({ required: true });
 const modes = [
-  { value: "fast", label: message("decoding.fast") },
-  { value: "accurate", label: message("decoding.accurate") },
+  {
+    value: "fast",
+    get label() {
+      return message("decoding.fast");
+    },
+  },
+  {
+    value: "accurate",
+    get label() {
+      return message("decoding.accurate");
+    },
+  },
 ];
 const threadOptions = [
-  { value: "auto", label: message("decoding.autoThreads") },
+  {
+    value: "auto",
+    get label() {
+      return message("decoding.autoThreads");
+    },
+  },
   ...Array.from({ length: 8 }, (_, index) => ({
     value: String(index + 1),
     label: String(index + 1),

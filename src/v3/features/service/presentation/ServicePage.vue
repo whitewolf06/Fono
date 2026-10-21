@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
 import { WlButton, WlDialog } from "@whitelife-core/ui-kit";
@@ -28,19 +33,30 @@ const queue = computed(() =>
   jobs.value.filter((j) => ["queued", "running"].includes(j.state)),
 );
 const labels = {
-  queued: "В очереди",
-  running: "Распознавание",
-  done: "Готово",
-  error: "Ошибка",
-  cancelled: "Отменена",
+  get queued() {
+    return uiMessage("ui.b22a2454bd");
+  },
+  get running() {
+    return uiMessage("ui.7894eb1ac6");
+  },
+  get done() {
+    return uiMessage("ui.ef05d57959");
+  },
+  get error() {
+    return uiMessage("ui.bf22dfeeba");
+  },
+  get cancelled() {
+    return uiMessage("ui.86b78af7c2");
+  },
 };
 </script>
 <template>
   <div class="page">
-    <PageHeading
-      title="API-сервис"
-      description="Fono как голосовой инструмент для других приложений."
-      ><PreferenceToggle name="serviceEnabled" label="API-сервис" compact
+    <PageHeading :title="$t('ui.1b580ef9f9')" :description="$t('ui.71048023d3')"
+      ><PreferenceToggle
+        name="serviceEnabled"
+        :label="$t('ui.1b580ef9f9')"
+        compact
     /></PageHeading>
     <div class="service-summary">
       <div>
@@ -48,53 +64,44 @@ const labels = {
           :health="workspace.state.preferences.serviceEnabled ? 'ready' : 'off'"
           :label="
             workspace.state.preferences.serviceEnabled
-              ? 'Сервис включён'
-              : 'Сервис выключен'
+              ? $t('ui.d39515ca3e')
+              : $t('ui.ed913eabb5')
           "
         /><code>{{ workspace.state.serviceAddress || "127.0.0.1:17832" }}</code>
       </div>
-      <span>{{ queue.length }} / 4 в очереди</span>
+      <span>{{ queue.length }} {{ $t("ui.bc3fec6b2e") }}</span>
     </div>
     <p v-if="workspace.state.serviceError" class="notice error" role="alert">
       {{ workspace.state.serviceError }}
     </p>
-    <nav class="page-tabs" aria-label="Раздел API">
+    <nav class="page-tabs" :aria-label="$t('ui.de35470cc9')">
       <RouterLink
         to="/api/tasks"
         :class="{ selected: route.params.tab !== 'connection' }"
-        >Задачи</RouterLink
+        >{{ $t("ui.03cc1c2d5a") }}</RouterLink
       ><RouterLink
         to="/api/connection"
         :class="{ selected: route.params.tab === 'connection' }"
-        >Подключение</RouterLink
+        >{{ $t("ui.ab71afb97f") }}</RouterLink
       >
     </nav>
     <ConnectionPanel v-if="route.params.tab === 'connection'" />
     <template v-else>
       <div class="section-header">
-        <h2>Задачи распознавания</h2>
+        <h2>{{ $t("ui.667cbce2ef") }}</h2>
         <WlButton
           size="sm"
           v-if="!workspace.native"
           :disabled="!workspace.state.preferences.serviceEnabled"
-          @click="
-            run(
-              () => workspace.service.enqueue(),
-              'Демонстрационная задача добавлена',
-            )
-          "
-          ><template #icon><AppIcon name="plus" /></template>Тестовая
-          задача</WlButton
+          @click="run(() => workspace.service.enqueue(), $t('ui.d65faa460a'))"
+          ><template #icon><AppIcon name="plus" /></template
+          >{{ $t("ui.5b69a5a486") }}</WlButton
         >
       </div>
       <p v-if="!workspace.state.preferences.serviceEnabled" class="notice">
-        Включите сервис, чтобы принимать задачи. История результатов доступна и
-        при выключенном сервисе.
+        {{ $t("ui.37c2713c15") }}
       </p>
-      <p v-if="queue.length >= 4" class="notice">
-        Очередь заполнена. Можно отменить ожидающую задачу. В сценарии проверки
-        очередь остаётся заполненной.
-      </p>
+      <p v-if="queue.length >= 4" class="notice">{{ $t("ui.0d5d5b3571") }}</p>
       <div v-if="jobs.length" class="job-list">
         <article v-for="job in jobs" :key="job.id" class="job-row">
           <span class="job-icon"
@@ -112,7 +119,9 @@ const labels = {
               {{ job.name }}
             </button>
             <p v-if="job.error" class="error-text">{{ job.error }}</p>
-            <small v-else>{{ job.id }} · {{ job.seconds }} сек</small>
+            <small v-else
+              >{{ job.id }} · {{ job.seconds }} {{ $t("ui.8dfc7d105b") }}</small
+            >
           </div>
           <StatusDot
             :health="
@@ -130,14 +139,14 @@ const labels = {
             size="sm"
             variant="ghost"
             @click="run(() => workspace.service.cancel(job.id))"
-            >Отменить</WlButton
+            >{{ $t("ui.7c47f7292b") }}</WlButton
           ><WlButton
             v-else-if="job.text"
             size="sm"
             variant="ghost"
-            :aria-label="'Копировать результат ' + job.name"
+            :aria-label="$t('ui.f289ceb080') + job.name"
             @click="
-              run(() => workspace.copy(job.text || ''), 'Результат скопирован')
+              run(() => workspace.copy(job.text || ''), $t('ui.f998a21644'))
             "
             ><template #icon><AppIcon name="copy" /></template></WlButton
           ><WlButton
@@ -146,18 +155,14 @@ const labels = {
             variant="ghost"
             :disabled="!workspace.state.preferences.serviceEnabled"
             @click="run(() => workspace.service.retry(job.id))"
-            >Повторить</WlButton
+            >{{ $t("ui.5189135a61") }}</WlButton
           >
         </article>
       </div>
       <EmptyState
         v-else
-        title="Очередь свободна"
-        :text="
-          workspace.native
-            ? 'Задачи от приложений появятся здесь. Инструкция — на вкладке «Подключение».'
-            : 'Для проверки можно добавить демонстрационную задачу.'
-        "
+        :title="$t('ui.fe0cc00877')"
+        :text="workspace.native ? $t('ui.54a7b1001e') : $t('ui.206d04006f')"
       />
     </template>
     <WlDialog v-model:visible="visible" :header="selected?.name" width="560px"
@@ -173,23 +178,18 @@ const labels = {
           :label="labels[selected.state]"
         />
         <p class="reading-text">
-          {{
-            selected.text ||
-            selected.error ||
-            "Результат появится после завершения задачи."
-          }}
+          {{ selected.text || selected.error || $t("ui.7f4649b2f3") }}
         </p></template
       ><template #footer
         ><WlButton
           v-if="selected?.text"
           @click="
-            run(
-              () => workspace.copy(selected?.text || ''),
-              'Результат скопирован',
-            )
+            run(() => workspace.copy(selected?.text || ''), $t('ui.f998a21644'))
           "
-          >Копировать результат</WlButton
-        ><WlButton @click="selectedId = null">Закрыть</WlButton></template
+          >{{ $t("ui.cd4665b319") }}</WlButton
+        ><WlButton @click="selectedId = null">{{
+          $t("ui.a7a4033657")
+        }}</WlButton></template
       ></WlDialog
     >
   </div>

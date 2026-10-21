@@ -1,16 +1,28 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { TrainerDay } from "../domain/report";
 import type { ChartMetric } from "./overview";
+import { findingTitles } from "../domain/analysis";
 
 export const chartCategories = [
-  { key: "filler", title: "Слова-паразиты" },
-  { key: "repetition", title: "Повторы" },
-  { key: "selfCorrection", title: "Самоисправления" },
-  { key: "unfinished", title: "Незавершённые фразы" },
+  { key: "filler", title: findingTitles[0] },
+  { key: "repetition", title: findingTitles[1] },
+  { key: "selfCorrection", title: findingTitles[2] },
+  { key: "unfinished", title: findingTitles[3] },
 ] as const;
 
 export const chartMetricOptions = [
-  { label: "Количество", value: "count" },
-  { label: "На 100 слов", value: "density" },
+  {
+    get label() {
+      return uiMessage("ui.737f7561bd");
+    },
+    value: "count",
+  },
+  {
+    get label() {
+      return uiMessage("ui.f6da67615a");
+    },
+    value: "density",
+  },
 ];
 
 /** Label a few evenly spaced columns without dropping any underlying days. */

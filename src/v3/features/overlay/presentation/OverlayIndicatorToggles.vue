@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { WlSwitch } from "@whitelife-core/ui-kit";
 import type { IndicatorChoice } from "../domain/indicator";
 import {
@@ -25,7 +27,7 @@ defineEmits<{
     >
       <span
         class="overlay-indicator-toggle-icon"
-        title="Постобработка"
+        :title="$t('ui.b48611765d')"
         aria-hidden="true"
       >
         <AppIcon name="sparkle" :size="18" />
@@ -34,8 +36,8 @@ defineEmits<{
         size="sm"
         :model-value="choice.postprocessingOn"
         :disabled="disabled"
-        aria-label="Постобработка"
-        title="Включить или выключить постобработку"
+        :aria-label="$t('ui.b48611765d')"
+        :title="$t('ui.9971b8f10a')"
         @update:model-value="
           (value: boolean) => $emit('choose', { postprocessingOn: value })
         "
@@ -43,8 +45,14 @@ defineEmits<{
       <button
         type="button"
         class="overlay-indicator-option"
-        :title="`Постобработка: ${presetOptions.find((item) => item.value === choice.style)?.label}. Выбрать стиль`"
-        aria-label="Выбрать стиль обработки"
+        :title="
+          $t('ui.2e916f082a', {
+            v0: String(
+              presetOptions.find((item) => item.value === choice.style)?.label,
+            ),
+          })
+        "
+        :aria-label="$t('ui.20ebcdfa6f')"
         :aria-expanded="panel === 'processing'"
         :aria-controls="panelId"
         :disabled="disabled || !choice.postprocessingOn"
@@ -59,7 +67,7 @@ defineEmits<{
     >
       <span
         class="overlay-indicator-toggle-icon"
-        title="Перевод"
+        :title="$t('ui.c581c83538')"
         aria-hidden="true"
       >
         <AppIcon name="translate" :size="18" />
@@ -68,11 +76,9 @@ defineEmits<{
         size="sm"
         :model-value="choice.postprocessingOn && choice.translationOn"
         :disabled="disabled || !choice.postprocessingOn"
-        aria-label="Перевод"
+        :aria-label="$t('ui.c581c83538')"
         :title="
-          choice.postprocessingOn
-            ? 'Перевод после обработки'
-            : 'Включите постобработку для перевода'
+          choice.postprocessingOn ? $t('ui.6dbccf713c') : $t('ui.6b1ab417ca')
         "
         @update:model-value="
           (value: boolean) => $emit('choose', { translationOn: value })
@@ -81,8 +87,15 @@ defineEmits<{
       <button
         type="button"
         class="overlay-indicator-option"
-        :title="`Перевод: ${translationOptions.find((item) => item.value === choice.language)?.label}. Выбрать язык`"
-        aria-label="Выбрать язык перевода"
+        :title="
+          $t('ui.9acb843621', {
+            v0: String(
+              translationOptions.find((item) => item.value === choice.language)
+                ?.label,
+            ),
+          })
+        "
+        :aria-label="$t('ui.b5b3e5d9c6')"
         :aria-expanded="panel === 'translation'"
         :aria-controls="panelId"
         :disabled="disabled || !choice.postprocessingOn"

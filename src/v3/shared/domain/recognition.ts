@@ -1,3 +1,4 @@
+import { message as uiMessage } from "./messages";
 export type RecognitionLanguage = "ru" | "en" | "auto";
 export interface OverlayRecognitionCapability {
   options: RecognitionLanguage[];
@@ -6,7 +7,12 @@ export interface OverlayRecognitionCapability {
 export const recognitionOptions = [
   { value: "ru", label: "RU" },
   { value: "en", label: "EN" },
-  { value: "auto", label: "Авто" },
+  {
+    value: "auto",
+    get label() {
+      return uiMessage("ui.8dca2f7831");
+    },
+  },
 ] as const;
 
 /** Browser preview only. Native capability always comes from the session snapshot. */

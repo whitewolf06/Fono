@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { DiagnosticReportPort } from "../../../shared/domain/diagnosticReport";
@@ -14,7 +19,7 @@ const { preview, createAndCopy } = useDiagnosticReport(props.port, props.copy);
 const { run, busy, error } = useFeedback();
 const expanded = ref(false);
 async function generate() {
-  const copied = await run(createAndCopy, "Отчёт создан и скопирован");
+  const copied = await run(createAndCopy, uiMessage("ui.6dfc913cb7"));
   if (!copied && preview.value) expanded.value = true;
 }
 </script>
@@ -25,16 +30,13 @@ async function generate() {
     aria-labelledby="diagnostic-report-title"
   >
     <div class="section-header">
-      <h3 id="diagnostic-report-title">Отчёт диагностики</h3>
+      <h3 id="diagnostic-report-title">{{ $t("ui.3b770fe89b") }}</h3>
       <WlButton size="sm" :loading="busy" :disabled="busy" @click="generate">
         <template #icon><AppIcon name="copy" /></template>
-        Создать и скопировать
+        {{ $t("ui.5cce3f0613") }}
       </WlButton>
     </div>
-    <p class="muted">
-      Сборка, состояния компонентов и задержки последней диктовки. Без текстов,
-      аудио, словаря, ключей, имён устройств и журнала. Никуда не отправляется.
-    </p>
+    <p class="muted">{{ $t("ui.d34f1e433e") }}</p>
     <p v-if="error" class="diagnostic-report-error" role="alert">{{ error }}</p>
     <template v-if="preview">
       <WlButton
@@ -43,14 +45,14 @@ async function generate() {
         :aria-expanded="expanded"
         aria-controls="diagnostic-report-preview"
         @click="expanded = !expanded"
-        >{{ expanded ? "Скрыть отчёт" : "Посмотреть отчёт" }}</WlButton
+        >{{ expanded ? $t("ui.e0a5efb271") : $t("ui.89dfb52c7e") }}</WlButton
       >
       <pre
         v-if="expanded"
         id="diagnostic-report-preview"
         class="diagnostic-report-preview"
         tabindex="0"
-        aria-label="Текст отчёта диагностики"
+        :aria-label="$t('ui.5c6ac70fa4')"
         >{{ preview }}</pre>
     </template>
   </section>

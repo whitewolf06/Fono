@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { RouterLink } from "vue-router";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
@@ -7,21 +9,18 @@ import UpdatesPanel from "./UpdatesPanel.vue";
 <template>
   <div class="page updates-page">
     <PageHeading
-      title="Обновления"
-      description="Новые версии Fono и управление установкой."
+      :title="$t('ui.455471db0c')"
+      :description="$t('ui.d88cb44734')"
     >
       <RouterLink class="text-link" to="/releases"
-        ><AppIcon name="note" :size="16" />История версий</RouterLink
+        ><AppIcon name="note" :size="16" />{{ $t("ui.d9e4291457") }}</RouterLink
       >
     </PageHeading>
     <div class="updates-page-content">
       <UpdatesPanel :unsaved="false" />
       <div class="updates-page-note">
         <AppIcon name="info" :size="16" />
-        <p>
-          Перед установкой Fono проверяет подпись обновления. Установка закроет
-          приложение: завершите диктовку и сохраните текущий текст.
-        </p>
+        <p>{{ $t("ui.b83f53f5a3") }}</p>
       </div>
     </div>
   </div>

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -17,9 +22,7 @@ async function checkAll() {
     return;
   }
   await new Promise<void>((resolve) => setTimeout(resolve, 500));
-  workspace.state.logs.unshift(
-    "Проверены демонстрационные состояния компонентов",
-  );
+  workspace.state.logs.unshift(uiMessage("ui.2c794ce8a4"));
 }
 </script>
 <template>
@@ -27,12 +30,12 @@ async function checkAll() {
     <FeedbackCard />
     <DiagnosticReportCard :port="workspace.report" :copy="workspace.copy" />
     <div class="section-header">
-      <h3>Компоненты</h3>
+      <h3>{{ $t("ui.1e8466ebeb") }}</h3>
       <WlButton
         size="sm"
         :loading="busy"
-        @click="run(checkAll, 'Проверка завершена')"
-        >Проверить всё</WlButton
+        @click="run(checkAll, $t('ui.880c43c534'))"
+        >{{ $t("ui.5ef9db5fd5") }}</WlButton
       >
     </div>
     <div v-for="check in checks" :key="check.id" class="diagnostic-row">
@@ -46,26 +49,26 @@ async function checkAll() {
         :to="
           check.id === 'service' ? '/api/tasks' : '/settings/' + check.section
         "
-        >Настроить</RouterLink
+        >{{ $t("ui.d71875872c") }}</RouterLink
       >
     </div>
     <PreferenceToggle
       name="verboseLogging"
-      label="Подробный журнал"
-      description="Технические события для поиска проблемы."
+      :label="$t('ui.ee002eb6ca')"
+      :description="$t('ui.37086518bd')"
     />
     <section id="logs">
       <div class="section-header">
-        <h3>Журнал</h3>
+        <h3>{{ $t("ui.97c459a6bb") }}</h3>
         <WlButton
           size="sm"
           @click="
             run(
               () => workspace.copy(workspace.state.logs.join('\n')),
-              'Журнал скопирован',
+              $t('ui.f477e92d6e'),
             )
           "
-          >Копировать</WlButton
+          >{{ $t("ui.1ecddf40bf") }}</WlButton
         >
       </div>
       <pre class="log-view">{{

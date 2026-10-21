@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { TrainerPort } from "../../../shared/domain/contracts";
 import type { TrainerPeriod, TrainerReport } from "../domain/report";
 
@@ -43,13 +44,13 @@ export function periodAiDisabledReason(
   report: TrainerReport,
   shareText: boolean,
 ): string | null {
-  if (report.stale) return "Обновите локальный отчёт: состав данных изменился.";
+  if (report.stale) return uiMessage("ui.e9fa4868eb");
   if (report.aiDisabledReason) return report.aiDisabledReason;
   const desiredScope = shareText
     ? report.aiConfiguration.dataScope
     : "metrics_only";
   if (!report.aiStale && report.aiSummary?.dataScope === desiredScope)
-    return "Этот период уже разобран. Новый разбор доступен после изменения данных или параметров.";
+    return uiMessage("ui.326befeaba");
   return null;
 }
 
@@ -63,7 +64,7 @@ export function createPeriodReportController(
   let cancellationFailed = false;
   const current = (ticket: number) => !disposed && ticket === revision;
   const message = (error: unknown) =>
-    error instanceof Error ? error.message : "Не удалось получить отчёт.";
+    error instanceof Error ? error.message : uiMessage("ui.4c7361b649");
 
   function cancelRequest(force = false): Promise<void> {
     if (!force && !state.analyzing && !state.cancelling && !cancellationFailed)

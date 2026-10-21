@@ -8,13 +8,31 @@ export function useWorkspace(): Workspace {
   return workspace;
 }
 export const phaseLabels = {
-  idle: message("phase.idle"),
-  listening: message("phase.listening"),
-  silence: message("phase.silence"),
-  transcribing: message("phase.transcribing"),
-  processing: message("phase.processing"),
-  awaiting_action: message("phase.awaiting_action"),
-  done: message("phase.done"),
-  cancelled: message("phase.cancelled"),
-  error: message("phase.error"),
+  get idle() {
+    return message("phase.idle");
+  },
+  get listening() {
+    return message("phase.listening");
+  },
+  get silence() {
+    return message("phase.silence");
+  },
+  get transcribing() {
+    return message("phase.transcribing");
+  },
+  get processing() {
+    return message("phase.processing");
+  },
+  get awaiting_action() {
+    return message("phase.awaiting_action");
+  },
+  get done() {
+    return message("phase.done");
+  },
+  get cancelled() {
+    return message("phase.cancelled");
+  },
+  get error() {
+    return message("phase.error");
+  },
 };

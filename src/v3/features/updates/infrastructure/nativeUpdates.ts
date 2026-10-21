@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { reactive } from "vue";
 import type { UpdatesPort, UpdateStatus } from "../../../shared/domain/updates";
 import { updateBusy } from "../../../shared/domain/updates";
@@ -13,7 +14,7 @@ export function createNativeUpdates(
     phase: "idle",
     currentVersion: version,
     downloadedBytes: 0,
-    message: "Загрузка состояния обновлений…",
+    message: uiMessage("ui.080e361998"),
     checksEnabled: false,
   });
   let disposed = false;
@@ -74,8 +75,7 @@ export function createNativeUpdates(
   }, 2000);
   void refresh().catch(() => {
     state.phase = "error";
-    state.message =
-      "Не удалось прочитать состояние обновлений. Повторите проверку.";
+    state.message = uiMessage("ui.a417f5c31b");
   });
   return {
     state,

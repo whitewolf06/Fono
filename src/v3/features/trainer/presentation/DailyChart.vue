@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import { WlSegmented } from "@whitelife-core/ui-kit";
 import type { TrainerDay } from "../domain/report";
@@ -33,23 +35,19 @@ import DailyChartBreakdown from "./DailyChartBreakdown.vue";
 </script>
 
 <template>
-  <section class="period-daily-chart" aria-label="Речевые маркеры по дням">
+  <section class="period-daily-chart" :aria-label="$t('ui.d53d4db5ee')">
     <div class="daily-toolbar">
       <div class="daily-heading">
-        <h3>По дням</h3>
+        <h3>{{ $t("ui.e91607dca5") }}</h3>
         <p class="daily-caption">
-          {{
-            metric === "density"
-              ? "Маркеры на 100 слов исходного текста, по дням UTC."
-              : "Маркеры в исходных расшифровках, по дням UTC."
-          }}
+          {{ metric === "density" ? $t("ui.b96b1739e1") : $t("ui.817996b539") }}
         </p>
       </div>
       <WlSegmented
         class="daily-metric-switch"
         :model-value="metric"
         :options="chartMetricOptions"
-        aria-label="Единица дневного графика"
+        :aria-label="$t('ui.dd9a8af00e')"
         @update:model-value="setMetric"
       />
     </div>

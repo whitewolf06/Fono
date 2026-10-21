@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type {
   CommandsPort,
   WorkspaceState,
@@ -7,7 +8,7 @@ export function createCommandsPort(state: WorkspaceState): CommandsPort {
   return {
     saveApp(app) {
       if (!app.name.trim() || !app.phrase.trim() || !app.path.trim())
-        throw new Error("Заполните название, фразу и путь приложения.");
+        throw new Error(uiMessage("ui.1e54c41be1"));
       if (
         state.applications.some(
           (a) =>
@@ -15,7 +16,7 @@ export function createCommandsPort(state: WorkspaceState): CommandsPort {
             a.phrase.toLowerCase() === app.phrase.toLowerCase(),
         )
       )
-        throw new Error("Такая фраза уже занята.");
+        throw new Error(uiMessage("ui.3da37fb531"));
       const index = state.applications.findIndex((a) => a.id === app.id);
       const next = { ...app, id: app.id || "app-" + Date.now() };
       if (index < 0) state.applications.push(next);
@@ -32,18 +33,16 @@ export function createCommandsPort(state: WorkspaceState): CommandsPort {
       const command = supportedCommands.find((c) => c.phrase === normalized);
       if (command)
         return (
-          "Распознано: " +
+          uiMessage("ui.570f6ef5ce") +
           command.description +
-          ". В демонстрации действие не выполняется."
+          uiMessage("ui.a76221e108")
         );
       const app = state.applications.find(
         (a) => a.phrase.toLocaleLowerCase("ru") === normalized,
       );
       return app
-        ? "Распознано: открыть «" +
-            app.name +
-            "». В демонстрации приложение не запускается."
-        : "Команда не найдена. Используйте одну из фраз каталога или произносимое название приложения.";
+        ? uiMessage("ui.7dbba6b017") + app.name + uiMessage("ui.43d048f1e3")
+        : uiMessage("ui.448f7b9d3f");
     },
   };
 }

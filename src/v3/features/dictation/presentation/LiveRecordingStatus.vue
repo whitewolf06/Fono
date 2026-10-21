@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -24,9 +26,8 @@ const canResume = computed(
 </script>
 <template>
   <p v-if="liveMode && !recording && !working" class="live-notice">
-    Выберите поле в приложении и нажмите
-    {{ triggerLabel(workspace.state.preferences) }}. Кнопка записи здесь выводит
-    текст в Fono.
+    {{ $t("ui.80d6ce02bf") }} {{ triggerLabel(workspace.state.preferences)
+    }}{{ $t("ui.f8cbcc9fbf") }}
   </p>
   <p
     v-if="live && recording"
@@ -39,14 +40,14 @@ const canResume = computed(
     {{
       live.warning ||
       (live.insertionState === "paused_focus"
-        ? "Поле изменилось. Распознавание продолжается, текст ждёт вставки."
+        ? $t("ui.a8527eee62")
         : live.insertionState === "none"
-          ? "Выберите поле и нажмите «Продолжить вставку» в индикаторе. Или завершите и скопируйте текст."
+          ? $t("ui.e854db5c2c")
           : live.insertionState === "failed"
-            ? "Остаток текста сохранён. Проверьте последний фрагмент в поле перед ручным копированием. Автоматическая вставка остановлена."
+            ? $t("ui.1069f0fb9c")
             : live.lagMs > 4000
-              ? "Аудио сохраняется, подтверждённые фрагменты появятся по порядку."
-              : "Паузы разделяют фразы. Завершите запись кнопкой или горячей клавишей.")
+              ? $t("ui.5be18284fe")
+              : $t("ui.68a473fb77"))
     }}
   </p>
   <p v-if="canResume && !workspace.native" class="live-notice">
@@ -54,7 +55,7 @@ const canResume = computed(
       size="xs"
       variant="ghost"
       @click="run(() => workspace.dictation.resumeInsertion())"
-      >Продолжить вставку · демо</WlButton
+      >{{ $t("ui.8abddba0c1") }}</WlButton
     >
   </p>
 </template>

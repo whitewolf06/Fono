@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { ref, onScopeDispose } from "vue";
 import type {
   Phase,
@@ -280,8 +281,7 @@ export function useOverlayDemo(getPreferences?: () => Preferences) {
     },
     showPendingError() {
       select("awaiting_action");
-      pending.value!.error =
-        "Пример ошибки подключения. Повторите обработку или вставьте исходный текст.";
+      pending.value!.error = uiMessage("ui.5fe8087ac7");
     },
     selectLive(state: "recording" | "paused" | "backlog" | "error") {
       select("listening");

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { WlButton, WlField, WlInput } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -9,18 +11,18 @@ const draft = defineModel<Preferences>({ required: true });
 </script>
 <template>
   <section class="form-stack">
-    <h3>Получение выделенного текста</h3>
+    <h3>{{ $t("ui.fea90688d9") }}</h3>
     <PreferenceToggle
       name="selectionCaptureEnabled"
       :disabled="active || workspace.state.triggerCaptureActive"
-      label="Отдельное сочетание для выделения"
-      description="Получить только выбранный фрагмент другого приложения. По умолчанию выключено."
+      :label="$t('ui.4cad5fa9b8')"
+      :description="$t('ui.40d978d111')"
     />
     <WlField
       id="selectionHotkey"
       v-slot="field"
-      label="Сочетание для выделения"
-      hint="Выделите фрагмент в другом приложении, нажмите и отпустите сочетание. Fono покажет полученный текст. Повторное сочетание закрывает фрагмент, а после подтверждения замены — отправляет результат в исходное выделение."
+      :label="$t('ui.67bce1c66d')"
+      :hint="$t('ui.d90cd6bfe9')"
     >
       <WlInput
         v-bind="field"
@@ -31,32 +33,26 @@ const draft = defineModel<Preferences>({ required: true });
     <PreferenceToggle
       name="selectionClipboardFallback"
       :disabled="active || workspace.state.triggerCaptureActive"
-      label="Разрешить резервный Ctrl+C"
-      description="Если UI Automation недоступен, Fono может скопировать подтверждённое выделение и восстановить буфер. Стороннее приложение может добавить копию в историю буфера Windows."
+      :label="$t('ui.deff4adbbe')"
+      :description="$t('ui.fe9116db5c')"
     />
-    <p class="muted">
-      Без подтверждённого выделения и в защищённых полях получение отклоняется.
-      Сочетание не должно пересекаться с диктовкой и голосовыми командами.
-    </p>
+    <p class="muted">{{ $t("ui.265cfc3c5d") }}</p>
     <PreferenceToggle
       name="selectionAutoInsert"
       :disabled="active || workspace.state.triggerCaptureActive"
-      label="Вставлять правку сразу после LLM"
-      description="По умолчанию результат ждёт подтверждения. При включении он заменит исходное выделение после проверки поля. Настройка действует для новых выделений."
+      :label="$t('ui.c38d3b5b34')"
+      :description="$t('ui.555f12a379')"
     />
     <PreferenceToggle
       name="selectionHistoryEnabled"
-      label="Сохранять результат правки в историю"
-      description="Только после успешного копирования или отправки в поле, один раз. Общая история тоже должна быть включена. Оригинал и инструкция не сохраняются. Настройка действует для новых выделений."
+      :label="$t('ui.814cc0735b')"
+      :description="$t('ui.8565219416')"
     />
     <WlButton
       v-if="!workspace.native && workspace.selection.demo"
       @click="workspace.selection.demo()"
-      >Посмотреть пример выделения</WlButton
+      >{{ $t("ui.0558fb623c") }}</WlButton
     >
-    <p v-if="!workspace.native" class="notice">
-      В браузере доступен только пример формы. Другие приложения и буфер обмена
-      не читаются.
-    </p>
+    <p v-if="!workspace.native" class="notice">{{ $t("ui.153bf69efc") }}</p>
   </section>
 </template>

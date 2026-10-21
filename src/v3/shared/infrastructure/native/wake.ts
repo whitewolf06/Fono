@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../domain/messages";
 import { call } from "./ipc";
 import type { NativeContext } from "./context";
 import type { WakePort } from "../../domain/wake";
@@ -32,7 +33,10 @@ export function nativeWake(ctx: NativeContext): WakePort {
       customPhrase: caps.supports_custom_phrase,
       languages: (caps.available_languages || ["ru", "en"]).map((value) => ({
         value,
-        label: value === "ru" ? "Русский" : "Английский",
+        label:
+          value === "ru"
+            ? uiMessage("ui.6da140fdd4")
+            : uiMessage("ui.e7c1ef1d8e"),
       })),
     };
     ctx.state.wakeSetup = {
@@ -82,12 +86,12 @@ export function nativeWake(ctx: NativeContext): WakePort {
         "recognize_wake_word_sample",
       );
       return result.detected
-        ? "Фраза обнаружена: «" +
+        ? uiMessage("ui.89186f0c8a") +
             result.recognized +
-            "». Проверка заняла " +
+            uiMessage("ui.28cc678d69") +
             result.processing_ms +
-            " мс."
-        : "Фраза не обнаружена. Проверьте микрофон или настройте профиль заново.";
+            uiMessage("ui.70e6a59f2c")
+        : uiMessage("ui.668d8f179c");
     },
     begin: () => execute("start_wake_calibration"),
     record: () => execute("record_wake_calibration_sample"),

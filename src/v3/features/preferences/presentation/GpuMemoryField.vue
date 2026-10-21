@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import type { Preferences } from "../../../shared/domain/contracts";
 import { gpuMemoryUsage } from "../../../shared/domain/gpuMemory";
@@ -10,8 +15,18 @@ const workspace = useWorkspace();
 const status = computed(() => workspace.state.gpuMemory);
 const usage = computed(() => gpuMemoryUsage(status.value));
 const options = [
-  { value: "resident", label: "Постоянно · быстрый старт" },
-  { value: "adaptive", label: "Адаптивно · освобождать при нехватке памяти" },
+  {
+    value: "resident",
+    get label() {
+      return uiMessage("ui.22cff93398");
+    },
+  },
+  {
+    value: "adaptive",
+    get label() {
+      return uiMessage("ui.9393fd969c");
+    },
+  },
 ];
 </script>
 <template>
@@ -19,33 +34,29 @@ const options = [
     <SelectField
       id="gpu-memory"
       v-model="draft.gpuModelResidency"
-      label="Модель в видеопамяти"
+      :label="$t('ui.4cfc792253')"
       :options="options"
       :disabled="draft.acceleration === 'cpu'"
       :hint="
         draft.acceleration === 'cpu'
-          ? 'При ускорении на процессоре видеопамять не используется. Выбранный режим сохранится для GPU.'
+          ? $t('ui.949ade78a7')
           : draft.gpuModelResidency === 'adaptive'
-            ? 'Освобождает модель Whisper при нехватке видеопамяти только в простое. Следующая диктовка стартует медленнее из-за загрузки модели.'
-            : 'Модель Whisper остаётся в памяти между диктовками. Подходит, когда важен быстрый старт.'
+            ? $t('ui.79c5de714b')
+            : $t('ui.8d9115887c')
       "
     />
     <p v-if="workspace.native && status" class="notice" aria-live="polite">
-      Сейчас: {{ status.message }}<span v-if="usage"> · {{ usage }}</span>
+      {{ $t("ui.2aa98ec188") }} {{ status.message
+      }}<span v-if="usage"> · {{ usage }}</span>
     </p>
     <small v-else class="muted">
       {{
         workspace.state.gpuMemoryError ||
-        (workspace.native
-          ? "Получаем состояние видеопамяти…"
-          : "Браузерный макет: видеопамять не измеряется.")
+        (workspace.native ? $t("ui.d8cbb438f7") : $t("ui.4af93af552"))
       }}
     </small>
     <small v-if="draft.gpuModelResidency === 'adaptive'" class="muted">
-      Мониторинг пока поддерживается на Windows с одной видеокартой и выделенной
-      видеопамятью. На остальных системах модель остаётся загруженной. Во время
-      распознавания она не выгружается. Модели внешнего ИИ этот режим не
-      затрагивает.
+      {{ $t("ui.658df709f9") }}
     </small>
   </div>
 </template>

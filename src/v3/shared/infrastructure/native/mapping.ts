@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../domain/messages";
 import type {
   Settings,
   SttModelInfo,
@@ -12,6 +13,8 @@ import type {
   ServiceJob,
 } from "../../domain/contracts";
 import { defaults } from "../../../features/preferences/domain/preferences";
+import { findingTitles } from "../../../features/trainer/domain/analysis";
+import { availableUiLanguage } from "../../domain/locale";
 import { cloneApplicationProfiles } from "../../domain/applicationProfiles";
 import { measuredModel } from "../../domain/sttMeasurements";
 import { availableDictationMode } from "../../domain/dictationMode";
@@ -41,6 +44,7 @@ export function preferencesFromNative(
     : undefined;
   return {
     ...defaults,
+    uiLanguage: availableUiLanguage(s.ui_language),
     applicationProfiles: cloneApplicationProfiles(s.application_profiles ?? []),
     pretranscriptionEnabled: s.pretranscription_enabled === true,
     dictationMode: availableDictationMode(s.dictation_mode),
@@ -166,6 +170,7 @@ export function applyPreferences(
   if (has("applicationProfiles"))
     next.application_profiles = cloneApplicationProfiles(p.applicationProfiles);
   const pairs = {
+    uiLanguage: "ui_language",
     pretranscriptionEnabled: "pretranscription_enabled",
     dictationTrigger: "dictation_trigger",
     selectionCaptureEnabled: "selection_capture_enabled",
@@ -216,7 +221,7 @@ export function applyPreferences(
       (m) => modelKey(m.id) === p.model && m.local_path,
     );
     if (!model && p.model !== s.whisper_model_path)
-      throw new Error("Выберите установленную модель");
+      throw new Error(uiMessage("ui.a746ceacb3"));
     if (model) {
       next.stt_model = { id: { ...model.id }, local_path: model.local_path! };
       next.whisper_model_path =
@@ -330,11 +335,11 @@ export function modelsFromNative(models: SttModelInfo[]): SpeechModel[] {
     accelerations: m.capabilities.accelerations,
     description:
       m.id.engine === "whisper" && /_q[58]_/.test(m.id.variant)
-        ? "Квантованная модель. Качество зависит от записи."
+        ? uiMessage("ui.ad90b71e88")
         : m.filename,
     size: m.bytes
-      ? Math.round(m.bytes / 1048576) + " МБ"
-      : "По размеру загрузки",
+      ? Math.round(m.bytes / 1048576) + uiMessage("ui.883817f199")
+      : uiMessage("ui.2cc497fb28"),
     status: m.local_path ? "installed" : "available",
     progress: m.local_path ? 100 : 0,
   }));
@@ -368,12 +373,7 @@ export function historyFromNative(e: DictationHistoryEntry): Dictation {
     metadata,
     title: e.text.slice(0, 64),
     findings: kinds.map((kind, i) => ({
-      title: [
-        "Слова-паразиты",
-        "Повторы",
-        "Самоисправления",
-        "Незавершённые фразы",
-      ][i],
+      title: findingTitles[i],
       count: e.analysis
         ? [
             e.analysis.filler_count,
@@ -387,7 +387,9 @@ export function historyFromNative(e: DictationHistoryEntry): Dictation {
           .filter((f) => f.kind === kind)
           .map((f) => f.fragment)
           .join(", ") || "",
-      advice: "Делайте короткую паузу между мыслями.",
+      get advice() {
+        return uiMessage("ui.a474c5508a");
+      },
     })),
     analysisReady: e.analysis_status === "ready",
   };
@@ -395,7 +397,7 @@ export function historyFromNative(e: DictationHistoryEntry): Dictation {
 export function jobFromNative(j: LocalTranscriptionJob): ServiceJob {
   return {
     id: j.id,
-    name: j.file_name || "Задача " + j.id.slice(0, 8),
+    name: j.file_name || uiMessage("ui.1ed1075b58") + j.id.slice(0, 8),
     file: !!j.file_name,
     preparing: j.state === "preparing",
     progress: j.progress ?? undefined,

@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import channel from "../../../../../src-tauri/feedback-channel.json";
 
 export interface FeedbackContext {
@@ -64,7 +65,7 @@ export function feedbackUrl(
   allowLoopback = false,
 ): string {
   const url = validateFeedbackUrl(configured, allowLoopback);
-  if (!url) throw new Error("Форма обратной связи пока не настроена.");
+  if (!url) throw new Error(uiMessage("ui.87bcbf779f"));
   if (context) {
     url.hash = new URLSearchParams({
       version: context.version,

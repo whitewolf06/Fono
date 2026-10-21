@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import {
   WlDialog,
@@ -58,14 +60,14 @@ function submit() {
 <template>
   <WlDialog
     v-model:visible="visible"
-    :header="index === -1 ? 'Новое написание' : 'Изменить написание'"
+    :header="index === -1 ? $t('ui.61b3da3433') : $t('ui.bc0fac0aa9')"
     width="500px"
   >
     <div class="form-stack">
       <WlField
         v-slot="field"
-        label="Как писать"
-        hint="Точное написание, которое появится в результате."
+        :label="$t('ui.5e94bcf418')"
+        :hint="$t('ui.2f9eb70339')"
       >
         <WlInput
           v-bind="field"
@@ -76,8 +78,8 @@ function submit() {
       </WlField>
       <WlField
         v-slot="field"
-        label="Как произносится или распознаётся"
-        :hint="`По одному варианту в строке, до ${dictionaryLimits.variants} вариантов. Например, «вайт лайф».`"
+        :label="$t('ui.e80b4cfacf')"
+        :hint="$t('ui.b14f2ccceb', { v0: String(dictionaryLimits.variants) })"
       >
         <WlTextarea
           v-bind="field"
@@ -86,19 +88,17 @@ function submit() {
           :maxlength="
             dictionaryLimits.variants * (dictionaryLimits.phraseChars + 1)
           "
-          placeholder="вайт лайф&#10;white life"
+          :placeholder="$t('ui.63cdbcf1f5')"
         />
       </WlField>
-      <p class="muted">
-        Каноническое написание используется как подсказка модели. Варианты
-        произношения служат для точных замен целых слов и фраз после обработки;
-        пунктуация между словами должна совпадать. Это не обучение модели.
-      </p>
+      <p class="muted">{{ $t("ui.32f67100e6") }}</p>
       <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     </div>
     <template #footer>
-      <WlButton @click="close">Отмена</WlButton>
-      <WlButton variant="primary" @click="submit">Добавить в форму</WlButton>
+      <WlButton @click="close">{{ $t("ui.8fbe9b75cb") }}</WlButton>
+      <WlButton variant="primary" @click="submit">{{
+        $t("ui.ef82bff588")
+      }}</WlButton>
     </template>
   </WlDialog>
 </template>

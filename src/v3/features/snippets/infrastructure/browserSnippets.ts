@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import {
   parseSnippetJson,
   snippetJson,
@@ -21,7 +22,7 @@ export function createBrowserSnippetTransfer(): SnippetTransferPort {
               return;
             }
             if (file.size > snippetLimits.jsonBytes) {
-              reject(new Error("JSON-файл превышает 1 МиБ."));
+              reject(new Error(uiMessage("ui.7c128e2dc5")));
               return;
             }
             void file

@@ -95,6 +95,7 @@ struct ModelInfo {
 }
 
 pub struct LlmClient {
+    ui_locale: crate::types::UiLocale,
     base_url: String,
     model: Option<String>,
     api_key: Option<String>,
@@ -113,6 +114,7 @@ impl LlmClient {
         api_key: Option<String>,
     ) -> Self {
         Self {
+            ui_locale: crate::types::UiLocale::Ru,
             base_url: base_url.into(),
             model,
             api_key,
@@ -121,7 +123,8 @@ impl LlmClient {
 
     pub fn from_settings(settings: &Settings) -> Self {
         if let Some(profile) = settings.correction_profile() {
-            return Self::from_profile(profile, settings.text_correction_llm.model.as_deref());
+            return Self::from_profile(profile, settings.text_correction_llm.model.as_deref())
+                .with_ui_locale(settings.ui_language.resolve());
         }
         let base_url = match settings.llm_provider {
             LlmProvider::OpenAi if settings.llm_base_url.trim().is_empty() => {
@@ -137,6 +140,7 @@ impl LlmClient {
             }
         };
         Self {
+            ui_locale: settings.ui_language.resolve(),
             base_url,
             model: settings.llm_model.clone(),
             api_key,
@@ -158,6 +162,7 @@ impl LlmClient {
             }
         };
         Self {
+            ui_locale: crate::types::UiLocale::Ru,
             base_url,
             model: model_override
                 .filter(|model| !model.trim().is_empty())

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -42,24 +44,23 @@ function demo() {
           Boolean(current.edit.operationId)
         "
         @click="action('arm')"
-        >Подтвердить замену</WlButton
+        >{{ $t("ui.f2418b9058") }}</WlButton
       >
       <WlButton
         :disabled="busy || active || Boolean(current.edit.operationId)"
         @click="action('copy')"
-        >Копировать результат</WlButton
+        >{{ $t("ui.cd4665b319") }}</WlButton
       >
       <WlButton
         v-if="delivery?.phase === 'armed' || active"
         :disabled="busy || delivery?.phase === 'cancelling'"
         @click="action('cancel')"
-        >Отменить замену</WlButton
+        >{{ $t("ui.69057dd1cc") }}</WlButton
       >
     </div>
     <p v-if="delivery?.phase === 'armed'" role="status" class="notice">
-      Вернитесь в исходное поле с тем же выделением и нажмите
-      {{ workspace.state.preferences.selectionHotkey }}. При изменении поля или
-      фрагмента замена отклонится.
+      {{ $t("ui.8c39b360f8") }} {{ workspace.state.preferences.selectionHotkey
+      }}{{ $t("ui.4cae9853a1") }}
     </p>
     <WlButton
       v-if="
@@ -68,36 +69,29 @@ function demo() {
         delivery?.phase === 'armed'
       "
       @click="demo"
-      >Смоделировать замену</WlButton
+      >{{ $t("ui.712033c945") }}</WlButton
     >
     <p
       v-if="delivery?.phase === 'replacing' || delivery?.phase === 'cancelling'"
       role="status"
     >
-      Завершаю замену. Повторная отправка недоступна.
+      {{ $t("ui.72c9e3ab5c") }}
     </p>
-    <p v-if="delivery?.phase === 'copying'" role="status">Копирую результат…</p>
+    <p v-if="delivery?.phase === 'copying'" role="status">
+      {{ $t("ui.2e6688c0ac") }}
+    </p>
     <p v-if="delivery?.phase === 'submitted'" role="status">
-      {{
-        workspace.native
-          ? "Текст отправлен в исходное поле. Проверьте результат; повторная замена здесь отключена."
-          : "Демонстрационная замена завершена. Другие приложения не использовались."
-      }}
+      {{ workspace.native ? $t("ui.80c21c8a38") : $t("ui.368b41bb78") }}
     </p>
     <p v-if="delivery?.phase === 'copied'" role="status">
-      {{
-        workspace.native
-          ? "Результат скопирован."
-          : "Демонстрация копирования. Системный буфер не менялся."
-      }}
+      {{ workspace.native ? $t("ui.f3a941e04d") : $t("ui.29adedc09d") }}
     </p>
     <p
       v-if="delivery?.phase === 'blocked' || delivery?.phase === 'uncertain'"
       role="alert"
       class="notice"
     >
-      Замена не подтверждена. Проверьте исходное поле перед ручной вставкой.
-      Результат доступен для копирования; повтор отключён.
+      {{ $t("ui.b7e5f64fb3") }}
     </p>
     <p v-if="delivery?.message || error" role="alert" class="error-text">
       {{ error || delivery?.message }}

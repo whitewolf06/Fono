@@ -1,3 +1,4 @@
+import { uiIntlLocale } from "../../../shared/domain/locale";
 /** Repository changes. A version entry is not evidence of a published release. */
 export interface VersionEntry {
   version: string;
@@ -21,7 +22,7 @@ export function compareVersions(left: string, right: string): number {
   return 0;
 }
 export function formatVersionDate(date: string): string {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("ru-RU", {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(uiIntlLocale(), {
     day: "numeric",
     month: "long",
     year: "numeric",

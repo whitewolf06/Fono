@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { ref } from "vue";
 import { WlButton, WlSwitch } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -11,7 +13,7 @@ const { run, busy, error } = useFeedback();
 <template>
   <section id="feedback" class="feedback-card" aria-labelledby="feedback-title">
     <div class="section-header">
-      <h3 id="feedback-title">Обратная связь</h3>
+      <h3 id="feedback-title">{{ $t("ui.930f9a65fb") }}</h3>
       <WlButton
         size="sm"
         :disabled="!channel.available || busy"
@@ -19,18 +21,15 @@ const { run, busy, error } = useFeedback();
         @click="run(() => channel.open(includeContext))"
       >
         <template #icon><AppIcon name="external-link" /></template>
-        Открыть форму в браузере
+        {{ $t("ui.2f7192e959") }}
       </WlButton>
     </div>
-    <p class="muted">
-      Отзыв, идея или ошибка — в отдельной форме. Сообщение отправляется только
-      после подтверждения в браузере.
-    </p>
+    <p class="muted">{{ $t("ui.60ad7a5c32") }}</p>
     <p v-if="!channel.available" class="notice" role="status">
-      Форма обратной связи пока не настроена для этой сборки.
+      {{ $t("ui.df9e9f065b") }}
     </p>
     <div class="feedback-context-option">
-      <span id="feedback-context-label">Добавить версию и раздел Fono</span>
+      <span id="feedback-context-label">{{ $t("ui.318881e364") }}</span>
       <WlSwitch
         v-model="includeContext"
         :disabled="!channel.available || busy"
@@ -39,11 +38,9 @@ const { run, busy, error } = useFeedback();
     </div>
     <p v-if="includeContext" class="muted" aria-live="polite">
       {{ channel.context.version }} · {{ channel.context.platform }} ·
-      {{ channel.context.route }}. В форме можно проверить и убрать эти поля.
+      {{ channel.context.route }}{{ $t("ui.3a19b573c7") }}
     </p>
-    <p class="muted">
-      Тексты диктовок, журнал, аудио, ключи и имена устройств не добавляются.
-    </p>
+    <p class="muted">{{ $t("ui.d88e003074") }}</p>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
   </section>
 </template>

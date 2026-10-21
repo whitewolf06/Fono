@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, onScopeDispose } from "vue";
 import { useRouter } from "vue-router";
 import { WlDialog, WlButton } from "@whitelife-core/ui-kit";
@@ -20,12 +25,24 @@ const { run, busy, error } = useFeedback();
 const { draft, dirty, save, canLeave } = useDraft(() => quickKeys[props.panel]);
 const closing = ref(false);
 const titles: Record<QuickPanel, string> = {
-  microphone: "Микрофон",
-  wake: "Пробуждение",
-  recognition: "Распознавание",
-  processing: "Обработка текста",
-  hotkey: "Горячая клавиша",
-  "command-hotkey": "Голосовые команды · клавиша",
+  get microphone() {
+    return uiMessage("ui.f038415295");
+  },
+  get wake() {
+    return uiMessage("ui.8cf77f0854");
+  },
+  get recognition() {
+    return uiMessage("ui.7894eb1ac6");
+  },
+  get processing() {
+    return uiMessage("ui.d4a26d3502");
+  },
+  get hotkey() {
+    return uiMessage("ui.18fb8ccf7e");
+  },
+  get "command-hotkey"() {
+    return uiMessage("ui.d24867ef39");
+  },
 };
 async function close() {
   if (closing.value || busy.value) return;
@@ -70,9 +87,11 @@ onScopeDispose(removeGuard);
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     <template #footer
       ><WlButton variant="link" class="push-left" @click="allSettings">{{
-        panel === "recognition" ? "Управление моделями" : "Все настройки"
+        panel === "recognition" ? $t("ui.3fe343fdd3") : $t("ui.f9a245781f")
       }}</WlButton
-      ><WlButton :disabled="busy" @click="close">Отмена</WlButton
+      ><WlButton :disabled="busy" @click="close">{{
+        $t("ui.8fbe9b75cb")
+      }}</WlButton
       ><WlButton
         variant="primary"
         :loading="busy"
@@ -82,11 +101,11 @@ onScopeDispose(removeGuard);
           (panel === 'wake' && !WAKE_WORD_AVAILABLE)
         "
         @click="
-          run(save, 'Настройки сохранены').then((ok) => {
+          run(save, $t('ui.babdb58139')).then((ok) => {
             if (ok && !dirty) ui.state.quick = null;
           })
         "
-        >Сохранить</WlButton
+        >{{ $t("ui.b4d30cae52") }}</WlButton
       ></template
     >
   </WlDialog>

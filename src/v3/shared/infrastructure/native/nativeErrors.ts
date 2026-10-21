@@ -1,5 +1,8 @@
 import catalog from "./userErrorCatalog.json";
-import { createMessageDictionary } from "../../domain/messages";
+import {
+  createMessageDictionary,
+  translateAuthored,
+} from "../../domain/messages";
 const errorMessage = createMessageDictionary(catalog.messages);
 
 export type NativeErrorCode = keyof typeof catalog.messages;
@@ -111,10 +114,13 @@ function decode(error: unknown, fallback: NativeErrorCode) {
 }
 
 function message(code: NativeErrorCode, params: NativeErrorParams): string {
-  if (params.detail) return params.detail;
+  if (params.detail) return translateAuthored(params.detail);
   if (params.backend && Object.hasOwn(catalog.templates, code)) {
     const template = catalog.templates[code as keyof typeof catalog.templates];
-    return template.replace("{backend}", backendLabels[params.backend]);
+    return translateAuthored(template).replace(
+      "{backend}",
+      translateAuthored(backendLabels[params.backend]),
+    );
   }
   return errorMessage(code);
 }

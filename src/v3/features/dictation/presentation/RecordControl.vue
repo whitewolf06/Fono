@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, defineAsyncComponent } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import {
@@ -60,12 +65,12 @@ async function copyPending(text: string, sessionId: number) {
         text,
         sessionId,
       ),
-    "Скопировано",
+    uiMessage("ui.d2d08c715e"),
   );
 }
 </script>
 <template>
-  <section class="record-area" aria-label="Диктовка">
+  <section class="record-area" :aria-label="$t('ui.7a38a67834')">
     <VoiceWave
       v-if="!pending && !notice"
       :phase="workspace.state.phase"
@@ -110,14 +115,18 @@ async function copyPending(text: string, sessionId: number) {
             :name="recording ? 'stop' : 'microphone'"
             :size="16" /></template
         >{{
-          recording ? "Завершить" : working ? "Обработка" : "Начать запись"
+          recording
+            ? $t("ui.8be2bbf39a")
+            : working
+              ? $t("ui.fd0ecd47a7")
+              : $t("ui.10b7c794e6")
         }}</WlButton
       ><WlButton
         v-if="recording || working"
         size="sm"
         variant="ghost"
         @click="run(() => workspace.dictation.cancel())"
-        >Отмена</WlButton
+        >{{ $t("ui.8fbe9b75cb") }}</WlButton
       >
     </div>
     <LiveRecordingStatus v-if="liveCompiled" />

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
@@ -31,72 +33,61 @@ function toggle(profile: ApplicationProfile) {
 <template>
   <section id="application-profiles" class="form-stack">
     <div class="section-divider" />
-    <h3>Профили приложений</h3>
-    <p class="muted">
-      Стиль, перевод, язык распознавания и вставка для нужного приложения.
-      Профиль выбирается при старте диктовки; ручной выбор в индикаторе важнее.
-      Для остальных приложений действуют общие настройки.
-    </p>
-    <p class="muted">
-      Fono использует только имя exe исходного приложения. Заголовки, адреса
-      страниц и содержимое окон для профиля не читаются. Выбор не переносится
-      вслед за фокусом.
-    </p>
-    <p class="muted">
-      Изменения профилей применяются после «Сохранить» и со следующей диктовки.
-    </p>
-    <p v-if="!workspace.native" class="notice">
-      Браузерный макет: профили живут до перезагрузки. Приложения компьютера не
-      определяются.
-    </p>
+    <h3>{{ $t("ui.add2110e07") }}</h3>
+    <p class="muted">{{ $t("ui.ac501cd57c") }}</p>
+    <p class="muted">{{ $t("ui.d421280611") }}</p>
+    <p class="muted">{{ $t("ui.7865f62036") }}</p>
+    <p v-if="!workspace.native" class="notice">{{ $t("ui.cfb19f4709") }}</p>
     <ul
       v-if="draft.applicationProfiles.length"
       class="dictionary-list"
-      aria-label="Профили приложений"
+      :aria-label="$t('ui.add2110e07')"
     >
       <li v-for="profile in draft.applicationProfiles" :key="profile.id">
         <div>
           <strong>{{ profile.name }}</strong
           ><small
             >{{ profile.executables.join(", ") }} ·
-            {{ profile.enabled ? "Включён" : "Выключен" }}</small
+            {{
+              profile.enabled ? $t("ui.0b81629905") : $t("ui.5a577d9056")
+            }}</small
           >
         </div>
         <div class="actions">
           <WlButton
             size="sm"
             variant="ghost"
-            :aria-label="'Изменить профиль ' + profile.name"
+            :aria-label="$t('ui.a18e9485da') + profile.name"
             @click="editing = profile"
-            >Изменить</WlButton
+            >{{ $t("ui.b8b151d417") }}</WlButton
           ><WlButton
             size="sm"
             variant="ghost"
-            :aria-label="'Переключить профиль ' + profile.name"
+            :aria-label="$t('ui.820ceb0d28') + profile.name"
             @click="toggle(profile)"
-            >{{ profile.enabled ? "Выключить" : "Включить" }}</WlButton
+            >{{
+              profile.enabled ? $t("ui.eda262ba05") : $t("ui.a54eaf3785")
+            }}</WlButton
           ><WlButton
             size="sm"
             variant="ghost"
-            :aria-label="'Удалить профиль ' + profile.name"
+            :aria-label="$t('ui.40531844bd') + profile.name"
             @click="
               draft.applicationProfiles = draft.applicationProfiles.filter(
                 (p) => p.id !== profile.id,
               )
             "
-            >Удалить</WlButton
+            >{{ $t("ui.be99b13612") }}</WlButton
           >
         </div>
       </li>
     </ul>
-    <p v-else class="muted">
-      Профилей пока нет — используются общие настройки.
-    </p>
+    <p v-else class="muted">{{ $t("ui.37d1ae020b") }}</p>
     <div class="actions">
       <WlButton
         :disabled="draft.applicationProfiles.length >= 32"
         @click="editing = newApplicationProfile(draft.applicationProfiles)"
-        >Добавить профиль приложения</WlButton
+        >{{ $t("ui.55632da092") }}</WlButton
       ><small class="muted">{{ draft.applicationProfiles.length }} / 32</small>
     </div>
     <ApplicationProfileEditor

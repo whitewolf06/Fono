@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { Section } from "../../../shared/domain/contracts";
 import type { WlIconName } from "@whitelife-core/ui-kit";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
@@ -9,45 +10,73 @@ export const sections: {
 }[] = [
   {
     id: "general",
-    title: "Основные",
+    get title() {
+      return uiMessage("ui.d40de76d56");
+    },
     icon: "grid",
-    description: "Запуск Fono и поведение приложения.",
+    get description() {
+      return uiMessage("ui.716ba9e655");
+    },
   },
   {
     id: "audio",
-    title: "Аудио и распознавание",
+    get title() {
+      return uiMessage("ui.606a246350");
+    },
     icon: "microphone",
-    description: "Откуда слушать и как превращать голос в текст.",
+    get description() {
+      return uiMessage("ui.a6a2ebf0e2");
+    },
   },
   {
     id: "activation",
-    title: "Кнопки и активация",
+    get title() {
+      return uiMessage("ui.902d6f27ec");
+    },
     icon: "lightning",
-    description: "Начало диктовки без лишних действий.",
+    get description() {
+      return uiMessage("ui.f75f85e366");
+    },
   },
   {
     id: "processing",
-    title: "Обработка текста и ИИ",
+    get title() {
+      return uiMessage("ui.84ed05650c");
+    },
     icon: "sparkle",
-    description: "Чистый текст с сохранением вашего смысла.",
+    get description() {
+      return uiMessage("ui.59015bef60");
+    },
   },
   {
     id: "overlay",
-    title: "Индикатор записи",
+    get title() {
+      return uiMessage("ui.f4c1856607");
+    },
     icon: "panel",
-    description: "Небольшой индикатор поверх других окон.",
+    get description() {
+      return uiMessage("ui.e6d59c60a4");
+    },
   },
   {
     id: "privacy",
-    title: "История и приватность",
+    get title() {
+      return uiMessage("ui.c48cd755f9");
+    },
     icon: "eye",
-    description: "Вы решаете, какие данные сохранять.",
+    get description() {
+      return uiMessage("ui.d2490aa6ca");
+    },
   },
   {
     id: "diagnostics",
-    title: "Диагностика",
+    get title() {
+      return uiMessage("ui.da4da4e352");
+    },
     icon: "activity",
-    description: "Состояние компонентов и понятные действия.",
+    get description() {
+      return uiMessage("ui.6f1713f7e8");
+    },
   },
 ];
 export const searchIndex: {
@@ -57,191 +86,307 @@ export const searchIndex: {
   keywords: string;
 }[] = [
   {
-    label: "Получение выделения",
+    get label() {
+      return uiMessage("ui.9089a73112");
+    },
+    section: "general",
+    field: "uiLanguage",
+    keywords:
+      "язык интерфейса русский английский language interface locale Russian English",
+  },
+  {
+    get label() {
+      return uiMessage("ui.296d198409");
+    },
     section: "activation",
     field: "selectionHotkey",
-    keywords: "выделение текст uia clipboard copy ctrl+c буфер правка",
+    get keywords() {
+      return uiMessage("ui.c5d97dda92");
+    },
   },
   {
-    label: "Микрофон",
+    get label() {
+      return uiMessage("ui.f038415295");
+    },
     section: "audio",
     field: "microphone",
-    keywords: "звук вход устройство гарнитура сигнал",
+    get keywords() {
+      return uiMessage("ui.fc3c4c5aac");
+    },
   },
   {
-    label: "Личный словарь",
+    get label() {
+      return uiMessage("ui.4e7867b548");
+    },
     section: "audio",
     field: "dictionary",
-    keywords: "словарь написание имена названия термины замены",
+    get keywords() {
+      return uiMessage("ui.7c37a64586");
+    },
   },
   {
-    label: "Модель распознавания",
+    get label() {
+      return uiMessage("ui.8b9baf7846");
+    },
     section: "audio",
     field: "model",
-    keywords: "whisper stt скачать загрузка ускорение cuda язык",
+    get keywords() {
+      return uiMessage("ui.545800ad64");
+    },
   },
   {
-    label: "Модель в видеопамяти",
+    get label() {
+      return uiMessage("ui.4cfc792253");
+    },
     section: "audio",
     field: "gpu-memory",
-    keywords:
-      "gpu vram память видеокарта адаптивный постоянный resident adaptive выгрузка освобождение vulkan cuda",
+    get keywords() {
+      return uiMessage("ui.c80fd82b48");
+    },
   },
   {
-    label: "Горячая клавиша",
+    get label() {
+      return uiMessage("ui.18fb8ccf7e");
+    },
     section: "activation",
     field: "hotkey",
-    keywords:
-      "hotkey shortcut ctrl space сочетание кнопка мышь педаль usb capslock alt триггер",
+    get keywords() {
+      return uiMessage("ui.3b1b55fba2");
+    },
   },
   {
-    label: "Режим горячей клавиши",
+    get label() {
+      return uiMessage("ui.14e1110db4");
+    },
     section: "activation",
     field: "hotkeyMode",
-    keywords:
-      "удерживать зажать отпустить нажать повторно toggle hold старт стоп",
+    get keywords() {
+      return uiMessage("ui.e7f878223e");
+    },
   },
   {
-    label: "Фраза пробуждения",
+    get label() {
+      return uiMessage("ui.c87d95102c");
+    },
     section: "activation",
     field: "wakePhrase",
-    keywords: "wakeword wake слово активация",
+    get keywords() {
+      return uiMessage("ui.d62d3c027a");
+    },
   },
   {
-    label: "Завершение по тишине",
+    get label() {
+      return uiMessage("ui.1caa95b395");
+    },
     section: "activation",
     field: "silenceMs",
-    keywords: "тишина тишине пауза задержка конец диктовки",
+    get keywords() {
+      return uiMessage("ui.a64f15b843");
+    },
   },
   {
-    label: "Калибровка и пороги",
+    get label() {
+      return uiMessage("ui.7744360ac2");
+    },
     section: "activation",
     field: "advanced",
-    keywords: "чувствительность vad шум порог",
+    get keywords() {
+      return uiMessage("ui.fbb9eb0ee5");
+    },
   },
   {
-    label: "Обработка текста",
+    get label() {
+      return uiMessage("ui.d4a26d3502");
+    },
     section: "processing",
     field: "processingMode",
-    keywords:
-      "пунктуация очистка форматирование задача задачи деловое письмо llm постобработка стиль",
+    get keywords() {
+      return uiMessage("ui.2d493eec09");
+    },
   },
   {
-    label: "Автоматическая или ручная обработка",
+    get label() {
+      return uiMessage("ui.1493851f52");
+    },
     section: "processing",
     field: "processingTrigger",
-    keywords:
-      "по кнопке ручная автоматическая индикатор overlay обработать вставить",
+    get keywords() {
+      return uiMessage("ui.ab387b21d0");
+    },
   },
   {
-    label: "Перевод после обработки",
+    get label() {
+      return uiMessage("ui.6dbccf713c");
+    },
     section: "processing",
     field: "processingTranslation",
-    keywords:
-      "перевести перевод английский русский немецкий французский испанский язык",
+    get keywords() {
+      return uiMessage("ui.0b2238a56d");
+    },
   },
   {
-    label: "Подключение и модели ИИ",
+    get label() {
+      return uiMessage("ui.976cfb82ff");
+    },
     section: "processing",
     field: "profile",
-    keywords: "openai lmstudio ключ профиль api сервер ии",
+    get keywords() {
+      return uiMessage("ui.175f0f9475");
+    },
   },
   {
-    label: "Системные промпты и проверка обработки",
+    get label() {
+      return uiMessage("ui.558cffa937");
+    },
     section: "processing",
     field: "processingPrompts",
-    keywords:
-      "prompt промпт подсказка инструкция тест проверка попробовать диктовка",
+    get keywords() {
+      return uiMessage("ui.db0f8b44c4");
+    },
   },
   {
-    label: "Рекомендации тренера через ИИ",
+    get label() {
+      return uiMessage("ui.91c097aca3");
+    },
     section: "processing",
     field: "trainerModel",
-    keywords: "тренер анализ метрики облако согласие",
+    get keywords() {
+      return uiMessage("ui.8694023a12");
+    },
   },
   {
-    label: "Вид индикатора",
+    get label() {
+      return uiMessage("ui.940d898a7a");
+    },
     section: "overlay",
     field: "overlayScale",
-    keywords: "overlay плавающий прозрачность масштаб компактный положение",
+    get keywords() {
+      return uiMessage("ui.9ef902d412");
+    },
   },
   {
-    label: "Быстрые настройки обработки в индикаторе",
+    get label() {
+      return uiMessage("ui.b5270b927f");
+    },
     section: "overlay",
     field: "overlayQuickProcessing",
-    keywords:
-      "стиль перевод пресет запомнить overlay повторное нажатие быстрые",
+    get keywords() {
+      return uiMessage("ui.453173c490");
+    },
   },
   {
-    label: "История и срок хранения",
+    get label() {
+      return uiMessage("ui.8c90995135");
+    },
     section: "privacy",
     field: "retentionDays",
-    keywords: "удалить приватность записи сохранять",
+    get keywords() {
+      return uiMessage("ui.24e5d30091");
+    },
   },
   {
-    label: "Локальная аналитика речи",
+    get label() {
+      return uiMessage("ui.b3aaca3b2f");
+    },
     section: "privacy",
     field: "trainerEnabled",
-    keywords: "тренер исходный текст согласие",
+    get keywords() {
+      return uiMessage("ui.b2d5e4d1ac");
+    },
   },
   {
-    label: "Автозапуск",
+    get label() {
+      return uiMessage("ui.18d54d8fce");
+    },
     section: "general",
     field: "autostart",
-    keywords: "старт windows запуск",
+    get keywords() {
+      return uiMessage("ui.81209c6c88");
+    },
   },
   {
-    label: "Вставка текста",
+    get label() {
+      return uiMessage("ui.fa7b9c286e");
+    },
     section: "general",
     field: "insertion",
-    keywords: "буфер clipboard sendinput ввод",
+    get keywords() {
+      return uiMessage("ui.f774b2a92f");
+    },
   },
   {
-    label: "Версия и первый запуск",
+    get label() {
+      return uiMessage("ui.bb14754e2f");
+    },
     section: "general",
     field: "about",
-    keywords: "версия мастер обучение настройка",
+    get keywords() {
+      return uiMessage("ui.3869827aa0");
+    },
   },
   {
-    label: "Обновления Fono",
+    get label() {
+      return uiMessage("ui.406ee0f68c");
+    },
     section: "general",
     field: "updates",
-    keywords: "обновить скачать установить версия github релиз",
+    get keywords() {
+      return uiMessage("ui.cd0d5ed3ee");
+    },
   },
   {
-    label: "Журнал диагностики",
+    get label() {
+      return uiMessage("ui.e6291756aa");
+    },
     section: "diagnostics",
     field: "logs",
-    keywords: "логи ошибка проблема проверка",
+    get keywords() {
+      return uiMessage("ui.48993dee99");
+    },
   },
 ];
 
 searchIndex.push({
-  label: "Профили приложений",
+  get label() {
+    return uiMessage("ui.add2110e07");
+  },
   section: "general",
   field: "application-profiles",
-  keywords: "exe code telegram terminal стиль перевод язык вставка профиль",
+  get keywords() {
+    return uiMessage("ui.c45632e45d");
+  },
 });
 searchIndex.push({
-  label: "Голосовые сниппеты",
+  get label() {
+    return uiMessage("ui.7d3b36a6aa");
+  },
   section: "audio",
   field: "snippets",
-  keywords:
-    "сниппет макрос подпись шаблон json импорт экспорт date time clipboard",
+  get keywords() {
+    return uiMessage("ui.4aae390f18");
+  },
 });
 searchIndex.push({
-  label: "Распознавать фразы во время записи",
+  get label() {
+    return uiMessage("ui.1c4579942e");
+  },
   section: "audio",
   field: "pretranscriptionEnabled",
-  keywords: "предварительное фоновое распознавание длинная диктовка пауза",
+  get keywords() {
+    return uiMessage("ui.0d760da869");
+  },
 });
 
 if (LIVE_DICTATION_ENABLED)
   searchIndex.unshift({
-    label: "Режим диктовки",
+    get label() {
+      return uiMessage("ui.a6d9bf3c4d");
+    },
     section: "activation",
     field: "dictationMode",
-    keywords: "живая потоковая live streaming текст поэтапно",
+    get keywords() {
+      return uiMessage("ui.ab1b250ccf");
+    },
   });
 
 if (!(typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)) {

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as uiMessage, message as $t } from "../shared/domain/messages";
+
 import { onMounted, onUnmounted } from "vue";
 import { RouterLink, RouterView, useRouter, useRoute } from "vue-router";
 import {
@@ -23,13 +25,55 @@ const route = useRoute();
 const ui = useInteraction();
 const version = __FONO_FRONTEND_BUILD__.version;
 const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
-  { to: "/", title: "Главная", icon: "home" },
-  { to: "/files", title: "Файлы", icon: "file" },
-  { to: "/history", title: "История", icon: "clock" },
-  { to: "/trainer", title: "Речевой тренер", icon: "activity" },
-  { to: "/commands", title: "Голосовые команды", icon: "microphone" },
-  { to: "/api/tasks", title: "API-сервис", icon: "server" },
-  { to: "/settings/general", title: "Настройки", icon: "settings" },
+  {
+    to: "/",
+    get title() {
+      return uiMessage("ui.d328e53dc4");
+    },
+    icon: "home",
+  },
+  {
+    to: "/files",
+    get title() {
+      return uiMessage("ui.9088ca9c0d");
+    },
+    icon: "file",
+  },
+  {
+    to: "/history",
+    get title() {
+      return uiMessage("ui.1417b7792d");
+    },
+    icon: "clock",
+  },
+  {
+    to: "/trainer",
+    get title() {
+      return uiMessage("ui.387054796e");
+    },
+    icon: "activity",
+  },
+  {
+    to: "/commands",
+    get title() {
+      return uiMessage("ui.6c0adb50d0");
+    },
+    icon: "microphone",
+  },
+  {
+    to: "/api/tasks",
+    get title() {
+      return uiMessage("ui.1b580ef9f9");
+    },
+    icon: "server",
+  },
+  {
+    to: "/settings/general",
+    get title() {
+      return uiMessage("ui.985b5e0f2c");
+    },
+    icon: "settings",
+  },
 ];
 const appIconUrl = import.meta.env.BASE_URL + "fono-icon.png";
 let releaseShortcut = () => {};
@@ -72,7 +116,7 @@ onUnmounted(() => {
 <template>
   <div class="v3-shell">
     <aside class="v3-sidebar">
-      <RouterLink class="v3-brand" to="/" aria-label="Fono — главная">
+      <RouterLink class="v3-brand" to="/" :aria-label="$t('ui.fa328ff65e')">
         <img
           class="brand-icon"
           :src="appIconUrl"
@@ -83,11 +127,11 @@ onUnmounted(() => {
           draggable="false"
         /><span
           ><FonoWordmark class="brand-wordmark" /><small
-            >Версия {{ version }}</small
+            >{{ $t("ui.c399489233") }} {{ version }}</small
           ></span
         >
       </RouterLink>
-      <nav class="v3-side-nav" aria-label="Основная навигация">
+      <nav class="v3-side-nav" :aria-label="$t('ui.8fff0bba44')">
         <RouterLink
           v-for="item in menu"
           :key="item.to"
@@ -121,13 +165,15 @@ onUnmounted(() => {
       </nav>
       <SidebarExtras />
       <div v-if="!workspace.native" class="sidebar-bottom">
-        <span class="demo-label"><span />Демо интерфейса</span
+        <span class="demo-label"><span />{{ $t("ui.de09f76386") }}</span
         ><RouterLink
           to="/scenarios"
           class="nav-item"
-          title="Проверка интерфейса"
-          aria-label="Проверка интерфейса"
-          ><AppIcon name="grid" /><span>Сценарии проверки</span></RouterLink
+          :title="$t('ui.228609c7a8')"
+          :aria-label="$t('ui.228609c7a8')"
+          ><AppIcon name="grid" /><span>{{
+            $t("ui.87a0a9c452")
+          }}</span></RouterLink
         >
       </div>
     </aside>
@@ -137,8 +183,10 @@ onUnmounted(() => {
         class="notice"
         role="status"
       >
-        Доступна Fono {{ workspace.updates.state.nextVersion }}
-        <RouterLink class="text-link" to="/updates">Обновить</RouterLink>
+        {{ $t("ui.a851eb3395") }} {{ workspace.updates.state.nextVersion }}
+        <RouterLink class="text-link" to="/updates">{{
+          $t("ui.603e460bf5")
+        }}</RouterLink>
       </div>
       <div
         v-if="workspace.native && workspace.state.error && $route.path !== '/'"
@@ -146,9 +194,9 @@ onUnmounted(() => {
         role="alert"
       >
         {{ workspace.state.error }}
-        <WlButton size="xs" @click="workspace.state.error = ''"
-          >Закрыть</WlButton
-        >
+        <WlButton size="xs" @click="workspace.state.error = ''">{{
+          $t("ui.a7a4033657")
+        }}</WlButton>
       </div>
       <PageLoadState
         v-if="
@@ -174,7 +222,7 @@ onUnmounted(() => {
     <p class="dialog-description">{{ ui.state.confirmation?.text }}</p>
     <template #footer
       ><WlButton @click="ui.answer(false)">{{
-        ui.state.confirmation?.cancel || "Отмена"
+        ui.state.confirmation?.cancel || $t("ui.8fbe9b75cb")
       }}</WlButton
       ><WlButton
         :variant="ui.state.confirmation?.danger ? 'danger' : 'primary'"

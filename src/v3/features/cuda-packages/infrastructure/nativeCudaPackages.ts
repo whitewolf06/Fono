@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { reactive } from "vue";
 import type {
   CudaPackagesPort,
@@ -29,7 +30,7 @@ export function createNativeCudaPackages(
     downloadedBytes: 0,
     totalBytes: null,
     installedRevision: null,
-    message: "Загрузка состояния CUDA…",
+    message: uiMessage("ui.a322bdcd30"),
   });
   let disposed = false;
   let revision = 0;
@@ -79,16 +80,16 @@ export function createNativeCudaPackages(
   void refresh().catch(() => {
     if (disposed || startup !== revision) return;
     state.phase = "error";
-    state.message = "Не удалось получить состояние CUDA. Повторите проверку.";
+    state.message = uiMessage("ui.98f6fb0b3f");
   });
   return {
     state,
     refresh,
     async install() {
       if (disposed || installing || cudaPackageBusy(state.phase))
-        throw new Error("Подготовка CUDA уже выполняется.");
+        throw new Error(uiMessage("ui.bd5716d751"));
       if (state.phase === "unavailable")
-        throw new Error("CUDA недоступна в этой сборке.");
+        throw new Error(uiMessage("ui.004bee73d9"));
       const operationId = newId();
       installing = operationId;
       const ticket = ++revision;
@@ -96,7 +97,7 @@ export function createNativeCudaPackages(
       state.operationId = operationId;
       state.downloadedBytes = 0;
       state.totalBytes = null;
-      state.message = "Проверяем подписанный пакет CUDA…";
+      state.message = uiMessage("ui.b19128b679");
       try {
         const value = await transport<NativeSnapshot>("install_cuda_package", {
           operationId,

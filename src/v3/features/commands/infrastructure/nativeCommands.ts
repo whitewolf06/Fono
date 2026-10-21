@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { CommandsPort } from "../../../shared/domain/contracts";
 import type { NativeContext } from "../../../shared/infrastructure/native/context";
 import { call } from "../../../shared/infrastructure/native/ipc";
@@ -15,7 +16,7 @@ export function nativeCommands(ctx: NativeContext): CommandsPort {
     },
     async saveApp(app) {
       if (!app.name.trim() || !app.path.trim() || !app.phrase.trim())
-        throw new Error("Заполните все поля приложения");
+        throw new Error(uiMessage("ui.9a0bb6d311"));
       await ctx.saveRaw((settings) => {
         const value = {
           name: app.name,
@@ -47,9 +48,9 @@ export function nativeCommands(ctx: NativeContext): CommandsPort {
       ].find((p) => value.startsWith(p) && value.length > p.length);
       if (windowPrefix)
         return (
-          "Переключиться на открытое окно «" +
+          uiMessage("ui.17eb302026") +
           value.slice(windowPrefix.length) +
-          "». Проверка не выполняет действие."
+          uiMessage("ui.fb874ca75b")
         );
       const command = supportedCommands.find((c) => c.phrase === value);
       const app = state.applications.find((a) =>
@@ -64,12 +65,12 @@ export function nativeCommands(ctx: NativeContext): CommandsPort {
           ),
       );
       return command
-        ? "Команда: " +
+        ? uiMessage("ui.6c364198b6") +
             command.description +
-            ". Проверка не выполняет действие."
+            uiMessage("ui.c343870b7c")
         : app
-          ? "Запустить «" + app.name + "». Проверка не запускает приложение."
-          : "Фраза не найдена в каталоге.";
+          ? uiMessage("ui.7aa301ebc5") + app.name + uiMessage("ui.355a19a4d2")
+          : uiMessage("ui.60bb257291");
     },
   };
 }

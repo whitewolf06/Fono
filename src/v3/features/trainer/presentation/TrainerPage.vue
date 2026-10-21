@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { WlButton, WlSegmented } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -18,7 +23,9 @@ const workspace = useWorkspace();
 const periods: TrainerPeriod[] = [7, 30, 90];
 const periodOptions = periods.map((days) => ({
   value: String(days),
-  label: `${days} дней`,
+  get label() {
+    return uiMessage("ui.abc9195875", { v0: String(days) });
+  },
 }));
 const periodState = reactive(initialPeriodReportState());
 const controller = createPeriodReportController(workspace.trainer, periodState);
@@ -137,41 +144,43 @@ onUnmounted(() => {
         !!periodState.report,
     }"
   >
-    <PageHeading
-      title="Речевой тренер"
-      description="Речевые привычки, динамика и разбор диктовок."
-      ><PreferenceToggle name="trainerEnabled" label="Речевой тренер" compact
+    <PageHeading :title="$t('ui.387054796e')" :description="$t('ui.db7555e763')"
+      ><PreferenceToggle
+        name="trainerEnabled"
+        :label="$t('ui.387054796e')"
+        compact
     /></PageHeading>
     <div
       v-if="!workspace.state.preferences.trainerEnabled"
       class="welcome-panel"
     >
       <div class="large-icon"><AppIcon name="activity" :size="36" /></div>
-      <h2>Услышать себя по-новому</h2>
-      <p>
-        Fono замечает слова-паразиты, повторы и самопоправки в исходных
-        расшифровках. Анализ остаётся на вашем компьютере.
-      </p>
+      <h2>{{ $t("ui.7db9e5a974") }}</h2>
+      <p>{{ $t("ui.f735e07ec8") }}</p>
       <PreferenceToggle
         name="trainerEnabled"
-        label="Включить речевого тренера"
-        description="Потребуется разрешение сохранять исходные расшифровки."
+        :label="$t('ui.4cc963abd1')"
+        :description="$t('ui.be68bf67a4')"
       />
-      <small v-if="!workspace.native"
-        >Предпросмотр использует демонстрационные записи.</small
-      >
+      <small v-if="!workspace.native">{{ $t("ui.77b9f04ffe") }}</small>
     </div>
     <template v-else>
       <div class="section-header trainer-toolbar">
         <WlSegmented
           :model-value="String(periodState.days)"
           :options="periodOptions"
-          :pt="{ root: { 'aria-label': 'Период анализа' } }"
+          :pt="{
+            root: {
+              get 'aria-label'() {
+                return $t('ui.75793ee0ca');
+              },
+            },
+          }"
           @update:model-value="choosePeriodValue"
         />
-        <RouterLink class="text-link" to="/settings/privacy"
-          >Хранение данных</RouterLink
-        >
+        <RouterLink class="text-link" to="/settings/privacy">{{
+          $t("ui.deafab2929")
+        }}</RouterLink>
       </div>
       <PeriodReport
         v-if="periodState.report"
@@ -207,10 +216,10 @@ onUnmounted(() => {
           variant="primary"
           :disabled="periodState.loading"
           @click="controller.load()"
-          >Повторить загрузку отчёта</WlButton
+          >{{ $t("ui.4b0fef577c") }}</WlButton
         >
       </div>
-      <p v-else class="notice" role="status">Готовим локальный отчёт…</p>
+      <p v-else class="notice" role="status">{{ $t("ui.ee59565666") }}</p>
     </template>
   </div>
 </template>

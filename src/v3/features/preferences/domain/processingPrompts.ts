@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type {
   ProcessingPrompts,
   PromptPreset,
@@ -26,11 +27,11 @@ export function validateProcessingPrompts(
       typeof choice.useCustom !== "boolean" ||
       typeof choice.customPrompt !== "string"
     )
-      return "Проверьте системные промпты обработки.";
+      return uiMessage("ui.5bb235093b");
     if ([...choice.customPrompt].length > 12000)
-      return "Системный промпт не должен превышать 12 000 символов.";
+      return uiMessage("ui.29cd294a4a");
     if (choice.useCustom && !choice.customPrompt.trim())
-      return "Введите свой системный промпт или выберите встроенный.";
+      return uiMessage("ui.3085041d77");
   }
   return null;
 }

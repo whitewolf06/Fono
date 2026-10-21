@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type {
@@ -45,35 +47,24 @@ function example() {
 <template>
   <section id="dictionary" class="form-stack dictionary-settings">
     <div class="section-divider" />
-    <h3>Личный словарь</h3>
+    <h3>{{ $t("ui.4e7867b548") }}</h3>
     <PreferenceToggle
       name="dictionaryEnabled"
-      label="Использовать мои написания"
-      description="Подсказки локальному распознаванию, затем точные замены в результате. По умолчанию выключено."
+      :label="$t('ui.3c2325c46e')"
+      :description="$t('ui.bccad88ecb')"
     />
-    <p class="muted">
-      Например, «фоно» → «Fono». Совпадения проверяются по целым словам без
-      учёта регистра. Whisper получает ограниченную подсказку. Исходный
-      результат STT не меняется финальными заменами. Выключение отключает
-      подсказки и замены для новых диктовок, сохраняя записи.
-    </p>
+    <p class="muted">{{ $t("ui.15ded707e7") }}</p>
     <PreferenceToggle
       name="dictionaryLlmEnabled"
-      label="Передавать термины в обработку LLM"
-      description="При включённом словаре и обработке текста до 32 написаний передаются в выбранное подключение, включая термины, которых нет в расшифровке. Для облачного подключения список получит провайдер. По умолчанию выключено."
+      :label="$t('ui.9fe22dbb16')"
+      :description="$t('ui.cff15c6357')"
     />
-    <p class="muted">
-      Для GigaAM/Parakeet подсказки распознаванию пока недоступны. Личные
-      написания можно применять при обработке LLM и точных заменах.
-    </p>
-    <p v-if="!workspace.native" class="notice">
-      Браузерная демонстрация: записи действуют до перезагрузки и не сохраняются
-      в браузере. В приложении словарь хранится локально.
-    </p>
+    <p class="muted">{{ $t("ui.b7fd507ca8") }}</p>
+    <p v-if="!workspace.native" class="notice">{{ $t("ui.470561427e") }}</p>
     <ul
       v-if="draft.dictionaryEntries.length"
       class="dictionary-list"
-      aria-label="Записи личного словаря"
+      :aria-label="$t('ui.ebae558908')"
     >
       <li v-for="(entry, index) in draft.dictionaryEntries" :key="index">
         <div>
@@ -84,38 +75,36 @@ function example() {
           <WlButton
             size="sm"
             variant="ghost"
-            :aria-label="'Изменить ' + entry.written"
+            :aria-label="$t('ui.669958f765') + entry.written"
             @click="editing = index"
           >
-            <template #icon><AppIcon name="edit" /></template>Изменить
+            <template #icon><AppIcon name="edit" /></template
+            >{{ $t("ui.b8b151d417") }}
           </WlButton>
           <WlButton
             size="sm"
             variant="ghost"
-            :aria-label="'Удалить ' + entry.written"
+            :aria-label="$t('ui.1c6789d896') + entry.written"
             @click="remove(index)"
-            >Удалить</WlButton
+            >{{ $t("ui.be99b13612") }}</WlButton
           >
         </div>
       </li>
     </ul>
-    <p v-else class="notice">
-      Записей пока нет. Добавьте нужное написание и то, как его обычно
-      распознаёт модель.
-    </p>
+    <p v-else class="notice">{{ $t("ui.3f6c724a00") }}</p>
     <div class="actions">
       <WlButton
         size="sm"
         :disabled="draft.dictionaryEntries.length >= dictionaryLimits.entries"
         @click="editing = -1"
-        >Добавить слово или фразу</WlButton
+        >{{ $t("ui.f16553632e") }}</WlButton
       >
       <WlButton
         v-if="!draft.dictionaryEntries.length"
         size="sm"
         variant="ghost"
         @click="example"
-        >Добавить пример</WlButton
+        >{{ $t("ui.8fe6b9dc59") }}</WlButton
       >
       <small class="muted"
         >{{ draft.dictionaryEntries.length }} /

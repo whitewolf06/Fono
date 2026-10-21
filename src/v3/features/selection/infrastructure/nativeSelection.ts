@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { reactive } from "vue";
 import type {
   SelectionCapturePort,
@@ -44,7 +45,7 @@ function editFromNative(value: unknown): SelectionEditSnapshot | undefined {
   if (typeof e.message === "string")
     edit.message = catalog.details.includes(e.message)
       ? e.message
-      : "Не удалось преобразовать выделение. Оригинал сохранён; повторите действие.";
+      : uiMessage("ui.68ef2eaa73");
   return edit;
 }
 
@@ -78,7 +79,7 @@ function deliveryFromNative(
   if (typeof d.message === "string")
     result.message = catalog.details.includes(d.message)
       ? d.message
-      : "Действие не подтверждено. Результат доступен для копирования; повторная вставка заблокирована.";
+      : uiMessage("ui.d0972939e6");
   return result;
 }
 
@@ -98,8 +99,7 @@ export function selectionFromNative(value: unknown): SelectionSnapshot | null {
   result.autoInsert = s.auto_insert === true;
   result.historyEnabled = s.history_enabled === true;
   if (typeof s.history_message === "string")
-    result.historyMessage =
-      "Результат готов, но сохранить его в историю не удалось. Скопируйте текст перед закрытием.";
+    result.historyMessage = uiMessage("ui.ea48162092");
   if (s.phase === "ready") {
     if (
       typeof s.text !== "string" ||
@@ -115,7 +115,7 @@ export function selectionFromNative(value: unknown): SelectionSnapshot | null {
     result.message =
       typeof s.message === "string" && catalog.details.includes(s.message)
         ? s.message
-        : "Не удалось безопасно получить выделение. Повторите действие или выберите другое поле.";
+        : uiMessage("ui.fffdcac0ac");
   const edit = editFromNative(s.edit);
   if (edit) result.edit = edit;
   const delivery = deliveryFromNative(s.delivery);

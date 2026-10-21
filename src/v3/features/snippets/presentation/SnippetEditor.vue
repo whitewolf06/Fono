@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import {
   WlDialog,
@@ -56,49 +58,43 @@ function submit() {
 <template>
   <WlDialog
     v-model:visible="visible"
-    :header="index === -1 ? 'Новый сниппет' : 'Изменить сниппет'"
+    :header="index === -1 ? $t('ui.d8818ff5b4') : $t('ui.2055179e06')"
     width="560px"
   >
     <div class="form-stack">
       <WlField
         v-slot="field"
-        label="Фраза-триггер"
-        hint="Например, «моя подпись». Должна совпасть вся диктовка."
+        :label="$t('ui.0dd77e98b8')"
+        :hint="$t('ui.a5a13d0e43')"
         ><WlInput
           v-bind="field"
           v-model="trigger"
           :maxlength="snippetLimits.triggerChars"
-          placeholder="моя подпись"
+          :placeholder="$t('ui.69396d3e6a')"
       /></WlField>
-      <WlField v-slot="field" label="Текст сниппета"
+      <WlField v-slot="field" :label="$t('ui.2ab2e29c5b')"
         ><WlTextarea
           v-bind="field"
           v-model="text"
           :rows="6"
           :maxlength="snippetLimits.textChars"
-          placeholder="С уважением, Дмитрий"
+          :placeholder="$t('ui.a4693c2ef1')"
       /></WlField>
-      <p class="muted">
-        {date} — дата ДД.ММ.ГГГГ, {time} — время ЧЧ:ММ, {clipboard} — текст из
-        буфера. Подстановка выполняется один раз, остальные фигурные скобки
-        остаются текстом.
-      </p>
+      <p class="muted">{{ $t("ui.95b95d42bc") }}</p>
       <p v-if="text.includes('{clipboard}')" class="notice">
-        При срабатывании сниппета Fono прочитает текстовый буфер. Он станет
-        частью результата и локальной истории, если она включена. При
-        подстановке ИИ не вызывается.
+        {{ $t("ui.e5e4b4aa63") }}
       </p>
       <div class="toggle-row">
-        <span>Сниппет включён</span
-        ><WlSwitch v-model="enabled" aria-label="Сниппет включён" />
+        <span>{{ $t("ui.cea2dcb8cf") }}</span
+        ><WlSwitch v-model="enabled" :aria-label="$t('ui.cea2dcb8cf')" />
       </div>
       <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     </div>
     <template #footer
-      ><WlButton @click="close">Отмена</WlButton
-      ><WlButton variant="primary" @click="submit"
-        >Добавить в форму</WlButton
-      ></template
+      ><WlButton @click="close">{{ $t("ui.8fbe9b75cb") }}</WlButton
+      ><WlButton variant="primary" @click="submit">{{
+        $t("ui.ef82bff588")
+      }}</WlButton></template
     >
   </WlDialog>
 </template>

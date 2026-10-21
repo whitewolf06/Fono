@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type {
   SettingsPort,
   WorkspaceState,
@@ -26,7 +27,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     if (patch.wakeEnabled) ensureWakeAvailable();
     const guardCapture = () => {
       if (state.triggerCaptureActive)
-        throw new Error("Сначала завершите выбор кнопки.");
+        throw new Error(uiMessage("ui.13ccc97bac"));
       if (
         [
           "dictationMode",
@@ -53,15 +54,13 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
           "awaiting_action",
         ].includes(state.phase)
       )
-        throw new Error("Сначала завершите текущую диктовку.");
+        throw new Error(uiMessage("ui.e134b483ff"));
     };
     guardCapture();
     await wait(420);
     guardCapture();
     if (state.scenario === "save-error")
-      throw new Error(
-        "Не удалось сохранить. Изменения остались в форме — попробуйте ещё раз после восстановления соединения.",
-      );
+      throw new Error(uiMessage("ui.a78fb4e919"));
     const next = {
       ...state.preferences,
       ...patch,
@@ -87,9 +86,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       trainerProfile?.location === "cloud" &&
       !next.cloudConsent
     )
-      throw new Error(
-        "Для облачного разбора требуется разрешение на передачу выбранных данных.",
-      );
+      throw new Error(uiMessage("ui.db8fb01c94"));
     const error = validatePreferences(next);
     if (error) throw new Error(error);
     persistPreferences(next);
@@ -98,7 +95,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       state.wakeSetup.profileReady = false;
       state.wakeSetup.verified = false;
     }
-    state.logs.unshift("Настройки обновлены");
+    state.logs.unshift(uiMessage("ui.d8ea53b00e"));
   }
   return {
     ...mockProcessing(state),
@@ -109,12 +106,10 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
         key === "pretranscriptionEnabled" &&
         captureSettingsLocked(state.phase)
       )
-        throw new Error("Сначала завершите текущую диктовку.");
+        throw new Error(uiMessage("ui.e134b483ff"));
       if (key === "wakeEnabled" && value) ensureWakeAvailable();
       if (key === "wakeEnabled" && value && state.wakeSetup?.verified === false)
-        throw new Error(
-          "Сначала настройте свою фразу и пройдите контрольную проверку.",
-        );
+        throw new Error(uiMessage("ui.e3bf1feef8"));
       const previous = state.preferences[key];
       state.pending[key] = true;
       state.preferences[key] = value;
@@ -144,22 +139,20 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       if (model.status !== "downloading") return;
       model.status = "installed";
       model.downloadPhase = undefined;
-      state.logs.unshift(model.name + ": демонстрационная загрузка завершена");
+      state.logs.unshift(model.name + uiMessage("ui.47df730362"));
     },
     removeModel(id) {
       const model = state.models.find((m) => m.id === id);
       if (model) {
         if (state.preferences.model === id)
-          throw new Error("Сначала выберите другую модель распознавания");
+          throw new Error(uiMessage("ui.17beacba05"));
         model.status = "available";
         model.progress = 0;
       }
     },
     async testMicrophone() {
       if (!state.microphoneAvailable)
-        throw new Error(
-          "Микрофон не найден. Подключите устройство и повторите проверку.",
-        );
+        throw new Error(uiMessage("ui.9010565737"));
       for (let i = 0; i < 16; i++) {
         state.testSignal = 0.2 + Math.abs(Math.sin(i * 0.9)) * 0.65;
         await wait(90);
@@ -169,17 +162,15 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     async saveProfile(profile) {
       await wait(350);
       if (!profile.name.trim() || !profile.model.trim())
-        throw new Error("Укажите название профиля и модель.");
+        throw new Error(uiMessage("ui.7b221ba79c"));
       try {
         const url = new URL(profile.url);
         if (!["http:", "https:"].includes(url.protocol)) throw new Error();
       } catch {
-        throw new Error("Укажите корректный http или https адрес.");
+        throw new Error(uiMessage("ui.71ee37667c"));
       }
       if (state.scenario === "save-error")
-        throw new Error(
-          "Не удалось сохранить профиль. Попробуйте после восстановления соединения.",
-        );
+        throw new Error(uiMessage("ui.c8e7f4c482"));
       const next = { ...profile, id: profile.id || "profile-" + Date.now() };
       const index = state.profiles.findIndex((p) => p.id === next.id);
       if (index < 0) state.profiles.push(next);
@@ -190,20 +181,17 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
         state.preferences.profile === id ||
         state.preferences.trainerProfile === id
       )
-        throw new Error("Сначала выберите другое подключение.");
+        throw new Error(uiMessage("ui.fa8452ba07"));
       state.profiles = state.profiles.filter((p) => p.id !== id);
     },
     playSample: playDemoSample,
     async testConnection(profileId = state.preferences.profile) {
       await wait(850);
-      if (!state.aiAvailable)
-        throw new Error(
-          "Модель не отвечает. Проверьте подключение в разделе «Обработка текста и ИИ».",
-        );
+      if (!state.aiAvailable) throw new Error(uiMessage("ui.3bde9b3ecb"));
       return state.profiles.find((p) => p.id === profileId)?.location ===
         "local"
-        ? "Демонстрационное подключение доступно · 24 мс"
-        : "Демонстрационное облачное подключение доступно · 186 мс";
+        ? uiMessage("ui.475e961539")
+        : uiMessage("ui.e4c31da862");
     },
   };
 }

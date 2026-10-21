@@ -1,3 +1,4 @@
+import { message as uiMessage } from "./messages";
 import type { PersonalDictionaryEntry, Preferences } from "./contracts";
 
 export const dictionaryLimits = {
@@ -20,19 +21,22 @@ const isWord = (character: string | undefined) =>
 
 export function validateDictionary(entries: unknown): string | null {
   if (!Array.isArray(entries) || entries.length > dictionaryLimits.entries)
-    return `В личном словаре может быть не больше ${dictionaryLimits.entries} записей.`;
+    return uiMessage("ui.c6a75c96bd", { v0: String(dictionaryLimits.entries) });
   const seen = new Set<string>();
   const encoder = new TextEncoder();
   let bytes = 0;
   for (const [index, entry] of entries.entries()) {
     if (!entry || typeof entry !== "object")
-      return `Запись ${index + 1}: некорректные данные словаря.`;
+      return uiMessage("ui.05ef42c17f", { v0: String(index + 1) });
     if (
       !Array.isArray(entry.spoken) ||
       !entry.spoken.length ||
       entry.spoken.length > dictionaryLimits.variants
     )
-      return `Запись ${index + 1}: укажите от 1 до ${dictionaryLimits.variants} вариантов произношения.`;
+      return uiMessage("ui.9b43ba6dfc", {
+        v0: String(index + 1),
+        v1: String(dictionaryLimits.variants),
+      });
     for (const phrase of [entry.written, ...entry.spoken]) {
       if (
         typeof phrase !== "string" ||
@@ -42,18 +46,21 @@ export function validateDictionary(entries: unknown): string | null {
         /\p{Cc}/u.test(phrase) ||
         !/[\p{L}\p{N}]/u.test(phrase)
       )
-        return `Запись ${index + 1}: фраза должна содержать буквы или цифры, не больше ${dictionaryLimits.phraseChars} символов, без переносов строк и краевых пробелов.`;
+        return uiMessage("ui.aaa1175aee", {
+          v0: String(index + 1),
+          v1: String(dictionaryLimits.phraseChars),
+        });
       bytes += encoder.encode(phrase).length;
     }
     for (const phrase of entry.spoken) {
       const key = normalize(phrase);
       if (seen.has(key))
-        return `Запись ${index + 1}: этот вариант произношения уже есть в словаре.`;
+        return uiMessage("ui.1d38cefecb", { v0: String(index + 1) });
       seen.add(key);
     }
   }
   return bytes > dictionaryLimits.totalBytes
-    ? "Личный словарь превышает лимит 32 КБ."
+    ? uiMessage("ui.76261449e2")
     : null;
 }
 

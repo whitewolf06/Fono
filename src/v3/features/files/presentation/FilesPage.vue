@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { WlButton, WlDialog } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -25,11 +30,21 @@ const busy = ref(false),
   error = ref(""),
   notice = ref("");
 const labels = {
-  queued: "В очереди",
-  running: "Распознавание",
-  done: "Готово",
-  error: "Ошибка",
-  cancelled: "Отменено",
+  get queued() {
+    return uiMessage("ui.b22a2454bd");
+  },
+  get running() {
+    return uiMessage("ui.7894eb1ac6");
+  },
+  get done() {
+    return uiMessage("ui.ef05d57959");
+  },
+  get error() {
+    return uiMessage("ui.bf22dfeeba");
+  },
+  get cancelled() {
+    return uiMessage("ui.23a2a9bfcf");
+  },
 };
 function openResult(id: string) {
   error.value = "";
@@ -38,16 +53,14 @@ function openResult(id: string) {
 }
 function report(value: unknown) {
   error.value =
-    value instanceof Error
-      ? value.message
-      : "Не удалось выполнить действие. Повторите попытку.";
+    value instanceof Error ? value.message : uiMessage("ui.174ecd6048");
 }
 function added(result: AddFilesResult) {
   notice.value = result.accepted.length
-    ? `Добавлено файлов: ${result.accepted.length}.`
+    ? uiMessage("ui.2fe320696a", { v0: String(result.accepted.length) })
     : "";
   if (result.rejected)
-    error.value = `Не добавлено: ${result.rejected}. В очереди до 4 ожидающих файлов. Поддерживаются WAV, MP3, FLAC и OGG.`;
+    error.value = uiMessage("ui.0a2e267a03", { v0: String(result.rejected) });
 }
 async function act(action: () => Promise<unknown>) {
   if (busy.value) return;
@@ -67,7 +80,7 @@ async function save(format: FileExportFormat) {
   const id = selected.value.id;
   await act(async () => {
     if (await workspace.files.export(id, format))
-      notice.value = "Файл сохранён.";
+      notice.value = uiMessage("ui.2d40b6f360");
   });
 }
 let disposed = false,
@@ -95,35 +108,29 @@ onUnmounted(() => {
 <template>
   <div class="page files-page">
     <PageHeading
-      title="Файлы"
-      description="Распознайте аудиозапись и сохраните текст или субтитры."
+      :title="$t('ui.9088ca9c0d')"
+      :description="$t('ui.f796c1ad63')"
     >
       <WlButton
         :loading="busy"
         @click="act(async () => added(await workspace.files.choose()))"
         ><AppIcon name="plus" />{{
-          workspace.native ? "Добавить файлы" : "Добавить демофайлы"
+          workspace.native ? $t("ui.5199a68348") : $t("ui.95a92a3b7b")
         }}</WlButton
       >
     </PageHeading>
-    <p v-if="!workspace.native" class="notice">
-      Демо интерфейса: файлы и результаты условные. Распознавание работает в
-      приложении Fono.
-    </p>
+    <p v-if="!workspace.native" class="notice">{{ $t("ui.f2dc2ac857") }}</p>
     <div class="files-drop" :class="{ hovering }">
       <AppIcon name="file" :size="28" />
-      <strong>Перетащите сюда аудиофайлы</strong>
-      <span>WAV, MP3, FLAC, OGG · до 100 МиБ и 3 часов на файл</span>
+      <strong>{{ $t("ui.5489566f6a") }}</strong>
+      <span>{{ $t("ui.ef938d9907") }}</span>
     </div>
-    <p class="muted files-hint">
-      Файлы обрабатываются по одному выбранной моделью. Диктовка получает
-      приоритет. ИИ-обработка текста не применяется.
-    </p>
+    <p class="muted files-hint">{{ $t("ui.2c71272b95") }}</p>
     <p v-if="error" class="notice error" role="alert">{{ error }}</p>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <div class="section-header">
       <h2>
-        Очередь и результаты <span class="muted">{{ jobs.length }}</span>
+        {{ $t("ui.b9c10a4431") }} <span class="muted">{{ jobs.length }}</span>
       </h2>
       <WlButton
         v-if="active.length"
@@ -135,12 +142,11 @@ onUnmounted(() => {
             for (const job of active) await workspace.files.cancel(job.id);
           })
         "
-        >Отменить все</WlButton
+        >{{ $t("ui.ec38c8e8f4") }}</WlButton
       >
     </div>
     <p v-if="!jobs.length" class="muted files-empty">
-      Добавьте несколько записей. Готовые результаты появятся здесь, даже если
-      API-сервис выключен.
+      {{ $t("ui.360fbc7cbb") }}
     </p>
     <ol v-else class="files-list">
       <li v-for="job in jobs" :key="job.id" class="files-row">
@@ -148,17 +154,17 @@ onUnmounted(() => {
         <div class="file-content">
           <strong>{{ job.name }}</strong
           ><span class="muted"
-            >{{ job.preparing ? "Подготовка аудио" : labels[job.state]
+            >{{ job.preparing ? $t("ui.61b578bca0") : labels[job.state]
             }}<template v-if="job.seconds">
-              · {{ Math.floor(job.seconds / 60) }} мин
-              {{ job.seconds % 60 }} с</template
+              · {{ Math.floor(job.seconds / 60) }} {{ $t("ui.62dcfe2d4d") }}
+              {{ job.seconds % 60 }} {{ $t("ui.a1f5d39a12") }}</template
             ></span
           >
           <progress
             v-if="job.state === 'running' && !job.preparing"
             :value="job.progress || 0"
             max="1"
-            :aria-label="`Прогресс: ${job.name}`"
+            :aria-label="$t('ui.4a8d6d4626', { v0: String(job.name) })"
           />
           <p v-if="job.error" class="file-error">{{ job.error }}</p>
         </div>
@@ -168,25 +174,25 @@ onUnmounted(() => {
           severity="secondary"
           :disabled="busy"
           @click="act(() => workspace.files.cancel(job.id))"
-          >Отменить</WlButton
+          >{{ $t("ui.7c47f7292b") }}</WlButton
         >
         <WlButton
           v-else-if="job.state === 'done'"
           size="sm"
           severity="secondary"
           @click="openResult(job.id)"
-          >Результат</WlButton
+          >{{ $t("ui.4997a5143d") }}</WlButton
         >
       </li>
     </ol>
     <WlDialog
       v-model:visible="visible"
-      :header="selected?.name || 'Результат'"
+      :header="selected?.name || $t('ui.4997a5143d')"
       width="560px"
     >
-      <p class="file-result">{{ selected?.text || "Речь не обнаружена." }}</p>
+      <p class="file-result">{{ selected?.text || $t("ui.59d2915727") }}</p>
       <p v-if="selected && !selected.hasTimestamps" class="muted">
-        У этого результата нет временных меток. Доступен экспорт TXT.
+        {{ $t("ui.cc88503243") }}
       </p>
       <p v-if="error" class="notice error" role="alert">{{ error }}</p>
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>

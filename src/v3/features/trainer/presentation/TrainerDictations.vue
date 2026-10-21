@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import { WlButton, WlField, WlSelect } from "@whitelife-core/ui-kit";
 import type { Dictation } from "../../../shared/domain/contracts";
@@ -24,9 +29,24 @@ const props = defineProps<{
 const emit = defineEmits<{ clearTerm: [] }>();
 const sort = defineModel<TrainerSort>("sort", { default: "date" });
 const sortOptions = [
-  { value: "date", label: "Сначала новые" },
-  { value: "duration", label: "Сначала долгие" },
-  { value: "length", label: "Сначала длинные тексты" },
+  {
+    value: "date",
+    get label() {
+      return uiMessage("ui.0cd8808fe1");
+    },
+  },
+  {
+    value: "duration",
+    get label() {
+      return uiMessage("ui.453635acbb");
+    },
+  },
+  {
+    value: "length",
+    get label() {
+      return uiMessage("ui.c4817ab556");
+    },
+  },
 ];
 const selectedId = defineModel<string>("selectedId", { default: "" });
 const sortedEntries = computed(() =>
@@ -63,23 +83,21 @@ function chooseSort(value: unknown) {
 <template>
   <div v-if="selectedTerm && !stale" class="section-header trainer-filter">
     <span
-      >Маркер «{{ selectedTerm.label }}» · {{ sortedEntries.length }} из
-      {{ entries.length }} диктовок</span
+      >{{ $t("ui.f470cbf9be") }}{{ selectedTerm.label }}» ·
+      {{ sortedEntries.length }} {{ $t("ui.7f4adf318e") }} {{ entries.length }}
+      {{ $t("ui.5b0b15f4e5") }}</span
     >
-    <WlButton size="sm" variant="soft" @click="emit('clearTerm')"
-      >Показать все диктовки</WlButton
-    >
+    <WlButton size="sm" variant="soft" @click="emit('clearTerm')">{{
+      $t("ui.5a2c8b6ecf")
+    }}</WlButton>
   </div>
-  <p v-if="stale" class="notice" role="status">
-    Обновите отчёт, чтобы увидеть диктовки текущего периода. Числа выше
-    относятся к сохранённому снимку.
-  </p>
+  <p v-if="stale" class="notice" role="status">{{ $t("ui.3cabb6fe6e") }}</p>
   <template v-else-if="sortedEntries.length">
     <div class="master-detail trainer-master-detail">
       <div class="entry-list trainer-entry-list">
         <div class="trainer-list-toolbar">
-          <h3>Диктовки периода</h3>
-          <WlField v-slot="field" label="Сортировка">
+          <h3>{{ $t("ui.8eaba588f4") }}</h3>
+          <WlField v-slot="field" :label="$t('ui.66d6d374ce')">
             <WlSelect
               v-if="active"
               v-bind="field"
@@ -88,7 +106,7 @@ function chooseSort(value: unknown) {
               option-label="label"
               option-value="value"
               size="md"
-              aria-label="Сортировка"
+              :aria-label="$t('ui.66d6d374ce')"
               @update:model-value="chooseSort"
             />
           </WlField>
@@ -119,8 +137,10 @@ function chooseSort(value: unknown) {
           }}</time>
           <span class="trainer-entry-meta"
             ><span>{{ recordingDurationLabel(entry) }}</span
-            ><span>{{ wordCount(entry) }} слов</span
-            ><span>{{ findingsCount(entry) }} маркеров</span></span
+            ><span>{{ wordCount(entry) }} {{ $t("ui.1aed0436db") }}</span
+            ><span
+              >{{ findingsCount(entry) }} {{ $t("ui.59722c3c39") }}</span
+            ></span
           >
         </button>
       </div>
@@ -129,19 +149,11 @@ function chooseSort(value: unknown) {
   </template>
   <EmptyState
     v-else
-    :title="
-      selectedTerm
-        ? 'Подходящие диктовки сейчас недоступны'
-        : 'Пока нечего разбирать'
-    "
-    :text="
-      selectedTerm
-        ? 'Записи могли измениться или быть исключены. Обновите отчёт либо покажите все диктовки.'
-        : 'Нужны сохранённые исходные расшифровки и завершённый локальный разбор. Записи с одним итоговым текстом остаются в общей истории.'
-    "
-    ><RouterLink to="/history" class="text-link"
-      >Открыть историю</RouterLink
-    ></EmptyState
+    :title="selectedTerm ? $t('ui.de574ce325') : $t('ui.30df585fff')"
+    :text="selectedTerm ? $t('ui.035bb30c4b') : $t('ui.2b147e02c6')"
+    ><RouterLink to="/history" class="text-link">{{
+      $t("ui.f1d50bf770")
+    }}</RouterLink></EmptyState
   >
 </template>
 

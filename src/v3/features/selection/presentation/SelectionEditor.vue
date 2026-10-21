@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, watch } from "vue";
 import { WlButton, WlField, WlTextarea } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -45,12 +50,21 @@ function transform() {
 const status = computed(
   () =>
     ({
-      starting: "Открываю микрофон для инструкции…",
-      recording:
-        "Записываю инструкцию. Нажмите «Завершить запись», когда закончите.",
-      recognizing: "Распознаю инструкцию локально…",
-      processing: "Преобразую выделение через выбранное LLM-подключение…",
-      cancelling: "Отменяю действие и завершаю фоновую работу…",
+      get starting() {
+        return uiMessage("ui.a64c4eb601");
+      },
+      get recording() {
+        return uiMessage("ui.669c300bce");
+      },
+      get recognizing() {
+        return uiMessage("ui.276687e0d8");
+      },
+      get processing() {
+        return uiMessage("ui.b076c3cf48");
+      },
+      get cancelling() {
+        return uiMessage("ui.1172eb60e0");
+      },
       idle: "",
       ready: "",
     })[edit.value?.phase ?? "idle"],
@@ -61,7 +75,7 @@ const status = computed(
     <WlField
       id="selectionInstruction"
       v-slot="field"
-      label="Инструкция к выделению"
+      :label="$t('ui.d10dc0fb12')"
     >
       <WlTextarea
         v-bind="field"
@@ -69,28 +83,25 @@ const status = computed(
         :disabled="active || busy"
         :rows="3"
         :maxlength="4096"
-        placeholder="Например: сделай формальнее или переведи на английский"
+        :placeholder="$t('ui.c1440b8682')"
       />
     </WlField>
-    <p class="muted">
-      Инструкция хранится отдельно от оригинала. Можно продиктовать её или
-      ввести вручную.
-    </p>
+    <p class="muted">{{ $t("ui.e1d4da83f3") }}</p>
     <div class="actions">
       <WlButton
         :disabled="active || busy"
-        @click="instruction = 'Сделай формальнее'"
-        >Формальнее</WlButton
+        @click="instruction = $t('ui.18ee964f5e')"
+        >{{ $t("ui.255b4cb36d") }}</WlButton
       >
       <WlButton
         :disabled="active || busy"
-        @click="instruction = 'Переведи на английский'"
-        >На английский</WlButton
+        @click="instruction = $t('ui.5028e09d99')"
+        >{{ $t("ui.5fdbe8a0c7") }}</WlButton
       >
       <WlButton
         :disabled="active || busy"
-        @click="instruction = 'Сократи до трёх пунктов'"
-        >В три пункта</WlButton
+        @click="instruction = $t('ui.4c58add8d2')"
+        >{{ $t("ui.f891bfb228") }}</WlButton
       >
     </div>
     <div class="actions">
@@ -98,54 +109,42 @@ const status = computed(
         v-if="edit?.phase === 'recording' || edit?.phase === 'starting'"
         :loading="busy"
         @click="stop"
-        >Завершить запись</WlButton
+        >{{ $t("ui.4d8004276a") }}</WlButton
       >
       <WlButton v-else :disabled="active || busy" @click="start">{{
-        workspace.native
-          ? "Продиктовать инструкцию"
-          : "Пример голосовой инструкции"
+        workspace.native ? $t("ui.1253514388") : $t("ui.6d253dec28")
       }}</WlButton>
       <WlButton
         v-if="active"
         :disabled="edit?.phase === 'cancelling' || busy"
         @click="cancel"
-        >Отменить действие</WlButton
+        >{{ $t("ui.b9b86803ad") }}</WlButton
       >
     </div>
     <p v-if="status" role="status">{{ status }}</p>
-    <p v-if="workspace.native" class="notice">
-      По кнопке «Преобразовать в LLM» выделение и инструкция отправятся в
-      сохранённое подключение обработки текста. Если оно облачное, текст получит
-      его провайдер. Отмена не возвращает уже отправленные данные.
-    </p>
-    <p v-else class="notice">
-      В демо используются готовые примеры. Микрофон и сеть не используются.
-    </p>
+    <p v-if="workspace.native" class="notice">{{ $t("ui.4961516cf1") }}</p>
+    <p v-else class="notice">{{ $t("ui.8d7e6f5795") }}</p>
     <WlButton
       :disabled="active || busy || !instruction.trim()"
       @click="transform"
       >{{
-        workspace.native ? "Преобразовать в LLM" : "Показать деморезультат"
+        workspace.native ? $t("ui.5ff9b5cdfa") : $t("ui.134885fa4f")
       }}</WlButton
     >
     <p v-if="error || edit?.message" role="alert" class="error-text">
       {{ error || edit?.message }}
     </p>
     <template v-if="edit?.result">
-      <h3>Результат преобразования</h3>
+      <h3>{{ $t("ui.c5b4b71005") }}</h3>
       <WlTextarea
         :model-value="edit.result"
         readonly
         :rows="6"
-        aria-label="Результат преобразования выделения"
+        :aria-label="$t('ui.51f4c953d9')"
       />
       <p class="muted">
-        Оригинал доступен выше.
-        {{
-          current?.autoInsert
-            ? "Для этого выделения выбрана автоматическая вставка после LLM."
-            : "Замена выполняется только после подтверждения."
-        }}
+        {{ $t("ui.5db79f6718") }}
+        {{ current?.autoInsert ? $t("ui.9ce6cfd4c1") : $t("ui.c779212b27") }}
       </p>
       <SelectionDelivery
         :instruction-matches="instruction === edit.instruction"

@@ -19,9 +19,11 @@ pub struct ProcessingPromptCatalog {
 }
 
 #[tauri::command]
-pub fn get_processing_prompt_catalog() -> ProcessingPromptCatalog {
+pub fn get_processing_prompt_catalog(
+    locale: Option<crate::types::UiLocale>,
+) -> ProcessingPromptCatalog {
     ProcessingPromptCatalog {
-        presets: presets::prompt_catalog(),
+        presets: presets::prompt_catalog_for(locale.unwrap_or(crate::types::UiLocale::Ru)),
         max_prompt_chars: MAX_PROCESSING_PROMPT_CHARS,
         max_text_bytes: MAX_PROCESSING_TEXT_BYTES,
     }
@@ -95,6 +97,7 @@ pub async fn preview_processing_text(
         let client =
             super::blocking::run(move || Ok(LlmClient::from_profile(&profile, model.as_deref())))
                 .await?;
+        let client = client.with_ui_locale(settings.ui_language.resolve());
         let result = client
             .process_preset_with_glossary(
                 &input.text,

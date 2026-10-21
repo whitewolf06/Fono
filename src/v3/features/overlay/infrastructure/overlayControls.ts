@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { watch } from "vue";
 import type { Settings } from "../../../shared/infrastructure/native/ipcTypes";
 import type { Phase, Preferences } from "../../../shared/domain/contracts";
@@ -117,10 +118,10 @@ export function createOverlayControls(
       if (!queue.state.pending && !queue.state.saving && !queue.state.error)
         return;
       if (disposed() || context() !== sessionId)
-        throw new Error("Диктовка уже завершена или заменена");
+        throw new Error(uiMessage("ui.df80913eda"));
       await queue.flush();
       if (disposed() || context() !== sessionId)
-        throw new Error("Диктовка уже завершена или заменена");
+        throw new Error(uiMessage("ui.df80913eda"));
     },
     async resolve(
       request: PendingDictationRequest,

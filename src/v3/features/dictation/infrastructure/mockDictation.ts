@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type {
   DictationPort,
   WorkspaceState,
@@ -56,8 +57,7 @@ export function createDictationPort(
       )
         return;
       if (!state.microphoneAvailable) {
-        state.error =
-          "Микрофон недоступен. Выберите устройство в настройках аудио.";
+        state.error = uiMessage("ui.8fd5783bb6");
         state.phase = "error";
         return;
       }
@@ -68,8 +68,7 @@ export function createDictationPort(
             model.status === "installed",
         )
       ) {
-        state.error =
-          "Модель не установлена. Загрузите её в настройках распознавания.";
+        state.error = uiMessage("ui.566676488a");
         state.phase = "error";
         return;
       }
@@ -189,7 +188,7 @@ export function createDictationPort(
         if (!state.aiAvailable) {
           pending.enqueue(
             { sessionId: ticket, entry, snapshot: captured, generationStarted },
-            "Демонстрационная модель недоступна. Повторите обработку или вставьте исходный текст.",
+            uiMessage("ui.77a153c450"),
           );
           return;
         }
@@ -253,11 +252,9 @@ export function createDictationPort(
       ))
         return;
       if (!state.live || state.live.phase !== "listening")
-        throw new Error("Живая диктовка уже завершена.");
+        throw new Error(uiMessage("ui.347c573ebe"));
       if (state.live.insertionState === "failed")
-        throw new Error(
-          "Вставка остановлена. Проверьте поле и скопируйте остаток вручную.",
-        );
+        throw new Error(uiMessage("ui.0cf5b061d5"));
       state.live.insertionState = "active";
       state.live.pendingText = "";
       state.live.warning = undefined;

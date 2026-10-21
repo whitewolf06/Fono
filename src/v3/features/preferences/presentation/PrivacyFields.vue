@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { useFeedback } from "../../../shared/application/feedback";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
@@ -14,12 +19,16 @@ async function clear(kind: "history" | "trainer") {
   if (
     await ui.confirm({
       title:
-        kind === "history" ? "Удалить историю?" : "Удалить данные анализа?",
+        kind === "history"
+          ? uiMessage("ui.da7d13ad43")
+          : uiMessage("ui.7de07d3c5a"),
       text:
         kind === "history"
-          ? "Архивные записи и разборы будут удалены. Последний черновик на главной останется."
-          : "Исходные расшифровки в архиве и их разборы будут удалены. Итоговые тексты останутся.",
-      accept: "Удалить данные",
+          ? uiMessage("ui.208c6cb3b4")
+          : uiMessage("ui.12c0f354cd"),
+      get accept() {
+        return uiMessage("ui.a64ec93960");
+      },
       danger: true,
     })
   ) {
@@ -35,62 +44,103 @@ async function clear(kind: "history" | "trainer") {
   <div class="form-stack">
     <PreferenceToggle
       name="historyEnabled"
-      label="Сохранять историю диктовок"
-      description="Последний результат текущей сессии доступен даже при выключенной истории."
+      :label="$t('ui.f0211033d5')"
+      :description="$t('ui.d81998629a')"
     /><SelectField
       v-if="workspace.native"
       id="historyRetentionDays"
       v-model="draft.historyRetentionDays"
-      label="Срок хранения истории диктовок"
+      :label="$t('ui.ad264afe23')"
       :options="[
-        { value: 7, label: '7 дней' },
-        { value: 30, label: '30 дней' },
-        { value: 90, label: '90 дней' },
-        { value: 365, label: '365 дней' },
-        { value: 3650, label: '10 лет' },
+        {
+          value: 7,
+          get label() {
+            return $t('ui.7867a2095f');
+          },
+        },
+        {
+          value: 30,
+          get label() {
+            return $t('ui.254d55672b');
+          },
+        },
+        {
+          value: 90,
+          get label() {
+            return $t('ui.add2e2fe30');
+          },
+        },
+        {
+          value: 365,
+          get label() {
+            return $t('ui.3f9ab002f8');
+          },
+        },
+        {
+          value: 3650,
+          get label() {
+            return $t('ui.305189aafa');
+          },
+        },
       ]"
     /><PreferenceToggle
       name="trainerEnabled"
-      label="Речевой тренер"
-      description="Замечать привычки по исходным расшифровкам."
+      :label="$t('ui.387054796e')"
+      :description="$t('ui.e5139de357')"
     /><PreferenceToggle
       name="analyticsConsent"
-      label="Локальное хранение исходных расшифровок"
-      description="Необходимо для анализа речи. Облачные рекомендации разрешаются отдельно."
+      :label="$t('ui.b0f0680621')"
+      :description="$t('ui.66ed3f363c')"
     /><SelectField
       id="retentionDays"
       v-model="draft.retentionDays"
-      :label="
-        workspace.native
-          ? 'Срок хранения исходных расшифровок и анализа'
-          : 'Срок хранения'
-      "
+      :label="workspace.native ? $t('ui.3cff493e39') : $t('ui.9334533cfa')"
       :options="[
-        { value: 7, label: '7 дней' },
-        { value: 30, label: '30 дней' },
-        { value: 90, label: '90 дней' },
+        {
+          value: 7,
+          get label() {
+            return $t('ui.7867a2095f');
+          },
+        },
+        {
+          value: 30,
+          get label() {
+            return $t('ui.254d55672b');
+          },
+        },
+        {
+          value: 90,
+          get label() {
+            return $t('ui.add2e2fe30');
+          },
+        },
         ...(workspace.native
-          ? [{ value: 365, label: '365 дней' }]
-          : [{ value: 0, label: 'До ручного удаления' }]),
+          ? [
+              {
+                value: 365,
+                get label() {
+                  return $t('ui.3f9ab002f8');
+                },
+              },
+            ]
+          : [
+              {
+                value: 0,
+                get label() {
+                  return $t('ui.dc70e20f36');
+                },
+              },
+            ]),
       ]"
     />
-    <div v-if="workspace.native" class="notice">
-      История хранится локально на компьютере и удаляется по выбранному сроку.
-      Для исходных расшифровок и анализа действует отдельный срок; он не
-      продлевает хранение самой записи. Ключи подключений защищены хранилищем
-      Windows.
-    </div>
-    <div v-else class="notice">
-      В этом браузерном макете сохраняются только демонстрационные настройки.
-      Тексты, ключи и пользовательские инструкции не записываются в хранилище
-      браузера.
-    </div>
+    <div v-if="workspace.native" class="notice">{{ $t("ui.fc1db948b8") }}</div>
+    <div v-else class="notice">{{ $t("ui.9150c873d8") }}</div>
     <section class="danger-zone">
-      <h3>Накопленные данные</h3>
+      <h3>{{ $t("ui.4a5474448a") }}</h3>
       <p>
-        {{ workspace.state.history.length }} диктовок ·
-        {{ workspace.state.history.filter((e) => e.original).length }} исходных
-        расшифровок
+        {{ workspace.state.history.length }} {{ $t("ui.4b6b16cfa7") }}
+        {{ workspace.state.history.filter((e) => e.original).length }}
+        {{ $t("ui.1a6305960f") }}
       </p>
       <div class="actions">
         <WlButton
@@ -98,13 +148,13 @@ async function clear(kind: "history" | "trainer") {
           variant="danger-quiet"
           :disabled="!workspace.state.history.length"
           @click="clear('history')"
-          >Удалить историю</WlButton
+          >{{ $t("ui.af40d9be9a") }}</WlButton
         ><WlButton
           size="sm"
           variant="danger-quiet"
           :disabled="!workspace.state.history.some((e) => e.original)"
           @click="clear('trainer')"
-          >Удалить данные анализа</WlButton
+          >{{ $t("ui.c0d8dbac76") }}</WlButton
         >
       </div>
     </section>

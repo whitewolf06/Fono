@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../domain/messages";
 import type { NativeContext } from "./context";
 import type { DictationPort, Phase } from "../../domain/contracts";
 import type { DictationOutcomeEvent } from "../../domain/dictationOutcome";
@@ -133,9 +134,7 @@ export function nativeDictation(ctx: NativeContext) {
     state.elapsed = value.elapsed_ms / 1000;
     state.audioLevel = Math.min(1, Math.max(0, value.audio_level));
     if (value.phase === "error")
-      state.error =
-        value.warning ||
-        "Живая диктовка прервана. Подтверждённый текст сохранён.";
+      state.error = value.warning || uiMessage("ui.32a0ad45bf");
   }
   function snapshot(value: NativeSnapshot) {
     if (value.operation_id > 0 && value.operation_id < currentOperation) return;
@@ -287,11 +286,9 @@ export function nativeDictation(ctx: NativeContext) {
       ))
         return;
       if (!liveIsActive(state.live) || state.live?.phase !== "listening")
-        throw new Error("Живая диктовка уже завершена.");
+        throw new Error(uiMessage("ui.347c573ebe"));
       if (state.live?.insertionState === "failed")
-        throw new Error(
-          "Вставка остановлена. Проверьте поле и скопируйте остаток вручную.",
-        );
+        throw new Error(uiMessage("ui.0cf5b061d5"));
       await call("resume_live_insertion");
     },
     chooseVariant(variant) {
@@ -315,14 +312,12 @@ export function nativeDictation(ctx: NativeContext) {
     async improve() {
       assertDraftAvailable(state.live);
       if (state.preferences.dictationMode === "live")
-        throw new Error("В живом режиме обработка через ИИ отключена.");
+        throw new Error(uiMessage("ui.6035ff10fb"));
       const currentRevision = ++revision;
       const previous = state.last.draft;
       const text = await call<string>("improve_text", { text: previous });
       if (revision !== currentRevision)
-        throw new Error(
-          "Черновик изменился во время обработки. Результат не применён.",
-        );
+        throw new Error(uiMessage("ui.744ca6e810"));
       state.last.undo = previous;
       state.last.draft = text;
       state.last.edited = true;

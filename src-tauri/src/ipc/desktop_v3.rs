@@ -23,6 +23,20 @@ pub fn get_runtime_ready(app: AppHandle) -> bool {
         .is_some()
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeUiLocale {
+    pub system_language: UiLocale,
+    pub language: UiLanguage,
+}
+#[tauri::command]
+pub fn get_ui_locale(app: AppHandle) -> RuntimeUiLocale {
+    RuntimeUiLocale {
+        system_language: system_ui_locale(),
+        language: app.state::<AppState>().settings().ui_language,
+    }
+}
+
 impl DesktopSession {
     /// A late result cannot replace a newer session or reverse cancellation.
     pub(crate) fn record_outcome(&self, outcome: crate::events::DictationOutcomeEventV1) -> bool {

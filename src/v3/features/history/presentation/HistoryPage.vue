@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, watch } from "vue";
 import { WlInput, WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -42,9 +47,15 @@ async function remove() {
   if (
     selected.value &&
     (await ui.confirm({
-      title: "Удалить диктовку?",
-      text: "Запись будет удалена из истории. Текущий черновик на главной сохранится.",
-      accept: "Удалить",
+      get title() {
+        return uiMessage("ui.9d5ff42384");
+      },
+      get text() {
+        return uiMessage("ui.a9b253362f");
+      },
+      get accept() {
+        return uiMessage("ui.be99b13612");
+      },
       danger: true,
     }))
   )
@@ -53,9 +64,15 @@ async function remove() {
 async function clear() {
   if (
     await ui.confirm({
-      title: "Очистить всю историю?",
-      text: "Все архивные диктовки и связанные разборы будут удалены. Последний текст текущей сессии останется на главной.",
-      accept: "Очистить историю",
+      get title() {
+        return uiMessage("ui.39bb078706");
+      },
+      get text() {
+        return uiMessage("ui.f7fe51e83b");
+      },
+      get accept() {
+        return uiMessage("ui.3f70f0ad67");
+      },
       danger: true,
     })
   )
@@ -67,45 +84,62 @@ async function toggleIncluded() {
   const included = entry.analyticsIncluded === false;
   await run(
     () => workspace.history.setIncluded(entry.id, included),
-    included ? "Запись включена в аналитику" : "Запись исключена из аналитики",
+    included ? uiMessage("ui.e99020539a") : uiMessage("ui.0409cba3fd"),
   );
 }
 </script>
 <template>
   <div class="page">
-    <PageHeading
-      title="История"
-      description="Ваши мысли, к которым можно вернуться."
+    <PageHeading :title="$t('ui.1417b7792d')" :description="$t('ui.600002f23d')"
       ><WlButton
         size="sm"
         variant="danger-quiet"
         :disabled="busy || !workspace.state.history.length"
         @click="clear"
         ><template #icon><AppIcon name="trash" :size="16" /></template
-        >Очистить</WlButton
+        >{{ $t("ui.8965271d3c") }}</WlButton
       ></PageHeading
     >
     <p v-if="!workspace.state.preferences.historyEnabled" class="notice">
-      Сохранение истории выключено. Новые диктовки доступны только в последнем
-      тексте на главной.
-      <RouterLink to="/settings/privacy">Настроить</RouterLink>
+      {{ $t("ui.e8731f62da") }}
+      <RouterLink to="/settings/privacy">{{ $t("ui.d71875872c") }}</RouterLink>
     </p>
     <div class="search-toolbar">
       <div class="search-input">
         <AppIcon name="search" /><WlInput
           v-model="query"
-          aria-label="Поиск по истории"
-          placeholder="Найти мысль или фразу…"
+          :aria-label="$t('ui.2dc9e0798c')"
+          :placeholder="$t('ui.019b9c3460')"
         />
       </div>
       <SelectField
         v-model="period"
-        label="Период"
+        :label="$t('ui.e97ca72e2c')"
         :options="[
-          { value: 0, label: 'Всё время' },
-          { value: 1, label: 'Последние сутки' },
-          { value: 7, label: '7 дней' },
-          { value: 30, label: '30 дней' },
+          {
+            value: 0,
+            get label() {
+              return $t('ui.126e978f06');
+            },
+          },
+          {
+            value: 1,
+            get label() {
+              return $t('ui.5bb7883e25');
+            },
+          },
+          {
+            value: 7,
+            get label() {
+              return $t('ui.7867a2095f');
+            },
+          },
+          {
+            value: 30,
+            get label() {
+              return $t('ui.254d55672b');
+            },
+          },
         ]"
       />
     </div>
@@ -131,7 +165,7 @@ async function toggleIncluded() {
             <small
               v-if="entry.analyticsIncluded === false"
               class="history-excluded"
-              >Не учитывается в речевом тренере</small
+              >{{ $t("ui.084c75ac8f") }}</small
             >
           </button>
         </section>
@@ -150,32 +184,30 @@ async function toggleIncluded() {
             :class="{ selected: variant === 'original' }"
             @click="variant = 'original'"
           >
-            Исходная расшифровка</button
+            {{ $t("ui.421252fcb5") }}</button
           ><button
             :class="{ selected: variant === 'result' }"
             @click="variant = 'result'"
           >
-            Результат
+            {{ $t("ui.4997a5143d") }}
           </button>
         </div>
-        <p v-if="!selected.original" class="muted">
-          Исходная расшифровка не сохранена.
-        </p>
+        <p v-if="!selected.original" class="muted">{{ $t("ui.227ae563c2") }}</p>
         <div class="reading-text" tabindex="0">{{ text }}</div>
         <p class="muted history-analytics-state">
           {{
             selected.analyticsIncluded === false
-              ? "Запись исключена из речевой аналитики. Текст остаётся в истории; включить её обратно можно здесь."
-              : "Запись разрешена для речевой аналитики. Тренер учтёт её при наличии исходной расшифровки и локального разбора."
+              ? $t("ui.5135baf5a3")
+              : $t("ui.fc61757a40")
           }}
         </p>
         <div class="actions">
           <WlButton
             size="sm"
             :disabled="busy"
-            @click="run(() => workspace.copy(text || ''), 'Текст скопирован')"
+            @click="run(() => workspace.copy(text || ''), $t('ui.ec655e25c5'))"
             ><template #icon><AppIcon name="copy" /></template
-            >Копировать</WlButton
+            >{{ $t("ui.1ecddf40bf") }}</WlButton
           ><WlButton
             size="sm"
             variant="ghost"
@@ -183,15 +215,15 @@ async function toggleIncluded() {
             @click="toggleIncluded"
             >{{
               selected.analyticsIncluded === false
-                ? "Включить в аналитику"
-                : "Исключить из аналитики"
+                ? $t("ui.3234cf8f16")
+                : $t("ui.dc7e313c2e")
             }}</WlButton
           ><WlButton
             size="sm"
             variant="danger-quiet"
             :disabled="busy"
             @click="remove"
-            >Удалить запись</WlButton
+            >{{ $t("ui.5f3a315499") }}</WlButton
           >
         </div>
         <p v-if="error" class="error-text" role="alert">{{ error }}</p>
@@ -200,12 +232,14 @@ async function toggleIncluded() {
     <EmptyState
       v-else
       :title="
-        workspace.state.history.length ? 'Ничего не найдено' : 'Здесь пока тихо'
+        workspace.state.history.length
+          ? $t('ui.480fae1c4b')
+          : $t('ui.6e15137527')
       "
       :text="
         workspace.state.history.length
-          ? 'Попробуйте другую фразу или период.'
-          : 'Начните диктовку — сохранённые записи появятся здесь.'
+          ? $t('ui.fdba4c962f')
+          : $t('ui.51ff2c20d6')
       "
       ><WlButton
         v-if="query || period"
@@ -214,10 +248,10 @@ async function toggleIncluded() {
           query = '';
           period = 0;
         "
-        >Сбросить фильтры</WlButton
-      ><RouterLink v-else class="text-link" to="/"
-        >На главную</RouterLink
-      ></EmptyState
+        >{{ $t("ui.cd45ec7836") }}</WlButton
+      ><RouterLink v-else class="text-link" to="/">{{
+        $t("ui.ad94907f64")
+      }}</RouterLink></EmptyState
     >
   </div>
 </template>

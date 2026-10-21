@@ -13,36 +13,55 @@ export function dictationNotice(
   const details = error?.trim() || "";
   if (!details && !context.insertionBlocked) return null;
   if (
-    /не удалось скопировать|ошибка копирования|буфер обмена|clipboard/i.test(
+    /не удалось скопировать|ошибка копирования|буфер обмена|could not copy|copy failed|clipboard/i.test(
       details,
     )
   )
     return {
       kind: "copy",
-      title: message("notice.copyTitle"),
-      hint: message("notice.copyHint"),
+      get title() {
+        return message("notice.copyTitle");
+      },
+      get hint() {
+        return message("notice.copyHint");
+      },
       details,
     };
-  if (context.insertionBlocked || /вставк[аиу]|поле для вставки/i.test(details))
+  if (
+    context.insertionBlocked ||
+    /вставк[аиу]|поле для вставки|insert|target field/i.test(details)
+  )
     return {
       kind: "insertion",
-      title: message("notice.insertionTitle"),
-      hint: message("notice.insertionHint"),
+      get title() {
+        return message("notice.insertionTitle");
+      },
+      get hint() {
+        return message("notice.insertionHint");
+      },
       details,
     };
   if (
     context.hasText &&
-    /обработк|\bLLM\b|нейросет|модель.*недоступ/i.test(details)
+    /обработк|\bLLM\b|нейросет|модель.*недоступ|processing|model.*unavailable/i.test(
+      details,
+    )
   )
     return {
       kind: "processing",
-      title: message("notice.processingTitle"),
-      hint: message("notice.processingHint"),
+      get title() {
+        return message("notice.processingTitle");
+      },
+      get hint() {
+        return message("notice.processingHint");
+      },
       details,
     };
   return {
     kind: "other",
-    title: message("notice.otherTitle"),
+    get title() {
+      return message("notice.otherTitle");
+    },
     hint: context.hasText
       ? message("notice.hasTextHint")
       : message("notice.otherHint"),

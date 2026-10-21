@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import { WlButton, WlDialog, WlTextarea } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -16,34 +18,30 @@ function close() {
   <WlDialog
     v-if="current"
     :visible="true"
-    header="Выделенный текст"
+    :header="$t('ui.f2f1562085')"
     width="640px"
     @update:visible="close"
   >
     <p v-if="current.phase === 'reading'" role="status">
-      Получаю выделенный фрагмент… Повторное сочетание отменяет получение.
+      {{ $t("ui.f368e96ec5") }}
     </p>
     <template v-else-if="current.phase === 'ready'">
       <p class="muted">
         {{
           current.source === "demo"
-            ? "Демонстрационный фрагмент"
+            ? $t("ui.1e13f12f6f")
             : current.source === "clipboard"
-              ? "Получено через резервный Ctrl+C"
-              : "Получено через UI Automation"
+              ? $t("ui.b620555092")
+              : $t("ui.a8d994f50c")
         }}
       </p>
       <WlTextarea
         :model-value="current.text"
         readonly
         :rows="4"
-        aria-label="Полученный выделенный текст"
+        :aria-label="$t('ui.9874f93368')"
       />
-      <p class="muted">
-        Фрагмент хранится только в памяти Fono до закрытия. В историю он не
-        записывается. При включённом сохранении правок в историю попадёт только
-        принятый результат. Отправка в ИИ запускается отдельной кнопкой ниже.
-      </p>
+      <p class="muted">{{ $t("ui.0816c6a54e") }}</p>
       <SelectionEditor />
       <p v-if="current.historyMessage" role="alert" class="error-text">
         {{ current.historyMessage }}
@@ -53,7 +51,7 @@ function close() {
     <p v-if="error" role="alert" class="error-text">{{ error }}</p>
     <template #footer
       ><WlButton :loading="busy" @click="close">{{
-        current.phase === "reading" ? "Отмена" : "Закрыть"
+        current.phase === "reading" ? $t("ui.8fbe9b75cb") : $t("ui.a7a4033657")
       }}</WlButton></template
     >
   </WlDialog>

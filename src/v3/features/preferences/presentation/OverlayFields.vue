@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, watch } from "vue";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
@@ -70,19 +75,17 @@ function resolvePreview(request: PendingDictationRequest) {
   if (demoPending.value?.sessionId !== request.sessionId) return;
   if (request.action === "process_preview") {
     previewResult.value = sampleText;
-    previewFeedback.value =
-      "Обработка показана на примере. Доступно копирование без вставки в другое приложение.";
+    previewFeedback.value = uiMessage("ui.196fc69bcb");
     return;
   }
   previewScenario.value = request.action === "cancel" ? "cancelled" : "done";
-  previewFeedback.value =
-    "Действие показано на примере. Текст не обрабатывался и не вставлялся в другое приложение.";
+  previewFeedback.value = uiMessage("ui.604f1fdd67");
 }
 async function copyPreview(text: string) {
   const revision = previewRevision;
   const copied = await run(
     () => workspace.copy(text),
-    "Текст примера скопирован",
+    uiMessage("ui.5ee87f2703"),
   );
   if (copied && revision === previewRevision) previewScenario.value = "done";
 }
@@ -101,55 +104,105 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
   <div class="form-stack">
     <PreferenceToggle
       name="overlayEnabled"
-      label="Показывать индикатор записи"
-      description="Состояние диктовки поверх других приложений."
+      :label="$t('ui.dbcc59cc37')"
+      :description="$t('ui.94e960064b')"
     /><PreferenceToggle
       name="overlayCompact"
-      label="Компактный вид"
-      description="Меньше места для статуса. Быстрые настройки остаются доступны."
+      :label="$t('ui.a3a998bfd2')"
+      :description="$t('ui.2a4a3dffd8')"
     />
     <PreferenceToggle
       id="overlayQuickProcessing"
       name="overlayQuickProcessing"
-      label="Быстрые настройки обработки"
-      description="В режиме повторного нажатия показывать язык распознавания, стиль и перевод. Выбор запоминается для следующих диктовок."
+      :label="$t('ui.f793997a46')"
+      :description="$t('ui.0fab9c0bcf')"
     /><label id="overlayScale"
-      >Масштаб · {{ draft.overlayScale }}%<WlSlider
+      >{{ $t("ui.a8da764ef3") }} {{ draft.overlayScale }}%<WlSlider
         v-model="draft.overlayScale"
         :min="70"
         :max="130"
         :step="5"
-        aria-label="Масштаб индикатора" /></label
+        :aria-label="$t('ui.42d639bf3b')" /></label
     ><label
-      >Непрозрачность · {{ draft.overlayOpacity }}%<WlSlider
+      >{{ $t("ui.ea7426e01f") }} {{ draft.overlayOpacity }}%<WlSlider
         v-model="draft.overlayOpacity"
         :min="30"
         :max="100"
         :step="5"
-        aria-label="Непрозрачность индикатора"
+        :aria-label="$t('ui.669005b3e0')"
     /></label>
     <SelectField
       v-model="draft.overlayPosition"
-      label="Положение"
+      :label="$t('ui.8b0130c9c1')"
       :options="[
-        { value: 'custom', label: 'Текущее положение' },
-        { value: 'bottom', label: 'Внизу по центру' },
-        { value: 'top', label: 'Вверху по центру' },
+        {
+          value: 'custom',
+          get label() {
+            return $t('ui.918b03ab75');
+          },
+        },
+        {
+          value: 'bottom',
+          get label() {
+            return $t('ui.2e07b75906');
+          },
+        },
+        {
+          value: 'top',
+          get label() {
+            return $t('ui.732719192d');
+          },
+        },
       ]"
     />
     <SelectField
       v-model="previewScenario"
-      label="Состояние в примере"
+      :label="$t('ui.80f639d8cf')"
       :options="[
-        { value: 'recording', label: 'Запись' },
-        { value: 'silence', label: 'Пауза перед завершением' },
-        { value: 'awaiting_action', label: 'Распознано · выбор действия' },
-        { value: 'processing', label: 'Обработка через ИИ' },
-        { value: 'done', label: 'Готово' },
-        { value: 'error', label: 'Ошибка' },
-        { value: 'cancelled', label: 'Отменено' },
+        {
+          value: 'recording',
+          get label() {
+            return $t('ui.1d80e1757a');
+          },
+        },
+        {
+          value: 'silence',
+          get label() {
+            return $t('ui.49e7286558');
+          },
+        },
+        {
+          value: 'awaiting_action',
+          get label() {
+            return $t('ui.20170aee15');
+          },
+        },
+        {
+          value: 'processing',
+          get label() {
+            return $t('ui.7578d9d962');
+          },
+        },
+        {
+          value: 'done',
+          get label() {
+            return $t('ui.ef05d57959');
+          },
+        },
+        {
+          value: 'error',
+          get label() {
+            return $t('ui.bf22dfeeba');
+          },
+        },
+        {
+          value: 'cancelled',
+          get label() {
+            return $t('ui.23a2a9bfcf');
+          },
+        },
       ]"
-      hint="Нажимайте кнопки в примере: они изменяют только предпросмотр."
+      :hint="$t('ui.f8120814d5')"
     />
     <div class="preview-stage" :data-position="draft.overlayPosition">
       <OverlayPreview
@@ -162,21 +215,17 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
         @resolve="resolvePreview"
         @copy="copyPreview"
         @processing-change="changePreviewProcessing"
-      /><small
-        >Предпросмотр изменяется сразу. Для применения нажмите
-        «Сохранить».</small
-      >
+      /><small>{{ $t("ui.d8ec86c062") }}</small>
       <p v-if="previewFeedback" class="notice" role="status">
         {{ previewFeedback }}
       </p>
     </div>
     <details class="advanced" open>
-      <summary>Что означают кнопки</summary>
+      <summary>{{ $t("ui.f7bece44b8") }}</summary>
       <div class="form-stack overlay-legend">
         <p class="muted">
           <AppIcon name="check" :size="14" class="dictation-action--insert" />
-          Зелёная галочка — завершить запись с текущими настройками и оставить
-          результат для копирования. Текст не вставляется автоматически.
+          {{ $t("ui.5f833c640b") }}
         </p>
         <p class="muted">
           <AppIcon
@@ -184,9 +233,7 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
             :size="14"
             class="dictation-action--insert"
           />
-          Повторное нажатие горячей клавиши — распознать речь, применить
-          выбранную обработку, вставить текст в исходное поле и закрыть
-          индикатор.
+          {{ $t("ui.df6576f49d") }}
         </p>
         <p class="muted">
           <AppIcon
@@ -194,8 +241,7 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
             :size="14"
             class="dictation-action--process"
           />
-          Обработка — выбранный стиль. «Без изменений» пропускает редактирование
-          через ИИ; с переводом выполняется только перевод.
+          {{ $t("ui.fa65b7dee7") }}
         </p>
         <p class="muted">
           <AppIcon
@@ -203,23 +249,14 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
             :size="14"
             class="dictation-action--translate"
           />
-          Перевод — включить выбранный язык. Шестерёнка справа открывает выбор
-          языка. Выключение сохраняет его для следующей записи.
+          {{ $t("ui.f7458b5a7e") }}
         </p>
         <p class="muted">
           <AppIcon name="x" :size="14" class="dictation-action--cancel" />
-          Красный крестик — отменить или закрыть без копирования. «Копировать»
-          помещает результат в буфер и закрывает индикатор.
+          {{ $t("ui.4cd6ae4763") }}
         </p>
-        <p class="muted">
-          Обработка и перевод доступны при включённом ИИ. При ручном выборе Fono
-          ждёт действия после распознавания; новые записи до этого не
-          начинаются.
-        </p>
-        <p class="muted">
-          Стиль и язык, выбранные в индикаторе, запоминаются. Быстрые настройки
-          можно скрыть; способ запуска обработки остаётся прежним.
-        </p>
+        <p class="muted">{{ $t("ui.e641b1266d") }}</p>
+        <p class="muted">{{ $t("ui.024dc368df") }}</p>
       </div>
     </details>
     <div class="actions">
@@ -227,7 +264,7 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
         v-if="workspace.settings.previewOverlay"
         size="sm"
         @click="run(() => workspace.settings.previewOverlay!(draft))"
-        >Показать поверх окон</WlButton
+        >{{ $t("ui.9717dd97d1") }}</WlButton
       >
       <WlButton
         size="sm"
@@ -236,10 +273,10 @@ function changePreviewProcessing(choice: OverlayProcessingChoice) {
             ? run(() => workspace.settings.resetOverlay!())
             : (draft.overlayPosition = 'bottom')
         "
-        >Сбросить положение</WlButton
-      ><RouterLink class="text-link" to="/overlay"
-        >Все состояния индикатора</RouterLink
-      >
+        >{{ $t("ui.504e50f3e5") }}</WlButton
+      ><RouterLink class="text-link" to="/overlay">{{
+        $t("ui.7a06baba55")
+      }}</RouterLink>
     </div>
   </div>
 </template>

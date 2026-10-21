@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { reactive } from "vue";
 import type {
   CudaPackagesPort,
@@ -12,7 +13,7 @@ export function createMockCudaPackages(): CudaPackagesPort {
     downloadedBytes: 0,
     totalBytes: null,
     installedRevision: null,
-    message: "Демонстрация: пакет CUDA ещё не установлен.",
+    message: uiMessage("ui.b64385532b"),
     nvidiaDetected: null,
   });
   let generation = 0;
@@ -22,8 +23,7 @@ export function createMockCudaPackages(): CudaPackagesPort {
     state,
     refresh: async () => {},
     async install() {
-      if (active || disposed)
-        throw new Error("Подготовка CUDA уже выполняется.");
+      if (active || disposed) throw new Error(uiMessage("ui.bd5716d751"));
       active = true;
       const ticket = ++generation;
       state.operationId = `demo-${ticket}`;
@@ -38,8 +38,7 @@ export function createMockCudaPackages(): CudaPackagesPort {
         }
         state.phase = "installed";
         state.installedRevision = 1;
-        state.message =
-          "Демонстрация завершена. Файлы на компьютер не загружались.";
+        state.message = uiMessage("ui.05542d0fad");
       } finally {
         active = false;
       }
@@ -48,7 +47,7 @@ export function createMockCudaPackages(): CudaPackagesPort {
       if (!cudaPackageBusy(state.phase)) return;
       generation++;
       state.phase = "cancelled";
-      state.message = "Демонстрационная загрузка отменена.";
+      state.message = uiMessage("ui.055483c6b8");
     },
     dispose() {
       disposed = true;

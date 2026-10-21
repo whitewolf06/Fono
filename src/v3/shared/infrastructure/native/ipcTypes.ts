@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../domain/messages";
 // Shared типы между frontend и backend.
 // В Rust они зеркалируются в src-tauri/src/types.rs (serde::Serialize).
 
@@ -119,6 +120,7 @@ export interface WakeWordCapabilities {
 }
 
 export interface Settings {
+  ui_language?: import("../../domain/locale").UiLanguage;
   application_profiles?: import("../../domain/applicationProfiles").ApplicationProfile[];
   pretranscription_enabled?: boolean;
   /** Обычная диктовка или последовательная вставка устойчивых фрагментов. */
@@ -412,7 +414,9 @@ export const DEFAULT_SETTINGS: Settings = {
   llm_profiles: [
     {
       id: "default",
-      name: "Основной LLM",
+      get name() {
+        return uiMessage("ui.ba1f6ebcd3");
+      },
       provider: "lmstudio",
       connection: "local",
       base_url: "http://localhost:1234/v1",

@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../shared/domain/messages";
 import { createBrowserSnippetTransfer } from "../features/snippets/infrastructure/browserSnippets";
 import { createMockFiles } from "../features/files/infrastructure/mockFiles";
 import { reactive } from "vue";
@@ -79,9 +80,7 @@ export function createMockWorkspace(): Workspace {
     scenario: "normal",
     microphoneAvailable: true,
     aiAvailable: true,
-    logs: [
-      "Демонстрационный режим готов. Системные устройства не используются.",
-    ],
+    logs: [uiMessage("ui.a196172e2b")],
     onboardingStep: readWizardStep(),
     testSignal: 0,
   });
@@ -125,8 +124,7 @@ export function createMockWorkspace(): Workspace {
       jobTicks++;
       if (jobTicks >= 3) {
         active.state = "done";
-        active.text =
-          "Демонстрационная задача выполнена. Голос превратился в текст.";
+        active.text = uiMessage("ui.1aa8b24ef5");
         jobTicks = 0;
       }
     } else {
@@ -179,8 +177,7 @@ export function createMockWorkspace(): Workspace {
         "Большая диктовка: мысли, вопросы и подробные наблюдения для проверки интерфейса. ".repeat(
           100,
         );
-      state.preferences.processingModel =
-        "Локальная модель с очень длинным названием для проверки компоновки и переносов";
+      state.preferences.processingModel = uiMessage("ui.f8597fe4d5");
     }
     selectLatest(state, state.history[0] ?? null);
     if (LIVE_DICTATION_ENABLED && value.startsWith("live-")) {
@@ -194,8 +191,7 @@ export function createMockWorkspace(): Workspace {
         if (value === "live-backlog") live.lagMs = 8500;
         if (value === "live-insertion-error") {
           live.insertionState = "failed";
-          live.warning =
-            "Вставка не подтверждена. Текст сохранён; проверьте выбранное поле перед продолжением.";
+          live.warning = uiMessage("ui.89b932fb8f");
         }
       }
     }
@@ -218,7 +214,7 @@ export function createMockWorkspace(): Workspace {
     history: {
       async setIncluded(id, included) {
         const entry = state.history.find((item) => item.id === id);
-        if (!entry) throw new Error("Диктовка уже удалена из истории.");
+        if (!entry) throw new Error(uiMessage("ui.a0a69d42bc"));
         entry.analyticsIncluded = included;
         trainer.invalidate();
       },
@@ -240,16 +236,16 @@ export function createMockWorkspace(): Workspace {
       return [
         {
           id: "mic",
-          title: "Микрофон",
+          title: uiMessage("ui.f038415295"),
           health: state.microphoneAvailable ? "ready" : "missing",
           detail: state.microphoneAvailable
-            ? "Устройство доступно (демо)"
-            : "Подключите микрофон и выберите его в настройках",
+            ? uiMessage("ui.d055cd8a83")
+            : uiMessage("ui.b61bd4e1f3"),
           section: "audio",
         },
         {
           id: "model",
-          title: "Распознавание",
+          title: uiMessage("ui.7894eb1ac6"),
           health:
             model?.status === "installed"
               ? "ready"
@@ -258,28 +254,30 @@ export function createMockWorkspace(): Workspace {
                 : "missing",
           detail:
             model?.status === "installed"
-              ? model.name + " готова"
-              : "Загрузите или выберите установленную модель",
+              ? model.name + uiMessage("ui.442325a3bb")
+              : uiMessage("ui.5c9cd7bd23"),
           section: "audio",
         },
         {
           id: "ai",
-          title: "Обработка текста",
+          title: uiMessage("ui.d4a26d3502"),
           health: !state.preferences.processingEnabled
             ? "off"
             : state.aiAvailable
               ? "ready"
               : "error",
           detail: state.aiAvailable
-            ? "Подключение доступно (демо)"
-            : "Проверьте адрес сервера и доступность модели",
+            ? uiMessage("ui.be66732e94")
+            : uiMessage("ui.da02c784d3"),
           section: "processing",
         },
         {
           id: "service",
-          title: "API-сервис",
+          title: uiMessage("ui.1b580ef9f9"),
           health: state.preferences.serviceEnabled ? "ready" : "off",
-          detail: "127.0.0.1:17832 · демонстрационное состояние",
+          get detail() {
+            return uiMessage("ui.93169fcc97");
+          },
           section: "diagnostics",
         },
       ];

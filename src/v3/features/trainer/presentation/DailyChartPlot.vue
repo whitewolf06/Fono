@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+import { translateAuthored } from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import type { TrainerDay } from "../domain/report";
 import {
@@ -30,7 +36,19 @@ const ticks = computed(() =>
 );
 const y = (value: number) => 128 - (value / scale.value.max) * 128;
 function description(day: TrainerDay): string {
-  return `${dateLabel(day.date).replace(/\.$/u, "")}. Диктовок: ${day.sessions}. Слов: ${day.words}. ${chartCategories.map((category) => `${category.title}: ${day.counts[category.key]}`).join(". ")}.`;
+  return uiMessage("ui.0a75fafe7b", {
+    v0: String(dateLabel(day.date).replace(/\.$/u, "")),
+    v1: String(day.sessions),
+    v2: String(day.words),
+    v3: String(
+      chartCategories
+        .map(
+          (category) =>
+            `${translateAuthored(category.title)}: ${day.counts[category.key]}`,
+        )
+        .join(". "),
+    ),
+  });
 }
 </script>
 
@@ -102,7 +120,7 @@ function description(day: TrainerDay): string {
       >
     </div>
   </div>
-  <p v-else class="muted daily-caption">В снимке нет дней для графика.</p>
+  <p v-else class="muted daily-caption">{{ $t("ui.e8a3225ff0") }}</p>
 </template>
 
 <style scoped>

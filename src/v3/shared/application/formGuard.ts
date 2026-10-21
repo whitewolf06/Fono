@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../domain/messages";
 import { onScopeDispose } from "vue";
 import { useRouter } from "vue-router";
 import { useInteraction } from "./interaction";
@@ -14,10 +15,18 @@ export function useFormGuard(
     return (
       !isDirty() ||
       ui.confirm({
-        title: "Закрыть без сохранения?",
-        text: "В форме есть несохранённые изменения. При выходе они будут отменены.",
-        accept: "Отменить изменения",
-        cancel: "Остаться",
+        get title() {
+          return uiMessage("ui.0e12324ee6");
+        },
+        get text() {
+          return uiMessage("ui.d770d39152");
+        },
+        get accept() {
+          return uiMessage("ui.9471b91e84");
+        },
+        get cancel() {
+          return uiMessage("ui.3a5acd0245");
+        },
       })
     );
   }

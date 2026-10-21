@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type {
   Dictation,
   WorkspaceState,
@@ -113,8 +114,7 @@ export function createPendingWorkflow(
     if (needsModel) await delay(800);
     if (ticket !== revision || capture !== current) return;
     if (needsModel && !state.aiAvailable) {
-      const error =
-        "Демонстрационная модель недоступна. Проверьте подключение, повторите обработку или вставьте исходный текст.";
+      const error = uiMessage("ui.eaca214046");
       pending.phase = "awaiting_action";
       pending.error = error;
       state.phase = "awaiting_action";
@@ -147,7 +147,7 @@ export function createPendingWorkflow(
     const current = capture;
     const pending = state.pendingDictation;
     if (!current || !pending || current.sessionId !== request.sessionId)
-      throw new Error("Эта диктовка уже завершена или отменена.");
+      throw new Error(uiMessage("ui.a2af9f2bd1"));
     if (request.action === "cancel") {
       onCancel();
       return;
@@ -156,13 +156,11 @@ export function createPendingWorkflow(
       pending.copyOnly &&
       ["insert_raw", "process_and_insert"].includes(request.action)
     )
-      throw new Error(
-        "Эта диктовка ожидает копирования. Вставка из неё недоступна.",
-      );
+      throw new Error(uiMessage("ui.7735a104f2"));
     if (inFlight) {
       if (["process_and_insert", "process_preview"].includes(request.action))
         return inFlight;
-      throw new Error("Сначала дождитесь обработки или отмените диктовку.");
+      throw new Error(uiMessage("ui.37e9f9d0a0"));
     }
     if (request.action === "insert_raw") {
       complete(current, pending.originalText, "off", null);
@@ -178,8 +176,7 @@ export function createPendingWorkflow(
       );
       return;
     }
-    if (!pending.processingEnabled)
-      throw new Error("Обработка текста выключена для этой диктовки.");
+    if (!pending.processingEnabled) throw new Error(uiMessage("ui.1bf41b7cad"));
     const running = process(
       current,
       request.preset || pending.preset,

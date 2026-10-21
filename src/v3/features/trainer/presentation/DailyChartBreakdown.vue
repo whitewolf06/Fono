@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { translateAuthored } from "../../../shared/domain/messages";
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import { WlField, WlSelect } from "@whitelife-core/ui-kit";
 import type { TrainerDay } from "../domain/report";
@@ -27,7 +30,7 @@ function selectDate(value: unknown) {
         v-if="active"
         v-slot="field"
         class="daily-day-field"
-        label="Выбранный день"
+        :label="$t('ui.90b60b3c44')"
       >
         <WlSelect
           v-bind="field"
@@ -37,42 +40,46 @@ function selectDate(value: unknown) {
           option-value="value"
           size="sm"
           density="compact"
-          aria-label="Выбранный день"
+          :aria-label="$t('ui.90b60b3c44')"
           @update:model-value="selectDate"
         />
       </WlField>
       <dl class="daily-metrics" aria-live="polite" aria-atomic="true">
         <div>
-          <dt>Диктовок</dt>
+          <dt>{{ $t("ui.d0d47198f3") }}</dt>
           <dd>{{ selected.day.sessions }}</dd>
         </div>
         <div>
-          <dt>Слов</dt>
+          <dt>{{ $t("ui.bc9f773ccc") }}</dt>
           <dd>{{ selected.day.words }}</dd>
         </div>
         <div>
-          <dt>{{ metric === "density" ? "На 100 слов" : "Маркеров" }}</dt>
+          <dt>
+            {{
+              metric === "density" ? $t("ui.f6da67615a") : $t("ui.5a83465bc1")
+            }}
+          </dt>
           <dd>{{ formatMetric(selected.total) }}</dd>
         </div>
       </dl>
     </div>
-    <dl class="daily-legend" aria-label="Маркеры выбранного дня по категориям">
+    <dl class="daily-legend" :aria-label="$t('ui.3cd5cbd5e1')">
       <div v-for="segment in selected.segments" :key="segment.key">
         <dt>
           <i :class="'daily-' + segment.key" aria-hidden="true" />
-          <span>{{ segment.title }}</span>
+          <span>{{ translateAuthored(segment.title) }}</span>
         </dt>
         <dd>{{ formatMetric(segment.value) }}</dd>
       </div>
     </dl>
     <p v-if="selected.day.sessions === 0" class="muted daily-caption">
-      За этот день в снимке нет учтённых диктовок.
+      {{ $t("ui.2e34c2db71") }}
     </p>
     <p
       v-else-if="selected.segments.every((segment) => segment.count === 0)"
       class="muted daily-caption"
     >
-      В учтённых диктовках этого дня маркеры не найдены.
+      {{ $t("ui.e9d58005e9") }}
     </p>
   </div>
 </template>

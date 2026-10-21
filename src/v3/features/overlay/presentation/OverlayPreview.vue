@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as uiMessage } from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import type { DictationOutcomeKind } from "../../../shared/domain/dictationOutcome";
 import { message } from "../../../shared/domain/messages";
@@ -99,7 +101,7 @@ const indicator = computed<IndicatorState>(() => {
       props.outcome === "no_speech"
         ? message("dictation.noSpeech")
         : props.phase === "silence" && !pending
-          ? `Пауза · ${props.seconds} с`
+          ? uiMessage("ui.237038a7be", { v0: String(props.seconds) })
           : undefined,
     postprocessingOn:
       choice.value.processingEnabled ?? props.preferences.processingEnabled,

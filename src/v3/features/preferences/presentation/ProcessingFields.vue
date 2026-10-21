@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
@@ -29,64 +31,95 @@ const trainerProfile = computed(() =>
 <template>
   <div class="form-stack">
     <p v-if="draft.dictationMode === 'live'" class="notice">
-      В живой диктовке обработка через ИИ выключена. Эти параметры применяются к
-      обычной диктовке.
+      {{ $t("ui.30dd91c84c") }}
     </p>
     <PreferenceToggle
       name="processingEnabled"
-      label="Обработка текста"
-      description="Убирать речевой мусор или оформлять результат."
+      :label="$t('ui.d4a26d3502')"
+      :description="$t('ui.a2326dc13c')"
       :disabled="draft.dictationMode === 'live'"
       :effective-value="draft.dictationMode === 'live' ? false : undefined"
     />
     <SelectField
       id="processingTrigger"
       v-model="draft.processingTrigger"
-      label="Когда обрабатывать"
+      :label="$t('ui.87486a57b5')"
       :disabled="!canProcess"
       :options="[
-        { value: 'automatic', label: 'Автоматически после диктовки' },
-        { value: 'manual', label: 'По кнопке в индикаторе' },
+        {
+          value: 'automatic',
+          get label() {
+            return $t('ui.a8f986bd2e');
+          },
+        },
+        {
+          value: 'manual',
+          get label() {
+            return $t('ui.edb4ce3079');
+          },
+        },
       ]"
       :hint="
         draft.processingTrigger === 'manual'
-          ? 'После распознавания Fono ждёт вашего решения. Галочка в индикаторе оставляет результат для копирования; повторное нажатие сочетания вставляет текст с выбранными настройками.'
-          : 'Fono применит текущие настройки. Повторное нажатие сочетания вставляет результат; галочка оставляет его для копирования без автоматической вставки.'
+          ? $t('ui.5105a0b7da')
+          : $t('ui.73c9e67474')
       "
     />
     <SelectField
       id="processingMode"
       v-model="draft.processingMode"
-      label="Стиль обработки по умолчанию"
+      :label="$t('ui.c7e41eac12')"
       :disabled="!canProcess"
       :options="[
         {
           value: 'raw',
-          label: 'Без изменений · только распознавание или перевод',
+          get label() {
+            return $t('ui.5fee11c377');
+          },
         },
-        { value: 'clean', label: 'Очистка · сохранить ваш стиль' },
-        { value: 'format', label: 'Форматирование · структурировать мысли' },
-        { value: 'task', label: 'Постановка задачи · цель и шаги' },
-        { value: 'formal', label: 'Деловое письмо · сдержанный тон' },
+        {
+          value: 'clean',
+          get label() {
+            return $t('ui.5a84be0516');
+          },
+        },
+        {
+          value: 'format',
+          get label() {
+            return $t('ui.d8ca68ea68');
+          },
+        },
+        {
+          value: 'task',
+          get label() {
+            return $t('ui.0c77355772');
+          },
+        },
+        {
+          value: 'formal',
+          get label() {
+            return $t('ui.d699682690');
+          },
+        },
       ]"
-      hint="Стиль можно менять в индикаторе. Выбор запоминается для следующих диктовок."
+      :hint="$t('ui.994580879c')"
     />
     <SelectField
       id="processingTranslation"
       v-model="draft.processingTranslation"
-      label="Язык перевода"
+      :label="$t('ui.16b43a4ab6')"
       :disabled="!canProcess"
       :options="[...translationOptions]"
       :hint="
         draft.processingMode === 'raw'
-          ? 'Без изменений: выполняется только перевод. Без перевода запрос к модели не отправляется.'
-          : 'ИИ редактирует текст и переводит его с сохранением смысла.'
+          ? $t('ui.ebf59954bd')
+          : $t('ui.0e6bc43604')
       "
     />
     <PreferenceToggle
       name="processingTranslationEnabled"
-      label="Применять перевод"
-      description="Язык запоминается даже при выключенном переводе."
+      :label="$t('ui.73c017a534')"
+      :description="$t('ui.2eefdc5961')"
       :disabled="!canProcess || draft.processingTranslation === 'none'"
       :effective-value="
         !canProcess || draft.processingTranslation === 'none'
@@ -94,32 +127,28 @@ const trainerProfile = computed(() =>
           : undefined
       "
     />
-    <p class="muted">
-      В режиме повторного нажатия быстрые настройки индикатора позволяют сменить
-      стиль и перевод до завершения записи. Они запоминаются и работают как с
-      автоматической обработкой, так и с обработкой по кнопке.
-    </p>
+    <p class="muted">{{ $t("ui.2a63b65ce9") }}</p>
     <SelectField
       id="profile"
       v-model="draft.profile"
-      label="Профиль подключения"
+      :label="$t('ui.c5dc7ac1f2')"
       :options="profiles"
     />
     <div class="connection-address">
-      <span>{{ selectedProfile?.url || "Подключение ещё не настроено" }}</span
+      <span>{{ selectedProfile?.url || $t("ui.2dd561616c") }}</span
       ><small>{{
         !selectedProfile
-          ? "Создайте подключение в общих настройках"
+          ? $t("ui.ef1dc7d602")
           : selectedProfile.location === "local"
-            ? "На вашем компьютере"
+            ? $t("ui.44e0d61fe1")
             : workspace.native
-              ? "Облачный профиль"
-              : "Облачный профиль · ключ заменён демозначением"
+              ? $t("ui.38c49eea14")
+              : $t("ui.1bec7ef688")
       }}</small>
     </div>
     <LlmModelField
       v-model="draft.processingModel"
-      label="Модель для обработки"
+      :label="$t('ui.c967a64fc4')"
       :profile="draft.profile"
     />
     <WlButton
@@ -131,14 +160,10 @@ const trainerProfile = computed(() =>
           result = await workspace.settings.testConnection(draft.profile);
         })
       "
-      >Проверить соединение</WlButton
+      >{{ $t("ui.93275ac8c5") }}</WlButton
     >
     <p v-if="!canProcess" class="muted">
-      {{
-        !draft.processingEnabled
-          ? "Включите обработку, чтобы выбирать стиль и перевод."
-          : "Выберите подключение и модель. Управление подключениями — в разделе «Все настройки»."
-      }}
+      {{ !draft.processingEnabled ? $t("ui.42b8797f82") : $t("ui.6390e6fbb7") }}
     </p>
     <p v-if="result && !error" class="notice" role="status">{{ result }}</p>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
@@ -148,37 +173,52 @@ const trainerProfile = computed(() =>
       <div class="section-divider" />
       <ProfileManager />
       <div class="section-divider" />
-      <h3>Рекомендации речевого тренера</h3>
+      <h3>{{ $t("ui.e8e4705211") }}</h3>
       <PreferenceToggle
         name="trainerAiEnabled"
-        label="Дополнительный разбор через ИИ"
-        description="Работает поверх локального анализа привычек. Использует сохранённое подключение."
+        :label="$t('ui.bff298841f')"
+        :description="$t('ui.87950292a3')"
       />
       <SelectField
         v-model="draft.trainerProfile"
-        label="Подключение тренера"
+        :label="$t('ui.e4a4dc57f1')"
         :options="profiles"
       />
       <LlmModelField
         id="trainerModel"
         v-model="draft.trainerModel"
-        label="Модель для рекомендаций"
+        :label="$t('ui.206d771bc2')"
         :profile="draft.trainerProfile"
       />
       <SelectField
         v-model="draft.trainerScope"
-        label="Какие данные передавать"
+        :label="$t('ui.9350ccca5d')"
         :options="[
-          { value: 'metrics_only', label: 'Только числовые метрики' },
-          { value: 'findings', label: 'Метрики и найденные привычки' },
-          { value: 'original_text', label: 'Полная исходная расшифровка' },
+          {
+            value: 'metrics_only',
+            get label() {
+              return $t('ui.9d43c85551');
+            },
+          },
+          {
+            value: 'findings',
+            get label() {
+              return $t('ui.25b482398e');
+            },
+          },
+          {
+            value: 'original_text',
+            get label() {
+              return $t('ui.42595ae665');
+            },
+          },
         ]"
       />
       <PreferenceToggle
         v-if="trainerProfile?.location === 'cloud'"
         name="cloudConsent"
-        label="Разрешить отправку выбранных данных в облако"
-        description="Без этого разрешения облачные рекомендации не работают."
+        :label="$t('ui.cdcc8b7c48')"
+        :description="$t('ui.5544981ee8')"
       />
     </template>
   </div>

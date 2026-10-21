@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, nextTick, ref } from "vue";
 import { WlSwitch } from "@whitelife-core/ui-kit";
 import type { ToggleKey } from "../../../shared/domain/contracts";
@@ -7,7 +12,7 @@ import { useInteraction } from "../../../shared/application/interaction";
 import { useFeedback } from "../../../shared/application/feedback";
 import {
   WAKE_WORD_AVAILABLE,
-  WAKE_WORD_UNAVAILABLE,
+  unavailableWakeMessage,
 } from "../../../shared/domain/wakeAvailability";
 const props = withDefaults(
   defineProps<{
@@ -79,9 +84,7 @@ async function applyChange(value: boolean) {
     !workspace.state.wakeSetup.verified
   ) {
     await run(() => {
-      throw new Error(
-        "Сначала настройте свою фразу и пройдите контрольную проверку.",
-      );
+      throw new Error(uiMessage("ui.e3bf1feef8"));
     });
     return;
   }
@@ -92,13 +95,15 @@ async function applyChange(value: boolean) {
   ) {
     if (
       !(await ui.confirm({
-        title: "Включить речевого тренера?",
+        get title() {
+          return uiMessage("ui.6e1ad9eea0");
+        },
         text:
-          "Для анализа Fono будет сохранять исходные расшифровки локально. Их можно удалить в любой момент. Отправка в ИИ включается отдельно." +
-          (workspace.native
-            ? ""
-            : " Сейчас используются только демонстрационные данные."),
-        accept: "Разрешить и включить",
+          uiMessage("ui.b0c7824902") +
+          (workspace.native ? "" : uiMessage("ui.05c147946e")),
+        get accept() {
+          return uiMessage("ui.94d1d823b9");
+        },
       }))
     )
       return;
@@ -114,11 +119,15 @@ async function applyChange(value: boolean) {
   } else if (props.name === "analyticsConsent" && !value) {
     if (
       !(await ui.confirm({
-        title: "Отключить аналитику?",
+        get title() {
+          return uiMessage("ui.9aaa58fd95");
+        },
         text: workspace.native
-          ? "Речевой тренер выключится. Исходные расшифровки и данные анализа будут удалены; итоговые тексты останутся."
-          : "Речевой тренер также выключится. Уже накопленные данные можно отдельно удалить ниже.",
-        accept: "Отключить",
+          ? uiMessage("ui.e6832c3e99")
+          : uiMessage("ui.db995c2f4b"),
+        get accept() {
+          return uiMessage("ui.bb5bdd176c");
+        },
       }))
     )
       return;
@@ -141,18 +150,20 @@ async function applyChange(value: boolean) {
     <div v-if="!compact">
       <strong>{{ label }}</strong>
       <p v-if="description || unavailable">
-        {{ unavailable ? WAKE_WORD_UNAVAILABLE : description }}
+        {{ unavailable ? unavailableWakeMessage() : description }}
       </p>
     </div>
     <WlSwitch
       :model-value="currentValue"
       :disabled="disabled || pending"
-      :title="unavailable ? WAKE_WORD_UNAVAILABLE : undefined"
+      :title="unavailable ? unavailableWakeMessage() : undefined"
       :aria-label="label"
       @update:model-value="change"
       @change="syncNativeChecked"
       @focus="rememberInput"
     />
-    <span v-if="pending" class="sr-only" role="status">Сохранение</span>
+    <span v-if="pending" class="sr-only" role="status">{{
+      $t("ui.a77d5c4ecc")
+    }}</span>
   </div>
 </template>

@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../domain/messages";
 import type { WorkspaceState } from "../domain/contracts";
 import type {
   TriggerCandidate,
@@ -23,7 +24,7 @@ export function createTriggerCapture(
           "awaiting_action",
         ].includes(state.phase)
       )
-        throw new Error("Сначала завершите текущую диктовку или выбор кнопки.");
+        throw new Error(uiMessage("ui.36d3ffdc1e"));
       state.triggerCaptureActive = true;
       let id: string | undefined;
       try {
@@ -38,7 +39,7 @@ export function createTriggerCapture(
         } finally {
           state.triggerCaptureActive = false;
         }
-        throw new Error("Выбор отменён: окно потеряло фокус.");
+        throw new Error(uiMessage("ui.85564ebb14"));
       }
       let pending: { code: string; candidate: TriggerCandidate } | undefined;
       let ending: Promise<void> | undefined;
@@ -54,8 +55,9 @@ export function createTriggerCapture(
           } catch {
             result = {
               kind: "error",
-              message:
-                "Не удалось восстановить горячие клавиши после выбора. Сохраните настройки заново или перезапустите Fono.",
+              get message() {
+                return uiMessage("ui.a9bb9ee73d");
+              },
             };
           } finally {
             state.triggerCaptureActive = false;
@@ -107,8 +109,9 @@ export function createTriggerCapture(
         if (!parts || event.metaKey) {
           void finish({
             kind: "error",
-            message:
-              "Поддерживаются правые Alt/Ctrl, CapsLock, боковые кнопки мыши и сочетания Ctrl/Alt/Shift с буквой, цифрой, Space или F1–F12.",
+            get message() {
+              return uiMessage("ui.cd9b70b392");
+            },
           });
           return;
         }

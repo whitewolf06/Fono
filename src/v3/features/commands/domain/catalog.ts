@@ -1,38 +1,75 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 export const supportedCommands = [
   {
     phrase: "пауза",
-    description: "Воспроизведение / пауза",
-    group: "Медиа",
+    get description() {
+      return uiMessage("ui.37ed08ce83");
+    },
+    get group() {
+      return uiMessage("ui.2f2bfeb36e");
+    },
   },
   {
     phrase: "воспроизведение",
-    description: "Воспроизведение / пауза",
-    group: "Медиа",
+    get description() {
+      return uiMessage("ui.37ed08ce83");
+    },
+    get group() {
+      return uiMessage("ui.2f2bfeb36e");
+    },
   },
   {
     phrase: "следующий трек",
-    description: "Переключить композицию",
-    group: "Медиа",
+    get description() {
+      return uiMessage("ui.1d7ce4ae0d");
+    },
+    get group() {
+      return uiMessage("ui.2f2bfeb36e");
+    },
   },
   {
     phrase: "громче",
-    description: "Увеличить громкость",
-    group: "Звук",
+    get description() {
+      return uiMessage("ui.350a7f43b6");
+    },
+    get group() {
+      return uiMessage("ui.6a40ca9613");
+    },
   },
-  { phrase: "тише", description: "Уменьшить громкость", group: "Звук" },
+  {
+    phrase: "тише",
+    get description() {
+      return uiMessage("ui.57a4f36e03");
+    },
+    get group() {
+      return uiMessage("ui.6a40ca9613");
+    },
+  },
   {
     phrase: "выключи звук",
-    description: "Включить / выключить звук",
-    group: "Звук",
+    get description() {
+      return uiMessage("ui.6f0b5458ad");
+    },
+    get group() {
+      return uiMessage("ui.6a40ca9613");
+    },
   },
   {
     phrase: "предыдущий трек",
-    description: "Вернуться к предыдущей композиции",
-    group: "Медиа",
+    get description() {
+      return uiMessage("ui.e17de748a0");
+    },
+    get group() {
+      return uiMessage("ui.2f2bfeb36e");
+    },
   },
   {
     phrase: "переключись на [название окна]",
-    description: "Найти уже открытое окно по названию",
-    group: "Окна",
+    get description() {
+      return uiMessage("ui.d91f81ae4d");
+    },
+    get group() {
+      return uiMessage("ui.1e1bd9e6df");
+    },
   },
 ];

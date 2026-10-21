@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed } from "vue";
 import { WlCard, WlTabs } from "@whitelife-core/ui-kit";
 import type { TrainerReport, TrainerTerm } from "../domain/report";
@@ -26,20 +31,33 @@ const busy = computed(
   () => props.loading || props.analyzing || props.cancelling,
 );
 const tabs = computed(() => [
-  { key: "trainer-overview", label: "Обзор" },
+  {
+    key: "trainer-overview",
+    get label() {
+      return uiMessage("ui.bd3a5be11e");
+    },
+  },
   {
     key: "trainer-dictations",
-    label: "Диктовки",
+    get label() {
+      return uiMessage("ui.ef9da8f528");
+    },
     count: props.report.snapshot.includedSessions,
   },
   {
     key: "trainer-ai",
-    label: props.analyzing ? "Разбор ИИ · в работе" : "Разбор ИИ",
+    label: props.analyzing
+      ? uiMessage("ui.2ce793f43d")
+      : uiMessage("ui.e9d6ff0a1e"),
   },
 ]);
 // Keep panels mounted: kit tabs unmount inactive content, losing explicit consent.
 const tabsPt = {
-  tabList: { "aria-label": "Разделы речевого тренера" },
+  tabList: {
+    get "aria-label"() {
+      return uiMessage("ui.4708392f7b");
+    },
+  },
   tabpanels: { root: { hidden: true, style: { display: "none" } } },
 };
 </script>
@@ -48,7 +66,7 @@ const tabsPt = {
   <section
     class="period-report"
     :class="{ 'period-report--dictations': view === 'trainer-dictations' }"
-    aria-label="Периодный речевой отчёт"
+    :aria-label="$t('ui.43e86867ad')"
     :aria-busy="busy"
   >
     <PeriodReportSummary
@@ -85,7 +103,7 @@ const tabsPt = {
       <section
         v-show="view === 'trainer-dictations'"
         class="trainer-dictations-panel"
-        aria-label="Диктовки периода"
+        :aria-label="$t('ui.8eaba588f4')"
       >
         <slot name="dictations" />
       </section>

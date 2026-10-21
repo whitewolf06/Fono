@@ -1,3 +1,5 @@
+import { uiIntlLocale } from "../../../shared/domain/locale";
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { Dictation } from "../../../shared/domain/contracts";
 import { analyze, transcriptWords } from "../domain/analysis";
 
@@ -15,10 +17,13 @@ export function recordingDuration(entry: Dictation): number | undefined {
 
 export function recordingDurationLabel(entry: Dictation): string {
   const duration = recordingDuration(entry);
-  if (duration == null) return "Длительность не сохранена";
+  if (duration == null) return uiMessage("ui.434f2cd9ac");
   const seconds = Math.round(duration / 1000);
-  if (seconds < 60) return `${seconds} с`;
-  return `${Math.floor(seconds / 60)} мин ${String(seconds % 60).padStart(2, "0")} с`;
+  if (seconds < 60) return uiMessage("ui.120d7a6383", { v0: String(seconds) });
+  return uiMessage("ui.bc272e0cea", {
+    v0: String(Math.floor(seconds / 60)),
+    v1: String(String(seconds % 60).padStart(2, "0")),
+  });
 }
 
 export function wordCount(entry: Dictation): number {
@@ -32,7 +37,7 @@ export function findingsCount(entry: Dictation): number {
 export function exactDateLabel(date: string): string {
   const value = new Date(date);
   return Number.isFinite(value.getTime())
-    ? value.toLocaleString("ru-RU", {
+    ? value.toLocaleString(uiIntlLocale(), {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -40,7 +45,7 @@ export function exactDateLabel(date: string): string {
         minute: "2-digit",
         second: "2-digit",
       })
-    : "Дата не сохранена";
+    : uiMessage("ui.3b30ad3fe0");
 }
 
 export function sortTrainerEntries(
@@ -84,7 +89,7 @@ export function chartScale(values: number[]): { max: number; ticks: number[] } {
 }
 
 export function formatMetric(value: number): string {
-  return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 }).format(
-    value,
-  );
+  return new Intl.NumberFormat(uiIntlLocale(), {
+    maximumFractionDigits: 1,
+  }).format(value);
 }

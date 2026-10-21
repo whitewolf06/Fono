@@ -1,3 +1,4 @@
+import { uiIntlLocale } from "../../../shared/domain/locale";
 import type { Dictation } from "../../../shared/domain/contracts";
 export function filterHistory(
   entries: Dictation[],
@@ -19,7 +20,7 @@ export function groupHistory(
 ): { date: string; entries: Dictation[] }[] {
   const grouped = new Map<string, Dictation[]>();
   for (const entry of entries) {
-    const date = new Date(entry.createdAt).toLocaleDateString("ru-RU", {
+    const date = new Date(entry.createdAt).toLocaleDateString(uiIntlLocale(), {
       day: "numeric",
       month: "long",
       year: "numeric",

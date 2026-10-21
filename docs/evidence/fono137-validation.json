@@ -1,0 +1,72 @@
+{
+  "task": "FONO-137",
+  "date": "2026-10-21",
+  "version": "0.7.52",
+  "base_commit": "759f67eafb3aa9faff86fef4bbf583f79fcefe57",
+  "source_scope": "FONO-137 working tree before commit",
+  "dependency_source": "local improvement-plan import; live Kvorum read unavailable",
+  "dependencies": ["FONO-98", "FONO-104"],
+  "catalogue": { "ru": 1968, "en": 1968, "parameter_parity": true },
+  "checks": {
+    "v3": { "passed": 341, "failed": 0 },
+    "localization_tests_in_v3": 10,
+    "native_default_lib": { "passed": 613, "failed": 0, "ignored": 7 },
+    "native_clippy": "passed: --locked -p fono --lib --tests -- -D warnings",
+    "native_minimal": "passed: --locked -p fono --no-default-features",
+    "rustfmt": "passed: --all --check",
+    "release_ci_scripts_working_tree": { "passed": 48, "failed": 0 },
+    "owner_cache_tests_outside_commit": 20,
+    "typecheck_v3": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "format_check": "passed",
+    "version_check": "passed",
+    "docs_check": "passed",
+    "build_cache_maintenance": "passed"
+  },
+  "browser_mock": {
+    "locales": ["ru", "en"],
+    "viewports": ["720x560", "900x720", "1440x900"],
+    "routes": [
+      "/",
+      "/files",
+      "/history",
+      "/trainer",
+      "/commands",
+      "/api/tasks",
+      "/api/connection",
+      "/releases",
+      "/updates",
+      "/settings/general",
+      "/settings/audio",
+      "/settings/activation",
+      "/settings/processing",
+      "/settings/overlay",
+      "/settings/privacy",
+      "/settings/diagnostics",
+      "/onboarding",
+      "/overlay"
+    ],
+    "combinations": 108,
+    "main_panel_horizontal_overflows": 0,
+    "missing_message_failures": 0,
+    "runtime_language_save_reload": "passed",
+    "cached_update_status_switch_both_ways": "passed",
+    "local_evidence_prefix": "build/checks/fono137-"
+  },
+  "remaining": [
+    "Owner Windows acceptance: system language, persistence, tray and native overlay",
+    "Real model output acceptance for English built-in instructions",
+    "Noncritical English copy review",
+    "Previously displayed composite errors can retain their original response language",
+    "Kvorum final comment, status and server readback: MCP tools absent"
+  ],
+  "not_performed": [
+    "microphone recording",
+    "user application automation",
+    "installer build or install",
+    "release publication",
+    "remote CI run",
+    "owner acceptance"
+  ]
+}

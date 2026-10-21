@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type {
   TrainerPort,
   WorkspaceState,
@@ -89,7 +90,7 @@ export function createMockTrainer(
     refresh = false,
   ): Promise<TrainerReport> {
     if (![7, 30, 90].includes(days))
-      throw new Error("Выберите период 7, 30 или 90 дней.");
+      throw new Error(uiMessage("ui.a1d43e94aa"));
     const time = now();
     const privacy = privacySettings();
     if (privacy !== privacySignature) {
@@ -142,18 +143,15 @@ export function createMockTrainer(
       !state.preferences.analyticsConsent ||
       !state.preferences.trainerEnabled
     )
-      reason = "Включите тренера и локальную аналитику в настройках.";
-    else if (stale) reason = "Сначала обновите локальный отчёт.";
-    else if (!snapshot.includedSessions)
-      reason = "В периоде нет диктовок для анализа.";
-    else if (snapshot.insufficientData)
-      reason = "Для AI-разбора нужны хотя бы 3 диктовки и 100 слов.";
-    else if (!config.enabled)
-      reason = "Включите рекомендации ИИ в настройках тренера.";
+      reason = uiMessage("ui.58d8ccbcc1");
+    else if (stale) reason = uiMessage("ui.3fda3d4964");
+    else if (!snapshot.includedSessions) reason = uiMessage("ui.3c679dcf54");
+    else if (snapshot.insufficientData) reason = uiMessage("ui.8a572ccf47");
+    else if (!config.enabled) reason = uiMessage("ui.205dbaf30c");
     else if (!config.profileId || !config.model)
-      reason = "Выберите подключение и модель тренера.";
+      reason = uiMessage("ui.3b69ebaacc");
     else if (config.cloud && !config.cloudConsent)
-      reason = "Подтвердите передачу данных в облако в настройках.";
+      reason = uiMessage("ui.77321a8334");
     return JSON.parse(
       JSON.stringify({
         snapshot: stale ? { ...snapshot, terms: [], sessionIds: [] } : snapshot,
@@ -186,15 +184,15 @@ export function createMockTrainer(
     onDayChange: (handler) => observeTrainerDay(handler, now),
     getReport,
     async analyzePeriod(input) {
-      if (running) throw new Error("Дождитесь завершения текущего разбора.");
+      if (running) throw new Error(uiMessage("ui.b89d072164"));
       // Match native: reserve the request before its first asynchronous step.
       const current = ++operation;
       running = true;
       try {
         const report = await getReport(input.days);
-        if (current !== operation) throw new Error("Разбор отменён.");
+        if (current !== operation) throw new Error(uiMessage("ui.7cf5d66931"));
         if (report.snapshot.fingerprint !== input.fingerprint || report.stale)
-          throw new Error("Данные изменились. Обновите отчёт.");
+          throw new Error(uiMessage("ui.083ae3fbfd"));
         if (report.aiDisabledReason) throw new Error(report.aiDisabledReason);
         const scope = input.shareText
           ? report.aiConfiguration.dataScope
@@ -202,20 +200,15 @@ export function createMockTrainer(
         const identity = aiFingerprint(report.snapshot, scope);
         if (report.aiSummary?.fingerprint === identity) return report;
         await wait();
-        if (current !== operation) throw new Error("Разбор отменён.");
+        if (current !== operation) throw new Error(uiMessage("ui.7cf5d66931"));
         const fresh = await getReport(input.days);
         if (
           fresh.stale ||
           fresh.currentFingerprint !== input.fingerprint ||
           aiFingerprint(fresh.snapshot, scope) !== identity
         )
-          throw new Error(
-            "Данные или настройки изменились. Результат не сохранён.",
-          );
-        if (!state.aiAvailable)
-          throw new Error(
-            "Демонстрационная ошибка AI. Локальный отчёт сохранён.",
-          );
+          throw new Error(uiMessage("ui.a98d0423a2"));
+        if (!state.aiAvailable) throw new Error(uiMessage("ui.b5b5d67d70"));
         summaries.set(input.days, {
           fingerprint: identity,
           snapshotFingerprint: input.fingerprint,
@@ -228,14 +221,21 @@ export function createMockTrainer(
             scope === "metrics_only"
               ? report.aiContext!.metricsOnly
               : report.aiContext!.configuredShared,
-          summary:
-            "Демонстрационный разбор: начните с одной речевой привычки и сравните следующие диктовки.",
+          get summary() {
+            return uiMessage("ui.6490125842");
+          },
           priorities: [
             {
               title: "Пауза перед продолжением мысли",
-              basis: `Локальный отчёт: слова-паразиты — ${report.snapshot.counts.filler}, повторы — ${report.snapshot.counts.repetition}.`,
-              exercise:
-                "Произнесите короткую мысль, сделайте паузу и только затем продолжайте. Это демонстрационный совет, внешний AI не вызывался.",
+              get basis() {
+                return uiMessage("ui.0de87642f7", {
+                  v0: String(report.snapshot.counts.filler),
+                  v1: String(report.snapshot.counts.repetition),
+                });
+              },
+              get exercise() {
+                return uiMessage("ui.4767aeebe0");
+              },
             },
           ],
         });

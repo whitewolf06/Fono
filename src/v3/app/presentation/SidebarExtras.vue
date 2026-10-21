@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../shared/domain/messages";
+
 import { computed, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { useWorkspace } from "../../shared/application/workspace";
@@ -26,68 +31,67 @@ const version = computed(
   () => `v${status.nextVersion?.replace(/^v/i, "") ?? ""}`,
 );
 const label = computed(() => {
-  if (available.value) return `Доступна ${version.value}`;
-  if (failed.value) return "Ошибка проверки";
+  if (available.value)
+    return uiMessage("ui.188876fa32", { v0: String(version.value) });
+  if (failed.value) return uiMessage("ui.4e395375de");
   switch (status.phase) {
     case "checking":
-      return "Проверяю обновления…";
+      return uiMessage("ui.6d03347d77");
     case "downloading":
-      return "Загрузка обновления…";
+      return uiMessage("ui.f75e927d03");
     case "installing":
-      return "Установка обновления…";
+      return uiMessage("ui.6857926fd9");
     case "up_to_date":
-      return "Версия актуальна";
+      return uiMessage("ui.07200fa94e");
     case "not_configured":
-      return "Обновления не настроены";
+      return uiMessage("ui.dcfc3857f3");
     default:
-      return "Проверка обновлений";
+      return uiMessage("ui.c8d5c5ee6e");
   }
 });
 const detailTitle = computed(
   () =>
-    `${label.value}. ${available.value ? "Перейти к обновлению" : "Открыть подробности"}`,
+    `${label.value}. ${available.value ? uiMessage("ui.e4673ff7e9") : uiMessage("ui.a3985e950b")}`,
 );
 </script>
 <template>
-  <section
-    class="sidebar-extras"
-    aria-label="О Fono, обратная связь и обновления"
-  >
-    <nav class="sidebar-extra-nav" aria-label="Дополнительная навигация">
+  <section class="sidebar-extras" :aria-label="$t('ui.4a3e5ba2eb')">
+    <nav class="sidebar-extra-nav" :aria-label="$t('ui.238258a075')">
       <RouterLink
         to="/releases"
         class="sidebar-extra-item"
         active-class="active"
-        title="История версий"
-        aria-label="История версий"
+        :title="$t('ui.d9e4291457')"
+        :aria-label="$t('ui.d9e4291457')"
       >
-        <AppIcon name="note" :size="16" /><span class="sidebar-extra-label"
-          >История версий</span
-        >
+        <AppIcon name="note" :size="16" /><span class="sidebar-extra-label">{{
+          $t("ui.d9e4291457")
+        }}</span>
       </RouterLink>
       <RouterLink
         to="/updates"
         class="sidebar-extra-item"
         active-class="active"
-        title="Обновления"
-        aria-label="Обновления"
+        :title="$t('ui.455471db0c')"
+        :aria-label="$t('ui.455471db0c')"
       >
-        <AppIcon name="download" :size="16" /><span class="sidebar-extra-label"
-          >Обновления</span
+        <AppIcon name="download" :size="16" /><span
+          class="sidebar-extra-label"
+          >{{ $t("ui.455471db0c") }}</span
         >
       </RouterLink>
       <a
         :href="PROJECT_SITE_URL"
         class="sidebar-extra-item"
-        title="Открыть сайт Fono в браузере"
-        aria-label="Открыть сайт Fono в браузере"
+        :title="$t('ui.0d683a3715')"
+        :aria-label="$t('ui.0d683a3715')"
         target="_blank"
         rel="noopener noreferrer"
         @click.prevent="run(() => workspace.openProjectSite())"
       >
-        <AppIcon name="link" :size="16" /><span class="sidebar-extra-label"
-          >Сайт Fono</span
-        >
+        <AppIcon name="link" :size="16" /><span class="sidebar-extra-label">{{
+          $t("ui.c24e9ae442")
+        }}</span>
         <AppIcon
           class="sidebar-external-icon"
           name="external-link"
@@ -98,12 +102,12 @@ const detailTitle = computed(
         to="/settings/diagnostics"
         active-class="active"
         class="sidebar-extra-item"
-        title="Открыть обратную связь Fono"
-        aria-label="Открыть обратную связь Fono"
+        :title="$t('ui.0077ef5ee6')"
+        :aria-label="$t('ui.0077ef5ee6')"
       >
-        <AppIcon name="note" :size="16" /><span class="sidebar-extra-label"
-          >Обратная связь</span
-        >
+        <AppIcon name="note" :size="16" /><span class="sidebar-extra-label">{{
+          $t("ui.930f9a65fb")
+        }}</span>
       </RouterLink>
     </nav>
     <div
@@ -120,7 +124,7 @@ const detailTitle = computed(
         <span class="sidebar-update-dot" aria-hidden="true" />
         <span class="sidebar-update-label" role="status">{{ label }}</span>
         <span class="sidebar-update-action">{{
-          available ? "Обновить" : "Подробнее"
+          available ? $t("ui.603e460bf5") : $t("ui.59589fe2a5")
         }}</span>
       </RouterLink>
       <span v-else class="sidebar-update-summary" :title="label">
@@ -133,11 +137,11 @@ const detailTitle = computed(
         :class="{ checking: status.phase === 'checking' }"
         :disabled="busy || status.phase === 'not_configured'"
         :aria-busy="status.phase === 'checking'"
-        aria-label="Проверить обновления"
+        :aria-label="$t('ui.93b08f7b14')"
         :title="
           status.phase === 'not_configured'
-            ? 'Обновления не настроены'
-            : 'Проверить обновления'
+            ? $t('ui.dcfc3857f3')
+            : $t('ui.93b08f7b14')
         "
         @click="checkUpdate(() => workspace.updates.check())"
       >

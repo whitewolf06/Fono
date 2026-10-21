@@ -1,5 +1,16 @@
 import { createApp } from "vue";
-import { WlConfig, WlToastService, wlLocaleRu } from "@whitelife-core/ui-kit";
+import { WlConfig, WlToastService } from "@whitelife-core/ui-kit";
+import {
+  initializeLocalization,
+  installMessages,
+  whiteUiLocale,
+  followUiLanguage,
+  setUiLanguage,
+  browserSystemLanguage,
+} from "./shared/infrastructure/localization";
+import type { UiLanguage } from "./shared/domain/locale";
+import { readPreferences } from "./shared/infrastructure/browser";
+import type { Settings } from "./shared/infrastructure/native/ipcTypes";
 import "@whitelife-core/ui-kit/styles/reset.css";
 import "@whitelife-core/ui-kit/styles/base.css";
 import "@whitelife-core/ui-kit/themes/graphite.css";
@@ -23,6 +34,10 @@ import {
 } from "./shared/infrastructure/browser";
 setupDocument();
 const native = isDesktop();
+initializeLocalization(
+  native ? "auto" : readPreferences().uiLanguage,
+  browserSystemLanguage(),
+);
 async function mount() {
   if (native)
     await waitForDesktopReady({
@@ -33,14 +48,25 @@ async function mount() {
       read: () => call<boolean>("get_runtime_ready"),
     });
   const overlay = native && getCurrentWindow().label === "overlay";
+  if (native) {
+    const locale = await call<{ language: UiLanguage; systemLanguage: string }>(
+      "get_ui_locale",
+    );
+    initializeLocalization(locale.language, locale.systemLanguage);
+  }
   const app = createApp(overlay ? NativeOverlay : App);
-  app.use(WlConfig, { locale: wlLocaleRu });
+  installMessages(app);
+  app.use(WlConfig, { locale: whiteUiLocale });
   app.use(WlToastService);
   app.use(router);
-  if (!overlay)
-    app.provide(
-      workspaceKey,
-      native ? createNativeWorkspace() : createMockWorkspace(),
+  if (!overlay) {
+    const workspace = native ? createNativeWorkspace() : createMockWorkspace();
+    followUiLanguage(() => workspace.state.preferences.uiLanguage);
+    app.provide(workspaceKey, workspace);
+  }
+  if (native)
+    await subscribe<Settings>("settings-changed", (settings) =>
+      setUiLanguage(settings.ui_language ?? "auto"),
     );
   router.beforeEach((to) => (native && to.path === "/scenarios" ? "/" : true));
   app.provide(interactionKey, createInteraction());

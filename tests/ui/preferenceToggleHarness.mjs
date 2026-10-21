@@ -36,6 +36,9 @@ export async function createToggleHarness(
     );
   modules["../../../shared/domain/wakeAvailability"] =
     await server.ssrLoadModule("/src/v3/shared/domain/wakeAvailability.ts");
+  modules["../../../shared/domain/messages"] = await server.ssrLoadModule(
+    "/src/v3/shared/domain/messages.ts",
+  );
   for (const [specifier, path] of Object.entries(options.imports || {}))
     modules[specifier] = await server.ssrLoadModule(path);
   const module = { exports: {} };

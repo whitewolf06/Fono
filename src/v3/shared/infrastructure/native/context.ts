@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../domain/messages";
 import type { WorkspaceState, Preferences } from "../../domain/contracts";
 import type {
   Settings,
@@ -64,8 +65,11 @@ export function createNativeContext(
         state.models.push({
           id: selected.path,
           name: selected.filename,
-          size: Math.round(selected.bytes / 1048576) + " МБ",
-          description: "Модель из выбранного файла",
+          size:
+            Math.round(selected.bytes / 1048576) + uiMessage("ui.883817f199"),
+          get description() {
+            return uiMessage("ui.9af64c0d6f");
+          },
           status: "installed",
           progress: 100,
           custom: true,
@@ -128,7 +132,12 @@ export function createNativeContext(
     const devices = await call<DeviceInfo[]>("list_audio_devices");
     if (!active() || ticket !== devicesGeneration) return;
     state.devices = [
-      { value: "system", label: "Системный микрофон" },
+      {
+        value: "system",
+        get label() {
+          return uiMessage("ui.e32ad3f607");
+        },
+      },
       ...devices.map((d) => ({ value: d.id, label: d.name })),
     ];
     state.microphoneAvailable = devices.some((d) =>
@@ -174,9 +183,7 @@ export function createNativeContext(
     },
     ({ status }) => {
       state.gpuMemory = status;
-      state.gpuMemoryError = status
-        ? ""
-        : "Не удалось получить состояние видеопамяти. Проверка повторится автоматически.";
+      state.gpuMemoryError = status ? "" : uiMessage("ui.b72ef9d00c");
     },
     active,
   );
@@ -205,8 +212,18 @@ export function createNativeContext(
       ).then((c) => {
         if (!current()) return;
         state.accelerations = [
-          { value: "auto", label: "Авто · рекомендуется" },
-          { value: "cpu", label: "Процессор" },
+          {
+            value: "auto",
+            get label() {
+              return uiMessage("ui.0cdf37c953");
+            },
+          },
+          {
+            value: "cpu",
+            get label() {
+              return uiMessage("ui.df6652413d");
+            },
+          },
           ...(c.cuda ? [{ value: "cuda", label: "NVIDIA CUDA" }] : []),
           ...(c.vulkan ? [{ value: "vulkan", label: "Vulkan" }] : []),
         ];

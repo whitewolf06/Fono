@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, watch } from "vue";
 import { WlButton, WlField, WlInput } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -37,10 +42,7 @@ async function load() {
   await run(async () => {
     const result = await workspace.settings.listModels!(profile);
     if (props.profile !== profile) return;
-    if (!result.length)
-      throw new Error(
-        "Сервер не вернул модели. Укажите идентификатор вручную.",
-      );
+    if (!result.length) throw new Error(uiMessage("ui.8c432ecee1"));
     available.value = result;
     manual.value = false;
   });
@@ -52,12 +54,12 @@ async function load() {
       v-if="workspace.native && manual"
       v-slot="field"
       :label="label"
-      hint="Идентификатор модели из выбранного сервера."
+      :hint="$t('ui.a227eee4d6')"
     >
       <WlInput
         v-bind="field"
         v-model="model"
-        placeholder="Выберите из списка или введите ID"
+        :placeholder="$t('ui.6e055a0bc4')"
       />
     </WlField>
     <SelectField v-else v-model="model" :label="label" :options="options" />
@@ -68,10 +70,14 @@ async function load() {
         :disabled="!profile"
         :loading="busy"
         @click="load"
-        >Загрузить список моделей</WlButton
+        >{{ $t("ui.16ecaaa940") }}</WlButton
       >
-      <WlButton v-if="!manual" size="sm" variant="ghost" @click="manual = true"
-        >Ввести вручную</WlButton
+      <WlButton
+        v-if="!manual"
+        size="sm"
+        variant="ghost"
+        @click="manual = true"
+        >{{ $t("ui.7b9139695c") }}</WlButton
       >
     </div>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>

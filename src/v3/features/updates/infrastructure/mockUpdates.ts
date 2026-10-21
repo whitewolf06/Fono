@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { reactive } from "vue";
 import type { UpdatesPort, UpdateStatus } from "../../../shared/domain/updates";
 import { updateBusy } from "../../../shared/domain/updates";
@@ -9,8 +10,7 @@ export function createMockUpdates(version: string): UpdatesPort {
     phase: "idle",
     currentVersion: version,
     downloadedBytes: 0,
-    message:
-      "Демонстрация обновлений: файлы не скачиваются и не устанавливаются.",
+    message: uiMessage("ui.1774000f3d"),
     checksEnabled: false,
   });
   let revision = 0;
@@ -19,18 +19,18 @@ export function createMockUpdates(version: string): UpdatesPort {
     state,
     async refresh() {},
     async check() {
-      if (updateBusy(state.phase)) throw new Error("Проверка уже выполняется");
+      if (updateBusy(state.phase)) throw new Error(uiMessage("ui.03b000e684"));
       const id = ++revision;
       state.phase = "checking";
       await pause();
       if (revision !== id) return;
       state.phase = "available";
       state.nextVersion = next.join(".");
-      state.message = "Доступно демонстрационное обновление.";
+      state.message = uiMessage("ui.8e5f82b6f1");
     },
     async install() {
       if (state.phase !== "available")
-        throw new Error("Сначала проверьте обновления");
+        throw new Error(uiMessage("ui.0bd1973a40"));
       const id = ++revision;
       state.phase = "downloading";
       state.totalBytes = 100;
@@ -40,7 +40,7 @@ export function createMockUpdates(version: string): UpdatesPort {
         state.downloadedBytes = bytes;
       }
       state.phase = "up_to_date";
-      state.message = "Демонстрация завершена. Установщик не запускался.";
+      state.message = uiMessage("ui.75bbca7e35");
       state.nextVersion = null;
     },
     async cancel() {
@@ -48,7 +48,7 @@ export function createMockUpdates(version: string): UpdatesPort {
       revision++;
       state.phase = "available";
       state.downloadedBytes = 0;
-      state.message = "Демонстрационная загрузка отменена.";
+      state.message = uiMessage("ui.055483c6b8");
     },
     async setChecksEnabled(enabled) {
       state.checksEnabled = enabled;

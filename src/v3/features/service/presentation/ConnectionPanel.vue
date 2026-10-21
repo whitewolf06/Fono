@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -14,39 +19,32 @@ const address = computed(
 const example =
   'curl -X POST http://127.0.0.1:17832/v1/transcriptions\n  -H "Authorization: Bearer YOUR_TOKEN"\n  -F "audio=@recording.wav"';
 const endpoints = [
-  ["GET", "/v1/health", "Доступность и текущая модель"],
-  ["POST", "/v1/transcriptions", "Создать задачу распознавания"],
-  ["GET", "/v1/transcription-jobs/{id}", "Получить состояние и результат"],
-  ["POST", "/v1/transcription-jobs/{id}/cancel", "Отменить задачу"],
-  ["GET", "/openapi.json", "Спецификация OpenAPI"],
+  ["GET", "/v1/health", uiMessage("ui.428d46a100")],
+  ["POST", "/v1/transcriptions", uiMessage("ui.57ece22d3a")],
+  ["GET", "/v1/transcription-jobs/{id}", uiMessage("ui.1e221f3262")],
+  ["POST", "/v1/transcription-jobs/{id}/cancel", uiMessage("ui.606e3a5585")],
+  ["GET", "/openapi.json", uiMessage("ui.af64c38e80")],
 ];
 </script>
 <template>
   <div class="form-stack">
     <section class="surface-panel">
-      <h2>Локальное подключение</h2>
-      <p v-if="workspace.native">
-        API принимает аудиофайлы на этом компьютере. Для запросов нужен
-        Bearer-токен.
-      </p>
-      <p v-else>
-        Приложение обращается к Fono на этом компьютере. В браузерном макете
-        запросы не отправляются.
-      </p>
+      <h2>{{ $t("ui.a1ec191fce") }}</h2>
+      <p v-if="workspace.native">{{ $t("ui.d05fe441be") }}</p>
+      <p v-else>{{ $t("ui.fab12f16ce") }}</p>
       <div class="copy-row">
         <code>{{ address }}</code
         ><WlButton
           size="sm"
-          @click="run(() => workspace.copy(address), 'Адрес скопирован')"
-          >Копировать адрес</WlButton
+          @click="run(() => workspace.copy(address), $t('ui.7e435df863'))"
+          >{{ $t("ui.e7738e2cb9") }}</WlButton
         >
       </div>
       <div class="section-divider" />
-      <h3>Bearer-токен</h3>
-      <small v-if="!workspace.native" class="muted"
-        >Это демонстрационный токен. Настоящие ключи в макет вводить не
-        нужно.</small
-      >
+      <h3>{{ $t("ui.7f6fc04a7c") }}</h3>
+      <small v-if="!workspace.native" class="muted">{{
+        $t("ui.4f371d9eef")
+      }}</small>
       <div class="copy-row">
         <code>{{
           !workspace.native && revealed ? token : "••••••••••••••••••••••••"
@@ -58,7 +56,7 @@ const endpoints = [
           @click="revealed = !revealed"
           ><template #icon
             ><AppIcon :name="revealed ? 'eye-off' : 'eye'" /></template
-          >{{ revealed ? "Скрыть" : "Показать" }}</WlButton
+          >{{ revealed ? $t("ui.0a2a4b8377") : $t("ui.1e5bec3aab") }}</WlButton
         ><WlButton
           size="sm"
           @click="
@@ -67,16 +65,16 @@ const endpoints = [
                 workspace.service.copyToken
                   ? workspace.service.copyToken()
                   : workspace.copy(token),
-              'Токен скопирован',
+              $t('ui.1a299abb1e'),
             )
           "
-          >Копировать</WlButton
+          >{{ $t("ui.1ecddf40bf") }}</WlButton
         >
       </div>
     </section>
     <section class="surface-panel">
       <div class="section-header">
-        <h2>Пример запроса</h2>
+        <h2>{{ $t("ui.8a61bbec41") }}</h2>
         <WlButton
           size="sm"
           variant="ghost"
@@ -86,21 +84,18 @@ const endpoints = [
                 workspace.copy(
                   example.replace('http://127.0.0.1:17832', address),
                 ),
-              'Пример скопирован',
+              $t('ui.edb3210a75'),
             )
           "
           ><template #icon><AppIcon name="copy" /></template
-          >Копировать</WlButton
+          >{{ $t("ui.1ecddf40bf") }}</WlButton
         >
       </div>
       <pre>{{ example.replace("http://127.0.0.1:17832", address) }}</pre>
-      <p class="muted">
-        Ответ содержит идентификатор задачи. Запрашивайте её состояние, пока не
-        появится результат.
-      </p>
+      <p class="muted">{{ $t("ui.36636581a4") }}</p>
     </section>
     <section class="surface-panel">
-      <h2>Методы API</h2>
+      <h2>{{ $t("ui.63bcf6456c") }}</h2>
       <div
         v-for="[method, path, description] in endpoints"
         :key="path"
@@ -115,16 +110,13 @@ const endpoints = [
         </div>
       </div>
       <div class="copy-row">
-        <span>Полная документация: <code>/docs</code></span
+        <span>{{ $t("ui.780cd5278b") }} <code>/docs</code></span
         ><WlButton
           size="sm"
           @click="
-            run(
-              () => workspace.copy(address + '/docs'),
-              'Ссылка на документацию скопирована',
-            )
+            run(() => workspace.copy(address + '/docs'), $t('ui.b4039908dc'))
           "
-          >Копировать ссылку</WlButton
+          >{{ $t("ui.db190f8271") }}</WlButton
         >
       </div>
     </section>

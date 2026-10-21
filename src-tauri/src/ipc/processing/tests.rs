@@ -51,7 +51,7 @@ fn preview_rejects_empty_text_invalid_custom_and_raw_override_before_network() {
 
 #[test]
 fn catalog_is_the_same_builtin_text_used_by_native_processing() {
-    let catalog = get_processing_prompt_catalog();
+    let catalog = get_processing_prompt_catalog(None);
     assert_eq!(catalog.presets.len(), 4);
     for descriptor in catalog.presets {
         assert_eq!(

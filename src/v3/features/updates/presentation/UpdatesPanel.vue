@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+  translateAuthored,
+} from "../../../shared/domain/messages";
+
 import { computed, nextTick } from "vue";
 import { WlButton, WlSwitch } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
@@ -60,9 +66,15 @@ const recording = computed(
 async function install() {
   if (props.unsaved || recording.value) return;
   const approved = await ui.confirm({
-    title: `Установить Fono ${status.nextVersion}?`,
-    text: "После загрузки и проверки подписи Fono закроется для установки. Windows может запросить разрешение администратора. Сначала сохраните последний текст: черновик текущей сессии не переносится после перезапуска.",
-    accept: "Скачать и установить",
+    get title() {
+      return uiMessage("ui.f47263c4ca", { v0: String(status.nextVersion) });
+    },
+    get text() {
+      return uiMessage("ui.13672a4371");
+    },
+    get accept() {
+      return uiMessage("ui.be83518bd3");
+    },
   });
   if (approved) await run(() => port.install());
 }
@@ -71,13 +83,15 @@ async function install() {
   <section
     id="updates"
     class="form-stack update-settings"
-    aria-label="Обновления Fono"
+    :aria-label="$t('ui.406ee0f68c')"
   >
     <div class="section-header">
-      <h3>Обновления</h3>
-      <small class="muted">Установлено {{ status.currentVersion }}</small>
+      <h3>{{ $t("ui.455471db0c") }}</h3>
+      <small class="muted"
+        >{{ $t("ui.0b29a3640f") }} {{ status.currentVersion }}</small
+      >
     </div>
-    <p aria-live="polite">{{ status.message }}</p>
+    <p aria-live="polite">{{ translateAuthored(status.message) }}</p>
     <p
       v-if="
         status.nextVersion &&
@@ -85,19 +99,16 @@ async function install() {
       "
       class="notice"
     >
-      Новая версия: <strong>{{ status.nextVersion }}</strong>
+      {{ $t("ui.0cc229f3cb") }} <strong>{{ status.nextVersion }}</strong>
     </p>
     <div class="toggle-row">
       <span
-        ><strong>Проверять автоматически</strong
-        ><small class="muted"
-          >При запуске и затем раз в сутки. Установка — только по вашей
-          кнопке.</small
-        ></span
+        ><strong>{{ $t("ui.8db9c5bc9c") }}</strong
+        ><small class="muted">{{ $t("ui.d92b070199") }}</small></span
       >
       <WlSwitch
         id="update-checks"
-        aria-label="Проверять обновления автоматически"
+        :aria-label="$t('ui.2e33b6d804')"
         :model-value="status.checksEnabled"
         :disabled="busy || actionPending || status.phase === 'not_configured'"
         @update:model-value="changeChecksEnabled"
@@ -109,14 +120,16 @@ async function install() {
       <progress
         :value="progress ?? undefined"
         :max="100"
-        aria-label="Загрузка обновления"
+        :aria-label="$t('ui.b5222cb6c7')"
       />
       <small class="muted">{{
-        progress === null ? "Загрузка…" : `${progress}% · загрузка обновления`
+        progress === null
+          ? $t("ui.db491ef503")
+          : $t("ui.1b253a664e", { v0: String(progress) })
       }}</small>
     </div>
     <p v-if="props.unsaved || recording" class="notice">
-      Перед установкой завершите диктовку и сохраните настройки.
+      {{ $t("ui.c71df745ff") }}
     </p>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     <div class="actions">
@@ -125,7 +138,7 @@ async function install() {
         :loading="status.phase === 'checking'"
         :disabled="busy || actionPending || status.phase === 'not_configured'"
         @click="run(() => port.check())"
-        >Проверить обновления</WlButton
+        >{{ $t("ui.93b08f7b14") }}</WlButton
       >
       <WlButton
         v-if="status.phase === 'available'"
@@ -133,18 +146,18 @@ async function install() {
         variant="primary"
         :disabled="props.unsaved || recording || actionPending"
         @click="install"
-        >Скачать и установить</WlButton
+        >{{ $t("ui.be83518bd3") }}</WlButton
       >
       <WlButton
         v-if="status.phase === 'downloading'"
         size="sm"
         @click="run(() => port.cancel())"
-        >Отменить загрузку</WlButton
+        >{{ $t("ui.d60ea58ec4") }}</WlButton
       >
     </div>
-    <small v-if="!workspace.native" class="muted"
-      >Браузерный макет: без подключения к GitHub и без установки.</small
-    >
+    <small v-if="!workspace.native" class="muted">{{
+      $t("ui.7dd191c085")
+    }}</small>
   </section>
 </template>
 <style scoped>

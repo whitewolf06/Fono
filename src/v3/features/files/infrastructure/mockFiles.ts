@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { WorkspaceState } from "../../../shared/domain/contracts";
 import type { AddFilesResult, FilesPort } from "../domain/files";
 export function createMockFiles(state: WorkspaceState): FilesPort {
@@ -38,7 +39,7 @@ export function createMockFiles(state: WorkspaceState): FilesPort {
       const job = state.jobs.find(
         (job) => job.id === id && job.state === "done",
       );
-      if (!job) throw new Error("Дождитесь окончания распознавания.");
+      if (!job) throw new Error(uiMessage("ui.16b13f6e20"));
       const text = job.text || "";
       const content =
         format === "txt"

@@ -1,6 +1,6 @@
 {
   "name": "fono",
-  "version": "0.7.51",
+  "version": "0.7.52",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
@@ -25,7 +25,7 @@
     "typecheck:v3": "vue-tsc --noEmit -p tsconfig.v3.json",
     "format:v3": "prettier --write \"src/v3/**/*.{ts,vue,css}\"",
     "format:check": "prettier --check \"src/v3/**/*.{ts,vue,css}\" eslint.config.js README.md \"docs/**/*.md\" AGENTS.md scripts/stage4-quality.mjs scripts/worker-contract.mjs scripts/ci-frontend-dependencies.mjs scripts/ci-frontend-dependencies.test.mjs scripts/stt-quality.mjs scripts/stt-quality-lineage.mjs scripts/stage5-quality.mjs scripts/stage5-quality.test.mjs scripts/lifecycle-soak.mjs scripts/lifecycle-soak.test.mjs",
-    "test:v3": "node --test --test-concurrency=1 tests/ui/fonoV3.test.mjs tests/ui/fonoV3Native.test.mjs tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/applicationProfiles.test.mjs tests/ui/filesV3.test.mjs tests/ui/snippets.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs tests/ui/preferenceToggleV3.test.mjs tests/ui/voiceWave.test.mjs tests/ui/trainerV3.test.mjs tests/ui/trainerPeriod.test.mjs tests/ui/trainerPeriodUi.test.mjs tests/ui/trainerChart.test.mjs tests/ui/trainerHighlights.test.mjs tests/ui/pendingDictationV3.test.mjs tests/ui/pendingNative.test.mjs tests/ui/processingPreferences.test.mjs tests/ui/overlayProcessingChoiceV3.test.mjs tests/ui/overlayControlsV3.test.mjs tests/ui/feedbackChannel.test.mjs tests/ui/nativeErrors.test.mjs tests/ui/optionalFeaturesV3.test.mjs tests/ui/nativeEventHub.test.mjs tests/ui/nativeReads.test.mjs tests/ui/cudaPackages.test.mjs tests/ui/frontendStage4.test.mjs",
+    "test:v3": "node --test --test-concurrency=1 tests/ui/fonoV3.test.mjs tests/ui/fonoV3Native.test.mjs tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/applicationProfiles.test.mjs tests/ui/filesV3.test.mjs tests/ui/snippets.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs tests/ui/preferenceToggleV3.test.mjs tests/ui/voiceWave.test.mjs tests/ui/trainerV3.test.mjs tests/ui/trainerPeriod.test.mjs tests/ui/trainerPeriodUi.test.mjs tests/ui/trainerChart.test.mjs tests/ui/trainerHighlights.test.mjs tests/ui/pendingDictationV3.test.mjs tests/ui/pendingNative.test.mjs tests/ui/processingPreferences.test.mjs tests/ui/overlayProcessingChoiceV3.test.mjs tests/ui/overlayControlsV3.test.mjs tests/ui/feedbackChannel.test.mjs tests/ui/nativeErrors.test.mjs tests/ui/optionalFeaturesV3.test.mjs tests/ui/nativeEventHub.test.mjs tests/ui/nativeReads.test.mjs tests/ui/cudaPackages.test.mjs tests/ui/frontendStage4.test.mjs tests/ui/localization.test.mjs",
     "test:release": "node --test scripts/release-support.test.mjs scripts/update-release.test.mjs scripts/native-test-runtime.test.mjs scripts/ci-workflow.test.mjs scripts/sign-cuda-package.test.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "docs:check": "node scripts/check-doc-links.mjs",

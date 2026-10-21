@@ -1,3 +1,4 @@
+import { message as uiMessage } from "./messages";
 import type { SpeechModel, Preferences } from "./contracts";
 export type SpeechEngine = "whisper" | "giga_am" | "parakeet";
 export interface SpeechModelId {
@@ -12,7 +13,7 @@ export function modelId(key: string): SpeechModelId {
   if (separator < 0) return { engine: "whisper", variant: key };
   const engine = key.slice(0, separator);
   if (engine !== "giga_am" && engine !== "parakeet")
-    throw new Error("Неизвестный движок распознавания");
+    throw new Error(uiMessage("ui.96bc41bfc5"));
   return { engine, variant: key.slice(separator + 1) };
 }
 export const engineNames = {
@@ -41,14 +42,14 @@ export function validateModelPreferences(
   preferences: Preferences,
 ): void {
   if (!model || model.status !== "installed")
-    throw new Error("Выберите установленную модель");
+    throw new Error(uiMessage("ui.a746ceacb3"));
   if (model.engine && model.engine !== "whisper") {
     if (
       preferences.language !== "auto" &&
       !model.languages?.includes(preferences.language)
     )
-      throw new Error("Выбранная модель не поддерживает этот язык");
+      throw new Error(uiMessage("ui.4c5a7d3ac6"));
     if (!["auto", "cpu"].includes(preferences.acceleration))
-      throw new Error("Для этой модели выберите Авто или Процессор");
+      throw new Error(uiMessage("ui.db88e567a8"));
   }
 }

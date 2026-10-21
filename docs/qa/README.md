@@ -8,6 +8,7 @@
 | [Диктовка](dictation-controls.md)                               | Hold/toggle, отмена, принятие результата, история и внешнее поле            |
 | [Индикатор и промпты](overlay-prompts.md)                       | Фокус, быстрый выбор, сохранение настроек и тест инструкции                 |
 | [Язык распознавания в overlay](overlay-recognition-language.md) | RU/EN/Авто, capability модели, Stop, rollback и длинная запись              |
+| [Язык интерфейса](interface-language.md)                        | Системная локаль, ручной RU/EN, tray, overlay, данные и инструкции          |
 | [Память и обновления](memory-updates.md)                        | Residency, расписание обновлений и ручной update flow                       |
 | [Голосовое ядро](voice-reliability.md)                          | Общие контракты, WAV replay и отдельные методики замороженных экспериментов |
 

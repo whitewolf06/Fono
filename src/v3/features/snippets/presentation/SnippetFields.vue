@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { ref } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
@@ -39,21 +44,25 @@ async function transfer(importing: boolean) {
       if (
         draft.value.snippets.length &&
         !(await ui.confirm({
-          title: "Заменить сниппеты в форме?",
-          text: `Импортировано записей: ${entries.length}. Текущий список в форме будет заменён; сохранение выполняется отдельной кнопкой.`,
-          accept: "Заменить",
+          get title() {
+            return uiMessage("ui.b069bef7de");
+          },
+          get text() {
+            return uiMessage("ui.056e15738f", { v0: String(entries.length) });
+          },
+          get accept() {
+            return uiMessage("ui.c20163fda1");
+          },
         }))
       )
         return;
       draft.value.snippets = entries.map((entry) => ({ ...entry }));
-      notice.value = `Добавлено в форму: ${entries.length}. Нажмите «Сохранить».`;
+      notice.value = uiMessage("ui.f14ef0d36b", { v0: String(entries.length) });
     } else if (await workspace.snippetTransfer.export(draft.value.snippets))
-      notice.value = "JSON сохранён. Экспортирован текущий список из формы.";
+      notice.value = uiMessage("ui.14544e240c");
   } catch (value) {
     error.value =
-      value instanceof Error
-        ? value.message
-        : "Не удалось обработать JSON сниппетов.";
+      value instanceof Error ? value.message : uiMessage("ui.4549599dac");
   } finally {
     busy.value = false;
   }
@@ -62,27 +71,24 @@ async function transfer(importing: boolean) {
 <template>
   <section id="snippets" class="form-stack snippet-settings">
     <div class="section-divider" />
-    <h3>Сниппеты</h3>
+    <h3>{{ $t("ui.1f438e7197") }}</h3>
     <PreferenceToggle
       name="snippetsEnabled"
-      label="Использовать голосовые сниппеты"
-      description="Если вся диктовка совпала с триггером, подставить готовый текст без ИИ. По умолчанию выключено."
+      :label="$t('ui.d6d122461b')"
+      :description="$t('ui.df64a5d1a4')"
     />
-    <p class="muted">
-      Регистр, лишние пробелы, «ё/е» и точка или восклицательный знак в конце не
-      мешают совпадению. Вопрос со знаком «?» и триггер внутри длинной фразы не
-      срабатывают. Выключение сохраняет записи.
-    </p>
-    <p v-if="!workspace.native" class="notice">
-      Браузерная демонстрация: сниппеты остаются в памяти до перезагрузки. В
-      приложении они сохраняются локально рядом со словарём.
-    </p>
-    <ul v-if="draft.snippets.length" class="snippet-list" aria-label="Сниппеты">
+    <p class="muted">{{ $t("ui.4db9c38937") }}</p>
+    <p v-if="!workspace.native" class="notice">{{ $t("ui.42c67e8811") }}</p>
+    <ul
+      v-if="draft.snippets.length"
+      class="snippet-list"
+      :aria-label="$t('ui.1f438e7197')"
+    >
       <li v-for="(entry, index) in draft.snippets" :key="index">
         <div>
           <strong>{{ entry.trigger }}</strong
           ><small
-            >{{ entry.enabled ? "Включён" : "Выключен" }} ·
+            >{{ entry.enabled ? $t("ui.0b81629905") : $t("ui.5a577d9056") }} ·
             {{ entry.text }}</small
           >
         </div>
@@ -90,50 +96,45 @@ async function transfer(importing: boolean) {
           <WlButton
             size="sm"
             variant="ghost"
-            :aria-label="'Изменить сниппет ' + entry.trigger"
+            :aria-label="$t('ui.4c0f79aebb') + entry.trigger"
             @click="editing = index"
-            >Изменить</WlButton
+            >{{ $t("ui.b8b151d417") }}</WlButton
           ><WlButton
             size="sm"
             variant="ghost"
-            :aria-label="'Удалить сниппет ' + entry.trigger"
+            :aria-label="$t('ui.124c8f004c') + entry.trigger"
             @click="
               draft.snippets = draft.snippets.filter((_, i) => i !== index)
             "
-            >Удалить</WlButton
+            >{{ $t("ui.be99b13612") }}</WlButton
           >
         </div>
       </li>
     </ul>
-    <p v-else class="notice">
-      Сниппетов пока нет. Добавьте подпись, реквизиты или шаблон сообщения.
-    </p>
+    <p v-else class="notice">{{ $t("ui.a16538caa0") }}</p>
     <div class="actions">
       <WlButton
         size="sm"
         :disabled="busy || draft.snippets.length >= snippetLimits.entries"
         @click="editing = -1"
-        >Добавить сниппет</WlButton
+        >{{ $t("ui.4ee6262fe4") }}</WlButton
       ><WlButton
         size="sm"
         variant="ghost"
         :disabled="busy"
         @click="transfer(true)"
-        >Импорт JSON</WlButton
+        >{{ $t("ui.011008fbaa") }}</WlButton
       ><WlButton
         size="sm"
         variant="ghost"
         :disabled="busy"
         @click="transfer(false)"
-        >Экспорт JSON</WlButton
+        >{{ $t("ui.361d70696a") }}</WlButton
       ><small class="muted"
         >{{ draft.snippets.length }} / {{ snippetLimits.entries }}</small
       >
     </div>
-    <p class="muted">
-      Импорт заменяет список в форме после проверки. Экспорт включает тексты и
-      триггеры из формы, без подстановки переменных.
-    </p>
+    <p class="muted">{{ $t("ui.b08dd91038") }}</p>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <SnippetEditor

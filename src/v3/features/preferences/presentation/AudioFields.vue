@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { message as $t } from "../../../shared/domain/messages";
+
 import { computed, watch } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
@@ -55,26 +57,28 @@ const installed = computed(() =>
       <SelectField
         id="microphone"
         v-model="draft.microphone"
-        label="Устройство ввода"
+        :label="$t('ui.ebb14dc507')"
         :options="workspace.state.devices || microphones"
-        hint="Системное устройство следует выбору в Windows."
+        :hint="$t('ui.ee345bd502')"
       />
       <div
         v-if="!workspace.state.microphoneAvailable"
         class="notice error"
         role="alert"
       >
-        Микрофон не найден. Подключите устройство и повторите проверку.
+        {{ $t("ui.9010565737") }}
       </div>
       <div class="signal-test">
         <span
-          >Уровень сигнала
-          <small v-if="!workspace.native">демонстрация</small></span
+          >{{ $t("ui.eb8775eff9") }}
+          <small v-if="!workspace.native">{{
+            $t("ui.8de2747e9e")
+          }}</small></span
         >
         <div
           class="signal-meter"
           role="meter"
-          aria-label="Уровень сигнала"
+          :aria-label="$t('ui.eb8775eff9')"
           :aria-valuenow="Math.round(workspace.state.testSignal * 100)"
           aria-valuemin="0"
           aria-valuemax="100"
@@ -89,55 +93,44 @@ const installed = computed(() =>
           @click="
             run(
               () => workspace.settings.testMicrophone(draft.microphone),
-              workspace.native
-                ? 'Проверка микрофона завершена'
-                : 'Сигнал в норме · демонстрация',
+              workspace.native ? $t('ui.0f27d53461') : $t('ui.0921976316'),
             )
           "
-          ><template #icon><AppIcon name="microphone" /></template>Проверить
-          микрофон</WlButton
+          ><template #icon><AppIcon name="microphone" /></template
+          >{{ $t("ui.cd1333f138") }}</WlButton
         ><WlButton
           size="sm"
           variant="ghost"
           :disabled="busy"
           @click="run(() => workspace.settings.playSample())"
-          ><template #icon><AppIcon name="play" /></template>Прослушать
-          образец</WlButton
+          ><template #icon><AppIcon name="play" /></template
+          >{{ $t("ui.b6e263a751") }}</WlButton
         >
       </div>
-      <small v-if="!workspace.native" class="muted"
-        >В браузерном макете тест и образец синтетические. Доступ к микрофону не
-        запрашивается.</small
-      >
+      <small v-if="!workspace.native" class="muted">{{
+        $t("ui.03ae4cb669")
+      }}</small>
     </template>
     <template v-if="props.scope !== 'microphone'">
       <SelectField
         id="model"
         v-model="draft.model"
-        label="Модель распознавания"
+        :label="$t('ui.8b9baf7846')"
         :options="installed"
-        :hint="
-          installed.length
-            ? 'Работает локально на вашем компьютере.'
-            : 'Нет установленных моделей. Загрузите модель ниже.'
-        "
+        :hint="installed.length ? $t('ui.619d6b13d9') : $t('ui.44364b2632')"
       />
       <div class="form-grid">
         <SelectField
           v-model="draft.language"
-          label="Язык"
+          :label="$t('ui.5bd57038db')"
           :options="languageOptions"
         /><SelectField
           v-model="draft.acceleration"
-          label="Ускорение"
+          :label="$t('ui.c2ccfcfe69')"
           :options="accelerationOptions"
         />
       </div>
-      <p v-if="offline" class="muted">
-        Эта модель работает на процессоре. Язык выбирается моделью автоматически
-        в пределах поддерживаемых языков. Настройки декодирования Whisper
-        сохранятся для возврата к Whisper.
-      </p>
+      <p v-if="offline" class="muted">{{ $t("ui.fd0519ddd2") }}</p>
       <GpuMemoryField v-if="!offline" v-model="draft" />
       <DecodingFields v-if="!offline" v-model="draft" />
     </template>

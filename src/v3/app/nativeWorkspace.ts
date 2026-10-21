@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../shared/domain/messages";
 import { createNativeSnippetTransfer } from "../features/snippets/infrastructure/nativeSnippets";
 import { createNativeFiles } from "../features/files/infrastructure/nativeFiles";
 import { reactive } from "vue";
@@ -222,8 +223,7 @@ export function createNativeWorkspace(): Workspace {
         if (model) {
           model.status = "available";
           if (progress.phase === "failed")
-            model.downloadError =
-              "Не удалось загрузить или проверить модель. Повторите загрузку.";
+            model.downloadError = uiMessage("ui.a5d23df4cf");
         }
         void ctx.readModels().catch(ctx.report);
       }
@@ -277,7 +277,7 @@ export function createNativeWorkspace(): Workspace {
           "set_dictation_history_entry_analytics_included",
           { id, included },
         );
-        if (!found) throw new Error("Диктовка уже удалена из истории.");
+        if (!found) throw new Error(uiMessage("ui.a0a69d42bc"));
         await ctx.readHistory();
       },
       async remove(id) {
@@ -299,10 +299,10 @@ export function createNativeWorkspace(): Workspace {
         await ctx.readService();
       },
       enqueue() {
-        throw new Error("Отправьте аудиофайл через API: вкладка «Подключение»");
+        throw new Error(uiMessage("ui.1185988b25"));
       },
       retry() {
-        throw new Error("Повторно отправьте исходный аудиофайл через API");
+        throw new Error(uiMessage("ui.647eba583c"));
       },
       async copyToken() {
         await call("copy_local_transcription_api_token");
@@ -317,40 +317,48 @@ export function createNativeWorkspace(): Workspace {
       return [
         {
           id: "mic",
-          title: "Микрофон",
+          get title() {
+            return uiMessage("ui.f038415295");
+          },
           health: state.microphoneAvailable ? "ready" : "missing",
           detail: state.microphoneAvailable
-            ? "Устройство доступно"
-            : "Подключите микрофон",
+            ? uiMessage("ui.111bb55c3d")
+            : uiMessage("ui.36675b2e6f"),
           section: "audio",
         },
         {
           id: "model",
-          title: "Распознавание",
+          get title() {
+            return uiMessage("ui.7894eb1ac6");
+          },
           health: state.models.some(
             (m) => m.id === state.preferences.model && m.status === "installed",
           )
             ? "ready"
             : "missing",
-          detail: state.preferences.model || "Выберите модель",
+          detail: state.preferences.model || uiMessage("ui.c4dac53b9a"),
           section: "audio",
         },
         {
           id: "ai",
-          title: "Обработка текста",
+          get title() {
+            return uiMessage("ui.d4a26d3502");
+          },
           health: !state.preferences.processingEnabled
             ? "off"
             : state.aiAvailable
               ? "ready"
               : "missing",
           detail: state.aiAvailable
-            ? "Подключение проверено"
-            : "Проверьте подключение в настройках",
+            ? uiMessage("ui.a31fc40f3a")
+            : uiMessage("ui.7d89971863"),
           section: "processing",
         },
         {
           id: "service",
-          title: "API-сервис",
+          get title() {
+            return uiMessage("ui.1b580ef9f9");
+          },
           health: state.serviceError
             ? "error"
             : state.preferences.serviceEnabled

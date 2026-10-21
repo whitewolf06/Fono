@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../domain/messages";
 import type { SettingsPort, Preferences } from "../../domain/contracts";
 import type { NativeContext } from "./context";
 import type { LlmProfile } from "./ipcTypes";
@@ -14,7 +15,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
     ...nativeProcessing(),
     async save(patch) {
       if (state.triggerCaptureActive)
-        throw new Error("Сначала завершите выбор кнопки.");
+        throw new Error(uiMessage("ui.13ccc97bac"));
       if (
         [
           "dictationTrigger",
@@ -60,7 +61,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
           "awaiting_action",
         ].includes(state.phase)
       )
-        throw new Error("Сначала завершите текущую диктовку.");
+        throw new Error(uiMessage("ui.e134b483ff"));
       await ctx.save(patch);
       if (
         typeof __FONO_WAKE_WORD__ !== "undefined" &&
@@ -80,13 +81,13 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
         ].includes(key) &&
         (captureSettingsLocked(state.phase) || state.triggerCaptureActive)
       )
-        throw new Error("Сначала завершите текущую диктовку или выбор кнопки.");
+        throw new Error(uiMessage("ui.36d3ffdc1e"));
       if (state.pending[key]) return;
       if (
         key === "pretranscriptionEnabled" &&
         captureSettingsLocked(state.phase)
       )
-        throw new Error("Сначала завершите текущую диктовку.");
+        throw new Error(uiMessage("ui.e134b483ff"));
       if (key === "wakeEnabled" && value) ensureWakeAvailable();
       const previous = state.preferences[key];
       state.pending[key] = true;
@@ -124,7 +125,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
     },
     async downloadModel(id) {
       const model = state.models.find((m) => m.id === id);
-      if (!model) throw new Error("Модель не найдена");
+      if (!model) throw new Error(uiMessage("ui.cf61c63359"));
       model.status = "downloading";
       model.progress = 0;
       model.downloadError = "";
@@ -161,10 +162,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
       );
       state.testSignal = Math.min(1, result.rms * 8);
       await ctx.readDevices();
-      if (result.peak < 0.005)
-        throw new Error(
-          "Сигнал очень тихий. Проверьте выбранный микрофон и его громкость.",
-        );
+      if (result.peak < 0.005) throw new Error(uiMessage("ui.c0234902aa"));
     },
     playSample: playMicrophoneSample,
     listModels: (profileId) =>
@@ -189,10 +187,10 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
     },
     async saveProfile(profile) {
       if (!profile.name.trim() || !profile.url.trim())
-        throw new Error("Укажите название и адрес");
+        throw new Error(uiMessage("ui.1b0bbe970c"));
       const url = new URL(profile.url);
       if (!["http:", "https:"].includes(url.protocol))
-        throw new Error("Нужен HTTP или HTTPS адрес");
+        throw new Error(uiMessage("ui.fa25cefc58"));
       await ctx.saveRaw((current) => {
         const previous = current.llm_profiles.find((p) => p.id === profile.id);
         const next: LlmProfile = {
@@ -218,9 +216,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
           current.text_correction_llm.profile_id === id ||
           current.speech_analysis_llm.profile_id === id
         )
-          throw new Error(
-            "Сначала выберите другое подключение для обработки и тренера",
-          );
+          throw new Error(uiMessage("ui.22ed0dc646"));
         current.llm_profiles = current.llm_profiles.filter((p) => p.id !== id);
         return current;
       });

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { computed, ref, useId, watch } from "vue";
 import type {
   IndicatorState,
@@ -44,12 +49,24 @@ const panel = ref<"help" | "processing" | "translation" | "recognition" | null>(
 );
 const panelId = useId();
 const labels: Record<IndicatorPhase, string> = {
-  recording: "Слушаю вас",
-  transcribing: "Распознаю речь",
-  processing: "Обрабатываю текст",
-  ready: "Текст готов",
-  error: "Нужна ваша помощь",
-  closed: "Индикатор закрыт",
+  get recording() {
+    return uiMessage("ui.9d58522b4a");
+  },
+  get transcribing() {
+    return uiMessage("ui.3ae9f114b8");
+  },
+  get processing() {
+    return uiMessage("ui.7fd3adbb0b");
+  },
+  get ready() {
+    return uiMessage("ui.617d6b596d");
+  },
+  get error() {
+    return uiMessage("ui.933abea3ee");
+  },
+  get closed() {
+    return uiMessage("ui.f8762efac1");
+  },
 };
 const wavePhase: Record<IndicatorPhase, Phase> = {
   recording: "listening",
@@ -106,8 +123,8 @@ watch(recording, (value) => {
         <button
           type="button"
           class="overlay-indicator-info"
-          title="Что означают кнопки"
-          aria-label="Что означают кнопки"
+          :title="$t('ui.f7bece44b8')"
+          :aria-label="$t('ui.f7bece44b8')"
           :aria-expanded="panel === 'help'"
           :aria-controls="panelId"
           @click="configure('help')"
@@ -120,7 +137,7 @@ watch(recording, (value) => {
           v-if="state.applicationProfile"
           class="overlay-indicator-profile"
           :title="state.applicationProfile"
-          >Профиль: {{ state.applicationProfile }}</small
+          >{{ $t("ui.db7ceb8f20") }} {{ state.applicationProfile }}</small
         >
         <div class="overlay-indicator-status">
           <strong :title="status">{{ status }}</strong
@@ -141,8 +158,16 @@ watch(recording, (value) => {
             v-if="state.recognition?.options.length"
             type="button"
             class="overlay-indicator-recognition"
-            aria-label="Выбрать язык распознавания"
-            :title="`Язык распознавания: ${recognitionOptions.find((item) => item.value === state.recognitionLanguage)?.label ?? state.recognitionLanguage}`"
+            :aria-label="$t('ui.629e35250c')"
+            :title="
+              $t('ui.c8e1cf10d7', {
+                v0: String(
+                  recognitionOptions.find(
+                    (item) => item.value === state.recognitionLanguage,
+                  )?.label ?? state.recognitionLanguage,
+                ),
+              })
+            "
             :aria-expanded="panel === 'recognition'"
             :aria-controls="panelId"
             :disabled="!recording || saving"
@@ -159,13 +184,13 @@ watch(recording, (value) => {
             class="overlay-indicator-language-hint"
             :title="
               state.recognition.fixedLanguage === 'ru'
-                ? 'Модель распознаёт только русский. Для выбора языка нужна многоязычная модель Whisper.'
-                : 'Эта модель сама определяет язык. Для ручного выбора нужна модель Whisper.'
+                ? $t('ui.613f8e8ff8')
+                : $t('ui.f54a3a8c08')
             "
             >{{
               state.recognition.fixedLanguage === "ru"
-                ? "Только RU"
-                : "Язык: авто"
+                ? $t("ui.0c8fc9ca83")
+                : $t("ui.c18f3a871d")
             }}</small
           >
           <OverlayIndicatorToggles
@@ -180,13 +205,13 @@ watch(recording, (value) => {
         <div
           class="overlay-indicator-actions"
           role="group"
-          aria-label="Действия с диктовкой"
+          :aria-label="$t('ui.48124ad766')"
         >
           <button
             type="button"
             class="overlay-indicator-action cancel"
-            :title="ready ? 'Закрыть без копирования' : 'Отменить запись'"
-            :aria-label="ready ? 'Закрыть без копирования' : 'Отменить запись'"
+            :title="ready ? $t('ui.965e87fa29') : $t('ui.d5e3f6c438')"
+            :aria-label="ready ? $t('ui.965e87fa29') : $t('ui.d5e3f6c438')"
             @click="ready ? emit('close') : emit('cancel')"
           >
             <AppIcon name="x" :size="20" />
@@ -195,8 +220,8 @@ watch(recording, (value) => {
             v-if="ready && canRetry"
             type="button"
             class="overlay-indicator-action processing"
-            title="Повторить обработку без вставки"
-            aria-label="Повторить обработку без вставки"
+            :title="$t('ui.c228bcbb77')"
+            :aria-label="$t('ui.c228bcbb77')"
             :disabled="saving || state.copying"
             @click="emit('retry')"
           >
@@ -206,8 +231,8 @@ watch(recording, (value) => {
             v-if="ready"
             type="button"
             class="overlay-indicator-action copy"
-            title="Скопировать текст и закрыть"
-            aria-label="Скопировать текст и закрыть"
+            :title="$t('ui.b5ebb76555')"
+            :aria-label="$t('ui.b5ebb76555')"
             :disabled="state.copying"
             :aria-busy="state.copying"
             @click="emit('copy')"
@@ -218,8 +243,8 @@ watch(recording, (value) => {
             v-else
             type="button"
             class="overlay-indicator-action accept"
-            title="Завершить запись без вставки"
-            aria-label="Завершить запись без вставки"
+            :title="$t('ui.9f8d67e76a')"
+            :aria-label="$t('ui.9f8d67e76a')"
             :disabled="!recording || saving || !canFinish"
             @click="emit('accept')"
           >
@@ -236,11 +261,11 @@ watch(recording, (value) => {
         :dictation-trigger="dictationTrigger"
       />
       <template v-else-if="panel === 'processing'">
-        <strong>Стиль постобработки</strong>
+        <strong>{{ $t("ui.8885fed5dd") }}</strong>
         <div
           class="overlay-indicator-options"
           role="group"
-          aria-label="Стиль постобработки"
+          :aria-label="$t('ui.8885fed5dd')"
         >
           <button
             v-for="option in presetOptions"
@@ -253,14 +278,14 @@ watch(recording, (value) => {
             {{ option.label }}
           </button>
         </div>
-        <small>Применится при завершении текущей записи.</small>
+        <small>{{ $t("ui.54de9b2dce") }}</small>
       </template>
       <template v-else-if="panel === 'recognition'">
-        <strong>Язык распознавания</strong>
+        <strong>{{ $t("ui.ede3bcb782") }}</strong>
         <div
           class="overlay-indicator-options"
           role="group"
-          aria-label="Язык распознавания"
+          :aria-label="$t('ui.ede3bcb782')"
         >
           <button
             v-for="option in recognitionOptions.filter((item) =>
@@ -275,17 +300,14 @@ watch(recording, (value) => {
             {{ option.label }}
           </button>
         </div>
-        <small
-          >Применится к этой записи и следующим диктовкам. Авто — определить
-          язык по речи.</small
-        >
+        <small>{{ $t("ui.eb14d29ad8") }}</small>
       </template>
       <template v-else>
-        <strong>Язык перевода</strong>
+        <strong>{{ $t("ui.16b43a4ab6") }}</strong>
         <div
           class="overlay-indicator-options"
           role="group"
-          aria-label="Язык перевода"
+          :aria-label="$t('ui.16b43a4ab6')"
         >
           <button
             v-for="option in translationOptions.filter(
@@ -304,10 +326,7 @@ watch(recording, (value) => {
             {{ option.label }}
           </button>
         </div>
-        <small
-          >Перевод выполняется после постобработки. Переключатель позволяет
-          быстро отключить его.</small
-        >
+        <small>{{ $t("ui.d8f317f933") }}</small>
       </template>
     </div>
   </div>

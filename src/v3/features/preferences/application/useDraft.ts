@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import {
   computed,
   reactive,
@@ -56,10 +57,18 @@ export function useDraft(keys: MaybeRefOrGetter<(keyof Preferences)[]>) {
   async function canLeave() {
     if (!dirty.value) return true;
     return interaction.confirm({
-      title: "Выйти без сохранения?",
-      cancel: "Остаться",
-      text: "В форме есть несохранённые изменения. При выходе они будут отменены.",
-      accept: "Отменить изменения",
+      get title() {
+        return uiMessage("ui.0586e6911a");
+      },
+      get cancel() {
+        return uiMessage("ui.3a5acd0245");
+      },
+      get text() {
+        return uiMessage("ui.d770d39152");
+      },
+      get accept() {
+        return uiMessage("ui.9471b91e84");
+      },
       danger: true,
     });
   }

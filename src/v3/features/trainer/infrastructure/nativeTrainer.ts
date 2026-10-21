@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { TrainerPort } from "../../../shared/domain/contracts";
 import type { TrainerReport } from "../domain/report";
 import { observeTrainerDay } from "./dayChange";
@@ -17,7 +18,7 @@ export function createNativeTrainer(
     getReport: (days, refresh = false) =>
       call<TrainerReport>("get_trainer_report", { days, refresh }),
     async analyzePeriod(input) {
-      if (active) throw new Error("Дождитесь завершения текущего разбора.");
+      if (active) throw new Error(uiMessage("ui.b89d072164"));
       const requestId = newId();
       active = requestId;
       try {

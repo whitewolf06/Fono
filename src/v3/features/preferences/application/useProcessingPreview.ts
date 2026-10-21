@@ -1,3 +1,4 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import { computed, onScopeDispose, ref, type Ref } from "vue";
 import type { Preferences } from "../../../shared/domain/contracts";
 import type { ProcessingPreviewResult } from "../../../shared/domain/processing";
@@ -116,9 +117,7 @@ export function useProcessingPreview(draft: Ref<Preferences>) {
       const text = await workspace.settings.finishProcessingCapture();
       if (!disposed) {
         if (text.trim()) input.value = text;
-        else
-          notice.value =
-            "Речь не обнаружена. Попробуйте надиктовать пример ещё раз.";
+        else notice.value = uiMessage("ui.b161f7230a");
       }
     });
     capturing.value = false;

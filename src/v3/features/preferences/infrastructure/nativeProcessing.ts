@@ -1,9 +1,11 @@
+import { message as uiMessage } from "../../../shared/domain/messages";
 import type { SettingsPort } from "../../../shared/domain/contracts";
 import type {
   ProcessingPromptCatalog,
   ProcessingPreviewResult,
 } from "../../../shared/domain/processing";
 import { call } from "../../../shared/infrastructure/native/ipc";
+import { uiLocale } from "../../../shared/domain/locale";
 type ProcessingMethods = Pick<
   SettingsPort,
   | "processingPromptCatalog"
@@ -25,7 +27,7 @@ export function nativeProcessing(): ProcessingMethods {
         }[];
         max_prompt_chars: number;
         max_text_bytes: number;
-      }>("get_processing_prompt_catalog");
+      }>("get_processing_prompt_catalog", { locale: uiLocale() });
       return {
         presets: result.presets.map((item) => ({
           preset: item.preset,
@@ -68,7 +70,7 @@ export function nativeProcessing(): ProcessingMethods {
     },
     async startProcessingCapture() {
       if (sessionId !== null || starting)
-        throw new Error("Тестовая диктовка уже запущена.");
+        throw new Error(uiMessage("ui.facd689ca0"));
       starting = call<{ sessionId: number }>(
         "start_processing_test_capture",
       ).then((result) => {
@@ -83,7 +85,7 @@ export function nativeProcessing(): ProcessingMethods {
     },
     async finishProcessingCapture() {
       await starting;
-      if (sessionId === null) throw new Error("Тестовая диктовка не запущена.");
+      if (sessionId === null) throw new Error(uiMessage("ui.bb285adf59"));
       const owned = sessionId;
       try {
         return (

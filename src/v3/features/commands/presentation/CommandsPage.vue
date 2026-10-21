@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  message as uiMessage,
+  message as $t,
+} from "../../../shared/domain/messages";
+
 import { ref } from "vue";
 import { useFeedback } from "../../../shared/application/feedback";
 import { WlButton, WlInput, WlField } from "@whitelife-core/ui-kit";
@@ -18,9 +23,14 @@ const editing = ref<LaunchApp | null>(null);
 async function remove(app: LaunchApp) {
   if (
     await ui.confirm({
-      title: "Удалить голосовую команду?",
-      text: "Фраза «" + app.phrase + "» больше не будет открывать приложение.",
-      accept: "Удалить",
+      get title() {
+        return uiMessage("ui.35467365fd");
+      },
+      text:
+        uiMessage("ui.2b8e42c7ce") + app.phrase + uiMessage("ui.88d3d7d3e1"),
+      get accept() {
+        return uiMessage("ui.be99b13612");
+      },
       danger: true,
     })
   )
@@ -29,27 +39,25 @@ async function remove(app: LaunchApp) {
 </script>
 <template>
   <div class="page">
-    <PageHeading
-      title="Голосовые команды"
-      description="Управляйте привычными действиями голосом."
+    <PageHeading :title="$t('ui.6c0adb50d0')" :description="$t('ui.c082fbafd9')"
       ><WlButton size="sm" @click="ui.openQuick('command-hotkey')"
         >{{ workspace.state.preferences.commandHotkey
         }}<template #icon><AppIcon name="edit" /></template></WlButton
     ></PageHeading>
     <section class="surface-panel">
-      <h2>Проверить фразу</h2>
-      <p>Введите команду — Fono покажет, что произойдёт.</p>
-      <WlField v-slot="field" label="Фраза"
+      <h2>{{ $t("ui.2370696018") }}</h2>
+      <p>{{ $t("ui.46226a7f52") }}</p>
+      <WlField v-slot="field" :label="$t('ui.5fe3b7c928')"
         ><div class="inline-input">
           <WlInput
             v-bind="field"
             v-model="phrase"
-            placeholder="Например, открой блокнот"
+            :placeholder="$t('ui.448a6cb4c0')"
             @keydown.enter.prevent="result = workspace.commands.test(phrase)"
           /><WlButton
             :disabled="!phrase.trim()"
             @click="result = workspace.commands.test(phrase)"
-            >Проверить</WlButton
+            >{{ $t("ui.e4424a6df6") }}</WlButton
           >
         </div></WlField
       >
@@ -57,7 +65,11 @@ async function remove(app: LaunchApp) {
     </section>
     <div class="command-groups">
       <section
-        v-for="group in ['Медиа', 'Звук', 'Окна']"
+        v-for="group in [
+          $t('ui.2f2bfeb36e'),
+          $t('ui.6a40ca9613'),
+          $t('ui.1e1bd9e6df'),
+        ]"
         :key="group"
         class="surface-panel"
       >
@@ -82,13 +94,14 @@ async function remove(app: LaunchApp) {
     <section class="surface-panel">
       <div class="section-header">
         <div>
-          <h2>Ваши приложения</h2>
-          <p>Название, которое удобно произносить.</p>
+          <h2>{{ $t("ui.55eecd9fc6") }}</h2>
+          <p>{{ $t("ui.6ed5c141eb") }}</p>
         </div>
         <WlButton
           size="sm"
           @click="editing = { id: '', name: '', phrase: '', path: '' }"
-          ><template #icon><AppIcon name="plus" /></template>Добавить</WlButton
+          ><template #icon><AppIcon name="plus" /></template
+          >{{ $t("ui.71038c53bb") }}</WlButton
         >
       </div>
       <div
@@ -105,19 +118,19 @@ async function remove(app: LaunchApp) {
         <WlButton
           size="sm"
           variant="ghost"
-          :aria-label="'Изменить ' + app.name"
+          :aria-label="$t('ui.669958f765') + app.name"
           @click="editing = { ...app }"
           ><template #icon><AppIcon name="edit" /></template></WlButton
         ><WlButton
           size="sm"
           variant="danger-quiet"
-          :aria-label="'Удалить ' + app.name"
+          :aria-label="$t('ui.1c6789d896') + app.name"
           @click="remove(app)"
           ><template #icon><AppIcon name="trash" /></template
         ></WlButton>
       </div>
       <p v-if="!workspace.state.applications.length" class="muted">
-        Приложений пока нет. Добавьте первое.
+        {{ $t("ui.fc20f42119") }}
       </p>
     </section>
     <AppEditor v-if="editing" :application="editing" @close="editing = null" />

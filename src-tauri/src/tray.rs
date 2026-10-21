@@ -14,7 +14,7 @@ use crate::{
     pipeline::Pipeline,
     state::AppState,
     stt::SttReadiness,
-    types::PipelineState,
+    types::{PipelineState, UiLocale},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +32,21 @@ enum Status {
 }
 
 impl Status {
-    fn tooltip(self) -> &'static str {
+    fn tooltip(self, locale: UiLocale) -> &'static str {
+        if locale == UiLocale::En {
+            return match self {
+                Self::Ready => "Fono — ready to dictate",
+                Self::Paused => "Fono — dictation paused",
+                Self::Recording => "Fono — recording speech",
+                Self::Transcribing => "Fono — recognizing speech",
+                Self::Processing => "Fono — processing text",
+                Self::AwaitingAction => "Fono — text is waiting for your action",
+                Self::Injecting => "Fono — inserting text",
+                Self::Loading => "Fono — loading recognition model",
+                Self::Unloaded => "Fono — recognition model is not loaded",
+                Self::Error => "Fono — dictation error; open the application",
+            };
+        }
         match self {
             Self::Ready => "Fono — готов к диктовке",
             Self::Paused => "Fono — диктовка приостановлена",
@@ -61,6 +75,7 @@ impl Status {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Appearance {
+    locale: UiLocale,
     status: Status,
     paused: bool,
     #[cfg(feature = "wake-word")]
@@ -87,7 +102,14 @@ fn status(pipeline: PipelineState, paused: bool, readiness: &SttReadiness) -> St
     }
 }
 
-fn pause_label(paused: bool) -> &'static str {
+fn pause_label(paused: bool, locale: UiLocale) -> &'static str {
+    if locale == UiLocale::En {
+        return if paused {
+            "Resume dictation"
+        } else {
+            "Pause dictation"
+        };
+    }
     if paused {
         "Продолжить диктовку"
     } else {
@@ -96,7 +118,14 @@ fn pause_label(paused: bool) -> &'static str {
 }
 
 #[cfg(feature = "wake-word")]
-fn wake_label(enabled: bool) -> &'static str {
+fn wake_label(enabled: bool, locale: UiLocale) -> &'static str {
+    if locale == UiLocale::En {
+        return if enabled {
+            "Disable voice wake-up"
+        } else {
+            "Enable voice wake-up"
+        };
+    }
     if enabled {
         "Выключить голосовое пробуждение"
     } else {
@@ -105,6 +134,8 @@ fn wake_label(enabled: bool) -> &'static str {
 }
 
 struct TrayPresentation {
+    show: MenuItem<Wry>,
+    quit: MenuItem<Wry>,
     icon: TrayIcon<Wry>,
     base: Image<'static>,
     pause: MenuItem<Wry>,
@@ -116,16 +147,33 @@ struct TrayPresentation {
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let paused = app.state::<AppState>().is_dictation_paused();
-    let show = MenuItemBuilder::with_id("show", "Открыть Fono").build(app)?;
-    let pause = MenuItemBuilder::with_id("pause", pause_label(paused)).build(app)?;
-    let quit = MenuItemBuilder::with_id("quit", "Выход").build(app)?;
+    let locale = app.state::<AppState>().settings().ui_language.resolve();
+    let show = MenuItemBuilder::with_id(
+        "show",
+        if locale == UiLocale::En {
+            "Open Fono"
+        } else {
+            "Открыть Fono"
+        },
+    )
+    .build(app)?;
+    let pause = MenuItemBuilder::with_id("pause", pause_label(paused, locale)).build(app)?;
+    let quit = MenuItemBuilder::with_id(
+        "quit",
+        if locale == UiLocale::En {
+            "Quit"
+        } else {
+            "Выход"
+        },
+    )
+    .build(app)?;
     let menu_builder = MenuBuilder::new(app).item(&show).separator().item(&pause);
     #[cfg(feature = "wake-word")]
     let wake = if crate::types::WAKE_WORD_AVAILABLE {
         Some(
             MenuItemBuilder::with_id(
                 "wake_word",
-                wake_label(app.state::<AppState>().settings().wake_word_enabled),
+                wake_label(app.state::<AppState>().settings().wake_word_enabled, locale),
             )
             .build(app)?,
         )
@@ -154,6 +202,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     icon.set_menu(Some(menu))?;
     icon.on_menu_event(menu_event);
     app.manage(TrayPresentation {
+        show,
+        quit,
         icon,
         base,
         pause,
@@ -288,6 +338,7 @@ fn refresh_on_ui(app: &AppHandle) -> AppResult<()> {
     let state = app.state::<AppState>();
     let paused = state.is_dictation_paused();
     let appearance = Appearance {
+        locale: state.settings().ui_language.resolve(),
         status: status(
             app.state::<Pipeline>().state(),
             paused,
@@ -300,14 +351,30 @@ fn refresh_on_ui(app: &AppHandle) -> AppResult<()> {
     if runtime.last.lock().as_ref() == Some(&appearance) {
         return Ok(());
     }
-    runtime.pause.set_text(pause_label(paused))?;
+    runtime
+        .pause
+        .set_text(pause_label(paused, appearance.locale))?;
+    runtime
+        .show
+        .set_text(if appearance.locale == UiLocale::En {
+            "Open Fono"
+        } else {
+            "Открыть Fono"
+        })?;
+    runtime
+        .quit
+        .set_text(if appearance.locale == UiLocale::En {
+            "Quit"
+        } else {
+            "Выход"
+        })?;
     #[cfg(feature = "wake-word")]
     if let Some(wake) = &runtime.wake {
-        wake.set_text(wake_label(appearance.wake_enabled))?;
+        wake.set_text(wake_label(appearance.wake_enabled, appearance.locale))?;
     }
     runtime
         .icon
-        .set_tooltip(Some(appearance.status.tooltip()))?;
+        .set_tooltip(Some(appearance.status.tooltip(appearance.locale)))?;
     runtime
         .icon
         .set_icon(Some(status_icon(&runtime.base, appearance.status)?))?;
@@ -364,8 +431,14 @@ mod tests {
 
     #[test]
     fn initial_tray_and_menu_follow_pause_and_real_model_readiness() {
-        assert_eq!(pause_label(true), "Продолжить диктовку");
-        assert_eq!(pause_label(false), "Приостановить диктовку");
+        assert_eq!(pause_label(true, UiLocale::Ru), "Продолжить диктовку");
+        assert_eq!(pause_label(false, UiLocale::Ru), "Приостановить диктовку");
+        assert_eq!(pause_label(true, UiLocale::En), "Resume dictation");
+        assert_eq!(pause_label(false, UiLocale::En), "Pause dictation");
+        assert_eq!(
+            Status::Recording.tooltip(UiLocale::En),
+            "Fono — recording speech"
+        );
         assert_eq!(
             status(PipelineState::Idle, true, &SttReadiness::Unloaded),
             Status::Paused
