@@ -12,6 +12,7 @@ import { useFeedback } from "../../../shared/application/feedback";
 import { filterHistory, groupHistory, timeLabel } from "../application/history";
 import { exactDateLabel, recordingLabel } from "../application/statistics";
 import HistoryStatistics from "./HistoryStatistics.vue";
+import HistoryRewritePanel from "./HistoryRewritePanel.vue";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import EmptyState from "../../../shared/presentation/EmptyState.vue";
@@ -178,6 +179,9 @@ async function toggleIncluded() {
           }}</time>
         </div>
         <HistoryStatistics :entry="selected" />
+        <p class="muted history-analytics-state">
+          {{ $t("historyRewrite.deliveryUnknown") }}
+        </p>
         <div class="segmented small">
           <button
             v-if="selected.original"
@@ -227,6 +231,7 @@ async function toggleIncluded() {
           >
         </div>
         <p v-if="error" class="error-text" role="alert">{{ error }}</p>
+        <HistoryRewritePanel :entry="selected" />
       </article>
     </div>
     <EmptyState

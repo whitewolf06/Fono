@@ -114,8 +114,31 @@ fn test_server(status: &str, content_type: &str, body: Vec<u8>) -> String {
     thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("accept one client");
         let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
-        let mut request = [0_u8; 1_024];
-        let _ = stream.read(&mut request);
+        // Drain the complete request before closing a response. On Windows,
+        // unread POST bytes can reset the connection and hide the intended 503.
+        let mut request = Vec::new();
+        loop {
+            let mut chunk = [0_u8; 4_096];
+            let size = stream.read(&mut chunk).expect("read local test request");
+            assert!(size > 0, "request ended before its declared body");
+            request.extend_from_slice(&chunk[..size]);
+            assert!(
+                request.len() <= 256 * 1024,
+                "test request exceeds its limit"
+            );
+            if let Some(end) = request.windows(4).position(|part| part == b"\r\n\r\n") {
+                let header = String::from_utf8_lossy(&request[..end]).to_ascii_lowercase();
+                let length: usize = header
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:").map(str::trim))
+                    .unwrap_or("0")
+                    .parse()
+                    .expect("valid request content length");
+                if request.len() >= end + 4 + length {
+                    break;
+                }
+            }
+        }
         let headers = format!(
                 "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                 body.len()
@@ -145,7 +168,10 @@ fn configured_postprocessing_keeps_server_failure_visible() {
         None,
     ))
     .expect_err("A configured server failure must not be treated as unfinished setup");
-    assert!(error.to_string().contains("503 Service Unavailable"));
+    assert!(
+        error.to_string().contains("503 Service Unavailable"),
+        "{error}"
+    );
 }
 
 fn run_async<T>(future: impl std::future::Future<Output = T>) -> T {

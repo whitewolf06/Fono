@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../shared/domain/messages";
+import { createNativeHistoryRewrite } from "../features/history/infrastructure/nativeRewrite";
 import { createNativeSnippetTransfer } from "../features/snippets/infrastructure/nativeSnippets";
 import { createNativeFiles } from "../features/files/infrastructure/nativeFiles";
 import { reactive } from "vue";
@@ -289,6 +290,7 @@ export function createNativeWorkspace(): Workspace {
         await ctx.readHistory();
       },
     },
+    historyRewrite: createNativeHistoryRewrite(call),
     trainer,
     commands: nativeCommands(ctx),
     files: createNativeFiles(call, ctx.readService),

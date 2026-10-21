@@ -39,6 +39,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(crate::application::hotkeys::HookRuntime::default());
     app.manage(crate::application::hotkeys::capture::Runtime::default());
     app.manage(crate::application::selection_capture::Runtime::default());
+    app.manage(crate::application::history_rewrite::Runtime::default());
     app.manage(crate::application::service_control::ServiceControl::default());
     #[cfg(feature = "wake-word")]
     app.manage(crate::application::wake_calibration::WakeCalibrationService::default());
@@ -144,6 +145,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
 }
 
 pub(crate) fn shutdown(app: &tauri::AppHandle) {
+    if let Some(editor) = app.try_state::<crate::application::history_rewrite::Runtime>() {
+        editor.shutdown();
+    }
     if let Some(selection) = app.try_state::<crate::application::selection_capture::Runtime>() {
         selection.close();
     }

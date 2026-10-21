@@ -16,6 +16,7 @@ pub mod feedback_form;
 pub mod file_transcription;
 pub(crate) mod gpu_memory;
 pub(crate) mod history_events;
+pub(crate) mod history_rewrite;
 pub mod hotkeys;
 pub mod live_agreement;
 #[cfg(feature = "experimental-live")]

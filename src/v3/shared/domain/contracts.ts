@@ -342,6 +342,7 @@ export interface Workspace {
   selection: import("../../features/selection/domain/selection").SelectionCapturePort;
   dictation: DictationPort;
   history: HistoryPort;
+  historyRewrite: import("../../features/history/domain/rewrite").HistoryRewritePort;
   trainer: TrainerPort;
   commands: CommandsPort;
   service: ServicePort;

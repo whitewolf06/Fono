@@ -6,6 +6,7 @@ pub mod diagnostic_report;
 pub mod diagnostics;
 pub mod dictation;
 pub mod files;
+mod history_rewrite;
 pub mod llm;
 pub mod memory;
 pub mod models;

@@ -1,7 +1,8 @@
 import { message as uiMessage } from "../shared/domain/messages";
 import { createBrowserSnippetTransfer } from "../features/snippets/infrastructure/browserSnippets";
 import { createMockFiles } from "../features/files/infrastructure/mockFiles";
-import { reactive } from "vue";
+import { reactive, watch } from "vue";
+import { createMockHistoryRewrite } from "../features/history/infrastructure/mockRewrite";
 import { openProjectSite } from "../shared/infrastructure/browser";
 import { createBrowserFeedbackChannel } from "../features/feedback";
 import { createMockDiagnosticReport } from "../features/diagnostic-report";
@@ -94,6 +95,15 @@ export function createMockWorkspace(): Workspace {
   selectLatest(state, state.history[0]);
   const dictation = createDictationPort(state);
   const trainer = createMockTrainer(state);
+  const historyRewrite = createMockHistoryRewrite(state);
+  const stopRewritePrivacy = watch(
+    () => [
+      state.preferences.analyticsConsent,
+      ...state.history.map((e) => [e.id, e.original]),
+    ],
+    historyRewrite.prune,
+    { deep: true, flush: "sync" },
+  );
   const selection = createMockSelectionCapture({
     preferences: () => state.preferences,
     accepted: (text) =>
@@ -221,13 +231,16 @@ export function createMockWorkspace(): Workspace {
       },
       remove(id) {
         state.history = state.history.filter((e) => e.id !== id);
+        historyRewrite.prune();
         trainer.invalidate();
       },
       clear() {
         state.history = [];
+        historyRewrite.clear();
         trainer.invalidate();
       },
     },
+    historyRewrite: historyRewrite.port,
     trainer: trainer.port,
     copy: copyToClipboard,
     openProjectSite,
@@ -288,6 +301,8 @@ export function createMockWorkspace(): Workspace {
       saveWizardStep(step);
     },
     dispose() {
+      stopRewritePrivacy();
+      historyRewrite.dispose();
       selection.dispose();
       disposed = true;
       trainer.dispose();

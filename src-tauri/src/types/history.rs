@@ -21,8 +21,8 @@ pub struct Transcript {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DictationHistoryEntry {
     pub id: String,
-    /// Final text that was inserted. This stays the stable field used by
-    /// existing history files and renderer clients.
+    /// Final session text; it does not prove delivery to an external field.
+    /// This stays the stable field used by existing archives and renderers.
     pub text: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub device: Option<String>,

@@ -31,6 +31,7 @@ use analytics::{
 mod changes;
 use changes::{PendingPrivacy, PrivacyWrite};
 mod recommendations;
+pub(crate) mod rewrites;
 pub(crate) mod source;
 pub use changes::{HistoryChangeKind, HistoryChanged, HistoryHooks};
 
@@ -40,6 +41,7 @@ pub struct HistoryRepository {
     store: Mutex<Option<storage::HistoryStore>>,
     directory: Option<PathBuf>,
     analytics_revision: AtomicU64,
+    rewrite_epoch: AtomicU64,
     history_retention_days: AtomicU16,
     analytics_policy: Mutex<(bool, u16)>,
     privacy_blocked: AtomicBool,
@@ -54,6 +56,7 @@ impl Default for HistoryRepository {
             store: Mutex::new(None),
             directory: None,
             analytics_revision: AtomicU64::new(0),
+            rewrite_epoch: AtomicU64::new(0),
             history_retention_days: AtomicU16::new(365),
             analytics_policy: Mutex::new((false, 30)),
             privacy_blocked: AtomicBool::new(false),
@@ -108,6 +111,13 @@ impl Drop for StoreAccess<'_> {
 }
 
 impl HistoryRepository {
+    #[cfg(test)]
+    pub(crate) fn at_test_directory(directory: PathBuf) -> Self {
+        Self {
+            directory: Some(directory),
+            ..Self::default()
+        }
+    }
     pub fn new(hooks: HistoryHooks) -> Self {
         Self {
             hooks,
@@ -411,6 +421,7 @@ impl HistoryRepository {
     }
 
     fn privacy_changed(&self) {
+        self.rewrite_epoch.fetch_add(1, Ordering::SeqCst);
         self.analytics_revision.fetch_add(1, Ordering::SeqCst);
         (self.hooks.sources_changed)(HistoryChanged {
             ids: Vec::new(),

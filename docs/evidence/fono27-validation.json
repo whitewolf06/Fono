@@ -1,0 +1,164 @@
+{
+  "task": "FONO-27",
+  "children": ["FONO-36", "FONO-38", "FONO-37"],
+  "date": "2026-10-22",
+  "version": "0.7.62",
+  "base_commit": "78215671e6d91479d64870074376ac8c9fb40072",
+  "native": {
+    "passed": 656,
+    "failed": 0,
+    "ignored": 7,
+    "runtime": "verified Sherpa DLLs staged from compiler artifacts",
+    "user_clipboard_accessed": false,
+    "microphone_recorded": false,
+    "real_llm_called": false
+  },
+  "v3": {
+    "passed": 376,
+    "failed": 0
+  },
+  "release_ci_contracts": {
+    "passed": 48,
+    "failed": 0
+  },
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "frontend_build": "passed",
+    "strict_clippy": "passed",
+    "format": "passed",
+    "version": "passed",
+    "docs_links": "passed"
+  },
+  "browser": {
+    "cases": [
+      {
+        "locale": "ru",
+        "viewport": {
+          "width": 720,
+          "height": 560
+        },
+        "panelScroll": 340,
+        "panelWidth": 340,
+        "rootScroll": 710,
+        "rootWidth": 710
+      },
+      {
+        "locale": "ru",
+        "viewport": {
+          "width": 900,
+          "height": 720
+        },
+        "panelScroll": 459,
+        "panelWidth": 459,
+        "rootScroll": 890,
+        "rootWidth": 890
+      },
+      {
+        "locale": "ru",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "panelScroll": 681,
+        "panelWidth": 681,
+        "rootScroll": 1430,
+        "rootWidth": 1430
+      },
+      {
+        "locale": "en",
+        "viewport": {
+          "width": 720,
+          "height": 560
+        },
+        "panelScroll": 340,
+        "panelWidth": 340,
+        "rootScroll": 710,
+        "rootWidth": 710
+      },
+      {
+        "locale": "en",
+        "viewport": {
+          "width": 900,
+          "height": 720
+        },
+        "panelScroll": 459,
+        "panelWidth": 459,
+        "rootScroll": 890,
+        "rootWidth": 890
+      },
+      {
+        "locale": "en",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "panelScroll": 681,
+        "panelWidth": 681,
+        "rootScroll": 1430,
+        "rootWidth": 1430
+      }
+    ],
+    "checks": [
+      "explicit generation",
+      "all five styles visible",
+      "second style separate result",
+      "cache reopen across record selection",
+      "original/result unchanged",
+      "English labels",
+      "root and panel no horizontal overflow"
+    ],
+    "clipboardUsed": false,
+    "networkLlmCalls": false,
+    "initial_narrow_card_clipping": "fixed; all six final root/panel checks pass"
+  },
+  "storage": {
+    "schema": 2,
+    "migration": "schema 1 to 2 preserves existing records; no invented variants or delivery",
+    "count_limit": false,
+    "lifecycle": "parent retention/cascade; original-derived variants removed with revoked source",
+    "deduplication": "entry + source fingerprint + style + profile revision + prompt version",
+    "source_byte_limit": 131072
+  },
+  "manual_acceptance": {
+    "status": "pending_owner",
+    "scenarios": [
+      "real configured local/cloud LLM and five style quality",
+      "cloud confirmation and real credentials",
+      "copy with native clipboard",
+      "full process restart and reopen",
+      "long source quality and shared 2048-token response limit"
+    ]
+  },
+  "source_hashes": {
+    "src-tauri/src/application/history_rewrite/mod.rs": "3215cac31ca761ae8192b7cee6cab8cb97d6798e5b71cdcacc880f49f8716383",
+    "src-tauri/src/application/history_rewrite/profiles.rs": "cfac2dbd7c6c4ed8b931063f74e2727b34b9566959439d69416881ba22a72209",
+    "src-tauri/src/history/rewrites.rs": "b2445589f91c270453b47bd312c9115757fbafbfe0e4b6391c43eb8935bec679",
+    "src-tauri/src/history/storage.rs": "ec64b4999a77c715c82ad40c86678191953fa389ea2dc25fc7b4603c48d03216",
+    "src-tauri/src/history/storage/rewrites.rs": "6c84cd65b6c324ff4b48bd3168f731119c4c0f4946c553a3766561d128dae1b0",
+    "src-tauri/src/llm/history_rewrite.rs": "58fd98f351feb9fe4b5538861e3c5639390289649353f7eccd451f5a53f387cb",
+    "src-tauri/src/ipc/history_rewrite.rs": "920c083e8f6199b1ad350546412a145e5cf0e3c2d4b853694a0e4ead4ec3c003",
+    "src/v3/features/history/presentation/HistoryRewritePanel.vue": "390bdd385438b2302abca3c411faccf3d79f13b315e42cce46b2ce98db683a87",
+    "src/v3/features/history/application/rewriteController.ts": "004cd2e20faba40a0d31df891814204cc439b6ab88b686765aa32e807692f4ac",
+    "src/v3/features/history/domain/rewrite.ts": "be7e8db79ae5d7936f5dbf6d5fc5055669931a9b3d98dfa066f95be816aee1e2"
+  },
+  "release_published": false,
+  "installer_run": false,
+  "owner_acceptance": false,
+  "desktop_dev": {
+    "version": "0.7.62",
+    "built": true,
+    "launched": true,
+    "mode": "native desktop debug plus existing standalone Vite",
+    "sha256": "64e7e8385e8193c08f23ba9d5db0cf30dcd9650b49360416a5003cfe86c9725e",
+    "bytes": 49665024,
+    "visual_confirmation": "pending owner",
+    "real_llm_acceptance": false
+  },
+  "test_fixture_correction": {
+    "test": "llm::tests::configured_postprocessing_keeps_server_failure_visible",
+    "initial_failure": "HTTP fixture replied before fully reading POST; connection reset could hide HTTP 503",
+    "fix": "Read bounded Content-Length before replying; exact HTTP 503 assertion preserved",
+    "final_result": "passed in full native suite"
+  }
+}

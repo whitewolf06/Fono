@@ -5,6 +5,7 @@
 //! в запросе, но активные инструменты пока не вызываются (заготовка для
 //! будущих команд: «ответь на email», «кратко перескажи» и т.п.).
 
+mod history_rewrite;
 pub(crate) mod presets;
 pub(crate) mod selection;
 mod speech;

@@ -15,6 +15,7 @@ use crate::{
 };
 
 const DATABASE_NAME: &str = "dictation-history.sqlite3";
+mod rewrites;
 const ANALYTICS_FIELDS: &[&str] = &[
     "analytics_included",
     "original_text",
@@ -48,7 +49,7 @@ fn connect(directory: &Path) -> AppResult<Connection> {
     let version: u32 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(database_error)?;
-    if version > 1 {
+    if version > 2 {
         return Err(AppError::Config(
             "Unsupported history database schema".into(),
         ));
@@ -68,7 +69,13 @@ fn connect(directory: &Path) -> AppResult<Connection> {
          );
          CREATE TABLE IF NOT EXISTS trainer_cache (id INTEGER PRIMARY KEY CHECK(id=1), payload_json TEXT NOT NULL);
          CREATE TABLE IF NOT EXISTS history_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-         PRAGMA user_version=1;"
+         CREATE TABLE IF NOT EXISTS history_rewrites (
+             id TEXT PRIMARY KEY NOT NULL,
+             entry_id TEXT NOT NULL REFERENCES history(id) ON DELETE CASCADE,
+             source TEXT NOT NULL, created_at INTEGER NOT NULL, payload_json TEXT NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS history_rewrites_entry ON history_rewrites(entry_id);
+         PRAGMA user_version=2;"
     ).map_err(database_error)?;
     Ok(connection)
 }
@@ -163,6 +170,15 @@ fn upsert_entry(
     encoded: &(String, String),
     previous: Option<&(String, String)>,
 ) -> AppResult<()> {
+    if entry.original_text.is_none() {
+        // A derived original-based variant must disappear with revoked/expired original data.
+        connection
+            .execute(
+                "DELETE FROM history_rewrites WHERE entry_id=?1 AND source='original'",
+                [&entry.id],
+            )
+            .map_err(database_error)?;
+    }
     if previous.map_or(true, |old| old.0 != encoded.0) {
         connection.execute(
         "INSERT INTO history(id,created_at,entry_json) VALUES(?1,?2,?3)
