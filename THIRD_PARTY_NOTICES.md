@@ -132,6 +132,38 @@ Archive URL и хэши двух исследовательских streaming pa
 исследовательском downloader не требует отдельного LICENSE-файла — notices нужно сохранять
 при подготовке распространяемого набора моделей.
 
+## Кандидаты обучения WakeWord — W-03 / FONO-144
+
+Проверка источников от 21 октября 2026 года. Скрипты
+[`tools/wake-training`](tools/wake-training/README.md) сейчас используют только
+Python stdlib и общий валидатор Fono. Ни перечисленные ниже пакеты, ни веса,
+голоса или датасеты этим этапом не установлены и не включены в приложение.
+
+- [LiveKit WakeWord @95448a7](https://github.com/livekit/livekit-wakeword/tree/95448a7559c453fcd87645bd67b247ffb45f85b0)
+  заявляет Apache-2.0 для проекта. Это кандидат обучающего кода;
+  его сторонние зависимости, bundled feature weights и загружаемые данные
+  требуют отдельного точного инвентаря перед использованием/распространением.
+- [openWakeWord](https://github.com/dscripka/openWakeWord#license) разделяет
+  Apache-2.0 для кода и CC BY-NC-SA 4.0 для включённых pretrained detectors.
+  В описании архитектуры Google speech embedding указан как Apache-2.0,
+  но условия конкретных конвертированных `melspectrogram.onnx` и
+  `embedding_model.onnx` нельзя автоматически приравнять к лицензии кода.
+  [Вопрос автору #338](https://github.com/dscripka/openWakeWord/issues/338)
+  на дату проверки остаётся открытым без разъяснения правообладателя.
+  Распространение этих точных байтов как permissive не утверждено.
+- [VoxCPM2, model card издателя](https://huggingface.co/openbmb/VoxCPM2)
+  заявляет Apache-2.0 и поддержку RU/EN; [код VoxCPM](https://github.com/OpenBMB/VoxCPM)
+  имеет собственный Apache-2.0 LICENSE. Это кандидат синтеза без reference voice.
+  Точный model revision/веса, optional normalizer/denoiser и условия будущих
+  синтетических данных ещё не зафиксированы. Голос владельца не клонировался.
+- Piper/голоса, ACAV100M features, MUSAN и RIR из upstream setup **не выбраны**.
+  Apache обучающей библиотеки не лицензирует эти источники. Автозагрузки и
+  включение их в Fono не выполнялись. Для каждого будущего источника нужны
+  его декларация, pinned origin/SHA256, применимые ограничения и атрибуция.
+
+Готовой Fono phrase-модели и её лицензии пока нет. Эти ссылки фиксируют
+состояние проверки кандидатов и не заменяют согласование точных артефактов.
+
 ## Microsoft и установщики
 
 MSVC runtime/Windows SDK и Microsoft WebView2 Runtime имеют собственные условия.

@@ -1,0 +1,50 @@
+{
+  "task": "FONO-144",
+  "plan_id": "W-03",
+  "date": "2026-10-21",
+  "version": "0.7.60",
+  "base": "7e7d1c141d57aa134fd5faeafb9d928aeaf73142",
+  "scope": "WAV preparation and config templates only; not an end-to-end trainer",
+  "training_preparation_tests": {
+    "passed": 11,
+    "failed": 0,
+    "log": "build/checks/fono144-preparation-tests-final.log"
+  },
+  "shared_bench_tests": {
+    "passed": 14,
+    "failed": 0,
+    "log": "build/checks/fono144-bench-tests.log"
+  },
+  "release_scripts": {
+    "passed": 48,
+    "failed": 0,
+    "owner_cache_tests_not_in_commit": 20,
+    "log": "build/checks/fono144-release-tests-outside-sandbox.log",
+    "initial_sandbox_attempt": "27 passed, 21 failed; temporary Git fixtures blocked by Windows sandbox permissions; rerun outside sandbox passed"
+  },
+  "workflow_contracts": { "passed": 8, "failed": 0 },
+  "format_check": "passed",
+  "docs_check": "passed",
+  "version_check": "passed",
+  "git_diff_check": "passed",
+  "existing_smoke_inspect": {
+    "exit_code": 2,
+    "data_ready": false,
+    "excluded_test_clips": 4,
+    "evidence": "docs/evidence/fono144-data-readiness.json"
+  },
+  "training_started": false,
+  "models_trained": 0,
+  "hard_negative_iterations": 0,
+  "onnx_export_tested": false,
+  "upstream_pipeline_tested": false,
+  "environment_locked": false,
+  "quality_qualified": false,
+  "quality_gate_changed": false,
+  "wake_word_available": false,
+  "packages_or_weights_installed": false,
+  "microphone_or_user_ui_used": false,
+  "ui_or_rust_tests_rerun": false,
+  "installer_or_publication": false,
+  "kvorum_intended_status": "blocked"
+}

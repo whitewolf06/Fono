@@ -1,0 +1,45 @@
+{
+  "schema": "fono-wake-training-preparation@1",
+  "corpus_id": "fono-wake-engineering-smoke",
+  "corpus_sha256": "7b894a400b2015c390cd99a2e81217ef435271279806b9fd1899f124c8f37317",
+  "counts": {
+    "ru": {
+      "train": {
+        "positive": 0,
+        "negative": 0,
+        "background": 0
+      },
+      "dev": {
+        "positive": 0,
+        "negative": 0,
+        "background": 0
+      }
+    },
+    "en": {
+      "train": {
+        "positive": 0,
+        "negative": 0,
+        "background": 0
+      },
+      "dev": {
+        "positive": 0,
+        "negative": 0,
+        "background": 0
+      }
+    }
+  },
+  "missing": [
+    "ru/train/positive",
+    "ru/train/negative",
+    "ru/dev/positive",
+    "ru/dev/negative",
+    "en/train/positive",
+    "en/train/negative",
+    "en/dev/positive",
+    "en/dev/negative"
+  ],
+  "data_ready": false,
+  "training_started": false,
+  "qualified": false,
+  "excluded_test_clips": 4
+}
