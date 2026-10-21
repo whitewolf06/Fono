@@ -43,9 +43,13 @@ const liveMode = computed(
 const status = computed(() =>
   workspace.state.dictationOutcome === "no_speech"
     ? message("dictation.noSpeech")
-    : liveMode.value && live.value
-      ? liveStatus(live.value)
-      : phaseLabels[workspace.state.phase],
+    : workspace.state.phase === "silence" && workspace.state.countdown
+      ? message("ui.237038a7be", {
+          v0: String(Math.ceil(workspace.state.countdown.remaining_ms / 1000)),
+        })
+      : liveMode.value && live.value
+        ? liveStatus(live.value)
+        : phaseLabels[workspace.state.phase],
 );
 const recording = computed(() =>
   ["listening", "silence"].includes(workspace.state.phase),

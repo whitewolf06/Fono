@@ -21,6 +21,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
           "dictationTrigger",
           "hotkey",
           "hotkeyMode",
+          "toggleAutoStopMs",
           "commandHotkey",
           "selectionHotkey",
           "selectionCaptureEnabled",

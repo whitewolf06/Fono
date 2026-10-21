@@ -21,6 +21,7 @@ const wait = (milliseconds: number) =>
 export function createDictationPort(
   state: WorkspaceState,
   delay: (milliseconds: number) => Promise<void> = wait,
+  clock = { setInterval, clearInterval },
 ): DictationPort & { dispose(): void } {
   let generation = 0;
   let snapshot = capturePreferences(state);
@@ -34,9 +35,10 @@ export function createDictationPort(
         )
       : [];
   function stopTimer() {
-    if (timer) clearInterval(timer);
+    if (timer) clock.clearInterval(timer);
     timer = undefined;
     state.audioLevel = 0;
+    state.countdown = undefined;
   }
   function reset() {
     generation++;
@@ -74,6 +76,7 @@ export function createDictationPort(
       }
       reset();
       state.error = "";
+      state.dictationOutcome = undefined;
       state.phase = "listening";
       state.elapsed = 0;
       state.recordingSource = "ui";
@@ -93,8 +96,12 @@ export function createDictationPort(
               lagMs: 2200,
             }
           : null;
-      timer = setInterval(() => {
-        state.elapsed += 0.1;
+      const activeGeneration = generation;
+      let elapsedTicks = 0;
+      timer = clock.setInterval(() => {
+        if (generation !== activeGeneration) return;
+        elapsedTicks++;
+        state.elapsed = elapsedTicks / 10;
         state.audioLevel = Math.max(
           0.08,
           (Math.sin(state.elapsed * 4) + Math.cos(state.elapsed * 2.4) + 2) / 4,
@@ -116,10 +123,27 @@ export function createDictationPort(
             state.live.insertionState === "active"
               ? ""
               : state.live.committedText;
-        } else if (state.elapsed >= 10 && snapshot.preferences.wakeEnabled) {
+        } else if (
+          (state.scenario === "no-speech" || state.elapsed >= 10) &&
+          (snapshot.preferences.wakeEnabled ||
+            (snapshot.preferences.hotkeyMode === "toggle" &&
+              snapshot.preferences.toggleAutoStopMs >= 2000))
+        ) {
+          const quietStarted = state.scenario === "no-speech" ? 0 : 10;
+          const timeout = snapshot.preferences.wakeEnabled
+            ? snapshot.preferences.silenceMs
+            : snapshot.preferences.toggleAutoStopMs;
           state.phase = "silence";
-          state.audioLevel = 0.03;
-          if (state.elapsed >= 10 + snapshot.preferences.silenceMs / 1000)
+          state.audioLevel = 0;
+          state.countdown = {
+            remaining_ms: Math.max(
+              0,
+              timeout - (state.elapsed - quietStarted) * 1000,
+            ),
+            timeout_ms: timeout,
+            speaking: false,
+          };
+          if (state.elapsed >= quietStarted + timeout / 1000)
             void port.finish();
         }
       }, 100);
@@ -127,6 +151,12 @@ export function createDictationPort(
     async finish() {
       if (!["listening", "silence"].includes(state.phase)) return;
       stopTimer();
+      if (state.scenario === "no-speech") {
+        generation++;
+        state.dictationOutcome = "no_speech";
+        state.phase = "idle";
+        return;
+      }
       const ticket = ++generation;
       const generationStarted = Date.now();
       const captured = snapshot;

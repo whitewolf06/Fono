@@ -133,6 +133,7 @@ fn prepare_reserved(
             executable.as_deref(),
         );
         settings.validate_stt_preferences()?;
+        settings.validate_toggle_auto_stop()?;
         let admission = crate::application::capture_configuration::begin_capture()?;
         ensure_capture_allowed(&app)?;
         configure_recording(&app, operation, &settings, command)?;
@@ -265,6 +266,7 @@ fn activate_recording(app: AppHandle, operation: u64, command: bool) -> AppResul
         return Err(AppError::Cancelled("Диктовка отменена".into()));
     }
     arm_recording_safety_timeout(app.clone(), operation, command);
+    super::auto_stop::arm(app.clone(), operation, command)?;
     Ok(operation)
 }
 

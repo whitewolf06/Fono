@@ -83,6 +83,7 @@ export interface Preferences {
   selectionAutoInsert: boolean;
   selectionHistoryEnabled: boolean;
   hotkeyMode: "hold" | "toggle";
+  toggleAutoStopMs: number;
   commandHotkey: string;
   wakeThreshold: number;
   speechThreshold: number;
@@ -205,6 +206,7 @@ export interface Diagnostic {
 }
 export type Scenario =
   | "normal"
+  | "no-speech"
   | "empty"
   | "no-microphone"
   | "no-model"

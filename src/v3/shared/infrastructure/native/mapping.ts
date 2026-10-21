@@ -82,6 +82,7 @@ export function preferencesFromNative(
       .map((x) => x.trim())
       .join(" + "),
     hotkeyMode: s.hotkey_mode ?? "hold",
+    toggleAutoStopMs: s.toggle_auto_stop_ms ?? 0,
     dictationTrigger: availableTrigger(s.dictation_trigger),
     selectionCaptureEnabled: s.selection_capture_enabled ?? false,
     selectionHotkey: (s.selection_hotkey || "Ctrl+Alt+Space")
@@ -189,6 +190,7 @@ export function applyPreferences(
     wakeEnabled: "wake_word_enabled",
     wakePhrase: "wake_word",
     silenceMs: "wake_dictation_silence_ms",
+    toggleAutoStopMs: "toggle_auto_stop_ms",
     wakeThreshold: "wake_word_threshold",
     speechThreshold: "wake_dictation_speech_threshold",
     autostart: "autostart",

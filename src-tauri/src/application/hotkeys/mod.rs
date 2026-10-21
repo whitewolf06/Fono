@@ -169,10 +169,14 @@ fn handle(
                     );
                 }
             } else {
-                if let Err(error) =
-                    super::dictation::workflow::flush_overlay_processing(&app, operation).await
+                if let Err(error) = super::dictation::stop_after_overlay_flush_for(
+                    app.clone(),
+                    operation,
+                    super::dictation_tail_diagnostics::DictationStopReason::Manual,
+                )
+                .await
                 {
-                    {
+                    let editable = {
                         let mut key = key_state.lock();
                         app.state::<Pipeline>()
                             .while_editable_recording(operation, || {
@@ -183,7 +187,11 @@ fn handle(
                                         recording: true,
                                     }),
                                 );
-                            });
+                            })
+                    };
+                    if !editable {
+                        tracing::warn!(operation, "dictation Stop failed after capture completion");
+                        return;
                     }
                     events::emit_error(
                         &app,
@@ -195,16 +203,6 @@ fn handle(
                         use tauri::Emitter;
                         let _ = window.emit("overlay-processing-flush-error", error.to_string());
                     }
-                    return;
-                }
-                if let Err(error) = super::dictation::stop_with_reason_for(
-                    app,
-                    operation,
-                    super::dictation_tail_diagnostics::DictationStopReason::Manual,
-                )
-                .await
-                {
-                    tracing::warn!(%error, "shortcut dictation stop failed");
                 }
             }
         });

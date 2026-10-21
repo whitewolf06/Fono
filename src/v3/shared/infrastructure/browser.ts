@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../domain/messages";
+import { validToggleAutoStop } from "../domain/toggleAutoStop";
 import type { Preferences } from "../domain/contracts";
 import { defaults } from "../../features/preferences/domain/preferences";
 import { availableDictationMode } from "../domain/dictationMode";
@@ -39,6 +40,7 @@ const persistedKeys: (keyof Preferences)[] = [
   "selectionAutoInsert",
   "selectionHistoryEnabled",
   "hotkeyMode",
+  "toggleAutoStopMs",
   "commandHotkey",
   "processingEnabled",
   "processingMode",
@@ -97,6 +99,8 @@ export function readPreferences(): Preferences {
       safe.dictationMode as Preferences["dictationMode"],
     );
     safe.wakeEnabled = availableWakeEnabled(Boolean(safe.wakeEnabled));
+    if (!validToggleAutoStop(Number(safe.toggleAutoStopMs)))
+      safe.toggleAutoStopMs = 0;
     if (!["ru", "en"].includes(String(safe.wakeLanguage)))
       safe.wakeLanguage = defaults.wakeLanguage;
     for (const [key, values] of Object.entries({

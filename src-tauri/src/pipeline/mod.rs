@@ -22,6 +22,7 @@ use fono_core::{
     OperationCancellation, OperationCoordinator, OperationEvent, OperationPhase, OperationResource,
     OperationSnapshot, OperationSource, TerminalReason,
 };
+pub mod auto_stop;
 #[cfg(feature = "speech-vad")]
 pub mod capture_segments;
 #[cfg(test)]
@@ -66,6 +67,7 @@ pub struct Pipeline {
     operations: OperationCoordinator,
     service_operations: OperationCoordinator,
     pub completion: completion::CompletionGate,
+    auto_stop: Mutex<auto_stop::Status>,
     scheduler: Arc<scheduler::SttScheduler>,
     session_settings: Mutex<Option<(u64, crate::types::Settings)>>,
     processing_frozen_for: AtomicU64,
@@ -99,6 +101,7 @@ impl Pipeline {
             operations: OperationCoordinator::new(),
             service_operations: OperationCoordinator::new(),
             completion: completion::CompletionGate::default(),
+            auto_stop: Mutex::new(auto_stop::Status::inactive(0)),
             scheduler: Arc::new(scheduler::SttScheduler::default()),
             session_settings: Mutex::new(None),
             processing_frozen_for: AtomicU64::new(0),

@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../../../shared/domain/messages";
+import { validToggleAutoStop } from "../../../shared/domain/toggleAutoStop";
 import { validateSnippets } from "../../snippets/domain/snippets";
 import type {
   Preferences,
@@ -43,6 +44,7 @@ export const defaults: Preferences = {
   selectionAutoInsert: false,
   selectionHistoryEnabled: false,
   hotkeyMode: "hold",
+  toggleAutoStopMs: 0,
   commandHotkey: "Ctrl + Shift + Space",
   wakeThreshold: 0.55,
   speechThreshold: 0.4,
@@ -104,6 +106,7 @@ export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
     "selectionAutoInsert",
     "selectionHistoryEnabled",
     "hotkeyMode",
+    "toggleAutoStopMs",
     "commandHotkey",
     "wakeThreshold",
     "speechThreshold",
@@ -169,6 +172,7 @@ export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
     "hotkey",
     "dictationTrigger",
     "hotkeyMode",
+    "toggleAutoStopMs",
     "dictationMode",
     "commandHotkey",
   ],
@@ -253,6 +257,8 @@ export const profiles = [
   },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  if (!validToggleAutoStop(p.toggleAutoStopMs))
+    return uiMessage("autoStop.invalid");
   if (!["auto", "ru", "en"].includes(p.uiLanguage))
     return uiMessage("ui.0359251343");
   const profileError = validateApplicationProfiles(p.applicationProfiles);

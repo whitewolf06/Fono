@@ -16,6 +16,19 @@ const props = defineProps<{
   active: boolean;
 }>();
 const draft = defineModel<Preferences>({ required: true });
+const autoStopOptions = computed(() => [
+  { value: 0, label: uiMessage("autoStop.off") },
+  ...[2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
+    .concat(
+      draft.value.toggleAutoStopMs > 0 ? [draft.value.toggleAutoStopMs] : [],
+    )
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .sort((a, b) => a - b)
+    .map((value) => ({
+      value,
+      label: uiMessage("autoStop.seconds", { seconds: value / 1000 }),
+    })),
+]);
 const workspace = useWorkspace();
 const target = ref<"dictation" | "command">("dictation");
 const captureError = ref("");
@@ -125,6 +138,15 @@ function choose(value: "dictation" | "command") {
           },
         ]"
         :hint="$t('ui.8239145a0b')"
+      />
+      <SelectField
+        v-if="draft.hotkeyMode === 'toggle'"
+        id="toggleAutoStopMs"
+        v-model="draft.toggleAutoStopMs"
+        :label="$t('autoStop.label')"
+        :options="autoStopOptions"
+        :hint="$t('autoStop.hint')"
+        :disabled="disabled"
       />
       <p v-if="draft.dictationTrigger === 'right_alt'" class="notice">
         {{ $t("ui.3d18ea8003") }}

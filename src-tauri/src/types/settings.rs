@@ -47,6 +47,9 @@ pub struct Settings {
     pub hotkey: String,
     #[serde(default)]
     pub hotkey_mode: HotkeyMode,
+    /// Zero disables the optional neural-VAD stop for ordinary toggle capture.
+    #[serde(default)]
+    pub toggle_auto_stop_ms: u64,
     #[serde(default)]
     pub dictation_trigger: DictationTrigger,
     #[serde(default)]
@@ -194,6 +197,7 @@ impl Default for Settings {
             update_checks_enabled: false,
             hotkey: default_hotkey(),
             hotkey_mode: HotkeyMode::Hold,
+            toggle_auto_stop_ms: 0,
             dictation_trigger: DictationTrigger::Shortcut,
             selection_capture_enabled: false,
             selection_hotkey: default_selection_hotkey(),
@@ -261,6 +265,14 @@ impl Default for Settings {
 }
 
 impl Settings {
+    pub fn validate_toggle_auto_stop(&self) -> crate::error::AppResult<()> {
+        if self.toggle_auto_stop_ms != 0 && !(2_000..=10_000).contains(&self.toggle_auto_stop_ms) {
+            return Err(crate::error::AppError::Config(
+                "Выберите автостоп от 2 до 10 секунд или выключите его.".into(),
+            ));
+        }
+        Ok(())
+    }
     pub fn decoding_options(&self) -> DecodingOptions {
         if self
             .selected_stt_model()

@@ -1,4 +1,5 @@
 //! Shared capture, recognition and completion for ordinary and diagnostic dictation.
+mod auto_stop;
 mod capture;
 mod capture_activation;
 #[cfg(feature = "speech-vad")]
@@ -31,6 +32,7 @@ pub(crate) use processing_test::{
     start as start_processing_test_capture, CaptureResult as ProcessingCaptureResult,
     CaptureStarted as ProcessingCaptureStarted, ProcessingCaptureRuntime,
 };
+pub(crate) use standard::stop_after_overlay_flush_for;
 pub(crate) use standard::{stop, stop_overlay_for, stop_with_reason, stop_with_reason_for};
 
 use fono_core::OperationCancellation;

@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { toggleAutoStopCountdown } from "../../../shared/domain/toggleAutoStop";
 import { createNativeSelectionCapture } from "../../selection/infrastructure/nativeSelection";
 import type {
   DictationOutcomeEvent,
@@ -298,6 +299,13 @@ export function createNativeOverlay() {
         state.seconds = 0;
       }
       state.source = v.source;
+      if (v.source !== "wake_word") {
+        const countdown = toggleAutoStopCountdown(v.auto_stop, v.operation_id);
+        state.seconds =
+          countdown && !countdown.speaking
+            ? Math.ceil(countdown.remaining_ms / 1000)
+            : 0;
+      }
       state.phase =
         v.state === "injecting"
           ? "processing"
@@ -332,10 +340,22 @@ export function createNativeOverlay() {
       } else if (event.kind === "audio_level") {
         if (
           event.payload.operation_id !== operation ||
-          state.phase !== "listening"
+          !["listening", "silence"].includes(state.phase)
         )
           return;
         state.level = Math.min(1, Math.max(0, event.payload.level * 8));
+        if (state.source === "ui" || state.source === "hotkey") {
+          const countdown = toggleAutoStopCountdown(
+            event.payload.auto_stop,
+            operation,
+          );
+          state.seconds =
+            countdown && !countdown.speaking
+              ? Math.ceil(countdown.remaining_ms / 1000)
+              : 0;
+          state.phase =
+            countdown && !countdown.speaking ? "silence" : "listening";
+        }
         state.elapsed = Math.floor(event.payload.elapsed_ms / 1000);
       } else if (
         ["pipeline_state", "pipeline_mode", "error"].includes(event.kind)

@@ -51,6 +51,7 @@ interface Payloads {
   history_changed: null;
   gpu_memory_changed: GpuMemoryStatus;
   audio_level: {
+    auto_stop?: import("../../domain/toggleAutoStop").ToggleAutoStopStatus;
     operation_id: number;
     level: number;
     elapsed_ms: number;

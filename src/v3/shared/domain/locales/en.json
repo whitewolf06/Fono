@@ -1,4 +1,12 @@
 {
+  "autoStop.label": "Stop recording after silence",
+  "autoStop.demoSilence": "Recording without speech",
+  "autoStop.demoSilenceHint": "NoSpeech demo: enable auto-stop and start recording. History and the last text stay unchanged; the microphone is not used.",
+  "autoStop.hint": "For ordinary toggle dictation. Speech VAD detects pauses; the selected processing and insertion run after Stop. Empty recordings are not saved.",
+  "autoStop.off": "Off",
+  "autoStop.seconds": "After {seconds} s of silence",
+  "autoStop.invalid": "Choose auto-stop between 2 and 10 seconds, or turn it off.",
+  "autoStop.unavailable": "Silence auto-stop is unavailable. Finish recording manually.",
   "ui.d328e53dc4": "Home",
   "ui.9088ca9c0d": "Files",
   "ui.1417b7792d": "History",

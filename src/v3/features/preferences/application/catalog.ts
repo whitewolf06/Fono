@@ -96,6 +96,14 @@ export const searchIndex: {
   },
   {
     get label() {
+      return uiMessage("autoStop.label");
+    },
+    section: "activation",
+    field: "toggleAutoStopMs",
+    keywords: "автостоп тишина пауза toggle auto stop silence VAD",
+  },
+  {
+    get label() {
       return uiMessage("ui.296d198409");
     },
     section: "activation",

@@ -40,7 +40,7 @@ pub(crate) async fn stop_with_reason(
     }
     let pipeline = app.state::<Pipeline>();
     let operation = pipeline.operation_id();
-    stop_operation(app, operation, reason, false).await
+    stop_operation(app, operation, reason, false, false).await
 }
 
 /// Timers and key releases retain the operation they actually started.
@@ -49,20 +49,23 @@ pub(crate) async fn stop_with_reason_for(
     operation: u64,
     reason: DictationStopReason,
 ) -> AppResult<DictationOutcome> {
-    if !app.state::<Pipeline>().is_operation_active(operation) {
-        return Ok(DictationOutcome::interrupted(
-            &app.state::<Pipeline>(),
-            operation,
-        ));
-    }
-    stop_operation(app, operation, reason, false).await
+    stop_operation(app, operation, reason, false, false).await
+}
+
+/// Hotkey and auto-stop share ownership of the persistence barrier and Stop.
+pub(crate) async fn stop_after_overlay_flush_for(
+    app: AppHandle,
+    operation: u64,
+    reason: DictationStopReason,
+) -> AppResult<DictationOutcome> {
+    stop_operation(app, operation, reason, false, true).await
 }
 
 pub(crate) async fn stop_overlay_for(
     app: AppHandle,
     operation: u64,
 ) -> AppResult<DictationOutcome> {
-    stop_operation(app, operation, DictationStopReason::Manual, true).await
+    stop_operation(app, operation, DictationStopReason::Manual, true, false).await
 }
 
 async fn stop_operation(
@@ -70,12 +73,27 @@ async fn stop_operation(
     operation: u64,
     reason: DictationStopReason,
     copy_only: bool,
+    flush_overlay: bool,
 ) -> AppResult<DictationOutcome> {
     let pipeline = app.state::<Pipeline>();
-    match pipeline.completion.claim(operation)? {
+    // Claim under the operation fence so an old queued timer cannot displace
+    // the successor's completion gate between an active check and claim().
+    let Some(claim) = pipeline.claim_completion_for(operation)? else {
+        return Ok(DictationOutcome::interrupted(&pipeline, operation));
+    };
+    match claim {
         FinishClaim::Waiting(receiver) => wait(receiver).await,
         FinishClaim::Owner(ticket) => {
             let _activity = crate::application::updates::activity::lease()?;
+            if flush_overlay {
+                if let Err(error) = super::workflow::flush_overlay_processing(&app, operation).await
+                {
+                    pipeline.completion.release_for_retry(operation);
+                    let result = Err(error);
+                    ticket.complete(&result);
+                    return result;
+                }
+            }
             let mut scope = OperationScope::new(app.clone(), operation, false);
             let source = pipeline
                 .current_operation()

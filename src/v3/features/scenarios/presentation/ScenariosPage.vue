@@ -17,6 +17,15 @@ import {
 const workspace = useWorkspace();
 const scenarios: { id: Scenario; title: string; detail: string }[] = [
   {
+    id: "no-speech",
+    get title() {
+      return uiMessage("autoStop.demoSilence");
+    },
+    get detail() {
+      return uiMessage("autoStop.demoSilenceHint");
+    },
+  },
+  {
     id: "live-paused",
     get title() {
       return uiMessage("ui.b3c0602884");

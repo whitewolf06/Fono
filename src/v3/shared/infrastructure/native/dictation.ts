@@ -1,4 +1,8 @@
 import { message as uiMessage } from "../../domain/messages";
+import {
+  toggleAutoStopCountdown,
+  type ToggleAutoStopStatus,
+} from "../../domain/toggleAutoStop";
 import type { NativeContext } from "./context";
 import type { DictationPort, Phase } from "../../domain/contracts";
 import type { DictationOutcomeEvent } from "../../domain/dictationOutcome";
@@ -185,6 +189,11 @@ export function nativeDictation(ctx: NativeContext) {
     }
     if (state.live && state.preferences.dictationMode === "live") return;
     state.recordingSource = value.source || undefined;
+    if (value.source !== "wake_word")
+      state.countdown = toggleAutoStopCountdown(
+        value.auto_stop,
+        value.operation_id,
+      );
     state.audioLevel = Math.min(1, value.level * 8);
     state.testSignal = state.audioLevel;
     if (value.state === "listening")
@@ -199,7 +208,9 @@ export function nativeDictation(ctx: NativeContext) {
           : value.state === "listening" &&
               state.countdown &&
               !state.countdown.speaking &&
-              state.recordingSource === "wake_word"
+              ["wake_word", "ui", "hotkey"].includes(
+                state.recordingSource || "",
+              )
             ? "silence"
             : (value.state as Phase);
     if (
@@ -348,10 +359,11 @@ export function nativeDictation(ctx: NativeContext) {
       level: number;
       elapsed_ms: number;
       pretranscription?: PretranscriptionStatus;
+      auto_stop?: ToggleAutoStopStatus;
     }) {
       if (
         value.operation_id !== currentOperation ||
-        state.phase !== "listening"
+        !["listening", "silence"].includes(state.phase)
       )
         return;
       if (value.pretranscription?.operation_id === value.operation_id) {
@@ -366,6 +378,19 @@ export function nativeDictation(ctx: NativeContext) {
         state.pretranscription = value.pretranscription;
       }
       state.audioLevel = Math.min(1, Math.max(0, value.level * 8));
+      if (
+        state.recordingSource === "ui" ||
+        state.recordingSource === "hotkey"
+      ) {
+        state.countdown = toggleAutoStopCountdown(
+          value.auto_stop,
+          value.operation_id,
+        );
+        state.phase =
+          state.countdown && !state.countdown.speaking
+            ? "silence"
+            : "listening";
+      }
       state.testSignal = state.audioLevel;
       state.elapsed = Math.max(0, value.elapsed_ms / 1000);
     },

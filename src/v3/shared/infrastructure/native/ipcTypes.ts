@@ -142,6 +142,7 @@ export interface Settings {
   /** Глобальная горячая клавиша push-to-talk, напр. "Ctrl+Space" */
   hotkey: string;
   hotkey_mode?: "hold" | "toggle";
+  toggle_auto_stop_ms?: number;
   selection_capture_enabled?: boolean;
   selection_hotkey?: string;
   selection_clipboard_fallback?: boolean;

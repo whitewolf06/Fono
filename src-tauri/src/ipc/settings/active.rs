@@ -16,6 +16,7 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
         || previous.gpu_model_residency != next.gpu_model_residency
         || previous.hotkey != next.hotkey
         || previous.hotkey_mode != next.hotkey_mode
+        || previous.toggle_auto_stop_ms != next.toggle_auto_stop_ms
         || previous.dictation_trigger != next.dictation_trigger
         || previous.command_hotkey != next.command_hotkey
         || previous.selection_hotkey != next.selection_hotkey
@@ -65,6 +66,19 @@ mod tests {
         next.whisper_threads = Some(2);
         assert!(validate(true, &previous, &next).is_err());
         assert!(validate(false, &previous, &next).is_ok());
+    }
+
+    #[test]
+    fn auto_stop_changes_apply_only_between_sessions_even_while_disabled_by_hold() {
+        let previous = Settings::default();
+        let next = Settings {
+            toggle_auto_stop_ms: 3_000,
+            ..previous.clone()
+        };
+        assert!(validate(false, &previous, &next).is_ok());
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(true, &next, &previous).is_err());
+        assert!(validate(true, &next, &next).is_ok());
     }
 
     #[test]

@@ -116,6 +116,7 @@ pub struct DesktopSnapshot {
     recognition: OverlayRecognitionCapability,
     session_preferences: Option<crate::application::application_profiles::SessionPreferences>,
     pretranscription: crate::pipeline::pretranscription::Status,
+    auto_stop: crate::pipeline::auto_stop::Status,
     state: PipelineState,
     level: f32,
     last: Option<LastDictation>,
@@ -145,6 +146,8 @@ pub fn get_desktop_snapshot(app: AppHandle) -> DesktopSnapshot {
         }),
         pretranscription: pipeline
             .pretranscription_status_for(operation.as_ref().map_or(0, |operation| operation.id)),
+        auto_stop: pipeline
+            .auto_stop_status_for(operation.as_ref().map_or(0, |operation| operation.id)),
         state: Pipeline::project_state(operation.as_ref()),
         level: pipeline.current_level().clamp(0.0, 1.0),
         last: app.state::<DesktopSession>().last.lock().clone(),

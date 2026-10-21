@@ -12,6 +12,7 @@ const SAMPLE_RATE_HZ: usize = 16_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DictationStopReason {
     Manual,
+    ToggleSilence,
     #[cfg(feature = "wake-word")]
     WakeSilence,
     #[cfg(feature = "wake-word")]
@@ -24,6 +25,7 @@ impl DictationStopReason {
     fn as_str(self) -> &'static str {
         match self {
             Self::Manual => "manual",
+            Self::ToggleSilence => "toggle_silence",
             #[cfg(feature = "wake-word")]
             Self::WakeSilence => "wake_silence",
             #[cfg(feature = "wake-word")]

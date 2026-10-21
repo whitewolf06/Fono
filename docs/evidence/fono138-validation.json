@@ -1,0 +1,56 @@
+{
+  "task": "FONO-138",
+  "version": "0.7.53",
+  "date": "2026-10-21",
+  "base": "38a0ad5d443160bf519c7898fed93032b55f5484",
+  "native": {
+    "passed": 620,
+    "ignored": 7,
+    "log": "build/checks/fono138-native-tests.log",
+    "failed": 0
+  },
+  "v3": {
+    "passed": 349,
+    "log": "build/checks/fono138-v3-tests.log",
+    "new_tests": 8,
+    "failed": 0
+  },
+  "release_scripts": {
+    "passed": 48,
+    "owner_cache_tests_not_in_scope": 20,
+    "log": "build/checks/fono138-release-tests.log",
+    "failed": 0
+  },
+  "passed": [
+    "typecheck:v3",
+    "lint",
+    "build",
+    "format:check",
+    "version:check",
+    "docs:check",
+    "cargo fmt --all -- --check",
+    "cargo check --locked -p fono --lib --no-default-features"
+  ],
+  "replay": {
+    "fixture": "src-tauri/tests/fixtures/audio/jfk-short-speech-16k-mono.wav",
+    "silence_timeout_ms": 2000,
+    "gains": [
+      1.0,
+      0.12,
+      0.0
+    ],
+    "window_samples": 512,
+    "sha256": "ffb0cbd110ca0c0a33f1e3f556854678303bf5fcf9ea75e72de2298fb1456171",
+    "stt_run": false,
+    "microphone_used": false,
+    "zero_signal_stop_samples": 32256,
+    "sample_rate": 16000
+  },
+  "pending": [
+    "Повтор strict Clippy после удаления needless return: Codex approval review HTTP 403 до выполнения команды",
+    "Browser mock RU/EN 720x560, 900x720, 1440x900: origin gate Codex approval review HTTP 403",
+    "Приёмка владельцем: голос, hotkey/auto-stop race, Cancel/new session, overlay save, focus and insertion"
+  ],
+  "release_published": false,
+  "owner_accepted": false
+}

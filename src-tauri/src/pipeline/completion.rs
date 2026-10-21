@@ -18,7 +18,39 @@ pub enum FinishClaim {
 
 pub struct FinishTicket(watch::Sender<ResultValue>);
 
+impl super::Pipeline {
+    pub(crate) fn claim_completion_for(&self, operation: u64) -> AppResult<Option<FinishClaim>> {
+        if operation == 0 {
+            return self.completion.claim(0).map(Some);
+        }
+        match self.while_operation(operation, || self.completion.claim(operation)) {
+            Some(claim) => claim.map(Some),
+            None => Ok(self
+                .completion
+                .existing(operation)
+                .map(FinishClaim::Waiting)),
+        }
+    }
+}
+
 impl CompletionGate {
+    /// A late request may observe an old result, but must not replace a
+    /// successor's completion slot or become a new owner for a retired id.
+    pub(crate) fn existing(&self, operation: u64) -> Option<watch::Receiver<ResultValue>> {
+        self.0
+            .lock()
+            .as_ref()
+            .filter(|(id, _)| *id == operation)
+            .map(|(_, sender)| sender.subscribe())
+    }
+    /// A failed pre-Stop persistence barrier leaves capture editable. Current
+    /// waiters receive that failure; a later explicit Stop can retry it.
+    pub(crate) fn release_for_retry(&self, operation: u64) {
+        let mut slot = self.0.lock();
+        if slot.as_ref().is_some_and(|(id, _)| *id == operation) {
+            slot.take();
+        }
+    }
     pub fn claim(&self, operation: u64) -> AppResult<FinishClaim> {
         let mut slot = self.0.lock();
         if let Some((id, sender)) = slot.as_ref() {
@@ -133,5 +165,27 @@ mod tests {
                 expected
             );
         }
+    }
+
+    #[tokio::test]
+    async fn failed_pre_stop_barrier_is_shared_but_a_later_explicit_stop_can_retry() {
+        let gate = CompletionGate::default();
+        let FinishClaim::Owner(first) = gate.claim(4).unwrap() else {
+            panic!()
+        };
+        let FinishClaim::Waiting(waiter) = gate.claim(4).unwrap() else {
+            panic!()
+        };
+        gate.release_for_retry(4);
+        first.complete(&Err(AppError::Config("save failed".into())));
+        assert!(wait(waiter).await.is_err());
+        let FinishClaim::Owner(retry) = gate.claim(4).unwrap() else {
+            panic!()
+        };
+        retry.complete(&Ok(DictationOutcome::NoSpeech));
+        assert!(matches!(
+            wait(gate.existing(4).unwrap()).await.unwrap(),
+            DictationOutcome::NoSpeech
+        ));
     }
 }

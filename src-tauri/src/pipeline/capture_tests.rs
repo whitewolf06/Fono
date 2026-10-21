@@ -64,6 +64,74 @@ fn fixture() -> (Pipeline, Arc<CaptureProbe>) {
     )
 }
 
+#[tokio::test]
+async fn auto_stop_and_manual_stop_share_one_capture_result_and_cannot_claim_a_successor() {
+    use super::{
+        auto_stop::{Phase, Status},
+        completion::{wait, FinishClaim},
+    };
+    use crate::application::dictation::DictationOutcome;
+    let (pipeline, probe) = fixture();
+    let old = pipeline
+        .start_recording_from(None, OperationSource::Hotkey)
+        .unwrap();
+    assert!(pipeline.update_auto_stop(Status::new(old, 2_000)));
+    let old_reader = pipeline.auto_stop_reader_for(old).unwrap();
+    let Some(FinishClaim::Owner(ticket)) = pipeline.claim_completion_for(old).unwrap() else {
+        panic!()
+    };
+    let Some(FinishClaim::Waiting(manual)) = pipeline.claim_completion_for(old).unwrap() else {
+        panic!()
+    };
+    pipeline.stop_recording_for(old).unwrap();
+    pipeline.finish_operation(old, TerminalReason::Completed);
+    ticket.complete(&Ok(DictationOutcome::NoSpeech));
+    assert!(matches!(
+        wait(manual).await.unwrap(),
+        DictationOutcome::NoSpeech
+    ));
+    let Some(FinishClaim::Waiting(late)) = pipeline.claim_completion_for(old).unwrap() else {
+        panic!()
+    };
+    assert!(matches!(
+        wait(late).await.unwrap(),
+        DictationOutcome::NoSpeech
+    ));
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 1);
+
+    let next = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    assert!(pipeline.update_auto_stop(Status::new(next, 5_000)));
+    assert!(!pipeline.update_auto_stop(Status {
+        phase: Phase::Stopping,
+        ..Status::new(old, 2_000)
+    }));
+    assert_eq!(pipeline.auto_stop_status_for(next).timeout_ms, 5_000);
+    assert!(pipeline.auto_stop_reader_for(old).is_none());
+    assert!(pipeline.stop_recording_for(old).unwrap().is_none());
+    assert!(!std::sync::Arc::ptr_eq(
+        &old_reader,
+        &pipeline.auto_stop_reader_for(next).unwrap()
+    ));
+    let Some(FinishClaim::Owner(next_ticket)) = pipeline.claim_completion_for(next).unwrap() else {
+        panic!()
+    };
+    assert!(pipeline.claim_completion_for(old).unwrap().is_none());
+    let Some(FinishClaim::Waiting(next_waiter)) = pipeline.claim_completion_for(next).unwrap()
+    else {
+        panic!()
+    };
+    pipeline.stop_recording_for(next).unwrap();
+    pipeline.finish_operation(next, TerminalReason::Completed);
+    next_ticket.complete(&Ok(DictationOutcome::NoSpeech));
+    assert!(matches!(
+        wait(next_waiter).await.unwrap(),
+        DictationOutcome::NoSpeech
+    ));
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 2);
+}
+
 #[test]
 fn cli_reserves_identity_without_audio_and_native_start_reuses_it() {
     let (pipeline, probe) = fixture();

@@ -38,6 +38,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
           "selectionAutoInsert",
           "hotkey",
           "hotkeyMode",
+          "toggleAutoStopMs",
           "commandHotkey",
           "pretranscriptionEnabled",
           "model",

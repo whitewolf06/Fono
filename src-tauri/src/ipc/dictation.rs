@@ -21,14 +21,10 @@ pub async fn stop_dictation(
 ) -> AppResult<DictationOutcome> {
     if let Some(expected) = session_id {
         let operation = expected;
-        if !app.state::<Pipeline>().is_operation_active(operation) {
-            return Ok(DictationOutcome::interrupted(
-                &app.state::<Pipeline>(),
-                operation,
-            ));
-        }
         #[cfg(feature = "experimental-live")]
-        if crate::application::live_dictation::is_active(&app) {
+        if app.state::<Pipeline>().is_operation_active(operation)
+            && crate::application::live_dictation::is_active(&app)
+        {
             return crate::application::live_dictation::finish_for(app, operation)
                 .await
                 .map(DictationOutcome::Completed);
@@ -50,12 +46,6 @@ pub async fn finish_overlay_dictation(
     session_id: u64,
 ) -> AppResult<DictationOutcome> {
     let operation = session_id;
-    if !app.state::<Pipeline>().is_operation_active(operation) {
-        return Ok(DictationOutcome::interrupted(
-            &app.state::<Pipeline>(),
-            operation,
-        ));
-    }
     crate::application::dictation::stop_overlay_for(app, operation).await
 }
 #[tauri::command]
