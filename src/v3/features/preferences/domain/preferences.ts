@@ -1,5 +1,6 @@
 import { message as uiMessage } from "../../../shared/domain/messages";
 import { validToggleAutoStop } from "../../../shared/domain/toggleAutoStop";
+import { validRecordingSoundsVolume } from "../../../shared/domain/recordingSounds";
 import { validateSnippets } from "../../snippets/domain/snippets";
 import type {
   Preferences,
@@ -45,6 +46,8 @@ export const defaults: Preferences = {
   selectionHistoryEnabled: false,
   hotkeyMode: "hold",
   toggleAutoStopMs: 0,
+  recordingSoundsEnabled: false,
+  recordingSoundsVolume: 25,
   commandHotkey: "Ctrl + Shift + Space",
   wakeThreshold: 0.55,
   speechThreshold: 0.4,
@@ -81,6 +84,8 @@ export const defaults: Preferences = {
 export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
   general: ["uiLanguage", "autostart", "insertion", "applicationProfiles"],
   audio: [
+    "recordingSoundsEnabled",
+    "recordingSoundsVolume",
     "microphone",
     "model",
     "language",
@@ -257,6 +262,8 @@ export const profiles = [
   },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  if (!validRecordingSoundsVolume(p.recordingSoundsVolume))
+    return uiMessage("recordingSounds.invalidVolume");
   if (!validToggleAutoStop(p.toggleAutoStopMs))
     return uiMessage("autoStop.invalid");
   if (!["auto", "ru", "en"].includes(p.uiLanguage))

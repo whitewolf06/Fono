@@ -1,0 +1,85 @@
+{
+  "task": "FONO-140",
+  "plan_id": "F-13.1",
+  "date": "2026-10-21",
+  "version": "0.7.56",
+  "base": "b600d4d",
+  "blocking_dependencies": [],
+  "native": {
+    "passed": 629,
+    "failed": 0,
+    "ignored": 7,
+    "log": "build/checks/fono140-native-tests.log"
+  },
+  "audio": {
+    "passed": 44,
+    "failed": 0,
+    "ignored": 1,
+    "log": "build/checks/fono140-audio-tests.log"
+  },
+  "v3": {
+    "passed": 358,
+    "failed": 0,
+    "new_tests": 4,
+    "log": "build/checks/fono140-v3-tests.log"
+  },
+  "release_scripts": {
+    "passed": 48,
+    "failed": 0,
+    "owner_cache_tests_not_in_scope": 20,
+    "log": "build/checks/fono140-release-tests.log",
+    "environment_note": "Temporary Git fixtures require filesystem access outside the restricted sandbox"
+  },
+  "checks_passed": [
+    "strict Clippy",
+    "minimal/CPU compilation",
+    "typecheck:v3",
+    "lint",
+    "production build",
+    "format:check",
+    "version:check",
+    "docs:check",
+    "Rust fmt"
+  ],
+  "browser": {
+    "cases": 12,
+    "locales": [
+      "ru",
+      "en"
+    ],
+    "states": [
+      "on",
+      "off"
+    ],
+    "viewports": [
+      "720x560",
+      "900x720",
+      "1440x900"
+    ],
+    "errors": 0,
+    "horizontal_overflows": 0,
+    "reload_volume_percent": 75,
+    "matrix": "build/checks/fono140-browser-matrix.json"
+  },
+  "playback": {
+    "default_enabled": false,
+    "default_volume": 25,
+    "tone_ms": {
+      "start": 60,
+      "stop": 60,
+      "error": 90
+    },
+    "silent_tail_ms": 50,
+    "peak_full_scale_at_volume_100": 0.18,
+    "backend": "Synchronous Windows PlaySoundW, generated PCM, no system-volume change",
+    "capture_guard": "Idle AudioHub output excludes input registration; existing input suppresses cues",
+    "pcm_trim": false,
+    "microphone_used": false,
+    "real_playback_tested": false
+  },
+  "pending": [
+    "Owner Windows listening and device acceptance: timbre, volume, speaker echo, Bluetooth delay, quiet onset and rapid cancellation/restart"
+  ],
+  "release_published": false,
+  "owner_accepted": false
+}

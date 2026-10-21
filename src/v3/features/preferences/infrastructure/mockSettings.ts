@@ -154,6 +154,9 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
         model.progress = 0;
       }
     },
+    async previewRecordingSounds() {
+      throw new Error(uiMessage("recordingSounds.demo"));
+    },
     async testMicrophone() {
       if (!state.microphoneAvailable)
         throw new Error(uiMessage("ui.9010565737"));

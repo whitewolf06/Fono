@@ -1,4 +1,11 @@
 {
+  "recordingSounds.label": "Sound cues",
+  "recordingSounds.hint": "Short cues for recording start, stop and errors. Off by default.",
+  "recordingSounds.volume": "Cue volume",
+  "recordingSounds.preview": "Preview cues",
+  "recordingSounds.ready": "Preview order: start, stop, error. Before dictating, wait for the recording indicator, then speak.",
+  "recordingSounds.demo": "Preview cues in the Fono app. These are demo settings.",
+  "recordingSounds.invalidVolume": "Choose a volume from 0 to 100%.",
   "speechTiming.title": "Speech pace and pauses",
   "speechTiming.rate": "Speech pace",
   "speechTiming.share": "Pause share",

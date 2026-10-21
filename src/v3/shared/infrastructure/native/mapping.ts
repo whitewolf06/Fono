@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../../domain/messages";
+import { recordingSoundsVolume } from "../../domain/recordingSounds";
 import type {
   Settings,
   SttModelInfo,
@@ -83,6 +84,8 @@ export function preferencesFromNative(
       .join(" + "),
     hotkeyMode: s.hotkey_mode ?? "hold",
     toggleAutoStopMs: s.toggle_auto_stop_ms ?? 0,
+    recordingSoundsEnabled: s.recording_sounds_enabled === true,
+    recordingSoundsVolume: recordingSoundsVolume(s.recording_sounds_volume),
     dictationTrigger: availableTrigger(s.dictation_trigger),
     selectionCaptureEnabled: s.selection_capture_enabled ?? false,
     selectionHotkey: (s.selection_hotkey || "Ctrl+Alt+Space")
@@ -191,6 +194,8 @@ export function applyPreferences(
     wakePhrase: "wake_word",
     silenceMs: "wake_dictation_silence_ms",
     toggleAutoStopMs: "toggle_auto_stop_ms",
+    recordingSoundsEnabled: "recording_sounds_enabled",
+    recordingSoundsVolume: "recording_sounds_volume",
     wakeThreshold: "wake_word_threshold",
     speechThreshold: "wake_dictation_speech_threshold",
     autostart: "autostart",

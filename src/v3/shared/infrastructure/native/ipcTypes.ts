@@ -143,6 +143,8 @@ export interface Settings {
   hotkey: string;
   hotkey_mode?: "hold" | "toggle";
   toggle_auto_stop_ms?: number;
+  recording_sounds_enabled?: boolean;
+  recording_sounds_volume?: number;
   selection_capture_enabled?: boolean;
   selection_hotkey?: string;
   selection_clipboard_fallback?: boolean;
@@ -371,6 +373,8 @@ export interface WakeProfileValidationStatus {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  recording_sounds_enabled: false,
+  recording_sounds_volume: 25,
   pretranscription_enabled: false,
   dictation_mode: "standard",
   audio_device_id: null,

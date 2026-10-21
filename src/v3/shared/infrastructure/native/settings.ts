@@ -151,6 +151,9 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
       else await call("remove_stt_model", { id: modelId(id) });
       await ctx.readModels();
     },
+    async previewRecordingSounds(volume) {
+      await call("preview_recording_sounds", { volume });
+    },
     async testMicrophone(device) {
       const result = await call<{ rms: number; peak: number }>(
         "test_microphone_device",

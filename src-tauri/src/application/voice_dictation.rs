@@ -44,6 +44,14 @@ pub(crate) async fn run(
         }
         FinishClaim::Owner(ticket) => {
             let result = run_once(app, operation).await;
+            if let Err(error) = &result {
+                if !matches!(
+                    error.downcast_ref::<AppError>(),
+                    Some(AppError::Cancelled(_))
+                ) {
+                    application::recording_sounds::error(app, operation, OperationSource::Hotkey);
+                }
+            }
             let completion = result
                 .as_ref()
                 .cloned()
@@ -75,7 +83,25 @@ async fn run_once(
         app: app.clone(),
         operation,
     };
-    let samples = match pipeline.stop_recording_for(operation) {
+    let capture_activity = activity.clone();
+    let stop_app = app.clone();
+    let stopped = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = capture_activity;
+        let pipeline = stop_app.state::<pipeline::Pipeline>();
+        let samples = pipeline.stop_recording_for(operation);
+        if matches!(&samples, Ok(Some(_))) {
+            application::recording_sounds::play_for(
+                &stop_app,
+                operation,
+                OperationSource::Hotkey,
+                crate::audio::cues::Cue::Stop,
+            );
+        }
+        samples
+    })
+    .await
+    .map_err(|_| crate::error::AppError::Internal("Не удалось завершить запись команды.".into()))?;
+    let samples = match stopped {
         Ok(Some(samples)) => samples,
         Ok(None) => return Ok(DictationOutcome::interrupted(&pipeline, operation)),
         Err(error) => {

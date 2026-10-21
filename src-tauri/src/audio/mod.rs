@@ -14,6 +14,7 @@ use crate::error::{AppError, AppResult};
 use crate::types::DeviceInfo;
 
 mod buffer;
+pub(crate) mod cues;
 pub use buffer::RecordingBuffer;
 pub type RecordingWriter = Arc<Mutex<RecordingBuffer>>;
 pub(crate) use fono_core::AudioCapturePort as AudioRecorder;

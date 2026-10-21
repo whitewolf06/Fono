@@ -16,6 +16,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     tracing::info!("Fono starting up…");
     let audio_hub = AudioHub::new();
     app.manage(state::AppState::new());
+    app.manage(crate::application::recording_sounds::Runtime::default());
     app.manage(crate::application::updates::UpdateService::default());
     app.manage(crate::application::cuda_packages::CudaPackageService::new(
         crate::application::cuda_packages::package_root()?,

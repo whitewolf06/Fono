@@ -50,6 +50,11 @@ pub struct Settings {
     /// Zero disables the optional neural-VAD stop for ordinary toggle capture.
     #[serde(default)]
     pub toggle_auto_stop_ms: u64,
+    /// Optional cues, silent for existing installations until explicitly enabled.
+    #[serde(default)]
+    pub recording_sounds_enabled: bool,
+    #[serde(default = "default_recording_sounds_volume")]
+    pub recording_sounds_volume: u8,
     #[serde(default)]
     pub dictation_trigger: DictationTrigger,
     #[serde(default)]
@@ -175,6 +180,10 @@ pub struct Settings {
     pub volume_step: u32,
 }
 
+fn default_recording_sounds_volume() -> u8 {
+    25
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -198,6 +207,8 @@ impl Default for Settings {
             hotkey: default_hotkey(),
             hotkey_mode: HotkeyMode::Hold,
             toggle_auto_stop_ms: 0,
+            recording_sounds_enabled: false,
+            recording_sounds_volume: default_recording_sounds_volume(),
             dictation_trigger: DictationTrigger::Shortcut,
             selection_capture_enabled: false,
             selection_hotkey: default_selection_hotkey(),
@@ -265,6 +276,14 @@ impl Default for Settings {
 }
 
 impl Settings {
+    pub fn validate_recording_sounds(&self) -> crate::error::AppResult<()> {
+        if self.recording_sounds_volume > 100 {
+            return Err(crate::error::AppError::Config(
+                "Выберите громкость от 0 до 100%.".into(),
+            ));
+        }
+        Ok(())
+    }
     pub fn validate_toggle_auto_stop(&self) -> crate::error::AppResult<()> {
         if self.toggle_auto_stop_ms != 0 && !(2_000..=10_000).contains(&self.toggle_auto_stop_ms) {
             return Err(crate::error::AppError::Config(

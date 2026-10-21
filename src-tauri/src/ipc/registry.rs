@@ -56,6 +56,7 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::voice::confirm_voice_command,
         // audio
         crate::ipc::audio::list_audio_devices,
+        crate::ipc::audio::preview_recording_sounds,
         // whisper
         crate::ipc::models::list_whisper_models,
         crate::ipc::models::list_stt_models,

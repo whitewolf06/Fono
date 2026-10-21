@@ -26,6 +26,7 @@ pub mod local_transcription_service;
 pub mod models;
 pub mod personal_dictionary;
 pub mod project_site;
+pub(crate) mod recording_sounds;
 pub mod rest_api;
 pub mod segmented_transcription;
 pub(crate) mod selection_capture;

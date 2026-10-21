@@ -87,6 +87,15 @@ export const searchIndex: {
 }[] = [
   {
     get label() {
+      return uiMessage("recordingSounds.label");
+    },
+    section: "audio",
+    field: "recordingSoundsEnabled",
+    keywords:
+      "звуки сигналы громкость начало остановка ошибка sounds cues volume start stop error",
+  },
+  {
+    get label() {
       return uiMessage("ui.9089a73112");
     },
     section: "general",

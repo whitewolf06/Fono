@@ -87,6 +87,7 @@ impl Session {
             return;
         }
         crate::events::emit_error(&self.app, code, message.into(), Some(self.operation));
+        crate::application::recording_sounds::error(&self.app, self.operation, self.source);
     }
 }
 
@@ -206,6 +207,9 @@ pub(crate) fn resume_wake_if_idle(app: &AppHandle) {
 }
 
 pub(super) fn emit_pipeline_error(app: &AppHandle, message: &str) {
+    if let Some(operation) = app.state::<Pipeline>().current_operation() {
+        crate::application::recording_sounds::error(app, operation.id, operation.source);
+    }
     crate::events::emit_error(
         app,
         crate::events::ErrorCodeV1::Internal,

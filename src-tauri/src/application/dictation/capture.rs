@@ -101,6 +101,16 @@ fn prepare_reserved(
         error
     })?;
     let result = (|| {
+        // No trimming: finish the short start cue before attaching input.
+        // Wake handoff/pre-roll and diagnostic capture never produce a cue.
+        if pre_roll.is_empty() && cursor.is_none() {
+            crate::application::recording_sounds::play_for(
+                &app,
+                operation,
+                source,
+                crate::audio::cues::Cue::Start,
+            );
+        }
         let admission = crate::application::capture_configuration::begin_capture()?;
         ensure_capture_allowed(&app)?;
         let pipeline = app.state::<Pipeline>();
@@ -140,10 +150,13 @@ fn prepare_reserved(
         drop(admission);
         activate_recording(app.clone(), operation, command)
     })();
-    if result.is_err() {
+    if let Err(error) = &result {
         let pipeline = app.state::<Pipeline>();
         if pipeline.abort_capture_setup(operation) {
             super::workflow::clear_target(&app, operation);
+        }
+        if !matches!(error, AppError::Cancelled(_)) {
+            crate::application::recording_sounds::error(&app, operation, source);
         }
     }
     result
@@ -346,6 +359,12 @@ pub(super) fn finish_samples(
         diagnostic.stt_cancelled();
         return Ok(CapturedSamples::Finished(session.interrupted()));
     }
+    crate::application::recording_sounds::play_for(
+        &session.app,
+        session.operation,
+        session.source,
+        crate::audio::cues::Cue::Stop,
+    );
     if samples.is_empty() {
         return Ok(CapturedSamples::Finished(super::DictationOutcome::NoSpeech));
     }

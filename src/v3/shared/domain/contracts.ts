@@ -84,6 +84,8 @@ export interface Preferences {
   selectionHistoryEnabled: boolean;
   hotkeyMode: "hold" | "toggle";
   toggleAutoStopMs: number;
+  recordingSoundsEnabled: boolean;
+  recordingSoundsVolume: number;
   commandHotkey: string;
   wakeThreshold: number;
   speechThreshold: number;
@@ -278,6 +280,7 @@ export interface SettingsPort {
   downloadModel(id: string): Promise<void>;
   removeModel(id: string): void;
   testMicrophone(device?: string): Promise<void>;
+  previewRecordingSounds(volume: number): Promise<void>;
   resetOverlay?(): Promise<void>;
   previewOverlay?(preferences: Preferences): Promise<void>;
   playSample(): Promise<void>;

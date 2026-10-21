@@ -1,4 +1,11 @@
 {
+  "recordingSounds.label": "Звуковые сигналы",
+  "recordingSounds.hint": "Короткие сигналы начала записи, остановки и ошибки. По умолчанию выключены.",
+  "recordingSounds.volume": "Громкость сигналов",
+  "recordingSounds.preview": "Прослушать сигналы",
+  "recordingSounds.ready": "Прослушивание: начало, остановка, ошибка. Перед диктовкой дождитесь индикатора записи, затем говорите.",
+  "recordingSounds.demo": "Прослушать сигналы можно в приложении Fono. Здесь доступны демонстрационные настройки.",
+  "recordingSounds.invalidVolume": "Выберите громкость от 0 до 100%.",
   "speechTiming.title": "Темп речи и паузы",
   "speechTiming.rate": "Темп речи",
   "speechTiming.share": "Доля пауз",

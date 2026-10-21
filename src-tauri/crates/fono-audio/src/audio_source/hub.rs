@@ -2,7 +2,7 @@ use super::owner::run_owner;
 use super::{ring::SampleRing, AudioCursor, AudioPacket};
 use crate::error::{AudioError, AudioResult};
 use crossbeam_channel::{bounded, Sender};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use std::{
     collections::BTreeMap,
@@ -39,6 +39,7 @@ pub struct AudioHub {
     inner: Arc<HubInner>,
 }
 struct HubInner {
+    output_gate: RwLock<()>,
     commands: Sender<Command>,
     dispatch: SharedDispatch,
     next_id: AtomicU64,
@@ -87,6 +88,7 @@ impl AudioHub {
         });
         Self {
             inner: Arc::new(HubInner {
+                output_gate: RwLock::new(()),
                 commands,
                 dispatch,
                 next_id: AtomicU64::new(1),
@@ -108,6 +110,16 @@ impl AudioHub {
         self.subscribe_packets(device_id, sample_rate, move |packet| {
             callback(&packet.samples)
         })
+    }
+    /// Run a short synchronous output only while no input subscriber exists.
+    /// New subscribers wait until output (including its silent tail) ends.
+    /// This gate is never acquired by a real-time input callback.
+    pub fn with_idle_output<T>(&self, output: impl FnOnce() -> T) -> Option<T> {
+        let _output = self.inner.output_gate.try_write()?;
+        if !self.inner.dispatch.lock().subscribers.is_empty() {
+            return None;
+        }
+        Some(output())
     }
     pub fn subscribe_packets<F>(
         &self,
@@ -149,6 +161,7 @@ impl AudioHub {
         let (tx, rx) = bounded::<AudioPacket>(2048);
         // Reserve before Ensure so a second device cannot replace a live input.
         {
+            let _input = self.inner.output_gate.read();
             let mut dispatch = self.inner.dispatch.lock();
             if dispatch.subscribers.len() >= Self::MAX_SUBSCRIBERS {
                 return Err(AudioError::Audio("audio subscriber limit reached".into()));
@@ -297,6 +310,39 @@ impl Drop for AudioSubscription {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn output_is_skipped_for_an_existing_or_reserved_input() {
+        let hub = AudioHub::new();
+        let (tx, _rx) = bounded(1);
+        hub.inner.dispatch.lock().subscribers.insert(73, tx);
+        assert_eq!(
+            hub.with_idle_output(|| panic!("a cue must not enter capture")),
+            None::<()>
+        );
+        hub.inner.dispatch.lock().subscribers.remove(&73);
+        assert_eq!(hub.with_idle_output(|| 42), Some(42));
+    }
+
+    #[test]
+    fn output_finishes_before_a_new_input_can_register() {
+        let hub = AudioHub::new();
+        let inner = hub.inner.clone();
+        let (entered, receiver) = std::sync::mpsc::channel();
+        let worker = hub
+            .with_idle_output(|| {
+                assert_eq!(hub.with_idle_output(|| 99), None);
+                let worker = thread::spawn(move || {
+                    let _input = inner.output_gate.read();
+                    entered.send(()).unwrap();
+                });
+                assert!(receiver.recv_timeout(Duration::from_millis(30)).is_err());
+                worker
+            })
+            .unwrap();
+        receiver.recv_timeout(Duration::from_secs(1)).unwrap();
+        worker.join().unwrap();
+    }
     #[test]
     fn shutdown_is_idempotent() {
         let hub = AudioHub::new();

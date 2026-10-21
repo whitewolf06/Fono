@@ -428,6 +428,7 @@ pub async fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> AppResult<
 }
 
 fn validate_settings(settings: &Settings) -> AppResult<()> {
+    settings.validate_recording_sounds()?;
     settings.validate_toggle_auto_stop()?;
     crate::application::application_profiles::validate(&settings.application_profiles)?;
     settings.validate_stt_preferences()?;
