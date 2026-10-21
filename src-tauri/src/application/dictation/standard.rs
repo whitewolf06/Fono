@@ -129,7 +129,7 @@ async fn stop_once(
     copy_only: bool,
     receipt: super::SettlementReceipt,
 ) -> AppResult<DictationOutcome> {
-    let session = match Session::current(app, operation) {
+    let mut session = match Session::current(app, operation) {
         Ok(session) => session,
         Err(crate::error::AppError::Cancelled(_)) => {
             return Ok(DictationOutcome::interrupted(
@@ -192,7 +192,16 @@ async fn stop_once(
     }
     let is_snippet =
         crate::application::snippets::matching(&session.settings, &transcript.text).is_some();
+    let preparation = if is_snippet {
+        Ok(None)
+    } else {
+        postprocess::prepare_ordinary(&mut session.settings).await
+    };
+    if !session.active("ordinary processing preparation returned") {
+        return Ok(session.interrupted());
+    }
     if !is_snippet
+        && preparation.is_ok()
         && !copy_only
         && session.source != OperationSource::Hotkey
         && super::workflow::should_defer(&session.settings)
@@ -209,14 +218,20 @@ async fn stop_once(
     }
     let processed = {
         let _timer = report.stage(ReportStage::Processing);
-        postprocess::selected(
-            &session,
-            &transcript,
-            super::workflow::effective_preset(&session.settings),
-            super::workflow::effective_language(&session.settings),
-            super::workflow::should_process(&session.settings),
-        )
-        .await
+        match preparation {
+            Err(error) => Err(error),
+            Ok(client) => {
+                postprocess::selected_prepared(
+                    &session,
+                    &transcript,
+                    super::workflow::effective_preset(&session.settings),
+                    super::workflow::effective_language(&session.settings),
+                    super::workflow::should_process(&session.settings),
+                    client,
+                )
+                .await
+            }
+        }
     };
     let processed = match processed {
         Ok(value) => value,

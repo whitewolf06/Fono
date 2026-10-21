@@ -4,6 +4,42 @@ use std::net::TcpListener;
 use std::thread;
 
 #[test]
+fn processing_readiness_checks_model_endpoint_and_actual_required_key() {
+    for (url, model, key, requires_key, ready) in [
+        ("http://127.0.0.1:1234/v1", Some("model"), None, false, true),
+        (
+            "https://api.example.test/v1",
+            Some("model"),
+            Some("key"),
+            true,
+            true,
+        ),
+        (
+            "https://api.example.test/v1",
+            Some("model"),
+            None,
+            true,
+            false,
+        ),
+        (
+            "https://api.example.test/v1",
+            Some("model"),
+            Some("  "),
+            true,
+            false,
+        ),
+        ("http://127.0.0.1:1234/v1", None, None, false, false),
+        ("http://127.0.0.1:1234/v1", Some("  "), None, false, false),
+        ("", Some("model"), None, false, false),
+        ("bad-url", Some("model"), None, false, false),
+        ("file:///tmp/model", Some("model"), None, false, false),
+    ] {
+        let client = LlmClient::new(url, model.map(str::to_owned), key.map(str::to_owned));
+        assert_eq!(client.is_configured(requires_key), ready, "{url}");
+    }
+}
+
+#[test]
 fn metrics_only_speech_payload_cannot_serialize_private_findings() {
     let analysis =
         crate::speech_metrics::analyze_russian_speech("СекретНимб СекретНимб, ну, как бы");
@@ -91,6 +127,25 @@ fn test_server(status: &str, content_type: &str, body: Vec<u8>) -> String {
     });
 
     format!("http://{address}/v1")
+}
+
+#[test]
+fn configured_postprocessing_keeps_server_failure_visible() {
+    let base_url = test_server(
+        "503 Service Unavailable",
+        "application/json",
+        b"{}".to_vec(),
+    );
+    let client = LlmClient::new(base_url, Some("test-model".into()), None);
+    assert!(client.is_configured(false));
+    let error = run_async(client.process_preset(
+        "test transcript",
+        crate::types::TextPreset::Clean,
+        None,
+        None,
+    ))
+    .expect_err("A configured server failure must not be treated as unfinished setup");
+    assert!(error.to_string().contains("503 Service Unavailable"));
 }
 
 fn run_async<T>(future: impl std::future::Future<Output = T>) -> T {

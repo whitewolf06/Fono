@@ -108,6 +108,19 @@ impl LlmClient {
             .filter(|model| !model.trim().is_empty())
     }
 
+    /// Configuration only: a configured but unavailable server remains an error.
+    pub(crate) fn is_configured(&self, requires_key: bool) -> bool {
+        self.selected_model().is_some()
+            && reqwest::Url::parse(&self.base_url).is_ok_and(|url| {
+                matches!(url.scheme(), "http" | "https") && url.host_str().is_some()
+            })
+            && (!requires_key
+                || self
+                    .api_key
+                    .as_deref()
+                    .is_some_and(|key| !key.trim().is_empty()))
+    }
+
     pub fn new(
         base_url: impl Into<String>,
         model: Option<String>,

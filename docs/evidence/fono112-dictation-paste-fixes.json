@@ -1,0 +1,77 @@
+{
+  "schema": "fono-scoped-verification-v1",
+  "task": "FONO-112",
+  "date": "2026-10-21",
+  "source_version": "0.7.61",
+  "scope": [
+    "Skip incomplete optional AI processing and translation in ordinary dictation",
+    "Preserve bitmap/palette alongside memory clipboard formats"
+  ],
+  "automated": {
+    "native_library": { "passed": 641, "failed": 0, "ignored": 7 },
+    "v3": { "passed": 364, "failed": 0 },
+    "release_and_ci_contracts": { "passed": 48, "failed": 0 },
+    "frontend_build": "passed",
+    "typecheck_v3": "passed",
+    "lint": "passed",
+    "version_check": "passed",
+    "format_check": "passed",
+    "docs_links": "passed",
+    "strict_clippy": "passed"
+  },
+  "native_test_runtime": {
+    "target_directory": "src-tauri/target-codex-review",
+    "dependency_receipt": "scripts/ci-native-dependencies.json",
+    "staging": "scripts/native-test-runtime.mjs from compiler artifacts",
+    "user_clipboard_accessed": false,
+    "microphone_recorded": false,
+    "external_input_sent": false
+  },
+  "regressions": [
+    "Incomplete model/profile skips processing, translation and manual wait in operation snapshot only",
+    "Deleted profile does not fall back to a configured legacy model",
+    "Raw without translation needs no credential read",
+    "Anonymous local connection remains configured; missing required cloud key is incomplete",
+    "Configured server 503 remains a processing error",
+    "Bitmap and palette are independently duplicated and released with GDI ownership",
+    "Immutable bitmap master survives multiple duplicates and disposal",
+    "4K bitmap/DIB/DIBV5/PNG/palette budget fits; invalid or oversized payloads remain rejected",
+    "Existing clipboard sequence, partial restore and privacy marker checks pass"
+  ],
+  "clipboard_limits_bytes": {
+    "image_format": 67108864,
+    "other_format": 16777216,
+    "total": 134217728,
+    "max_formats": 64
+  },
+  "desktop_build": {
+    "result": "passed",
+    "version": "0.7.61",
+    "mode": "native desktop debug with standalone Vite",
+    "executable": "src-tauri/target-codex-review/debug/fono.exe",
+    "bytes": 49265152,
+    "sha256": "28acf07921bf358d3e8f92d304e343513e4c02c0c187c9741b93ca1ce21d28de",
+    "build_revision": "aca0eacae79cc6cfb8118ea4473ab9580d7ef472+fono112-worktree",
+    "started_utc": "2026-10-21T20:39:04.9023108Z",
+    "process_responding": true,
+    "main_window_title": "Fono",
+    "visual_content_verified": false,
+    "profile": "build/dev-desktop-profile",
+    "isolated_windows_credentials_and_autostart": "unavailable by design",
+    "installed_application_stopped": false
+  },
+  "manual_acceptance": {
+    "overall": "pending_owner_retest",
+    "incomplete_ai_hold_paste": "pending",
+    "image_clipboard_auto_paste_and_restore": "pending",
+    "image_clipboard_explicit_overlay_copy": "pending"
+  },
+  "remaining": [
+    "Owner retest of the three native Windows scenarios",
+    "Remaining FONO-112 hardware, soak and installed delivery matrix",
+    "Oversized and unsupported native clipboard formats safely fail before mutation"
+  ],
+  "release_published": false,
+  "installer_run": false,
+  "task_complete": false
+}

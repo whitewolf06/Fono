@@ -19,6 +19,7 @@ use windows::{
             GetLastError, GlobalFree, SetLastError, ERROR_SUCCESS, HANDLE, HGLOBAL, HWND, LPARAM,
             WPARAM,
         },
+        Graphics::Gdi::{DeleteObject, GetObjectW, BITMAP, HGDIOBJ, PALETTEENTRY},
         System::{
             DataExchange::{
                 CloseClipboard, EmptyClipboard, EnumClipboardFormats, GetClipboardData,
@@ -43,7 +44,9 @@ const RESTORE_TIMER: usize = 1;
 const RESTORE_DELAY_MS: u32 = 300;
 const MAX_FORMATS: usize = 64;
 const MAX_FORMAT_BYTES: usize = 16 * 1024 * 1024;
-const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
+// A 4K screenshot can expose bitmap, DIB and DIBV5 simultaneously.
+const MAX_IMAGE_FORMAT_BYTES: usize = 64 * 1024 * 1024;
+const MAX_BACKUP_BYTES: usize = 128 * 1024 * 1024;
 const PRIVACY_FORMATS: [&str; 3] = [
     "ExcludeClipboardContentFromMonitorProcessing",
     "CanIncludeInClipboardHistory",
@@ -576,30 +579,40 @@ impl Drop for Opened {
 
 struct FormatData {
     format: u32,
-    handle: HGLOBAL,
+    handle: HANDLE,
+    kind: HandleKind,
 }
 
 impl FormatData {
     fn duplicate(&self) -> AppResult<Self> {
-        let handle = unsafe {
-            OleDuplicateData(
-                HANDLE(self.handle.0),
-                CLIPBOARD_FORMAT(self.format as u16),
-                GMEM_MOVEABLE,
-            )
-        };
+        Self::duplicate_handle(self.format, self.handle)
+    }
+
+    fn duplicate_handle(format: u32, source: HANDLE) -> AppResult<Self> {
+        let kind = HandleKind::for_format(format)?;
+        let handle =
+            unsafe { OleDuplicateData(source, CLIPBOARD_FORMAT(format as u16), GMEM_MOVEABLE) };
         if handle.is_invalid() {
             return Err(failure("clipboard format could not be duplicated"));
         }
         Ok(Self {
-            format: self.format,
-            handle: HGLOBAL(handle.0),
+            format,
+            handle,
+            kind,
         })
     }
     fn from_bytes(format: u32, bytes: &[u8]) -> AppResult<Self> {
+        let kind = HandleKind::for_format(format)?;
+        if kind != HandleKind::Global {
+            return Err(failure("clipboard format requires a GDI object"));
+        }
         let handle = unsafe { GlobalAlloc(GMEM_MOVEABLE, bytes.len()) }
             .map_err(|_| failure("clipboard allocation failed"))?;
-        let result = Self { format, handle };
+        let result = Self {
+            format,
+            handle: HANDLE(handle.0),
+            kind,
+        };
         let pointer = unsafe { GlobalLock(handle) };
         if pointer.is_null() {
             return Err(failure("clipboard allocation could not be locked"));
@@ -612,10 +625,10 @@ impl FormatData {
     }
 
     fn publish(&mut self) -> AppResult<()> {
-        unsafe { SetClipboardData(self.format, HANDLE(self.handle.0)) }
+        unsafe { SetClipboardData(self.format, self.handle) }
             .map_err(|_| failure("clipboard format could not be published"))?;
         // Ownership transfers to Windows only after SetClipboardData succeeds.
-        self.handle = HGLOBAL::default();
+        self.handle = HANDLE::default();
         Ok(())
     }
 }
@@ -623,10 +636,89 @@ impl Drop for FormatData {
     fn drop(&mut self) {
         if !self.handle.0.is_null() {
             unsafe {
-                let _ = GlobalFree(self.handle);
+                match self.kind {
+                    HandleKind::Global => {
+                        let _ = GlobalFree(HGLOBAL(self.handle.0));
+                    }
+                    HandleKind::Bitmap | HandleKind::Palette => {
+                        let _ = DeleteObject(HGDIOBJ(self.handle.0));
+                    }
+                }
             }
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum HandleKind {
+    Global,
+    Bitmap,
+    Palette,
+}
+
+impl HandleKind {
+    fn for_format(format: u32) -> AppResult<Self> {
+        match format {
+            2 => Ok(Self::Bitmap),
+            9 => Ok(Self::Palette),
+            1 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13 | 15 | 16 | 17 | 0xc000..=0xffff => {
+                Ok(Self::Global)
+            }
+            _ => Err(failure("clipboard handle kind is unsupported")),
+        }
+    }
+
+    fn size(self, handle: HANDLE) -> AppResult<usize> {
+        match self {
+            Self::Global => Ok(unsafe { GlobalSize(HGLOBAL(handle.0)) }),
+            Self::Bitmap => {
+                let mut bitmap = BITMAP::default();
+                let size = std::mem::size_of::<BITMAP>();
+                if unsafe {
+                    GetObjectW(
+                        HGDIOBJ(handle.0),
+                        size as i32,
+                        Some((&mut bitmap as *mut BITMAP).cast()),
+                    )
+                } != size as i32
+                {
+                    return Err(failure("clipboard bitmap could not be measured"));
+                }
+                bitmap_size(&bitmap)
+            }
+            Self::Palette => {
+                let mut entries = 0u16;
+                if unsafe {
+                    GetObjectW(
+                        HGDIOBJ(handle.0),
+                        std::mem::size_of::<u16>() as i32,
+                        Some((&mut entries as *mut u16).cast()),
+                    )
+                } == 0
+                    || entries == 0
+                {
+                    return Err(failure("clipboard palette could not be measured"));
+                }
+                Ok(std::mem::size_of::<u16>()
+                    + usize::from(entries) * std::mem::size_of::<PALETTEENTRY>())
+            }
+        }
+    }
+}
+
+fn bitmap_size(bitmap: &BITMAP) -> AppResult<usize> {
+    if bitmap.bmWidth <= 0
+        || bitmap.bmHeight <= 0
+        || bitmap.bmWidthBytes <= 0
+        || bitmap.bmPlanes == 0
+        || bitmap.bmBitsPixel == 0
+    {
+        return Err(failure("clipboard bitmap dimensions are invalid"));
+    }
+    (bitmap.bmWidthBytes as usize)
+        .checked_mul(bitmap.bmHeight as usize)
+        .and_then(|size| size.checked_mul(usize::from(bitmap.bmPlanes)))
+        .ok_or_else(|| failure("clipboard bitmap dimensions exceed the safe limit"))
 }
 
 #[derive(Default)]
@@ -637,16 +729,15 @@ struct BackupBudget {
 
 impl BackupBudget {
     fn include(&mut self, format: u32, bytes: usize) -> AppResult<()> {
-        // GDI/metafile/owner-display and application-private handles require
-        // their own destructor/serialization. Refuse before EmptyClipboard,
-        // rather than drop them or treat a native handle as global memory.
-        let global_memory = matches!(
-            format,
-            1 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13 | 15 | 16 | 17
-        ) || (0xc000..=0xffff).contains(&format);
-        if !global_memory
-            || bytes == 0
-            || bytes > MAX_FORMAT_BYTES
+        // Metafiles/owner-display/private handles still fail before mutation.
+        HandleKind::for_format(format)?;
+        let limit = if matches!(format, 2 | 8 | 9 | 17) {
+            MAX_IMAGE_FORMAT_BYTES
+        } else {
+            MAX_FORMAT_BYTES
+        };
+        if bytes == 0
+            || bytes > limit
             || self.formats >= MAX_FORMATS
             || self.bytes.saturating_add(bytes) > MAX_BACKUP_BYTES
         {
@@ -675,23 +766,15 @@ impl Backup {
                 }
                 break;
             }
-            // Check the handle kind before calling GlobalSize on it.
+            // Validate kind and budget before reading or duplicating the object.
             budget.include(format, 1)?;
             budget.formats -= 1;
             budget.bytes -= 1;
             let handle = unsafe { GetClipboardData(format) }
                 .map_err(|_| failure("clipboard format could not be read"))?;
-            let size = unsafe { GlobalSize(HGLOBAL(handle.0)) };
+            let size = HandleKind::for_format(format)?.size(handle)?;
             budget.include(format, size)?;
-            let duplicate =
-                unsafe { OleDuplicateData(handle, CLIPBOARD_FORMAT(format as u16), GMEM_MOVEABLE) };
-            if duplicate.is_invalid() {
-                return Err(failure("clipboard format could not be duplicated"));
-            }
-            formats.push(FormatData {
-                format,
-                handle: HGLOBAL(duplicate.0),
-            });
+            formats.push(FormatData::duplicate_handle(format, handle)?);
         }
         Ok(Self(formats))
     }
@@ -781,7 +864,7 @@ mod tests {
 
     #[test]
     fn unsupported_native_handles_and_oversize_formats_abort_before_mutation() {
-        for format in [2, 3, 9, 14, 0x80, 0x200, 0x300] {
+        for format in [3, 14, 0x80, 0x200, 0x300] {
             assert!(BackupBudget::default().include(format, 12).is_err());
         }
         assert!(BackupBudget::default().include(13, 0).is_err());
@@ -794,9 +877,107 @@ mod tests {
         }
         assert!(count.include(13, 1).is_err());
         let mut bytes = BackupBudget::default();
-        bytes.include(13, MAX_FORMAT_BYTES).unwrap();
-        bytes.include(0xc001, MAX_FORMAT_BYTES).unwrap();
+        for _ in 0..MAX_BACKUP_BYTES / MAX_FORMAT_BYTES {
+            bytes.include(0xc001, MAX_FORMAT_BYTES).unwrap();
+        }
         assert!(bytes.include(0xc002, 1).is_err());
+    }
+
+    #[test]
+    fn four_k_image_preserves_bitmap_dib_dibv5_png_and_palette_with_bounded_budget() {
+        let mut budget = BackupBudget::default();
+        for format in [2, 8, 17] {
+            budget.include(format, 3840 * 2160 * 4 + 124).unwrap();
+        }
+        budget.include(9, 1026).unwrap();
+        budget.include(0xc001, 8 * 1024 * 1024).unwrap();
+        assert!(budget.bytes < MAX_BACKUP_BYTES);
+        assert!(BackupBudget::default()
+            .include(2, MAX_IMAGE_FORMAT_BYTES + 1)
+            .is_err());
+        assert!(FormatData::from_bytes(2, &[0; 4]).is_err());
+    }
+
+    #[test]
+    fn bitmap_measurement_rejects_invalid_dimensions() {
+        let bitmap = BITMAP {
+            bmWidth: 2,
+            bmHeight: 2,
+            bmWidthBytes: 8,
+            bmPlanes: 1,
+            bmBitsPixel: 32,
+            ..BITMAP::default()
+        };
+        assert_eq!(bitmap_size(&bitmap).unwrap(), 16);
+        assert!(bitmap_size(&BITMAP {
+            bmHeight: -1,
+            ..bitmap
+        })
+        .is_err());
+        assert!(bitmap_size(&BITMAP {
+            bmPlanes: 0,
+            ..bitmap
+        })
+        .is_err());
+        assert!(bitmap_size(&BITMAP {
+            bmWidthBytes: 0,
+            ..bitmap
+        })
+        .is_err());
+    }
+
+    // Native objects only: these regressions never open or alter the user's clipboard.
+    #[test]
+    fn bitmap_master_survives_multiple_duplicates_and_uses_gdi_destruction() {
+        use windows::Win32::Graphics::Gdi::CreateBitmap;
+        let bitmap = unsafe { CreateBitmap(2, 2, 1, 32, None) };
+        assert!(!bitmap.is_invalid());
+        let master = FormatData {
+            format: 2,
+            handle: HANDLE(bitmap.0),
+            kind: HandleKind::Bitmap,
+        };
+        let bytes = HandleKind::Bitmap.size(master.handle).unwrap();
+        assert_eq!(bytes, 16);
+        for _ in 0..3 {
+            let duplicate = master.duplicate().unwrap();
+            assert_ne!(duplicate.handle, master.handle);
+            assert_eq!(HandleKind::Bitmap.size(duplicate.handle).unwrap(), bytes);
+            let released = duplicate.handle;
+            drop(duplicate);
+            assert!(HandleKind::Bitmap.size(released).is_err());
+            assert_eq!(HandleKind::Bitmap.size(master.handle).unwrap(), bytes);
+        }
+        let released = master.handle;
+        drop(master);
+        assert!(HandleKind::Bitmap.size(released).is_err());
+    }
+
+    #[test]
+    fn palette_is_duplicated_as_gdi_object_and_remains_available_for_restore() {
+        use windows::Win32::Graphics::Gdi::{CreatePalette, LOGPALETTE};
+        let palette = LOGPALETTE {
+            palVersion: 0x300,
+            palNumEntries: 1,
+            ..LOGPALETTE::default()
+        };
+        let handle = unsafe { CreatePalette(&palette) };
+        assert!(!handle.is_invalid());
+        let master = FormatData {
+            format: 9,
+            handle: HANDLE(handle.0),
+            kind: HandleKind::Palette,
+        };
+        let bytes = HandleKind::Palette.size(master.handle).unwrap();
+        assert_eq!(bytes, 2 + std::mem::size_of::<PALETTEENTRY>());
+        let duplicate = master.duplicate().unwrap();
+        assert_ne!(duplicate.handle, master.handle);
+        assert_eq!(HandleKind::Palette.size(duplicate.handle).unwrap(), bytes);
+        drop(duplicate);
+        assert_eq!(HandleKind::Palette.size(master.handle).unwrap(), bytes);
+        let released = master.handle;
+        drop(master);
+        assert!(HandleKind::Palette.size(released).is_err());
     }
 
     #[test]
