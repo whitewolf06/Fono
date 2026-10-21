@@ -167,6 +167,48 @@ const historyEntry = (id) => ({
   device: null,
 });
 
+test("default context refresh never calls excluded wake IPC or publishes its startup errors", async () => {
+  invoke = async (name) => {
+    calls.push(name);
+    if (name === "get_settings") return structuredClone(rawDefaults);
+    if (
+      [
+        "list_stt_models",
+        "get_dictation_history",
+        "list_audio_devices",
+      ].includes(name)
+    )
+      return [];
+    if (name === "get_local_transcription_service_snapshot")
+      return service("local", false);
+    if (name === "get_stt_memory_status") return gpu("resident");
+    if (name === "get_acceleration_capabilities")
+      return { cuda: false, vulkan: false };
+    if (name === "get_recent_logs") return "";
+    throw new Error(`Excluded or unexpected IPC: ${name}`);
+  };
+  const target = state();
+  const context = createContext(target);
+  try {
+    await context.refresh();
+    assert.deepEqual(
+      calls.filter((name) => name.includes("wake")),
+      [],
+    );
+    assert.equal(target.error, "");
+    assert.equal(target.preferences.wakeEnabled, false);
+    for (const command of [
+      "list_stt_models",
+      "get_settings",
+      "list_audio_devices",
+      "get_recent_logs",
+    ])
+      assert.ok(calls.includes(command), `normal refresh keeps ${command}`);
+  } finally {
+    context.dispose();
+  }
+});
+
 test("a burst shares one in-flight read and waits for exactly one latest follow-up", async () => {
   const reads = [],
     applied = [];

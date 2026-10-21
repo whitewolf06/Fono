@@ -1,0 +1,90 @@
+{
+  "task": "FONO-142",
+  "plan_id": "W-01",
+  "date": "2026-10-21",
+  "version": "0.7.58",
+  "base": "c625f034d050a00758d1dd6dd5b5139be40ca077",
+  "original_implementation": "3a024c8",
+  "dependency": "FONO-88",
+  "change": "Gate full native-context refresh wake reads behind the disabled frontend feature",
+  "regression_before": {
+    "unexpected_commands": [
+      "get_wake_word_capabilities",
+      "get_wake_word_status"
+    ],
+    "log": "build/checks/fono142-startup-before.log"
+  },
+  "v3": {
+    "passed": 364,
+    "failed": 0,
+    "new_tests": 1,
+    "log": "build/checks/fono142-v3-tests.log"
+  },
+  "native": {
+    "passed": 631,
+    "failed": 0,
+    "ignored": 7,
+    "log": "build/checks/fono142-native-tests.log"
+  },
+  "audio": {
+    "passed": 44,
+    "failed": 0,
+    "ignored": 1,
+    "log": "build/checks/fono142-audio-tests.log"
+  },
+  "feature_ci_contracts": {
+    "passed": 11,
+    "failed": 0,
+    "log": "build/checks/fono142-feature-ci-tests.log"
+  },
+  "release_scripts": {
+    "passed": 48,
+    "failed": 0,
+    "owner_cache_tests_not_in_scope": 20,
+    "log": "build/checks/fono142-release-tests.log"
+  },
+  "freeze": {
+    "fono_wake_in_default_dependencies": false,
+    "wake_model_resource_patterns": 0,
+    "speech_vad_retained": true,
+    "production_js_files": 19,
+    "excluded_wake_commands": 15,
+    "command_leaks": 0,
+    "rust_availability": false,
+    "v3_availability": false,
+    "legacy_settings_preserved": true,
+    "artifact_audit": "build/checks/fono142-audit.json"
+  },
+  "checks_passed": [
+    "typecheck:v3",
+    "lint",
+    "production build",
+    "strict Clippy",
+    "format:check",
+    "version:check",
+    "docs:check",
+    "Rust fmt",
+    "git diff --check"
+  ],
+  "browser": {
+    "cases": 6,
+    "locales": ["ru", "en"],
+    "viewports": ["720x560", "900x720", "1440x900"],
+    "trigger_options": 6,
+    "wake_controls": 0,
+    "horizontal_overflows": 0,
+    "console_errors": 0,
+    "matrix": "build/checks/fono142-browser-matrix.json",
+    "native_runtime_verified_by_browser": false
+  },
+  "pending": [
+    "Owner Windows acceptance of startup and ordinary hold/toggle dictation"
+  ],
+  "future_separate_work": [
+    "FONO-143 standalone detector evaluation; WakeWord remains frozen"
+  ],
+  "microphone_used": false,
+  "installer_rebuilt": false,
+  "release_published": false,
+  "owner_accepted": false
+}

@@ -228,14 +228,20 @@ export function createNativeContext(
           ...(c.vulkan ? [{ value: "vulkan", label: "Vulkan" }] : []),
         ];
       }),
-      call<WakeWordCapabilities>("get_wake_word_capabilities").then((c) => {
-        if (!current()) return;
-        state.wakePhrases = c.supported_phrases;
-      }),
-      call<string>("get_wake_word_status").then((s) => {
-        if (!current()) return;
-        state.wakeStatus = s;
-      }),
+      ...(typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__
+        ? [
+            call<WakeWordCapabilities>("get_wake_word_capabilities").then(
+              (c) => {
+                if (!current()) return;
+                state.wakePhrases = c.supported_phrases;
+              },
+            ),
+            call<string>("get_wake_word_status").then((s) => {
+              if (!current()) return;
+              state.wakeStatus = s;
+            }),
+          ]
+        : []),
       call<string>("get_recent_logs", { lines: 80 }).then((log) => {
         if (!current()) return;
         state.logs = log.split("\n").reverse();
