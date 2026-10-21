@@ -21,7 +21,12 @@ const wait = (milliseconds: number) =>
 export function createDictationPort(
   state: WorkspaceState,
   delay: (milliseconds: number) => Promise<void> = wait,
-  clock = { setInterval, clearInterval },
+  clock = {
+    setInterval: (callback: () => void, milliseconds: number) =>
+      setInterval(callback, milliseconds),
+    clearInterval: (handle: ReturnType<typeof setInterval>) =>
+      clearInterval(handle),
+  },
 ): DictationPort & { dispose(): void } {
   let generation = 0;
   let snapshot = capturePreferences(state);

@@ -1,6 +1,6 @@
 {
   "task": "FONO-138",
-  "version": "0.7.53",
+  "version": "0.7.54",
   "date": "2026-10-21",
   "base": "38a0ad5d443160bf519c7898fed93032b55f5484",
   "native": {
@@ -29,7 +29,8 @@
     "version:check",
     "docs:check",
     "cargo fmt --all -- --check",
-    "cargo check --locked -p fono --lib --no-default-features"
+    "cargo check --locked -p fono --lib --no-default-features",
+    "cargo clippy --locked -p fono --lib --tests -- -D warnings"
   ],
   "replay": {
     "fixture": "src-tauri/tests/fixtures/audio/jfk-short-speech-16k-mono.wav",
@@ -47,10 +48,32 @@
     "sample_rate": 16000
   },
   "pending": [
-    "Повтор strict Clippy после удаления needless return: Codex approval review HTTP 403 до выполнения команды",
-    "Browser mock RU/EN 720x560, 900x720, 1440x900: origin gate Codex approval review HTTP 403",
-    "Приёмка владельцем: голос, hotkey/auto-stop race, Cancel/new session, overlay save, focus and insertion"
+    "Приёмка владельцем: настоящий голос, hotkey/auto-stop race, Cancel/new session, последний выбор overlay, фокус и однократная вставка"
   ],
   "release_published": false,
-  "owner_accepted": false
+  "owner_accepted": false,
+  "browser": {
+    "save_cancel_reload": true,
+    "combinations": 18,
+    "horizontal_overflows": 0,
+    "routes": [
+      "settings/activation",
+      "home",
+      "overlay"
+    ],
+    "locales": [
+      "ru",
+      "en"
+    ],
+    "matrix_log": "build/checks/fono138-browser-matrix.json",
+    "no_speech_after_ms": 2000,
+    "previous_text_unchanged": true,
+    "viewports": [
+      "720x560",
+      "900x720",
+      "1440x900"
+    ],
+    "browser_error_count": 0
+  },
+  "native_source_version": "0.7.53; v0.7.54 changes only browser mock timer binding and documentation"
 }
