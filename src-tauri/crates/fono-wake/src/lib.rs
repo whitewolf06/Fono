@@ -6,6 +6,8 @@
 // Compatibility paths share fono-audio's types and process-wide hub.
 pub use fono_audio::audio_source;
 pub mod backend;
+#[cfg(feature = "sherpa-wake")]
+pub mod bench;
 mod callback;
 pub mod config;
 mod config_validation;

@@ -23,3 +23,7 @@ sherpa-onnx = { version = "1.13", optional = true, default-features = false, fea
 [features]
 default = []
 sherpa-wake = ["dep:sherpa-onnx", "fono-audio/speech-vad"]
+
+[[example]]
+name = "wake_bench"
+required-features = ["sherpa-wake"]

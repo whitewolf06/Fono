@@ -1,0 +1,199 @@
+{
+  "schema": "fono-wake-bench@1",
+  "corpus": "fono-wake-engineering-smoke",
+  "lineage": {
+    "corpus_sha256": "7b894a400b2015c390cd99a2e81217ef435271279806b9fd1899f124c8f37317",
+    "binary_sha256": "5bc1e7343778d86dbda0f6a60a626d2906cb79bc2b83dd86e48f3571b0b7139d",
+    "runner_sha256": "2d845abbc6482172de75e3315c639e8983740e704a3495af4af40755b0717669",
+    "runtime": {
+      "onnxruntime.dll": "daa77083a45bf525da0dde9e87f85d8eb146f58f9c9aa7124ca84545e1c0f148",
+      "onnxruntime_providers_shared.dll": "190d10767c321f324d3785368a0b752d9c5a9e06cb5d4d97bb176f58bdb652f3",
+      "sherpa-onnx-c-api.dll": "3db688ca9e6408c958f45986adc68ed9158522e28c7567b7ffee9312a553c777",
+      "sherpa-onnx-cxx-api.dll": "3e8b308e9235a3e7398b2c89b43ebb7f813f216aade661b2f246d42656517777"
+    },
+    "models": {
+      "ru": {
+        "model.onnx": "5ded080e2a6c86ecc11bcb0902d77524eb3e8b0844cb0c0754347f5aafb4dabc",
+        "tokens.txt": "27f7b3ba2096c572375fba1a6b29af1f80d86e08a329940612908112695f97e0"
+      },
+      "en": {
+        "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "5022b2eca5b19d1bc104fcf33e26bc32604b7df553cd2e1f62e31dc7b05e9c87",
+        "decoder-epoch-99-avg-1-chunk-16-left-128.onnx": "85914f840b71110487ece7a30ebd0bd4b8fb5c2623215bba3aa5ab4c138fc591",
+        "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "abd5e30f3f16fc510605c6029dba33f10e4386bd75c5bdc30cf94076864db10d",
+        "tokens.txt": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+      }
+    },
+    "hardware": {
+      "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+      "machine": "AMD64",
+      "logical_cpus": 16,
+      "system": "Windows",
+      "release": "11"
+    },
+    "realtime": true
+  },
+  "run": {
+    "split": "test",
+    "mode": "realtime",
+    "smoke": true
+  },
+  "coverage": {
+    "real_positives": 0,
+    "real_negative_hours": 0.007633333333333333,
+    "missing": [
+      "100 real annotated phrase utterances",
+      "10 hours of real negatives",
+      "different real positive speakers",
+      "real ru/quiet positives",
+      "real ru/noisy positives",
+      "real en/quiet positives",
+      "real en/noisy positives"
+    ],
+    "eligible": false
+  },
+  "points": [
+    {
+      "point": {
+        "id": "baseline",
+        "stability_ms": 250,
+        "confirmations": 2,
+        "cooldown_ms": 2000
+      },
+      "metrics": {
+        "recall": {
+          "quiet": null,
+          "noisy": null
+        },
+        "negative_hours": 0.007633333333333333,
+        "false_activations": 0,
+        "false_activations_per_hour": 0.0,
+        "latency_p50_ms": null,
+        "latency_p95_ms": null,
+        "cpu_percent_one_core": {
+          "idle": 34.84121467358566,
+          "speech": 47.71347967091846
+        }
+      },
+      "criteria": {
+        "quiet_recall": "not_measured",
+        "noisy_recall": "not_measured",
+        "false_activations_per_hour": "passed",
+        "latency_p95_ms": "not_measured",
+        "idle_cpu_one_core_percent": "failed"
+      },
+      "entries": [
+        {
+          "id": "ru-01",
+          "sha256": "c41c4443d95c73c5d793043c4fee80ef84f7ce5b50af0d6ad7023856e91c0eed",
+          "language": "ru",
+          "condition": "quiet",
+          "origin": "real",
+          "activity": "speech",
+          "duration_ms": 16920.0,
+          "positives": 0,
+          "trace": {
+            "schema": 1,
+            "sample_rate": 16000,
+            "audio_samples": 270720,
+            "audio_duration_ms": 16920.0,
+            "model_load_ms": 1898.2177,
+            "replay_wall_ms": 20363.3976,
+            "process_cpu_ms": 6046.875,
+            "realtime": true,
+            "events": []
+          },
+          "matched": 0,
+          "false_events": 0,
+          "latency_ms": [],
+          "sample_clock_latency_ms": []
+        },
+        {
+          "id": "idle-ru",
+          "sha256": "190415015d40eef0cd797e1b59ffe00846b01873050b12d44b3a216de3faa2a9",
+          "language": "ru",
+          "condition": "quiet",
+          "origin": "synthetic",
+          "activity": "idle",
+          "duration_ms": 8000.0,
+          "positives": 0,
+          "trace": {
+            "schema": 1,
+            "sample_rate": 16000,
+            "audio_samples": 128000,
+            "audio_duration_ms": 8000.0,
+            "model_load_ms": 1920.2068,
+            "replay_wall_ms": 8133.7806,
+            "process_cpu_ms": 2625.0,
+            "realtime": true,
+            "events": []
+          },
+          "matched": 0,
+          "false_events": 0,
+          "latency_ms": [],
+          "sample_clock_latency_ms": []
+        },
+        {
+          "id": "en-01",
+          "sha256": "b438b60eb4e9fddbcaa303e27070c2458c3daac42f0b08d5d8622c47335d24f7",
+          "language": "en",
+          "condition": "quiet",
+          "origin": "real",
+          "activity": "speech",
+          "duration_ms": 10560.0,
+          "positives": 0,
+          "trace": {
+            "schema": 1,
+            "sample_rate": 16000,
+            "audio_samples": 168960,
+            "audio_duration_ms": 10560.0,
+            "model_load_ms": 4437.208,
+            "replay_wall_ms": 10615.793399999999,
+            "process_cpu_ms": 8734.375,
+            "realtime": true,
+            "events": []
+          },
+          "matched": 0,
+          "false_events": 0,
+          "latency_ms": [],
+          "sample_clock_latency_ms": []
+        },
+        {
+          "id": "idle-en",
+          "sha256": "db3d8c2a58e5766fe6f8b747624c859b5eb4c900e5b2e3c0a0480697182cd472",
+          "language": "en",
+          "condition": "quiet",
+          "origin": "synthetic",
+          "activity": "idle",
+          "duration_ms": 8020.0,
+          "positives": 0,
+          "trace": {
+            "schema": 1,
+            "sample_rate": 16000,
+            "audio_samples": 128320,
+            "audio_duration_ms": 8020.0,
+            "model_load_ms": 3505.3579,
+            "replay_wall_ms": 9132.0497,
+            "process_cpu_ms": 3390.625,
+            "realtime": true,
+            "events": []
+          },
+          "matched": 0,
+          "false_events": 0,
+          "latency_ms": [],
+          "sample_clock_latency_ms": []
+        }
+      ]
+    }
+  ],
+  "qualified": false,
+  "tradeoff": [
+    {
+      "point": "baseline",
+      "false_activations_per_hour": 0.0,
+      "miss_quiet": null,
+      "miss_noisy": null
+    }
+  ],
+  "curve_kind": "discrete ASR configuration sweep; no classifier probability score",
+  "quality_status": "insufficient_data"
+}

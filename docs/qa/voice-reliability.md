@@ -351,6 +351,11 @@ cargo build -p fono-wake --no-default-features --features sherpa-wake --example 
 не вычисляется. Нужны quiet/noisy positives и многочасовые negative recordings
 помимо фраз настройки.
 
+Для W-02 подготовлен [отдельный стенд](../../tools/wake-bench/README.md)
+с train/dev/test, SHA256, декларациями разрешений, paced delivery, CPU
+и замороженной test-точкой. [Инженерный результат](../improvement-fono143.md)
+сохраняет открытые критерии качества и не включает WakeWord в приложении.
+
 ## Личный словарь — FONO-132
 
 Автоматический результат и точный состав публичного сравнения:

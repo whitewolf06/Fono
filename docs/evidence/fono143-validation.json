@@ -1,0 +1,100 @@
+{
+  "task": "FONO-143",
+  "plan_id": "W-02",
+  "date": "2026-10-21",
+  "version": "0.7.59",
+  "base": "79a0bb6dbe70081271cf317968c528a5246819ec",
+  "dependency": "FONO-142",
+  "scope": "standalone research tooling and one bounded engineering baseline",
+  "python_contracts": {
+    "passed": 14,
+    "failed": 0,
+    "log": "build/checks/fono143-bench-tests.log"
+  },
+  "research_rust": {
+    "passed": 19,
+    "failed": 0,
+    "log": "build/checks/fono143-wake-tests.log"
+  },
+  "v3": {
+    "passed": 364,
+    "failed": 0,
+    "log": "build/checks/fono143-v3-tests.log"
+  },
+  "native": {
+    "passed": 631,
+    "failed": 0,
+    "ignored": 7,
+    "log": "build/checks/fono143-native-tests.log"
+  },
+  "audio": {
+    "passed": 44,
+    "failed": 0,
+    "ignored": 1,
+    "log": "build/checks/fono143-audio-tests.log"
+  },
+  "release_scripts": {
+    "passed": 48,
+    "failed": 0,
+    "owner_cache_tests_not_in_scope": 20,
+    "log": "build/checks/fono143-release-tests.log"
+  },
+  "workflow_contracts": {
+    "passed": 8,
+    "failed": 0,
+    "log": "build/checks/fono143-ci-contract-tests.log"
+  },
+  "checks_passed": [
+    "standalone example build",
+    "strict research Clippy",
+    "typecheck:v3",
+    "lint",
+    "production build",
+    "format:check",
+    "version:check",
+    "docs:check",
+    "Rust fmt",
+    "git diff --check"
+  ],
+  "baseline": {
+    "artifact": "docs/evidence/fono143-baseline-smoke.json",
+    "build_profile": "debug",
+    "operating_point": {
+      "stability_ms": 250,
+      "confirmations": 2,
+      "cooldown_ms": 2000
+    },
+    "real_negative_seconds": 27.48,
+    "real_positives": 0,
+    "false_activations": 0,
+    "synthetic_idle_seconds": 16.02,
+    "idle_cpu_percent_one_core": 34.84121467358566,
+    "speech_cpu_percent_one_core": 47.71347967091846,
+    "recall": null,
+    "latency_p50_ms": null,
+    "latency_p95_ms": null,
+    "quality_status": "insufficient_data",
+    "qualified": false,
+    "quality_acceptance": false
+  },
+  "original_targets": {
+    "quiet_recall_minimum": 0.95,
+    "noisy_recall_minimum": 0.9,
+    "false_activations_per_hour_maximum": 0.5,
+    "latency_p95_ms_maximum": 800,
+    "idle_cpu_percent_one_core_exclusive_maximum": 1
+  },
+  "default_app_wake_dependency": false,
+  "microphone_used": false,
+  "models_downloaded": false,
+  "native_user_app_controlled": false,
+  "release_published": false,
+  "owner_accepted": false,
+  "pending": [
+    "Consented/licensed real 100-300 positives and at least 10 hours of RU/EN negatives",
+    "Full dev sweep and frozen test run with release binary",
+    "Recall, latency and long idle/false activation qualification",
+    "Future classifier score sweep; current ASR exposes discrete configuration points"
+  ],
+  "downstream_quality_gates_open": ["FONO-144", "FONO-145"]
+}
