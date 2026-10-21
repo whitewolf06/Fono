@@ -36,6 +36,10 @@ const ticks = computed(() =>
 );
 const y = (value: number) => 128 - (value / scale.value.max) * 128;
 function description(day: TrainerDay): string {
+  if (props.metric === "tempo" || props.metric === "pauses") {
+    const column = columns.value.find((c) => c.day === day)!;
+    return `${dateLabel(day.date)}: ${column.known ? formatMetric(column.total) : uiMessage("speechTiming.unknown")} ${props.metric === "tempo" ? uiMessage("speechTiming.wpm") : "%"}`;
+  }
   return uiMessage("ui.0a75fafe7b", {
     v0: String(dateLabel(day.date).replace(/\.$/u, "")),
     v1: String(day.sessions),
@@ -73,6 +77,23 @@ function description(day: TrainerDay): string {
         />
         <g v-for="column in columns" :key="column.day.date">
           <rect
+            v-if="(metric === 'tempo' || metric === 'pauses') && column.known"
+            :x="column.offset * 10 - barWidth / 2"
+            :y="y(column.total)"
+            :width="barWidth"
+            :height="(column.total / scale.max) * 128"
+            class="daily-filler"
+          />
+          <text
+            v-if="!column.known"
+            :x="column.offset * 10"
+            y="120"
+            text-anchor="middle"
+            class="daily-unknown"
+          >
+            —
+          </text>
+          <rect
             v-for="segment in column.segments"
             :key="segment.key"
             :x="column.offset * 10 - barWidth / 2"
@@ -82,7 +103,7 @@ function description(day: TrainerDay): string {
             :class="'daily-' + segment.key"
           />
           <path
-            v-if="column.total === 0"
+            v-if="column.known && column.total === 0"
             :d="`M${column.offset * 10 - barWidth / 2} 127 H${column.offset * 10 + barWidth / 2}`"
             class="daily-zero"
             vector-effect="non-scaling-stroke"
@@ -124,6 +145,10 @@ function description(day: TrainerDay): string {
 </template>
 
 <style scoped>
+.daily-unknown {
+  fill: var(--fono-muted);
+  font-size: var(--fono-type-sm);
+}
 .daily-caption {
   margin: 0;
   color: var(--fono-muted);

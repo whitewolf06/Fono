@@ -35,6 +35,10 @@ pub(crate) fn source_fingerprint(entry: &DictationHistoryEntry) -> AppResult<Str
         entry.analysis_status,
         &entry.original_text,
         &entry.analysis,
+        entry
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.speech_timing),
     ))
 }
 

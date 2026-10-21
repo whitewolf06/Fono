@@ -8,7 +8,9 @@ pub mod audio_source;
 pub mod error;
 pub mod speech_boundaries;
 pub mod speech_segments;
+pub mod speech_timing;
 pub use speech_boundaries::{recorded_speech_bounds, RecordedSpeechDecision, SpeechBounds};
+pub use speech_timing::SpeechTimingSamples;
 #[cfg(feature = "speech-vad")]
 pub mod speech_vad;
 

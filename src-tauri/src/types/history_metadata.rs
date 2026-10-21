@@ -1,4 +1,4 @@
-//! Actual recognition facts for each saved session, independent of analytics.
+//! Actual session facts, plus a separately removable opt-in VAD summary.
 use super::{
     AccelerationMode, AiMode, DictationMode, ProcessingWorkflow, Settings, TextPreset, Transcript,
     TranslationLanguage,
@@ -26,6 +26,9 @@ impl DictationBackend {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DictationHistoryMetadata {
     pub schema_version: u16,
+    /// Opt-in VAD aggregate, unlike the independent technical session facts below.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speech_timing: Option<super::SpeechTimingSummary>,
     #[serde(default)]
     pub recording_duration_ms: Option<u64>,
     /// Stop until final text is generated, before inserting/saving the result.
@@ -64,6 +67,7 @@ pub struct DictationHistoryMetadata {
 
 #[derive(Debug, Clone, Default)]
 pub struct DictationTimingMeasurements {
+    pub speech_timing: Option<super::SpeechTimingSummary>,
     pub recording_duration_ms: Option<u64>,
     pub generation_duration_ms: Option<u64>,
     pub model_load_duration_ms: Option<u64>,
@@ -91,6 +95,10 @@ impl DictationHistoryMetadata {
         });
         Self {
             schema_version: 1,
+            speech_timing: (settings.analytics_enabled && settings.speech_trainer_enabled)
+                .then_some(timings.speech_timing)
+                .flatten()
+                .filter(|value| value.valid()),
             recording_duration_ms: timings
                 .recording_duration_ms
                 .or_else(|| seconds_to_ms(transcript.audio_secs)),
@@ -197,6 +205,7 @@ mod tests {
                 generation_duration_ms: Some(2400),
                 model_load_duration_ms: Some(900),
                 processing_duration_ms: Some(250),
+                speech_timing: None,
             },
         );
         assert_eq!(metadata.recording_duration_ms, Some(10_000));

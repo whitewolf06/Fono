@@ -214,8 +214,13 @@ impl HistoryRepository {
         let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
             return Ok(false);
         };
+        let timing_removed = !included
+            && entry
+                .metadata
+                .as_mut()
+                .is_some_and(|metadata| metadata.speech_timing.take().is_some());
         if entry.analytics_included == included {
-            if !included && self.has_pending_privacy() {
+            if !included && (timing_removed || self.has_pending_privacy()) {
                 self.persist_entries(&mut store, &entries, true)?;
             }
             return Ok(true);

@@ -307,6 +307,7 @@ mod tests {
 
     fn snapshot() -> TrainerSnapshot {
         TrainerSnapshot {
+            speech_timing: None,
             fingerprint: "source-fingerprint".into(),
             rules_version: "speech-patterns-1".into(),
             days: 7,
@@ -339,6 +340,7 @@ mod tests {
                 }],
             }],
             daily: vec![TrainerDay {
+                speech_timing: None,
                 date: "2026-10-12".into(),
                 sessions: 3,
                 words: 100,
@@ -590,6 +592,7 @@ mod tests {
             unfinished: u32::MAX,
         };
         let day = TrainerDay {
+            speech_timing: None,
             date: "2026-10-12".into(),
             sessions: u32::MAX,
             words: u32::MAX,

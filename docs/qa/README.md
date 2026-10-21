@@ -7,6 +7,7 @@
 | [Профили приложений](application-profiles.md)                   | VS Code/терминал, приоритет выбора, смена цели и сохранение правил          |
 | [Диктовка](dictation-controls.md)                               | Hold/toggle, отмена, принятие результата, история и внешнее поле            |
 | [Автостоп toggle](toggle-auto-stop.md)                          | Тишина 2–10 с, сброс по речи, общий Stop, NoSpeech и отмена                 |
+| [Темп речи и паузы](trainer-speech-timing.md)                   | VAD-сводка, чистое время речи, 30/90 дней, неизвестные значения и opt-out   |
 | [Индикатор и промпты](overlay-prompts.md)                       | Фокус, быстрый выбор, сохранение настроек и тест инструкции                 |
 | [Язык распознавания в overlay](overlay-recognition-language.md) | RU/EN/Авто, capability модели, Stop, rollback и длинная запись              |
 | [Язык интерфейса](interface-language.md)                        | Системная локаль, ручной RU/EN, tray, overlay, данные и инструкции          |

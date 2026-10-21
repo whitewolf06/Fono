@@ -23,6 +23,18 @@ export function historyMetadataFromNative(
   const m = entry.metadata;
   if (m)
     return {
+      speechTiming:
+        entry.analytics_included !== false &&
+        entry.original_text &&
+        m.speech_timing
+          ? {
+              schemaVersion: m.speech_timing.schema_version,
+              speechTimeMs: m.speech_timing.speech_time_ms,
+              pauseCount: m.speech_timing.pause_count,
+              pauseTimeMs: m.speech_timing.pause_time_ms,
+              maxPauseMs: m.speech_timing.max_pause_ms,
+            }
+          : undefined,
       recordingDurationMs: m.recording_duration_ms,
       generationDurationMs: m.generation_duration_ms,
       recognitionDurationMs: m.recognition_duration_ms,

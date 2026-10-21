@@ -477,6 +477,13 @@ export interface DictationHistoryEntry {
 }
 
 export interface DictationHistoryMetadata {
+  speech_timing?: {
+    schema_version: number;
+    speech_time_ms: number;
+    pause_count: number;
+    pause_time_ms: number;
+    max_pause_ms: number;
+  } | null;
   recognizer?: SttEngine | null;
   schema_version: number;
   recording_duration_ms: number | null;

@@ -1,0 +1,91 @@
+{
+  "task": "FONO-139",
+  "date": "2026-10-21",
+  "version": "0.7.55",
+  "base": "f682862",
+  "dependency": {
+    "implementation": "SQLite, retention, full periods without 200-entry cap",
+    "status": "in_review",
+    "task": "FONO-78",
+    "plan_id": "PERF-03"
+  },
+  "native": {
+    "ignored": 7,
+    "log": "build/checks/fono139-native-tests.log",
+    "passed": 624,
+    "failed": 0
+  },
+  "audio": {
+    "ignored": 1,
+    "log": "build/checks/fono139-audio-tests.log",
+    "passed": 42,
+    "failed": 0
+  },
+  "v3": {
+    "new_tests": 5,
+    "log": "build/checks/fono139-v3-tests.log",
+    "passed": 354,
+    "failed": 0
+  },
+  "release_scripts": {
+    "owner_cache_tests_not_in_scope": 20,
+    "log": "build/checks/fono139-release-tests.log",
+    "passed": 48,
+    "failed": 0
+  },
+  "passed": [
+    "strict Clippy",
+    "minimal/CPU compilation",
+    "typecheck:v3",
+    "lint",
+    "build",
+    "format:check",
+    "version:check",
+    "docs:check",
+    "Rust fmt"
+  ],
+  "native_followup": "Equivalent is_none_or call replaced by map_or(true, ...) for MSRV 1.75; strict Clippy and minimal compilation repeated successfully",
+  "browser": {
+    "locales": [
+      "ru",
+      "en"
+    ],
+    "matrix": "build/checks/fono139-browser-matrix.json",
+    "combinations": 36,
+    "errors": 0,
+    "incorrect_day_counts": 0,
+    "horizontal_overflows": 0,
+    "viewports": [
+      "720x560",
+      "900x720",
+      "1440x900"
+    ],
+    "metrics": [
+      "tempo",
+      "pauses"
+    ],
+    "periods": [
+      7,
+      30,
+      90
+    ]
+  },
+  "replay": {
+    "fixture": "src-tauri/tests/fixtures/audio/jfk-short-speech-16k-mono.wav",
+    "microphone_used": false,
+    "sha256": "ffb0cbd110ca0c0a33f1e3f556854678303bf5fcf9ea75e72de2298fb1456171",
+    "stt_run": false,
+    "scenario": "Two public speech fragments separated by 3 seconds of silence; one internal pause, bounded sample totals, cancellation"
+  },
+  "timing_definition": {
+    "pace": "Matched original words / matched speech time",
+    "pauses": "Gaps between confirmed segments; outer silence excluded",
+    "speech": "Union of confirmed VAD segments",
+    "unknown": "No fallback from total recording duration or legacy entries"
+  },
+  "pending": [
+    "Owner Windows acceptance: real speech and pauses, restart persistence, exclusion/deletion/analytics opt-out in desktop runtime"
+  ],
+  "release_published": false,
+  "owner_accepted": false
+}

@@ -24,6 +24,7 @@ mod tests {
             first_speech_sample: Some(40_000),
             last_speech_sample: Some(40_500),
             inspected_samples: samples.len() as u64,
+            timing: None,
         };
         let (trimmed, result) = prepare_recording_with_result(&samples, &decision);
         assert!(result.has_speech);

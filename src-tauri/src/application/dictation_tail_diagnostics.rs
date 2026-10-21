@@ -347,6 +347,7 @@ mod tests {
             first_speech_sample: Some(4_800),
             last_speech_sample: Some(8_000),
             inspected_samples: 16_000,
+            timing: None,
         };
         let bounds = fono_audio::recorded_speech_bounds(16_000, &decision);
         diagnostic.record_capture(16_000);

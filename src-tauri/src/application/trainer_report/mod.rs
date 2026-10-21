@@ -3,6 +3,9 @@
 pub mod model;
 #[cfg(test)]
 mod tests;
+pub mod timing;
+#[cfg(test)]
+mod timing_tests;
 
 pub use model::*;
 
@@ -20,7 +23,7 @@ use crate::{
     types::{DictationAnalysisStatus, DictationHistoryEntry, Settings, SpeechFindingKind},
 };
 
-pub const RULES_VERSION: &str = "speech-patterns-2";
+pub const RULES_VERSION: &str = "speech-patterns-3";
 const CACHE_SCHEMA_VERSION: u16 = 1;
 const MAX_EXAMPLES: usize = 3;
 const MAX_FRAGMENT_CHARS: usize = 120;
@@ -226,9 +229,17 @@ fn sanitize_cache(cache: &mut TrainerCache) {
     cache.privacy_generation = cache.privacy_generation.saturating_add(1);
     for saved in &mut cache.periods {
         saved.snapshot.terms.clear();
+        clear_speech_timing(&mut saved.snapshot);
         saved.snapshot.session_ids.clear();
         saved.ai_summary = None;
         saved.privacy_invalidated = true;
+    }
+}
+
+fn clear_speech_timing(snapshot: &mut TrainerSnapshot) {
+    snapshot.speech_timing = None;
+    for day in &mut snapshot.daily {
+        day.speech_timing = None;
     }
 }
 
@@ -281,6 +292,7 @@ fn get_from_cache(
     let mut snapshot = saved.snapshot.clone();
     // Never return a fragment/ID from an older source set, even before an explicit refresh.
     if stale {
+        clear_speech_timing(&mut snapshot);
         snapshot.terms.clear();
         snapshot.session_ids.clear();
     }
@@ -406,6 +418,7 @@ fn build_snapshot(
     fingerprint: String,
 ) -> TrainerSnapshot {
     let mut report = TrainerSnapshot {
+        speech_timing: Some(timing::TrainerSpeechTiming::default()),
         fingerprint,
         rules_version: RULES_VERSION.into(),
         days: period.days,
@@ -422,6 +435,7 @@ fn build_snapshot(
         terms: Vec::new(),
         daily: (0..period.days)
             .map(|index| TrainerDay {
+                speech_timing: Some(timing::TrainerSpeechTiming::default()),
                 date: (period.from + Duration::days(i64::from(index)))
                     .date_naive()
                     .to_string(),
@@ -476,6 +490,11 @@ fn build_snapshot(
         let analysis =
             crate::speech_metrics::analyze_russian_speech(entry.original_text.as_deref().unwrap());
         let session_counts = counts(&analysis);
+        report
+            .speech_timing
+            .as_mut()
+            .unwrap()
+            .add(entry, analysis.word_count);
         report.included_sessions += 1;
         report.total_words += analysis.word_count;
         report.counts.add(&session_counts);
@@ -486,6 +505,10 @@ fn build_snapshot(
             .signed_duration_since(period.from.date_naive())
             .num_days() as usize;
         let day = &mut report.daily[day_index];
+        day.speech_timing
+            .as_mut()
+            .unwrap()
+            .add(entry, analysis.word_count);
         day.sessions += 1;
         day.words += analysis.word_count;
         day.counts.add(&session_counts);

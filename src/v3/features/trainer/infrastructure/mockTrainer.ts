@@ -4,6 +4,7 @@ import type {
   WorkspaceState,
 } from "../../../shared/domain/contracts";
 import { observeTrainerDay } from "./dayChange";
+import { withoutSpeechTiming } from "../domain/speechTiming";
 import { buildMockAiContext } from "./mockAiContext";
 import {
   buildTrainerSnapshot,
@@ -79,7 +80,7 @@ export function createMockTrainer(
     privacyGeneration++;
     for (const [days, snapshot] of snapshots)
       snapshots.set(days, {
-        ...snapshot,
+        ...withoutSpeechTiming(snapshot),
         terms: [],
         sessionIds: [],
       });
@@ -92,6 +93,17 @@ export function createMockTrainer(
     if (![7, 30, 90].includes(days))
       throw new Error(uiMessage("ui.a1d43e94aa"));
     const time = now();
+    for (const entry of state.history) {
+      if (
+        entry.metadata &&
+        (entry.analyticsIncluded === false ||
+          !state.preferences.analyticsConsent ||
+          !state.preferences.trainerEnabled ||
+          Date.parse(entry.createdAt) <
+            time - state.preferences.retentionDays * 86400000)
+      )
+        delete entry.metadata.speechTiming;
+    }
     const privacy = privacySettings();
     if (privacy !== privacySignature) {
       invalidate();
@@ -154,7 +166,9 @@ export function createMockTrainer(
       reason = uiMessage("ui.77321a8334");
     return JSON.parse(
       JSON.stringify({
-        snapshot: stale ? { ...snapshot, terms: [], sessionIds: [] } : snapshot,
+        snapshot: stale
+          ? { ...withoutSpeechTiming(snapshot), terms: [], sessionIds: [] }
+          : snapshot,
         currentFingerprint,
         stale,
         aiConfiguration: config,

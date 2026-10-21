@@ -1,5 +1,6 @@
 export type DictationBackend = "cpu" | "cuda" | "vulkan";
 export interface DictationMetadata {
+  speechTiming?: SpeechTimingSummary | null;
   recognizer?: import("./speechModels").SpeechEngine | null;
   recordingDurationMs?: number | null;
   generationDurationMs?: number | null;
@@ -19,4 +20,12 @@ export interface DictationMetadata {
   dictionaryEnabled?: boolean;
   demo?: boolean;
   legacy?: boolean;
+}
+
+export interface SpeechTimingSummary {
+  schemaVersion: number;
+  speechTimeMs: number;
+  pauseCount: number;
+  pauseTimeMs: number;
+  maxPauseMs: number;
 }

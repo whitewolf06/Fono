@@ -27,6 +27,7 @@ pub struct DictationHistoryEntry {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub device: Option<String>,
     /// Content-free session facts survive independently of opt-in trainer data.
+    /// The optional speech_timing field follows analytics consent and is erased separately.
     /// Older archives have no measurements and remain readable.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<DictationHistoryMetadata>,
@@ -131,6 +132,10 @@ pub enum DictationAnalysisStatus {
 
 impl DictationHistoryEntry {
     pub fn clear_analytics_data(&mut self, status: DictationAnalysisStatus) -> bool {
+        let removed_speech_timing = self
+            .metadata
+            .as_mut()
+            .is_some_and(|metadata| metadata.speech_timing.take().is_some());
         let removed_original_text = self.original_text.take().is_some();
         let removed_processing_metadata = self.processing.take().is_some();
         let removed_analysis = self.analysis.take().is_some();
@@ -138,6 +143,7 @@ impl DictationHistoryEntry {
         let removed_recommendation = self.recommendation.take().is_some();
         let removed_recommendation_error = self.recommendation_error.take().is_some();
         let mut changed = removed_original_text
+            || removed_speech_timing
             || removed_processing_metadata
             || removed_analysis
             || removed_analysis_error

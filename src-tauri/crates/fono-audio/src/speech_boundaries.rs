@@ -2,6 +2,7 @@
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RecordedSpeechDecision {
+    pub timing: Option<crate::SpeechTimingSamples>,
     pub has_speech: bool,
     pub first_speech_sample: Option<u64>,
     pub last_speech_sample: Option<u64>,
@@ -64,6 +65,7 @@ mod tests {
             first_speech_sample: Some(40_000),
             last_speech_sample: Some(40_500),
             inspected_samples: 60_000,
+            timing: None,
         };
         let bounds = recorded_speech_bounds(60_000, &decision);
         assert_eq!(bounds.start_sample, 0);
@@ -81,12 +83,14 @@ mod tests {
                 first_speech_sample: Some(5_000),
                 last_speech_sample: Some(4_000),
                 inspected_samples: 10_000,
+                timing: None,
             },
             RecordedSpeechDecision {
                 has_speech: true,
                 first_speech_sample: Some(5_000),
                 last_speech_sample: Some(8_000),
                 inspected_samples: 8_000,
+                timing: None,
             },
         ] {
             let bounds = recorded_speech_bounds(10_000, &decision);

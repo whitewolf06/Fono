@@ -92,6 +92,9 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
     if (error) throw new Error(error);
     persistPreferences(next);
     Object.assign(state.preferences, clonePreferences(next));
+    if (!next.analyticsConsent || !next.trainerEnabled)
+      for (const entry of state.history)
+        if (entry.metadata) delete entry.metadata.speechTiming;
     if (phraseChanged && state.wakeSetup) {
       state.wakeSetup.profileReady = false;
       state.wakeSetup.verified = false;

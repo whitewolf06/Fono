@@ -128,6 +128,8 @@ fn measurements() -> &'static Mutex<ReportMeasurements> {
 /// recent completed flow in memory, never in settings, history or log files.
 pub struct ReportTrace {
     started: Instant,
+    // Per-operation analytics data never enters the diagnostic measurement store.
+    speech_timing: Mutex<Option<crate::types::SpeechTimingSummary>>,
     data: Arc<Mutex<DictationMeasurement>>,
 }
 impl ReportTrace {
@@ -135,6 +137,7 @@ impl ReportTrace {
         measurements().lock().started(operation);
         Self {
             started: Instant::now(),
+            speech_timing: Mutex::new(None),
             data: Arc::new(Mutex::new(DictationMeasurement {
                 operation,
                 source,
@@ -160,6 +163,9 @@ impl ReportTrace {
     pub fn captured(&self, samples: usize) {
         self.data.lock().audio_ms = Some((samples as u64).saturating_mul(1000) / 16_000);
     }
+    pub fn speech_timing(&self, value: Option<crate::types::SpeechTimingSummary>) {
+        *self.speech_timing.lock() = value;
+    }
     pub fn capture_dropped_packets(&self, packets: Option<u64>) {
         self.data.lock().capture_dropped_packets = packets;
     }
@@ -180,6 +186,7 @@ impl ReportTrace {
     pub fn history_timings(&self) -> crate::types::DictationTimingMeasurements {
         let data = self.data.lock();
         crate::types::DictationTimingMeasurements {
+            speech_timing: *self.speech_timing.lock(),
             recording_duration_ms: data.audio_ms,
             generation_duration_ms: Some(duration_ms(self.started.elapsed())),
             model_load_duration_ms: data.model_load_ms,

@@ -24,7 +24,13 @@ const selectedIndex = computed(() => {
 });
 const selected = computed(() => columns.value[selectedIndex.value]);
 function setMetric(value: string | null) {
-  if (value === "count" || value === "density") metric.value = value;
+  if (
+    value === "count" ||
+    value === "density" ||
+    value === "tempo" ||
+    value === "pauses"
+  )
+    metric.value = value;
 }
 function selectDate(value: unknown) {
   if (typeof value === "string") selectedDate.value = value;
@@ -40,7 +46,13 @@ import DailyChartBreakdown from "./DailyChartBreakdown.vue";
       <div class="daily-heading">
         <h3>{{ $t("ui.e91607dca5") }}</h3>
         <p class="daily-caption">
-          {{ metric === "density" ? $t("ui.b96b1739e1") : $t("ui.817996b539") }}
+          {{
+            metric === "tempo" || metric === "pauses"
+              ? $t("speechTiming.chartHint")
+              : metric === "density"
+                ? $t("ui.b96b1739e1")
+                : $t("ui.817996b539")
+          }}
         </p>
       </div>
       <WlSegmented

@@ -216,6 +216,7 @@ export function createMockWorkspace(): Workspace {
         const entry = state.history.find((item) => item.id === id);
         if (!entry) throw new Error(uiMessage("ui.a0a69d42bc"));
         entry.analyticsIncluded = included;
+        if (!included && entry.metadata) delete entry.metadata.speechTiming;
         trainer.invalidate();
       },
       remove(id) {

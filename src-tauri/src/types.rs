@@ -9,6 +9,8 @@ pub use crate::application::dictation::workflow::{
 mod wake_compat;
 pub use wake_compat::{WakeWordBackend, WakeWordStatus};
 mod history_metadata;
+mod speech_timing;
+pub use speech_timing::SpeechTimingSummary;
 mod processing_prompts;
 mod wake_availability;
 pub use history_metadata::{

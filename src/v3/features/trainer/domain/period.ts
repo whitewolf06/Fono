@@ -1,5 +1,6 @@
 import type { Dictation, Preferences } from "../../../shared/domain/contracts";
 import { transcriptWords } from "./analysis";
+import { addSpeechTiming, emptySpeechTiming } from "./speechTiming";
 import type {
   TrainerCounts,
   TrainerFindingKind,
@@ -8,7 +9,7 @@ import type {
   TrainerTerm,
 } from "./report";
 
-export const TRAINER_RULES_VERSION = "speech-patterns-1";
+export const TRAINER_RULES_VERSION = "speech-patterns-3";
 const DAY = 86_400_000;
 const fillers = new Set([
   "ну",
@@ -80,6 +81,7 @@ export function trainerFingerprint(
       entry.analyticsIncluded !== false,
       entry.analysisReady !== false,
       entry.original ?? null,
+      entry.metadata?.speechTiming ?? null,
       Date.parse(entry.createdAt) >= now - preferences.retentionDays * DAY,
     ]),
   ]);
@@ -93,6 +95,7 @@ export function buildTrainerSnapshot(
 ): TrainerSnapshot {
   const range = trainerRange(days, now);
   const report: TrainerSnapshot = {
+    speechTiming: emptySpeechTiming(),
     fingerprint: trainerFingerprint(entries, preferences, days, now),
     rulesVersion: TRAINER_RULES_VERSION,
     days,
@@ -118,6 +121,7 @@ export function buildTrainerSnapshot(
         .map((time) => new Date(time).toISOString())[0] ?? null,
     retentionDays: preferences.retentionDays,
     daily: Array.from({ length: days }, (_, index) => ({
+      speechTiming: emptySpeechTiming(),
       date: new Date(range.from + index * DAY).toISOString().slice(0, 10),
       sessions: 0,
       words: 0,
@@ -158,6 +162,8 @@ export function buildTrainerSnapshot(
     day.sessions++;
     day.words += words.length;
     report.totalWords += words.length;
+    addSpeechTiming(report.speechTiming!, entry, words.length);
+    addSpeechTiming(day.speechTiming!, entry, words.length);
     const add = (
       kind: TrainerFindingKind,
       label: string,

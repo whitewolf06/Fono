@@ -19,6 +19,51 @@ fn generated_ids_do_not_collide_within_a_process() {
 }
 
 #[test]
+fn vad_summary_is_erased_durably_on_exclusion_and_analytics_opt_out() {
+    let directory = TestDirectory::new();
+    let repository = directory.repository();
+    let settings = crate::types::Settings {
+        analytics_enabled: true,
+        ..Default::default()
+    };
+    repository.maintain(&settings).unwrap();
+    let mut entry = entry_with_analytics(Utc::now());
+    entry.metadata = Some(crate::types::DictationHistoryMetadata::from_result(
+        &settings,
+        &serde_json::from_value(serde_json::json!({"text":"x"})).unwrap(),
+        crate::types::DictationTimingMeasurements {
+            speech_timing: Some(crate::types::SpeechTimingSummary {
+                schema_version: 1,
+                speech_time_ms: 1000,
+                pause_count: 1,
+                pause_time_ms: 500,
+                max_pause_ms: 500,
+            }),
+            ..Default::default()
+        },
+    ));
+    repository.append(entry.clone(), true, 30).unwrap();
+    repository.set_analytics_included("entry", false).unwrap();
+    assert!(directory.repository().list(true, 30).unwrap()[0]
+        .metadata
+        .as_ref()
+        .unwrap()
+        .speech_timing
+        .is_none());
+    repository
+        .apply_analytics_privacy_policy(false, 30)
+        .unwrap();
+    entry.id = "late-append".into();
+    repository.append(entry, true, 30).unwrap();
+    assert!(directory
+        .repository()
+        .list(true, 30)
+        .unwrap()
+        .iter()
+        .all(|entry| entry.metadata.as_ref().unwrap().speech_timing.is_none()));
+}
+
+#[test]
 fn disabled_analytics_removes_original_text_and_metadata() {
     let mut entries = vec![entry_with_analytics(Utc::now())];
 

@@ -19,6 +19,7 @@ export interface TrainerTerm {
   examples: { sessionId: string; fragment: string }[];
 }
 export interface TrainerDay {
+  speechTiming?: TrainerSpeechTiming | null;
   date: string;
   sessions: number;
   words: number;
@@ -26,6 +27,7 @@ export interface TrainerDay {
   density: number;
 }
 export interface TrainerSnapshot {
+  speechTiming?: TrainerSpeechTiming | null;
   fingerprint: string;
   rulesVersion: string;
   days: TrainerPeriod;
@@ -46,6 +48,15 @@ export interface TrainerSnapshot {
   historyLimit: number | null;
   coverageStart: string | null;
   retentionDays: number;
+}
+export interface TrainerSpeechTiming {
+  measuredSessions: number;
+  unknownSessions: number;
+  words: number;
+  speechTimeMs: number;
+  pauseCount: number;
+  pauseTimeMs: number;
+  maxPauseMs: number;
 }
 export interface TrainerAiSummary {
   fingerprint: string;

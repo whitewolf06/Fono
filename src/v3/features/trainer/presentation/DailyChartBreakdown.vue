@@ -5,6 +5,7 @@ import { message as $t } from "../../../shared/domain/messages";
 import { computed } from "vue";
 import { WlField, WlSelect } from "@whitelife-core/ui-kit";
 import type { TrainerDay } from "../domain/report";
+import SpeechTimingMetrics from "./SpeechTimingMetrics.vue";
 import { formatMetric, type ChartMetric } from "../application/overview";
 import { dailyChartColumns } from "../application/chart";
 import { reportDate as dateLabel } from "../application/reportFormat";
@@ -56,14 +57,32 @@ function selectDate(value: unknown) {
         <div>
           <dt>
             {{
-              metric === "density" ? $t("ui.f6da67615a") : $t("ui.5a83465bc1")
+              metric === "tempo"
+                ? $t("speechTiming.rate")
+                : metric === "pauses"
+                  ? $t("speechTiming.share")
+                  : metric === "density"
+                    ? $t("ui.f6da67615a")
+                    : $t("ui.5a83465bc1")
             }}
           </dt>
-          <dd>{{ formatMetric(selected.total) }}</dd>
+          <dd>
+            {{
+              selected.known
+                ? formatMetric(selected.total)
+                : $t("speechTiming.unknown")
+            }}
+          </dd>
         </div>
       </dl>
     </div>
-    <dl class="daily-legend" :aria-label="$t('ui.3cd5cbd5e1')">
+    <SpeechTimingMetrics
+      v-if="metric === 'tempo' || metric === 'pauses'"
+      :timing="selected.day.speechTiming"
+      :sessions="selected.day.sessions"
+      compact
+    />
+    <dl v-else class="daily-legend" :aria-label="$t('ui.3cd5cbd5e1')">
       <div v-for="segment in selected.segments" :key="segment.key">
         <dt>
           <i :class="'daily-' + segment.key" aria-hidden="true" />
@@ -76,7 +95,11 @@ function selectDate(value: unknown) {
       {{ $t("ui.2e34c2db71") }}
     </p>
     <p
-      v-else-if="selected.segments.every((segment) => segment.count === 0)"
+      v-else-if="
+        metric !== 'tempo' &&
+        metric !== 'pauses' &&
+        selected.segments.every((segment) => segment.count === 0)
+      "
       class="muted daily-caption"
     >
       {{ $t("ui.e9d58005e9") }}

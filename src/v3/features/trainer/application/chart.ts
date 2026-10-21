@@ -2,6 +2,7 @@ import { message as uiMessage } from "../../../shared/domain/messages";
 import type { TrainerDay } from "../domain/report";
 import type { ChartMetric } from "./overview";
 import { findingTitles } from "../domain/analysis";
+import { speechTimingMetrics } from "../domain/speechTiming";
 
 export const chartCategories = [
   { key: "filler", title: findingTitles[0] },
@@ -11,6 +12,18 @@ export const chartCategories = [
 ] as const;
 
 export const chartMetricOptions = [
+  {
+    get label() {
+      return uiMessage("speechTiming.rate");
+    },
+    value: "tempo",
+  },
+  {
+    get label() {
+      return uiMessage("speechTiming.share");
+    },
+    value: "pauses",
+  },
   {
     get label() {
       return uiMessage("ui.737f7561bd");
@@ -41,6 +54,18 @@ export function chartColumnOffset(index: number, length: number): number {
 
 export function dailyChartColumns(daily: TrainerDay[], metric: ChartMetric) {
   return daily.map((day, index) => {
+    if (metric === "tempo" || metric === "pauses") {
+      const timing = speechTimingMetrics(day.speechTiming);
+      const value =
+        metric === "tempo" ? timing.wordsPerMinute : timing.pausePercent;
+      return {
+        day,
+        segments: [],
+        known: value != null,
+        total: value ?? 0,
+        offset: chartColumnOffset(index, daily.length),
+      };
+    }
     let total = 0;
     const segments = chartCategories.map((category) => {
       const count = day.counts[category.key];
@@ -56,6 +81,7 @@ export function dailyChartColumns(daily: TrainerDay[], metric: ChartMetric) {
     });
     return {
       day,
+      known: true,
       segments,
       total,
       offset: chartColumnOffset(index, daily.length),

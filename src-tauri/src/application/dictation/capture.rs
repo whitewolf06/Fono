@@ -374,6 +374,13 @@ pub(super) fn finish_samples(
         return Ok(CapturedSamples::Finished(session.interrupted()));
     }
     let captured_samples = samples.len();
+    if session.settings.analytics_enabled && session.settings.speech_trainer_enabled {
+        report.speech_timing(
+            speech
+                .timing
+                .and_then(crate::types::SpeechTimingSummary::from_samples),
+        );
+    }
     // Preserve the complete onset and tail after measured trimming regressions.
     // Wake handoff continues to keep its exact original buffer.
     let (trimmed, vad) = crate::vad::prepare_recording_with_result(&samples, &speech);

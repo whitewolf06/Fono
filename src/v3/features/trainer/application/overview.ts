@@ -4,7 +4,7 @@ import type { Dictation } from "../../../shared/domain/contracts";
 import { analyze, transcriptWords } from "../domain/analysis";
 
 export type TrainerSort = "date" | "duration" | "length";
-export type ChartMetric = "count" | "density";
+export type ChartMetric = "count" | "density" | "tempo" | "pauses";
 
 export function recordingDuration(entry: Dictation): number | undefined {
   const measured = entry.metadata?.recordingDurationMs;

@@ -47,6 +47,8 @@ pub struct TrainerTerm {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrainerDay {
+    #[serde(default)]
+    pub speech_timing: Option<super::timing::TrainerSpeechTiming>,
     pub date: String,
     pub sessions: u32,
     pub words: u32,
@@ -57,6 +59,8 @@ pub struct TrainerDay {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrainerSnapshot {
+    #[serde(default)]
+    pub speech_timing: Option<super::timing::TrainerSpeechTiming>,
     pub fingerprint: String,
     pub rules_version: String,
     pub days: u32,

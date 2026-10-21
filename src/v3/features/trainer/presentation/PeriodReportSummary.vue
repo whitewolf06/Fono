@@ -12,6 +12,7 @@ import {
   WlStatCard,
 } from "@whitelife-core/ui-kit";
 import type { TrainerReport } from "../domain/report";
+import SpeechTimingMetrics from "./SpeechTimingMetrics.vue";
 import { formatMetric } from "../application/overview";
 import {
   reportDate as date,
@@ -114,6 +115,10 @@ const lastDate = computed(() =>
       :value="formatMetric(snapshot.density)"
     />
   </div>
+  <SpeechTimingMetrics
+    :timing="report.stale ? null : snapshot.speechTiming"
+    :sessions="snapshot.includedSessions"
+  />
   <WlAccordion
     v-model:open-keys="sourceOpenKeys"
     :items="sourceItems"

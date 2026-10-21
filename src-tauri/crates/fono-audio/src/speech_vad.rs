@@ -26,6 +26,8 @@ pub struct StreamingSpeechVad {
     has_speech: bool,
     recorded: RecordedSpeechDecision,
     closed_speech_end: Option<u64>,
+    timing: crate::speech_timing::SpeechTimingAccumulator,
+    recording_limit: Option<u64>,
 }
 impl StreamingSpeechVad {
     pub fn new(model_path: &Path) -> AudioResult<Self> {
@@ -56,6 +58,8 @@ impl StreamingSpeechVad {
             has_speech: false,
             recorded: RecordedSpeechDecision::default(),
             closed_speech_end: None,
+            timing: Default::default(),
+            recording_limit: None,
         })
     }
     pub fn accept(&mut self, samples: &[i16]) -> SpeechVadDecision {
@@ -100,6 +104,7 @@ impl StreamingSpeechVad {
         cancelled: impl Fn() -> bool,
     ) -> Option<RecordedSpeechDecision> {
         self.reset();
+        self.recording_limit = Some(samples.len() as u64);
         if cancelled() {
             return None;
         }
@@ -127,6 +132,7 @@ impl StreamingSpeechVad {
             .recorded
             .last_speech_sample
             .map(|sample| sample.min(samples.len() as u64));
+        self.recorded.timing = self.timing.summary();
         Some(self.recorded)
     }
 
@@ -139,6 +145,8 @@ impl StreamingSpeechVad {
                 self.last_speech = Some(self.last_speech.unwrap_or_default().max(end));
                 self.has_speech = true;
                 if recording::sustained_signal(segment.samples()) {
+                    let limit = self.recording_limit.unwrap_or(u64::MAX);
+                    self.timing.push(start.min(limit), end.min(limit));
                     self.recorded.has_speech = true;
                     self.recorded.first_speech_sample.get_or_insert(start);
                     self.recorded.last_speech_sample = Some(end);
@@ -155,6 +163,8 @@ impl StreamingSpeechVad {
         self.has_speech = false;
         self.recorded = RecordedSpeechDecision::default();
         self.closed_speech_end = None;
+        self.timing = Default::default();
+        self.recording_limit = None;
     }
 
     /// End of the latest closed neural segment, including forced duration
