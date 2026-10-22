@@ -20,8 +20,7 @@ fn spawn_stdin_writer(
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => break,
             };
-            let result = writeln!(stdin, "{}", write.line)
-                .and_then(|_| stdin.flush())
+            let result = write_framed_line(&mut stdin, write.line)
                 .map_err(|error| error.to_string());
             let failed = result.is_err();
             let _ = write.result_tx.try_send(result);
@@ -31,6 +30,16 @@ fn spawn_stdin_writer(
         }
     });
     (sender, thread)
+}
+
+fn write_framed_line(writer: &mut impl Write, line: String) -> std::io::Result<()> {
+    // Build the complete frame before touching the pipe. write_fmt can expose
+    // the JSON and its delimiter in separate writes, allowing a pipe consumer
+    // to reply/exit before the writer has sent the framing newline.
+    let mut frame = line.into_bytes();
+    frame.push(b'\n');
+    writer.write_all(&frame)?;
+    writer.flush()
 }
 
 fn spawn_stdout_reader(

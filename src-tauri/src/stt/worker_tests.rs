@@ -25,6 +25,27 @@ const TEST_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
 // barrier/controller needs scheduling headroom during parallel workspace gates.
 const EOF_FIXTURE_TIMEOUT: Duration = Duration::from_secs(5);
 
+#[test]
+fn worker_writer_publishes_json_and_delimiter_together() {
+    #[derive(Default)]
+    struct RecordingWriter(Vec<Vec<u8>>);
+    impl Write for RecordingWriter {
+        fn write(&mut self, value: &[u8]) -> std::io::Result<usize> {
+            self.0.push(value.to_vec());
+            Ok(value.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut writer = RecordingWriter::default();
+    write_framed_line(&mut writer, "{\"text\":\"Привет\"}".into()).unwrap();
+    assert_eq!(
+        writer.0,
+        vec!["{\"text\":\"Привет\"}\n".as_bytes().to_vec()]
+    );
+}
+
 #[cfg(windows)]
 #[test]
 fn common_recognizer_preserves_worker_model_device_and_negotiated_capabilities() {
@@ -199,7 +220,12 @@ fn assert_session_is_terminated(session: &mut WorkerSession) {
     // supervisor. Assert confirmed cleanup, not an immediate post-error exit.
     let deadline = Instant::now() + EOF_FIXTURE_TIMEOUT;
     while session.cleanup.is_pending() {
-        assert!(Instant::now() < deadline, "fixture cleanup did not finish");
+        assert!(Instant::now() < deadline,
+            "fixture cleanup did not finish: child={:?}, stdin_done={}, stdout_done={}, stderr_done={}",
+            session.child.try_wait(),
+            session.stdin_thread.as_ref().map_or(true, |t| t.is_finished()),
+            session.stdout_thread.as_ref().map_or(true, |t| t.is_finished()),
+            session.stderr_thread.as_ref().map_or(true, |t| t.is_finished()));
         thread::sleep(Duration::from_millis(10));
     }
     assert!(matches!(session.child.try_wait(), Ok(Some(_))));

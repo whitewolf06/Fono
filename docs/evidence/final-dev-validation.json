@@ -1,0 +1,179 @@
+{
+  "task": "FONO-47",
+  "related_tasks": [
+    "FONO-81",
+    "FONO-57",
+    "FONO-112",
+    "FONO-27",
+    "FONO-28"
+  ],
+  "date": "2026-10-22",
+  "version": "0.7.64",
+  "base_commit": "825abbf8c7a841b62a4ac68a8b7d955c578a1764",
+  "scope": "Consolidated dev acceptance for FONO-47 plus already implemented FONO-27/28; FONO-24 belongs to FONO-19 and is outside this pass",
+  "execution_source_state": {
+    "worktree_has_preexisting_owner_changes": true,
+    "source_sha256_describes": "executed working tree; package.json contains owner cache scripts",
+    "commit_excludes_owner_cache_and_perf04_changes": true,
+    "committed_package_manifest_sha256": "2faff971e22c3c42d3f1078e9c2d17da95b85207a1eebfe952835f087e4b7d10"
+  },
+  "stt": {
+    "worker_tests": {
+      "passed": 34,
+      "failed": 0,
+      "ignored": 0
+    },
+    "full_parallel": {
+      "passed": 665,
+      "failed": 0,
+      "ignored": 7
+    },
+    "full_runs_after_change": 1,
+    "wire_protocol": 4,
+    "worker_binaries_changed": false,
+    "recognition_algorithm_changed": false,
+    "assertions_and_timeouts_unchanged": true,
+    "fix": "Prepare UTF-8 JSON and newline in one buffer before write_all and flush; no large-frame atomicity guarantee",
+    "limitation": "One successful local process-fixture gate does not qualify real GPU/driver recovery"
+  },
+  "v3": {
+    "passed": 384,
+    "failed": 0
+  },
+  "release_ci_contracts": {
+    "passed": 48,
+    "failed": 0,
+    "repository_scope_tests": 28,
+    "owner_cache_tests": 20,
+    "owner_cache_changes_committed": false
+  },
+  "browser": {
+    "cases": [
+      {
+        "client": 710,
+        "height": 560,
+        "page": "overlay",
+        "scroll": 710,
+        "width": 720
+      },
+      {
+        "client": 890,
+        "height": 720,
+        "page": "overlay",
+        "scroll": 890,
+        "width": 900
+      },
+      {
+        "client": 1440,
+        "height": 900,
+        "page": "overlay",
+        "scroll": 1440,
+        "width": 1440
+      },
+      {
+        "client": 1430,
+        "height": 900,
+        "page": "settings",
+        "scroll": 1430,
+        "width": 1440
+      }
+    ],
+    "noSpeech": {
+      "status": [
+        "Проверка обновлений",
+        "Речь не обнаружена. Попробуйте записать ещё раз."
+      ],
+      "lastTextUnchanged": true,
+      "microphoneUsed": false
+    },
+    "mock_version_label": "0.7.60 fixed demonstration label",
+    "native_runtime_tested": false,
+    "screenshots": [
+      "overlay-720",
+      "overlay-720-detail",
+      "overlay-1440",
+      "settings-1440",
+      "nospeech"
+    ],
+    "visual_overlay_sizes": [
+      720,
+      1440
+    ],
+    "geometry_overlay_sizes": [
+      720,
+      900,
+      1440
+    ]
+  },
+  "desktop_dev": {
+    "built": true,
+    "launched": true,
+    "version": "0.7.64",
+    "sha256": "439acf760f7678f34279a4a5f3659cfd65953b31a8247a682082d8cd096b8672",
+    "bytes": 49766400,
+    "build_revision": "825abbf8c7a841b62a4ac68a8b7d955c578a1764+fono-final-v0.7.64-worktree",
+    "responding": true,
+    "runtime_ready_log": true,
+    "visible_native_window": "pending_owner",
+    "isolated_profile": true,
+    "credentials_and_autostart_unavailable": true
+  },
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "frontend_build": "passed",
+    "strict_clippy": "passed",
+    "rustfmt": "passed",
+    "version": "passed",
+    "format": "passed",
+    "docs_links": "passed",
+    "cache": "maintain invoked; safely deferred while own dev is running"
+  },
+  "remaining": {
+    "FONO-79": "Original strict PERF-04 quality gate remains unmet; no new experiment",
+    "FONO-118/119": "Full Whisper/quantized benchmark and CUDA qualification",
+    "FONO-124": "Vulkan EN timeout; exact Stop timing, worker RAM/VRAM and API competition",
+    "FONO-132": "Aggregate WER regression; unqualified offline hotwords and unimplemented usage ranking",
+    "FONO-143..146": "Consent/corpus/quality gates; WakeWord remains unavailable",
+    "FONO-75/112": "Signing/publication and installed delivery/UAC/clean Windows",
+    "FONO-107..109/112": "Remote workflows, hardware and prolonged soak"
+  },
+  "owner_accepted_preexisting": [
+    "hold/toggle",
+    "paste with clipboard image",
+    "overlay copy",
+    "cancel then new session",
+    "changed target safety",
+    "one history entry",
+    "window close/reopen settings"
+  ],
+  "microphone_recorded": false,
+  "external_input_sent": false,
+  "installed_app_stopped": false,
+  "release_signed": false,
+  "release_published": false,
+  "installer_run": false,
+  "source_sha256": {
+    "src-tauri/src/stt/worker_transport.rs": "0d9f8887c3cd323aaab76d565f9040baee351792de2eecb1f4be16055867c6ea",
+    "src-tauri/src/stt/worker_tests.rs": "87adb18405a3a4c3497b828cf535164bd8f505c2a3521dea5487c1ebed6c84aa",
+    "package.json": "9ca5c6e5a77ce7fb85beae60c069bd7a35fb5046b82bd1de7c5f52f036b5a48e",
+    "package-lock.json": "70570d161a9b3edbe670e57765ee532b7fc4e48e6af3647f56a987a7ae81329b",
+    "src-tauri/Cargo.toml": "d803fbb2ce736cdd00b0f3b84b8d927e9cd1e331ccac3df9755c229851a0a944",
+    "src-tauri/Cargo.lock": "96d5181a249c8d2dc9731e76c0e8d372bbbed393a14f37a38ae4043ae225ede8",
+    "src-tauri/tauri.conf.json": "013abf9adfb28e7b620ea33499a52a3f8276c66927b97d879f9c19e460e7821b",
+    "docs/improvement-final-dev.md": "a136f86c969e05f3dc39d45b8a76e8af6aa89ba2e87020d9423c076204942b0d",
+    "docs/qa/final-dev-acceptance.md": "ee9d83c1fab4218f2576604d65bc1ece051781bf343bd0e71af2af7138e0cf6d"
+  },
+  "log_sha256": {
+    "build/checks/fono-final-worker.log": "f93a0da61ba18276bf12c3bd530f70779db6b87fa4c2332761e163c99ec795e6",
+    "build/checks/fono-final-native.log": "23d1b0296b3205c6c656270b3759d8d7d4a28eb5f6d7dfd88aa2fd61c9a80cad",
+    "build/checks/fono-final-v3.log": "2e2031caa9c7dd744a5e781ff1db7948651bf2baf8ec74770fcfd6279491343f",
+    "build/checks/fono-final-release.log": "3190d63f80e69528a90c9f793d75e605df5ebe8de9971680c88c72b0a0487f75",
+    "build/checks/fono-final-typecheck.log": "7c4d3575d6670aef50ff6215bc1311cd0105466f66aec260e3c66c33ae12a481",
+    "build/checks/fono-final-lint.log": "013dcf9eefb5681a7f1a97e0b1e08aafb2e4c16f2a93f20642adf3e3f0e50f9a",
+    "build/checks/fono-final-build.log": "9027e88a9277424a83faed7325decf5c3504306d37bd767dc87b3aeab22ff348",
+    "build/checks/fono-final-rustfmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build/checks/fono-final-clippy.log": "32fe125cf0cad227c1bdc43dc1c0ad6c7f752876bd8e1a7e87045c4e620854eb",
+    "build/checks/fono-final-version.log": "dd86870a5d828997d5aeac9ff320860335f2caba1dc21a98d554ed9e12ff3da5"
+  }
+}
