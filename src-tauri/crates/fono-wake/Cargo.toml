@@ -27,3 +27,7 @@ sherpa-wake = ["dep:sherpa-onnx", "fono-audio/speech-vad"]
 [[example]]
 name = "wake_bench"
 required-features = ["sherpa-wake"]
+
+[[example]]
+name = "kws_probe"
+required-features = ["sherpa-wake"]

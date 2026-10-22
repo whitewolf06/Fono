@@ -1,0 +1,49 @@
+{
+  "repo": "openbmb/VoxCPM2",
+  "revision": "32279effe8c19989596f05d353d1447f51d9e915",
+  "files": [
+    {
+      "path": "audiovae.pth",
+      "size": 376951122,
+      "sha256": "94b5d51e107e0507d4acc976cfdadb64edd6fd06d1f751dadbf2fd1594274bf1",
+      "git_sha1": null
+    },
+    {
+      "path": "model.safetensors",
+      "size": 4580080592,
+      "sha256": "f7f964cfa9da23653baec6e6f7750719977ad944ed9f95fe52fe3a620506891d",
+      "git_sha1": null
+    },
+    {
+      "path": "config.json",
+      "size": 4336,
+      "sha256": null,
+      "git_sha1": "792f1c223ed607f9e508c0a0deb15dd9532483be"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "size": 1632,
+      "sha256": null,
+      "git_sha1": "8619dda6f3eb6d60d0a1bb274820054e46f41699"
+    },
+    {
+      "path": "tokenization_voxcpm2.py",
+      "size": 2895,
+      "sha256": null,
+      "git_sha1": "e7d768677298d058fa6ef8b160e3ca4430997fad"
+    },
+    {
+      "path": "tokenizer.json",
+      "size": 3676772,
+      "sha256": null,
+      "git_sha1": "41a5c2a8dba4058dd1ad73fb898abf5e4f64f0f9"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "size": 5059,
+      "sha256": null,
+      "git_sha1": "fecf4cdae73b57053cac2ad34c67febbe4e4f08b"
+    }
+  ],
+  "size_bytes": 4960722408
+}

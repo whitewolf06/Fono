@@ -1,0 +1,13 @@
+# Observed direct dependencies for the local candidate, Python 3.12.14.
+# This is not a complete dependency lock or a bit-for-bit training guarantee.
+# CUDA torch uses the official cu128 index; CPU suffices for train/evaluate.
+numpy==1.26.4
+scipy==1.17.1
+torch==2.7.1
+onnx==1.19.1
+onnxruntime==1.23.2
+protobuf==6.33.0
+ml_dtypes==0.5.3
+soundfile==0.14.0
+# Only the optional local synthesis step needs this package and pinned weights.
+voxcpm==2.0.3

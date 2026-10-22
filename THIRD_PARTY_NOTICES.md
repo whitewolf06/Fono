@@ -164,6 +164,23 @@ Python stdlib и общий валидатор Fono. Ни перечисленн
 Готовой Fono phrase-модели и её лицензии пока нет. Эти ссылки фиксируют
 состояние проверки кандидатов и не заменяют согласование точных артефактов.
 
+### Локальный обучающий прогон 22 октября
+
+Обновление исследовательского WakeWord pipeline, 22 октября 2026 года:
+`tools/wake-training/synthesize_candidate.py` использует отдельно установленный
+VoxCPM 2.0.3 и точные локальные веса VoxCPM2 revision
+`32279effe8c19989596f05d353d1447f51d9e915`; размеры и проверки файлов —
+[`voxcpm2.json`](tools/wake-training/voxcpm2.json). Издатель модели указывает
+Apache-2.0, установленный пакет кода содержит Apache-2.0 LICENSE. Применены
+текстовые voice designs без reference audio, denoiser и normalizer.
+Синтетические WAV и обученный экспериментальный head сохранены только локально;
+в приложение, Git и release не включены. Собственный log-mel frontend не
+использует openWakeWord/Google embedding. Прямые исследовательские Python
+зависимости перечислены в `requirements-candidate.txt`, а не в runtime Fono.
+Это обновляет состояние подготовки от 21 октября выше; не утверждает права
+на распространение будущего полного artifact. Подробности и ограничения —
+[`CANDIDATE.md`](tools/wake-training/CANDIDATE.md).
+
 ## Microsoft и установщики
 
 MSVC runtime/Windows SDK и Microsoft WebView2 Runtime имеют собственные условия.
