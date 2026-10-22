@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, reactive } from "vue";
 import { WlButton, WlCheckbox } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { message as $t } from "../../../shared/domain/messages";
+import { captureSettingsLocked } from "../../../shared/domain/pretranscription";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import type { WakeSampleRequest } from "../domain/samples";
 import { wakeSampleSets, wakeSamplesInSet } from "../domain/samples";
@@ -18,11 +19,11 @@ const request = reactive<WakeSampleRequest>({
   consent: false,
 });
 const active = computed(() => state.phase !== "idle");
+const dictationBusy = computed(() =>
+  captureSettingsLocked(workspace.state.phase),
+);
 const blocked = computed(
-  () =>
-    !workspace.native ||
-    active.value ||
-    !["idle", "error"].includes(workspace.state.phase),
+  () => !workspace.native || active.value || dictationBusy.value,
 );
 const currentSet = computed(() =>
   wakeSampleSets.find(
@@ -75,6 +76,9 @@ onUnmounted(() => void port.cancel());
     <p class="muted">{{ $t("wakeSamples.explanation") }}</p>
     <p v-if="!workspace.native" class="notice" role="status">
       {{ $t("wakeSamples.desktopOnly") }}
+    </p>
+    <p v-else-if="dictationBusy" class="notice" role="status">
+      {{ $t("wakeSamples.dictationBusy") }}
     </p>
     <div class="form-grid">
       <SelectField

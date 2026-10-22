@@ -2081,6 +2081,7 @@
   "wakeSamples.title": "Recordings for WakeWord",
   "wakeSamples.explanation": "Record the Russian phrase “Привет, Лира”. This collection is separate from previous recordings. This prepares the detector; voice activation remains disabled.",
   "wakeSamples.desktopOnly": "Record samples in the Fono desktop app. The browser preview does not use the microphone.",
+  "wakeSamples.dictationBusy": "Finish the current dictation before recording a sample.",
   "wakeSamples.language": "Phrase",
   "wakeSamples.condition": "Recording conditions",
   "wakeSamples.quiet": "Quiet room",

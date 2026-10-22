@@ -2081,6 +2081,7 @@
   "wakeSamples.title": "Записи для WakeWord",
   "wakeSamples.explanation": "Запишем образцы фразы «Привет, Лира». Новый набор хранится отдельно от прежних записей. Это подготовка детектора: голосовое пробуждение пока выключено.",
   "wakeSamples.desktopOnly": "Записывать образцы можно в приложении Fono. В браузере микрофон не включается.",
+  "wakeSamples.dictationBusy": "Завершите текущую диктовку, чтобы записать образец.",
   "wakeSamples.language": "Фраза",
   "wakeSamples.condition": "Условия записи",
   "wakeSamples.quiet": "Тихая комната",
