@@ -37,3 +37,17 @@ pub(crate) async fn read_wake_sample(id: String) -> AppResult<String> {
 pub(crate) async fn delete_wake_sample(id: String) -> AppResult<()> {
     super::blocking::run(move || wake_samples::delete(&id)).await
 }
+
+#[tauri::command]
+pub(crate) fn wake_sample_test_available() -> bool {
+    wake_samples::testing::available()
+}
+#[tauri::command]
+pub(crate) async fn test_wake_sample(
+    app: AppHandle,
+    id: String,
+) -> AppResult<wake_samples::testing::Result> {
+    crate::application::dictation::ensure_capture_allowed(&app)?;
+    let reservation = wake_samples::testing::reserve()?;
+    super::blocking::run(move || wake_samples::testing::run(&id, reservation)).await
+}

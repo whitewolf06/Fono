@@ -5,6 +5,8 @@ export function createMockWakeSamples() {
     throw new Error(message("wakeSamples.desktopOnly"));
   };
   return createWakeSamples({
+    testAvailable: async () => false,
+    test: unavailable,
     list: async () => [],
     start: unavailable,
     finish: unavailable,

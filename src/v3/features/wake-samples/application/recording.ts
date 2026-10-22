@@ -16,6 +16,9 @@ export function createWakeSamples(
     remainingMs: 0,
     error: "",
     audio: null,
+    testAvailable: false,
+    testingId: null,
+    testResults: {},
   });
   let generation = 0;
   let audioGeneration = 0;
@@ -27,6 +30,7 @@ export function createWakeSamples(
   let disposed = false;
   let listRevision = 0;
   let releaseAudio: (() => void) | undefined;
+  let testGeneration = 0;
   const clearAudio = () => {
     ++audioGeneration;
     state.audio = null;
@@ -46,8 +50,14 @@ export function createWakeSamples(
   async function load() {
     const revision = ++listRevision;
     try {
-      const samples = await backend.list();
-      if (!disposed && revision === listRevision) state.samples = samples;
+      const [samples, available] = await Promise.all([
+        backend.list(),
+        backend.testAvailable(),
+      ]);
+      if (!disposed && revision === listRevision) {
+        state.samples = samples;
+        state.testAvailable = available;
+      }
     } catch (e) {
       report(e);
     }
@@ -84,7 +94,7 @@ export function createWakeSamples(
     }
   }
   async function record(request: WakeSampleRequest) {
-    if (disposed || state.phase !== "idle") return;
+    if (disposed || state.phase !== "idle" || state.testingId !== null) return;
     state.error = "";
     if (!request.consent) {
       state.error = message("wakeSamples.consentRequired");
@@ -121,6 +131,7 @@ export function createWakeSamples(
     }
   }
   async function cancel() {
+    ++testGeneration;
     clearAudio();
     const starting = pendingStart;
     const id = session;
@@ -148,6 +159,37 @@ export function createWakeSamples(
     record,
     finish,
     cancel,
+    async test(id) {
+      const sample = state.samples.find((sample) => sample.id === id);
+      if (
+        disposed ||
+        state.phase !== "idle" ||
+        state.testingId !== null ||
+        !state.testAvailable ||
+        sample?.phraseId !== "privet_lira"
+      )
+        return;
+      const token = ++testGeneration;
+      state.testingId = id;
+      state.error = "";
+      delete state.testResults[id];
+      clearAudio();
+      try {
+        const result = await backend.test(id);
+        if (
+          !disposed &&
+          token === testGeneration &&
+          state.samples.some(
+            (row) => row.id === id && row.sha256 === sample.sha256,
+          )
+        )
+          state.testResults[id] = result;
+      } catch (e) {
+        if (token === testGeneration) report(e);
+      } finally {
+        state.testingId = null;
+      }
+    },
     async listen(id) {
       clearAudio();
       const token = audioGeneration;
@@ -167,12 +209,16 @@ export function createWakeSamples(
       }
     },
     async remove(id) {
+      if (state.testingId !== null) return;
       state.error = "";
       clearAudio();
       try {
         await backend.remove(id);
         ++listRevision;
-        if (!disposed) state.samples = state.samples.filter((s) => s.id !== id);
+        if (!disposed) {
+          state.samples = state.samples.filter((s) => s.id !== id);
+          delete state.testResults[id];
+        }
       } catch (e) {
         report(e);
       }

@@ -18,7 +18,8 @@ const request = reactive<WakeSampleRequest>({
   condition: "quiet",
   consent: false,
 });
-const active = computed(() => state.phase !== "idle");
+const captureActive = computed(() => state.phase !== "idle");
+const active = computed(() => captureActive.value || state.testingId !== null);
 const dictationBusy = computed(() =>
   captureSettingsLocked(workspace.state.phase),
 );
@@ -74,6 +75,9 @@ onUnmounted(() => void port.cancel());
   >
     <h3>{{ $t("wakeSamples.title") }}</h3>
     <p class="muted">{{ $t("wakeSamples.explanation") }}</p>
+    <p v-if="state.testAvailable" class="notice">
+      {{ $t("wakeSamples.testHint") }}
+    </p>
     <p v-if="!workspace.native" class="notice" role="status">
       {{ $t("wakeSamples.desktopOnly") }}
     </p>
@@ -144,13 +148,13 @@ onUnmounted(() => void port.cancel());
         $t("wakeSamples.finish")
       }}</WlButton>
       <WlButton
-        v-if="active"
+        v-if="captureActive"
         :disabled="state.phase === 'cancelling'"
         @click="port.cancel()"
         >{{ $t("wakeSamples.cancel") }}</WlButton
       >
     </div>
-    <p v-if="active" role="status" aria-live="polite">
+    <p v-if="captureActive" role="status" aria-live="polite">
       {{
         state.phase === "recording"
           ? $t("wakeSamples.recording", {
@@ -181,6 +185,13 @@ onUnmounted(() => void port.cancel());
           >
           <div class="actions">
             <WlButton
+              v-if="state.testAvailable && !currentSet.archived"
+              size="sm"
+              :disabled="active || dictationBusy"
+              @click="port.test(sample.id)"
+              >{{ $t("wakeSamples.test") }}</WlButton
+            >
+            <WlButton
               size="sm"
               :disabled="active"
               @click="port.listen(sample.id)"
@@ -194,6 +205,30 @@ onUnmounted(() => void port.cancel());
             >
           </div>
         </div>
+        <p
+          v-if="state.testingId === sample.id"
+          role="status"
+          aria-live="polite"
+        >
+          {{ $t("wakeSamples.testing") }}
+        </p>
+        <p v-if="state.testResults[sample.id]" role="status" aria-live="polite">
+          {{
+            $t(
+              state.testResults[sample.id].detected
+                ? "wakeSamples.detected"
+                : "wakeSamples.notDetected",
+            )
+          }}
+          ·
+          {{
+            $t("wakeSamples.testTime", {
+              seconds: (
+                state.testResults[sample.id].processingMs / 1000
+              ).toFixed(1),
+            })
+          }}
+        </p>
         <audio
           v-if="state.audio?.id === sample.id"
           :src="state.audio.url"

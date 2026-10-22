@@ -328,7 +328,7 @@ pub(crate) fn save(
     let _guard = STORE.lock();
     save_active_at(&root()?, request, samples, session, can_commit)
 }
-fn read_audio_at(root: &Path, id: &str) -> AppResult<String> {
+fn read_audio_entry_at(root: &Path, id: &str) -> AppResult<(Recording, Vec<u8>)> {
     regular_dir(root)?;
     let dir = entry_dir(root, id)?;
     let recording: Recording =
@@ -338,11 +338,33 @@ fn read_audio_at(root: &Path, id: &str) -> AppResult<String> {
     if recording.sample.sha256 != format!("{:x}", Sha256::digest(&audio)) {
         return Err(AppError::Config("Образец повреждён или недоступен.".into()));
     }
-    Ok(STANDARD.encode(audio))
+    Ok((recording, audio))
+}
+fn read_audio_at(root: &Path, id: &str) -> AppResult<String> {
+    Ok(STANDARD.encode(read_audio_entry_at(root, id)?.1))
 }
 pub(crate) fn read_audio(id: &str) -> AppResult<String> {
     let _guard = STORE.lock();
     read_audio_at(&root()?, id)
+}
+#[cfg(debug_assertions)]
+pub(super) fn detector_input(id: &str) -> AppResult<Vec<u8>> {
+    let _guard = STORE.lock();
+    detector_input_at(&root()?, id)
+}
+#[cfg(debug_assertions)]
+fn detector_input_at(root: &Path, id: &str) -> AppResult<Vec<u8>> {
+    let (recording, audio) = read_audio_entry_at(root, id)?;
+    if recording.sample.phrase_id != PhraseId::PrivetLira
+        || recording.sample.language != Language::Ru
+        || recording.permission != "consented-local-only"
+        || recording.split != "dev"
+    {
+        return Err(AppError::Config(
+            "Проверка доступна для записей «Привет, Лира».".into(),
+        ));
+    }
+    Ok(audio)
 }
 fn delete_at(root: &Path, id: &str) -> AppResult<()> {
     regular_dir(root)?;

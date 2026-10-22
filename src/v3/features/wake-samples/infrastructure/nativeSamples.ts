@@ -1,8 +1,14 @@
 import { createWakeSamples } from "../application/recording";
-import type { WakeSample, WakeSamplesPort } from "../domain/samples";
+import type {
+  WakeSample,
+  WakeSampleTest,
+  WakeSamplesPort,
+} from "../domain/samples";
 type Call = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 export function createNativeWakeSamples(call: Call): WakeSamplesPort {
   const port = createWakeSamples({
+    testAvailable: () => call<boolean>("wake_sample_test_available"),
+    test: (id) => call<WakeSampleTest>("test_wake_sample", { id }),
     list: () => call<WakeSample[]>("list_wake_samples"),
     start: (request) => call("start_wake_sample", { request }),
     finish: (sessionId) => call("finish_wake_sample", { sessionId }),

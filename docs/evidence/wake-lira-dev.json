@@ -1,0 +1,59 @@
+{
+  "schema": "fono-lira-manual-dev-preparation@1",
+  "date": "2026-10-22",
+  "source_version": "0.7.72",
+  "mode": "explicit saved-WAV check through desktop IPC; not a live wake backend",
+  "cnn_sha256": "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa541c",
+  "verifier_config_sha256": "d3ea4079b329755bcdd42618cec915aa4952554479eb4b0999689558305ee47e",
+  "new_training_runs": 0,
+  "new_private_corpus_evaluations": 0,
+  "threshold_changed": false,
+  "microphone_opened_by_agent": false,
+  "wake_word_available": false,
+  "qualified": false,
+  "checks": {
+    "vue_ipc": { "passed": 400, "failed": 0 },
+    "focused_sample_ui_subset": { "passed": 16, "failed": 0 },
+    "native_sample_and_bridge": {
+      "passed": 14,
+      "failed": 0,
+      "filtered_app_tests": 678
+    },
+    "python_contracts": { "passed": 29, "failed": 0 },
+    "release_ci_local_working_tree": { "passed": 48, "failed": 0 },
+    "strict_clippy_app_all_targets": "passed",
+    "frontend_typecheck_lint_build_format": "passed",
+    "browser_mock_viewports": [
+      [720, 560],
+      [900, 720],
+      [1440, 900]
+    ],
+    "browser_mock_js_errors": 0,
+    "browser_mock_horizontal_overflow": false,
+    "remote_ci": false,
+    "installer_built": false,
+    "owner_native_voice_acceptance": "pending"
+  },
+  "public_protocol_smoke": {
+    "duration_ms": 16920,
+    "proposals": 0,
+    "events": 0,
+    "processing_ms_including_model_load": 5719,
+    "recall_or_latency_qualification": false
+  },
+  "limits": {
+    "max_wav_seconds": 22,
+    "worker_timeout_seconds": 60,
+    "concurrent_checks": 1,
+    "update_admission_held_until_process_and_writer_finish": true,
+    "late_results_after_leaving_ignored": true,
+    "voice_or_transcripts_in_reports": false,
+    "release_runtime_enabled_by_environment": false
+  },
+  "remaining": [
+    "Two original CNN proposal misses; existing paired dev result stays 20/22 positives and 0/7 speech false events.",
+    "Independent real voices/near misses, long negatives and unchanged W-02 quality targets.",
+    "Live latency and idle CPU, deployable dependency lock/artifact and native AudioHub/admission/worker integration.",
+    "Owner manual acceptance of the prepared desktop dev."
+  ]
+}

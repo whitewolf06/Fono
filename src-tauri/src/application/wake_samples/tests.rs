@@ -23,6 +23,26 @@ fn request() -> SampleRequest {
         consent: true,
     }
 }
+#[cfg(debug_assertions)]
+#[test]
+fn detector_requires_current_phrase_and_existing_local_voice_permission() {
+    let root = Temporary::new();
+    let sample = save_at(&root.0, request(), &vec![5; RATE], "session-test").unwrap();
+    assert_eq!(
+        detector_input_at(&root.0, &sample.id).unwrap().len(),
+        RATE * 2 + 44
+    );
+    let metadata = root.0.join(&sample.id).join("recording.json");
+    let mut recording: Recording = serde_json::from_slice(&fs::read(&metadata).unwrap()).unwrap();
+    recording.permission = "withdrawn".into();
+    fs::write(&metadata, serde_json::to_vec(&recording).unwrap()).unwrap();
+    assert!(detector_input_at(&root.0, &sample.id).is_err());
+    recording.permission = "consented-local-only".into();
+    recording.sample.phrase_id = PhraseId::HeyFono;
+    recording.phrase = Some("Эй, Фоно".into());
+    fs::write(&metadata, serde_json::to_vec(&recording).unwrap()).unwrap();
+    assert!(detector_input_at(&root.0, &sample.id).is_err());
+}
 #[test]
 fn recording_keeps_exact_pcm_and_private_provenance_without_invented_annotation() {
     let root = Temporary::new();

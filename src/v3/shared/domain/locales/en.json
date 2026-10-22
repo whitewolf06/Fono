@@ -2121,5 +2121,11 @@
   "wakeSamples.archivedSet": "{phrase} — previous collection",
   "wakeSamples.archiveHint": "This is a previous collection. You can listen to recordings and delete individual samples. Select “Привет, Лира” to record the new phrase.",
   "wakeSamples.liraOtherPrompt": "Speak for 20 seconds without saying the full Russian phrase “Привет, Лира”. Include iPhone, “Привет, Лера”, “Привет, Мира” or ordinary speech. You can finish earlier with Save recording.",
-  "wakeSamples.errorPhrase": "Select Russian for the “Привет, Лира” recording."
+  "wakeSamples.errorPhrase": "Select Russian for the “Привет, Лира” recording.",
+  "wakeSamples.testHint": "Record a short sample, then choose Check detector next to it. You can also check earlier Lira samples. The result applies to the selected recording; this button does not enable voice activation or start dictation.",
+  "wakeSamples.test": "Check detector",
+  "wakeSamples.testing": "Checking the recording…",
+  "wakeSamples.detected": "Phrase detected",
+  "wakeSamples.notDetected": "Phrase not detected",
+  "wakeSamples.testTime": "Recording processing: {seconds} s"
 }

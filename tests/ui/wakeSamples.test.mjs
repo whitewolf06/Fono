@@ -39,6 +39,10 @@ const deferred = () => {
 };
 function backend(patch = {}) {
   return {
+    testAvailable: async () => false,
+    test: async () => {
+      throw new Error("unexpected detector test");
+    },
     list: async () => [],
     start: async () => ({ sessionId: 1, durationMs: 5000 }),
     finish: async () => sample,
@@ -89,6 +93,72 @@ test("recording requires explicit local voice consent before any backend start",
   assert.equal(starts, 0);
   assert.match(port.state.error, /Подтвердите/);
   assert.equal(port.state.phase, "idle");
+  port.dispose();
+});
+
+test("detector checks only run explicitly for saved Lira samples and retain no late result after leaving", async () => {
+  const result = deferred();
+  let checks = 0,
+    starts = 0;
+  const port = createWakeSamples(
+    backend({
+      testAvailable: async () => true,
+      list: async () => [
+        sample,
+        { ...sample, id: "old", phraseId: "hey_fono" },
+      ],
+      test: async (id) => {
+        assert.equal(id, sample.id);
+        checks++;
+        return result.promise;
+      },
+      start: async () => {
+        starts++;
+        return { sessionId: 9, durationMs: 5000 };
+      },
+    }),
+  );
+  await port.load();
+  assert.equal(checks, 0);
+  await port.test("old");
+  await port.test("missing");
+  assert.equal(checks, 0);
+  const pending = port.test(sample.id);
+  assert.equal(port.state.testingId, sample.id);
+  await port.test(sample.id);
+  await port.record(request);
+  assert.equal(checks, 1);
+  assert.equal(starts, 0);
+  await port.cancel();
+  result.resolve({
+    operationId: "test-1",
+    detected: true,
+    proposals: 1,
+    events: 1,
+    processingMs: 30,
+    durationMs: 5000,
+  });
+  await pending;
+  assert.equal(port.state.testingId, null);
+  assert.deepEqual({ ...port.state.testResults }, {});
+  port.dispose();
+});
+
+test("a failed detector check is an error, never a successful not-detected result", async () => {
+  const port = createWakeSamples(
+    backend({
+      testAvailable: async () => true,
+      list: async () => [sample],
+      test: async () => {
+        throw new Error("check failed");
+      },
+    }),
+  );
+  await port.load();
+  await port.test(sample.id);
+  assert.equal(port.state.testingId, null);
+  assert.equal(port.state.error, "check failed");
+  assert.equal(port.state.testResults[sample.id], undefined);
   port.dispose();
 });
 test("a cancelled late start is cancelled by its own identity and cannot start a timer", async () => {
@@ -258,9 +328,14 @@ test("native adapter uses only the new raw-sample commands and cancels on hide",
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(
       calls.map((c) => c[0]),
-      ["list_wake_samples", "start_wake_sample", "cancel_wake_sample"],
+      [
+        "list_wake_samples",
+        "wake_sample_test_available",
+        "start_wake_sample",
+        "cancel_wake_sample",
+      ],
     );
-    assert.deepEqual(calls[2][1], { sessionId: 81 });
+    assert.deepEqual(calls[3][1], { sessionId: 81 });
     assert.equal(port.state.phase, "idle");
   } finally {
     port.dispose();

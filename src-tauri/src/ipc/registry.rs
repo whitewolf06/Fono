@@ -90,6 +90,8 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::wake_samples::cancel_wake_sample,
         crate::ipc::wake_samples::read_wake_sample,
         crate::ipc::wake_samples::delete_wake_sample,
+        crate::ipc::wake_samples::wake_sample_test_available,
+        crate::ipc::wake_samples::test_wake_sample,
         // settings
         crate::ipc::settings::get_settings,
         crate::ipc::settings::get_acceleration_capabilities,

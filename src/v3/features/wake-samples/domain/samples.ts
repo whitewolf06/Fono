@@ -60,6 +60,17 @@ export interface WakeSamplesState {
   remainingMs: number;
   error: string;
   audio: { id: string; url: string } | null;
+  testAvailable: boolean;
+  testingId: string | null;
+  testResults: Record<string, WakeSampleTest>;
+}
+export interface WakeSampleTest {
+  operationId: string;
+  detected: boolean;
+  proposals: number;
+  events: number;
+  processingMs: number;
+  durationMs: number;
 }
 export interface WakeSamplesPort {
   readonly state: WakeSamplesState;
@@ -69,9 +80,12 @@ export interface WakeSamplesPort {
   cancel(): Promise<void>;
   listen(id: string): Promise<void>;
   remove(id: string): Promise<void>;
+  test(id: string): Promise<void>;
   dispose(): void;
 }
 export interface WakeSamplesBackend {
+  testAvailable(): Promise<boolean>;
+  test(id: string): Promise<WakeSampleTest>;
   list(): Promise<WakeSample[]>;
   start(
     request: WakeSampleRequest,
