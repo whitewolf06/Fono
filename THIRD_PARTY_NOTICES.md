@@ -181,6 +181,15 @@ Apache-2.0, установленный пакет кода содержит Apac
 на распространение будущего полного artifact. Подробности и ограничения —
 [`CANDIDATE.md`](tools/wake-training/CANDIDATE.md).
 
+В v0.7.70 теми же закреплёнными TTS assets подготовлены отдельные русские
+образцы «Привет, Лира», без reference audio. В train также явно включены
+20 публичных RU/EN PCM replay FLEURS, CC-BY-4.0, revision
+`437d9e667fa3a2a08a1957f810bf2c3b5050d221`; upstream test назначен wake train,
+FLEURS не считается независимым wake test. Условия и источники FLEURS
+сохранены в [описании проверочного корпуса](docs/improvement-fono119.md).
+Личные записи владельца остаются только dev. Кандидат не принят и не
+поставляется с приложением: [результат Лиры](docs/improvement-wake-lira-evaluation.md).
+
 ## Microsoft и установщики
 
 MSVC runtime/Windows SDK и Microsoft WebView2 Runtime имеют собственные условия.

@@ -1,0 +1,255 @@
+{
+  "schema": "fono-wake-lira-evaluation@1",
+  "date": "2026-10-22",
+  "source_version": "0.7.70",
+  "scope": "one synthetic/public training round and fixed-point private dev replay; not acceptance",
+  "phrase_id": "privet_lira",
+  "phrase": "Привет, Лира",
+  "language": "ru",
+  "owner_corpus": {
+    "clips": 31,
+    "positive_clips": 22,
+    "other_speech_clips": 7,
+    "background_clips": 2,
+    "seconds": 74.02,
+    "speech_negative_seconds": 31.93,
+    "digital_silence_seconds": 6.38,
+    "real_background_seconds": 1.7,
+    "annotated_clips": 0,
+    "legacy_clips_excluded": 36,
+    "training_used_owner_voice": false,
+    "user_reported_recording_complete": true
+  },
+  "synthetic_training": {
+    "tts_repo": "openbmb/VoxCPM2",
+    "tts_revision": "32279effe8c19989596f05d353d1447f51d9e915",
+    "source_script_sha256": "aa0f40aaab6dcc0a41f0b62012fc279d8e70410d26de886b14577d2194d7e467",
+    "synthesis_complete": true,
+    "planned_clips": 36,
+    "voxcpm_version": "2.0.3",
+    "torch_version": "2.7.1+cu128",
+    "elapsed_seconds": 115.78,
+    "peak_vram_bytes": 5966397440,
+    "owner_voice_used": false,
+    "reference_audio_used": false,
+    "clips": 36,
+    "positive_clips": 8,
+    "negative_clips": 28,
+    "seconds": 43.36
+  },
+  "public_training": {
+    "dataset": "google/fleurs",
+    "revision": "437d9e667fa3a2a08a1957f810bf2c3b5050d221",
+    "license": "CC-BY-4.0",
+    "clips": 20,
+    "seconds": 235.35875,
+    "manifest_sha256": "9135c5d2c751146ce229dbedac783d89bd584590dd3840342567f12d57360241",
+    "upstream_split": "test",
+    "wake_split": "train",
+    "waveform_identity": "pinned replay_sha256; original sample count differs by one frame",
+    "excluded_from_future_wake_test": "all google/fleurs data"
+  },
+  "training": {
+    "schema": "fono-wake-lira-training-result@1",
+    "qualified": false,
+    "model_sha256": "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa541c",
+    "config_sha256": "6853672ab31c607df754083f1ae6b38d4047e8a0797479ac022fb509669a13d9",
+    "model_bytes": 52182,
+    "parameters": 12473,
+    "positive_windows": 384,
+    "negative_windows": 1152,
+    "excluded_long_synthetic": 0,
+    "public_clips": 20,
+    "public_seconds": 235.35875,
+    "loss_by_epoch": [
+      1.027215637266636, 0.897268441816171, 0.7734020079175631,
+      0.6926827654242516, 0.663698211312294, 0.6702620958288511,
+      0.6283698963622252, 0.6371684533854326, 0.6691338929037253,
+      0.6187854645152887, 0.6008556758364042, 0.5910973027348518,
+      0.5882933797935644, 0.5841076274712881, 0.5754766340057055,
+      0.5866405243674914, 0.5960082535942396, 0.5672665561238924,
+      0.5650656620661417, 0.5610696983834108, 0.5883288867771626,
+      0.5894161500036716, 0.5729289650917053, 0.5682370873788992,
+      0.5587885429461797, 0.5511231869459152, 0.5508978826304277,
+      0.5461725443601608, 0.5334578094383081, 0.5306572516759237,
+      0.5363596938550472, 0.5307329768935839
+    ],
+    "elapsed_seconds": 72.7,
+    "parity_max_abs_error": 1.7881393432617188e-7,
+    "owner_voice_used_for_training": false
+  },
+  "replay": {
+    "schema": "fono-wake-lira-owner-replay@1",
+    "phrase_id": "privet_lira",
+    "model_sha256": "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa541c",
+    "config_sha256": "6853672ab31c607df754083f1ae6b38d4047e8a0797479ac022fb509669a13d9",
+    "threshold": 0.8,
+    "mode": "fast-file-causal-replay",
+    "stride_samples": 1280,
+    "left_context_samples": 64000,
+    "synthetic_tail_samples": 10240,
+    "labels": "owner-declared dev; phrase boundaries unannotated; clip hit is not qualified recall",
+    "qualified": false,
+    "latency_measured": false,
+    "idle_cpu_measured": false,
+    "long_false_activations_measured": false,
+    "owner_voice_used_for_training": false,
+    "wall_seconds": 1.594,
+    "groups": [
+      {
+        "language": "ru",
+        "kind": "background",
+        "condition": "noisy",
+        "clips": 2,
+        "clips_with_detection": 0,
+        "events": 0,
+        "seconds": 8.08,
+        "digital_silence_clips": 1,
+        "clipped_samples": 0
+      },
+      {
+        "language": "ru",
+        "kind": "other_speech",
+        "condition": "noisy",
+        "clips": 3,
+        "clips_with_detection": 2,
+        "events": 2,
+        "seconds": 18.6,
+        "digital_silence_clips": 0,
+        "clipped_samples": 0
+      },
+      {
+        "language": "ru",
+        "kind": "other_speech",
+        "condition": "quiet",
+        "clips": 4,
+        "clips_with_detection": 2,
+        "events": 2,
+        "seconds": 13.33,
+        "digital_silence_clips": 0,
+        "clipped_samples": 0
+      },
+      {
+        "language": "ru",
+        "kind": "phrase",
+        "condition": "noisy",
+        "clips": 12,
+        "clips_with_detection": 11,
+        "events": 11,
+        "seconds": 17.51,
+        "digital_silence_clips": 0,
+        "clipped_samples": 0
+      },
+      {
+        "language": "ru",
+        "kind": "phrase",
+        "condition": "quiet",
+        "clips": 10,
+        "clips_with_detection": 9,
+        "events": 9,
+        "seconds": 16.5,
+        "digital_silence_clips": 0,
+        "clipped_samples": 0
+      }
+    ]
+  },
+  "local_asr_annotation_aid": {
+    "schema": "fono-lira-local-asr-aid@1",
+    "backend": "Whisper medium/Vulkan protocol4",
+    "language": "ru",
+    "target_prompt_used": false,
+    "labels_changed": false,
+    "human_ground_truth": false,
+    "wall_seconds": 41.33,
+    "groups": [
+      {
+        "kind": "other_speech",
+        "condition": "noisy",
+        "clips": 3,
+        "full_target_transcribed": 0
+      },
+      {
+        "kind": "other_speech",
+        "condition": "quiet",
+        "clips": 4,
+        "full_target_transcribed": 0
+      },
+      {
+        "kind": "phrase",
+        "condition": "noisy",
+        "clips": 12,
+        "full_target_transcribed": 8
+      },
+      {
+        "kind": "phrase",
+        "condition": "quiet",
+        "clips": 10,
+        "full_target_transcribed": 8
+      }
+    ]
+  },
+  "existing_data_diagnostic": {
+    "schema": "fono-lira-existing-data-diagnostic@1",
+    "digital_silence_seconds": 6.38,
+    "real_background_seconds": 1.7,
+    "speech_negative_seconds": 31.93,
+    "negative_tags_from_asr_aid": [
+      {
+        "tag": "other_or_unclear",
+        "clips": 7,
+        "cnn_hits": 4
+      }
+    ],
+    "hypothetical_exact_stt_cascade_from_existing_outputs": {
+      "phrase": {
+        "clips": 22,
+        "joint_hits": 16
+      },
+      "other_speech": {
+        "clips": 7,
+        "joint_hits": 0
+      }
+    },
+    "new_inference_runs": 0,
+    "new_training_runs": 0,
+    "asr_tags_are_not_human_ground_truth": true
+  },
+  "operating_point": {
+    "threshold": 0.8,
+    "epochs": 32,
+    "seed": 20261022,
+    "source_sha256": "8cebd00245f952de33ab627bb427a98fa31f83de357b114675b2913f928fb31d",
+    "frontend_sha256": "0bb4a801ba11d24c672b9158d5283f77e4cd4de796e43462ff043f6be1fc027c",
+    "threshold_search": false,
+    "retraining_after_owner_replay": false
+  },
+  "checks": {
+    "training_contracts": 21,
+    "benchmark_contracts": 18,
+    "release_ci": 48,
+    "runtime_python": "3.12.14",
+    "native_changes": false,
+    "v3_changes": false,
+    "remote_ci_run": false,
+    "format": "passed",
+    "docs": "passed",
+    "version": "passed"
+  },
+  "qualified": false,
+  "candidate_accepted": false,
+  "wake_word_available": false,
+  "native_integration": false,
+  "model_published": false,
+  "long_false_activations_measured": false,
+  "latency_measured": false,
+  "idle_cpu_measured": false,
+  "remaining": [
+    "Detector misses 2 positive clips and fires on 4 of 7 declared speech negatives.",
+    "Current files have no phrase-boundary annotation; clip hits are not qualified recall.",
+    "ASR did not confirm iPhone/Lera/Mira tokens in new negatives; do not claim that control passed.",
+    "Exact STT conjunction would retain only 16/22 positives; this cascade is not integrated.",
+    "No further training or threshold sweep in this bounded pass; owner need not record more now.",
+    "Original W-02 gates and final model provenance/distribution/integration remain open."
+  ],
+  "source_base_revision": "c10cc28ddaf86908817c5ca1b8e57fd93f100972"
+}

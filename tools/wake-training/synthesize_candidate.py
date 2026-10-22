@@ -52,7 +52,19 @@ def verify_cache(directory, manifest):
         verified[name] = sha256
     return verified
 
-def jobs():
+def jobs(phrase_id="hey_fono"):
+    if phrase_id == "privet_lira":
+        # Interleave voice designs so a bounded partial prefix is not one voice.
+        texts = [(True, "Привет, Лира.")] * 2 + [(False, text) for text in (
+            "Привет, Лера.", "Привет, Мира.", "Привет, Ира.",
+            "У меня новый айфон.", "Привет.", "Лира.", "Добрый день.")]
+        return [{"language": "ru", "positive": positive, "text": text,
+                 "style": style, "seed": 2000 + index * len(STYLES) + voice,
+                 "speaker": f"design-{voice}"}
+                for index, (positive, text) in enumerate(texts)
+                for voice, style in enumerate(STYLES)]
+    if phrase_id != "hey_fono":
+        raise ValueError("unknown target phrase")
     result = []
     for language, target in TARGETS.items():
         for style_index, style in enumerate(STYLES):
@@ -69,6 +81,8 @@ def run(args):
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+    phrase_id = getattr(args, "phrase_id", "hey_fono")
+    planned = jobs(phrase_id)
     identity = json.loads(Path(__file__).with_name("voxcpm2.json").read_text(encoding="utf-8"))
     verified = verify_cache(args.model_dir, identity)
     if importlib.metadata.version("voxcpm") != "2.0.3":
@@ -94,7 +108,7 @@ def run(args):
     if type(model.tts_model).__name__ != "VoxCPM2Model" or model.tts_model.sample_rate != 48000:
         raise ValueError("unexpected TTS architecture or sample rate")
     entries = []
-    for index, job in enumerate(jobs()):
+    for index, job in enumerate(planned):
         if time.monotonic() - started > args.max_seconds:
             # Keep the completed prefix explicitly partial; never quietly restart generation.
             break
@@ -114,15 +128,17 @@ def run(args):
         entries.append({**job, "id": f"synthetic-{index:03d}", "wav": name, "sha256": digest(output/name),
                         "samples": int(audio.size), "origin": "synthetic", "split": "train"})
         if (index+1) % 8 == 0:
-            print(json.dumps({"phase":"synthesis", "completed":index+1, "total":len(jobs()),
+            print(json.dumps({"phase":"synthesis", "completed":index+1, "total":len(planned),
                               "elapsed_seconds":round(time.monotonic()-started,1)}), flush=True)
     if not entries:
         raise TimeoutError("fixed synthesis budget produced no complete clips")
-    complete = len(entries) == len(jobs())
+    complete = len(entries) == len(planned)
     manifest = {"schema":"fono-wake-synthetic-candidate@1", "entries":entries, "tts_repo":identity["repo"],
                 "tts_revision":identity["revision"], "tts_sha256":verified, "owner_voice_used":False,
                 "reference_audio_used":False, "source_script_sha256":digest(__file__),
-                "synthesis_complete":complete, "planned_clips":len(jobs()),
+                "synthesis_complete":complete, "planned_clips":len(planned),
+                "phrase_id":phrase_id,
+                "target_phrases": {"ru": "Привет, Лира"} if phrase_id == "privet_lira" else TARGETS,
                 "stop_reason":"all_planned_clips" if complete else "fixed_synthesis_time_budget",
                 "voxcpm_version":importlib.metadata.version("voxcpm"), "torch_version":torch.__version__,
                 "gpu":torch.cuda.get_device_name(), "peak_vram_bytes":torch.cuda.max_memory_reserved(),
@@ -136,4 +152,5 @@ if __name__ == "__main__":
     parser.add_argument("--model-dir",required=True)
     parser.add_argument("--output-dir",required=True)
     parser.add_argument("--max-seconds",type=int,default=600)
+    parser.add_argument("--phrase-id",choices=("hey_fono", "privet_lira"),default="hey_fono")
     run(parser.parse_args())
