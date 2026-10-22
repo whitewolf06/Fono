@@ -1,5 +1,12 @@
 # Подготовка обучения фиксированной фразы — FONO-144 / W-03
 
+Обновление **v0.7.71**: `lira_ctc.py` и точка
+[lira-ctc-exact/config.json](lira-ctc-exact/config.json) добавляют проверку
+полной фразы русской T-one без новых train/TTS прогонов. На том же dev
+сохранены 20/22 положительных, ложные события 4→0; прежние речевые негативы
+0/6. Это файловый research, native WakeWord выключен. Команды и хвосты —
+[в отчёте CTC](../../docs/improvement-wake-lira-ctc.md).
+
 Обновление **v0.7.70**: для новой русской фразы «Привет, Лира» доступны
 `synthesize_candidate.py --phrase-id privet_lira` и `lira.py train/evaluate`.
 Один train/replay на 31 новом dev-образце: 20/22 целевых, но 4 события

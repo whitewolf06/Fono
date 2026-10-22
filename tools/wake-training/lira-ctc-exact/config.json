@@ -1,0 +1,45 @@
+{
+  "schema": "fono-lira-ctc-verifier@1",
+  "target": "привет лира",
+  "decoys": [
+    "привет лера",
+    "привет мира",
+    "привет ира",
+    "айфон"
+  ],
+  "cutoff": null,
+  "required_margin": 0.0,
+  "cnn_threshold": 0.8,
+  "context_samples": 64000,
+  "lookahead_samples": 10240,
+  "source_sha256": "6f59b42301bfffcacc9821432a6b3420969c3e9aa40750082761c60b3a630f58",
+  "model_identity": {
+    "model.onnx": "5ded080e2a6c86ecc11bcb0902d77524eb3e8b0844cb0c0754347f5aafb4dabc",
+    "tokens.txt": "27f7b3ba2096c572375fba1a6b29af1f80d86e08a329940612908112695f97e0",
+    "LICENSE": "c8e6ecb86af681d9815d1ada7b1a7780ea5e5cb68a5df94fc800adab1a6ce027"
+  },
+  "archive_sha256": "b9c907450e99a6e5049e279bf18368a17db0bdc5e63b7fa978943138debbe3ae",
+  "private_voice_used_for_calibration": false,
+  "synthetic_manifest_sha256": "87f2e5c1836d7cae4c05a0945d4867e7facc1239b484d95eb666c4caf338c35e",
+  "public_manifest_sha256": "9135c5d2c751146ce229dbedac783d89bd584590dd3840342567f12d57360241",
+  "versions": {
+    "numpy": "1.26.4",
+    "scipy": "1.17.1",
+    "onnxruntime": "1.23.2"
+  },
+  "calibration": {
+    "kind": "no fitting; exact whole-word frame-best CTC sequence required"
+  },
+  "qualified": false,
+  "decision_rule": "greedy_whole_phrase",
+  "prior_cost_config_sha256": "fbfaa978a4a6860caa10aa22816b995b83dbaf26b1a5e6b4a1c6886150f3fbc7",
+  "prior_cost_calibration": {
+    "positive_clips": 8,
+    "positive_accepted": 6,
+    "negative_clips": 48,
+    "negative_accepted": 0,
+    "wall_seconds": 68.531
+  },
+  "selected_after_dev_feedback": true,
+  "independent_test_claimed": false
+}

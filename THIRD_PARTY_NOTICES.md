@@ -190,6 +190,14 @@ FLEURS не считается независимым wake test. Условия 
 Личные записи владельца остаются только dev. Кандидат не принят и не
 поставляется с приложением: [результат Лиры](docs/improvement-wake-lira-evaluation.md).
 
+В v0.7.71 файловый CTC-verifier использует уже закреплённую русскую
+[T-one](https://github.com/voicekit-team/T-one), Apache-2.0, Copyright 2025
+T-Software DC. Архив — существующий `sherpa-onnx-streaming-t-one-russian-2025-09-08`,
+SHA256 `b9c907450e99a6e5049e279bf18368a17db0bdc5e63b7fa978943138debbe3ae`.
+Файлы модели, tokens и LICENSE побайтно сверены с архивом и закреплены
+отдельными SHA256 в research-коде. Веса не переобучались и не включались
+в приложение или Git; [границы проверки](docs/improvement-wake-lira-ctc.md).
+
 ## Microsoft и установщики
 
 MSVC runtime/Windows SDK и Microsoft WebView2 Runtime имеют собственные условия.

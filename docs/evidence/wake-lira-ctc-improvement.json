@@ -1,0 +1,261 @@
+{
+  "schema": "fono-lira-ctc-improvement@1",
+  "date": "2026-10-22",
+  "source_version": "0.7.71",
+  "source_base_revision": "62086f3582d0419541b944626e7dfca4bb851e9a",
+  "scope": "paired private dev improvement; not general qualification or native integration",
+  "goal_on_existing_dev_set_met": true,
+  "baseline_model_sha256": "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa541c",
+  "first_calibrated_cost_variant": {
+    "schema": "fono-lira-ctc-paired-replay@1",
+    "config_sha256": "fbfaa978a4a6860caa10aa22816b995b83dbaf26b1a5e6b4a1c6886150f3fbc7",
+    "source_sha256": "ad8524b64a4c4fb1726a5b60d02d4d1a0e5b60763bfb9eb6d6375e18beedce95",
+    "cutoff": -4.149758156673257,
+    "groups": [
+      {
+        "kind": "background",
+        "condition": "noisy",
+        "clips": 2,
+        "baseline_hits": 0,
+        "verified_hits": 0,
+        "baseline_events": 0,
+        "verified_events": 0,
+        "positive_regressions": 0,
+        "seconds": 8.08
+      },
+      {
+        "kind": "other_speech",
+        "condition": "noisy",
+        "clips": 3,
+        "baseline_hits": 2,
+        "verified_hits": 0,
+        "baseline_events": 2,
+        "verified_events": 0,
+        "positive_regressions": 0,
+        "seconds": 18.6
+      },
+      {
+        "kind": "other_speech",
+        "condition": "quiet",
+        "clips": 4,
+        "baseline_hits": 2,
+        "verified_hits": 1,
+        "baseline_events": 2,
+        "verified_events": 1,
+        "positive_regressions": 0,
+        "seconds": 13.33
+      },
+      {
+        "kind": "phrase",
+        "condition": "noisy",
+        "clips": 12,
+        "baseline_hits": 11,
+        "verified_hits": 11,
+        "baseline_events": 11,
+        "verified_events": 11,
+        "positive_regressions": 0,
+        "seconds": 17.51
+      },
+      {
+        "kind": "phrase",
+        "condition": "quiet",
+        "clips": 10,
+        "baseline_hits": 9,
+        "verified_hits": 9,
+        "baseline_events": 9,
+        "verified_events": 9,
+        "positive_regressions": 0,
+        "seconds": 16.5
+      }
+    ],
+    "wall_seconds": 8.047,
+    "latency_measured": false,
+    "idle_cpu_measured": false,
+    "long_false_activations_measured": false,
+    "qualified": false,
+    "padding_is_negative_exposure": false,
+    "owner_voice_used_for_training": false,
+    "native_integration": false
+  },
+  "final_exact_decoder_variant": {
+    "schema": "fono-lira-ctc-paired-replay@1",
+    "config_sha256": "d3ea4079b329755bcdd42618cec915aa4952554479eb4b0999689558305ee47e",
+    "source_sha256": "6f59b42301bfffcacc9821432a6b3420969c3e9aa40750082761c60b3a630f58",
+    "cutoff": null,
+    "decision_rule": "greedy_whole_phrase",
+    "groups": [
+      {
+        "kind": "background",
+        "condition": "noisy",
+        "clips": 2,
+        "baseline_hits": 0,
+        "verified_hits": 0,
+        "baseline_events": 0,
+        "verified_events": 0,
+        "positive_regressions": 0,
+        "seconds": 8.08
+      },
+      {
+        "kind": "other_speech",
+        "condition": "noisy",
+        "clips": 3,
+        "baseline_hits": 2,
+        "verified_hits": 0,
+        "baseline_events": 2,
+        "verified_events": 0,
+        "positive_regressions": 0,
+        "seconds": 18.6
+      },
+      {
+        "kind": "other_speech",
+        "condition": "quiet",
+        "clips": 4,
+        "baseline_hits": 2,
+        "verified_hits": 0,
+        "baseline_events": 2,
+        "verified_events": 0,
+        "positive_regressions": 0,
+        "seconds": 13.33
+      },
+      {
+        "kind": "phrase",
+        "condition": "noisy",
+        "clips": 12,
+        "baseline_hits": 11,
+        "verified_hits": 11,
+        "baseline_events": 11,
+        "verified_events": 11,
+        "positive_regressions": 0,
+        "seconds": 17.51
+      },
+      {
+        "kind": "phrase",
+        "condition": "quiet",
+        "clips": 10,
+        "baseline_hits": 9,
+        "verified_hits": 9,
+        "baseline_events": 9,
+        "verified_events": 9,
+        "positive_regressions": 0,
+        "seconds": 16.5
+      }
+    ],
+    "wall_seconds": 8.734,
+    "latency_measured": false,
+    "idle_cpu_measured": false,
+    "long_false_activations_measured": false,
+    "qualified": false,
+    "padding_is_negative_exposure": false,
+    "owner_voice_used_for_training": false,
+    "native_integration": false
+  },
+  "final_point": {
+    "schema": "fono-lira-ctc-verifier@1",
+    "target": "привет лира",
+    "decoys": ["привет лера", "привет мира", "привет ира", "айфон"],
+    "cutoff": null,
+    "required_margin": 0,
+    "cnn_threshold": 0.8,
+    "context_samples": 64000,
+    "lookahead_samples": 10240,
+    "source_sha256": "6f59b42301bfffcacc9821432a6b3420969c3e9aa40750082761c60b3a630f58",
+    "model_identity": {
+      "model.onnx": "5ded080e2a6c86ecc11bcb0902d77524eb3e8b0844cb0c0754347f5aafb4dabc",
+      "tokens.txt": "27f7b3ba2096c572375fba1a6b29af1f80d86e08a329940612908112695f97e0",
+      "LICENSE": "c8e6ecb86af681d9815d1ada7b1a7780ea5e5cb68a5df94fc800adab1a6ce027"
+    },
+    "archive_sha256": "b9c907450e99a6e5049e279bf18368a17db0bdc5e63b7fa978943138debbe3ae",
+    "private_voice_used_for_calibration": false,
+    "synthetic_manifest_sha256": "87f2e5c1836d7cae4c05a0945d4867e7facc1239b484d95eb666c4caf338c35e",
+    "public_manifest_sha256": "9135c5d2c751146ce229dbedac783d89bd584590dd3840342567f12d57360241",
+    "versions": {
+      "numpy": "1.26.4",
+      "scipy": "1.17.1",
+      "onnxruntime": "1.23.2"
+    },
+    "calibration": {
+      "kind": "no fitting; exact whole-word frame-best CTC sequence required"
+    },
+    "qualified": false,
+    "decision_rule": "greedy_whole_phrase",
+    "prior_cost_config_sha256": "fbfaa978a4a6860caa10aa22816b995b83dbaf26b1a5e6b4a1c6886150f3fbc7",
+    "prior_cost_calibration": {
+      "positive_clips": 8,
+      "positive_accepted": 6,
+      "negative_clips": 48,
+      "negative_accepted": 0,
+      "wall_seconds": 68.531
+    },
+    "selected_after_dev_feedback": true,
+    "independent_test_claimed": false
+  },
+  "legacy_speech_control": {
+    "schema": "fono-lira-legacy-speech-control@1",
+    "legacy_phrase_id": "hey_fono",
+    "target_phrase_id": "privet_lira",
+    "recordings_relabelled": false,
+    "clips": 6,
+    "seconds": 39.87,
+    "cnn_proposal_clips": 2,
+    "cnn_proposals": 2,
+    "verified_event_clips": 0,
+    "verified_events": 0,
+    "labels": "earlier owner-confirmed speech negatives including deliberate iPhone; existing ASR has no new target",
+    "independent_test": false,
+    "configuration_changed": false,
+    "new_training_runs": 0,
+    "wall_seconds": 3.281
+  },
+  "work_budget": {
+    "new_neural_training_runs": 0,
+    "new_tts_runs": 0,
+    "nonprivate_calibration_passes": 1,
+    "completed_paired_rule_evaluations": 2,
+    "setup_aborts_before_private_inference": 1,
+    "supplemental_legacy_control_passes": 1,
+    "private_numeric_threshold_sweep": false,
+    "rule_selected_after_dev_feedback": true,
+    "independent_test_claimed": false
+  },
+  "diagnosis": {
+    "false_spikes_only": false,
+    "longer_confirmation_would_reject_valid_baseline_hits": true,
+    "soft_alignment_still_accepted_one_negative": true,
+    "final_rule": "complete whole-word target in the frame-best Russian CTC sequence; no forced target or fuzzy names"
+  },
+  "loader": {
+    "archive_sha256_verified": true,
+    "extracted_asset_sha256_verified": true,
+    "first_calibration_compared_files_to_archive_bytes": true,
+    "direct_file_pins_remove_repeated_decompression": true
+  },
+  "checks": {
+    "training_contracts_passed": 28,
+    "new_ctc_contracts": 7,
+    "release_ci_passed": 48,
+    "format": "passed",
+    "docs": "passed",
+    "version": "passed",
+    "remote_ci_run": false,
+    "native_logic_changed": false,
+    "v3_changed": false,
+    "new_exe_built": false
+  },
+  "qualified": false,
+  "native_integration": false,
+  "wake_word_available": false,
+  "owner_voice_used_for_training": false,
+  "audio_uploaded": false,
+  "remaining": [
+    "Two original CNN proposal misses remain (quiet 1/10, noisy 1/12); no new misses on the same hit IDs.",
+    "The rule was selected on dev feedback; independent annotated voices and real near-miss negatives remain open.",
+    "640 ms candidate lookahead and verifier work require real latency/p95 and idle CPU checks.",
+    "Current negatives are short; the original 0.5 FA/hour and 10-hour negative corpus are not qualified.",
+    "Native AudioHub/admission/worker integration, final package/lock/notices and user voice acceptance remain separate."
+  ],
+  "primary_sources": [
+    "https://github.com/voicekit-team/T-one",
+    "https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-ctc/t-one-ctc-models.html",
+    "https://github.com/k2-fsa/sherpa-onnx/blob/master/scripts/t-one/test.py"
+  ]
+}

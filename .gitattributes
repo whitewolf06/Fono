@@ -3,6 +3,10 @@ package-lock.json text eol=lf
 src-tauri/Cargo.lock text eol=lf
 tools/fono-setup/Cargo.lock text eol=lf
 
+# The reviewed verifier point and source hashes must survive Windows/Linux checkout.
+tools/wake-training/lira_ctc.py text eol=lf
+tools/wake-training/lira-ctc-exact/config.json -text -whitespace
+
 # Preserve upstream notice bytes and whitespace as supplied by their authors.
 licenses/dependency-notices.txt -text -whitespace
 licenses/upstream/*.txt -text -whitespace
