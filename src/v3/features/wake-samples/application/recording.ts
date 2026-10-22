@@ -90,6 +90,10 @@ export function createWakeSamples(
       state.error = message("wakeSamples.consentRequired");
       return;
     }
+    if (request.phraseId === "privet_lira" && request.language !== "ru") {
+      state.error = message("wakeSamples.errorPhrase");
+      return;
+    }
     const token = ++generation;
     clearAudio();
     state.phase = "starting";

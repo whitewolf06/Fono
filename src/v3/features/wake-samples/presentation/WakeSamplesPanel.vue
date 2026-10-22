@@ -5,11 +5,13 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { message as $t } from "../../../shared/domain/messages";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import type { WakeSampleRequest } from "../domain/samples";
+import { wakeSampleSets, wakeSamplesInSet } from "../domain/samples";
 
 const workspace = useWorkspace();
 const port = workspace.wakeSamples;
 const state = port.state;
 const request = reactive<WakeSampleRequest>({
+  phraseId: "privet_lira",
   language: "ru",
   kind: "phrase",
   condition: "quiet",
@@ -22,17 +24,24 @@ const blocked = computed(
     active.value ||
     !["idle", "error"].includes(workspace.state.phase),
 );
-const phrase = computed(() =>
-  request.language === "ru" ? "Эй, Фоно" : "Hey Fono",
+const currentSet = computed(() =>
+  wakeSampleSets.find(
+    (set) =>
+      set.phraseId === request.phraseId && set.language === request.language,
+  )!,
 );
-const selected = computed(() =>
-  state.samples.filter(
-    (s) =>
-      s.language === request.language &&
-      s.kind === request.kind &&
-      s.condition === request.condition,
-  ),
-);
+const selectedSet = computed({
+  get: () => currentSet.value.id,
+  set: (id: string) => {
+    const set = wakeSampleSets.find((set) => set.id === id);
+    if (set) {
+      request.phraseId = set.phraseId;
+      request.language = set.language;
+    }
+  },
+});
+const phrase = computed(() => currentSet.value.phrase);
+const selected = computed(() => wakeSamplesInSet(state.samples, request));
 const target = computed(() =>
   request.kind === "phrase" ? 5 : request.kind === "other_speech" ? 3 : 1,
 );
@@ -41,7 +50,7 @@ const prompt = computed(() =>
     ? $t("wakeSamples.sayPhrase", { phrase: phrase.value })
     : $t(
         request.kind === "other_speech"
-          ? "wakeSamples.otherPrompt"
+          ? "wakeSamples.liraOtherPrompt"
           : "wakeSamples.backgroundPrompt",
       ),
 );
@@ -70,13 +79,17 @@ onUnmounted(() => void port.cancel());
     <div class="form-grid">
       <SelectField
         id="wakeSampleLanguage"
-        v-model="request.language"
+        v-model="selectedSet"
         :label="$t('wakeSamples.language')"
         :disabled="active"
-        :options="[
-          { value: 'ru', label: 'Эй, Фоно' },
-          { value: 'en', label: 'Hey Fono' },
-        ]"
+        :options="
+          wakeSampleSets.map((set) => ({
+            value: set.id,
+            label: set.archived
+              ? $t('wakeSamples.archivedSet', { phrase: set.phrase })
+              : set.phrase,
+          }))
+        "
       />
       <SelectField
         id="wakeSampleCondition"
@@ -100,7 +113,9 @@ onUnmounted(() => void port.cancel());
         { value: 'background', label: $t('wakeSamples.background') },
       ]"
     />
-    <p class="notice">{{ prompt }}</p>
+    <p class="notice">
+      {{ currentSet.archived ? $t("wakeSamples.archiveHint") : prompt }}
+    </p>
     <p class="muted">
       {{ $t("wakeSamples.progress", { count: selected.length, target }) }}
     </p>
@@ -112,7 +127,12 @@ onUnmounted(() => void port.cancel());
     <div class="actions">
       <WlButton
         variant="primary"
-        :disabled="blocked || !request.consent || state.samples.length >= 200"
+        :disabled="
+          blocked ||
+          currentSet.archived ||
+          !request.consent ||
+          state.samples.length >= 200
+        "
         @click="port.record(request)"
         >{{ $t("wakeSamples.record") }}</WlButton
       >

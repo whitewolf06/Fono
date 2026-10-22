@@ -10,8 +10,10 @@ let server,
   createNativeWakeSamples,
   createMockWakeSamples,
   workspaceKey,
+  wakeSamplesInSet,
   Panel;
 const request = {
+  phraseId: "privet_lira",
   language: "ru",
   kind: "phrase",
   condition: "quiet",
@@ -19,6 +21,7 @@ const request = {
 };
 const sample = {
   id: "sample-one",
+  phraseId: "privet_lira",
   language: "ru",
   kind: "phrase",
   condition: "quiet",
@@ -59,6 +62,9 @@ before(async () => {
   ));
   ({ createMockWakeSamples } = await server.ssrLoadModule(
     "/src/v3/features/wake-samples/infrastructure/mockSamples.ts",
+  ));
+  ({ wakeSamplesInSet } = await server.ssrLoadModule(
+    "/src/v3/features/wake-samples/domain/samples.ts",
   ));
   ({ workspaceKey } = await server.ssrLoadModule(
     "/src/v3/shared/application/workspace.ts",
@@ -273,9 +279,66 @@ test("recording form explains preparation and local consent, without a wake acti
   });
   const html = await renderToString(app);
   assert.match(html, /Записи для WakeWord/);
+  assert.match(html, /Привет, Лира/);
+  assert.match(html, /iPhone/);
+  assert.match(html, /Прежние образцы сюда не засчитываются/);
   assert.match(html, /пробуждение пока выключено/);
   assert.match(html, /не отправляет их на сервер/);
   assert.doesNotMatch(html, /wakeEnabled/);
   assert.match(html, /<button[^>]*disabled/);
+  port.dispose();
+});
+
+test("the new phrase counter excludes both identified and unlabelled legacy recordings", () => {
+  const legacy = { ...sample, id: "legacy", phraseId: "hey_fono" };
+  const unlabelled = { ...sample, id: "v1" };
+  delete unlabelled.phraseId;
+  const rows = [sample, legacy, unlabelled];
+  assert.deepEqual(
+    wakeSamplesInSet(rows, request).map((s) => s.id),
+    [sample.id],
+  );
+  assert.deepEqual(
+    wakeSamplesInSet(rows, { ...request, phraseId: "hey_fono" }).map(
+      (s) => s.id,
+    ),
+    ["legacy", "v1"],
+  );
+});
+
+test("unsupported phrase language is rejected before microphone admission", async () => {
+  let starts = 0;
+  const port = createWakeSamples(
+    backend({
+      start: async () => {
+        starts++;
+      },
+    }),
+  );
+  await port.record({ ...request, language: "en" });
+  assert.equal(starts, 0);
+  assert.equal(port.state.phase, "idle");
+  assert.match(port.state.error, /Лира/);
+  port.dispose();
+});
+
+test("phrase identity is captured with the request before a delayed start", async () => {
+  const pending = deferred();
+  let captured;
+  const port = createWakeSamples(
+    backend({
+      start: (value) => {
+        captured = value;
+        return pending.promise;
+      },
+    }),
+  );
+  const draft = { ...request };
+  const starting = port.record(draft);
+  draft.phraseId = "hey_fono";
+  assert.equal(captured.phraseId, "privet_lira");
+  pending.resolve({ sessionId: 99, durationMs: 5000 });
+  await starting;
+  await port.cancel();
   port.dispose();
 });

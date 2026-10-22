@@ -16,6 +16,26 @@ pub(crate) enum Language {
     Ru,
     En,
 }
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PhraseId {
+    // Missing identity belongs to the original dataset, never to the current phrase.
+    #[default]
+    HeyFono,
+    PrivetLira,
+}
+impl PhraseId {
+    fn text(&self, language: &Language) -> AppResult<&'static str> {
+        match (self, language) {
+            (Self::HeyFono, Language::Ru) => Ok("Эй, Фоно"),
+            (Self::HeyFono, Language::En) => Ok("Hey Fono"),
+            (Self::PrivetLira, Language::Ru) => Ok("Привет, Лира"),
+            _ => Err(AppError::Config(
+                "Для «Привет, Лира» выберите русский язык записи.".into(),
+            )),
+        }
+    }
+}
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SampleKind {
@@ -32,6 +52,8 @@ pub(crate) enum Condition {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct SampleRequest {
+    #[serde(default)]
+    pub phrase_id: PhraseId,
     pub language: Language,
     pub kind: SampleKind,
     pub condition: Condition,
@@ -44,6 +66,7 @@ impl SampleRequest {
                 "Подтвердите локальное сохранение образцов голоса.".into(),
             ));
         }
+        self.phrase_id.text(&self.language)?;
         Ok(())
     }
     pub fn duration_ms(&self) -> u64 {
@@ -58,6 +81,8 @@ impl SampleRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Sample {
     pub id: String,
+    #[serde(default)]
+    pub phrase_id: PhraseId,
     pub language: Language,
     pub kind: SampleKind,
     pub condition: Condition,
@@ -70,6 +95,8 @@ pub(crate) struct Sample {
 struct Recording {
     schema: String,
     sample: Sample,
+    #[serde(default)]
+    phrase: Option<String>,
     speaker: String,
     session: String,
     source_group: String,
@@ -77,6 +104,20 @@ struct Recording {
     permission: String,
     purpose: String,
     annotation: Option<serde_json::Value>,
+}
+impl Recording {
+    fn validate(&self, id: &str) -> AppResult<()> {
+        let phrase = self.sample.phrase_id.text(&self.sample.language)?;
+        let identity_matches = match self.schema.as_str() {
+            "fono-wake-recording@1" => self.sample.phrase_id == PhraseId::HeyFono,
+            "fono-wake-recording@2" => self.phrase.as_deref() == Some(phrase),
+            _ => false,
+        };
+        if self.sample.id != id || !identity_matches {
+            return Err(AppError::Config("Образец повреждён или недоступен.".into()));
+        }
+        Ok(())
+    }
 }
 
 fn root() -> AppResult<std::path::PathBuf> {
@@ -139,9 +180,7 @@ fn load(root: &Path) -> AppResult<Vec<Sample>> {
         let dir = entry_dir(root, &id)?;
         let recording: Recording =
             serde_json::from_slice(&regular_file(&dir.join("recording.json"), 16_384)?)?;
-        if recording.schema != "fono-wake-recording@1" || recording.sample.id != id {
-            return Err(AppError::Config("Образец повреждён или недоступен.".into()));
-        }
+        recording.validate(&id)?;
         items.push(recording.sample);
     }
     items.sort_by(|a, b| {
@@ -229,8 +268,10 @@ fn save_active_at(
         value
     };
     let audio = wav(samples)?;
+    let phrase = request.phrase_id.text(&request.language)?.to_owned();
     let sample = Sample {
         id: Uuid::new_v4().to_string(),
+        phrase_id: request.phrase_id,
         language: request.language,
         kind: request.kind,
         condition: request.condition,
@@ -244,8 +285,9 @@ fn save_active_at(
     let pending = root.join(format!(".{}.pending", sample.id));
     fs::create_dir(&pending)?;
     let recording = Recording {
-        schema: "fono-wake-recording@1".into(),
+        schema: "fono-wake-recording@2".into(),
         sample: sample.clone(),
+        phrase: Some(phrase),
         source_group: speaker.clone(),
         speaker,
         session: session.into(),
@@ -291,10 +333,9 @@ fn read_audio_at(root: &Path, id: &str) -> AppResult<String> {
     let dir = entry_dir(root, id)?;
     let recording: Recording =
         serde_json::from_slice(&regular_file(&dir.join("recording.json"), 16_384)?)?;
+    recording.validate(id)?;
     let audio = regular_file(&dir.join("recording.wav"), (RATE * 44 + 44) as u64)?;
-    if recording.sample.id != id
-        || recording.sample.sha256 != format!("{:x}", Sha256::digest(&audio))
-    {
+    if recording.sample.sha256 != format!("{:x}", Sha256::digest(&audio)) {
         return Err(AppError::Config("Образец повреждён или недоступен.".into()));
     }
     Ok(STANDARD.encode(audio))

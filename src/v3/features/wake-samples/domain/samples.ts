@@ -1,7 +1,9 @@
 export type WakeLanguage = "ru" | "en";
+export type WakePhraseId = "privet_lira" | "hey_fono";
 export type WakeSampleKind = "phrase" | "other_speech" | "background";
 export type WakeCondition = "quiet" | "noisy";
 export interface WakeSampleRequest {
+  phraseId: WakePhraseId;
   language: WakeLanguage;
   kind: WakeSampleKind;
   condition: WakeCondition;
@@ -9,12 +11,48 @@ export interface WakeSampleRequest {
 }
 export interface WakeSample {
   id: string;
+  phraseId: WakePhraseId;
   language: WakeLanguage;
   kind: WakeSampleKind;
   condition: WakeCondition;
   durationMs: number;
   sha256: string;
   recordedAtMs: number;
+}
+export const wakeSampleSets = [
+  {
+    id: "privet_lira",
+    phraseId: "privet_lira",
+    language: "ru",
+    phrase: "Привет, Лира",
+    archived: false,
+  },
+  {
+    id: "hey_fono_ru",
+    phraseId: "hey_fono",
+    language: "ru",
+    phrase: "Эй, Фоно",
+    archived: true,
+  },
+  {
+    id: "hey_fono_en",
+    phraseId: "hey_fono",
+    language: "en",
+    phrase: "Hey Fono",
+    archived: true,
+  },
+] as const;
+export function wakeSamplesInSet(
+  samples: WakeSample[],
+  request: WakeSampleRequest,
+): WakeSample[] {
+  return samples.filter(
+    (sample) =>
+      (sample.phraseId ?? "hey_fono") === request.phraseId &&
+      sample.language === request.language &&
+      sample.kind === request.kind &&
+      sample.condition === request.condition,
+  );
 }
 export interface WakeSamplesState {
   samples: WakeSample[];

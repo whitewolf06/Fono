@@ -74,7 +74,7 @@ jobs:
           node scripts/ci-frontend-dependencies.mjs --installed
           node --test scripts/ci-frontend-dependencies.test.mjs
       - name: Wake benchmark contracts without models or microphone
-        run: python3 -m unittest discover -s tools/wake-bench -p test_bench.py -v
+        run: python3 -m unittest discover -s tools/wake-bench -p 'test_*.py' -v
       - name: Wake training contracts without models or microphone
         run: python3 -m unittest discover -s tools/wake-training -p 'test_*.py' -v
       - name: Typecheck, lint, tests and formatting

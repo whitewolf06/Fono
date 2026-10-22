@@ -2079,7 +2079,7 @@
   "applicationContext.attempts": "Attempts",
   "applicationContext.share": "Share",
   "wakeSamples.title": "Recordings for WakeWord",
-  "wakeSamples.explanation": "Record samples to test “Эй, Фоно” and “Hey Fono”. This prepares the detector; voice activation is still off.",
+  "wakeSamples.explanation": "Record the Russian phrase “Привет, Лира”. This collection is separate from previous recordings. This prepares the detector; voice activation remains disabled.",
   "wakeSamples.desktopOnly": "Record samples in the Fono desktop app. The browser preview does not use the microphone.",
   "wakeSamples.language": "Phrase",
   "wakeSamples.condition": "Recording conditions",
@@ -2102,7 +2102,7 @@
   "wakeSamples.recording": "Recording. Remaining: {seconds} s.",
   "wakeSamples.saving": "Saving the sample…",
   "wakeSamples.cancelling": "Cancelling the recording…",
-  "wakeSamples.reviewHint": "Listen to the recordings. If the phrase is cut off or you misspoke, delete the sample and record it again. First record 5 phrases per language in quiet and noisy conditions, then 3 other-speech and 1 background recording per language.",
+  "wakeSamples.reviewHint": "Listen and delete any mistakes. For the first pass, record the Russian phrase “Привет, Лира” 5 times in quiet and 5 times with ordinary background sound, then 3 recordings without the phrase and 1 of background sound. Previous samples do not count toward this collection. Include iPhone and similar Russian greetings: “Привет, Лера”, “Привет, Мира”.",
   "wakeSamples.listen": "Listen",
   "wakeSamples.remove": "Delete",
   "wakeSamples.seconds": "s",
@@ -2116,5 +2116,9 @@
   "wakeSamples.errorActive": "Finish the current sample recording first.",
   "wakeSamples.errorSaving": "The sample is already being saved.",
   "wakeSamples.errorLost": "Audio was lost while recording. Record the sample again.",
-  "wakeSamples.errorStart": "Could not start sample recording."
+  "wakeSamples.errorStart": "Could not start sample recording.",
+  "wakeSamples.archivedSet": "{phrase} — previous collection",
+  "wakeSamples.archiveHint": "This is a previous collection. You can listen to recordings and delete individual samples. Select “Привет, Лира” to record the new phrase.",
+  "wakeSamples.liraOtherPrompt": "Speak for 20 seconds without saying the full Russian phrase “Привет, Лира”. Include iPhone, “Привет, Лера”, “Привет, Мира” or ordinary speech. You can finish earlier with Save recording.",
+  "wakeSamples.errorPhrase": "Select Russian for the “Привет, Лира” recording."
 }

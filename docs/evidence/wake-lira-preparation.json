@@ -1,0 +1,99 @@
+{
+  "schema": "fono-wake-lira-preparation@1",
+  "date": "2026-10-22",
+  "version": "0.7.68",
+  "phrase_id": "privet_lira",
+  "phrase": "Привет, Лира",
+  "language": "ru",
+  "recording_schema": "fono-wake-recording@2",
+  "legacy_default_phrase_id": "hey_fono",
+  "old_recordings_relabelled": false,
+  "initial_collection_audit": {
+    "schema": "fono-wake-recording-set-audit@1",
+    "phrase_id": "privet_lira",
+    "phrases": {
+      "ru": "Привет, Лира"
+    },
+    "selected_recordings": 0,
+    "other_set_recordings": 36,
+    "selected_seconds": 0,
+    "digital_silence_clips": 0,
+    "annotated_clips": 0,
+    "groups": [],
+    "quality_measured": false,
+    "qualified": false,
+    "training_started": false,
+    "status": "awaiting_recordings"
+  },
+  "checks": {
+    "native_passed": 789,
+    "native_failed": 0,
+    "native_ignored": 8,
+    "native_scope": "workspace --all-targets",
+    "native_new_storage_tests": 3,
+    "v3_passed": 398,
+    "v3_failed": 0,
+    "targeted_sample_tests": 14,
+    "python_bench_contracts": 18,
+    "python_new_recording_contracts": 4,
+    "python_training_contracts": 17,
+    "release_ci_scripts": 48,
+    "strict_clippy": "passed",
+    "typecheck": "passed",
+    "lint": "passed",
+    "frontend_build": "passed",
+    "format": "passed",
+    "browser_mock": [
+      {
+        "width": 720,
+        "height": 560,
+        "defaultPhrase": "Привет, Лира",
+        "newCount": 0,
+        "archiveSelection": true,
+        "microphoneDisabled": true,
+        "horizontalOverflow": false,
+        "errors": []
+      },
+      {
+        "width": 900,
+        "height": 720,
+        "defaultPhrase": "Привет, Лира",
+        "newCount": 0,
+        "archiveSelection": true,
+        "microphoneDisabled": true,
+        "horizontalOverflow": false,
+        "errors": []
+      },
+      {
+        "width": 1440,
+        "height": 900,
+        "defaultPhrase": "Привет, Лира",
+        "newCount": 0,
+        "archiveSelection": true,
+        "microphoneDisabled": true,
+        "horizontalOverflow": false,
+        "errors": []
+      }
+    ],
+    "remote_ci_run": false
+  },
+  "dev": {
+    "version": "0.7.68",
+    "exe_sha256": "8621cdcff37fe0696d93ceda0ae6500a41c94a94547080f05406659dfc6e8a24",
+    "exe_bytes": 50312704,
+    "native_build": true,
+    "started": true,
+    "frontend_version_matches_backend": true,
+    "responding": true,
+    "visual_confirmation": "pending owner",
+    "microphone_recorded_by_agent": false
+  },
+  "wake_word_available": false,
+  "trained_model_for_new_phrase": false,
+  "quality_measured": false,
+  "qualified": false,
+  "latency_measured": false,
+  "idle_cpu_measured": false,
+  "false_activations_measured": false,
+  "next": "Owner records new phrase and negatives including iPhone, then bounded detector evaluation."
+}

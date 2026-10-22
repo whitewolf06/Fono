@@ -16,6 +16,7 @@ impl Drop for Temporary {
 }
 fn request() -> SampleRequest {
     SampleRequest {
+        phrase_id: PhraseId::PrivetLira,
         language: Language::Ru,
         kind: SampleKind::Phrase,
         condition: Condition::Quiet,
@@ -49,6 +50,9 @@ fn recording_keeps_exact_pcm_and_private_provenance_without_invented_annotation(
     let meta: serde_json::Value =
         serde_json::from_slice(&fs::read(dir.join("recording.json")).unwrap()).unwrap();
     assert_eq!(meta["split"], "dev");
+    assert_eq!(meta["schema"], "fono-wake-recording@2");
+    assert_eq!(meta["sample"]["phraseId"], "privet_lira");
+    assert_eq!(meta["phrase"], "Привет, Лира");
     assert_eq!(meta["permission"], "consented-local-only");
     assert!(meta["annotation"].is_null());
     assert_eq!(meta["speaker"], meta["sourceGroup"]);
@@ -60,6 +64,7 @@ fn recordings_across_sessions_keep_the_same_speaker_and_development_split() {
     let root = Temporary::new();
     let first = save_at(&root.0, request(), &vec![5; RATE], "first").unwrap();
     let mut second_request = request();
+    second_request.phrase_id = PhraseId::HeyFono;
     second_request.language = Language::En;
     let second = save_at(&root.0, second_request, &vec![6; RATE], "second").unwrap();
     let read = |sample: Sample| -> Recording {
@@ -144,4 +149,63 @@ fn cancel_during_file_preparation_removes_the_pending_voice_before_publication()
     assert!(load(&root.0).unwrap().is_empty());
     // Only the opaque speaker identity remains; WAV/JSON transaction data is gone.
     assert_eq!(fs::read_dir(&root.0).unwrap().count(), 1);
+}
+
+#[test]
+fn legacy_metadata_stays_in_its_original_set_without_rewriting_files() {
+    let root = Temporary::new();
+    let mut old_request = request();
+    old_request.phrase_id = PhraseId::HeyFono;
+    let old = save_at(&root.0, old_request, &vec![1; RATE], "old").unwrap();
+    let metadata = root.0.join(&old.id).join("recording.json");
+    let mut legacy: serde_json::Value =
+        serde_json::from_slice(&fs::read(&metadata).unwrap()).unwrap();
+    legacy["schema"] = "fono-wake-recording@1".into();
+    legacy.as_object_mut().unwrap().remove("phrase");
+    legacy["sample"].as_object_mut().unwrap().remove("phraseId");
+    let bytes = serde_json::to_vec_pretty(&legacy).unwrap();
+    fs::write(&metadata, &bytes).unwrap();
+    save_at(&root.0, request(), &vec![2; RATE], "new").unwrap();
+    let samples = load(&root.0).unwrap();
+    assert_eq!(
+        samples
+            .iter()
+            .filter(|s| s.phrase_id == PhraseId::PrivetLira)
+            .count(),
+        1
+    );
+    assert_eq!(
+        samples
+            .iter()
+            .filter(|s| s.phrase_id == PhraseId::HeyFono)
+            .count(),
+        1
+    );
+    assert_eq!(fs::read(&metadata).unwrap(), bytes);
+    assert!(read_audio_at(&root.0, &old.id).is_ok());
+}
+
+#[test]
+fn inconsistent_phrase_metadata_is_rejected_in_list_and_playback() {
+    let root = Temporary::new();
+    let sample = save_at(&root.0, request(), &vec![1; RATE], "new").unwrap();
+    let path = root.0.join(&sample.id).join("recording.json");
+    let mut metadata: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    metadata["phrase"] = "Эй, Фоно".into();
+    fs::write(&path, serde_json::to_vec(&metadata).unwrap()).unwrap();
+    assert!(load(&root.0).is_err());
+    assert!(read_audio_at(&root.0, &sample.id).is_err());
+    metadata["schema"] = "fono-wake-recording@1".into();
+    fs::write(&path, serde_json::to_vec(&metadata).unwrap()).unwrap();
+    assert!(load(&root.0).is_err());
+}
+
+#[test]
+fn unsupported_phrase_language_is_rejected_before_creating_any_files() {
+    let root = Temporary::new();
+    let mut invalid = request();
+    invalid.language = Language::En;
+    assert!(save_at(&root.0, invalid, &vec![1; RATE], "test").is_err());
+    assert_eq!(fs::read_dir(&root.0).unwrap().count(), 0);
 }
