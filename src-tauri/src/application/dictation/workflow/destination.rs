@@ -13,6 +13,7 @@ struct Captured {
     target: Option<TextTarget>,
     claimed: bool,
     validity: OperationCancellation,
+    context: Option<(u64, crate::types::ApplicationContext)>,
 }
 
 #[derive(Default)]
@@ -28,7 +29,30 @@ impl DestinationSlot {
             target,
             claimed: false,
             validity: OperationCancellation::default(),
+            context: None,
         });
+    }
+
+    pub fn enable_context(&mut self, operation: u64, epoch: Option<u64>) {
+        if let Some(record) = self.0.as_mut().filter(|r| r.operation == operation) {
+            record.context = epoch.map(|e| (e, crate::types::ApplicationContext::default()));
+        }
+    }
+    pub fn context(&self, operation: u64) -> Option<(u64, crate::types::ApplicationContext)> {
+        self.0
+            .as_ref()
+            .filter(|r| r.operation == operation)
+            .and_then(|r| r.context.clone())
+    }
+    pub fn observe(&mut self, operation: u64, context: crate::types::ApplicationContext) {
+        if let Some((_, value)) = self
+            .0
+            .as_mut()
+            .filter(|r| r.operation == operation)
+            .and_then(|r| r.context.as_mut())
+        {
+            *value = context;
+        }
     }
 
     pub fn clear(&mut self, operation: u64) {
@@ -75,6 +99,30 @@ impl DestinationSlot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn consent_and_observations_belong_only_to_the_captured_operation() {
+        let mut s = DestinationSlot::default();
+        s.install(1, Some(target()));
+        assert!(s.context(1).is_none());
+        s.enable_context(1, Some(9));
+        s.observe(
+            1,
+            crate::types::ApplicationContext::unknown_attempt(
+                crate::types::InjectionMode::Clipboard,
+            ),
+        );
+        assert!(s.context(1).unwrap().1.attempted);
+        s.install(2, Some(target()));
+        s.enable_context(2, Some(10));
+        s.observe(
+            1,
+            crate::types::ApplicationContext::unknown_attempt(
+                crate::types::InjectionMode::Clipboard,
+            ),
+        );
+        assert!(!s.context(2).unwrap().1.attempted);
+        assert!(s.context(1).is_none());
+    }
 
     fn target() -> TextTarget {
         TextTarget {

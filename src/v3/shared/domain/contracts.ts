@@ -107,6 +107,7 @@ export interface Preferences {
   overlayOpacity: number;
   overlayPosition: string;
   historyEnabled: boolean;
+  applicationContextEnabled: boolean;
   historyRetentionDays: number;
   trainerEnabled: boolean;
   analyticsConsent: boolean;
@@ -127,6 +128,7 @@ export type ToggleKey = {
   [K in keyof Preferences]: Preferences[K] extends boolean ? K : never;
 }[keyof Preferences];
 export interface Dictation {
+  applicationContext?: import("../../features/history/domain/applicationContext").ApplicationContext;
   analyticsIncluded?: boolean;
   metadata?: DictationMetadata;
   findings?: {
@@ -302,6 +304,7 @@ export interface DictationPort {
   undoImprove(): void;
 }
 export interface HistoryPort {
+  clearApplicationContext(id?: string): Promise<void>;
   setIncluded(id: string, included: boolean): Promise<void>;
   remove(id: string): void;
   clear(): void;

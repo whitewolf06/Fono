@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../../domain/messages";
+import { applicationContextFromNative } from "../../../features/history/domain/applicationContext";
 import { recordingSoundsVolume } from "../../domain/recordingSounds";
 import type {
   Settings,
@@ -145,6 +146,7 @@ export function preferencesFromNative(
     overlayOpacity: Math.round(s.overlay_opacity * 100),
     overlayPosition: "custom",
     historyEnabled: s.history_enabled,
+    applicationContextEnabled: s.application_context_enabled ?? false,
     historyRetentionDays: s.history_retention_days ?? 365,
     trainerEnabled: s.speech_trainer_enabled && s.analytics_enabled,
     analyticsConsent: s.analytics_enabled,
@@ -204,6 +206,7 @@ export function applyPreferences(
     overlayCompact: "overlay_mini_mode",
     overlayQuickProcessing: "overlay_quick_processing",
     historyEnabled: "history_enabled",
+    applicationContextEnabled: "application_context_enabled",
     historyRetentionDays: "history_retention_days",
     trainerEnabled: "speech_trainer_enabled",
     analyticsConsent: "analytics_enabled",
@@ -369,6 +372,9 @@ export function historyFromNative(e: DictationHistoryEntry): Dictation {
   const metadata = historyMetadataFromNative(e);
   return {
     id: e.id,
+    applicationContext: applicationContextFromNative(
+      e.metadata?.application_context,
+    ),
     analyticsIncluded: e.analytics_included !== false,
     text: e.text,
     original: e.original_text || undefined,

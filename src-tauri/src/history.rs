@@ -30,6 +30,7 @@ use analytics::{
 };
 mod changes;
 use changes::{PendingPrivacy, PrivacyWrite};
+mod application_context;
 mod recommendations;
 pub(crate) mod rewrites;
 pub(crate) mod source;
@@ -42,6 +43,8 @@ pub struct HistoryRepository {
     directory: Option<PathBuf>,
     analytics_revision: AtomicU64,
     rewrite_epoch: AtomicU64,
+    application_context_epoch: AtomicU64,
+    application_context_enabled: AtomicBool,
     history_retention_days: AtomicU16,
     analytics_policy: Mutex<(bool, u16)>,
     privacy_blocked: AtomicBool,
@@ -57,6 +60,8 @@ impl Default for HistoryRepository {
             directory: None,
             analytics_revision: AtomicU64::new(0),
             rewrite_epoch: AtomicU64::new(0),
+            application_context_epoch: AtomicU64::new(0),
+            application_context_enabled: AtomicBool::new(false),
             history_retention_days: AtomicU16::new(365),
             analytics_policy: Mutex::new((false, 30)),
             privacy_blocked: AtomicBool::new(false),
@@ -185,20 +190,13 @@ impl HistoryRepository {
         analytics_enabled: bool,
         analytics_retention_days: u16,
     ) -> AppResult<()> {
-        let mut store = self.access()?;
-        let mut entries = store.entries.clone();
-        // The operation's older settings snapshot may narrow consent, never re-enable
-        // data collection after settings/maintenance have revoked it.
-        let mut entry = entry;
-        apply_analytics_privacy_policy_to_entries(
-            std::slice::from_mut(&mut entry),
+        self.append_with_application_context(
+            entry,
+            false,
+            None,
             analytics_enabled,
             analytics_retention_days,
-            chrono::Utc::now(),
-        );
-        entries.insert(0, entry);
-        self.persist_entries(&mut store, &entries, false)?;
-        Ok(())
+        )
     }
 
     pub fn clear(&self) -> AppResult<()> {
@@ -283,6 +281,7 @@ impl HistoryRepository {
     }
 
     pub fn maintain(&self, settings: &Settings) -> AppResult<()> {
+        self.set_application_context_policy(settings);
         self.privacy_blocked.store(true, Ordering::SeqCst);
         if !(1..=3650).contains(&settings.history_retention_days)
             || (settings.analytics_enabled
@@ -421,6 +420,8 @@ impl HistoryRepository {
     }
 
     fn privacy_changed(&self) {
+        self.application_context_epoch
+            .fetch_add(1, Ordering::SeqCst);
         self.rewrite_epoch.fetch_add(1, Ordering::SeqCst);
         self.analytics_revision.fetch_add(1, Ordering::SeqCst);
         (self.hooks.sources_changed)(HistoryChanged {

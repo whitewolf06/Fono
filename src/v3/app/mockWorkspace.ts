@@ -2,6 +2,7 @@ import { message as uiMessage } from "../shared/domain/messages";
 import { createBrowserSnippetTransfer } from "../features/snippets/infrastructure/browserSnippets";
 import { createMockFiles } from "../features/files/infrastructure/mockFiles";
 import { reactive, watch } from "vue";
+import { addDemoApplicationContext } from "../features/history/infrastructure/demoApplicationContext";
 import { createMockHistoryRewrite } from "../features/history/infrastructure/mockRewrite";
 import { openProjectSite } from "../shared/infrastructure/browser";
 import { createBrowserFeedbackChannel } from "../features/feedback";
@@ -96,6 +97,7 @@ export function createMockWorkspace(): Workspace {
   const dictation = createDictationPort(state);
   const trainer = createMockTrainer(state);
   const historyRewrite = createMockHistoryRewrite(state);
+  addDemoApplicationContext(state.history);
   const stopRewritePrivacy = watch(
     () => [
       state.preferences.analyticsConsent,
@@ -147,6 +149,7 @@ export function createMockWorkspace(): Workspace {
     dictation.cancel();
     state.preferences = clonePreferences(defaults);
     state.history = demoHistory();
+    addDemoApplicationContext(state.history);
     state.models = demoModels();
     state.profiles = profileDefaults();
     state.jobs = demoJobs();
@@ -222,6 +225,10 @@ export function createMockWorkspace(): Workspace {
     files: createMockFiles(state),
     snippetTransfer: createBrowserSnippetTransfer(),
     history: {
+      async clearApplicationContext(id) {
+        for (const e of state.history)
+          if (id === undefined || e.id === id) delete e.applicationContext;
+      },
       async setIncluded(id, included) {
         const entry = state.history.find((item) => item.id === id);
         if (!entry) throw new Error(uiMessage("ui.a0a69d42bc"));

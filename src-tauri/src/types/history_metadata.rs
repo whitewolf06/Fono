@@ -26,6 +26,9 @@ impl DictationBackend {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DictationHistoryMetadata {
     pub schema_version: u16,
+    /// Separate opt-in from speech analytics. Never transmitted to an LLM/API.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub application_context: Option<super::ApplicationContext>,
     /// Opt-in VAD aggregate, unlike the independent technical session facts below.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speech_timing: Option<super::SpeechTimingSummary>,
@@ -95,6 +98,7 @@ impl DictationHistoryMetadata {
         });
         Self {
             schema_version: 1,
+            application_context: None,
             speech_timing: (settings.analytics_enabled && settings.speech_trainer_enabled)
                 .then_some(timings.speech_timing)
                 .flatten()

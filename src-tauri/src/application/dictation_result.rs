@@ -145,8 +145,10 @@ pub fn archive_session(app: &AppHandle, settings: &Settings, record: SessionArch
         recommendation: None,
         recommendation_error: None,
     };
-    match crate::history::for_app(app).append(
+    match crate::history::for_app(app).append_with_application_context(
         entry,
+        settings.application_context_enabled,
+        crate::application::dictation::workflow::application_context_for(app, operation),
         settings.analytics_enabled,
         settings.analytics_retention_days,
     ) {

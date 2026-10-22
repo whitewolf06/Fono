@@ -13,7 +13,7 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
-const { run } = useFeedback();
+const { run, busy, error } = useFeedback();
 const ui = useInteraction();
 async function clear(kind: "history" | "trainer") {
   if (
@@ -39,9 +39,35 @@ async function clear(kind: "history" | "trainer") {
     );
   }
 }
+async function clearApplications() {
+  if (
+    await ui.confirm({
+      title: uiMessage("applicationContext.clearAll"),
+      text: uiMessage("applicationContext.clearExplanation"),
+      accept: uiMessage("applicationContext.clear"),
+      danger: true,
+    })
+  )
+    await run(() => workspace.history.clearApplicationContext());
+}
 </script>
 <template>
   <div class="form-stack">
+    <PreferenceToggle
+      name="applicationContextEnabled"
+      :label="$t('applicationContext.setting')"
+      :description="$t('applicationContext.settingDescription')"
+    />
+    <WlButton
+      size="sm"
+      variant="danger-quiet"
+      :disabled="
+        busy || !workspace.state.history.some((e) => e.applicationContext)
+      "
+      @click="clearApplications"
+      >{{ $t("applicationContext.clearAll") }}</WlButton
+    >
+    <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     <PreferenceToggle
       name="historyEnabled"
       :label="$t('ui.f0211033d5')"

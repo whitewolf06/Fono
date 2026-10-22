@@ -225,6 +225,7 @@ export interface Settings {
   text_correction_llm: LlmConsumerAssignment;
   speech_analysis_llm: SpeechLlmAssignment;
   history_enabled: boolean;
+  application_context_enabled?: boolean;
   history_retention_days: number;
   /** Явное согласие на локальное хранение исходного текста для аналитики речи. */
   analytics_enabled: boolean;
@@ -439,6 +440,7 @@ export const DEFAULT_SETTINGS: Settings = {
     cloud_consent: false,
   },
   history_enabled: true,
+  application_context_enabled: false,
   history_retention_days: 365,
   analytics_enabled: false,
   speech_trainer_enabled: true,
@@ -481,6 +483,9 @@ export interface DictationHistoryEntry {
 }
 
 export interface DictationHistoryMetadata {
+  application_context?:
+    | import("../../../features/history/domain/applicationContext").ApplicationContext
+    | null;
   speech_timing?: {
     schema_version: number;
     speech_time_ms: number;

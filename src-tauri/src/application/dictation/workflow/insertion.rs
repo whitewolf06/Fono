@@ -13,6 +13,13 @@ pub(super) async fn insert(
     target: Option<&TextTarget>,
     text: &str,
 ) -> AppResult<()> {
+    if target.is_none() {
+        super::observe_context(
+            &session.app,
+            session.operation,
+            crate::types::ApplicationContext::unknown_attempt(session.settings.injection_mode),
+        );
+    }
     let target = target
         .cloned()
         .ok_or_else(|| {
@@ -35,13 +42,80 @@ pub(super) async fn insert(
         .combined_with(&validity)
         .combined_with(&attempt.0);
     let mode = session.settings.injection_mode;
+    let app = session.app.clone();
+    let operation = session.operation;
+    let context_epoch = super::application_context_for(&app, operation).map(|v| v.0);
     let output = tokio::task::spawn_blocking(move || {
         let _activity = activity;
-        crate::injection::target::append(&target, &text, mode, &cancellation)
+        let tracking = context_epoch.is_some()
+            && crate::history::for_app(&app).application_context_permit() == context_epoch;
+        let identity = || {
+            crate::injection::target::executable_name(&target)
+                .as_deref()
+                .and_then(crate::types::ApplicationIdentity::from_executable)
+        };
+        let before = tracking.then(&identity).flatten();
+        if tracking {
+            super::observe_context(
+                &app,
+                operation,
+                crate::types::ApplicationContext::unknown_attempt(mode),
+            );
+        }
+        let result = crate::injection::target::append(&target, &text, mode, &cancellation);
+        if tracking {
+            let after = identity();
+            super::observe_context(
+                &app,
+                operation,
+                observed_context(before, after, mode, &result, expected),
+            );
+        }
+        result
     })
     .await
     .map_err(|error| AppError::Injection(format!("Вставка прервана: {error}")))??;
     validate_completion(output, expected)
+}
+
+fn observed_context(
+    before: Option<crate::types::ApplicationIdentity>,
+    after: Option<crate::types::ApplicationIdentity>,
+    method: crate::types::InjectionMode,
+    result: &AppResult<AppendResult>,
+    expected: usize,
+) -> crate::types::ApplicationContext {
+    use crate::types::InsertionObservation as O;
+    let changed = before
+        .as_ref()
+        .is_some_and(|a| after.as_ref().map_or(true, |b| a.id != b.id));
+    let outcome = if changed || result.as_ref().is_ok_and(|v| v.paused) {
+        O::FocusChanged
+    } else if result
+        .as_ref()
+        .is_ok_and(|v| v.uncertain || v.bytes != expected)
+    {
+        O::Partial
+    } else if result.is_err() {
+        O::Failed
+    } else if before.is_none() {
+        O::Unknown
+    } else {
+        O::Sent
+    };
+    // Never attribute to an application first discovered after sending.
+    let after = if before.is_some() && !changed {
+        after
+    } else {
+        None
+    };
+    crate::types::ApplicationContext {
+        before,
+        after,
+        outcome,
+        method: Some(method),
+        attempted: true,
+    }
 }
 
 /// A dropped IPC future cancels its native send, but its blocking task and
@@ -63,6 +137,59 @@ fn validate_completion(output: AppendResult, expected: usize) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn observation_never_promises_delivery_or_assigns_the_new_foreground() {
+        use crate::types::{
+            ApplicationIdentity as A, InjectionMode as M, InsertionObservation as O,
+        };
+        let before = || A::from_executable("Code.exe");
+        let ok = Ok(AppendResult {
+            bytes: 4,
+            paused: false,
+            uncertain: false,
+        });
+        assert_eq!(
+            observed_context(before(), before(), M::Clipboard, &ok, 4).outcome,
+            O::Sent
+        );
+        let changed = observed_context(
+            before(),
+            A::from_executable("Other.exe"),
+            M::Clipboard,
+            &ok,
+            4,
+        );
+        assert_eq!(changed.outcome, O::FocusChanged);
+        assert!(changed.after.is_none());
+        assert_eq!(changed.before.unwrap().id, "exe:code.exe");
+        assert!(observed_context(None, before(), M::SendInput, &ok, 4)
+            .after
+            .is_none());
+        assert_eq!(
+            observed_context(None, None, M::SendInput, &ok, 4).outcome,
+            O::Unknown
+        );
+        let partial = Ok(AppendResult {
+            bytes: 2,
+            paused: false,
+            uncertain: true,
+        });
+        assert_eq!(
+            observed_context(before(), before(), M::SendInput, &partial, 4).outcome,
+            O::Partial
+        );
+        assert_eq!(
+            observed_context(
+                before(),
+                before(),
+                M::Clipboard,
+                &Err(AppError::Injection("opaque".into())),
+                4
+            )
+            .outcome,
+            O::Failed
+        );
+    }
     #[test]
     fn abandoned_ipc_cancels_its_worker_without_cancelling_the_session() {
         let session = OperationCancellation::default();

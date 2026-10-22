@@ -207,6 +207,13 @@ pub async fn clear_speech_analytics(app: AppHandle) -> AppResult<()> {
     super::blocking::run(move || crate::history::for_app(&app).clear_analytics()).await
 }
 #[tauri::command]
+pub async fn clear_application_context(app: AppHandle, id: Option<String>) -> AppResult<()> {
+    super::blocking::run(move || {
+        crate::history::for_app(&app).clear_application_context(id.as_deref())
+    })
+    .await
+}
+#[tauri::command]
 pub async fn recommend_speech(
     app: AppHandle,
     id: String,

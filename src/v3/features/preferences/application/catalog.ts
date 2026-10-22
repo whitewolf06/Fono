@@ -365,6 +365,15 @@ export const searchIndex: {
 
 searchIndex.push({
   get label() {
+    return uiMessage("applicationContext.setting");
+  },
+  section: "privacy",
+  field: "applicationContextEnabled",
+  keywords:
+    "приложения контекст статистика вставка application context usage privacy",
+});
+searchIndex.push({
+  get label() {
     return uiMessage("ui.add2110e07");
   },
   section: "general",

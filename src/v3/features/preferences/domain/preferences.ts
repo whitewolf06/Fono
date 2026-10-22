@@ -69,6 +69,7 @@ export const defaults: Preferences = {
   overlayOpacity: 95,
   overlayPosition: "bottom",
   historyEnabled: true,
+  applicationContextEnabled: false,
   historyRetentionDays: 365,
   trainerEnabled: false,
   analyticsConsent: false,

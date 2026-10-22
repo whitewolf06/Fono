@@ -74,6 +74,7 @@ pub(crate) fn retains(app: &AppHandle, operation: u64) -> bool {
 
 /// Run before showing the overlay. Captures identity, never field contents.
 pub(crate) fn capture_target(app: &AppHandle, operation: u64, source: OperationSource) {
+    let context_epoch = crate::history::for_app(app).application_context_permit();
     let target = if source == OperationSource::Ui {
         None
     } else {
@@ -81,11 +82,26 @@ pub(crate) fn capture_target(app: &AppHandle, operation: u64, source: OperationS
     };
     // A late capture probe must not overwrite the target of a new operation.
     app.state::<Pipeline>().while_operation(operation, || {
-        app.state::<Runtime>()
-            .capture_target
-            .lock()
-            .install(operation, target);
+        let runtime = app.state::<Runtime>();
+        let mut destination = runtime.capture_target.lock();
+        destination.install(operation, target);
+        destination.enable_context(operation, context_epoch);
     });
+}
+pub(crate) fn application_context_for(
+    app: &AppHandle,
+    operation: u64,
+) -> Option<(u64, crate::types::ApplicationContext)> {
+    app.state::<Runtime>()
+        .capture_target
+        .lock()
+        .context(operation)
+}
+fn observe_context(app: &AppHandle, operation: u64, context: crate::types::ApplicationContext) {
+    app.state::<Runtime>()
+        .capture_target
+        .lock()
+        .observe(operation, context);
 }
 pub(crate) fn target_for(app: &AppHandle, operation: u64) -> Option<TextTarget> {
     app.state::<Runtime>()

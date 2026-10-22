@@ -273,6 +273,10 @@ export function createNativeWorkspace(): Workspace {
     }),
     dictation: dictation.port,
     history: {
+      async clearApplicationContext(id) {
+        await call("clear_application_context", { id: id ?? null });
+        await ctx.readHistory();
+      },
       async setIncluded(id, included) {
         const found = await call<boolean>(
           "set_dictation_history_entry_analytics_included",

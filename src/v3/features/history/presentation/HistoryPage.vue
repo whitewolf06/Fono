@@ -13,6 +13,13 @@ import { filterHistory, groupHistory, timeLabel } from "../application/history";
 import { exactDateLabel, recordingLabel } from "../application/statistics";
 import HistoryStatistics from "./HistoryStatistics.vue";
 import HistoryRewritePanel from "./HistoryRewritePanel.vue";
+import ApplicationContextDetails from "./ApplicationContextDetails.vue";
+import ApplicationUsageSummary from "./ApplicationUsageSummary.vue";
+import {
+  applicationChoices,
+  filterByApplication,
+  contextLabel,
+} from "../application/applicationUsage";
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import EmptyState from "../../../shared/presentation/EmptyState.vue";
@@ -22,10 +29,21 @@ const ui = useInteraction();
 const { run, busy, error } = useFeedback();
 const query = ref("");
 const period = ref(0);
+const applicationFilter = ref("");
+const contextEnabled = computed(
+  () => workspace.state.preferences.applicationContextEnabled,
+);
+const periodEntries = computed(() =>
+  filterHistory(workspace.state.history, "", period.value),
+);
+const applications = computed(() => applicationChoices(periodEntries.value));
 const selectedId = ref(workspace.state.history[0]?.id);
 const variant = ref<"original" | "result">("result");
 const filtered = computed(() =>
-  filterHistory(workspace.state.history, query.value, period.value),
+  filterByApplication(
+    filterHistory(workspace.state.history, query.value, period.value),
+    contextEnabled.value ? applicationFilter.value : "",
+  ),
 );
 const groups = computed(() => groupHistory(filtered.value));
 const selected = computed(() =>
@@ -144,6 +162,26 @@ async function toggleIncluded() {
         ]"
       />
     </div>
+    <SelectField
+      v-if="contextEnabled"
+      id="historyApplication"
+      v-model="applicationFilter"
+      :label="$t('applicationContext.filter')"
+      :options="[
+        { value: '', label: $t('applicationContext.all') },
+        ...applications,
+        { value: 'unknown', label: $t('applicationContext.unknown') },
+        {
+          value: 'not_collected',
+          label: $t('applicationContext.not_collected'),
+        },
+      ]"
+    />
+    <ApplicationUsageSummary
+      v-if="contextEnabled"
+      :entries="periodEntries"
+      :demo="!workspace.native"
+    />
     <div v-if="filtered.length" class="master-detail">
       <div class="entry-list">
         <section v-for="group in groups" :key="group.date">
@@ -168,6 +206,15 @@ async function toggleIncluded() {
               class="history-excluded"
               >{{ $t("ui.084c75ac8f") }}</small
             >
+            <small
+              v-if="contextEnabled && entry.applicationContext"
+              class="application-label"
+              >{{
+                entry.applicationContext.before?.name ||
+                $t("applicationContext.unknown")
+              }}
+              · {{ contextLabel(entry) }}</small
+            >
           </button>
         </section>
       </div>
@@ -179,6 +226,7 @@ async function toggleIncluded() {
           }}</time>
         </div>
         <HistoryStatistics :entry="selected" />
+        <ApplicationContextDetails v-if="contextEnabled" :entry="selected" />
         <p class="muted history-analytics-state">
           {{ $t("historyRewrite.deliveryUnknown") }}
         </p>
@@ -247,11 +295,12 @@ async function toggleIncluded() {
           : $t('ui.51ff2c20d6')
       "
       ><WlButton
-        v-if="query || period"
+        v-if="query || period || (contextEnabled && applicationFilter)"
         size="sm"
         @click="
           query = '';
           period = 0;
+          applicationFilter = '';
         "
         >{{ $t("ui.cd45ec7836") }}</WlButton
       ><RouterLink v-else class="text-link" to="/">{{
@@ -279,6 +328,12 @@ async function toggleIncluded() {
   display: block;
   margin-top: var(--fono-space-1);
   color: var(--fono-warning);
+}
+.application-label {
+  display: block;
+  margin-top: var(--fono-space-1);
+  color: var(--fono-secondary);
+  overflow-wrap: anywhere;
 }
 .history-analytics-state {
   font-size: var(--fono-type-sm);

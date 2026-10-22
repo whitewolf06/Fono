@@ -1,0 +1,165 @@
+{
+  "task": "FONO-28",
+  "children": ["FONO-40", "FONO-39", "FONO-41"],
+  "date": "2026-10-22",
+  "version": "0.7.63",
+  "base_commit": "74d40a6f118a95342f543fa0f76fd3a2fae53d82",
+  "native": {
+    "feature_passed": 8,
+    "feature_failed": 0,
+    "final_parallel": {
+      "passed": 661,
+      "failed": 3,
+      "ignored": 7
+    },
+    "final_serial": {
+      "passed": 663,
+      "failed": 1,
+      "ignored": 7
+    },
+    "overall_gate": "not_fully_passed",
+    "initial_parallel_before_msrv_fix": {
+      "passed": 664,
+      "failed": 0,
+      "ignored": 7
+    },
+    "open_failure": "stt::worker::tests::one_hundred_failed_worker_sessions_are_recoverable: fixture cleanup did not finish",
+    "parallel_other_failures": [
+      "cleanup::graceful_shutdown_reaps_a_successful_exit_without_force_killing",
+      "mailbox_health_uses_the_owner_thread_protocol_session",
+      "package_probe_requires_strict_hello_without_loading_a_model"
+    ],
+    "assertions_and_timeouts_unchanged": true,
+    "worker_code_changed": false
+  },
+  "v3": {
+    "passed": 384,
+    "failed": 0
+  },
+  "release_ci_contracts": {
+    "passed": 48,
+    "failed": 0
+  },
+  "browser": {
+    "cases": [
+      {
+        "locale": "en",
+        "width": 720,
+        "height": 560,
+        "rootScroll": 710,
+        "rootWidth": 710,
+        "summaryScroll": 602,
+        "summaryWidth": 602
+      },
+      {
+        "locale": "en",
+        "width": 900,
+        "height": 720,
+        "rootScroll": 890,
+        "rootWidth": 890,
+        "summaryScroll": 782,
+        "summaryWidth": 782
+      },
+      {
+        "locale": "en",
+        "width": 1440,
+        "height": 900,
+        "rootScroll": 1430,
+        "rootWidth": 1430,
+        "summaryScroll": 1130,
+        "summaryWidth": 1130
+      },
+      {
+        "locale": "ru",
+        "width": 720,
+        "height": 560,
+        "rootScroll": 710,
+        "rootWidth": 710,
+        "summaryScroll": 602,
+        "summaryWidth": 602
+      },
+      {
+        "locale": "ru",
+        "width": 900,
+        "height": 720,
+        "rootScroll": 890,
+        "rootWidth": 890,
+        "summaryScroll": 782,
+        "summaryWidth": 782
+      },
+      {
+        "locale": "ru",
+        "width": 1440,
+        "height": 900,
+        "rootScroll": 1430,
+        "rootWidth": 1430,
+        "summaryScroll": 1130,
+        "summaryWidth": 1130
+      }
+    ],
+    "checks": [
+      "default off",
+      "demo opt-in and immediate toggle",
+      "app filter returns one entry; period summary unchanged",
+      "RU/EN labels and three sizes"
+    ],
+    "userClipboardAccessed": false,
+    "microphoneRecorded": false,
+    "nativeAppsControlled": false
+  },
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "frontend_build": "passed",
+    "strict_clippy": "passed; compatible Option::map_or for MSRV 1.75",
+    "format": "passed",
+    "version": "passed",
+    "docs_links": "passed"
+  },
+  "privacy": {
+    "default_enabled": false,
+    "analytics_consent_independent": true,
+    "identity": "validated executable basename only; no package-global uniqueness",
+    "old_records_not_invented": true,
+    "privacy_epoch_blocks_late_context": true,
+    "history_retention_applies": true,
+    "per_record_and_global_context_erasure": true,
+    "clipboard_content_added_to_context": false,
+    "context_sent_to_llm_or_api": false,
+    "context_written_to_browser_storage": false,
+    "user_profile_optin_changed": false
+  },
+  "manual_acceptance": {
+    "status": "pending_owner",
+    "scenarios": [
+      "Windows app/host identity",
+      "Clipboard and SendInput outcomes",
+      "focus change and partial sends",
+      "erase/reopen full process restart",
+      "perceived latency on actual desktop"
+    ]
+  },
+  "source_hashes": {
+    "src-tauri/src/types/application_context.rs": "7b6113b9af1e8f3c900b3b87e5087e73891fe7f580902373652effba730a7f13",
+    "src-tauri/src/history/application_context.rs": "88b9b780889ad10a2d7a1afb8c78827602a76635beef53679a3795bf49247fec",
+    "src-tauri/src/application/dictation/workflow/insertion.rs": "4ed849a2633c23773f3f0c67b6c6fad7a5117aeaf11da1b11debb150ff7831d9",
+    "src-tauri/src/application/dictation/workflow/destination.rs": "26149099a5d1dc2bcef0c8fd034283b205fbb9d68aa050f94d644e5f25a34c89",
+    "src-tauri/src/application/dictation_result.rs": "32a716b998b35bcf50ed000552c0008962c0b0715d9da2c2f8f1e65bb67662ab",
+    "src/v3/features/history/application/applicationUsage.ts": "51b8bfbe6bdc4c4b4c0a88fcf78bd375482b1558565990c3e5818598aca05854",
+    "src/v3/features/history/domain/applicationContext.ts": "6355cd7d4174d9041a627aeca570d01cb6026c8c0468f5d97a64a2ec2b3aa6de",
+    "src/v3/features/history/presentation/ApplicationContextDetails.vue": "a4b991c4eb77eae79a196932021bcf7bddce590eb426526da68f6ec9b4be2688",
+    "src/v3/features/history/presentation/ApplicationUsageSummary.vue": "812567e6667d92aa8d7bc526c77995f1209709687e6320c02d2d0e234245c549"
+  },
+  "microphone_recorded": false,
+  "external_input_sent": false,
+  "installer_run": false,
+  "release_published": false,
+  "desktop_dev": {
+    "built": true,
+    "launched": true,
+    "version": "0.7.63",
+    "sha256": "ef41de33bd1ca159ecdd7934dfdf7ce153246e6fc4b802497b8e17311359c60f",
+    "bytes": 49767936,
+    "visual_confirmation": "pending owner"
+  }
+}

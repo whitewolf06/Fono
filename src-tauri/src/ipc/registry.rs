@@ -9,6 +9,7 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::memory::get_stt_memory_status,
         crate::ipc::desktop_v3::improve_text,
         crate::ipc::desktop_v3::clear_speech_analytics,
+        crate::ipc::desktop_v3::clear_application_context,
         crate::ipc::desktop_v3::recommend_speech,
         crate::ipc::desktop_v3::get_microphone_sample,
         crate::ipc::desktop_v3::test_microphone_device,

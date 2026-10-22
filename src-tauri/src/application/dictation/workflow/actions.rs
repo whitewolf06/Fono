@@ -176,6 +176,11 @@ async fn execute(
     }
     if action != PendingAction::Complete && session.source != fono_core::OperationSource::Ui {
         let Some(target) = data.target.as_ref() else {
+            super::observe_context(
+                &session.app,
+                session.operation,
+                crate::types::ApplicationContext::unknown_attempt(session.settings.injection_mode),
+            );
             let error = AppError::Injection("Поле для вставки изменилось. Скопируйте текст из Fono или отмените и начните диктовку в нужном поле".into());
             retry(session, error.to_string(), true);
             return Err(error);
