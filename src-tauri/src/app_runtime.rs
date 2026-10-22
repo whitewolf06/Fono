@@ -27,6 +27,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(crate::application::live_dictation::LiveController::default());
     app.manage(crate::application::dictation::workflow::Runtime::default());
     app.manage(crate::application::dictation::ProcessingCaptureRuntime::default());
+    app.manage(crate::application::dictation::wake_sample::Runtime::default());
     #[cfg(feature = "wake-word")]
     app.manage(WakeWordHandle::new_with_audio_hub(
         WakeWordConfig::default(),

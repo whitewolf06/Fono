@@ -20,6 +20,7 @@ import {
   subscribeBackend,
 } from "../shared/infrastructure/native/ipc";
 import { nativeWake } from "../shared/infrastructure/native/wake";
+import { createNativeWakeSamples } from "../features/wake-samples/infrastructure/nativeSamples";
 import { nativeCommands } from "../features/commands/infrastructure/nativeCommands";
 import { createNativeFeedbackChannel } from "../features/feedback";
 import { createNativeDiagnosticReport } from "../features/diagnostic-report";
@@ -91,6 +92,7 @@ export function createNativeWorkspace(): Workspace {
     visibility.visible,
   );
   const wake = nativeWake(ctx);
+  const wakeSamples = createNativeWakeSamples(call);
   let disposed = false;
   const sessionRead = createCoalescedRead(
     () => dictation.refresh(),
@@ -265,6 +267,7 @@ export function createNativeWorkspace(): Workspace {
     state,
     refresh,
     wake,
+    wakeSamples,
     settings: nativeSettings(ctx),
     selection,
     triggerCapture: createTriggerCapture(state, {
@@ -379,6 +382,7 @@ export function createNativeWorkspace(): Workspace {
       state.onboardingStep = step;
     },
     dispose() {
+      wakeSamples.dispose();
       selection.dispose();
       disposed = true;
       sessionRead.dispose();

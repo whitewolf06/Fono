@@ -52,5 +52,6 @@ pub mod wake_calibration;
 #[cfg(feature = "wake-word")]
 pub mod wake_dictation;
 pub(crate) mod wake_runtime;
+pub(crate) mod wake_samples;
 #[cfg(feature = "wake-word")]
 pub mod wake_validation;

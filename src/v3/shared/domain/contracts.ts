@@ -338,6 +338,7 @@ export interface ServicePort {
 export interface Workspace {
   native?: boolean;
   wake?: WakePort;
+  wakeSamples: import("../../features/wake-samples/domain/samples").WakeSamplesPort;
   refresh?(): Promise<void>;
   state: WorkspaceState;
   settings: SettingsPort;

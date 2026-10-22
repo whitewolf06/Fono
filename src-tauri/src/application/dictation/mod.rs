@@ -14,6 +14,7 @@ mod recognition;
 #[cfg(feature = "speech-vad")]
 mod segment_completion;
 mod standard;
+pub(crate) mod wake_sample;
 pub(crate) mod workflow;
 
 #[cfg(feature = "wake-word")]

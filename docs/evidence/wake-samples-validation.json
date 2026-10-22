@@ -1,0 +1,42 @@
+{
+  "schema": "fono-wake-samples-validation@1",
+  "date": "2026-10-22",
+  "app_version": "0.7.66",
+  "base_commit": "616fd0e464b7f58fae3c376d4f282b796d4eb40e",
+  "scope": "local user-operated raw voice sample collection; no detector activation",
+  "checks": {
+    "native": { "passed": 679, "failed": 0, "ignored": 7, "new_storage_tests": 8 },
+    "ui": { "passed": 395, "failed": 0, "new_lifecycle_tests": 11 },
+    "release_ci_scripts": { "passed": 48, "failed": 0, "includes_owner_cache_tests": 20 },
+    "strict_clippy": "passed",
+    "rustfmt": "passed",
+    "typecheck_v3": "passed",
+    "eslint": "passed",
+    "build": "passed",
+    "format_check": "passed",
+    "version_check": "passed",
+    "docs_check": "passed",
+    "browser_mock": [
+      { "width": 720, "height": 560, "horizontal_overflow": false },
+      { "width": 900, "height": 720, "horizontal_overflow": false },
+      { "width": 1440, "height": 900, "horizontal_overflow": false }
+    ]
+  },
+  "desktop_dev": {
+    "built": true,
+    "started": true,
+    "sha256": "3d6dc2f3760c97ba97e4b9e22ccb1163473371824f05b64e3b5db7470628e68c",
+    "bytes": 50290688,
+    "visual_and_microphone_acceptance": "pending_owner"
+  },
+  "quality": {
+    "microphone_recorded_by_agent": false,
+    "new_detector_benchmark": false,
+    "training_started": false,
+    "qualified": false,
+    "wake_word_available": false,
+    "default_dependency_tree_contains_fono_wake": false,
+    "scope_of_user_samples": "development_only; annotations pending; not an independent qualification corpus"
+  },
+  "publication": { "installer_created": false, "release_published": false }
+}

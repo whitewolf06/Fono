@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../shared/domain/messages";
+import { createMockWakeSamples } from "../features/wake-samples/infrastructure/mockSamples";
 import { createBrowserSnippetTransfer } from "../features/snippets/infrastructure/browserSnippets";
 import { createMockFiles } from "../features/files/infrastructure/mockFiles";
 import { reactive, watch } from "vue";
@@ -122,6 +123,7 @@ export function createMockWorkspace(): Workspace {
   const updates = createMockUpdates(__FONO_FRONTEND_BUILD__.version);
   const cudaPackages = createMockCudaPackages();
   const wake = createMockWake(state);
+  const wakeSamples = createMockWakeSamples();
   let disposed = false;
   let jobTicks = 0;
   const jobsTimer = setInterval(() => {
@@ -216,6 +218,7 @@ export function createMockWorkspace(): Workspace {
     cudaPackages,
     state,
     wake,
+    wakeSamples,
     dictation,
     settings: createSettingsPort(state),
     selection,
@@ -308,6 +311,7 @@ export function createMockWorkspace(): Workspace {
       saveWizardStep(step);
     },
     dispose() {
+      wakeSamples.dispose();
       stopRewritePrivacy();
       historyRewrite.dispose();
       selection.dispose();

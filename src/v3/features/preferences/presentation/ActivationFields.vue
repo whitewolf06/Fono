@@ -12,6 +12,7 @@ import PreferenceToggle from "./PreferenceToggle.vue";
 import TriggerFields from "./TriggerFields.vue";
 import SelectionFields from "./SelectionFields.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
+import WakeSamplesPanel from "../../wake-samples/presentation/WakeSamplesPanel.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 import {
   WAKE_WORD_AVAILABLE,
@@ -230,5 +231,6 @@ const phraseOptions = computed(() => {
         </div>
       </details>
     </template>
+    <WakeSamplesPanel v-if="advanced && workspace.wakeSamples && !scope" />
   </div>
 </template>
