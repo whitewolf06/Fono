@@ -28,6 +28,9 @@ impl AppState {
         // Readers and subsequent writers only see the new settings after disk
         // accepts them. A failed write leaves both memory and version intact.
         persist(&merged)?;
+        self.dictionary_usage
+            .lock()
+            .settings_changed(&current, &merged);
         *current = merged.clone();
         self.settings_version.fetch_add(1, Ordering::SeqCst);
         drop(current);
@@ -166,6 +169,7 @@ mod tests {
             settings: Mutex::new(settings),
             dictation_paused: Mutex::new(false),
             settings_version: AtomicU64::new(1),
+            dictionary_usage: Mutex::new(Default::default()),
             next_command_proposal_id: AtomicU64::new(1),
             pending_command_proposal: Mutex::new(None),
         }

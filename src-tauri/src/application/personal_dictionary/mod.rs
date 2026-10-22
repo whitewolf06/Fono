@@ -4,8 +4,10 @@
 //! Final replacements never rewrite original transcripts or dictionary entries.
 mod glossary;
 mod replacements;
+mod usage;
 mod validation;
 pub use glossary::{GlossarySnapshot, WhisperGlossaryPrompt};
+pub(crate) use usage::{UsageSnapshot, UsageTracker};
 
 #[cfg(test)]
 use crate::types::PersonalDictionaryEntry;

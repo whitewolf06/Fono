@@ -109,7 +109,12 @@ pub fn archive_session(app: &AppHandle, settings: &Settings, record: SessionArch
         timings,
         created_at,
     } = record;
-    if final_text.trim().is_empty() || !settings.history_enabled {
+    if final_text.trim().is_empty() {
+        return;
+    }
+    app.state::<crate::state::AppState>()
+        .accepted_dictionary_usage(settings, &transcript.text);
+    if !settings.history_enabled {
         return;
     }
     let analytics = settings.analytics_enabled && settings.speech_trainer_enabled;

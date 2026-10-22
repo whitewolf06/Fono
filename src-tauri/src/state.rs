@@ -4,6 +4,8 @@
 //! Содержит подтверждённые настройки, состояние конвейера и последнюю расшифровку.
 //! Аудиозахват, модели и ресурсы активных операций принадлежат своим сервисам.
 
+#[cfg(test)]
+mod dictionary_usage_tests;
 mod persistence;
 mod settings_delta;
 pub use persistence::{
@@ -31,6 +33,7 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     pub dictation_paused: Mutex<bool>,
     settings_version: AtomicU64,
+    dictionary_usage: Mutex<crate::application::personal_dictionary::UsageTracker>,
     next_command_proposal_id: AtomicU64,
     pending_command_proposal: Mutex<Option<CommandProposal>>,
 }
@@ -47,6 +50,7 @@ impl AppState {
             settings: Mutex::new(Settings::default()),
             dictation_paused: Mutex::new(false),
             settings_version: AtomicU64::new(1),
+            dictionary_usage: Mutex::new(Default::default()),
             next_command_proposal_id: AtomicU64::new(1),
             pending_command_proposal: Mutex::new(None),
         };
@@ -61,6 +65,21 @@ impl AppState {
 
     pub fn settings(&self) -> Settings {
         self.settings.lock().clone()
+    }
+
+    /// Hint priorities belong to the captured operation, never the renderer DTO.
+    pub(crate) fn dictation_settings(&self) -> Settings {
+        let current = self.settings.lock();
+        let mut captured = current.clone();
+        captured.personal_dictionary_usage = self.dictionary_usage.lock().snapshot(&current);
+        captured
+    }
+
+    pub(crate) fn accepted_dictionary_usage(&self, captured: &Settings, transcript: &str) {
+        let current = self.settings.lock();
+        self.dictionary_usage
+            .lock()
+            .accepted(&current, captured, transcript);
     }
 
     pub fn settings_revision(&self) -> u64 {
@@ -79,6 +98,10 @@ impl AppState {
         settings.migrate_processing_prompts();
         {
             let mut current = self.settings.lock();
+            self.dictionary_usage
+                .lock()
+                .settings_changed(&current, &settings);
+            settings.personal_dictionary_usage = Default::default();
             *current = settings;
             self.settings_version.fetch_add(1, Ordering::SeqCst);
         }

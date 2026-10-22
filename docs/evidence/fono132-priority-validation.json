@@ -1,0 +1,135 @@
+{
+  "task": "FONO-132",
+  "parent": "FONO-58",
+  "epic": "FONO-47",
+  "date": "2026-10-22",
+  "version": "0.7.65",
+  "base_commit": "02b50f17aa116ebc85ecaadf8edf99dc9270ee64",
+  "scope_confirmed_by_owner": "entire FONO-47, remaining implementation plus shared dev",
+  "implementation": {
+    "priority": "accepted dictation frequency descending, then most recent accepted use; stable user order for ties",
+    "count": "once per canonical term per accepted ordinary dictation",
+    "source": "original transcript, canonical spelling or configured pronunciation, whole words/phrases",
+    "max_source_bytes": 16384,
+    "snapshot_frozen_at_capture": true,
+    "update_under_terminal_commit_fence": true,
+    "archive_read": false,
+    "works_with_history_disabled": true,
+    "counts_persisted": false,
+    "counts_sent_over_ipc": false,
+    "counts_logged": false,
+    "counts_sent_to_llm": false,
+    "counts_reset_at_restart_or_disable": true,
+    "erasure_and_reenable_invalidate_old_operations": true,
+    "renderer_order_changed": false,
+    "stt_hint_limits": {
+      "terms": 32,
+      "bytes": 896,
+      "whisper_tokens": 224
+    },
+    "llm_consent_unchanged": true,
+    "worker_protocol": 4,
+    "worker_binaries_changed": false
+  },
+  "native": {
+    "initial": {
+      "passed": 671,
+      "failed": 0,
+      "ignored": 7
+    },
+    "final": {
+      "passed": 671,
+      "failed": 0,
+      "ignored": 7
+    },
+    "new_tests": [
+      "accepted_uses_rank_by_dictation_frequency_then_recency_without_reading_history",
+      "captured_priorities_are_frozen_and_do_not_reorder_renderer_entries",
+      "frequent_term_outside_the_original_limit_enters_the_bounded_prompt",
+      "disabling_or_erasing_invalidates_late_updates_without_losing_entries",
+      "priorities_are_runtime_only_and_cannot_be_restored_or_forged_through_settings",
+      "usage_matching_respects_word_boundaries_and_the_bounded_tail"
+    ],
+    "assertions_and_timeouts_unchanged": true,
+    "reason_for_second_run": "final code moves symbol comparison before expensive Unicode boundary checks; no failure retry"
+  },
+  "v3": {
+    "passed": 384,
+    "failed": 0
+  },
+  "release_ci_contracts": {
+    "passed": 48,
+    "failed": 0,
+    "repository_tests": 28,
+    "owner_cache_tests": 20,
+    "owner_cache_changes_committed": false
+  },
+  "browser": {
+    "new_run": false,
+    "frontend_source_changed": false,
+    "prior_smoke": "docs/evidence/final-dev-validation.json",
+    "native_voice_and_insertion_proven": false
+  },
+  "desktop_dev": {
+    "version": "0.7.65",
+    "built": true,
+    "launched": true,
+    "sha256": "8975f054c90c330f1bed4e77aebe45461040fff5cd1fccdd9232da46d65fed93",
+    "bytes": 49862656,
+    "build_revision": "02b50f17aa116ebc85ecaadf8edf99dc9270ee64+fono132-priority-v0.7.65-worktree",
+    "isolated_profile": true,
+    "visible_window": "pending_owner"
+  },
+  "checks": {
+    "strict_clippy": "passed",
+    "rustfmt": "passed",
+    "typecheck": "passed",
+    "lint": "passed",
+    "frontend_build": "passed",
+    "format": "passed",
+    "version": "passed",
+    "docs_links": "passed"
+  },
+  "remaining": [
+    "strict PERF-04 quality gate",
+    "full Whisper/quantized and CUDA qualification",
+    "FONO-124 Vulkan EN/Stop/resources/API qualification",
+    "FONO-132 aggregate WER and unqualified offline hotwords",
+    "WakeWord corpus/quality/owner gates",
+    "remote CI, hardware soak and installed delivery"
+  ],
+  "microphone_recorded": false,
+  "external_input_sent": false,
+  "installed_app_stopped": false,
+  "installer_run": false,
+  "release_signed": false,
+  "release_published": false,
+  "source_sha256": {
+    "src-tauri/src/application/personal_dictionary/usage.rs": "fdaf3ee4b3f3b3d4f2c573464b18ce394459c35e4bd72a893b875657f206323d",
+    "src-tauri/src/application/personal_dictionary/glossary.rs": "93fdc22715a03cc4bb99fcdcd939b57064df6b7d3baba89c424d171ecc065523",
+    "src-tauri/src/application/personal_dictionary/replacements.rs": "7d771c5dbeb34f0e1b02e7b3a395800f58a53a186ef98f11df4c4e5dbc66e632",
+    "src-tauri/src/application/personal_dictionary/mod.rs": "eb7fbb7e5425df5ce258f43b617c6d1ef17ebbbea1f1df146744656c22c206f9",
+    "src-tauri/src/state.rs": "a15bcd4e31efd3adf58c3a4b0334e6560e1e79955cc136100dc469cdb6b0e1ef",
+    "src-tauri/src/state/settings_delta.rs": "0d24ba85cd55dc5129a013218c570d109705322ebacef92b4b2f1d6db79ccde0",
+    "src-tauri/src/state/dictionary_usage_tests.rs": "13b89010e62bc869df9cfeb9c52b82fd270b227e4f88a907e9541c91ea8ca066",
+    "src-tauri/src/types/settings.rs": "2a6bf4ca45201d67ee2138fbf68d99018c81da62d66d95352a2b8f71e702228a",
+    "src-tauri/src/application/dictation/capture.rs": "0552ccbe05d5833bc925a1979e0e5aca9e35430ba145ac38c44488763dd05b67",
+    "src-tauri/src/application/dictation/lifecycle.rs": "3b430142805644cde03a1f6c8bb8beaca3d8524b28b393f304d00f7d65bde8ab",
+    "src-tauri/src/application/dictation_result.rs": "aeb7aae20cb65e7681b0994c3fa7fa0f7ae0a8cbd51a071b01b18e28c1c0ed31",
+    "docs/improvement-fono132-priority.md": "994c3e3040e9d0e5e465d6d6e37c199e97df4e91270062782f63c5fbe9d6f046",
+    "docs/qa/final-dev-acceptance.md": "0ec52261242e95e98289ac69fdb39242aed17afb6a027ff3a6210179486bbe24"
+  },
+  "log_sha256": {
+    "build/checks/fono132-priority-native.log": "f1dacb160ec4e0df277df527b6e3d9966caa903dc61f91497caeb51b9cbb92cc",
+    "build/checks/fono132-priority-native-final.log": "ad5ff932979aff3538f70caf54614cf41052cb17c522798dee71a362f4141b0b",
+    "build/checks/fono132-priority-v3.log": "7cdf5a3de9c3c8ce27498b5d787d888c9f68e436bce9ee00bc5e9dfb45524990",
+    "build/checks/fono132-priority-release.log": "0a293658900a3bc7fbeb603de80d33aef9cd730f624f7b1d5929350011c2470c",
+    "build/checks/fono132-priority-clippy-final.log": "bb0ceeabc84958416e2e7fd10d6c6172838cc3c0ad85289e8b5f0cd1699dacdb",
+    "build/checks/fono132-priority-rustfmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build/checks/fono132-priority-build.log": "ffb5a5f6eded2a893537f56d19fc1a362c132cee500e4ae48dd812ed595f4f5d",
+    "build/checks/fono132-priority-typecheck.log": "5e4dc9c3477ee7907ee3b00da94cb5d0a9a539f7c96b282e9b8b2ad83e902333",
+    "build/checks/fono132-priority-lint.log": "5fd36d4b5ebdca53c344862669b9c9f41a05af975160df9a56e94df7f1eda185"
+  },
+  "executed_tree_has_preexisting_owner_changes": true,
+  "committed_package_manifest_sha256": "a9ea5733a16a9e6c67d74b581144d0dd2fb2970d4c5fc35f5b1673b031c782f2"
+}

@@ -41,7 +41,9 @@ impl Session {
     pub fn current(app: &AppHandle, operation: u64) -> AppResult<Self> {
         let pipeline = app.state::<Pipeline>();
         let (current, cancellation, settings) = pipeline
-            .freeze_session_for_completion(operation, || app.state::<AppState>().settings())
+            .freeze_session_for_completion(operation, || {
+                app.state::<AppState>().dictation_settings()
+            })
             .ok_or_else(|| AppError::Cancelled("Диктовка отменена или заменена".into()))?;
         Ok(Self {
             app: app.clone(),

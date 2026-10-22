@@ -72,7 +72,7 @@ pub(crate) fn reserve_operation(app: &AppHandle) -> AppResult<ReservedCapture> {
     let _admission = crate::application::capture_configuration::try_begin_capture()?;
     ensure_capture_allowed(app)?;
     let pipeline = app.state::<Pipeline>();
-    let settings = app.state::<AppState>().settings();
+    let settings = app.state::<AppState>().dictation_settings();
     let operation = pipeline.reserve_capture(OperationSource::Hotkey)?;
     if !pipeline.set_session_settings_for(operation, settings.clone()) {
         return Err(AppError::Cancelled("Диктовка отменена".into()));
@@ -185,7 +185,11 @@ fn start_configured(
     let admission = crate::application::capture_configuration::begin_capture()?;
     ensure_capture_allowed(&app)?;
     let pipeline = app.state::<Pipeline>();
-    let settings = app.state::<AppState>().settings();
+    let settings = if force_standard || source == OperationSource::Diagnostics {
+        app.state::<AppState>().settings()
+    } else {
+        app.state::<AppState>().dictation_settings()
+    };
     #[cfg(feature = "experimental-live")]
     if !force_standard
         && settings.dictation_mode == crate::types::DictationMode::Live

@@ -1,5 +1,6 @@
 use super::normalize;
 use crate::types::PersonalDictionaryEntry;
+use std::collections::BTreeSet;
 
 struct Unit {
     value: char,
@@ -34,23 +35,9 @@ pub(super) fn replace(text: &str, entries: &[PersonalDictionaryEntry]) -> String
             cursor += 1;
             continue;
         }
-        let found = rules.iter().find(|rule| {
-            let end_cursor = cursor + rule.phrase.len();
-            if end_cursor > units.len()
-                || !units[cursor..end_cursor]
-                    .iter()
-                    .map(|unit| unit.value)
-                    .eq(rule.phrase.iter().copied())
-            {
-                return false;
-            }
-            let end = units[end_cursor - 1].end;
-            if end_cursor < units.len() && units[end_cursor].start < end {
-                return false;
-            }
-            !text[..start].chars().next_back().is_some_and(is_word)
-                && !text[end..].chars().next().is_some_and(is_word)
-        });
+        let found = rules
+            .iter()
+            .find(|rule| matches_at(text, &units, cursor, &rule.phrase));
         if let Some(rule) = found {
             let end_cursor = cursor + rule.phrase.len();
             output.push_str(&text[copied_until..start]);
@@ -63,6 +50,47 @@ pub(super) fn replace(text: &str, entries: &[PersonalDictionaryEntry]) -> String
     }
     output.push_str(&text[copied_until..]);
     output
+}
+
+/// Count only actual whole-word canonical spellings or configured pronunciations.
+/// Normalize the source once; never retain it in the usage tracker.
+pub(super) fn mentioned(text: &str, entries: &[PersonalDictionaryEntry]) -> BTreeSet<String> {
+    let units = normalized_units(text);
+    entries
+        .iter()
+        .filter(|entry| {
+            std::iter::once(&entry.written)
+                .chain(entry.spoken.iter())
+                .any(|phrase| {
+                    let phrase: Vec<_> = normalize(phrase).chars().collect();
+                    (0..units.len()).any(|cursor| matches_at(text, &units, cursor, &phrase))
+                })
+        })
+        .map(|entry| normalize(&entry.written))
+        .collect()
+}
+
+fn matches_at(text: &str, units: &[Unit], cursor: usize, phrase: &[char]) -> bool {
+    let end_cursor = cursor + phrase.len();
+    if phrase.is_empty()
+        || end_cursor > units.len()
+        || !units[cursor..end_cursor]
+            .iter()
+            .map(|unit| unit.value)
+            .eq(phrase.iter().copied())
+    {
+        return false;
+    }
+    let start = units[cursor].start;
+    let end = units[end_cursor - 1].end;
+    if (cursor > 0 && units[cursor - 1].start == start)
+        || (end_cursor < units.len() && units[end_cursor].start < end)
+        || text[..start].chars().next_back().is_some_and(is_word)
+        || text[end..].chars().next().is_some_and(is_word)
+    {
+        return false;
+    }
+    true
 }
 
 fn normalized_units(text: &str) -> Vec<Unit> {

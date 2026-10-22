@@ -34,7 +34,13 @@ impl GlossarySnapshot {
         let mut seen = HashSet::new();
         let mut terms = Vec::new();
         let mut bytes = 0;
-        for entry in &settings.personal_dictionary_entries {
+        let mut entries: Vec<_> = settings.personal_dictionary_entries.iter().collect();
+        // Stable sort retains the user's order for equal/unknown priorities.
+        // Frequency wins; equally frequent terms prefer the latest accepted use.
+        entries.sort_by_key(|entry| {
+            std::cmp::Reverse(settings.personal_dictionary_usage.priority(&entry.written))
+        });
+        for entry in entries {
             let term = entry.written.trim();
             if !seen.insert(normalize(term)) {
                 continue;

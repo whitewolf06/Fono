@@ -36,6 +36,9 @@ pub struct Settings {
     pub personal_dictionary_llm_enabled: bool,
     #[serde(default)]
     pub personal_dictionary_entries: Vec<PersonalDictionaryEntry>,
+    /// Runtime-only priority snapshot; neither IPC nor persisted preferences.
+    #[serde(skip)]
+    pub(crate) personal_dictionary_usage: crate::application::personal_dictionary::UsageSnapshot,
     #[serde(default)]
     pub snippets_enabled: bool,
     #[serde(default)]
@@ -204,6 +207,7 @@ impl Default for Settings {
             personal_dictionary_enabled: false,
             personal_dictionary_llm_enabled: false,
             personal_dictionary_entries: Vec::new(),
+            personal_dictionary_usage: Default::default(),
             snippets_enabled: false,
             snippets: Vec::new(),
             update_checks_enabled: false,
