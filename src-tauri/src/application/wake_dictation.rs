@@ -41,6 +41,7 @@ pub(crate) async fn run_lira(
     control: std::sync::Arc<super::wake_lira::Control>,
     pre_roll: Vec<i16>,
     cursor: fono_audio::AudioCursor,
+    triggered_at: std::time::Instant,
 ) -> AppResult<()> {
     let capture = {
         let _route = control.route.lock();
@@ -56,13 +57,28 @@ pub(crate) async fn run_lira(
         capture
     };
     let operation = capture.operation;
+    tracing::info!(
+        event = "lira_handoff_reserved",
+        operation,
+        elapsed_ms = triggered_at.elapsed().as_millis() as u64,
+        "live wake dictation reserved"
+    );
     let activity = super::updates::activity::cleanup_lease();
     let handle = app.clone();
     let prepared = tauri::async_runtime::spawn_blocking(move || {
         let _activity = activity;
         // Both disk/native model setup and microphone handoff stay off the IPC executor.
+        let model_started = std::time::Instant::now();
         let vad = SpeechGate::new(&handle)?;
+        let vad_init_ms = model_started.elapsed().as_millis() as u64;
         super::dictation::start_lira_reserved(handle, capture, &pre_roll, cursor)?;
+        tracing::info!(
+            event = "lira_handoff_ready",
+            operation,
+            elapsed_ms = triggered_at.elapsed().as_millis() as u64,
+            vad_init_ms,
+            "live wake dictation activated"
+        );
         Ok::<_, crate::error::AppError>(vad)
     })
     .await

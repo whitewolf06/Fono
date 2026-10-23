@@ -32,6 +32,7 @@ fn read(app: &AppHandle) -> Snapshot {
 /// Fire-and-forget: callers may hold a session fence, but never wait on the UI.
 /// An old Idle request cannot hide a new recording or a newer preview.
 pub(crate) fn request(app: &AppHandle) {
+    let requested_at = std::time::Instant::now();
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let read_app = app.clone();
@@ -44,7 +45,23 @@ pub(crate) fn request(app: &AppHandle) {
                     return Ok(());
                 };
                 if snapshot.visible() {
-                    super::show_window_on_ui(&apply_app, &window)
+                    let result = super::show_window_on_ui(&apply_app, &window);
+                    #[cfg(all(windows, debug_assertions))]
+                    if result.is_ok() && snapshot.phase == PipelineState::Listening {
+                        if let Some(operation) = apply_app
+                            .state::<crate::pipeline::Pipeline>()
+                            .current_operation()
+                            .filter(|op| op.source == fono_core::OperationSource::WakeWord)
+                        {
+                            tracing::info!(
+                                event = "lira_overlay_visibility_applied",
+                                operation = operation.id,
+                                dispatch_ms = requested_at.elapsed().as_millis() as u64,
+                                "wake overlay visibility applied on UI thread"
+                            );
+                        }
+                    }
+                    result
                 } else {
                     window.hide().map_err(crate::error::AppError::from)
                 }
@@ -56,4 +73,6 @@ pub(crate) fn request(app: &AppHandle) {
             tracing::warn!("could not synchronize overlay visibility on UI thread");
         }
     });
+    #[cfg(not(all(windows, debug_assertions)))]
+    let _ = requested_at;
 }

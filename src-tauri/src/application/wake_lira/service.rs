@@ -30,6 +30,7 @@ fn phase(app: &AppHandle, status: &parking_lot::Mutex<Snapshot>, value: Phase) {
     if view.phase != Phase::Stopping && view.phase != value {
         view.phase = value;
         drop(view);
+        tracing::info!(event = "lira_phase", phase = ?value, "live wake phase changed");
         crate::tray::request_refresh(app);
     }
 }
@@ -164,6 +165,7 @@ pub(super) fn run(
             let decision = vad.accept(&pcm);
             let recent_speech = decision.has_speech
                 && decision.processed.saturating_sub(decision.last_speech) <= 64_000;
+            let requested_at = Instant::now();
             let detected = worker.feed(&pcm, recent_speech, control)?;
             let now = hub.diagnostics();
             if overflow.load(Ordering::Acquire)
@@ -183,6 +185,14 @@ pub(super) fn run(
                 break;
             }
             if detected {
+                let triggered_at = Instant::now();
+                tracing::info!(
+                    event = "lira_confirmed",
+                    listener_session = id,
+                    worker_roundtrip_ms = requested_at.elapsed().as_millis() as u64,
+                    audio_queue_ms = now.cursor.sample.saturating_sub(cursor.sample) / 16,
+                    "live wake phrase confirmed"
+                );
                 control.set_paused(true);
                 let pre_roll = frames.pre_roll.iter().copied().collect();
                 let (handle, owner) = (app.clone(), Arc::clone(control));
@@ -192,6 +202,7 @@ pub(super) fn run(
                         owner,
                         pre_roll,
                         cursor,
+                        triggered_at,
                     )
                     .await;
                     if handle.state::<Runtime>().is_current(id) {

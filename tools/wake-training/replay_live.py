@@ -1,0 +1,164 @@
+"""One paired local regression: pinned v0.7.73 vs current live worker.
+
+Windows native VAD, existing consented WAVs only. No microphone, training,
+network, parameter search or private audio/transcripts in the output.
+Use --isolated for the compatibility set; default adds ordinary-speech context.
+Prepared build/wake-* assets and local native dependency cache are required.
+"""
+import ctypes as c
+import hashlib
+import os
+import json
+from pathlib import Path
+import subprocess
+import sys
+import time
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools/wake-training"))
+import candidate as common
+import dev_check
+from live_worker import Stream
+manifest = json.loads((ROOT / "scripts/ci-native-dependencies.json").read_text())
+lib = ROOT / "build/ci-dependencies" / ("sherpa-verified-" + manifest["sherpa"]["sha256"]) / manifest["sherpa"]["directory"] / "lib"
+dll_directory = os.add_dll_directory(str(lib))
+dll = c.CDLL(str(lib / "sherpa-onnx-c-api.dll"))
+
+class Model(c.Structure):
+    _fields_ = [("model", c.c_char_p), ("threshold", c.c_float), ("min_silence_duration", c.c_float),
+                ("min_speech_duration", c.c_float), ("window_size", c.c_int32), ("max_speech_duration", c.c_float)]
+class Config(c.Structure):
+    _fields_ = [("silero_vad", Model), ("sample_rate", c.c_int32), ("num_threads", c.c_int32),
+                ("provider", c.c_char_p), ("debug", c.c_int32), ("ten_vad", Model)]
+class Segment(c.Structure):
+    _fields_ = [("start", c.c_int32), ("samples", c.POINTER(c.c_float)), ("n", c.c_int32)]
+def api(name, arguments, result=None):
+    function = getattr(dll, "SherpaOnnx" + name)
+    function.argtypes, function.restype = arguments, result
+    return function
+create = api("CreateVoiceActivityDetector", [c.POINTER(Config), c.c_float], c.c_void_p)
+destroy = api("DestroyVoiceActivityDetector", [c.c_void_p])
+accept = api("VoiceActivityDetectorAcceptWaveform", [c.c_void_p, c.POINTER(c.c_float), c.c_int32])
+detected = api("VoiceActivityDetectorDetected", [c.c_void_p], c.c_int32)
+empty = api("VoiceActivityDetectorEmpty", [c.c_void_p], c.c_int32)
+front = api("VoiceActivityDetectorFront", [c.c_void_p], c.POINTER(Segment))
+free = api("DestroySpeechSegment", [c.POINTER(Segment)])
+pop = api("VoiceActivityDetectorPop", [c.c_void_p])
+reset = api("VoiceActivityDetectorReset", [c.c_void_p])
+baseline_source = subprocess.run(["git", "show", "a26597ce61215ce14d0015f96ab3124842442cf6:tools/wake-training/live_worker.py"], cwd=ROOT,
+                                 check=True, capture_output=True).stdout
+baseline = {"__name__": "fixed_baseline"}
+exec(compile(baseline_source, "fixed_baseline", "exec"), baseline)
+np, cnn, tone = dev_check.prepare()
+traces = json.loads((ROOT / "build/wake-lira-candidate/ctc-exact-owner-replay-02/private-traces.json").read_text())
+records = []
+for trace in traces:
+    folder = ROOT / "build/dev-desktop-profile/wake-recordings" / trace["id"]
+    meta = json.loads((folder / "recording.json").read_text(encoding="utf-8"))
+    assert meta["permission"] == "consented-local-only" and meta["split"] == "dev"
+    assert common.digest(folder / "recording.wav") == trace["sha256"]
+    records.append((trace, meta["sample"], common.read_pcm(folder / "recording.wav")))
+room = next(pcm for _, sample, pcm in records if sample["kind"] == "background" and np.any(pcm))
+context = next(pcm for t, sample, pcm in records if sample["kind"] == "other_speech" and t["events"] and not any(e["accepted"] for e in t["events"]))
+def background(n): return np.tile(room, n // len(room) + 1)[:n]
+def gated(pcm):
+    reset(vad)
+    pending = np.zeros(0, dtype=np.float32)
+    processed, last_speech, flags = 0, None, []
+    for frame in pcm.reshape(-1, common.STRIDE):
+        pending = np.concatenate((pending, frame))
+        while len(pending) >= 512:
+            window, pending = pending[:512].copy(), pending[512:]
+            accept(vad, window.ctypes.data_as(c.POINTER(c.c_float)), 512)
+            processed += 512
+            if detected(vad): last_speech = processed
+            while not empty(vad):
+                segment = front(vad)
+                last_speech = max(last_speech or 0, segment.contents.start + segment.contents.n)
+                free(segment)
+                pop(vad)
+        flags.append(last_speech is not None and processed - last_speech <= common.WINDOW)
+    return flags
+vad_path = str(ROOT / "src-tauri/resources/vad/silero_vad.onnx").encode()
+vad = create(c.byref(Config(Model(vad_path, .5, .35, .12, 512, 30), 16000, 1, b"cpu", 0, Model())), 30)
+assert vad
+rows = []
+isolated = "--isolated" in sys.argv
+started = time.monotonic()
+try:
+    cases = []
+    for trace, sample, pcm in records:
+        positive = sample["kind"] == "phrase"
+        prefix = np.zeros(0, dtype=np.float32) if isolated else (np.concatenate((context, background(4800))) if positive else background(80000))
+        end = len(prefix) + len(pcm)
+        cases.append((positive, sample["condition"], np.concatenate((prefix, pcm, background(48000))), len(prefix), end))
+    public = common.read_pcm(ROOT / "src-tauri/tests/fixtures/stt-quality/ru-01.wav")
+    cases.append((False, "public", np.concatenate((background(80000), public, background(48000))), 80000, 80000+len(public)))
+    if isolated:
+        for folder in sorted((ROOT/'build/dev-desktop-profile/wake-recordings').iterdir()):
+            if not folder.is_dir() or folder.is_symlink() or folder.is_junction(): continue
+            meta = json.loads((folder/'recording.json').read_text(encoding='utf-8'))
+            sample = meta['sample']
+            if sample.get('phraseId') == 'privet_lira' or sample['kind'] != 'other_speech': continue
+            assert meta['permission'] == 'consented-local-only' and meta['split'] == 'dev'
+            assert common.digest(folder/'recording.wav') == sample['sha256']
+            legacy = common.read_pcm(folder/'recording.wav')
+            cases.append((False,'legacy_other_speech',np.concatenate((legacy,background(48000))),0,len(legacy)))
+    for number, (positive, condition, pcm, onset, end) in enumerate(cases):
+        pcm = np.pad(pcm, (0, (-len(pcm)) % common.STRIDE))
+        flags = gated(pcm)
+        padded = np.pad(pcm, (common.WINDOW, 0))
+        scores, focused_scores = [], []
+        for offset in range(0, len(flags), common.BATCH):
+            windows = np.stack([padded[(i+1)*common.STRIDE:(i+1)*common.STRIDE+common.WINDOW]
+                                for i in range(offset, min(offset+common.BATCH, len(flags)))])
+            scores.extend(cnn.run(None, {"logmel":common.frontend(windows).numpy()})[0].ravel().tolist())
+            focused = windows.copy()
+            focused[:, :common.WINDOW//2] = 0
+            focused_scores.extend(cnn.run(None, {"logmel":common.frontend(focused).numpy()})[0].ravel().tolist())
+        cache, result = {}, {}
+        for label, cls in (("baseline", baseline["Stream"]), ("candidate", Stream)):
+            checks, events = [], []
+            position = 0
+            def classify(_): return scores[position] if label == "baseline" else max(scores[position], focused_scores[position])
+            def verify(window):
+                key = hashlib.sha256(window.tobytes()).digest()
+                if key not in cache: cache[key] = tone.score(window)["greedy_whole_phrase"]
+                value = cache[key]
+                checks.append(value)
+                return value
+            stream = cls(classify, verify)
+            for position, frame in enumerate(pcm.reshape(-1, common.STRIDE)):
+                if stream.accept(frame, flags[position])["detected"]:
+                    events.append((position+1)*common.STRIDE)
+            result[label] = {"events":len(events), "detected":any(e>onset for e in events),
+                             "early_events":sum(e<=onset for e in events), "checks":len(checks),
+                             "first_ready_after_recording_end_ms": min(((e-end)/16 for e in events if e>onset), default=None)}
+        row = {"case":number, "positive":positive, "condition":condition,
+               "max_full_score":max(scores), "max_focused_score":max(focused_scores), **result}
+        rows.append(row)
+    report = {"schema":"fono-lira-paired-context-regression@1", "models_and_threshold_unchanged":True,
+              "live_policy_sha256":common.digest(ROOT/'tools/wake-training/lira-live-policy.json'),
+              "candidate_context_samples":[64000,32000],
+              "native_vad":True, "microphone_opened":False, "owner_recordings_used_for_training":False,
+              "baseline_source_sha256":hashlib.sha256(baseline_source).hexdigest(),
+              "candidate_source_sha256":common.digest(ROOT/'tools/wake-training/live_worker.py'),
+              "context":("isolated existing clips; legacy speech negatives included; room continuation looped" if isolated else "same existing hard negative before each positive; recorded room looped, no independent exposure"),
+              "latency":"sample clock relative to recording file end only; not labelled phrase end or live latency/p95",
+              "wall_seconds":round(time.monotonic()-started,3), "rows":rows}
+    for label in ("baseline", "candidate"):
+        report[label] = {"positive_clips":sum(r['positive'] for r in rows),
+                         "positive_hits":sum(r['positive'] and r[label]['detected'] for r in rows),
+                         "negative_clips":sum(not r['positive'] for r in rows),
+                         "negative_events":sum(r[label]['events'] for r in rows if not r['positive']),
+                         "early_events_in_positive_context":sum(r[label]['early_events'] for r in rows if r['positive']),
+                         "ctc_checks":sum(r[label]['checks'] for r in rows)}
+    report['lost_positive_cases'] = [r['case'] for r in rows if r['positive'] and r['baseline']['detected'] and not r['candidate']['detected']]
+    output=ROOT/('build/checks/lira-paired-isolated.json' if isolated else 'build/checks/lira-paired-live-retry.json')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report,indent=2),encoding='utf-8')
+    print(json.dumps({k:v for k,v in report.items() if k!='rows'}),flush=True)
+    assert not report['lost_positive_cases']
+    assert report['candidate']['negative_events'] <= report['baseline']['negative_events']
+    assert report['candidate']['early_events_in_positive_context'] <= report['baseline']['early_events_in_positive_context']
+finally:
+    destroy(vad)

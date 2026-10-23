@@ -12,6 +12,30 @@
   "wake_word_available_legacy_flag": false,
   "available_in_release": false,
   "qualified": false,
+  "owner_live_feedback_2026_10_23": {
+    "initial_no_wake_while_listening": true,
+    "wake_observed_after_explicit_disable_enable": true,
+    "owner_reports_large_latency_and_roughly_half_missed": true,
+    "measured_recall": null,
+    "measured_live_wake_latency_ms": null,
+    "initial_failure_root_cause": "not established",
+    "accepted": false,
+    "diagnostic_change": "working tree Python counters; native executable remains v0.7.73",
+    "continuous_voice_or_transcripts_saved": false,
+    "native_vad_replay": {
+      "one_existing_positive": true,
+      "original_start_events": 1,
+      "looped_room_prefix_events": 1,
+      "digital_silence_prefix_events": 1,
+      "independent_quality_exposure": false
+    },
+    "one_warm_file_ctc_profile_ms": 156,
+    "warm_file_ctc_is_live_latency_measurement": false,
+    "current_python_tests_passed": 33,
+    "current_release_ci_tests_passed": 48,
+    "current_format_and_version": "passed",
+    "new_native_or_vue_test_run": false
+  },
   "live": {
     "explicit_enable_required_each_launch": true,
     "ready_after_models_and_real_microphone": true,
@@ -79,10 +103,11 @@
     "recall_or_wake_latency_qualification": false
   },
   "remaining": [
-    "Owner live microphone, onset, auto-stop, insertion, hotkey coexistence and disable acceptance.",
+    "Owner reports large live delay and roughly half missed; live acceptance has not passed.",
+    "Initial no-wake state recovered after disable/enable; root cause remains unknown.",
+    "Owner onset, insertion, hotkey coexistence and disable acceptance.",
     "Two original proposal misses, independent voices/near misses and long negatives.",
     "Unchanged W-02 p95 and idle CPU targets; standalone packaged runtime and dependencies.",
-    "Personal phrase calibration and release delivery.",
-    "MCP tracker update pending connection restoration; local report and outbox prepared."
+    "Personal phrase calibration and release delivery."
   ]
 }
