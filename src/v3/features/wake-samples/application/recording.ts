@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { liraActive, liraOff } from "../domain/samples";
 import type {
   WakeSampleRequest,
   WakeSamplesBackend,
@@ -19,6 +20,8 @@ export function createWakeSamples(
     testAvailable: false,
     testingId: null,
     testResults: {},
+    live: liraOff(),
+    livePending: false,
   });
   let generation = 0;
   let audioGeneration = 0;
@@ -31,6 +34,52 @@ export function createWakeSamples(
   let listRevision = 0;
   let releaseAudio: (() => void) | undefined;
   let testGeneration = 0;
+  let liveRevision = 0;
+  let livePoll: ReturnType<typeof setTimeout> | undefined;
+  async function pollLive() {
+    const revision = liveRevision;
+    try {
+      const live = await backend.liveStatus();
+      if (!disposed && revision === liveRevision && !state.livePending)
+        state.live = live;
+    } catch (e) {
+      report(e);
+    } finally {
+      scheduleLivePoll();
+    }
+  }
+  function scheduleLivePoll() {
+    clearTimeout(livePoll);
+    if (!disposed && state.live.available)
+      livePoll = setTimeout(() => void pollLive(), 500);
+  }
+  async function changeLive(enable: boolean) {
+    if (disposed || state.livePending || !state.live.available) return;
+    if (
+      enable &&
+      (liraActive(state.live) ||
+        state.phase !== "idle" ||
+        state.testingId !== null)
+    )
+      return;
+    const id = state.live.sessionId;
+    if (!enable && id === null) return;
+    ++liveRevision;
+    state.livePending = true;
+    state.error = "";
+    clearAudio();
+    try {
+      const live = enable
+        ? await backend.enableLive()
+        : await backend.disableLive(id!);
+      if (!disposed) state.live = live;
+    } catch (e) {
+      report(e);
+    } finally {
+      state.livePending = false;
+      scheduleLivePoll();
+    }
+  }
   const clearAudio = () => {
     ++audioGeneration;
     state.audio = null;
@@ -50,13 +99,18 @@ export function createWakeSamples(
   async function load() {
     const revision = ++listRevision;
     try {
-      const [samples, available] = await Promise.all([
+      const liveRevisionAtStart = liveRevision;
+      const [samples, available, live] = await Promise.all([
         backend.list(),
         backend.testAvailable(),
+        backend.liveStatus(),
       ]);
       if (!disposed && revision === listRevision) {
         state.samples = samples;
         state.testAvailable = available;
+        if (liveRevisionAtStart === liveRevision && !state.livePending)
+          state.live = live;
+        scheduleLivePoll();
       }
     } catch (e) {
       report(e);
@@ -94,7 +148,14 @@ export function createWakeSamples(
     }
   }
   async function record(request: WakeSampleRequest) {
-    if (disposed || state.phase !== "idle" || state.testingId !== null) return;
+    if (
+      disposed ||
+      state.phase !== "idle" ||
+      state.testingId !== null ||
+      liraActive(state.live) ||
+      state.livePending
+    )
+      return;
     state.error = "";
     if (!request.consent) {
       state.error = message("wakeSamples.consentRequired");
@@ -159,12 +220,16 @@ export function createWakeSamples(
     record,
     finish,
     cancel,
+    enableLive: () => changeLive(true),
+    disableLive: () => changeLive(false),
     async test(id) {
       const sample = state.samples.find((sample) => sample.id === id);
       if (
         disposed ||
         state.phase !== "idle" ||
         state.testingId !== null ||
+        liraActive(state.live) ||
+        state.livePending ||
         !state.testAvailable ||
         sample?.phraseId !== "privet_lira"
       )
@@ -191,6 +256,7 @@ export function createWakeSamples(
       }
     },
     async listen(id) {
+      if (liraActive(state.live) || state.livePending) return;
       clearAudio();
       const token = audioGeneration;
       state.error = "";
@@ -225,6 +291,8 @@ export function createWakeSamples(
     },
     dispose() {
       disposed = true;
+      ++liveRevision;
+      clearTimeout(livePoll);
       clearAudio();
       void cancel();
       stopTimer();

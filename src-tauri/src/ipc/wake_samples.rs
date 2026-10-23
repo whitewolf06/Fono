@@ -4,6 +4,27 @@ use crate::{
     error::AppResult,
 };
 use tauri::AppHandle;
+use tauri::Manager;
+
+#[tauri::command]
+pub(crate) fn get_lira_live_status(app: AppHandle) -> crate::application::wake_lira::Snapshot {
+    app.state::<crate::application::wake_lira::Runtime>()
+        .snapshot()
+}
+#[tauri::command]
+pub(crate) async fn start_lira_live(
+    app: AppHandle,
+) -> AppResult<crate::application::wake_lira::Snapshot> {
+    app.state::<crate::application::wake_lira::Runtime>()
+        .start(&app)
+}
+#[tauri::command]
+pub(crate) async fn stop_lira_live(
+    app: AppHandle,
+    session_id: u64,
+) -> AppResult<crate::application::wake_lira::Snapshot> {
+    crate::application::wake_lira::stop(app, session_id).await
+}
 
 #[tauri::command]
 pub(crate) async fn list_wake_samples() -> AppResult<Vec<wake_samples::Sample>> {
@@ -48,6 +69,15 @@ pub(crate) async fn test_wake_sample(
     id: String,
 ) -> AppResult<wake_samples::testing::Result> {
     crate::application::dictation::ensure_capture_allowed(&app)?;
+    if app
+        .state::<crate::application::wake_lira::Runtime>()
+        .snapshot()
+        .active()
+    {
+        return Err(crate::error::AppError::Busy(
+            "Сначала выключите живое пробуждение.".into(),
+        ));
+    }
     let reservation = wake_samples::testing::reserve()?;
     super::blocking::run(move || wake_samples::testing::run(&id, reservation)).await
 }

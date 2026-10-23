@@ -20,6 +20,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Status {
     Ready,
+    WakeListening,
     Paused,
     Recording,
     Transcribing,
@@ -36,6 +37,7 @@ impl Status {
         if locale == UiLocale::En {
             return match self {
                 Self::Ready => "Fono — ready to dictate",
+                Self::WakeListening => "Fono — listening for Privet Lira (microphone on)",
                 Self::Paused => "Fono — dictation paused",
                 Self::Recording => "Fono — recording speech",
                 Self::Transcribing => "Fono — recognizing speech",
@@ -49,6 +51,7 @@ impl Status {
         }
         match self {
             Self::Ready => "Fono — готов к диктовке",
+            Self::WakeListening => "Fono — слушаю «Привет, Лира» (микрофон включён)",
             Self::Paused => "Fono — диктовка приостановлена",
             Self::Recording => "Fono — запись голоса",
             Self::Transcribing => "Fono — распознавание речи",
@@ -66,7 +69,7 @@ impl Status {
             Self::Recording => [224, 67, 68, 255],
             Self::Paused | Self::AwaitingAction => [234, 178, 60, 255],
             Self::Error => [235, 79, 73, 255],
-            Self::Ready => [54, 184, 136, 255],
+            Self::Ready | Self::WakeListening => [54, 184, 136, 255],
             Self::Unloaded => [151, 160, 174, 255],
             _ => [91, 158, 246, 255],
         }
@@ -78,6 +81,7 @@ struct Appearance {
     locale: UiLocale,
     status: Status,
     paused: bool,
+    lira_enabled: bool,
     #[cfg(feature = "wake-word")]
     wake_enabled: bool,
 }
@@ -99,6 +103,15 @@ fn status(pipeline: PipelineState, paused: bool, readiness: &SttReadiness) -> St
             SttReadiness::Ready { .. } => Status::Ready,
             SttReadiness::Failed { .. } => Status::Error,
         },
+    }
+}
+
+fn lira_label(enabled: bool, locale: UiLocale) -> &'static str {
+    match (enabled, locale == UiLocale::En) {
+        (true, true) => "Turn Privet Lira off",
+        (false, true) => "Enable Privet Lira",
+        (true, false) => "Выключить «Привет, Лира»",
+        (false, false) => "Включить «Привет, Лира»",
     }
 }
 
@@ -139,6 +152,7 @@ struct TrayPresentation {
     icon: TrayIcon<Wry>,
     base: Image<'static>,
     pause: MenuItem<Wry>,
+    lira: Option<MenuItem<Wry>>,
     #[cfg(feature = "wake-word")]
     wake: Option<MenuItem<Wry>>,
     last: Mutex<Option<Appearance>>,
@@ -168,6 +182,16 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     )
     .build(app)?;
     let menu_builder = MenuBuilder::new(app).item(&show).separator().item(&pause);
+    let lira = if crate::application::wake_lira::available() {
+        Some(MenuItemBuilder::with_id("lira_live", lira_label(false, locale)).build(app)?)
+    } else {
+        None
+    };
+    let menu_builder = if let Some(item) = &lira {
+        menu_builder.separator().item(item)
+    } else {
+        menu_builder
+    };
     #[cfg(feature = "wake-word")]
     let wake = if crate::types::WAKE_WORD_AVAILABLE {
         Some(
@@ -207,6 +231,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         icon,
         base,
         pause,
+        lira,
         #[cfg(feature = "wake-word")]
         wake,
         last: Mutex::new(None),
@@ -295,12 +320,42 @@ fn menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
                 request_refresh(&app);
             });
         }
+        "lira_live" => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let view = app
+                    .state::<crate::application::wake_lira::Runtime>()
+                    .snapshot();
+                let result = if view.active() {
+                    if let Some(id) = view.session_id {
+                        crate::application::wake_lira::stop(app.clone(), id)
+                            .await
+                            .map(|_| ())
+                    } else {
+                        Ok(())
+                    }
+                } else {
+                    app.state::<crate::application::wake_lira::Runtime>()
+                        .start(&app)
+                        .map(|_| ())
+                };
+                if let Err(error) = result {
+                    crate::events::emit_error(
+                        &app,
+                        crate::events::ErrorCodeV1::Wake,
+                        error.user_message(),
+                        None,
+                    );
+                }
+                request_refresh(&app);
+            });
+        }
         "quit" => app.exit(0),
         _ => {}
     }
 }
 
-fn request_refresh(app: &AppHandle) {
+pub(crate) fn request_refresh(app: &AppHandle) {
     let Some(runtime) = app.try_state::<TrayPresentation>() else {
         return;
     };
@@ -337,14 +392,28 @@ fn refresh_on_ui(app: &AppHandle) -> AppResult<()> {
     };
     let state = app.state::<AppState>();
     let paused = state.is_dictation_paused();
+    let lira = app
+        .state::<crate::application::wake_lira::Runtime>()
+        .snapshot();
+    let pipeline = app.state::<Pipeline>();
+    let base_status = status(pipeline.state(), paused, &pipeline.stt().readiness());
+    let live_status = if pipeline.current_operation().is_none() && !paused {
+        use crate::application::wake_lira::Phase;
+        match lira.phase {
+            Phase::Listening => Status::WakeListening,
+            Phase::Loading | Phase::Stopping => Status::Loading,
+            Phase::Paused => Status::Paused,
+            Phase::Error => Status::Error,
+            Phase::Off => base_status,
+        }
+    } else {
+        base_status
+    };
     let appearance = Appearance {
         locale: state.settings().ui_language.resolve(),
-        status: status(
-            app.state::<Pipeline>().state(),
-            paused,
-            &app.state::<Pipeline>().stt().readiness(),
-        ),
+        status: live_status,
         paused,
+        lira_enabled: lira.active(),
         #[cfg(feature = "wake-word")]
         wake_enabled: state.settings().wake_word_enabled,
     };
@@ -371,6 +440,9 @@ fn refresh_on_ui(app: &AppHandle) -> AppResult<()> {
     #[cfg(feature = "wake-word")]
     if let Some(wake) = &runtime.wake {
         wake.set_text(wake_label(appearance.wake_enabled, appearance.locale))?;
+    }
+    if let Some(lira) = &runtime.lira {
+        lira.set_text(lira_label(appearance.lira_enabled, appearance.locale))?;
     }
     runtime
         .icon

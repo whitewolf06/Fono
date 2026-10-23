@@ -34,8 +34,8 @@ def read_input(stream):
         return pcm
 
 
-def check(pcm_bytes):
-    started = time.monotonic()
+def prepare():
+    """Validate and open the fixed models once; live callers keep these sessions warm."""
     import numpy as np
     import torch
     import onnxruntime as ort
@@ -70,6 +70,12 @@ def check(pcm_bytes):
     tone = lira_ctc.Tone(ROOT / "build/wake-models" / lira_ctc.DIRECTORY, ROOT / "build/wake-models/ru.tar.bz2")
     if tone.identity != point["model_identity"]:
         raise ValueError("verifier identity changed")
+    return np, cnn, tone
+
+
+def check(pcm_bytes):
+    started = time.monotonic()
+    np, cnn, tone = prepare()
     pcm = np.frombuffer(pcm_bytes, dtype="<i2").astype(np.float32) / 32768
     ends, windows = common.stream_windows(pcm)
     scores = []

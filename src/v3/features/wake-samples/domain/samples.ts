@@ -63,7 +63,23 @@ export interface WakeSamplesState {
   testAvailable: boolean;
   testingId: string | null;
   testResults: Record<string, WakeSampleTest>;
+  live: LiraLiveSnapshot;
+  livePending: boolean;
 }
+export interface LiraLiveSnapshot {
+  available: boolean;
+  sessionId: number | null;
+  phase: "off" | "loading" | "listening" | "paused" | "stopping" | "error";
+  message: string;
+}
+export const liraOff = (): LiraLiveSnapshot => ({
+  available: false,
+  sessionId: null,
+  phase: "off",
+  message: "",
+});
+export const liraActive = (live: LiraLiveSnapshot) =>
+  ["loading", "listening", "paused", "stopping"].includes(live.phase);
 export interface WakeSampleTest {
   operationId: string;
   detected: boolean;
@@ -81,9 +97,14 @@ export interface WakeSamplesPort {
   listen(id: string): Promise<void>;
   remove(id: string): Promise<void>;
   test(id: string): Promise<void>;
+  enableLive(): Promise<void>;
+  disableLive(): Promise<void>;
   dispose(): void;
 }
 export interface WakeSamplesBackend {
+  liveStatus(): Promise<LiraLiveSnapshot>;
+  enableLive(): Promise<LiraLiveSnapshot>;
+  disableLive(sessionId: number): Promise<LiraLiveSnapshot>;
   testAvailable(): Promise<boolean>;
   test(id: string): Promise<WakeSampleTest>;
   list(): Promise<WakeSample[]>;

@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static BUSY: AtomicBool = AtomicBool::new(false);
+#[cfg(all(windows, debug_assertions))]
+pub(crate) fn is_busy() -> bool {
+    BUSY.load(Ordering::Acquire)
+}
 const UNAVAILABLE: &str = "Проверка детектора недоступна в этой сборке.";
 #[cfg(any(debug_assertions, test))]
 const FAILED: &str = "Не удалось проверить запись. Повторите проверку.";

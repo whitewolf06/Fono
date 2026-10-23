@@ -5,11 +5,16 @@ use crate::{
     error::AppResult,
     pipeline::{self, Pipeline},
     state::AppState,
-    types::{DictationMode, PipelineState},
+    types::PipelineState,
 };
-use fono_core::{OperationSource, TerminalReason};
-use tauri::{AppHandle, Emitter, Manager};
+#[cfg(feature = "wake-word")]
+use fono_core::OperationSource;
+use fono_core::TerminalReason;
+#[cfg(feature = "wake-word")]
+use tauri::Emitter;
+use tauri::{AppHandle, Manager};
 
+#[cfg(feature = "wake-word")]
 pub async fn run(
     app: &AppHandle,
     pre_roll: Vec<i16>,
@@ -17,16 +22,77 @@ pub async fn run(
 ) -> AppResult<()> {
     crate::types::ensure_wake_available()?;
     let settings = app.state::<AppState>().settings();
-    let mut vad = SpeechGate::new(app)?;
+    let vad = SpeechGate::new(app)?;
     let operation = super::dictation::start_with_audio_operation(
         app.clone(),
         OperationSource::WakeWord,
         &pre_roll,
         cursor.map(|c| (c.epoch, c.sample)),
     )?;
-    if settings.dictation_mode == DictationMode::Live {
+    if settings.dictation_mode == crate::types::DictationMode::Live {
         return Ok(());
     }
+    finish(app, operation, vad, settings).await
+}
+
+#[cfg(all(windows, debug_assertions))]
+pub(crate) async fn run_lira(
+    app: AppHandle,
+    control: std::sync::Arc<super::wake_lira::Control>,
+    pre_roll: Vec<i16>,
+    cursor: fono_audio::AudioCursor,
+) -> AppResult<()> {
+    let capture = {
+        let _route = control.route.lock();
+        if control.cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(crate::error::AppError::Cancelled(
+                "Пробуждение выключено".into(),
+            ));
+        }
+        let capture = super::dictation::reserve_lira_operation(&app)?;
+        control
+            .operation
+            .store(capture.operation, std::sync::atomic::Ordering::Release);
+        capture
+    };
+    let operation = capture.operation;
+    let activity = super::updates::activity::cleanup_lease();
+    let handle = app.clone();
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        let _activity = activity;
+        // Both disk/native model setup and microphone handoff stay off the IPC executor.
+        let vad = SpeechGate::new(&handle)?;
+        super::dictation::start_lira_reserved(handle, capture, &pre_roll, cursor)?;
+        Ok::<_, crate::error::AppError>(vad)
+    })
+    .await
+    .unwrap_or_else(|_| {
+        Err(crate::error::AppError::Internal(
+            "Не удалось начать диктовку".into(),
+        ))
+    });
+    let result = match prepared {
+        Ok(vad) => finish(&app, operation, vad, app.state::<AppState>().settings()).await,
+        Err(error) => {
+            app.state::<Pipeline>().abort_capture_setup(operation);
+            Err(error)
+        }
+    };
+    let _ = control.operation.compare_exchange(
+        operation,
+        0,
+        std::sync::atomic::Ordering::AcqRel,
+        std::sync::atomic::Ordering::Acquire,
+    );
+    result
+}
+
+async fn finish(
+    app: &AppHandle,
+    operation: u64,
+    mut vad: SpeechGate,
+    settings: crate::types::Settings,
+) -> AppResult<()> {
     let pipeline = app.state::<Pipeline>();
     let started = std::time::Instant::now();
     let mut consumed = 0;
@@ -108,6 +174,7 @@ pub async fn run(
     }
 }
 
+#[cfg(feature = "wake-word")]
 pub fn propose_command(app: &AppHandle, operation: u64, command: String) {
     let state = app.state::<AppState>();
     let pipeline = app.state::<Pipeline>();

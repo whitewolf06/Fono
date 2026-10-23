@@ -13,11 +13,11 @@ const SAMPLE_RATE_HZ: usize = 16_000;
 pub(crate) enum DictationStopReason {
     Manual,
     ToggleSilence,
-    #[cfg(feature = "wake-word")]
+    #[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
     WakeSilence,
-    #[cfg(feature = "wake-word")]
+    #[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
     WakeConfirmed,
-    #[cfg(feature = "wake-word")]
+    #[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
     WakeTimeout,
 }
 
@@ -26,11 +26,11 @@ impl DictationStopReason {
         match self {
             Self::Manual => "manual",
             Self::ToggleSilence => "toggle_silence",
-            #[cfg(feature = "wake-word")]
+            #[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
             Self::WakeSilence => "wake_silence",
-            #[cfg(feature = "wake-word")]
+            #[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
             Self::WakeConfirmed => "wake_confirmed",
-            #[cfg(feature = "wake-word")]
+            #[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
             Self::WakeTimeout => "wake_timeout",
         }
     }

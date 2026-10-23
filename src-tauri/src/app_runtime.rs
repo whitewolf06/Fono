@@ -28,6 +28,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(crate::application::dictation::workflow::Runtime::default());
     app.manage(crate::application::dictation::ProcessingCaptureRuntime::default());
     app.manage(crate::application::dictation::wake_sample::Runtime::default());
+    app.manage(crate::application::wake_lira::Runtime::default());
     #[cfg(feature = "wake-word")]
     app.manage(WakeWordHandle::new_with_audio_hub(
         WakeWordConfig::default(),
@@ -156,6 +157,7 @@ pub(crate) fn shutdown(app: &tauri::AppHandle) {
         capture.close();
     }
     tracing::info!("Fono shutdown requested");
+    crate::application::wake_lira::shutdown(app);
     if let Some(cli) = app.try_state::<crate::cli::Runtime>() {
         cli.shutdown();
     }

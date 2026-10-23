@@ -1,0 +1,88 @@
+{
+  "schema": "fono-lira-live-dev@1",
+  "date": "2026-10-23",
+  "source_version": "0.7.73",
+  "owner_authorized_live_dev_iteration": true,
+  "owner_reports_no_observed_false_activations_in_manual_file_checks": true,
+  "cnn_sha256": "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa541c",
+  "verifier_config_sha256": "d3ea4079b329755bcdd42618cec915aa4952554479eb4b0999689558305ee47e",
+  "new_training_runs": 0,
+  "threshold_changed": false,
+  "microphone_opened_by_agent": false,
+  "wake_word_available_legacy_flag": false,
+  "available_in_release": false,
+  "qualified": false,
+  "live": {
+    "explicit_enable_required_each_launch": true,
+    "ready_after_models_and_real_microphone": true,
+    "audio_hub_only": true,
+    "sample_rate": 16000,
+    "frame_samples": 1280,
+    "cnn_window_samples": 64000,
+    "verifier_lookahead_samples": 10240,
+    "maximum_preroll_samples": 74240,
+    "foreground_dictation_resets_pending_detection": true,
+    "ordinary_dictation_lifecycle": true,
+    "capture_cursor_handoff": true,
+    "session_fenced_stop": true,
+    "worker_process_kill_on_parent_exit": true,
+    "continuous_audio_saved": false,
+    "blocks_update_installation_until_disabled": true,
+    "pins_primary_gpu_model": false
+  },
+  "checks": {
+    "vue_ipc_full": { "passed": 402, "failed": 0 },
+    "final_sample_form_subset": { "passed": 19, "failed": 0 },
+    "rust_app_lib": { "passed": 689, "failed": 0, "ignored": 7 },
+    "python_contracts": { "passed": 32, "failed": 0 },
+    "release_ci_local": { "passed": 48, "failed": 0 },
+    "strict_clippy_app_all_targets": "passed",
+    "no_default_features_wake_word_cargo_check": "passed",
+    "format_docs_version": "passed",
+    "typecheck_lint_frontend_build": "passed",
+    "browser_mock_viewports": [
+      [720, 560],
+      [900, 720],
+      [1440, 900]
+    ],
+    "browser_js_errors": 0,
+    "browser_horizontal_overflow": false,
+    "remote_ci": false,
+    "installer": false,
+    "owner_live_voice_acceptance": "pending"
+  },
+  "warm_worker_smoke": {
+    "same_process_for_all_cases": true,
+    "load_seconds_during_parallel_compilation": 23.313,
+    "positive_continuation": "2 seconds of existing recorded room sound, looped if shorter; not independent quality exposure",
+    "speech_gate": "forced true for pipe replay; native VAD is separate",
+    "cases": [
+      {
+        "case": "existing_positive",
+        "duration_seconds": 3.18,
+        "events": 1,
+        "processing_seconds": 1.062
+      },
+      {
+        "case": "existing_hard_negative",
+        "duration_seconds": 4.19,
+        "events": 0,
+        "processing_seconds": 3.344
+      },
+      {
+        "case": "public_negative",
+        "duration_seconds": 16.92,
+        "events": 0,
+        "processing_seconds": 1.922
+      }
+    ],
+    "recall_or_wake_latency_qualification": false
+  },
+  "remaining": [
+    "Owner live microphone, onset, auto-stop, insertion, hotkey coexistence and disable acceptance.",
+    "Two original proposal misses, independent voices/near misses and long negatives.",
+    "Unchanged W-02 p95 and idle CPU targets; standalone packaged runtime and dependencies.",
+    "Personal phrase calibration and release delivery.",
+    "MCP tracker update pending connection restoration; local report and outbox prepared."
+  ]
+}

@@ -12,6 +12,7 @@ use crate::error::{AppError, AppResult};
 struct GateState {
     reserved: bool,
     leases: usize,
+    background_capture: usize,
 }
 
 #[derive(Default)]
@@ -20,6 +21,7 @@ struct Gate(Mutex<GateState>);
 static GATE: Gate = Gate(Mutex::new(GateState {
     reserved: false,
     leases: 0,
+    background_capture: 0,
 }));
 
 pub struct StartGuard<'a> {
@@ -28,6 +30,17 @@ pub struct StartGuard<'a> {
 
 pub struct ActivityLease<'a> {
     gate: &'a Gate,
+}
+/// A CPU wake listener blocks installation but does not pin the primary GPU model.
+#[cfg(any(all(windows, debug_assertions), test))]
+pub(crate) struct BackgroundCaptureLease<'a> {
+    gate: &'a Gate,
+}
+#[cfg(any(all(windows, debug_assertions), test))]
+impl Drop for BackgroundCaptureLease<'_> {
+    fn drop(&mut self) {
+        self.gate.0.lock().background_capture -= 1;
+    }
 }
 
 pub(super) struct InstallReservation<'a> {
@@ -87,6 +100,11 @@ impl Gate {
         check_idle: impl FnOnce() -> AppResult<()>,
     ) -> AppResult<InstallReservation<'_>> {
         let mut state = self.0.lock();
+        if state.background_capture > 0 {
+            return Err(AppError::Busy(
+                "Перед установкой обновления выключите голосовое пробуждение.".into(),
+            ));
+        }
         if state.reserved || state.leases > 0 {
             return Err(AppError::Busy(
                 "Сначала завершите подготовку моделей и текущие операции.".into(),
@@ -140,6 +158,15 @@ pub fn begin() -> AppResult<StartGuard<'static>> {
 pub fn lease() -> AppResult<ActivityLease<'static>> {
     GATE.lease()
 }
+#[cfg(all(windows, debug_assertions))]
+pub(crate) fn background_capture_lease() -> AppResult<BackgroundCaptureLease<'static>> {
+    let mut state = GATE.0.lock();
+    if state.reserved {
+        return Err(busy());
+    }
+    state.background_capture += 1;
+    Ok(BackgroundCaptureLease { gate: &GATE })
+}
 
 /// Retain teardown of an already owned native resource until its confirmed
 /// exit. This does not admit a new operation or reopen an install reservation.
@@ -157,7 +184,7 @@ pub(crate) fn while_idle<T>(
 
 pub(crate) fn is_busy() -> bool {
     let state = GATE.0.lock();
-    state.reserved || state.leases > 0
+    state.reserved || state.leases > 0 || state.background_capture > 0
 }
 
 pub(super) fn reserve(
@@ -169,6 +196,18 @@ pub(super) fn reserve(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cpu_listener_blocks_installation_but_allows_idle_gpu_release() {
+        let gate = Gate::default();
+        gate.0.lock().background_capture += 1;
+        let listener = BackgroundCaptureLease { gate: &gate };
+        assert!(gate.reserve(|| Ok(())).is_err());
+        let (_, cleanup) = gate.while_idle(|| true, || ()).unwrap();
+        drop(listener);
+        assert!(gate.reserve(|| Ok(())).is_err());
+        drop(cleanup);
+        assert!(gate.reserve(|| Ok(())).is_ok());
+    }
     use std::sync::{
         atomic::{AtomicBool, Ordering},
         Arc,

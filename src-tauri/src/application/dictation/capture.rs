@@ -87,6 +87,40 @@ pub(crate) fn start_reserved_operation(app: AppHandle, capture: ReservedCapture)
     prepare_reserved(app, capture, OperationSource::Hotkey, &[], None, false)
 }
 
+#[cfg(all(windows, debug_assertions))]
+pub(crate) fn reserve_lira_operation(app: &AppHandle) -> AppResult<ReservedCapture> {
+    let _admission = crate::application::capture_configuration::try_begin_capture()?;
+    ensure_capture_allowed(app)?;
+    let pipeline = app.state::<Pipeline>();
+    let mut settings = app.state::<AppState>().dictation_settings();
+    // Session preference only: never enable or migrate a legacy wake backend.
+    settings.wake_word = "Привет, Лира".into();
+    let operation = pipeline.reserve_capture(OperationSource::WakeWord)?;
+    if !pipeline.set_session_settings_for(operation, settings.clone()) {
+        return Err(AppError::Cancelled("Диктовка отменена".into()));
+    }
+    Ok(ReservedCapture {
+        operation,
+        settings,
+    })
+}
+#[cfg(all(windows, debug_assertions))]
+pub(crate) fn start_lira_reserved(
+    app: AppHandle,
+    capture: ReservedCapture,
+    pre_roll: &[i16],
+    cursor: fono_audio::AudioCursor,
+) -> AppResult<u64> {
+    prepare_reserved(
+        app,
+        capture,
+        OperationSource::WakeWord,
+        pre_roll,
+        Some((cursor.epoch, cursor.sample)),
+        false,
+    )
+}
+
 fn prepare_reserved(
     app: AppHandle,
     capture: ReservedCapture,

@@ -95,6 +95,9 @@ fn save_settings_blocking(
     let _ = wake_settings_changed;
     normalize_llm_profiles(&mut settings, &old_settings);
     validate_settings(&settings)?;
+    if old_settings.audio_device_id != settings.audio_device_id {
+        crate::application::wake_lira::shutdown(app);
+    }
     #[cfg(feature = "wake-word")]
     if settings.wake_word_enabled {
         crate::application::wake_validation::ensure_profile_can_activate(&settings)?;

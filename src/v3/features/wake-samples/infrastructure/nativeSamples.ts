@@ -3,10 +3,15 @@ import type {
   WakeSample,
   WakeSampleTest,
   WakeSamplesPort,
+  LiraLiveSnapshot,
 } from "../domain/samples";
 type Call = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 export function createNativeWakeSamples(call: Call): WakeSamplesPort {
   const port = createWakeSamples({
+    liveStatus: () => call<LiraLiveSnapshot>("get_lira_live_status"),
+    enableLive: () => call<LiraLiveSnapshot>("start_lira_live"),
+    disableLive: (sessionId) =>
+      call<LiraLiveSnapshot>("stop_lira_live", { sessionId }),
     testAvailable: () => call<boolean>("wake_sample_test_available"),
     test: (id) => call<WakeSampleTest>("test_wake_sample", { id }),
     list: () => call<WakeSample[]>("list_wake_samples"),

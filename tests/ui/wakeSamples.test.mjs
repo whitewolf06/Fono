@@ -39,6 +39,18 @@ const deferred = () => {
 };
 function backend(patch = {}) {
   return {
+    liveStatus: async () => ({
+      available: false,
+      sessionId: null,
+      phase: "off",
+      message: "",
+    }),
+    enableLive: async () => {
+      throw new Error("unexpected live enable");
+    },
+    disableLive: async () => {
+      throw new Error("unexpected live disable");
+    },
     testAvailable: async () => false,
     test: async () => {
       throw new Error("unexpected detector test");
@@ -78,6 +90,114 @@ before(async () => {
   ));
 });
 after(async () => await server?.close());
+
+test("live wake requires an explicit enable and survives hiding or leaving the samples panel", async () => {
+  const off = { available: true, sessionId: null, phase: "off", message: "" };
+  const starting = { ...off, sessionId: 91, phase: "loading" };
+  let starts = 0,
+    stops = [],
+    recordings = 0,
+    checks = 0;
+  const stop = deferred();
+  const port = createWakeSamples(
+    backend({
+      list: async () => [sample],
+      testAvailable: async () => true,
+      liveStatus: async () => off,
+      enableLive: async () => {
+        starts++;
+        return starting;
+      },
+      disableLive: async (id) => {
+        stops.push(id);
+        return stop.promise;
+      },
+      start: async () => {
+        recordings++;
+        return { sessionId: 5, durationMs: 5000 };
+      },
+      test: async () => {
+        checks++;
+      },
+    }),
+  );
+  try {
+    await port.load();
+    assert.equal(starts, 0);
+    await port.enableLive();
+    await port.enableLive();
+    assert.equal(starts, 1);
+    await port.cancel();
+    assert.equal(port.state.live.phase, "loading");
+    assert.deepEqual(stops, []);
+    await port.record(request);
+    await port.test(sample.id);
+    assert.equal(recordings, 0);
+    assert.equal(checks, 0);
+    const stopping = port.disableLive();
+    await port.disableLive();
+    assert.deepEqual(stops, [91]);
+    stop.resolve(off);
+    await stopping;
+    assert.equal(port.state.live.phase, "off");
+  } finally {
+    port.dispose();
+  }
+  assert.deepEqual(stops, [91]);
+});
+
+test("a read started before enabling cannot overwrite the new live session", async () => {
+  const oldRead = deferred();
+  const off = { available: true, sessionId: null, phase: "off", message: "" };
+  let reads = 0;
+  const port = createWakeSamples(
+    backend({
+      liveStatus: async () => (++reads === 1 ? off : oldRead.promise),
+      enableLive: async () => ({ ...off, sessionId: 17, phase: "loading" }),
+    }),
+  );
+  try {
+    await port.load();
+    const stale = port.load();
+    await port.enableLive();
+    oldRead.resolve(off);
+    await stale;
+    assert.equal(port.state.live.sessionId, 17);
+    assert.equal(port.state.live.phase, "loading");
+  } finally {
+    port.dispose();
+  }
+});
+
+test("live controls explain the open microphone and allow stopping during model loading", async () => {
+  const off = { available: true, sessionId: null, phase: "off", message: "" };
+  const port = createWakeSamples(
+    backend({
+      liveStatus: async () => off,
+      enableLive: async () => ({ ...off, sessionId: 2, phase: "loading" }),
+    }),
+  );
+  const app = createSSRApp({ render: () => h(Panel) });
+  app.use(WlConfig);
+  app.provide(workspaceKey, {
+    native: true,
+    wakeSamples: port,
+    state: { phase: "idle" },
+  });
+  try {
+    await port.load();
+    const initial = await renderToString(app);
+    assert.match(initial, /микрофон остаётся открытым до отключения/);
+    assert.match(initial, /Включить «Привет, Лира»/);
+    await port.enableLive();
+    const loading = await renderToString(app);
+    assert.match(loading, /Готовим пробуждение/);
+    assert.match(loading, /Выключить пробуждение/);
+    assert.doesNotMatch(loading, /Включить «Привет, Лира»/);
+  } finally {
+    port.dispose();
+  }
+});
 
 test("recording requires explicit local voice consent before any backend start", async () => {
   let starts = 0;
@@ -317,6 +437,8 @@ test("native adapter uses only the new raw-sample commands and cancels on hide",
   const port = createNativeWakeSamples(async (name, args) => {
     calls.push([name, args]);
     if (name === "list_wake_samples") return [];
+    if (name === "get_lira_live_status")
+      return { available: false, sessionId: null, phase: "off", message: "" };
     if (name === "start_wake_sample")
       return { sessionId: 81, durationMs: 5000 };
   });
@@ -331,11 +453,12 @@ test("native adapter uses only the new raw-sample commands and cancels on hide",
       [
         "list_wake_samples",
         "wake_sample_test_available",
+        "get_lira_live_status",
         "start_wake_sample",
         "cancel_wake_sample",
       ],
     );
-    assert.deepEqual(calls[3][1], { sessionId: 81 });
+    assert.deepEqual(calls[4][1], { sessionId: 81 });
     assert.equal(port.state.phase, "idle");
   } finally {
     port.dispose();
@@ -357,7 +480,7 @@ test("recording form explains preparation and local consent, without a wake acti
   assert.match(html, /Привет, Лира/);
   assert.match(html, /iPhone/);
   assert.match(html, /Прежние образцы сюда не засчитываются/);
-  assert.match(html, /пробуждение пока выключено/);
+  assert.doesNotMatch(html, /Включить «Привет, Лира»/);
   assert.match(html, /не отправляет их на сервер/);
   assert.doesNotMatch(html, /wakeEnabled/);
   assert.match(html, /<button[^>]*disabled/);

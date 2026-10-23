@@ -5,6 +5,7 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 pub fn pause(app: &AppHandle) {
+    super::wake_lira::pause(app);
     #[cfg(feature = "wake-word")]
     app.state::<fono_wake::WakeWordHandle>().pause();
     #[cfg(not(feature = "wake-word"))]
@@ -12,6 +13,7 @@ pub fn pause(app: &AppHandle) {
 }
 
 pub fn resume(app: &AppHandle) {
+    super::wake_lira::resume(app);
     #[cfg(feature = "wake-word")]
     app.state::<fono_wake::WakeWordHandle>().resume();
     #[cfg(not(feature = "wake-word"))]

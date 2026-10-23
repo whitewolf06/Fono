@@ -164,8 +164,13 @@ async fn stop_once(
         "transcript ready ({} chars)",
         transcript.text.chars().count()
     );
-    #[cfg(feature = "wake-word")]
+    #[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
     let mut transcript = transcript;
+    #[cfg(all(windows, debug_assertions))]
+    if session.source == OperationSource::WakeWord && session.settings.wake_word == "Привет, Лира"
+    {
+        transcript.text = crate::application::wake_lira::strip_phrase(&transcript.text);
+    }
     #[cfg(feature = "wake-word")]
     if session.source == OperationSource::WakeWord {
         transcript.text = crate::application::wake::strip_leading_wake_phrase(

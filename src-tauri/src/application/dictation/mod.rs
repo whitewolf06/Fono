@@ -20,6 +20,8 @@ pub(crate) mod workflow;
 pub(crate) use capture::ensure_capture_allowed;
 #[cfg(feature = "wake-word")]
 pub(crate) use capture::start_with_audio_operation;
+#[cfg(all(windows, debug_assertions))]
+pub(crate) use capture::{reserve_lira_operation, start_lira_reserved};
 pub(crate) use capture::{reserve_operation, start_reserved_operation};
 pub(crate) use capture::{start, start_command_operation, start_operation, start_with_audio};
 #[cfg(test)]

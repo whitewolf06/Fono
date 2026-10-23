@@ -6,7 +6,11 @@ import { message as $t } from "../../../shared/domain/messages";
 import { captureSettingsLocked } from "../../../shared/domain/pretranscription";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import type { WakeSampleRequest } from "../domain/samples";
-import { wakeSampleSets, wakeSamplesInSet } from "../domain/samples";
+import {
+  liraActive,
+  wakeSampleSets,
+  wakeSamplesInSet,
+} from "../domain/samples";
 
 const workspace = useWorkspace();
 const port = workspace.wakeSamples;
@@ -19,7 +23,14 @@ const request = reactive<WakeSampleRequest>({
   consent: false,
 });
 const captureActive = computed(() => state.phase !== "idle");
-const active = computed(() => captureActive.value || state.testingId !== null);
+const liveActive = computed(() => liraActive(state.live));
+const active = computed(
+  () =>
+    captureActive.value ||
+    state.testingId !== null ||
+    liveActive.value ||
+    state.livePending,
+);
 const dictationBusy = computed(() =>
   captureSettingsLocked(workspace.state.phase),
 );
@@ -74,6 +85,36 @@ onUnmounted(() => void port.cancel());
     :aria-label="$t('wakeSamples.title')"
   >
     <h3>{{ $t("wakeSamples.title") }}</h3>
+    <section
+      v-if="state.live.available"
+      class="form-stack"
+      :aria-label="$t('wakeLive.title')"
+    >
+      <h4>{{ $t("wakeLive.title") }}</h4>
+      <p class="notice">{{ $t("wakeLive.hint") }}</p>
+      <p role="status" aria-live="polite">
+        {{ $t(`wakeLive.${state.live.phase}`) }}
+      </p>
+      <p v-if="state.live.message" class="error-text" role="alert">
+        {{ state.live.message }}
+      </p>
+      <div class="actions">
+        <WlButton
+          v-if="!liveActive"
+          variant="primary"
+          :disabled="active || dictationBusy"
+          @click="port.enableLive()"
+          >{{ $t("wakeLive.enable") }}</WlButton
+        >
+        <WlButton
+          v-else
+          :disabled="state.livePending || state.live.phase === 'stopping'"
+          @click="port.disableLive()"
+          >{{ $t("wakeLive.disable") }}</WlButton
+        >
+      </div>
+      <p v-if="liveActive" class="muted">{{ $t("wakeLive.samplesPaused") }}</p>
+    </section>
     <p class="muted">{{ $t("wakeSamples.explanation") }}</p>
     <p v-if="state.testAvailable" class="notice">
       {{ $t("wakeSamples.testHint") }}
