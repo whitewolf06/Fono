@@ -29,6 +29,7 @@ mod tray;
 pub mod types;
 pub mod vad;
 pub mod verbose;
+mod webview_recovery;
 
 #[cfg(all(test, windows))]
 #[path = "stt/lifecycle_soak_win32.rs"]
@@ -77,10 +78,22 @@ pub fn run() {
         return;
     };
     app.run(|app, event| {
+        if let tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::Destroyed,
+            ..
+        } = &event
+        {
+            webview_recovery::destroyed(app, label);
+        }
         if matches!(event, tauri::RunEvent::Ready) {
             cli::ready(app);
         }
-        if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+        if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
+            if code.is_none() && webview_recovery::is_recovering(app) {
+                api.prevent_exit();
+                return;
+            }
             app_runtime::shutdown(app);
         }
     });

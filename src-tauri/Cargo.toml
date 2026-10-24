@@ -5,7 +5,7 @@ resolver = "2"
 [package]
 license = "MIT"
 name = "fono"
-version = "0.7.74"
+version = "0.7.75"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -25,7 +25,8 @@ sha2 = "0.10"
 
 [dependencies]
 # Tauri core
-tauri = { version = "2.1", features = ["tray-icon"] }
+# with_webview exposes version-specific WebView2 controller types.
+tauri = { version = "=2.11.5", features = ["tray-icon"] }
 tauri-plugin-global-shortcut = "2.0"
 
 # Wake word subsystem
@@ -67,6 +68,7 @@ tower = { version = "0.5", features = ["util"] }
 # Win32 API: SendInput для текст-инъекции
 [target.'cfg(windows)'.dependencies]
 tauri-plugin-single-instance = "=2.4.3"
+webview2-com = "=0.38.2"
 arboard = "3.4"
 windows = { version = "0.58", features = [
     "Win32_Foundation",
@@ -90,6 +92,7 @@ windows = { version = "0.58", features = [
     "Win32_System_Memory",
     "Win32_System_Ole",
     "Win32_System_Performance",
+    "Win32_System_Power",
     "Win32_UI_Accessibility",
     "Win32_Storage_FileSystem",
 ] }

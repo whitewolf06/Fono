@@ -116,10 +116,25 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     // execute their scripts during creation, so all IPC state must exist first.
     // Both configs use create:false; preserve their settings when building here.
     app.manage(RuntimeReady);
+    app.manage(crate::webview_recovery::Runtime::default());
     for config in &app.config().app.windows {
-        tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
+        create_window(app.handle(), config)?;
     }
-    if let Some(window) = app.get_webview_window("settings") {
+    if let Err(error) = crate::overlay::restore_position(app.handle(), &settings) {
+        tracing::warn!(%error, "could not restore overlay position");
+    }
+    let _ = tauri::Emitter::emit(app, "fono-runtime-ready", true);
+    Ok(())
+}
+
+/// Initial creation and recovery share configuration, close handling and hooks.
+/// Called only on the owning UI thread, after all native state is registered.
+pub(crate) fn create_window(
+    app: &tauri::AppHandle,
+    config: &tauri::utils::config::WindowConfig,
+) -> tauri::Result<tauri::WebviewWindow> {
+    let window = tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
+    if window.label() == "settings" {
         let settings_window = window.clone();
         window.on_window_event(move |event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -139,14 +154,12 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             }
         });
     }
-    if let Err(error) = crate::overlay::restore_position(app.handle(), &settings) {
-        tracing::warn!(%error, "could not restore overlay position");
-    }
-    let _ = tauri::Emitter::emit(app, "fono-runtime-ready", true);
-    Ok(())
+    crate::webview_recovery::attach(&window);
+    Ok(window)
 }
 
 pub(crate) fn shutdown(app: &tauri::AppHandle) {
+    crate::webview_recovery::shutdown(app);
     if let Some(editor) = app.try_state::<crate::application::history_rewrite::Runtime>() {
         editor.shutdown();
     }

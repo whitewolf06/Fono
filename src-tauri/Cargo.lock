@@ -1364,7 +1364,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fono"
-version = "0.7.74"
+version = "0.7.75"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1405,6 +1405,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "uuid",
+ "webview2-com",
  "whisper-rs",
  "windows 0.58.0",
 ]
