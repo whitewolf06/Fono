@@ -36,22 +36,30 @@ export function createWakeSamples(
   let testGeneration = 0;
   let liveRevision = 0;
   let livePoll: ReturnType<typeof setTimeout> | undefined;
-  async function pollLive() {
+  let liveRead: Promise<void> | null = null;
+  function refreshLive(): Promise<void> {
+    if (disposed || state.livePending) return Promise.resolve();
+    if (liveRead) return liveRead;
+    clearTimeout(livePoll);
     const revision = liveRevision;
-    try {
-      const live = await backend.liveStatus();
-      if (!disposed && revision === liveRevision && !state.livePending)
-        state.live = live;
-    } catch (e) {
-      report(e);
-    } finally {
-      scheduleLivePoll();
-    }
+    liveRead = (async () => {
+      try {
+        const live = await backend.liveStatus();
+        if (!disposed && revision === liveRevision && !state.livePending)
+          state.live = live;
+      } catch (e) {
+        if (revision === liveRevision) report(e);
+      } finally {
+        liveRead = null;
+        scheduleLivePoll();
+      }
+    })();
+    return liveRead;
   }
   function scheduleLivePoll() {
     clearTimeout(livePoll);
-    if (!disposed && state.live.available)
-      livePoll = setTimeout(() => void pollLive(), 500);
+    if (!disposed && state.live.available && liraActive(state.live))
+      livePoll = setTimeout(() => void refreshLive(), 500);
   }
   async function changeLive(enable: boolean) {
     if (disposed || state.livePending || !state.live.available) return;
@@ -99,18 +107,14 @@ export function createWakeSamples(
   async function load() {
     const revision = ++listRevision;
     try {
-      const liveRevisionAtStart = liveRevision;
-      const [samples, available, live] = await Promise.all([
+      const [samples, available] = await Promise.all([
         backend.list(),
         backend.testAvailable(),
-        backend.liveStatus(),
+        refreshLive(),
       ]);
       if (!disposed && revision === listRevision) {
         state.samples = samples;
         state.testAvailable = available;
-        if (liveRevisionAtStart === liveRevision && !state.livePending)
-          state.live = live;
-        scheduleLivePoll();
       }
     } catch (e) {
       report(e);
@@ -217,6 +221,7 @@ export function createWakeSamples(
   return {
     state,
     load,
+    refreshLive,
     record,
     finish,
     cancel,

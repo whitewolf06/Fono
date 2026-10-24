@@ -245,6 +245,7 @@ export function createNativeWorkspace(): Workspace {
         ctx.refresh(),
         sttReadiness.refresh(),
         selection.refresh?.(),
+        wakeSamples.refreshLive(),
       ]);
       if (disposed || !visibility.visible()) return;
       await sessionRead.refresh();

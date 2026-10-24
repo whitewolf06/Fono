@@ -167,6 +167,8 @@ beforeEach(() => {
     if (command === "get_settings") return structuredClone(rawDefaults);
     if (command === "get_stt_readiness")
       return { state: "ready", device: "cpu" };
+    if (command === "get_lira_live_status")
+      return { available: false, sessionId: null, phase: "off", message: "" };
     if (command === "get_recent_logs") return "";
     if (command === "get_desktop_snapshot")
       return {
@@ -428,10 +430,31 @@ test("pretranscription events belong to the current recording and cannot revive 
 });
 
 test("native workspace has no steady idle IPC and audio events are operation-scoped", async () => {
+  const beforeLiveDiscovery = invoke;
+  invoke = async (command, args) => {
+    if (command === "get_lira_live_status") {
+      calls.push([command, args]);
+      return { available: true, sessionId: null, phase: "off", message: "" };
+    }
+    return beforeLiveDiscovery(command, args);
+  };
   const workspace = createNativeWorkspace();
   try {
     await workspace.refresh();
     await flush();
+    assert.equal(workspace.wakeSamples.state.live.available, true);
+    assert.ok(calls.some(([command]) => command === "get_lira_live_status"));
+    assert.equal(
+      calls.some(([command]) =>
+        [
+          "start_lira_live",
+          "start_wake_sample",
+          "list_wake_samples",
+          "wake_sample_test_available",
+        ].includes(command),
+      ),
+      false,
+    );
     const beforeIdle = calls.length;
     await new Promise((resolve) => setTimeout(resolve, 2200));
     assert.equal(

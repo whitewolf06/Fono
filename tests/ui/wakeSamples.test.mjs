@@ -3,7 +3,8 @@ import { after, before, test } from "node:test";
 import { createServer } from "vite";
 import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
-import { WlConfig } from "@whitelife-core/ui-kit";
+import { WlConfig, WlToastService } from "@whitelife-core/ui-kit";
+import { createMemoryHistory, createRouter } from "vue-router";
 
 let server,
   createWakeSamples,
@@ -11,6 +12,9 @@ let server,
   createMockWakeSamples,
   workspaceKey,
   wakeSamplesInSet,
+  createMockWorkspace,
+  interactionKey,
+  VoiceTools,
   Panel;
 const request = {
   phraseId: "privet_lira",
@@ -88,8 +92,117 @@ before(async () => {
   ({ default: Panel } = await server.ssrLoadModule(
     "/src/v3/features/wake-samples/presentation/WakeSamplesPanel.vue",
   ));
+  ({ createMockWorkspace } = await server.ssrLoadModule(
+    "/src/v3/app/mockWorkspace.ts",
+  ));
+  ({ interactionKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/interaction.ts",
+  ));
+  ({ default: VoiceTools } = await server.ssrLoadModule(
+    "/src/v3/features/dictation/presentation/VoiceTools.vue",
+  ));
 });
 after(async () => await server?.close());
+
+test("home capability refresh reads only live status and coalesces concurrent requests", async () => {
+  const pending = deferred();
+  const calls = [];
+  const port = createNativeWakeSamples(async (command) => {
+    calls.push(command);
+    assert.equal(command, "get_lira_live_status");
+    return pending.promise;
+  });
+  try {
+    const first = port.refreshLive();
+    const second = port.refreshLive();
+    pending.resolve({
+      available: true,
+      sessionId: null,
+      phase: "off",
+      message: "",
+    });
+    await Promise.all([first, second]);
+    assert.deepEqual(calls, ["get_lira_live_status"]);
+    assert.equal(port.state.live.available, true);
+    assert.equal(port.state.live.phase, "off");
+    assert.deepEqual(port.state.samples, []);
+  } finally {
+    port.dispose();
+  }
+});
+
+test("a late home capability response cannot reset an enabled live session", async () => {
+  const off = { available: true, sessionId: null, phase: "off", message: "" };
+  const pending = deferred();
+  let reads = 0;
+  const port = createWakeSamples(
+    backend({
+      liveStatus: async () => (++reads === 1 ? off : pending.promise),
+      enableLive: async () => ({ ...off, phase: "loading", sessionId: 41 }),
+    }),
+  );
+  try {
+    await port.refreshLive();
+    const old = port.refreshLive();
+    await port.enableLive();
+    pending.resolve(off);
+    await old;
+    assert.equal(port.state.live.sessionId, 41);
+    assert.equal(port.state.live.phase, "loading");
+  } finally {
+    port.dispose();
+  }
+});
+
+test("home shows the available Lira card with real phases while legacy WakeWord stays disabled", async () => {
+  const workspace = createMockWorkspace();
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/:pathMatch(.*)*", component: { render: () => null } }],
+  });
+  const render = () => {
+    const app = createSSRApp({ render: () => h(VoiceTools) });
+    app.use(WlConfig);
+    app.use(WlToastService);
+    app.use(router);
+    app.provide(workspaceKey, workspace);
+    app.provide(interactionKey, {
+      openQuick: () => assert.fail("render must not open settings"),
+    });
+    return renderToString(app);
+  };
+  try {
+    const unavailable = await render();
+    assert.equal((unavailable.match(/class="tool-card"/g) || []).length, 3);
+    assert.doesNotMatch(unavailable, /Привет, Лира/);
+    const labels = {
+      off: "Пробуждение выключено",
+      loading: "Готовим пробуждение",
+      listening: "Слушаю «Привет, Лира»",
+      paused: "Пробуждение на паузе",
+      stopping: "Выключаем пробуждение",
+      error: "Пробуждение остановилось",
+    };
+    for (const [phase, label] of Object.entries(labels)) {
+      workspace.wakeSamples.state.live = {
+        available: true,
+        sessionId: phase === "off" ? null : 1,
+        phase,
+        message: "",
+      };
+      const html = await render();
+      assert.equal((html.match(/class="tool-card"/g) || []).length, 4);
+      assert.match(html, new RegExp(label));
+      assert.match(html, /Пробуждение «Привет, Лира»/);
+      assert.doesNotMatch(html, /Временно недоступно/);
+      assert.equal(workspace.state.preferences.wakeEnabled, false);
+    }
+    workspace.wakeSamples.state.live.message = "Микрофон отключён";
+    assert.match(await render(), /role="alert">Микрофон отключён/);
+  } finally {
+    workspace.dispose();
+  }
+});
 
 test("live wake requires an explicit enable and survives hiding or leaving the samples panel", async () => {
   const off = { available: true, sessionId: null, phase: "off", message: "" };

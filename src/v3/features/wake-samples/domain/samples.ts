@@ -91,6 +91,7 @@ export interface WakeSampleTest {
 export interface WakeSamplesPort {
   readonly state: WakeSamplesState;
   load(): Promise<void>;
+  refreshLive(): Promise<void>;
   record(request: WakeSampleRequest): Promise<void>;
   finish(): Promise<void>;
   cancel(): Promise<void>;
