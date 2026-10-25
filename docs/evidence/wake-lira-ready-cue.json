@@ -1,0 +1,53 @@
+{
+  "schema": "fono-lira-ready-cue@1",
+  "date": "2026-10-26",
+  "version": "0.7.81",
+  "baseline": {
+    "version": "0.7.80",
+    "source_commit": "7f994d8ed42c2743752169699f218aa0f9f507ed",
+    "owner_confirmed_working": true,
+    "listener_sessions": 1,
+    "consecutive_successful_wakes": 5,
+    "operations": [1, 2, 3, 4, 5],
+    "stt_succeeded": 5,
+    "capture_packet_drops": [0, 0, 0, 0, 0],
+    "returned_to_listening": 5,
+    "verifier_roundtrip_ms": [1164, 1500, 973, 752, 1406],
+    "confirmation_to_capture_ready_ms": [118, 97, 18, 17, 25],
+    "confirmation_to_native_overlay_show_ms": [131.354, 114.919, 29.841, 28.456, 40.685],
+    "overlay_dispatch_ms": [12, 17, 11, 11, 15],
+    "stale_result_resyncs": 2,
+    "resync_recovery": "Warm models retained; Listening restored in approximately 4 and 7 ms. Stale results were not used to start dictation.",
+    "measurement_limits": "Verifier roundtrip is not time from the end of the spoken phrase. Native window show is not measured renderer paint or perceived visual latency. These five calls do not establish latency p95."
+  },
+  "change": {
+    "signal": "Existing 60 ms nonverbal Start cue, with its existing 50 ms silent tail, dispatched through native Windows output.",
+    "trigger": "Exactly once on the successful Lira handoff path, after VAD setup, capture attachment and target resolution; independent of overlay rendering.",
+    "settings": "Existing recording_sounds_enabled and recording_sounds_volume; no new setting or default change. The owner's dev profile already has sounds enabled at 25%.",
+    "guards": "Current WakeWord operation, Recording phase and attached capture required. Disabled sounds, zero/invalid volume, a stopped or cancelled operation and replacement operations skip the cue.",
+    "execution": "Existing admitted blocking handoff worker; its update activity lease remains held until playback returns. No I/O on the UI thread or microphone callback.",
+    "audio": "The wake detector is paused. All captured PCM and pre-roll are retained during the cue; microphone input is never muted or trimmed for the signal.",
+    "output_failure": "Recorded as a technical warning; dictation continues with captured speech.",
+    "telemetry": ["lira_ready_cue_dispatched", "lira_ready_cue_finished"],
+    "telemetry_limit": "Dispatch and native API completion are logged; they do not prove acoustic onset at the speakers.",
+    "detector_models_thresholds_and_lookahead_changed": false,
+    "legacy_release_wake_enabled": false,
+    "microphone_or_audio_output_used_by_agent": false
+  },
+  "validation": {
+    "rust_readiness_regressions": {"passed": 5, "failed": 0},
+    "rust_format": "passed",
+    "vue_ipc": {"passed": 412, "failed": 0},
+    "release_ci_working_tree": {"passed": 48, "failed": 0},
+    "typecheck_lint_frontend_build_version": "passed",
+    "format": "passed",
+    "quality_replay_repeated": false,
+    "quality_reference": "wake-lira-runtime-parity.json; detector code and acceptance were not modified",
+    "kvorum": "Not accessed, per owner request."
+  },
+  "remaining": [
+    "Owner should check the ready sound in dev 0.7.81: three consecutive wakes, dictate immediately on the sound, verify the first word and insertion; include ordinary speaker output to check acoustic spill.",
+    "The preceding phrase verification still takes the observed 0.75 to 1.5 seconds, in addition to sample lookahead; this change does not claim to remove that latency.",
+    "The previous two missed positive clips, independent voices, long natural negatives, live p95/resource budgets and standalone worker packaging remain open in wake-lira-repeat-readiness.json."
+  ]
+}

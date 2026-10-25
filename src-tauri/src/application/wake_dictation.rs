@@ -71,7 +71,7 @@ pub(crate) async fn run_lira(
         let model_started = std::time::Instant::now();
         let vad = SpeechGate::new(&handle)?;
         let vad_init_ms = model_started.elapsed().as_millis() as u64;
-        super::dictation::start_lira_reserved(handle, capture, &pre_roll, cursor)?;
+        super::dictation::start_lira_reserved(handle.clone(), capture, &pre_roll, cursor)?;
         tracing::info!(
             event = "lira_handoff_ready",
             operation,
@@ -79,6 +79,10 @@ pub(crate) async fn run_lira(
             vad_init_ms,
             "live wake dictation activated"
         );
+        // Capture is already attached and the target is resolved. A short native
+        // cue acknowledges readiness without waiting for overlay rendering; PCM
+        // continues to accumulate while this blocking worker plays the sound.
+        super::recording_sounds::wake_ready(&handle, operation, triggered_at);
         Ok::<_, crate::error::AppError>(vad)
     })
     .await

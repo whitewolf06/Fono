@@ -74,8 +74,15 @@
     "typecheck_lint_frontend_build_format_version": "passed",
     "kvorum": "not accessed, per owner request"
   },
+  "owner_live_confirmation": {
+    "date": "2026-10-26",
+    "version": "0.7.80",
+    "owner_report": "Works; overlay readiness is still perceived as slow.",
+    "matching_native_log": "Five consecutive wakes in listener session 1; operations 1 through 5 all finished STT successfully and returned to Listening, with zero capture packet drops.",
+    "scope": "Repeated live wake is confirmed on this owner's machine; this is not independent recall, long-negative or latency-p95 qualification.",
+    "follow_up": "wake-lira-ready-cue.json"
+  },
   "remaining": [
-    "Owner live microphone UAT after launching the matching v0.7.80 app and worker: consecutive wakes, handoff and insertion.",
     "The same two positive clips remain missed; this pass did not tune the detector or declare full recall.",
     "Independent voices, long natural negatives, live p95 and idle resource budgets remain open.",
     "Standalone worker packaging remains open; this dev still uses the prepared Python environment."

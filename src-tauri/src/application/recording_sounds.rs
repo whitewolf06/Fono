@@ -1,4 +1,5 @@
-//! Optional user cues are serialized against every AudioHub input subscriber.
+//! Ordinary cues exclude input. A confirmed wake has its own ready cue after
+//! capture attaches, while the detector is paused and microphone PCM is retained.
 use crate::{
     audio::cues::{self, Cue},
     error::{AppError, AppResult},
@@ -63,6 +64,65 @@ pub(crate) fn play_for(app: &AppHandle, operation: u64, source: OperationSource,
 
 fn matches_operation(cue: Cue, expected: u64, current: Option<u64>) -> bool {
     current == Some(expected) || (cue == Cue::Error && current.is_none())
+}
+
+#[cfg(any(all(windows, debug_assertions), test))]
+fn wake_ready_volume(
+    settings: &crate::types::Settings,
+    expected: u64,
+    current: Option<&fono_core::OperationSnapshot>,
+    recording: bool,
+) -> Option<u8> {
+    (settings.recording_sounds_enabled
+        && (1..=100).contains(&settings.recording_sounds_volume)
+        && recording
+        && current.is_some_and(|op| {
+            op.id == expected
+                && op.source == OperationSource::WakeWord
+                && op.phase == fono_core::OperationPhase::Recording
+        }))
+    .then_some(settings.recording_sounds_volume)
+}
+
+/// Called once by the admitted blocking handoff worker, after successful capture
+/// setup. Do not queue this behind UI dispatch or wait for the webview to paint.
+/// Unlike an ordinary Start cue, input must already accept speech here. Keep all
+/// PCM (including speech overlapping the short nonverbal cue); never mute or trim
+/// the microphone. The wake detector remains paused throughout this operation.
+#[cfg(all(windows, debug_assertions))]
+pub(crate) fn wake_ready(app: &AppHandle, operation: u64, triggered_at: std::time::Instant) {
+    let pipeline = app.state::<Pipeline>();
+    let settings = app.state::<AppState>().settings();
+    let Some(volume) = wake_ready_volume(
+        &settings,
+        operation,
+        pipeline.current_operation().as_ref(),
+        pipeline.is_recording(),
+    ) else {
+        return;
+    };
+    let dispatched_at = std::time::Instant::now();
+    tracing::info!(
+        event = "lira_ready_cue_dispatched",
+        operation,
+        elapsed_ms = triggered_at.elapsed().as_millis() as u64,
+        "wake recording ready; native sound dispatched"
+    );
+    let played = cues::play(&[Cue::Start], volume);
+    tracing::info!(
+        event = "lira_ready_cue_finished",
+        operation,
+        played,
+        playback_ms = dispatched_at.elapsed().as_millis() as u64,
+        "wake ready sound playback finished"
+    );
+    // An unavailable/muted Windows output must never discard captured speech.
+    if !played {
+        tracing::warn!(
+            operation,
+            "wake ready sound unavailable; dictation continues"
+        );
+    }
 }
 
 /// At most one error worker is queued. Its permit and update lease live until
@@ -147,7 +207,79 @@ mod tests {
         assert!(!audible(true, 0, OperationSource::Ui));
         assert!(!audible(true, 101, OperationSource::Ui));
         assert!(!audible(true, 25, OperationSource::Diagnostics));
+        assert!(!audible(true, 25, OperationSource::WakeWord));
         assert!(audible(true, 25, OperationSource::Hotkey));
+    }
+    #[test]
+    fn wake_ready_requires_attached_capture_and_obeys_the_existing_mute_and_volume() {
+        use fono_core::OperationCoordinator;
+        let operations = OperationCoordinator::new();
+        let wake = operations.start(OperationSource::WakeWord).unwrap();
+        let mut settings = crate::types::Settings::default();
+        settings.recording_sounds_enabled = true;
+        settings.recording_sounds_volume = 25;
+        assert_eq!(
+            wake_ready_volume(&settings, wake.id, operations.current().as_ref(), false),
+            None,
+            "a reservation alone is not a ready microphone"
+        );
+        for volume in [1, 25, 100] {
+            settings.recording_sounds_volume = volume;
+            assert_eq!(
+                wake_ready_volume(&settings, wake.id, operations.current().as_ref(), true),
+                Some(volume)
+            );
+        }
+        for volume in [0, 101] {
+            settings.recording_sounds_volume = volume;
+            assert_eq!(
+                wake_ready_volume(&settings, wake.id, operations.current().as_ref(), true),
+                None
+            );
+        }
+        settings.recording_sounds_volume = 25;
+        settings.recording_sounds_enabled = false;
+        assert_eq!(
+            wake_ready_volume(&settings, wake.id, operations.current().as_ref(), true),
+            None
+        );
+    }
+    #[test]
+    fn cancelled_stopped_and_replaced_wakes_never_announce_readiness() {
+        use fono_core::{OperationCoordinator, OperationPhase};
+        let operations = OperationCoordinator::new();
+        let wake = operations.start(OperationSource::WakeWord).unwrap();
+        let mut settings = crate::types::Settings::default();
+        settings.recording_sounds_enabled = true;
+        operations
+            .transition(wake.id, OperationPhase::Transcribing)
+            .unwrap();
+        assert_eq!(
+            wake_ready_volume(&settings, wake.id, operations.current().as_ref(), true),
+            None,
+            "a late handoff may not signal after Stop"
+        );
+        operations.cancel(wake.id).unwrap();
+        assert_eq!(
+            wake_ready_volume(&settings, wake.id, operations.current().as_ref(), true),
+            None
+        );
+        let next = operations.start(OperationSource::WakeWord).unwrap();
+        assert_eq!(
+            wake_ready_volume(&settings, wake.id, operations.current().as_ref(), true),
+            None
+        );
+        assert_eq!(
+            wake_ready_volume(&settings, next.id, operations.current().as_ref(), true),
+            Some(25)
+        );
+        operations.cancel(next.id).unwrap();
+        let hotkey = operations.start(OperationSource::Hotkey).unwrap();
+        assert_eq!(
+            wake_ready_volume(&settings, hotkey.id, operations.current().as_ref(), true),
+            None,
+            "ordinary dictation retains its existing cue path"
+        );
     }
     #[test]
     fn old_cues_cannot_sound_for_a_replacement_operation() {
