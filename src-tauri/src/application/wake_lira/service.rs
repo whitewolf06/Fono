@@ -19,7 +19,12 @@ use std::{
 use tauri::{AppHandle, Manager};
 
 const PRE_ROLL: usize = 64_000 + 10_240;
-fn interrupted_audio() -> AppError {
+fn interrupted_audio(reason: &'static str) -> AppError {
+    tracing::warn!(
+        event = "lira_audio_interrupted",
+        reason,
+        "live wake audio interrupted"
+    );
     AppError::Audio(
         "Поток микрофона прервался или детектор не успевает за звуком. Включите пробуждение снова."
             .into(),
@@ -52,13 +57,13 @@ impl Frames {
         if packet.sample_rate != 16_000
             || packet.end_sample.saturating_sub(packet.start_sample) != packet.samples.len() as u64
         {
-            return Err(interrupted_audio());
+            return Err(interrupted_audio("packet_format"));
         }
         if let Some(cursor) = self.cursor {
             if cursor.epoch != packet.epoch
                 || cursor.sample + self.pending.len() as u64 != packet.start_sample
             {
-                return Err(interrupted_audio());
+                return Err(interrupted_audio("packet_clock"));
             }
         } else {
             self.cursor = Some(AudioCursor {
@@ -90,8 +95,12 @@ pub(super) fn run(
     control: &Arc<Control>,
     status: &Arc<parking_lot::Mutex<Snapshot>>,
     device: Option<String>,
+    warm: &mut Option<WarmWorker>,
 ) -> AppResult<()> {
-    let mut worker = WarmWorker::start(control)?;
+    if warm.is_none() {
+        *warm = Some(WarmWorker::start(control)?);
+    }
+    let worker = warm.as_mut().expect("initialized warm worker");
     let mut vad = super::super::speech_gate::SpeechGate::new(app)?;
     let hub = app.state::<AudioHub>();
     let (send, receive) = crossbeam_channel::bounded(128);
@@ -103,7 +112,7 @@ pub(super) fn run(
             return Ok(());
         }
         if app.state::<AppState>().settings().audio_device_id != device {
-            return Err(interrupted_audio());
+            return Err(interrupted_audio("device_changed"));
         }
         hub.subscribe_packets(device.as_deref(), 16_000, move |packet| {
             if send.try_send(packet).is_err() {
@@ -115,20 +124,39 @@ pub(super) fn run(
     let mut suspended = true;
     let mut revision = control.revision.load(Ordering::Acquire);
     let mut last_audio = Instant::now();
+    let started = Instant::now();
+    let mut recovery = super::discontinuity::RecoveryBudget::default();
+    let mut capture_losses = 0;
     loop {
         if control.cancelled.load(Ordering::Acquire) {
             return Ok(());
         }
-        if overflow.load(Ordering::Acquire)
-            || subscription.dropped_capture_packets() != 0
-            || hub.diagnostics().last_error.is_some()
-        {
-            return Err(interrupted_audio());
+        if hub.diagnostics().last_error.is_some() {
+            return Err(interrupted_audio("capture_failed"));
         }
         let paused = control.paused.load(Ordering::Acquire)
             || app.state::<AppState>().is_dictation_paused()
             || app.state::<Pipeline>().current_operation().is_some();
         let current = control.revision.load(Ordering::Acquire);
+        let losses = subscription.dropped_capture_packets();
+        if overflow.swap(false, Ordering::AcqRel) || losses != capture_losses {
+            capture_losses = losses;
+            if !paused && !recovery.allow(started.elapsed()) {
+                return Err(interrupted_audio("repeated_packet_loss"));
+            }
+            tracing::warn!(
+                event = "lira_audio_resync",
+                reason = "packet_loss",
+                paused,
+                "discarding interrupted wake context; keeping warm models"
+            );
+            suspended = true;
+            frames.clear();
+            while receive.try_recv().is_ok() {}
+            if !paused {
+                phase(app, status, Phase::Loading);
+            }
+        }
         if paused {
             suspended = true;
             frames.clear();
@@ -148,19 +176,31 @@ pub(super) fn run(
             Ok(packet) => packet,
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                 if last_audio.elapsed() >= Duration::from_secs(3) {
-                    return Err(interrupted_audio());
+                    return Err(interrupted_audio("audio_timeout"));
                 }
                 continue;
             }
             Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                return Err(interrupted_audio())
+                return Err(interrupted_audio("audio_disconnected"))
             }
         };
         last_audio = Instant::now();
         if paused {
             continue;
         }
-        frames.append(&packet)?;
+        if let Err(error) = frames.append(&packet) {
+            if !recovery.allow(started.elapsed()) {
+                return Err(error);
+            }
+            tracing::warn!(
+                event = "lira_audio_resync",
+                reason = "packet_clock",
+                "discarding discontinuous wake context; keeping warm models"
+            );
+            suspended = true;
+            phase(app, status, Phase::Loading);
+            continue;
+        }
         while let Some((pcm, cursor)) = frames.next() {
             let decision = vad.accept(&pcm);
             let recent_speech = decision.has_speech
@@ -168,13 +208,8 @@ pub(super) fn run(
             let requested_at = Instant::now();
             let detected = worker.feed(&pcm, recent_speech, control)?;
             let now = hub.diagnostics();
-            if overflow.load(Ordering::Acquire)
-                || subscription.dropped_capture_packets() != 0
-                || now.last_error.is_some()
-                || now.cursor.epoch != cursor.epoch
-                || now.cursor.sample.saturating_sub(cursor.sample) > 48_000
-            {
-                return Err(interrupted_audio());
+            if now.last_error.is_some() || now.cursor.epoch != cursor.epoch {
+                return Err(interrupted_audio("capture_failed_or_replaced"));
             }
             if control.revision.load(Ordering::Acquire) != revision
                 || control.paused.load(Ordering::Acquire)
@@ -182,6 +217,28 @@ pub(super) fn run(
                 || app.state::<Pipeline>().current_operation().is_some()
             {
                 suspended = true;
+                break;
+            }
+            if overflow.load(Ordering::Acquire)
+                || subscription.dropped_capture_packets() != capture_losses
+                || now.cursor.sample.saturating_sub(cursor.sample) > 48_000
+            {
+                if !recovery.allow(started.elapsed()) {
+                    return Err(interrupted_audio("repeated_stale_audio"));
+                }
+                tracing::warn!(
+                    event = "lira_audio_resync",
+                    reason = "stale_audio",
+                    lag_ms = now.cursor.sample.saturating_sub(cursor.sample) / 16,
+                    "discarding late wake result; keeping warm models"
+                );
+                // Invalidate a possible detection before handing anything to dictation.
+                suspended = true;
+                frames.clear();
+                while receive.try_recv().is_ok() {}
+                overflow.store(false, Ordering::Release);
+                capture_losses = subscription.dropped_capture_packets();
+                phase(app, status, Phase::Loading);
                 break;
             }
             if detected {

@@ -1,0 +1,60 @@
+{
+  "schema": "fono-lira-live-diagnosis@1",
+  "date": "2026-10-25",
+  "version": "0.7.79",
+  "task": "FONO-145",
+  "incident_v0_7_78": {
+    "worker_reply_timeouts": 2,
+    "terminal_error_category": "audio",
+    "confirmed_wakes": 0,
+    "one_attempt_frames": 407,
+    "one_attempt_speech_frames": 191,
+    "one_attempt_proposals": 0,
+    "final_attempt_proposals": 1,
+    "final_attempt_confirmations": 0,
+    "intended_phrase_labels_for_live_frames": "unavailable; audio was not saved"
+  },
+  "confirmed_code_defects": [
+    "The receiver checked its deadline before reading a queued response, permitting a false timeout after a scheduling pause.",
+    "Audio discontinuity destroyed a healthy worker, forcing cold model reloads."
+  ],
+  "changes": {
+    "queued_response_read_before_timeout": true,
+    "empty_response_queue_still_times_out": true,
+    "cancellation_wins_over_queued_reply": true,
+    "old_audio_discarded_before_wake_handoff": true,
+    "maximum_audio_age_samples": 48000,
+    "maximum_context_resyncs_per_30_seconds": 3,
+    "healthy_models_retained_on_audio_recovery": true,
+    "broken_worker_restart_still_bounded": true,
+    "thresholds_models_and_phrase_rule_changed": false,
+    "release_wake_enabled": false,
+    "explicit_optional_code_stack_probe_seconds": 180
+  },
+  "bounded_replays": {
+    "positive_source": "one previously accepted consenting recording, repeated three times; not independent recall",
+    "python_same_process": {"positive_events": [1, 1, 1], "negative_events": [0, 0], "elapsed_seconds": 65.36},
+    "native_before": {"positive_events": [1, 1, 1], "repeated_room_events": 0, "max_frame_ms": 263, "elapsed_seconds": 46.13},
+    "native_after": {"positive_events": [1, 1, 1], "repeated_room_events": 0, "max_frame_ms": 375, "elapsed_seconds": 48.62},
+    "native_client_and_windows_job": true,
+    "speech_gate_in_pipe_replays": "forced true; no microphone or AudioHub device",
+    "model_restarts_in_each_replay": 0
+  },
+  "validation": {
+    "rust_app": {"passed": 709, "ignored": 8, "failed": 0},
+    "rust_workspace_all_targets": {"passed": 816, "ignored": 9, "failed": 0},
+    "explicit_native_replay_after_fix": "passed separately",
+    "vue_ipc": {"passed": 412, "failed": 0},
+    "python_contracts": {"passed": 41, "failed": 0},
+    "release_ci_working_tree": {"passed": 48, "failed": 0},
+    "strict_clippy_typecheck_lint_build_format_version_docs": "passed",
+    "microphone_opened_by_agent": false,
+    "new_owner_audio_saved": false,
+    "live_native_voice_uat": "pending owner"
+  },
+  "remaining": [
+    "The causal link between the demonstrated deadline defect and the observed live timeout is not confirmed by a live stack.",
+    "Confirm consecutive live wakes; inspect the bounded worker code stack if a failure repeats.",
+    "Live pronunciation quality, long negatives, latency and standalone packaging remain open."
+  ]
+}

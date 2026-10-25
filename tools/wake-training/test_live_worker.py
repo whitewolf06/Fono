@@ -4,12 +4,44 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import numpy as np
 import candidate as common
 from live_worker import Diagnostics, Stream, classify_contexts, exact_read, validate_policy
+import live_worker
 
 
 class StreamTests(unittest.TestCase):
+    def test_stack_probe_is_off_unless_explicitly_enabled(self):
+        with mock.patch.dict(live_worker.os.environ, {"FONO_WAKE_DEV_PROBE": "0"}), \
+                mock.patch.object(live_worker, "run", return_value="done") as run:
+            self.assertEqual(live_worker.run_probed(), "done")
+            run.assert_called_once_with()
+
+    def test_stack_probe_is_bounded_and_cleanup_does_not_log_exception_details(self):
+        import faulthandler
+        import threading
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(live_worker.os.environ, {"FONO_WAKE_DEV_PROBE": "1"}), \
+                mock.patch.object(live_worker.dev_check, "ROOT", Path(directory)), \
+                mock.patch.object(live_worker, "run", side_effect=RuntimeError("PRIVATE_TEXT")), \
+                mock.patch.object(faulthandler, "dump_traceback_later") as start, \
+                mock.patch.object(faulthandler, "cancel_dump_traceback_later") as cancel, \
+                mock.patch.object(threading, "Timer") as timer:
+            with self.assertRaises(RuntimeError):
+                live_worker.run_probed()
+            start.assert_called_once()
+            self.assertEqual(start.call_args.args, (2,))
+            self.assertTrue(start.call_args.kwargs["repeat"])
+            self.assertEqual(timer.call_args.args[0], 180)
+            timer.return_value.start.assert_called_once_with()
+            timer.return_value.cancel.assert_called_once_with()
+            cancel.assert_called_once_with()
+            files = list((Path(directory) / "build/checks/lira-runtime-probes").glob("*.log"))
+            self.assertEqual(len(files), 1)
+            self.assertNotIn("PRIVATE_TEXT", files[0].read_text())
+            self.assertTrue(start.call_args.kwargs["file"].closed)
+
     def test_checked_in_policy_matches_live_runtime_before_microphone_open(self):
         validate_policy()
 

@@ -20,8 +20,8 @@ pub(super) fn run(
                     && matches!(error, AppError::Internal(_) | AppError::Audio(_)) =>
             {
                 restarts += 1;
-                // The failed attempt has already joined its worker and released
-                // audio. Recovery opens a fresh stream only after model readiness.
+                // Audio is released before retry. The caller keeps healthy
+                // models on an audio failure, and replaces only a failed worker.
                 if !recover(restarts, &error) {
                     return Ok(());
                 }

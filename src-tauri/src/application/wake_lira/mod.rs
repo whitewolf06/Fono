@@ -4,6 +4,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 #[cfg(all(windows, debug_assertions))]
+mod discontinuity;
+#[cfg(all(windows, debug_assertions))]
 mod service;
 #[cfg(all(windows, debug_assertions))]
 mod supervisor;
@@ -169,8 +171,18 @@ impl Runtime {
                 .spawn(move || {
                     let _activity = activity;
                     let _worker_reservation = worker_reservation;
+                    let mut worker = None;
                     let result = supervisor::run(
-                        || service::run(&handle, id, &owner, &view, settings.audio_device_id.clone()),
+                        || {
+                            let result = service::run(&handle, id, &owner, &view,
+                                settings.audio_device_id.clone(), &mut worker);
+                            // A broken microphone must not cold-load healthy models.
+                            // A failed pipe/worker cannot be safely reused.
+                            if matches!(&result, Err(AppError::Internal(_))) {
+                                drop(worker.take());
+                            }
+                            result
+                        },
                         || owner.cancelled.load(Ordering::Acquire),
                         |restart, error| {
                             tracing::warn!(

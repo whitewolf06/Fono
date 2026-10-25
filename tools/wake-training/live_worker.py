@@ -192,9 +192,33 @@ def run():
             raise ValueError("invalid bounded request")
 
 
+def run_probed():
+    # Explicit local diagnosis only: code stacks, never PCM, texts or locals.
+    if os.environ.get("FONO_WAKE_DEV_PROBE") != "1":
+        return run()
+    import faulthandler
+    import threading
+    directory = dev_check.ROOT / "build/checks/lira-runtime-probes"
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / f"worker-{os.getpid()}.log").open("w", encoding="utf-8") as output:
+        output.write(json.dumps({"pid": os.getpid(), "started_at": time.time(),
+            "kind": "periodic_code_stack_sample_not_a_failure", "interval_seconds": 2,
+            "maximum_seconds": 180}) + "\n")
+        output.flush()
+        faulthandler.dump_traceback_later(2, repeat=True, file=output)
+        stop = threading.Timer(180, faulthandler.cancel_dump_traceback_later)
+        stop.daemon = True
+        stop.start()
+        try:
+            return run()
+        finally:
+            stop.cancel()
+            faulthandler.cancel_dump_traceback_later()
+
+
 if __name__ == "__main__":
     try:
-        run()
+        run_probed()
     except (EOFError, BrokenPipeError):
         pass
     except Exception:

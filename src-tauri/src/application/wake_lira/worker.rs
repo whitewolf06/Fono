@@ -102,6 +102,44 @@ fn read_reply(source: &mut impl Read) -> Result<serde_json::Value, ()> {
     }
     Err(())
 }
+
+fn wait_response(
+    responses: &Receiver<Result<serde_json::Value, ()>>,
+    control: &Control,
+    deadline: Instant,
+) -> AppResult<serde_json::Value> {
+    loop {
+        if control.cancelled.load(Ordering::Acquire) {
+            return Err(AppError::Cancelled("Пробуждение выключено.".into()));
+        }
+        // A scheduling pause may outlive the deadline even though the worker
+        // already replied. Drain a queued response before declaring failure;
+        // the service still rejects stale audio and obsolete operation IDs.
+        let wait = deadline
+            .saturating_duration_since(Instant::now())
+            .min(Duration::from_millis(25));
+        match responses.recv_timeout(wait) {
+            Ok(value) => {
+                if let Some(late) = Instant::now().checked_duration_since(deadline) {
+                    tracing::warn!(
+                        event = "lira_reply_after_scheduling_gap",
+                        late_ms = late.as_millis() as u64,
+                        "queued worker reply retained after a scheduling gap"
+                    );
+                }
+                return value.map_err(|_| failure("pipe_read_or_write"));
+            }
+            Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                return Err(failure("pipe_closed"));
+            }
+            Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                if Instant::now() >= deadline {
+                    return Err(failure("reply_timeout"));
+                }
+            }
+        }
+    }
+}
 impl WarmWorker {
     pub fn start(control: &Control) -> AppResult<Self> {
         use std::os::windows::process::CommandExt;
@@ -112,9 +150,14 @@ impl WarmWorker {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .ok_or_else(failed)?;
+        let entrypoint = root.join("tools/wake-training/live_worker.py");
+        #[cfg(test)]
+        let entrypoint = std::env::var_os("FONO_LIRA_TEST_ENTRYPOINT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or(entrypoint);
         let mut child = OwnedChild(
             Command::new(python)
-                .arg(root.join("tools/wake-training/live_worker.py"))
+                .arg(entrypoint)
                 .current_dir(root)
                 .env("PYTHONPATH", root.join("build/wake-training-python"))
                 .env("PYTHONDONTWRITEBYTECODE", "1")
@@ -168,22 +211,7 @@ impl WarmWorker {
         Ok(worker)
     }
     fn wait(&self, control: &Control, timeout: Duration) -> AppResult<serde_json::Value> {
-        let deadline = Instant::now() + timeout;
-        loop {
-            if control.cancelled.load(Ordering::Acquire) {
-                return Err(AppError::Cancelled("Пробуждение выключено.".into()));
-            }
-            if Instant::now() >= deadline {
-                return Err(failure("reply_timeout"));
-            }
-            match self.responses.recv_timeout(Duration::from_millis(25)) {
-                Ok(value) => return value.map_err(|_| failure("pipe_read_or_write")),
-                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                    return Err(failure("pipe_closed"))
-                }
-                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
-            }
-        }
+        wait_response(&self.responses, control, Instant::now() + timeout)
     }
     fn request(&self, request: Vec<u8>, control: &Control) -> AppResult<Reply> {
         self.requests
@@ -238,6 +266,35 @@ impl Drop for WarmWorker {
 mod tests {
     use super::*;
     #[test]
+    fn scheduling_pause_does_not_discard_an_already_queued_reply() {
+        let (send, receive) = bounded(1);
+        let value = serde_json::json!({"processed":1280,"detected":false});
+        send.send(Ok(value.clone())).unwrap();
+        let expired = Instant::now() - Duration::from_secs(1);
+        assert_eq!(
+            wait_response(&receive, &Control::new(), expired).unwrap(),
+            value
+        );
+    }
+    #[test]
+    fn expired_empty_pipe_still_times_out_and_stop_wins_over_a_queued_reply() {
+        let (send, receive) = bounded(1);
+        let expired = Instant::now() - Duration::from_secs(1);
+        assert!(matches!(
+            wait_response(&receive, &Control::new(), expired),
+            Err(AppError::Internal(_))
+        ));
+        send.send(Ok(serde_json::json!({"processed":1280,"detected":true})))
+            .unwrap();
+        let stopped = Control::new();
+        stopped.cancelled.store(true, Ordering::Release);
+        assert!(matches!(
+            wait_response(&receive, &stopped, expired),
+            Err(AppError::Cancelled(_))
+        ));
+        assert_eq!(receive.len(), 1);
+    }
+    #[test]
     fn replies_are_bounded_and_cannot_hide_clock_or_protocol_changes() {
         assert!(read_reply(&mut std::io::Cursor::new(vec![b'x'; 4097])).is_err());
         assert!(read_reply(&mut std::io::Cursor::new(b"{}".to_vec())).is_err());
@@ -254,3 +311,7 @@ mod tests {
         .is_err());
     }
 }
+
+#[cfg(test)]
+#[path = "worker_replay.rs"]
+mod replay_tests;
