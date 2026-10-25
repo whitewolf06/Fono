@@ -1,0 +1,47 @@
+{
+  "schema": "fono-lira-recovery@1",
+  "date": "2026-10-25",
+  "version": "0.7.78",
+  "task": "FONO-145",
+  "incident": {
+    "version": "0.7.77",
+    "observed_wakes": 1,
+    "returned_to_listening_after_dictation": true,
+    "processed_seconds_after_reset": 59.2,
+    "worker_gone_at_inspection": true,
+    "owner_reported_internal_error": true,
+    "original_worker_failure_reason": "not recorded by previous version"
+  },
+  "change": {
+    "maximum_restarts_per_explicit_enable": 2,
+    "restart_backoff_seconds": [1, 2],
+    "recoverable_error_categories": ["internal", "audio"],
+    "cancel_and_config_errors_retried": false,
+    "loading_until_models_and_audio_ready": true,
+    "stop_interrupts_recovery": true,
+    "fresh_audio_and_detector_state_on_restart": true,
+    "activity_lease_held_through_actual_work": true,
+    "error_detail_on_hover_or_keyboard_focus": true,
+    "models_thresholds_and_acceptance_rule_changed": false,
+    "release_wake_enabled": false
+  },
+  "validation": {
+    "rust_app": {"passed": 706, "ignored": 7, "failed": 0},
+    "rust_workspace_all_targets": {"passed": 813, "ignored": 8, "failed": 0},
+    "vue_ipc": {"passed": 412, "failed": 0},
+    "python_contracts": {"passed": 39, "failed": 0},
+    "release_and_ci_contracts_working_tree": {"passed": 48, "failed": 0},
+    "strict_clippy": "passed",
+    "typecheck_lint_frontend_build_format_version": "passed",
+    "browser_mock_viewports": [[720, 560], [900, 720], [1440, 900]],
+    "microphone_opened_by_agent": false,
+    "owner_voice_rerecorded": false,
+    "native_voice_uat": "pending owner",
+    "limits": "Contracts and mock UI do not establish live recall, false activations or the original worker failure cause."
+  },
+  "remaining": [
+    "Confirm multiple consecutive wake dictations in dev 0.7.78.",
+    "Identify the original worker failure with the new fixed diagnostic categories if it repeats.",
+    "Previous detector quality, long negatives, live latency and standalone packaging tails remain open."
+  ]
+}

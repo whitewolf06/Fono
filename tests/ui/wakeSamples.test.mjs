@@ -204,7 +204,10 @@ test("home shows the available Lira card with real phases while legacy WakeWord 
       assert.equal(workspace.state.preferences.wakeEnabled, false);
     }
     workspace.wakeSamples.state.live.message = "Микрофон отключён";
-    assert.match(await render(), /role="alert">Микрофон отключён/);
+    const errorHtml = await render();
+    assert.match(errorHtml, /aria-label="Ошибка: Микрофон отключён"/);
+    assert.match(errorHtml, /class="error-hint"[^>]*tabindex="0"/);
+    assert.doesNotMatch(errorHtml, />Микрофон отключён<\/p>/);
   } finally {
     workspace.dispose();
   }

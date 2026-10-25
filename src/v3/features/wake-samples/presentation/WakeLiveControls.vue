@@ -5,6 +5,7 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { message as $t } from "../../../shared/domain/messages";
 import { captureSettingsLocked } from "../../../shared/domain/pretranscription";
 import { liraActive } from "../domain/samples";
+import ErrorHint from "../../../shared/presentation/ErrorHint.vue";
 withDefaults(defineProps<{ showError?: boolean }>(), { showError: true });
 const workspace = useWorkspace();
 const port = workspace.wakeSamples;
@@ -29,16 +30,13 @@ onMounted(() => void port.refreshLive());
   >
     <h3>{{ $t("wakeLive.title") }}</h3>
     <p class="notice">{{ $t("wakeLive.hint") }}</p>
-    <p role="status" aria-live="polite">
+    <p v-if="state.live.phase !== 'error'" role="status" aria-live="polite">
       {{ $t(`wakeLive.${state.live.phase}`) }}
     </p>
-    <p
+    <ErrorHint
       v-if="state.live.message || (showError && state.error)"
-      class="error-text"
-      role="alert"
-    >
-      {{ state.live.message || state.error }}
-    </p>
+      :detail="state.live.message || state.error"
+    />
     <div class="actions">
       <WlButton
         v-if="!liveActive"

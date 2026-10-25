@@ -16,6 +16,14 @@ const CNN: &str = "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa5
 const VERIFIER: &str = "d3ea4079b329755bcdd42618cec915aa4952554479eb4b0999689558305ee47e";
 
 fn failed() -> AppError {
+    failure("initialization")
+}
+fn failure(reason: &'static str) -> AppError {
+    tracing::warn!(
+        event = "lira_worker_failed",
+        reason,
+        "live wake worker failed"
+    );
     AppError::Internal(
         "Детектор не ответил или остановился. Выключите пробуждение и включите снова.".into(),
     )
@@ -166,11 +174,13 @@ impl WarmWorker {
                 return Err(AppError::Cancelled("Пробуждение выключено.".into()));
             }
             if Instant::now() >= deadline {
-                return Err(failed());
+                return Err(failure("reply_timeout"));
             }
             match self.responses.recv_timeout(Duration::from_millis(25)) {
-                Ok(value) => return value.map_err(|_| failed()),
-                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => return Err(failed()),
+                Ok(value) => return value.map_err(|_| failure("pipe_read_or_write")),
+                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                    return Err(failure("pipe_closed"))
+                }
                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
             }
         }
@@ -180,13 +190,14 @@ impl WarmWorker {
             .as_ref()
             .ok_or_else(failed)?
             .try_send(request)
-            .map_err(|_| failed())?;
-        serde_json::from_value(self.wait(control, Duration::from_secs(5))?).map_err(|_| failed())
+            .map_err(|_| failure("request_queue"))?;
+        serde_json::from_value(self.wait(control, Duration::from_secs(5))?)
+            .map_err(|_| failure("reply_schema"))
     }
     pub fn reset(&mut self, control: &Control) -> AppResult<()> {
         let reply = self.request(vec![0; 5], control)?;
         if reply.processed != 0 || reply.detected {
-            return Err(failed());
+            return Err(failure("reset_clock"));
         }
         self.processed = 0;
         Ok(())
@@ -205,7 +216,7 @@ impl WarmWorker {
         let reply = self.request(request, control)?;
         self.processed += FRAME as u64;
         if reply.processed != self.processed {
-            return Err(failed());
+            return Err(failure("frame_clock"));
         }
         Ok(reply.detected)
     }

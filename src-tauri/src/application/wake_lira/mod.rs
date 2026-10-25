@@ -6,6 +6,8 @@ use tauri::{AppHandle, Manager};
 #[cfg(all(windows, debug_assertions))]
 mod service;
 #[cfg(all(windows, debug_assertions))]
+mod supervisor;
+#[cfg(all(windows, debug_assertions))]
 mod worker;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -167,7 +169,36 @@ impl Runtime {
                 .spawn(move || {
                     let _activity = activity;
                     let _worker_reservation = worker_reservation;
-                    let result = service::run(&handle, id, &owner, &view, settings.audio_device_id);
+                    let result = supervisor::run(
+                        || service::run(&handle, id, &owner, &view, settings.audio_device_id.clone()),
+                        || owner.cancelled.load(Ordering::Acquire),
+                        |restart, error| {
+                            tracing::warn!(
+                                event = "lira_recovering",
+                                listener_session = id,
+                                restart,
+                                error_code = ?error.user_error().code,
+                                "live wake detector is restarting after failure"
+                            );
+                            {
+                                let mut status = view.lock();
+                                if owner.cancelled.load(Ordering::Acquire) || status.phase == Phase::Stopping {
+                                    return false;
+                                }
+                                status.phase = Phase::Loading;
+                                status.message.clear();
+                            }
+                            crate::tray::request_refresh(&handle);
+                            // A bounded backoff stays interruptible by the owner's Stop.
+                            for _ in 0..10 * restart {
+                                if owner.cancelled.load(Ordering::Acquire) {
+                                    return false;
+                                }
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                            }
+                            true
+                        },
+                    );
                     let was_cancelled = owner.cancelled.load(Ordering::Acquire);
                     let operation = {
                         let _route = owner.route.lock();
@@ -183,12 +214,19 @@ impl Runtime {
                     }
                     let mut status = view.lock();
                     if was_cancelled {
+                        tracing::info!(event = "lira_stopped", listener_session = id, "live wake explicitly stopped");
                         status.phase = Phase::Off;
                         status.message.clear();
                     } else {
+                        tracing::warn!(event = "lira_failed", listener_session = id,
+                            error_code = ?result.as_ref().err().map(|error| error.user_error().code),
+                            "live wake stopped after failure");
                         status.phase = Phase::Error;
                         status.message =
-                            result.err().map(|e| e.user_message()).unwrap_or_else(|| {
+                            result.err().map(|e| match e {
+                                AppError::Internal(_) => "Детектор пробуждения остановился после повторных попыток. Включите пробуждение снова.".into(),
+                                _ => e.user_message(),
+                            }).unwrap_or_else(|| {
                                 "Пробуждение остановлено. Включите его снова.".into()
                             });
                     }

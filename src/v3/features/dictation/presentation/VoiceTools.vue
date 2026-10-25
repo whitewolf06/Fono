@@ -12,6 +12,7 @@ import { useInteraction } from "../../../shared/application/interaction";
 import { microphones, PreferenceToggle } from "../../preferences";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import StatusDot from "../../../shared/presentation/StatusDot.vue";
+import ErrorHint from "../../../shared/presentation/ErrorHint.vue";
 import { liraActive, wakeSampleSets } from "../../wake-samples/domain/samples";
 import { captureSettingsLocked } from "../../../shared/domain/pretranscription";
 import {
@@ -208,17 +209,15 @@ const tools = computed<
         />
       </div>
       <div class="tool-value" :title="tool.value">{{ tool.value }}</div>
-      <p
-        v-if="
-          tool.liveWake && (live.message || workspace.wakeSamples.state.error)
-        "
-        class="error-text"
-        role="alert"
-      >
-        {{ live.message || workspace.wakeSamples.state.error }}
-      </p>
       <div class="tool-bottom">
+        <ErrorHint
+          v-if="
+            tool.liveWake && (live.message || workspace.wakeSamples.state.error)
+          "
+          :detail="live.message || workspace.wakeSamples.state.error"
+        />
         <StatusDot
+          v-else
           :health="tool.health"
           :label="
             tool.panel === 'wake' && !tool.liveWake && !WAKE_WORD_AVAILABLE

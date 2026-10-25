@@ -95,6 +95,17 @@ class StreamTests(unittest.TestCase):
         with self.assertRaises(EOFError): exact_read(io.BytesIO(b"short"), 8)
         self.assertEqual(exact_read(io.BytesIO(b"12345"), 5), b"12345")
 
+    def test_repeated_wakes_after_dictation_reset_use_only_new_audio(self):
+        snapshots = []
+        stream = Stream(lambda _: 0.9, lambda pcm: snapshots.append(pcm.copy()) or True)
+        for value in (0.1, 0.2, 0.3):
+            stream.reset()
+            frame = np.full(common.STRIDE, value, dtype=np.float32)
+            hits = [stream.accept(frame, True)["detected"] for _ in range(30)]
+            self.assertEqual(sum(hits), 1)
+            self.assertTrue(np.allclose(snapshots[-1], value))
+        self.assertEqual(stream.stats["accepted"], 3)
+
     def test_counters_survive_pause_without_storing_voice_or_text(self):
         stream = Stream(lambda _: 0.9, lambda _: True)
         for _ in range(9):
