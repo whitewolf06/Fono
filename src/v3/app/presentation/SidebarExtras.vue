@@ -89,7 +89,7 @@ const detailTitle = computed(
         rel="noopener noreferrer"
         @click.prevent="run(() => workspace.openProjectSite())"
       >
-        <AppIcon name="link" :size="16" /><span class="sidebar-extra-label">{{
+        <AppIcon name="globe" :size="16" /><span class="sidebar-extra-label">{{
           $t("ui.c24e9ae442")
         }}</span>
         <AppIcon
@@ -99,15 +99,16 @@ const detailTitle = computed(
         />
       </a>
       <RouterLink
-        to="/settings/diagnostics"
+        to="/settings/diagnostics?field=feedback"
         active-class="active"
         class="sidebar-extra-item"
         :title="$t('ui.0077ef5ee6')"
         :aria-label="$t('ui.0077ef5ee6')"
       >
-        <AppIcon name="note" :size="16" /><span class="sidebar-extra-label">{{
-          $t("ui.930f9a65fb")
-        }}</span>
+        <AppIcon name="message" :size="16" /><span
+          class="sidebar-extra-label"
+          >{{ $t("ui.930f9a65fb") }}</span
+        >
       </RouterLink>
     </nav>
     <div

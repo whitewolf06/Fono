@@ -12,7 +12,7 @@ import { useInteraction } from "../../../shared/application/interaction";
 import { microphones, PreferenceToggle } from "../../preferences";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import StatusDot from "../../../shared/presentation/StatusDot.vue";
-import { liraActive } from "../../wake-samples/domain/samples";
+import { liraActive, wakeSampleSets } from "../../wake-samples/domain/samples";
 import { captureSettingsLocked } from "../../../shared/domain/pretranscription";
 import {
   WAKE_WORD_AVAILABLE,
@@ -51,7 +51,7 @@ function configure(panel: QuickPanel, liveWake?: boolean) {
   if (liveWake)
     void router.push({
       path: "/settings/activation",
-      query: { field: "wake-samples" },
+      query: { field: "wake-live" },
     });
   else ui.openQuick(panel);
 }
@@ -88,10 +88,10 @@ const tools = computed<
     ...(live.value.available
       ? [
           {
-            title: uiMessage("wakeLive.title"),
+            title: uiMessage("ui.8cf77f0854"),
             icon: "lightning" as const,
             panel: "wake" as const,
-            value: uiMessage(`wakeLive.${live.value.phase}`),
+            value: wakeSampleSets[0].phrase,
             health: (
               {
                 off: "off",

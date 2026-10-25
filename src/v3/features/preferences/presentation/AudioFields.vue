@@ -9,6 +9,7 @@ import { useWorkspace } from "../../../shared/application/workspace";
 import { useFeedback } from "../../../shared/application/feedback";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import AppIcon from "../../../shared/presentation/AppIcon.vue";
+import SettingsDisclosure from "../../../shared/presentation/SettingsDisclosure.vue";
 import GpuMemoryField from "./GpuMemoryField.vue";
 import DecodingFields from "./DecodingFields.vue";
 import { compatibleModelPreferences } from "../../../shared/domain/speechModels";
@@ -119,20 +120,25 @@ const installed = computed(() =>
         :options="installed"
         :hint="installed.length ? $t('ui.619d6b13d9') : $t('ui.44364b2632')"
       />
-      <div class="form-grid">
+      <SelectField
+        id="language"
+        v-model="draft.language"
+        :label="$t('ui.5bd57038db')"
+        :options="languageOptions"
+      />
+      <slot name="models" />
+      <SettingsDisclosure id="audio-advanced">
         <SelectField
-          v-model="draft.language"
-          :label="$t('ui.5bd57038db')"
-          :options="languageOptions"
-        /><SelectField
+          id="acceleration"
           v-model="draft.acceleration"
           :label="$t('ui.c2ccfcfe69')"
           :options="accelerationOptions"
         />
-      </div>
-      <p v-if="offline" class="muted">{{ $t("ui.fd0519ddd2") }}</p>
-      <GpuMemoryField v-if="!offline" v-model="draft" />
-      <DecodingFields v-if="!offline" v-model="draft" />
+        <p v-if="offline" class="muted">{{ $t("ui.fd0519ddd2") }}</p>
+        <GpuMemoryField v-if="!offline" v-model="draft" />
+        <DecodingFields v-if="!offline" v-model="draft" />
+        <slot name="advanced" />
+      </SettingsDisclosure>
     </template>
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
   </div>

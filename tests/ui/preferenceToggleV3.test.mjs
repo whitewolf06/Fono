@@ -266,7 +266,8 @@ test("activation form disables wake fields and setup but preserves both hotkeys"
     html.match(new RegExp(`<input\\b[^>]*id="${id}"[^>]*>`))?.[0];
   assert.ok(input("wakePhrase"));
   assert.match(input("wakePhrase"), /\bdisabled(?:\s|>)/);
-  for (const id of ["hotkey", "commandHotkey"]) {
+  assert.match(html, /id="hotkey"/);
+  for (const id of ["manualHotkey", "commandHotkey"]) {
     assert.ok(input(id));
     assert.doesNotMatch(input(id), /\bdisabled(?:\s|>)/);
   }

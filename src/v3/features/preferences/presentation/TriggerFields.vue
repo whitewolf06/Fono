@@ -11,6 +11,7 @@ import { triggerConflict } from "../../../shared/domain/triggers";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useTriggerCapture } from "../application/useTriggerCapture";
 import SelectField from "../../../shared/presentation/SelectField.vue";
+import SettingsDisclosure from "../../../shared/presentation/SettingsDisclosure.vue";
 const props = defineProps<{
   scope?: "hotkey" | "command-hotkey";
   active: boolean;
@@ -47,6 +48,17 @@ const { capturing, message, start, cancel } = useTriggerCapture((candidate) => {
 });
 const conflict = computed(() => triggerConflict(draft.value));
 const disabled = computed(() => props.active || capturing.value);
+const triggerLabel = computed(() =>
+  draft.value.dictationTrigger === "shortcut"
+    ? draft.value.hotkey
+    : {
+        right_alt: uiMessage("ui.3424783930"),
+        right_ctrl: uiMessage("ui.671c2fb9e5"),
+        caps_lock: "CapsLock",
+        x_button1: uiMessage("ui.75a016d827"),
+        x_button2: uiMessage("ui.9d9f714474"),
+      }[draft.value.dictationTrigger],
+);
 const keyboardHook = computed(() =>
   ["right_alt", "right_ctrl", "caps_lock"].includes(
     draft.value.dictationTrigger,
@@ -68,58 +80,16 @@ function choose(value: "dictation" | "command") {
 <template>
   <div class="form-stack">
     <template v-if="scope !== 'command-hotkey'">
-      <SelectField
-        id="dictationTrigger"
-        v-model="draft.dictationTrigger"
-        :label="$t('ui.520fadb90f')"
-        :disabled="disabled"
-        :options="[
-          {
-            value: 'shortcut',
-            get label() {
-              return $t('ui.2c2b46b6e3');
-            },
-          },
-          {
-            value: 'right_alt',
-            get label() {
-              return $t('ui.3424783930');
-            },
-          },
-          {
-            value: 'right_ctrl',
-            get label() {
-              return $t('ui.671c2fb9e5');
-            },
-          },
-          { value: 'caps_lock', label: 'CapsLock' },
-          {
-            value: 'x_button1',
-            get label() {
-              return $t('ui.75a016d827');
-            },
-          },
-          {
-            value: 'x_button2',
-            get label() {
-              return $t('ui.9d9f714474');
-            },
-          },
-        ]"
-      />
-      <WlField
-        v-if="draft.dictationTrigger === 'shortcut'"
-        id="hotkey"
-        v-slot="field"
-        :label="$t('ui.18fb8ccf7e')"
-        :hint="behavior"
-      >
-        <WlInput v-bind="field" v-model="draft.hotkey" :disabled="disabled" />
-      </WlField>
-      <p v-else class="muted">{{ behavior }}</p>
-      <WlButton :disabled="disabled" @click="choose('dictation')">{{
-        $t("ui.26811b79a8")
-      }}</WlButton>
+      <div id="hotkey" class="settings-shortcut">
+        <div>
+          <strong>{{ $t("ui.520fadb90f") }}</strong>
+          <p>{{ triggerLabel }}</p>
+        </div>
+        <WlButton :disabled="disabled" @click="choose('dictation')">{{
+          $t("ui.26811b79a8")
+        }}</WlButton>
+      </div>
+      <p class="muted">{{ behavior }}</p>
       <SelectField
         id="hotkeyMode"
         v-model="draft.hotkeyMode"
@@ -158,21 +128,88 @@ function choose(value: "dictation" | "command") {
         {{ $t("ui.4e167cdd83") }}
       </p>
     </template>
-    <WlField
-      id="commandHotkey"
-      v-slot="field"
-      :label="$t('ui.08783cdee7')"
-      :hint="$t('ui.e08944ce3a')"
+    <slot />
+    <SettingsDisclosure
+      id="activation-advanced"
+      :initially-open="scope === 'command-hotkey'"
+      :title="scope === 'command-hotkey' ? $t('ui.08783cdee7') : undefined"
     >
-      <WlInput
-        v-bind="field"
-        v-model="draft.commandHotkey"
-        :disabled="disabled"
-      />
-    </WlField>
-    <WlButton :disabled="disabled" @click="choose('command')">{{
-      $t("ui.81982ed781")
-    }}</WlButton>
+      <template v-if="scope !== 'command-hotkey'">
+        <SelectField
+          id="dictationTrigger"
+          v-model="draft.dictationTrigger"
+          :label="$t('ui.520fadb90f')"
+          :disabled="disabled"
+          :options="[
+            {
+              value: 'shortcut',
+              get label() {
+                return $t('ui.2c2b46b6e3');
+              },
+            },
+            {
+              value: 'right_alt',
+              get label() {
+                return $t('ui.3424783930');
+              },
+            },
+            {
+              value: 'right_ctrl',
+              get label() {
+                return $t('ui.671c2fb9e5');
+              },
+            },
+            { value: 'caps_lock', label: 'CapsLock' },
+            {
+              value: 'x_button1',
+              get label() {
+                return $t('ui.75a016d827');
+              },
+            },
+            {
+              value: 'x_button2',
+              get label() {
+                return $t('ui.9d9f714474');
+              },
+            },
+          ]"
+        />
+        <WlField
+          v-if="draft.dictationTrigger === 'shortcut'"
+          id="manualHotkey"
+          v-slot="field"
+          :label="$t('ui.18fb8ccf7e')"
+          :hint="behavior"
+        >
+          <WlInput v-bind="field" v-model="draft.hotkey" :disabled="disabled" />
+        </WlField>
+        <details class="advanced">
+          <summary>{{ $t("ui.d0fc417c8f") }}</summary>
+          <p class="muted">
+            {{ $t("ui.b43b98db76") }} <code>Fono.exe --start</code>,
+            <code>--stop</code>, <code>--toggle</code> {{ $t("ui.bcacbff7a5") }}
+            <code>--cancel</code>{{ $t("ui.2a35056c91") }}
+          </p>
+        </details>
+      </template>
+      <WlField
+        id="commandHotkey"
+        v-slot="field"
+        :label="$t('ui.08783cdee7')"
+        :hint="$t('ui.e08944ce3a')"
+      >
+        <WlInput
+          v-bind="field"
+          v-model="draft.commandHotkey"
+          :disabled="disabled"
+        />
+      </WlField>
+      <WlButton :disabled="disabled" @click="choose('command')">{{
+        $t("ui.81982ed781")
+      }}</WlButton>
+      <p class="muted">{{ $t("ui.8d7ff1d12f") }}</p>
+      <slot name="advanced" />
+    </SettingsDisclosure>
     <p v-if="capturing" class="notice" role="status">{{ message }}</p>
     <WlButton v-if="capturing" @click="cancel">{{
       $t("ui.0ebe44a248")
@@ -182,15 +219,6 @@ function choose(value: "dictation" | "command") {
       {{ captureError || conflict }}
     </p>
     <p v-if="active" class="notice">{{ $t("ui.e1ecf36dda") }}</p>
-    <p class="muted">{{ $t("ui.8d7ff1d12f") }}</p>
-    <details v-if="scope !== 'command-hotkey'" class="advanced">
-      <summary>{{ $t("ui.d0fc417c8f") }}</summary>
-      <p class="muted">
-        {{ $t("ui.b43b98db76") }} <code>Fono.exe --start</code>,
-        <code>--stop</code>, <code>--toggle</code> {{ $t("ui.bcacbff7a5") }}
-        <code>--cancel</code>{{ $t("ui.2a35056c91") }}
-      </p>
-    </details>
     <p v-if="!workspace.native" class="notice">{{ $t("ui.5fecf677e2") }}</p>
   </div>
 </template>

@@ -1,11 +1,11 @@
 import { message as uiMessage } from "../../../shared/domain/messages";
 import type { Section } from "../../../shared/domain/contracts";
-import type { WlIconName } from "@whitelife-core/ui-kit";
+import type { AppIconName } from "../../../shared/domain/icons";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 export const sections: {
   id: Section;
   title: string;
-  icon: WlIconName;
+  icon: AppIconName;
   description: string;
 }[] = [
   {
@@ -13,7 +13,7 @@ export const sections: {
     get title() {
       return uiMessage("ui.d40de76d56");
     },
-    icon: "grid",
+    icon: "sliders",
     get description() {
       return uiMessage("ui.716ba9e655");
     },
@@ -33,7 +33,7 @@ export const sections: {
     get title() {
       return uiMessage("ui.902d6f27ec");
     },
-    icon: "lightning",
+    icon: "keyboard",
     get description() {
       return uiMessage("ui.f75f85e366");
     },
@@ -63,7 +63,7 @@ export const sections: {
     get title() {
       return uiMessage("ui.c48cd755f9");
     },
-    icon: "eye",
+    icon: "shield",
     get description() {
       return uiMessage("ui.d2490aa6ca");
     },
@@ -89,7 +89,7 @@ export const searchIndex: {
     get label() {
       return uiMessage("recordingSounds.label");
     },
-    section: "audio",
+    section: "activation",
     field: "recordingSoundsEnabled",
     keywords:
       "звуки сигналы громкость начало остановка ошибка sounds cues volume start stop error",
@@ -116,7 +116,7 @@ export const searchIndex: {
       return uiMessage("ui.296d198409");
     },
     section: "activation",
-    field: "selectionHotkey",
+    field: "selectionCaptureEnabled",
     get keywords() {
       return uiMessage("ui.c5d97dda92");
     },
@@ -133,7 +133,7 @@ export const searchIndex: {
   },
   {
     get label() {
-      return uiMessage("ui.4e7867b548");
+      return uiMessage("settings.dictionary");
     },
     section: "audio",
     field: "dictionary",
@@ -253,7 +253,7 @@ export const searchIndex: {
   },
   {
     get label() {
-      return uiMessage("ui.558cffa937");
+      return uiMessage("settings.prompts");
     },
     section: "processing",
     field: "processingPrompts",
@@ -265,7 +265,7 @@ export const searchIndex: {
     get label() {
       return uiMessage("ui.91c097aca3");
     },
-    section: "processing",
+    section: "privacy",
     field: "trainerModel",
     get keywords() {
       return uiMessage("ui.8694023a12");
@@ -363,6 +363,98 @@ export const searchIndex: {
   },
 ];
 
+export const relocatedSettings: Record<string, Section> = {
+  recordingSoundsEnabled: "activation",
+  recordingSoundsVolume: "activation",
+  trainerModel: "privacy",
+  trainerProfile: "privacy",
+  trainerScope: "privacy",
+  trainerAiEnabled: "privacy",
+  cloudConsent: "privacy",
+  "wake-samples": "diagnostics",
+};
+export const settingFocusFallbacks: Record<string, string> = {
+  toggleAutoStopMs: "hotkeyMode",
+  selectionHotkey: "selectionCaptureEnabled",
+  historyRetentionDays: "historyEnabled",
+  recordingSoundsVolume: "recordingSoundsEnabled",
+};
+searchIndex.push(
+  {
+    get label() {
+      return uiMessage("settings.models");
+    },
+    section: "audio",
+    field: "models",
+    keywords:
+      "модели загрузить скачать удалить GigaAM Parakeet Whisper download install models",
+  },
+  {
+    get label() {
+      return uiMessage("ui.c2ccfcfe69");
+    },
+    section: "audio",
+    field: "acceleration",
+    keywords: "ускорение процессор видеокарта CPU GPU Vulkan CUDA acceleration",
+  },
+  {
+    get label() {
+      return uiMessage("settings.decoding");
+    },
+    section: "audio",
+    field: "audio-advanced",
+    keywords: "потоки декодирование точность CPU threads decoding",
+  },
+  {
+    get label() {
+      return uiMessage("wakeLive.title");
+    },
+    section: "activation",
+    field: "wake-live",
+    keywords: "привет лира lira wakeword пробуждение",
+  },
+  {
+    get label() {
+      return uiMessage("settings.wakeTools");
+    },
+    section: "diagnostics",
+    field: "wake-samples",
+    keywords: "лира образцы запись негативы wakeword samples recording",
+  },
+  {
+    get label() {
+      return uiMessage("ui.ea7426e01f");
+    },
+    section: "overlay",
+    field: "overlayOpacity",
+    keywords: "непрозрачность прозрачность opacity transparency",
+  },
+  {
+    get label() {
+      return uiMessage("settings.overlayTest");
+    },
+    section: "overlay",
+    field: "overlay-preview",
+    keywords: "пример состояния индикатор overlay preview test",
+  },
+  {
+    get label() {
+      return uiMessage("ui.ee002eb6ca");
+    },
+    section: "diagnostics",
+    field: "verboseLogging",
+    keywords: "подробный журнал логи verbose logs logging",
+  },
+  {
+    get label() {
+      return uiMessage("ui.930f9a65fb");
+    },
+    section: "diagnostics",
+    field: "feedback",
+    keywords: "обратная связь сообщить проблема feedback report",
+  },
+);
+
 searchIndex.push({
   get label() {
     return uiMessage("applicationContext.setting");
@@ -374,7 +466,7 @@ searchIndex.push({
 });
 searchIndex.push({
   get label() {
-    return uiMessage("ui.add2110e07");
+    return uiMessage("settings.applicationProfiles");
   },
   section: "general",
   field: "application-profiles",
@@ -384,7 +476,7 @@ searchIndex.push({
 });
 searchIndex.push({
   get label() {
-    return uiMessage("ui.7d3b36a6aa");
+    return uiMessage("settings.snippets");
   },
   section: "audio",
   field: "snippets",

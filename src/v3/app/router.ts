@@ -63,5 +63,9 @@ export const router = createRouter({
     },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
-  scrollBehavior: (_to, _from, saved) => saved ?? { top: 0 },
+  scrollBehavior: (to, _from, saved) =>
+    saved ??
+    (to.path.startsWith("/settings/") && typeof to.query.field === "string"
+      ? false
+      : { top: 0 }),
 });

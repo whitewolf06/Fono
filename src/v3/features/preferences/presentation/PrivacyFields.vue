@@ -11,6 +11,8 @@ import PreferenceToggle from "./PreferenceToggle.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
+import SettingsDisclosure from "../../../shared/presentation/SettingsDisclosure.vue";
+import TrainerAiFields from "./TrainerAiFields.vue";
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
 const { run, busy, error } = useFeedback();
@@ -54,6 +56,7 @@ async function clearApplications() {
 <template>
   <div class="form-stack">
     <PreferenceToggle
+      id="applicationContextEnabled"
       name="applicationContextEnabled"
       :label="$t('applicationContext.setting')"
       :description="$t('applicationContext.settingDescription')"
@@ -69,11 +72,12 @@ async function clearApplications() {
     >
     <p v-if="error" class="error-text" role="alert">{{ error }}</p>
     <PreferenceToggle
+      id="historyEnabled"
       name="historyEnabled"
       :label="$t('ui.f0211033d5')"
       :description="$t('ui.d81998629a')"
     /><SelectField
-      v-if="workspace.native"
+      v-if="workspace.native && draft.historyEnabled"
       id="historyRetentionDays"
       v-model="draft.historyRetentionDays"
       :label="$t('ui.ad264afe23')"
@@ -110,55 +114,63 @@ async function clearApplications() {
         },
       ]"
     /><PreferenceToggle
+      id="trainerEnabled"
       name="trainerEnabled"
       :label="$t('ui.387054796e')"
       :description="$t('ui.e5139de357')"
     /><PreferenceToggle
+      id="analyticsConsent"
       name="analyticsConsent"
       :label="$t('ui.b0f0680621')"
       :description="$t('ui.66ed3f363c')"
-    /><SelectField
-      id="retentionDays"
-      v-model="draft.retentionDays"
-      :label="workspace.native ? $t('ui.3cff493e39') : $t('ui.9334533cfa')"
-      :options="[
-        {
-          value: 7,
-          get label() {
-            return $t('ui.7867a2095f');
-          },
-        },
-        {
-          value: 30,
-          get label() {
-            return $t('ui.254d55672b');
-          },
-        },
-        {
-          value: 90,
-          get label() {
-            return $t('ui.add2e2fe30');
-          },
-        },
-        ...(workspace.native
-          ? [
-              {
-                value: 365,
-                get label() {
-                  return $t('ui.3f9ab002f8');
-                },
-              },
-            ]
-          : [
-              {
-                value: 0,
-                get label() {
-                  return $t('ui.dc70e20f36');
-                },
-              },
-            ]),
-      ]"
     />
+    <SettingsDisclosure id="privacy-advanced">
+      <SelectField
+        id="retentionDays"
+        v-model="draft.retentionDays"
+        :label="workspace.native ? $t('ui.3cff493e39') : $t('ui.9334533cfa')"
+        :options="[
+          {
+            value: 7,
+            get label() {
+              return $t('ui.7867a2095f');
+            },
+          },
+          {
+            value: 30,
+            get label() {
+              return $t('ui.254d55672b');
+            },
+          },
+          {
+            value: 90,
+            get label() {
+              return $t('ui.add2e2fe30');
+            },
+          },
+          ...(workspace.native
+            ? [
+                {
+                  value: 365,
+                  get label() {
+                    return $t('ui.3f9ab002f8');
+                  },
+                },
+              ]
+            : [
+                {
+                  value: 0,
+                  get label() {
+                    return $t('ui.dc70e20f36');
+                  },
+                },
+              ]),
+        ]"
+      />
+      <SettingsDisclosure id="trainer-ai-tools" :title="$t('settings.trainer')">
+        <TrainerAiFields v-model="draft" />
+      </SettingsDisclosure>
+    </SettingsDisclosure>
     <div v-if="workspace.native" class="notice">{{ $t("ui.fc1db948b8") }}</div>
     <div v-else class="notice">{{ $t("ui.9150c873d8") }}</div>
     <section class="danger-zone">

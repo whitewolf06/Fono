@@ -11,7 +11,12 @@ import {
 import { WlInput, WlButton } from "@whitelife-core/ui-kit";
 import type { Section } from "../../../shared/domain/contracts";
 import { sectionKeys } from "../domain/preferences";
-import { sections, searchIndex } from "../application/catalog";
+import {
+  sections,
+  searchIndex,
+  relocatedSettings,
+  settingFocusFallbacks,
+} from "../application/catalog";
 import { useDraft } from "../application/useDraft";
 import { useFeedback } from "../../../shared/application/feedback";
 import { focusField } from "../../../shared/infrastructure/focus";
@@ -20,7 +25,6 @@ import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 import PreferenceToggle from "./PreferenceToggle.vue";
 import AudioFields from "./AudioFields.vue";
-import RecordingSoundsFields from "./RecordingSoundsFields.vue";
 import PretranscriptionField from "./PretranscriptionField.vue";
 import ModelManager from "./ModelManager.vue";
 import ActivationFields from "./ActivationFields.vue";
@@ -31,9 +35,9 @@ import DiagnosticsPanel from "./DiagnosticsPanel.vue";
 import DictionaryFields from "./DictionaryFields.vue";
 import SnippetFields from "../../snippets/presentation/SnippetFields.vue";
 import ApplicationProfiles from "./ApplicationProfiles.vue";
-import { UpdatesPanel } from "../../updates";
 import CudaPackagePanel from "../../cuda-packages/presentation/CudaPackagePanel.vue";
 import { useWorkspace } from "../../../shared/application/workspace";
+import SettingsDisclosure from "../../../shared/presentation/SettingsDisclosure.vue";
 const workspace = useWorkspace();
 const route = useRoute();
 const router = useRouter();
@@ -51,10 +55,15 @@ const whisperSelected = computed(
 );
 const version = __FONO_FRONTEND_BUILD__.version;
 const results = computed(() =>
-  searchIndex.filter((item) =>
-    (item.label + " " + item.keywords)
-      .toLocaleLowerCase("ru")
-      .includes(query.value.trim().toLocaleLowerCase("ru")),
+  searchIndex.filter(
+    (item) =>
+      (item.field !== "wake-live" ||
+        workspace.wakeSamples.state.live.available) &&
+      (item.field !== "wake-samples" ||
+        (workspace.native && workspace.wakeSamples.state.live.available)) &&
+      (item.label + " " + item.keywords)
+        .toLocaleLowerCase("ru")
+        .includes(query.value.trim().toLocaleLowerCase("ru")),
   ),
 );
 onBeforeRouteLeave(() => (busy.value ? false : canLeave()));
@@ -68,7 +77,18 @@ watch(
   async () => {
     query.value = "";
     await nextTick();
-    if (typeof route.query.field === "string") focusField(route.query.field);
+    if (typeof route.query.field === "string") {
+      const field = route.query.field;
+      const relocated = relocatedSettings[field];
+      if (relocated && relocated !== section.value) {
+        await router.replace({
+          path: "/settings/" + relocated,
+          query: { ...route.query, field },
+        });
+        return;
+      }
+      focusField(field, settingFocusFallbacks[field]);
+    }
   },
   { immediate: true },
 );
@@ -77,6 +97,15 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
     path: "/settings/" + item.section,
     query: { field: item.field },
   });
+  if (
+    query.value &&
+    section.value === item.section &&
+    route.query.field === item.field
+  ) {
+    query.value = "";
+    await nextTick();
+    focusField(item.field, settingFocusFallbacks[item.field]);
+  }
 }
 </script>
 <template>
@@ -146,48 +175,89 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
             ]"
           />
           <PreferenceToggle
+            id="autostart"
             name="autostart"
             :label="$t('ui.b312f5a759')"
             :description="$t('ui.b587cc4370')"
-          /><SelectField
-            id="insertion"
-            v-model="draft.insertion"
-            :label="$t('ui.5e399aa003')"
-            :options="[
-              {
-                value: 'clipboard',
-                get label() {
-                  return $t('ui.4e9b12d77d');
-                },
-              },
-              {
-                value: 'sendinput',
-                get label() {
-                  return $t('ui.f3cc63fc58');
-                },
-              },
-            ]"
           />
-          <ApplicationProfiles v-model="draft" />
-          <section id="about" class="about-fono">
-            <h3>Fono {{ version }}</h3>
-            <p>{{ $t("ui.69f4caaaac") }}</p>
-            <small
-              >{{ $t("ui.edc3ee4f1c")
-              }}{{ workspace.native ? "" : $t("ui.e3348b9eff") }}</small
-            ><RouterLink class="text-link" to="/onboarding">{{
-              $t("ui.b6964d42aa")
+          <SettingsDisclosure id="general-advanced">
+            <SelectField
+              id="insertion"
+              v-model="draft.insertion"
+              :label="$t('ui.5e399aa003')"
+              :options="[
+                {
+                  value: 'clipboard',
+                  get label() {
+                    return $t('ui.4e9b12d77d');
+                  },
+                },
+                {
+                  value: 'sendinput',
+                  get label() {
+                    return $t('ui.f3cc63fc58');
+                  },
+                },
+              ]"
+            />
+            <SettingsDisclosure
+              id="application-rules"
+              :title="
+                $t('settings.applicationProfiles') +
+                ' · ' +
+                draft.applicationProfiles.length
+              "
+            >
+              <ApplicationProfiles v-model="draft" />
+            </SettingsDisclosure>
+            <section id="about" class="about-fono">
+              <h3>Fono {{ version }}</h3>
+              <p>{{ $t("ui.69f4caaaac") }}</p>
+              <small
+                >{{ $t("ui.edc3ee4f1c")
+                }}{{ workspace.native ? "" : $t("ui.e3348b9eff") }}</small
+              ><RouterLink class="text-link" to="/onboarding">{{
+                $t("ui.b6964d42aa")
+              }}</RouterLink>
+            </section>
+            <RouterLink id="updates" class="text-link" to="/updates">{{
+              $t("ui.455471db0c")
             }}</RouterLink>
-          </section>
-          <UpdatesPanel :unsaved="dirty" />
+          </SettingsDisclosure>
         </div>
-        <template v-else-if="section === 'audio'"
-          ><AudioFields v-model="draft" /><RecordingSoundsFields
-            v-model="draft" /><PretranscriptionField /><CudaPackagePanel
-            v-if="whisperSelected"
-            :unsaved="dirty" /><DictionaryFields
-            v-model="draft" /><SnippetFields v-model="draft" /><ModelManager
-        /></template>
+        <AudioFields v-else-if="section === 'audio'" v-model="draft">
+          <template #models>
+            <SettingsDisclosure id="models" :title="$t('settings.models')">
+              <ModelManager />
+            </SettingsDisclosure>
+          </template>
+          <template #advanced>
+            <SettingsDisclosure
+              v-if="whisperSelected"
+              id="cuda-tools"
+              title="CUDA"
+            >
+              <CudaPackagePanel :unsaved="dirty" />
+            </SettingsDisclosure>
+            <PretranscriptionField />
+            <SettingsDisclosure
+              id="dictionary-tools"
+              :title="
+                $t('settings.dictionary') +
+                ' · ' +
+                draft.dictionaryEntries.length
+              "
+            >
+              <DictionaryFields v-model="draft" />
+            </SettingsDisclosure>
+            <SettingsDisclosure
+              id="snippet-tools"
+              :title="$t('settings.snippets') + ' · ' + draft.snippets.length"
+            >
+              <SnippetFields v-model="draft" />
+            </SettingsDisclosure>
+          </template>
+        </AudioFields>
         <ActivationFields
           v-else-if="section === 'activation'"
           v-model="draft"

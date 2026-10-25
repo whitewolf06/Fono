@@ -12,7 +12,8 @@ import PreferenceToggle from "./PreferenceToggle.vue";
 import TriggerFields from "./TriggerFields.vue";
 import SelectionFields from "./SelectionFields.vue";
 import SelectField from "../../../shared/presentation/SelectField.vue";
-import WakeSamplesPanel from "../../wake-samples/presentation/WakeSamplesPanel.vue";
+import WakeLiveControls from "../../wake-samples/presentation/WakeLiveControls.vue";
+import RecordingSoundsFields from "./RecordingSoundsFields.vue";
 import { LIVE_DICTATION_ENABLED } from "../../../shared/domain/dictationMode";
 import {
   WAKE_WORD_AVAILABLE,
@@ -100,8 +101,14 @@ const phraseOptions = computed(() => {
         scope === 'hotkey' || scope === 'command-hotkey' ? scope : undefined
       "
       :active="active"
-    />
-    <SelectionFields v-if="!scope" v-model="draft" :active="active" />
+    >
+      <WakeLiveControls v-if="!scope && workspace.wakeSamples" />
+      <template v-if="!scope" #advanced>
+        <SelectionFields v-model="draft" :active="active" />
+        <RecordingSoundsFields v-model="draft" />
+      </template>
+    </TriggerFields>
+    <WakeLiveControls v-if="scope === 'wake' && workspace.wakeSamples" />
     <template
       v-if="wakeCompiled && scope !== 'hotkey' && scope !== 'command-hotkey'"
     >
@@ -231,6 +238,5 @@ const phraseOptions = computed(() => {
         </div>
       </details>
     </template>
-    <WakeSamplesPanel v-if="advanced && workspace.wakeSamples && !scope" />
   </div>
 </template>

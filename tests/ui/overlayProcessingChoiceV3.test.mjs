@@ -123,7 +123,7 @@ test("browser persists the optional flag and remembered choice, never instructio
   assert.equal(browser.readPreferences().overlayQuickProcessing, true);
 });
 
-test("settings preview choices stay in the overlay draft until Save; Reset cancels them", async () => {
+test("overlay Save and Reset affect appearance without persisting preview processing choices", async () => {
   const { useDraft } = await server.ssrLoadModule(
     "/src/v3/features/preferences/application/useDraft.ts",
   );
@@ -156,7 +156,7 @@ test("settings preview choices stay in the overlay draft until Save; Reset cance
     form.draft.processingMode = "formal";
     form.draft.processingTranslation = "en";
     form.draft.language = "en";
-    assert.equal(form.dirty.value, true);
+    assert.equal(form.dirty.value, false);
     assert.equal(workspace.state.preferences.processingMode, "clean");
     assert.equal(storage.size, 0);
     form.reset();
@@ -166,14 +166,21 @@ test("settings preview choices stay in the overlay draft until Save; Reset cance
     form.draft.processingMode = "task";
     form.draft.processingTranslation = "de";
     form.draft.language = "auto";
+    form.draft.overlayScale = 110;
+    assert.equal(form.dirty.value, true);
     await form.save();
     await nextTick();
-    assert.deepEqual(commits, [
-      { language: "auto", processingMode: "task", processingTranslation: "de" },
-    ]);
+    assert.deepEqual(commits, [{ overlayScale: 110 }]);
     assert.equal(form.dirty.value, false);
-    assert.equal(browser.readPreferences().processingTranslation, "de");
-    assert.equal(browser.readPreferences().language, "auto");
+    assert.equal(
+      browser.readPreferences().processingTranslation,
+      preferences.defaults.processingTranslation,
+    );
+    assert.equal(
+      browser.readPreferences().language,
+      preferences.defaults.language,
+    );
+    assert.equal(browser.readPreferences().overlayScale, 110);
   } finally {
     scope.stop();
     delete globalThis.window;

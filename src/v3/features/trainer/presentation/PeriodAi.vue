@@ -62,7 +62,7 @@ watch(
         </div>
         <RouterLink
           class="text-link"
-          to="/settings/processing?field=trainerModel"
+          to="/settings/privacy?field=trainerModel"
           >{{ $t("ui.de885e7fab") }}</RouterLink
         >
       </div>

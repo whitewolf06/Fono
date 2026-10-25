@@ -175,15 +175,15 @@ test("home shows the available Lira card with real phases while legacy WakeWord 
     const unavailable = await render();
     assert.equal((unavailable.match(/class="tool-card"/g) || []).length, 3);
     assert.doesNotMatch(unavailable, /Привет, Лира/);
-    const labels = {
-      off: "Пробуждение выключено",
-      loading: "Готовим пробуждение",
-      listening: "Слушаю «Привет, Лира»",
-      paused: "Пробуждение на паузе",
-      stopping: "Выключаем пробуждение",
-      error: "Пробуждение остановилось",
+    const health = {
+      off: "off",
+      loading: "loading",
+      listening: "ready",
+      paused: "loading",
+      stopping: "loading",
+      error: "error",
     };
-    for (const [phase, label] of Object.entries(labels)) {
+    for (const [phase, expectedHealth] of Object.entries(health)) {
       workspace.wakeSamples.state.live = {
         available: true,
         sessionId: phase === "off" ? null : 1,
@@ -192,8 +192,14 @@ test("home shows the available Lira card with real phases while legacy WakeWord 
       };
       const html = await render();
       assert.equal((html.match(/class="tool-card"/g) || []).length, 4);
-      assert.match(html, new RegExp(label));
-      assert.match(html, /Пробуждение «Привет, Лира»/);
+      const card = html
+        .match(/<article\b[^>]*>[\s\S]*?<\/article>/g)
+        .find((article) => article.includes("Привет, Лира"));
+      assert.ok(card);
+      assert.match(card, /<strong>Пробуждение<\/strong>/);
+      assert.match(card, /class="tool-value"[^>]*>Привет, Лира<\/div>/);
+      assert.match(card, new RegExp(`data-health="${expectedHealth}"`));
+      assert.doesNotMatch(card, /Пробуждение выключено/);
       assert.doesNotMatch(html, /Временно недоступно/);
       assert.equal(workspace.state.preferences.wakeEnabled, false);
     }

@@ -12,6 +12,8 @@ import PreferenceToggle from "./PreferenceToggle.vue";
 import StatusDot from "../../../shared/presentation/StatusDot.vue";
 import { FeedbackCard } from "../../feedback";
 import { DiagnosticReportCard } from "../../diagnostic-report";
+import SettingsDisclosure from "../../../shared/presentation/SettingsDisclosure.vue";
+import WakeSamplesPanel from "../../wake-samples/presentation/WakeSamplesPanel.vue";
 const workspace = useWorkspace();
 const { run, busy } = useFeedback();
 const checks = computed(() => workspace.diagnostics());
@@ -27,8 +29,6 @@ async function checkAll() {
 </script>
 <template>
   <div class="form-stack">
-    <FeedbackCard />
-    <DiagnosticReportCard :port="workspace.report" :copy="workspace.copy" />
     <div class="section-header">
       <h3>{{ $t("ui.1e8466ebeb") }}</h3>
       <WlButton
@@ -52,35 +52,51 @@ async function checkAll() {
         >{{ $t("ui.d71875872c") }}</RouterLink
       >
     </div>
-    <PreferenceToggle
-      name="verboseLogging"
-      :label="$t('ui.ee002eb6ca')"
-      :description="$t('ui.37086518bd')"
-    />
-    <section id="logs">
-      <div class="section-header">
-        <h3>{{ $t("ui.97c459a6bb") }}</h3>
-        <WlButton
-          size="sm"
-          @click="
-            run(
-              () => workspace.copy(workspace.state.logs.join('\n')),
-              $t('ui.f477e92d6e'),
-            )
-          "
-          >{{ $t("ui.1ecddf40bf") }}</WlButton
-        >
-      </div>
-      <pre class="log-view">{{
-        workspace.state.logs.slice(0, 20).join("\n")
-      }}</pre>
-    </section>
-    <div class="technical-info">
-      <span>Fono {{ build.version }}</span
-      ><span>Vue 3 · WhiteUI 0.6.0</span><code>{{ build.revision }}</code
-      ><span>{{
-        workspace.native ? "Tauri · Rust" : "Browser mock runtime"
-      }}</span>
-    </div>
+    <DiagnosticReportCard :port="workspace.report" :copy="workspace.copy" />
+    <SettingsDisclosure id="diagnostics-advanced">
+      <PreferenceToggle
+        id="verboseLogging"
+        name="verboseLogging"
+        :label="$t('ui.ee002eb6ca')"
+        :description="$t('ui.37086518bd')"
+      />
+      <SettingsDisclosure id="logs" :title="$t('ui.97c459a6bb')">
+        <div class="section-header">
+          <h3>{{ $t("ui.97c459a6bb") }}</h3>
+          <WlButton
+            size="sm"
+            @click="
+              run(
+                () => workspace.copy(workspace.state.logs.join('\n')),
+                $t('ui.f477e92d6e'),
+              )
+            "
+            >{{ $t("ui.1ecddf40bf") }}</WlButton
+          >
+        </div>
+        <pre class="log-view">{{
+          workspace.state.logs.slice(0, 20).join("\n")
+        }}</pre>
+      </SettingsDisclosure>
+      <SettingsDisclosure id="build-info" :title="$t('settings.technical')">
+        <div class="technical-info">
+          <span>Fono {{ build.version }}</span
+          ><span>Vue 3 · WhiteUI 0.6.0</span><code>{{ build.revision }}</code
+          ><span>{{
+            workspace.native ? "Tauri · Rust" : "Browser mock runtime"
+          }}</span>
+        </div>
+      </SettingsDisclosure>
+      <SettingsDisclosure id="feedback" :title="$t('ui.930f9a65fb')"
+        ><FeedbackCard
+      /></SettingsDisclosure>
+      <SettingsDisclosure
+        v-if="workspace.native && workspace.wakeSamples.state.live.available"
+        id="wake-tools"
+        :title="$t('settings.wakeTools')"
+      >
+        <WakeSamplesPanel />
+      </SettingsDisclosure>
+    </SettingsDisclosure>
   </div>
 </template>

@@ -3,12 +3,7 @@ import { message as uiMessage, message as $t } from "../shared/domain/messages";
 
 import { onMounted, onUnmounted } from "vue";
 import { RouterLink, RouterView, useRouter, useRoute } from "vue-router";
-import {
-  WlButton,
-  WlDialog,
-  WlToast,
-  type WlIconName,
-} from "@whitelife-core/ui-kit";
+import { WlButton, WlDialog, WlToast } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../shared/application/workspace";
 import { useInteraction } from "../shared/application/interaction";
 import { bindShortcut } from "../shared/infrastructure/browser";
@@ -19,12 +14,13 @@ import SelectionPreview from "../features/selection/presentation/SelectionPrevie
 import PageLoadState from "../shared/presentation/PageLoadState.vue";
 import QuickSettings from "../features/preferences/presentation/QuickSettings.vue";
 import SidebarExtras from "./presentation/SidebarExtras.vue";
+import type { AppIconName } from "../shared/domain/icons";
 const workspace = useWorkspace();
 const router = useRouter();
 const route = useRoute();
 const ui = useInteraction();
 const version = __FONO_FRONTEND_BUILD__.version;
-const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
+const menu: { to: string; title: string; icon: AppIconName }[] = [
   {
     to: "/",
     get title() {
@@ -37,35 +33,35 @@ const menu: { to: string; title: string; icon: WlIconName | "server" }[] = [
     get title() {
       return uiMessage("ui.9088ca9c0d");
     },
-    icon: "file",
+    icon: "audio-file",
   },
   {
     to: "/history",
     get title() {
       return uiMessage("ui.1417b7792d");
     },
-    icon: "clock",
+    icon: "history",
   },
   {
     to: "/trainer",
     get title() {
       return uiMessage("ui.387054796e");
     },
-    icon: "activity",
+    icon: "chart",
   },
   {
     to: "/commands",
     get title() {
       return uiMessage("ui.6c0adb50d0");
     },
-    icon: "microphone",
+    icon: "voice-command",
   },
   {
     to: "/api/tasks",
     get title() {
       return uiMessage("ui.1b580ef9f9");
     },
-    icon: "server",
+    icon: "terminal",
   },
   {
     to: "/settings/general",

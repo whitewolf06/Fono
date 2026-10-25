@@ -1,6 +1,57 @@
 .settings-search {
   margin-bottom: var(--fono-space-6);
 }
+.settings-disclosure {
+  min-width: 0;
+  border: 1px solid var(--fono-border-soft);
+  border-radius: var(--fono-radius-sm);
+}
+.settings-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fono-space-3);
+  padding: var(--fono-space-3) var(--fono-space-4);
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--fono-type-sm);
+  color: var(--fono-secondary);
+}
+.settings-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.settings-disclosure > summary svg {
+  flex-shrink: 0;
+}
+.settings-disclosure[open] > summary svg {
+  transform: rotate(180deg);
+}
+.settings-disclosure[open] > summary {
+  color: var(--fono-text);
+  border-bottom: 1px solid var(--fono-border-soft);
+}
+.settings-disclosure-body {
+  padding: var(--fono-space-4);
+}
+.settings-shortcut {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fono-space-3);
+}
+.settings-shortcut > div {
+  flex: 1;
+  min-width: 0;
+}
+.settings-shortcut strong {
+  display: block;
+  font-size: var(--fono-type-sm);
+}
+.settings-shortcut p {
+  margin-top: var(--fono-space-1);
+  color: var(--fono-secondary);
+  font-size: var(--fono-type-sm);
+}
 .settings-layout {
   display: grid;
   grid-template-columns: 185px minmax(0, 1fr);
