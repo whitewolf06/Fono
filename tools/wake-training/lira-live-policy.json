@@ -1,9 +1,12 @@
 {
-  "schema": "fono-lira-live-policy@1",
+  "schema": "fono-lira-live-policy@2",
   "cnn_sha256": "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa541c",
   "verifier_config_sha256": "d3ea4079b329755bcdd42618cec915aa4952554479eb4b0999689558305ee47e",
   "sample_rate": 16000,
-  "context_samples": [64000, 32000],
+  "context_samples": [
+    64000,
+    32000
+  ],
   "focused_context": "zero left padding; unmodified recent half; same logmel and CNN",
   "threshold": 0.8,
   "stride_samples": 1280,
@@ -12,5 +15,7 @@
   "retry_horizon_samples": 64000,
   "acceptance_rule": "unchanged exact greedy whole phrase from T-one",
   "owner_voice_used_for_training": false,
-  "qualified": false
+  "qualified": false,
+  "runtime_source_sha256": "dfda02afc5c309dca8223568b96d6ab2366810c3a27cee41f990c68ed0eb7005",
+  "runtime_numerics": "numpy-stft512-hann400-hop160; kaiser5-half-rate; original exact greedy phrase"
 }

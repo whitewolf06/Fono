@@ -29,6 +29,10 @@ fn consented_pcm(path: &Path) -> Vec<i16> {
 #[test]
 #[ignore = "explicit local models and consenting fixtures; no microphone"]
 fn real_worker_rearms_in_one_process_with_native_job_and_pipe_client() {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_test_writer()
+        .try_init();
     let manifest: serde_json::Value = serde_json::from_slice(
         &std::fs::read(
             std::env::var_os("FONO_LIRA_REPLAY_MANIFEST").expect("explicit replay manifest"),
@@ -43,9 +47,14 @@ fn real_worker_rearms_in_one_process_with_native_job_and_pipe_client() {
     positive_with_tail.extend(room.iter().copied().cycle().take(32_000));
     let mut worker = WarmWorker::start(&Control::new()).expect("native worker handshake");
     let control = Control::new();
+    let mut vad = fono_audio::StreamingSpeechVad::new(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/vad/silero_vad.onnx"),
+    )
+    .expect("native neural speech gate");
     let mut rows = Vec::new();
     for pass in 0..4 {
         worker.reset(&control).expect("native reset");
+        vad.reset();
         let pcm: Vec<i16> = if pass < 3 {
             positive_with_tail.clone()
         } else {
@@ -57,9 +66,15 @@ fn real_worker_rearms_in_one_process_with_native_job_and_pipe_client() {
             let mut frame = [0; FRAME];
             frame[..samples.len()].copy_from_slice(samples);
             let sent = Instant::now();
+            let decision = vad.accept(&frame);
+            let speech = decision.has_speech
+                && decision
+                    .processed_samples
+                    .saturating_sub(decision.last_speech_sample.unwrap_or(0))
+                    <= 64_000;
             events += usize::from(
                 worker
-                    .feed(&frame, true, &control)
+                    .feed(&frame, speech, &control)
                     .expect("native frame reply"),
             );
             slowest = slowest.max(sent.elapsed());
@@ -75,6 +90,6 @@ fn real_worker_rearms_in_one_process_with_native_job_and_pipe_client() {
     }
     println!(
         "{}",
-        serde_json::json!({"same_worker":true,"microphone":false,"native_job_and_pipes":true,"rows":rows})
+        serde_json::json!({"same_worker":true,"microphone":false,"native_neural_vad":true,"native_job_and_pipes":true,"rows":rows})
     );
 }

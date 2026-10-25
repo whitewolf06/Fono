@@ -1,0 +1,83 @@
+{
+  "schema": "fono-lira-repeat-readiness@1",
+  "date": "2026-10-26",
+  "version": "0.7.80",
+  "scope": "Windows desktop dev; explicit owner enable only",
+  "fresh_incident": {
+    "version": "0.7.79",
+    "startup_timeouts": 3,
+    "reached_listening": false,
+    "offline_stack": "cold Torch and SciPy imports; a second isolated attempt still importing Torch at 120 seconds",
+    "first_native_replay": "two accepted wakes, then frame reply failure with the old runtime",
+    "increasing_only_the_startup_deadline_solved_it": false
+  },
+  "changes": {
+    "live_inference_imports": ["numpy", "onnxruntime"],
+    "torch_scipy_used_only_by_offline_reference_tools": true,
+    "same_logmel_stft": "512 FFT, periodic 400-sample Hann, hop 160, original mel matrix and normalization",
+    "same_resampling": "41-tap Kaiser-5 polyphase 16 to 8 kHz with zero padding",
+    "same_acceptance": "CNN >= 0.8 followed by original exact greedy whole phrase",
+    "same_model_hashes": true,
+    "unused_decoy_dp_diagnostics_removed_from_live_path": true,
+    "worker_priority": "normal; no high or realtime priority",
+    "blas_threads": 1,
+    "bounded_protocol": "v2; runtime, models, warmup, verified Ready; Stop has priority",
+    "startup_timeout_seconds": 120,
+    "frame_and_reset_timeout_seconds": 5,
+    "audio_age_limit_seconds": 3,
+    "audio_queue_packets_before": 128,
+    "audio_queue_packets_after": 512,
+    "queue_regression": "300 consecutive 10ms packets retained without loss while verifier is busy; original age check retained",
+    "release_wake_enabled": false,
+    "microphone_opened_by_agent": false,
+    "owner_voice_used_for_training": false
+  },
+  "numerical_reference_checks": {
+    "feature_max_observed_absolute_difference": 0.0007782,
+    "feature_absolute_tolerance": 0.001,
+    "feature_relative_tolerance": 0.0002,
+    "feature_note": "independent float32 FFT/cos roundoff near log floor; not an activation threshold",
+    "cnn_score_absolute_tolerance": 0.00001,
+    "cnn_score_relative_tolerance": 0.0001,
+    "resampler_absolute_tolerance": 0.0000001,
+    "impulse_resampler_arrays_identical": true
+  },
+  "paired_quality": {
+    "reference_commit": "47cef4966de9d18a9375491e78cd8f3f7b5757d2",
+    "reference_positive_hits": 20,
+    "candidate_positive_hits": 20,
+    "positive_clips": 22,
+    "negative_clips": 16,
+    "reference_negative_events": 0,
+    "candidate_negative_events": 0,
+    "lost_positive_cases": [],
+    "all_decisions_counts_and_sample_clocks_identical": true,
+    "new_independent_exposure": false,
+    "detail": "wake-lira-runtime-parity.json"
+  },
+  "native_repetition": {
+    "same_worker": true,
+    "native_job_pipes_and_neural_vad": true,
+    "startup_ms": 5999,
+    "events": [1, 1, 1, 0],
+    "max_frame_ms": [2398, 517, 781, 75],
+    "negative_seconds": 30,
+    "note": "one consenting positive repeated three times, then looped room sound; no AudioHub device, live capture or external insertion",
+    "new_independent_recall_or_latency_p95": false
+  },
+  "validation": {
+    "rust_targeted": {"passed": 14, "ignored": 1, "failed": 0},
+    "native_replay": "explicitly passed separately; final queue change checked by targeted Rust regression",
+    "python": {"passed": 45, "failed": 0},
+    "vue_ipc": {"passed": 412, "failed": 0},
+    "release_ci_working_tree": {"passed": 48, "failed": 0},
+    "typecheck_lint_frontend_build_format_version": "passed",
+    "kvorum": "not accessed, per owner request"
+  },
+  "remaining": [
+    "Owner live microphone UAT after launching the matching v0.7.80 app and worker: consecutive wakes, handoff and insertion.",
+    "The same two positive clips remain missed; this pass did not tune the detector or declare full recall.",
+    "Independent voices, long natural negatives, live p95 and idle resource budgets remain open.",
+    "Standalone worker packaging remains open; this dev still uses the prepared Python environment."
+  ]
+}

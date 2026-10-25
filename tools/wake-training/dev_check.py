@@ -34,11 +34,17 @@ def read_input(stream):
         return pcm
 
 
-def prepare():
+def prepare(progress=None, *, inference_only=False):
     """Validate and open the fixed models once; live callers keep these sessions warm."""
+    if progress is not None:
+        progress("runtime")
     import numpy as np
-    import torch
+    if not inference_only:
+        import torch
     import onnxruntime as ort
+
+    if progress is not None:
+        progress("models")
 
     model = ROOT / "build/wake-lira-candidate/model-01"
     config = json.loads((model / "config.json").read_text(encoding="utf-8"))
@@ -63,7 +69,8 @@ def prepare():
     for name in ("numpy", "scipy", "torch", "onnxruntime"):
         if importlib.metadata.version(name) != config["versions"][name]:
             raise ValueError("runtime version mismatch")
-    torch.set_num_threads(4)
+    if not inference_only:
+        torch.set_num_threads(4)
     options = ort.SessionOptions()
     options.intra_op_num_threads, options.inter_op_num_threads = 1, 1
     cnn = ort.InferenceSession(str(model / "candidate.onnx"), options, providers=["CPUExecutionProvider"])

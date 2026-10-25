@@ -1,0 +1,836 @@
+{
+  "schema": "fono-lira-paired-context-regression@1",
+  "models_and_threshold_unchanged": true,
+  "live_policy_sha256": "83f3bf9e667b4fd7d1fd11846448349e79bb91b84ac41cc7e5c7e0d5ec3ce409",
+  "candidate_context_samples": [
+    64000,
+    32000
+  ],
+  "native_vad": true,
+  "microphone_opened": false,
+  "owner_recordings_used_for_training": false,
+  "baseline_source_sha256": "cdd58962d826d0f9ce49effc407aecd17992e956ebfb4546861b7f8916299ad8",
+  "candidate_source_sha256": "5f6e17258ac8370ab60d0b13f51fe8b08e024a5f1ce7d179c8333a8af50189ed",
+  "runtime_parity": true,
+  "runtime_source_sha256": "dfda02afc5c309dca8223568b96d6ab2366810c3a27cee41f990c68ed0eb7005",
+  "context": "isolated existing clips; legacy speech negatives included; room continuation looped",
+  "latency": "sample clock relative to recording file end only; not labelled phrase end or live latency/p95",
+  "wall_seconds": 343.172,
+  "rows": [
+    {
+      "case": 0,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.95534747838974,
+      "max_focused_score": 0.95534747838974,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 820.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 820.0
+      }
+    },
+    {
+      "case": 1,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.00645020604133606,
+      "max_focused_score": 0.00647348165512085,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 2,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.8091586232185364,
+      "max_focused_score": 0.8091586232185364,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500.0
+      }
+    },
+    {
+      "case": 3,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.908126175403595,
+      "max_focused_score": 0.9087661504745483,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 4,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.8706505298614502,
+      "max_focused_score": 0.9207472801208496,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 5,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.8409042358398438,
+      "max_focused_score": 0.903061032295227,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 6,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.012991726398468018,
+      "max_focused_score": 0.012991726398468018,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 7,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9533277750015259,
+      "max_focused_score": 0.9533277750015259,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 450.0
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 450.0
+      }
+    },
+    {
+      "case": 8,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.8766754865646362,
+      "max_focused_score": 0.8766754865646362,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 90.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 90.0
+      }
+    },
+    {
+      "case": 9,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.8233477473258972,
+      "max_focused_score": 0.8233477473258972,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510.0
+      }
+    },
+    {
+      "case": 10,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9331324100494385,
+      "max_focused_score": 0.9331324100494385,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500.0
+      }
+    },
+    {
+      "case": 11,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.2994743585586548,
+      "max_focused_score": 0.27085280418395996,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 12,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9557579755783081,
+      "max_focused_score": 0.9557579755783081,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 130.0
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 130.0
+      }
+    },
+    {
+      "case": 13,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9550414681434631,
+      "max_focused_score": 0.9550414681434631,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 90.0
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 90.0
+      }
+    },
+    {
+      "case": 14,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9355736970901489,
+      "max_focused_score": 0.9355736970901489,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 280.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 280.0
+      }
+    },
+    {
+      "case": 15,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.8807064890861511,
+      "max_focused_score": 0.9190772175788879,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 16,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.8656911253929138,
+      "max_focused_score": 0.9557000994682312,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 4,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 4,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 17,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9246851205825806,
+      "max_focused_score": 0.9246851205825806,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 660.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 660.0
+      }
+    },
+    {
+      "case": 18,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.8584191799163818,
+      "max_focused_score": 0.9084336757659912,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 19,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9122275114059448,
+      "max_focused_score": 0.9122275114059448,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 370.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 370.0
+      }
+    },
+    {
+      "case": 20,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9245157241821289,
+      "max_focused_score": 0.9245157241821289,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 710.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 710.0
+      }
+    },
+    {
+      "case": 21,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9534506797790527,
+      "max_focused_score": 0.9534506797790527,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 590.0
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 590.0
+      }
+    },
+    {
+      "case": 22,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.928413987159729,
+      "max_focused_score": 0.928413987159729,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 490.0
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 490.0
+      }
+    },
+    {
+      "case": 23,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9433411359786987,
+      "max_focused_score": 0.9433411359786987,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 310.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 310.0
+      }
+    },
+    {
+      "case": 24,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9458545446395874,
+      "max_focused_score": 0.9458545446395874,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510.0
+      }
+    },
+    {
+      "case": 25,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9272456169128418,
+      "max_focused_score": 0.9272456169128418,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 610.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 610.0
+      }
+    },
+    {
+      "case": 26,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.8553822040557861,
+      "max_focused_score": 0.9083070755004883,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 27,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.861499547958374,
+      "max_focused_score": 0.861499547958374,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 180.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 180.0
+      }
+    },
+    {
+      "case": 28,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9085977077484131,
+      "max_focused_score": 0.9086235761642456,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500.0
+      }
+    },
+    {
+      "case": 29,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.8722996711730957,
+      "max_focused_score": 0.8722996711730957,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 810.0
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 810.0
+      }
+    },
+    {
+      "case": 30,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.2738294005393982,
+      "max_focused_score": 0.2738294005393982,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 31,
+      "positive": false,
+      "condition": "public",
+      "max_full_score": 0.873039722442627,
+      "max_focused_score": 0.9157454967498779,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 32,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8525895476341248,
+      "max_focused_score": 0.915238618850708,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 33,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8624391555786133,
+      "max_focused_score": 0.9180968403816223,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 34,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8852379322052002,
+      "max_focused_score": 0.9555630683898926,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 35,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.9241927862167358,
+      "max_focused_score": 0.9241927862167358,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 36,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8310266733169556,
+      "max_focused_score": 0.9054591655731201,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null
+      }
+    },
+    {
+      "case": 37,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.7829399108886719,
+      "max_focused_score": 0.9103529453277588,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null
+      }
+    }
+  ],
+  "baseline": {
+    "positive_clips": 22,
+    "positive_hits": 20,
+    "negative_clips": 16,
+    "negative_events": 0,
+    "early_events_in_positive_context": 0,
+    "ctc_checks": 64
+  },
+  "candidate": {
+    "positive_clips": 22,
+    "positive_hits": 20,
+    "negative_clips": 16,
+    "negative_events": 0,
+    "early_events_in_positive_context": 0,
+    "ctc_checks": 64
+  },
+  "lost_positive_cases": []
+}

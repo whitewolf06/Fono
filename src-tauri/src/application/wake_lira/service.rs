@@ -19,6 +19,10 @@ use std::{
 use tauri::{AppHandle, Manager};
 
 const PRE_ROLL: usize = 64_000 + 10_240;
+// A valid verifier reply may take up to the existing 3-second audio-age budget.
+// 128 typical 10ms packets overflowed before that budget, discarding a confirmed
+// phrase. Retain a bounded queue; the unchanged sample-age check rejects stale results.
+const AUDIO_QUEUE_PACKETS: usize = 512;
 fn interrupted_audio(reason: &'static str) -> AppError {
     tracing::warn!(
         event = "lira_audio_interrupted",
@@ -103,7 +107,7 @@ pub(super) fn run(
     let worker = warm.as_mut().expect("initialized warm worker");
     let mut vad = super::super::speech_gate::SpeechGate::new(app)?;
     let hub = app.state::<AudioHub>();
-    let (send, receive) = crossbeam_channel::bounded(128);
+    let (send, receive) = crossbeam_channel::bounded(AUDIO_QUEUE_PACKETS);
     let overflow = Arc::new(AtomicBool::new(false));
     let failed_send = Arc::clone(&overflow);
     let subscription = {
@@ -294,6 +298,27 @@ mod tests {
             epoch: 1,
             sample_rate: 16_000,
         }
+    }
+    #[test]
+    fn verifier_pause_within_the_freshness_budget_does_not_overflow_input() {
+        let (send, receive) = crossbeam_channel::bounded(AUDIO_QUEUE_PACKETS);
+        // The capture thread continues while the synchronous verifier is busy.
+        for index in 0..300 {
+            send.try_send(packet(index * 160, 160)).unwrap();
+        }
+        let mut frames = Frames::default();
+        let mut samples = 0;
+        while let Ok(packet) = receive.try_recv() {
+            frames.append(&packet).unwrap();
+            while let Some((pcm, _)) = frames.next() {
+                samples += pcm.len();
+            }
+        }
+        assert_eq!(samples + frames.pending.len(), 48_000);
+        assert_eq!(
+            frames.cursor.unwrap().sample + frames.pending.len() as u64,
+            48_000
+        );
     }
     #[test]
     fn packet_splitting_preserves_handoff_cursor_and_bounded_preroll() {

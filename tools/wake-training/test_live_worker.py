@@ -12,6 +12,31 @@ import live_worker
 
 
 class StreamTests(unittest.TestCase):
+    def test_startup_reports_loading_and_publishes_ready_only_after_both_models_are_warm(self):
+        events = []
+        cnn, tone = mock.Mock(), mock.Mock()
+        cnn.run.side_effect = lambda *_: events.append("cnn_warm")
+        tone.score.side_effect = lambda *_: events.append("verifier_warm")
+        def prepare(progress, *, inference_only):
+            self.assertTrue(inference_only)
+            progress("runtime")
+            progress("models")
+            return np, cnn, tone
+        with mock.patch.object(live_worker.dev_check, "prepare", side_effect=prepare), \
+                mock.patch.object(live_worker.live_runtime, "frontend"), \
+                mock.patch.object(live_worker.live_runtime, "verify", side_effect=lambda *_: events.append("verifier_warm")), \
+                mock.patch.object(live_worker, "Diagnostics"), \
+                mock.patch.object(live_worker, "reply", side_effect=lambda value: events.append(value)), \
+                mock.patch.object(live_worker, "exact_read", side_effect=EOFError):
+            with self.assertRaises(EOFError):
+                live_worker.run()
+        self.assertEqual(events, [
+            {"loading": "runtime"}, {"loading": "models"}, {"loading": "warmup"},
+            "cnn_warm", "verifier_warm",
+            {"protocol": 2, "cnn": live_worker.dev_check.CNN_SHA256,
+             "verifier": live_worker.dev_check.POINT_SHA256},
+        ])
+
     def test_stack_probe_is_off_unless_explicitly_enabled(self):
         with mock.patch.dict(live_worker.os.environ, {"FONO_WAKE_DEV_PROBE": "0"}), \
                 mock.patch.object(live_worker, "run", return_value="done") as run:

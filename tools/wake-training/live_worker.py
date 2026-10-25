@@ -10,6 +10,7 @@ import time
 import candidate as common
 import dev_check
 import lira_ctc
+import live_runtime
 
 # An early CNN crossing may precede the completed name. Keep exact confirmation
 # mandatory, but allow two bounded continuations of the same rejected proposal.
@@ -19,13 +20,15 @@ FOCUSED_SAMPLES = common.WINDOW // 2
 
 def validate_policy():
     policy = json.loads(Path(__file__).with_name("lira-live-policy.json").read_text(encoding="utf-8"))
-    expected = {"schema": "fono-lira-live-policy@1", "cnn_sha256": dev_check.CNN_SHA256,
+    expected = {"schema": "fono-lira-live-policy@2", "cnn_sha256": dev_check.CNN_SHA256,
                 "verifier_config_sha256": dev_check.POINT_SHA256, "sample_rate": common.RATE,
                 "context_samples": [common.WINDOW, FOCUSED_SAMPLES], "threshold": common.THRESHOLD,
                 "stride_samples": common.STRIDE, "lookahead_samples": common.TAIL,
                 "rejected_proposal_retries": MAX_REJECTED_RETRIES, "retry_horizon_samples": common.WINDOW,
                 "acceptance_rule": "unchanged exact greedy whole phrase from T-one",
-                "owner_voice_used_for_training": False, "qualified": False}
+                "owner_voice_used_for_training": False, "qualified": False,
+                "runtime_source_sha256": common.digest(Path(__file__).with_name("live_runtime.py")),
+                "runtime_numerics": "numpy-stft512-hann400-hop160; kaiser5-half-rate; original exact greedy phrase"}
     if any(policy.get(key) != value for key, value in expected.items()):
         raise ValueError("live policy drift")
 
@@ -161,19 +164,23 @@ def reply(value):
 
 def run():
     validate_policy()
-    np, cnn, tone = dev_check.prepare()
+    # Small real-time matrix products must not start a large BLAS thread pool.
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    os.environ["OMP_NUM_THREADS"] = "1"
+    np, cnn, tone = dev_check.prepare(lambda stage: reply({"loading": stage}), inference_only=True)
     # First-use native/library work belongs to Loading, before opening the mic.
     # Synthetic silence warms sessions only; it is never quality exposure.
-    cnn.run(None, {"logmel": common.frontend(np.zeros((1, common.WINDOW), dtype=np.float32)).numpy()})
-    tone.score(np.zeros(common.RATE, dtype=np.float32))
+    reply({"loading": "warmup"})
+    cnn.run(None, {"logmel": live_runtime.frontend(np.zeros((1, common.WINDOW), dtype=np.float32))})
+    live_runtime.verify(tone, np.zeros(common.RATE, dtype=np.float32))
     stream = Stream(
         lambda window: classify_contexts(window, lambda batch:
-            cnn.run(None, {"logmel": common.frontend(batch).numpy()})[0]),
-        lambda snapshot: tone.score(snapshot)["greedy_whole_phrase"],
+            cnn.run(None, {"logmel": live_runtime.frontend(batch)})[0]),
+        lambda snapshot: live_runtime.verify(tone, snapshot),
     )
     diagnostics = Diagnostics(dev_check.ROOT / "build/checks/lira-live-counters.json")
     diagnostics.write(stream, force=True)
-    reply({"protocol": 1, "cnn": dev_check.CNN_SHA256, "verifier": dev_check.POINT_SHA256})
+    reply({"protocol": 2, "cnn": dev_check.CNN_SHA256, "verifier": dev_check.POINT_SHA256})
     while True:
         kind, count = struct.unpack("<BI", exact_read(sys.stdin.buffer, 5))
         if kind == 0 and count == 0:

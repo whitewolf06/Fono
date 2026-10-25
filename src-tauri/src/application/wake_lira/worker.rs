@@ -14,6 +14,9 @@ use std::{
 pub(super) const FRAME: usize = 1280;
 const CNN: &str = "a9c4e2595669605325b97b7aeec62781c58073e9966a3850d360328bddaa541c";
 const VERIFIER: &str = "d3ea4079b329755bcdd42618cec915aa4952554479eb4b0999689558305ee47e";
+// Cold Python/SciPy imports can exceed one minute after a long idle. This is
+// Loading only: no audio is subscribed until the complete warmup handshake.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
 
 fn failed() -> AppError {
     failure("initialization")
@@ -83,6 +86,18 @@ struct Ready {
     cnn: String,
     verifier: String,
 }
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum LoadingStage {
+    Runtime,
+    Models,
+    Warmup,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Loading {
+    loading: LoadingStage,
+}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Reply {
@@ -107,6 +122,7 @@ fn wait_response(
     responses: &Receiver<Result<serde_json::Value, ()>>,
     control: &Control,
     deadline: Instant,
+    timeout_reason: &'static str,
 ) -> AppResult<serde_json::Value> {
     loop {
         if control.cancelled.load(Ordering::Acquire) {
@@ -134,11 +150,54 @@ fn wait_response(
             }
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                 if Instant::now() >= deadline {
-                    return Err(failure("reply_timeout"));
+                    return Err(failure(timeout_reason));
                 }
             }
         }
     }
+}
+
+fn wait_ready(
+    responses: &Receiver<Result<serde_json::Value, ()>>,
+    control: &Control,
+    started: Instant,
+) -> AppResult<()> {
+    let deadline = started + STARTUP_TIMEOUT;
+    for expected in [
+        LoadingStage::Runtime,
+        LoadingStage::Models,
+        LoadingStage::Warmup,
+    ] {
+        let progress: Loading = serde_json::from_value(wait_response(
+            responses,
+            control,
+            deadline,
+            "startup_timeout",
+        )?)
+        .map_err(|_| failure("startup_schema"))?;
+        if progress.loading != expected {
+            return Err(failure("startup_stage"));
+        }
+        tracing::info!(event = "lira_loading", stage = ?expected,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "live wake worker loading");
+    }
+    let ready: Ready = serde_json::from_value(wait_response(
+        responses,
+        control,
+        deadline,
+        "startup_timeout",
+    )?)
+    .map_err(|_| failure("startup_schema"))?;
+    if ready.protocol != 2 || ready.cnn != CNN || ready.verifier != VERIFIER {
+        return Err(failure("startup_identity"));
+    }
+    tracing::info!(
+        event = "lira_worker_ready",
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "live wake models and first inference ready"
+    );
+    Ok(())
 }
 impl WarmWorker {
     pub fn start(control: &Control) -> AppResult<Self> {
@@ -162,7 +221,9 @@ impl WarmWorker {
                 .env("PYTHONPATH", root.join("build/wake-training-python"))
                 .env("PYTHONDONTWRITEBYTECODE", "1")
                 .env("PYTHONUTF8", "1")
-                .creation_flags(0x08000000 | 0x00004000)
+                // Interactive frame deadlines must not compete at background
+                // priority with a foreground build or another busy application.
+                .creation_flags(0x08000000 | 0x00000020)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
@@ -173,13 +234,28 @@ impl WarmWorker {
         let mut input = child.0.stdin.take().ok_or_else(failed)?;
         let mut output = BufReader::new(child.0.stdout.take().ok_or_else(failed)?);
         let (tx, requests) = bounded::<Vec<u8>>(1);
-        let (responses, rx) = bounded(1);
+        // At most three loading messages plus Ready. All fit even if Stop
+        // cancels the waiter: the pipe thread must never block while dropping.
+        let (responses, rx) = bounded(4);
         let io = std::thread::Builder::new()
             .name("lira-pipes".into())
             .spawn(move || {
-                let ready = read_reply(&mut output);
-                let valid = ready.is_ok();
-                if responses.send(ready).is_err() || !valid {
+                let mut initialized = false;
+                for _ in 0..4 {
+                    let reply = read_reply(&mut output);
+                    let valid = reply.is_ok();
+                    let ready = reply
+                        .as_ref()
+                        .is_ok_and(|value| value.get("protocol").is_some());
+                    if responses.send(reply).is_err() || !valid {
+                        return;
+                    }
+                    if ready {
+                        initialized = true;
+                        break;
+                    }
+                }
+                if !initialized {
                     return;
                 }
                 while let Ok(request) = requests.recv() {
@@ -203,27 +279,37 @@ impl WarmWorker {
             io: Some(io),
             processed: 0,
         };
-        let ready: Ready = serde_json::from_value(worker.wait(control, Duration::from_secs(60))?)
-            .map_err(|_| failed())?;
-        if ready.protocol != 1 || ready.cnn != CNN || ready.verifier != VERIFIER {
-            return Err(failed());
-        }
+        wait_ready(&worker.responses, control, Instant::now())?;
         Ok(worker)
     }
-    fn wait(&self, control: &Control, timeout: Duration) -> AppResult<serde_json::Value> {
-        wait_response(&self.responses, control, Instant::now() + timeout)
+    fn wait(
+        &self,
+        control: &Control,
+        timeout_reason: &'static str,
+    ) -> AppResult<serde_json::Value> {
+        wait_response(
+            &self.responses,
+            control,
+            Instant::now() + Duration::from_secs(5),
+            timeout_reason,
+        )
     }
-    fn request(&self, request: Vec<u8>, control: &Control) -> AppResult<Reply> {
+    fn request(
+        &self,
+        request: Vec<u8>,
+        control: &Control,
+        timeout_reason: &'static str,
+    ) -> AppResult<Reply> {
         self.requests
             .as_ref()
             .ok_or_else(failed)?
             .try_send(request)
             .map_err(|_| failure("request_queue"))?;
-        serde_json::from_value(self.wait(control, Duration::from_secs(5))?)
+        serde_json::from_value(self.wait(control, timeout_reason)?)
             .map_err(|_| failure("reply_schema"))
     }
     pub fn reset(&mut self, control: &Control) -> AppResult<()> {
-        let reply = self.request(vec![0; 5], control)?;
+        let reply = self.request(vec![0; 5], control, "reset_timeout")?;
         if reply.processed != 0 || reply.detected {
             return Err(failure("reset_clock"));
         }
@@ -241,7 +327,7 @@ impl WarmWorker {
         for value in pcm {
             request.extend_from_slice(&value.to_le_bytes());
         }
-        let reply = self.request(request, control)?;
+        let reply = self.request(request, control, "frame_timeout")?;
         self.processed += FRAME as u64;
         if reply.processed != self.processed {
             return Err(failure("frame_clock"));
@@ -265,6 +351,61 @@ impl Drop for WarmWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn startup_messages(protocol: u32) -> [serde_json::Value; 4] {
+        [
+            serde_json::json!({"loading":"runtime"}),
+            serde_json::json!({"loading":"models"}),
+            serde_json::json!({"loading":"warmup"}),
+            serde_json::json!({"protocol":protocol,"cnn":CNN,"verifier":VERIFIER}),
+        ]
+    }
+    #[test]
+    fn cold_loading_can_finish_after_one_minute_without_restarting_the_worker() {
+        let (send, receive) = bounded(4);
+        for message in startup_messages(2) {
+            send.send(Ok(message)).unwrap();
+        }
+        wait_ready(
+            &receive,
+            &Control::new(),
+            Instant::now() - Duration::from_secs(70),
+        )
+        .unwrap();
+        assert!(receive.is_empty());
+    }
+    #[test]
+    fn repeated_or_missing_loading_stages_and_old_protocol_are_not_ready() {
+        for messages in [
+            vec![serde_json::json!({"loading":"models"})],
+            vec![
+                serde_json::json!({"loading":"runtime"}),
+                serde_json::json!({"loading":"runtime"}),
+            ],
+            startup_messages(1).to_vec(),
+            vec![serde_json::json!({"loading":"runtime","extra":true})],
+        ] {
+            let (send, receive) = bounded(4);
+            for message in messages {
+                send.send(Ok(message)).unwrap();
+            }
+            assert!(wait_ready(&receive, &Control::new(), Instant::now()).is_err());
+        }
+    }
+    #[test]
+    fn silent_startup_still_expires_and_stop_wins_over_ready_models() {
+        let (send, receive) = bounded(4);
+        assert!(wait_ready(&receive, &Control::new(), Instant::now() - STARTUP_TIMEOUT,).is_err());
+        for message in startup_messages(2) {
+            send.send(Ok(message)).unwrap();
+        }
+        let stopped = Control::new();
+        stopped.cancelled.store(true, Ordering::Release);
+        assert!(matches!(
+            wait_ready(&receive, &stopped, Instant::now()),
+            Err(AppError::Cancelled(_))
+        ));
+        assert_eq!(receive.len(), 4);
+    }
     #[test]
     fn scheduling_pause_does_not_discard_an_already_queued_reply() {
         let (send, receive) = bounded(1);
@@ -272,7 +413,7 @@ mod tests {
         send.send(Ok(value.clone())).unwrap();
         let expired = Instant::now() - Duration::from_secs(1);
         assert_eq!(
-            wait_response(&receive, &Control::new(), expired).unwrap(),
+            wait_response(&receive, &Control::new(), expired, "test_timeout").unwrap(),
             value
         );
     }
@@ -281,7 +422,7 @@ mod tests {
         let (send, receive) = bounded(1);
         let expired = Instant::now() - Duration::from_secs(1);
         assert!(matches!(
-            wait_response(&receive, &Control::new(), expired),
+            wait_response(&receive, &Control::new(), expired, "test_timeout"),
             Err(AppError::Internal(_))
         ));
         send.send(Ok(serde_json::json!({"processed":1280,"detected":true})))
@@ -289,7 +430,7 @@ mod tests {
         let stopped = Control::new();
         stopped.cancelled.store(true, Ordering::Release);
         assert!(matches!(
-            wait_response(&receive, &stopped, expired),
+            wait_response(&receive, &stopped, expired, "test_timeout"),
             Err(AppError::Cancelled(_))
         ));
         assert_eq!(receive.len(), 1);

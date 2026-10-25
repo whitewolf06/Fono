@@ -192,15 +192,18 @@ const tools = computed<
           <AppIcon class="tool-icon" :name="tool.icon" />
           <strong>{{ tool.title }}</strong>
         </div>
-        <WlSwitch
-          v-if="tool.liveWake"
-          :model-value="liveActive"
-          :disabled="liveBlocked"
-          :aria-label="$t(liveActive ? 'wakeLive.disable' : 'wakeLive.enable')"
-          :title="$t('wakeLive.hint')"
-          @update:model-value="changeLive"
-          @change="syncLiveToggle"
-        />
+        <div v-if="tool.liveWake" class="toggle-row is-compact">
+          <WlSwitch
+            :model-value="liveActive"
+            :disabled="liveBlocked"
+            :aria-label="
+              $t(liveActive ? 'wakeLive.disable' : 'wakeLive.enable')
+            "
+            :title="$t('wakeLive.hint')"
+            @update:model-value="changeLive"
+            @change="syncLiveToggle"
+          />
+        </div>
         <PreferenceToggle
           v-else-if="tool.toggle"
           :name="tool.toggle"
