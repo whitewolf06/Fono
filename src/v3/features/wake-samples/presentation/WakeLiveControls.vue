@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
-import { WlButton } from "@whitelife-core/ui-kit";
+import { WlBadge, WlButton } from "@whitelife-core/ui-kit";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { message as $t } from "../../../shared/domain/messages";
 import { captureSettingsLocked } from "../../../shared/domain/pretranscription";
@@ -28,8 +28,12 @@ onMounted(() => void port.refreshLive());
     class="form-stack"
     :aria-label="$t('wakeLive.title')"
   >
-    <h3>{{ $t("wakeLive.title") }}</h3>
+    <h3>
+      {{ $t("wakeLive.title") }}
+      <WlBadge :value="$t('wakeLive.beta')" variant="gray" />
+    </h3>
     <p class="notice">{{ $t("wakeLive.hint") }}</p>
+    <p class="muted">{{ $t("wakeLive.betaHint") }}</p>
     <p v-if="state.live.phase !== 'error'" role="status" aria-live="polite">
       {{ $t(`wakeLive.${state.live.phase}`) }}
     </p>

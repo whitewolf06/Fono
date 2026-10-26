@@ -1,0 +1,80 @@
+{
+  "schema": "fono-lira-beta-status@1",
+  "date": "2026-10-26",
+  "version": "0.7.84",
+  "change": "Neutral Beta badges on the live-wake home card and settings; RU/EN explanation of possible delay/misses and when to start dictation. Existing release capability gates retained.",
+  "owner_recovery_version": "0.7.83",
+  "detector_unchanged": [
+    {
+      "path": "tools/wake-training/live_runtime.py",
+      "sha256": "dfda02afc5c309dca8223568b96d6ab2366810c3a27cee41f990c68ed0eb7005",
+      "head_sha256": "dfda02afc5c309dca8223568b96d6ab2366810c3a27cee41f990c68ed0eb7005"
+    },
+    {
+      "path": "tools/wake-training/live_worker.py",
+      "sha256": "5f6e17258ac8370ab60d0b13f51fe8b08e024a5f1ce7d179c8333a8af50189ed",
+      "head_sha256": "5f6e17258ac8370ab60d0b13f51fe8b08e024a5f1ce7d179c8333a8af50189ed"
+    },
+    {
+      "path": "tools/wake-training/lira-live-policy.json",
+      "sha256": "dd7d64a86045d97fa06da87c47711f082129df970c399aa5a6aa974623fc7642",
+      "head_sha256": "dd7d64a86045d97fa06da87c47711f082129df970c399aa5a6aa974623fc7642"
+    }
+  ],
+  "validation": {
+    "vue_ipc": {
+      "passed": 412,
+      "failed": 0
+    },
+    "release_ci_working_tree": {
+      "passed": 48,
+      "failed": 0
+    },
+    "typecheck_lint_build_format_version": "passed",
+    "browser_mock": {
+      "viewport_sizes": [
+        [
+          720,
+          560
+        ],
+        [
+          900,
+          720
+        ],
+        [
+          1440,
+          900
+        ]
+      ],
+      "horizontal_overflow": false,
+      "live_wake_hidden": true,
+      "scope": "Shared Vue browser mock; native-capability badge branch covered by SSR tests. No native microphone or external insertion test."
+    },
+    "native_source_changed": false,
+    "native_qa_reference": "wake-lira-reference-restore.json; no repeated hardware or quality experiment"
+  },
+  "release_assessment": {
+    "source": "Local checkout and local reports; Kvorum and remote CI were not queried.",
+    "proposed_next_minor": "0.8.0; proposal only, no minor bump or publication authorized",
+    "wake_word": "Currently Windows debug only, dependent on an explicit external Python executable, repository scripts and local model assets. No portable worker/model bundle in the installer; a Beta label does not enable release.",
+    "before_release_with_lira": [
+      "Package a standalone wake worker and exact model assets without developer paths, training dependencies or personal recordings.",
+      "Wire its release capability, explicit opt-in and runtime lifecycle; confirm it on the packaged release.",
+      "Prepare and verify the current installer/updater and GPU/CUDA assets/signatures for the chosen release composition; perform a short owner install/update pass."
+    ],
+    "retained_backlog": [
+      "PERF-04 strict no-regression gate remains open by prior owner decision to move on.",
+      "Expanded CPU/CUDA/Vulkan and model quality/resource/idle/device tests remain separate work.",
+      "Clean Windows installer acceptance was previously deferred by the owner.",
+      "Wake latency, two known positive misses, independent voices and long natural negatives remain beta quality work."
+    ],
+    "working_tree": "Unrelated owner edits remain unstaged; release composition must use an identified commit."
+  },
+  "not_performed": [
+    "No detector or threshold tuning",
+    "No installer build or installation",
+    "No signing/publication/push or minor bump",
+    "No Kvorum access"
+  ],
+  "kvorum": "Paused per owner request."
+}

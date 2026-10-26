@@ -112,9 +112,16 @@
     "ui_changed_in_this_pass": false
   },
   "remaining": [
-    "Verify current live voice after a complete v0.7.83 application restart. Do not claim restored reliability before owner feedback.",
-    "If the failure persists, reproduce it with an explicitly owner-recorded current sample before changing phonetic acceptance or thresholds. Additional recordings are not required for this reference restart.",
-    "Two known positive misses, independent voices, long natural negatives, live latency/resource budgets and standalone worker packaging remain open."
+    "Perceived wake latency remains; owner asked to retain the current detector and mark it beta.",
+    "Root cause of the v0.7.82 live incident is not isolated. The speculative schedule stays removed; optimization needs a separate controlled live pass.",
+    "Two known positive misses, independent voices, long natural negatives, live resource budgets and standalone worker packaging remain open."
   ],
-  "kvorum": "Not accessed, per owner request."
+  "kvorum": "Not accessed, per owner request.",
+  "owner_live_confirmation": {
+    "date": "2026-10-26",
+    "version": "0.7.83",
+    "result": "Owner confirmed wake-up works again after the complete frontend/backend restart.",
+    "latency": "Owner still perceives roughly one second of waiting; no live p95 or acoustic onset measurement.",
+    "scope": "Recovery confirmed on the owner machine; detector-wide recall/false-activation qualification remains open."
+  }
 }

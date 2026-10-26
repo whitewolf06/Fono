@@ -2146,6 +2146,8 @@
   "wakeSamples.notDetected": "Phrase not detected",
   "wakeSamples.testTime": "Recording processing: {seconds} s",
   "wakeLive.title": "Wake with “Привет, Лира”",
+  "wakeLive.beta": "Beta",
+  "wakeLive.betaHint": "Wake-up may be delayed or missed. Start dictating after the ready sound or when the recording indicator appears.",
   "wakeLive.hint": "The microphone stays open until you turn wake-up off. Wait for Listening, say “Привет, Лира” and dictate. After a pause, the text is inserted into the active field. Wake-up is off each time Fono starts.",
   "wakeLive.enable": "Enable “Привет, Лира”",
   "wakeLive.disable": "Turn wake-up off",

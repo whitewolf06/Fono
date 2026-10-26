@@ -175,6 +175,7 @@ test("home shows the available Lira card with real phases while legacy WakeWord 
     const unavailable = await render();
     assert.equal((unavailable.match(/class="tool-card"/g) || []).length, 3);
     assert.doesNotMatch(unavailable, /Привет, Лира/);
+    assert.doesNotMatch(unavailable, />Бета</);
     const health = {
       off: "off",
       loading: "loading",
@@ -197,6 +198,7 @@ test("home shows the available Lira card with real phases while legacy WakeWord 
         .find((article) => article.includes("Привет, Лира"));
       assert.ok(card);
       assert.match(card, /<strong>Пробуждение<\/strong>/);
+      assert.match(card, />Бета</);
       assert.match(card, /class="tool-value"[^>]*>Привет, Лира<\/div>/);
       assert.match(card, new RegExp(`data-health="${expectedHealth}"`));
       assert.doesNotMatch(card, /Пробуждение выключено/);

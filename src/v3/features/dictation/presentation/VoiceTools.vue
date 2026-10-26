@@ -5,7 +5,12 @@ import {
 } from "../../../shared/domain/messages";
 
 import { computed } from "vue";
-import { WlButton, WlSwitch, type WlIconName } from "@whitelife-core/ui-kit";
+import {
+  WlBadge,
+  WlButton,
+  WlSwitch,
+  type WlIconName,
+} from "@whitelife-core/ui-kit";
 import { useRouter } from "vue-router";
 import { useWorkspace } from "../../../shared/application/workspace";
 import { useInteraction } from "../../../shared/application/interaction";
@@ -227,7 +232,13 @@ const tools = computed<
               ? $t('ui.09ebf55cf0')
               : undefined
           "
-        /><WlButton
+        />
+        <WlBadge
+          v-if="tool.liveWake"
+          :value="$t('wakeLive.beta')"
+          variant="gray"
+        />
+        <WlButton
           size="xs"
           variant="ghost"
           :aria-label="$t('ui.e692931a28') + tool.title"

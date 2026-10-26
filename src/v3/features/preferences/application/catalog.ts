@@ -411,7 +411,7 @@ searchIndex.push(
     },
     section: "activation",
     field: "wake-live",
-    keywords: "привет лира lira wakeword пробуждение",
+    keywords: "привет лира lira wakeword пробуждение бета beta",
   },
   {
     get label() {
