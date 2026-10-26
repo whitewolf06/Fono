@@ -144,55 +144,53 @@ impl WorkerFixture {
     #[cfg(windows)]
     fn request_dispatcher() -> Self {
         let fixture = Self::create("");
-        let dispatcher = fixture.directory.join("worker.ps1");
+        let dispatcher = fixture.directory.join("worker.cjs");
+        let node = std::env::split_paths(&std::env::var_os("PATH").expect("native test PATH"))
+            .map(|directory| directory.join("node.exe"))
+            .find(|candidate| candidate.is_file())
+            .expect("Node is required by the native test wrapper");
         // This fixture needs a real line-framed request loop: a fixed third
         // set /p can mistake a partial/empty pipe read for Shutdown and emit an
         // unsolicited ACK/EOF before model readiness has been published.
+        // Node is already required by test-native.ps1. Its small line reader
+        // avoids PowerShell cold startup within the production Hello deadline.
         fs::write(
             &dispatcher,
-            r#"$ErrorActionPreference = 'Stop'
-while ($null -ne ($line = [Console]::In.ReadLine())) {
-    if ([string]::IsNullOrWhiteSpace($line)) { continue }
-    $request = ConvertFrom-Json -InputObject $line
-    if ($request.protocol_version -ne 4 -or
-        [string]::IsNullOrWhiteSpace([string]$request.request_id)) {
-        throw 'Invalid fixture request metadata'
+            r#"const lines = require('node:readline').createInterface({ input: process.stdin });
+lines.on('line', (line) => {
+    if (!line.trim()) return;
+    const request = JSON.parse(line);
+    if (request.protocol_version !== 4 || typeof request.request_id !== 'string' || !request.request_id.trim()) {
+        throw new Error('Invalid fixture request metadata');
     }
-    $response = [ordered]@{
-        type = ''
-        protocol_version = 4
-        request_id = [string]$request.request_id
-        backend = 'cuda'
+    const response = { type: '', protocol_version: 4, request_id: request.request_id, backend: 'cuda' };
+    switch (request.type) {
+        case 'hello':
+            response.type = 'ready';
+            response.capabilities = {
+                protocol_version: 4, supports_health: true, supports_shutdown: true,
+                supports_window: true, supports_cancel: true, supports_token_timestamps: true,
+                maximum_request_bytes: 16777216, maximum_response_bytes: 1048576,
+            };
+            break;
+        case 'load': response.type = 'model_loaded'; break;
+        case 'ping': response.type = 'pong'; break;
+        case 'shutdown': response.type = 'shutting_down'; break;
+        default: throw new Error('Unexpected fixture request type');
     }
-    switch ($request.type) {
-        'hello' {
-            $response['type'] = 'ready'
-            $response['capabilities'] = @{
-                protocol_version = 4
-                supports_health = $true
-                supports_shutdown = $true
-                supports_window = $true
-                supports_cancel = $true
-                supports_token_timestamps = $true
-                maximum_request_bytes = 16777216
-                maximum_response_bytes = 1048576
-            }
-        }
-        'load' { $response['type'] = 'model_loaded' }
-        'ping' { $response['type'] = 'pong' }
-        'shutdown' { $response['type'] = 'shutting_down' }
-        default { throw 'Unexpected fixture request type' }
-    }
-    [Console]::Out.WriteLine(($response | ConvertTo-Json -Depth 4 -Compress))
-    [Console]::Out.Flush()
-    if ($request.type -eq 'shutdown') { exit 0 }
-}
+    process.stdout.write(JSON.stringify(response) + '\n', () => {
+        if (request.type === 'shutdown') process.exit(0);
+    });
+});
 "#,
         )
         .expect("write request-dispatch fixture");
         fs::write(
             &fixture.script,
-            "@echo off\r\n\"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%~dp0worker.ps1\"\r\nexit /b %errorlevel%\r\n",
+            format!(
+                "@echo off\r\n\"{}\" \"%~dp0worker.cjs\"\r\nexit /b %errorlevel%\r\n",
+                node.display()
+            ),
         )
         .expect("write request-dispatch wrapper");
         fixture

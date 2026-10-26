@@ -301,6 +301,8 @@ impl SttEngine {
                     return Ok(());
                 }
                 Err(error) => {
+                    #[cfg(test)]
+                    eprintln!("STT test backend load error: {error:?}");
                     if matches!(error, AppError::Cancelled(_)) {
                         self.load_readiness(
                             SttReadiness::Failed {

@@ -48,14 +48,19 @@ pub(super) struct Subject {
 impl Subject {
     pub(super) fn create(path: &Path) -> Self {
         let mut process = HANDLE::default();
-        unsafe {
-            OpenProcessToken(
-                GetCurrentProcess(),
-                TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_ADJUST_DEFAULT,
-                &mut process,
-            )
-            .expect("open current process token for the ACL test subject");
-        }
+        let access = TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_ADJUST_DEFAULT;
+        // A nested fixture must duplicate the effective thread token. Opening
+        // the elevated process token from the restricted subject is forbidden.
+        let nested =
+            match unsafe { OpenThreadToken(GetCurrentThread(), access, true, &mut process) } {
+                Ok(()) => true,
+                Err(error) if error.code() == ERROR_NO_TOKEN.to_hresult() => {
+                    unsafe { OpenProcessToken(GetCurrentProcess(), access, &mut process) }
+                        .expect("open current process token for the ACL test subject");
+                    false
+                }
+                Err(error) => panic!("open effective ACL test subject: {error}"),
+            };
         let process = Token(process);
         let mut needed = 0;
         let _ = unsafe { GetTokenInformation(process.0, TokenUser, None, 0, &mut needed) };
@@ -144,19 +149,7 @@ impl Subject {
         drop(descriptor_allocation);
         drop(sid_allocation);
 
-        let mut previous = HANDLE::default();
-        let previous = match unsafe {
-            OpenThreadToken(
-                GetCurrentThread(),
-                TOKEN_QUERY | TOKEN_IMPERSONATE,
-                true,
-                &mut previous,
-            )
-        } {
-            Ok(()) => Some(Token(previous)),
-            Err(error) if error.code() == ERROR_NO_TOKEN.to_hresult() => None,
-            Err(error) => panic!("capture previous test thread token: {error}"),
-        };
+        let previous = nested.then_some(process);
         unsafe {
             ImpersonateLoggedOnUser(restricted.0).expect("enter ordinary-user ACL test subject")
         };
