@@ -678,12 +678,21 @@ fn junction_ancestors_are_rejected_without_touching_the_target() {
     let temporary = Temporary::new();
     let outside = Temporary::new();
     let junction = temporary.0.join("junction");
-    let result = std::process::Command::new("cmd")
-        .args(["/c", "mklink", "/J"])
-        .arg(&junction)
-        .arg(&outside.0)
-        .output()
-        .unwrap();
+    let link_path = junction.clone();
+    let target_path = outside.0.clone();
+    // Fixture setup uses the process identity on its own thread: elevated
+    // runners cannot create a child process from the restricted impersonation
+    // context. The storage checks below still run as the ordinary-user subject.
+    let result = std::thread::spawn(move || {
+        std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(&link_path)
+            .arg(&target_path)
+            .output()
+    })
+    .join()
+    .unwrap()
+    .unwrap();
     assert!(
         result.status.success(),
         "junction fixture creation failed: {} {}",
