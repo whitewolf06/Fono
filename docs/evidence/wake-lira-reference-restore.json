@@ -1,0 +1,120 @@
+{
+  "schema": "fono-lira-reference-restore-readiness@1",
+  "date": "2026-10-26",
+  "version": "0.7.83",
+  "purpose": "Conservative mitigation after poor live behavior; not a confirmed root-cause fix.",
+  "incident": {
+    "version": "0.7.82",
+    "owner_report": "About one accepted wake in ten attempts.",
+    "listener_still_processing": true,
+    "capture_packet_drops_in_the_one_success": 0,
+    "cleanup_removed_characters_in_that_success": 14,
+    "later_snapshot": {
+      "proposals": 34,
+      "checks": 33,
+      "accepted": 1,
+      "retries": 16,
+      "max_classify_ms": 147.469,
+      "max_verifier_total_ms": 2581.101,
+      "max_verifier_step_ms": 624.038
+    },
+    "restored_listener_owner_test": "No wake reported. The whole application had not yet been restarted.",
+    "exact_cause": "Not established. Current failed live audio was not recorded by the agent."
+  },
+  "restore": {
+    "schema": "fono-lira-reference-restore@1",
+    "base": "f46308c8c79f086e17512f7877085a6d7474abf4",
+    "files": [
+      {
+        "file": "tools/wake-training/live_runtime.py",
+        "reference_sha256": "dfda02afc5c309dca8223568b96d6ab2366810c3a27cee41f990c68ed0eb7005",
+        "working_sha256": "dfda02afc5c309dca8223568b96d6ab2366810c3a27cee41f990c68ed0eb7005"
+      },
+      {
+        "file": "tools/wake-training/live_worker.py",
+        "reference_sha256": "5f6e17258ac8370ab60d0b13f51fe8b08e024a5f1ce7d179c8333a8af50189ed",
+        "working_sha256": "5f6e17258ac8370ab60d0b13f51fe8b08e024a5f1ce7d179c8333a8af50189ed"
+      },
+      {
+        "file": "tools/wake-training/test_live_runtime.py",
+        "reference_sha256": "8853fd825eda97c07ad214e0f7237fa1ee3ab8fd55cb3e4cb999cae7b7f223b3",
+        "working_sha256": "8853fd825eda97c07ad214e0f7237fa1ee3ab8fd55cb3e4cb999cae7b7f223b3"
+      },
+      {
+        "file": "tools/wake-training/test_live_worker.py",
+        "reference_sha256": "00ac7dd60ccd792add0e2aa62bf792205ed48fd64bcfd6008154b374b0c9a180",
+        "working_sha256": "00ac7dd60ccd792add0e2aa62bf792205ed48fd64bcfd6008154b374b0c9a180"
+      },
+      {
+        "file": "tools/wake-training/lira-live-policy.json",
+        "reference_sha256": "dd7d64a86045d97fa06da87c47711f082129df970c399aa5a6aa974623fc7642",
+        "working_sha256": "dd7d64a86045d97fa06da87c47711f082129df970c399aa5a6aa974623fc7642"
+      },
+      {
+        "file": "tools/wake-training/replay_live.py",
+        "reference_sha256": "dd1f22542998b868ac8fe5103dddf218094d1fabafcee0d73290efe99a4f9531",
+        "working_sha256": "dd1f22542998b868ac8fe5103dddf218094d1fabafcee0d73290efe99a4f9531"
+      }
+    ],
+    "byte_identical_to_reference": true,
+    "models_threshold_context_lookahead_retries_unchanged": true,
+    "reference_policy": "fono-lira-live-policy@2",
+    "ready_cue_preserved": true,
+    "transcript_cleanup_for_lira_lera_ira_preserved": true,
+    "ordinary_hotkey_dictation_unchanged": true
+  },
+  "validation": {
+    "python": {
+      "passed": 45,
+      "failed": 0
+    },
+    "rust_lira": {
+      "passed": 15,
+      "ignored_in_ordinary_run": 1,
+      "failed": 0
+    },
+    "explicit_native_replay": {
+      "passed": 1,
+      "same_worker": true,
+      "neural_vad": true,
+      "windows_job_and_pipes": true,
+      "events": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "max_frame_ms": [
+        310,
+        266,
+        499,
+        4
+      ],
+      "negative_seconds": 30,
+      "scope": "One previously consented positive clip repeated three times and looped room sound; no live microphone, output or insertion. Not three independent utterances or owner live acceptance."
+    },
+    "vue_ipc": {
+      "passed": 412,
+      "failed": 0
+    },
+    "release_ci_working_tree": {
+      "passed": 48,
+      "failed": 0
+    },
+    "typecheck_lint_frontend_build_format_version": "passed",
+    "quality_sweep_repeated": false,
+    "quality_reference": "The restored detector is byte-identical to v0.7.81; previous paired corpus results remain historical, not a reproduction of the current incident."
+  },
+  "recording_tools": {
+    "ui_location": "Settings / Diagnostics / Advanced / WakeWord recording and verification",
+    "deleted": false,
+    "release_ui": "Hidden by native live availability; the release backend reports unavailable.",
+    "ui_changed_in_this_pass": false
+  },
+  "remaining": [
+    "Verify current live voice after a complete v0.7.83 application restart. Do not claim restored reliability before owner feedback.",
+    "If the failure persists, reproduce it with an explicitly owner-recorded current sample before changing phonetic acceptance or thresholds. Additional recordings are not required for this reference restart.",
+    "Two known positive misses, independent voices, long natural negatives, live latency/resource budgets and standalone worker packaging remain open."
+  ],
+  "kvorum": "Not accessed, per owner request."
+}

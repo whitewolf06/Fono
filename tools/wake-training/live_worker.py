@@ -16,18 +16,15 @@ import live_runtime
 # mandatory, but allow two bounded continuations of the same rejected proposal.
 MAX_REJECTED_RETRIES = 2
 FOCUSED_SAMPLES = common.WINDOW // 2
-PREFILL_CHUNKS_PER_FRAME = 2
 
 
 def validate_policy():
     policy = json.loads(Path(__file__).with_name("lira-live-policy.json").read_text(encoding="utf-8"))
-    expected = {"schema": "fono-lira-live-policy@3", "cnn_sha256": dev_check.CNN_SHA256,
+    expected = {"schema": "fono-lira-live-policy@2", "cnn_sha256": dev_check.CNN_SHA256,
                 "verifier_config_sha256": dev_check.POINT_SHA256, "sample_rate": common.RATE,
                 "context_samples": [common.WINDOW, FOCUSED_SAMPLES], "threshold": common.THRESHOLD,
                 "stride_samples": common.STRIDE, "lookahead_samples": common.TAIL,
                 "rejected_proposal_retries": MAX_REJECTED_RETRIES, "retry_horizon_samples": common.WINDOW,
-                "verifier_prefill_chunks_per_frame": PREFILL_CHUNKS_PER_FRAME,
-                "verifier_schedule": "immutable FIR-safe prefix during unchanged lookahead; exact final decision",
                 "acceptance_rule": "unchanged exact greedy whole phrase from T-one",
                 "owner_voice_used_for_training": False, "qualified": False,
                 "runtime_source_sha256": common.digest(Path(__file__).with_name("live_runtime.py")),
@@ -53,14 +50,13 @@ def classify_contexts(window, predict):
 
 
 class Stream:
-    def __init__(self, classify, verify, prefill=None):
+    def __init__(self, classify, verify):
         import numpy as np
-        self.np, self.classify, self.verify, self.prefill = np, classify, verify, prefill
+        self.np, self.classify, self.verify = np, classify, verify
         # Technical counters only. Never retain microphone PCM or verifier text.
         self.stats = {"frames": 0, "speech_frames": 0, "max_abs": 0.0, "max_cnn_score": 0.0,
                       "proposals": 0, "checks": 0, "accepted": 0, "resets": -1,
-                      "retries": 0, "max_classify_ms": 0.0, "max_verify_ms": 0.0,
-                      "max_verify_step_ms": 0.0}
+                      "retries": 0, "max_classify_ms": 0.0, "max_verify_ms": 0.0}
         self.last_check = None
         self.reset()
 
@@ -70,7 +66,6 @@ class Stream:
         self.processed, self.until = 0, 0
         self.armed, self.pending = True, None
         self.retry, self.attempts, self.retry_deadline = False, 0, 0
-        self.pending_verifier, self.pending_verify_ms = None, 0.0
 
     def accept(self, values, speech):
         if len(values) != common.STRIDE or not self.np.isfinite(values).all():
@@ -106,42 +101,24 @@ class Stream:
             self.retry = False
             self.stats["proposals"] += 1
             self.pending = self.processed
-            self.pending_verifier = self.prefill() if self.prefill is not None else None
-            self.pending_verify_ms = 0.0
             self.until, self.armed = self.processed + common.COOLDOWN, False
         detected = False
         proposal = self.pending
-        if proposal is not None and (self.pending_verifier is not None
-                                     or self.processed >= proposal + common.TAIL):
+        if proposal is not None and self.processed >= proposal + common.TAIL:
             start = max(0, proposal - common.WINDOW)
             available_start = self.processed - len(self.pcm)
             if start < available_start:
                 raise ValueError("verifier audio no longer available")
-            end = min(self.processed, proposal + common.TAIL)
-            snapshot = self.pcm[start - available_start:end - available_start]
-            final = self.processed >= proposal + common.TAIL
+            snapshot = self.pcm[start - available_start:proposal + common.TAIL - available_start]
             started = time.perf_counter()
-            if self.pending_verifier is not None:
-                decision = self.pending_verifier.advance(snapshot, final=final,
-                                                         max_chunks=PREFILL_CHUNKS_PER_FRAME)
-                if not final and decision is not None:
-                    raise ValueError("prefill may not announce readiness")
-                detected = bool(decision) if final else False
-            else:
-                detected = bool(self.verify(snapshot))
-            step_ms = (time.perf_counter() - started) * 1000
-            self.pending_verify_ms += step_ms
-            self.stats["max_verify_step_ms"] = max(self.stats["max_verify_step_ms"], step_ms)
-            if not final:
-                return {"processed": self.processed, "detected": False}
-            self.stats["max_verify_ms"] = max(self.stats["max_verify_ms"], self.pending_verify_ms)
+            detected = bool(self.verify(snapshot))
+            verify_ms = (time.perf_counter() - started) * 1000
+            self.stats["max_verify_ms"] = max(self.stats["max_verify_ms"], verify_ms)
             self.stats["checks"] += 1
             self.stats["accepted"] += int(detected)
             self.pending = None
-            self.pending_verifier = None
             self.last_check = {"proposal_sample": proposal, "available_sample": self.processed,
-                               "verify_ms": self.pending_verify_ms, "finalize_ms": step_ms,
-                               "accepted": detected, "attempt": self.attempts}
+                               "verify_ms": verify_ms, "accepted": detected, "attempt": self.attempts}
             self.retry = (not detected and self.attempts <= MAX_REJECTED_RETRIES
                           and self.processed < self.retry_deadline)
             if self.retry:
@@ -200,7 +177,6 @@ def run():
         lambda window: classify_contexts(window, lambda batch:
             cnn.run(None, {"logmel": live_runtime.frontend(batch)})[0]),
         lambda snapshot: live_runtime.verify(tone, snapshot),
-        prefill=lambda: live_runtime.IncrementalVerifier(tone),
     )
     diagnostics = Diagnostics(dev_check.ROOT / "build/checks/lira-live-counters.json")
     diagnostics.write(stream, force=True)

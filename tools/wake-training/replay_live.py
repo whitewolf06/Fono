@@ -20,7 +20,6 @@ import dev_check
 from live_worker import Stream
 import live_runtime
 runtime_parity = "--runtime-parity" in sys.argv
-prefill_parity = "--prefill-parity" in sys.argv
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 manifest = json.loads((ROOT / "scripts/ci-native-dependencies.json").read_text())
@@ -49,19 +48,12 @@ front = api("VoiceActivityDetectorFront", [c.c_void_p], c.POINTER(Segment))
 free = api("DestroySpeechSegment", [c.POINTER(Segment)])
 pop = api("VoiceActivityDetectorPop", [c.c_void_p])
 reset = api("VoiceActivityDetectorReset", [c.c_void_p])
-baseline_ref = ("f46308c8c79f086e17512f7877085a6d7474abf4" if prefill_parity else
-                "47cef4966de9d18a9375491e78cd8f3f7b5757d2" if runtime_parity else "a26597ce61215ce14d0015f96ab3124842442cf6")
+baseline_ref = "47cef4966de9d18a9375491e78cd8f3f7b5757d2" if runtime_parity else "a26597ce61215ce14d0015f96ab3124842442cf6"
 baseline_source = subprocess.run(["git", "show", baseline_ref + ":tools/wake-training/live_worker.py"], cwd=ROOT,
                                  check=True, capture_output=True).stdout
 baseline = {"__name__": "fixed_baseline"}
 exec(compile(baseline_source, "fixed_baseline", "exec"), baseline)
-frozen_runtime = None
-if prefill_parity:
-    frozen_source = subprocess.run(["git", "show", baseline_ref + ":tools/wake-training/live_runtime.py"],
-                                  cwd=ROOT, check=True, capture_output=True).stdout
-    frozen_runtime = {"__name__": "fixed_runtime"}
-    exec(compile(frozen_source, "fixed_runtime", "exec"), frozen_runtime)
-np, cnn, tone = dev_check.prepare(inference_only=prefill_parity)
+np, cnn, tone = dev_check.prepare()
 traces = json.loads((ROOT / "build/wake-lira-candidate/ctc-exact-owner-replay-02/private-traces.json").read_text())
 records = []
 for trace in traces:
@@ -124,12 +116,10 @@ try:
         for offset in range(0, len(flags), common.BATCH):
             windows = np.stack([padded[(i+1)*common.STRIDE:(i+1)*common.STRIDE+common.WINDOW]
                                 for i in range(offset, min(offset+common.BATCH, len(flags)))])
-            features = live_runtime.frontend(windows) if prefill_parity else common.frontend(windows).numpy()
-            scores.extend(cnn.run(None, {"logmel":features})[0].ravel().tolist())
+            scores.extend(cnn.run(None, {"logmel":common.frontend(windows).numpy()})[0].ravel().tolist())
             focused = windows.copy()
             focused[:, :common.WINDOW//2] = 0
-            features = live_runtime.frontend(focused) if prefill_parity else common.frontend(focused).numpy()
-            focused_scores.extend(cnn.run(None, {"logmel":features})[0].ravel().tolist())
+            focused_scores.extend(cnn.run(None, {"logmel":common.frontend(focused).numpy()})[0].ravel().tolist())
             if runtime_parity:
                 runtime_scores.extend(cnn.run(None, {"logmel":live_runtime.frontend(windows)})[0].ravel().tolist())
                 runtime_focused_scores.extend(cnn.run(None, {"logmel":live_runtime.frontend(focused)})[0].ravel().tolist())
@@ -141,8 +131,6 @@ try:
             checks, events = [], []
             position = 0
             def classify(_):
-                if prefill_parity:
-                    return max(scores[position], focused_scores[position])
                 if runtime_parity:
                     return (max(scores[position], focused_scores[position]) if label == "baseline"
                             else max(runtime_scores[position], runtime_focused_scores[position]))
@@ -150,30 +138,18 @@ try:
             def verify(window):
                 key = (label if runtime_parity else "shared", hashlib.sha256(window.tobytes()).digest())
                 if key not in cache:
-                    cache[key] = (frozen_runtime["verify"](tone, window) if prefill_parity
-                                  else live_runtime.verify(tone, window) if runtime_parity and label == "candidate"
+                    cache[key] = (live_runtime.verify(tone, window) if runtime_parity and label == "candidate"
                                   else tone.score(window)["greedy_whole_phrase"])
                 value = cache[key]
                 checks.append(value)
                 return value
-            stream = (cls(classify, verify, prefill=lambda: live_runtime.IncrementalVerifier(tone))
-                      if prefill_parity and label == "candidate" else cls(classify, verify))
-            worker_ready_ms, ready_events, max_frame_ms = 0.0, [], 0.0
+            stream = cls(classify, verify)
             for position, frame in enumerate(pcm.reshape(-1, common.STRIDE)):
-                sent = time.perf_counter()
-                accepted = stream.accept(frame, flags[position])["detected"]
-                frame_ms = (time.perf_counter() - sent) * 1000
-                max_frame_ms = max(max_frame_ms, frame_ms)
-                worker_ready_ms = max(worker_ready_ms, (position+1)*80) + frame_ms
-                if accepted:
+                if stream.accept(frame, flags[position])["detected"]:
                     events.append((position+1)*common.STRIDE)
-                    ready_events.append(worker_ready_ms)
             result[label] = {"events":len(events), "detected":any(e>onset for e in events),
-                             "early_events":sum(e<=onset for e in events), "checks":stream.stats["checks"],
+                             "early_events":sum(e<=onset for e in events), "checks":len(checks),
                              "first_ready_after_recording_end_ms": min(((e-end)/16 for e in events if e>onset), default=None)}
-            if prefill_parity:
-                result[label].update(event_samples=events, max_frame_ms=round(max_frame_ms,3),
-                    simulated_worker_ready_ms=[round(t,3) for t in ready_events])
         row = {"case":number, "positive":positive, "condition":condition,
                "max_full_score":max(scores), "max_focused_score":max(focused_scores), **result}
         rows.append(row)
@@ -184,7 +160,6 @@ try:
               "baseline_source_sha256":hashlib.sha256(baseline_source).hexdigest(),
               "candidate_source_sha256":common.digest(ROOT/'tools/wake-training/live_worker.py'),
               "runtime_parity": runtime_parity,
-              "prefill_parity": prefill_parity,
               "runtime_source_sha256": common.digest(ROOT/'tools/wake-training/live_runtime.py') if runtime_parity else None,
               "context":("isolated existing clips; legacy speech negatives included; room continuation looped" if isolated else "same existing hard negative before each positive; recorded room looped, no independent exposure"),
               "latency":"sample clock relative to recording file end only; not labelled phrase end or live latency/p95",
@@ -197,20 +172,13 @@ try:
                          "early_events_in_positive_context":sum(r[label]['early_events'] for r in rows if r['positive']),
                          "ctc_checks":sum(r[label]['checks'] for r in rows)}
     report['lost_positive_cases'] = [r['case'] for r in rows if r['positive'] and r['baseline']['detected'] and not r['candidate']['detected']]
-    if prefill_parity:
-        keys = ("events", "detected", "early_events", "checks", "first_ready_after_recording_end_ms", "event_samples")
-        report["identical_decisions_counts_and_sample_clocks"] = all(
-            all(row["baseline"][key] == row["candidate"][key] for key in keys) for row in rows)
-        report["timing_limit"] = "Serial 80ms worker simulation using measured per-frame work, with cached identical CNN scores; excludes real microphone, CNN work, pipes, cue output and UI. Not live latency or p95."
-    output=ROOT/('build/checks/lira-prefill-parity.json' if prefill_parity else 'build/checks/lira-runtime-parity.json' if runtime_parity else ('build/checks/lira-paired-isolated.json' if isolated else 'build/checks/lira-paired-live-retry.json'))
+    output=ROOT/('build/checks/lira-runtime-parity.json' if runtime_parity else ('build/checks/lira-paired-isolated.json' if isolated else 'build/checks/lira-paired-live-retry.json'))
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report,indent=2),encoding='utf-8')
     print(json.dumps({k:v for k,v in report.items() if k!='rows'}),flush=True)
     assert not report['lost_positive_cases']
     assert report['candidate']['negative_events'] <= report['baseline']['negative_events']
     assert report['candidate']['early_events_in_positive_context'] <= report['baseline']['early_events_in_positive_context']
-    if prefill_parity:
-        assert report["identical_decisions_counts_and_sample_clocks"]
     if runtime_parity:
         assert all(row['baseline'] == row['candidate'] for row in rows), "runtime changed a fixed-case decision or sample clock"
 finally:

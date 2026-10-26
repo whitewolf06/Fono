@@ -118,9 +118,16 @@
     "kvorum": "Not accessed, per owner request."
   },
   "remaining": [
-    "Owner live UAT in dev 0.7.82: repeated wakes, perceived sound readiness, first command word and absence of the activation greeting in inserted text.",
+    "Owner live UAT failed. This schedule is removed from dev v0.7.83; see wake-lira-reference-restore.json. Offline parity and timing results above remain historical evidence, not live acceptance.",
     "The full 640ms lookahead remains. The measured simulation gain is not a live latency or p95 guarantee.",
     "The same two positive clips remain missed. Independent voices, long natural negatives and live resource/latency budgets remain open.",
     "Standalone worker packaging remains open; this dev uses the prepared local Python environment."
-  ]
+  ],
+  "owner_live_followup": {
+    "date": "2026-10-26",
+    "owner_report": "Approximately one wake in ten attempts; rejected as a live acceptance result.",
+    "observed": "The listener returned to Listening after its one accepted wake. Later technical snapshots reached 33 checks with one acceptance; no transcript or current microphone PCM was retained.",
+    "listener_restart_with_restored_reference": "Owner reported no wakes after switching the listener off and on with reference files restored. This did not establish the optimization as the sole cause.",
+    "decision": "Remove the optimization, preserve cue and transcript cleanup, then restart the complete dev application as v0.7.83. Exact cause and live recovery remain unconfirmed."
+  }
 }
