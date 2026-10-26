@@ -66,6 +66,24 @@ test("frontend checks run anonymously for external fork pull requests", () => {
   }
 });
 
+test("wake numerical contracts install pinned CPU dependencies before running without skips", async () => {
+  const job = frontendJob(workflow);
+  const dependencies = await read("../tools/wake-training/requirements-ci.txt");
+  assert.match(dependencies, /^numpy==1\.26\.4$/m);
+  assert.match(dependencies, /^scipy==1\.17\.1$/m);
+  const install = job.indexOf(
+    "python -m pip install --only-binary=:all: -r tools/wake-training/requirements-ci.txt",
+  );
+  const cpuTorch = job.indexOf(
+    "python -m pip install --only-binary=:all: torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu",
+  );
+  const tests = job.indexOf(
+    "python -m unittest discover -s tools/wake-training -p 'test_*.py' -v",
+  );
+  assert.ok(install >= 0 && cpuTorch > install && tests > cpuTorch);
+  assert.doesNotMatch(job, /continue-on-error|skipTest|skipUnless|SKIP_WAKE/);
+});
+
 test("WhiteUI uses the exact original local 0.6.0 archive and public dependency URLs", async () => {
   const manifest = JSON.parse(await read("../package.json"));
   const lock = JSON.parse(await read("../package-lock.json"));

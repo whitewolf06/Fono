@@ -191,7 +191,7 @@ fn transfer(
             chunk_size,
             expected.size,
             cancel,
-            started,
+            &|| started.elapsed(),
             &progress,
         )?;
         count += chunk_size;
@@ -212,14 +212,14 @@ fn copy_chunk(
     expected_chunk: u64,
     expected_total: u64,
     cancel: &AtomicBool,
-    started: Instant,
+    elapsed: &impl Fn() -> Duration,
     progress: &impl Fn(u64, u64),
 ) -> Result<()> {
     let mut buffer = [0; 64 * 1024];
     let mut chunk = 0u64;
     loop {
         check_cancel(cancel)?;
-        if started.elapsed() >= BUDGET {
+        if elapsed() >= BUDGET {
             return Err(PackageError::Network);
         }
         let read = reader
@@ -265,7 +265,7 @@ mod tests {
                 expected,
                 expected,
                 &AtomicBool::new(false),
-                Instant::now(),
+                &|| Duration::ZERO,
                 &|_, _| {},
             );
             assert_eq!(result, Err(error));
@@ -294,7 +294,7 @@ mod tests {
                 1,
                 1,
                 &cancel,
-                Instant::now(),
+                &|| Duration::ZERO,
                 &|_, _| {}
             ),
             Err(PackageError::Cancelled)
@@ -316,7 +316,7 @@ mod tests {
                 5,
                 5,
                 &cancel,
-                Instant::now() - BUDGET,
+                &|| BUDGET,
                 &|_, _| {}
             ),
             Err(PackageError::Network)
@@ -330,7 +330,7 @@ mod tests {
             5,
             5,
             &cancel,
-            Instant::now(),
+            &|| Duration::ZERO,
             &|done, total| assert!(done <= total),
         )
         .unwrap();

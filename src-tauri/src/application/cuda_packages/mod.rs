@@ -573,3 +573,6 @@ impl CudaPackageService {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(test, windows))]
+mod test_subject;

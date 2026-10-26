@@ -1,0 +1,4 @@
+# Numerical contract tests only: no models, audio capture or training/TTS stack.
+# CPU-only torch 2.7.1 is installed separately from the official PyTorch index.
+numpy==1.26.4
+scipy==1.17.1

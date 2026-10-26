@@ -35,12 +35,25 @@ fn verified(fixture: &Fixture, kind: &str) -> manifest::Manifest {
     manifest::verify(case.manifest.as_bytes(), &case.signature, &trust(fixture)).unwrap()
 }
 
-struct Temporary(PathBuf);
+struct Temporary(
+    PathBuf,
+    #[cfg(windows)]
+    #[allow(dead_code)]
+    super::test_subject::Subject,
+);
 impl Temporary {
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!("fono-cuda-test-{}", uuid::Uuid::new_v4()));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        #[cfg(windows)]
+        {
+            let subject = super::test_subject::Subject::create(&path);
+            Self(path, subject)
+        }
+        #[cfg(not(windows))]
+        {
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
     }
 }
 impl Drop for Temporary {
