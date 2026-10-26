@@ -66,7 +66,7 @@ fn matches_operation(cue: Cue, expected: u64, current: Option<u64>) -> bool {
     current == Some(expected) || (cue == Cue::Error && current.is_none())
 }
 
-#[cfg(any(all(windows, debug_assertions), test))]
+#[cfg(any(windows, test))]
 fn wake_ready_volume(
     settings: &crate::types::Settings,
     expected: u64,
@@ -89,7 +89,7 @@ fn wake_ready_volume(
 /// Unlike an ordinary Start cue, input must already accept speech here. Keep all
 /// PCM (including speech overlapping the short nonverbal cue); never mute or trim
 /// the microphone. The wake detector remains paused throughout this operation.
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 pub(crate) fn wake_ready(app: &AppHandle, operation: u64, triggered_at: std::time::Instant) {
     let pipeline = app.state::<Pipeline>();
     let settings = app.state::<AppState>().settings();
@@ -215,9 +215,11 @@ mod tests {
         use fono_core::OperationCoordinator;
         let operations = OperationCoordinator::new();
         let wake = operations.start(OperationSource::WakeWord).unwrap();
-        let mut settings = crate::types::Settings::default();
-        settings.recording_sounds_enabled = true;
-        settings.recording_sounds_volume = 25;
+        let mut settings = crate::types::Settings {
+            recording_sounds_enabled: true,
+            recording_sounds_volume: 25,
+            ..Default::default()
+        };
         assert_eq!(
             wake_ready_volume(&settings, wake.id, operations.current().as_ref(), false),
             None,
@@ -249,8 +251,10 @@ mod tests {
         use fono_core::{OperationCoordinator, OperationPhase};
         let operations = OperationCoordinator::new();
         let wake = operations.start(OperationSource::WakeWord).unwrap();
-        let mut settings = crate::types::Settings::default();
-        settings.recording_sounds_enabled = true;
+        let settings = crate::types::Settings {
+            recording_sounds_enabled: true,
+            ..Default::default()
+        };
         operations
             .transition(wake.id, OperationPhase::Transcribing)
             .unwrap();

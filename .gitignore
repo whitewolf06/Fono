@@ -19,6 +19,7 @@ tools/fono-setup/target/
 src-tauri/resources/whisper/*.bin
 src-tauri/resources/wakeword/*.onnx
 src-tauri/resources/wakeword/*.ppn
+src-tauri/resources/lira/
 
 # Logs
 *.log
@@ -40,3 +41,4 @@ Thumbs.db
 
 # Misc
 *.tsbuildinfo
+__pycache__/

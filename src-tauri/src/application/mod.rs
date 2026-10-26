@@ -49,7 +49,7 @@ pub mod voice_dictation;
 pub mod wake;
 #[cfg(feature = "wake-word")]
 pub mod wake_calibration;
-#[cfg(any(feature = "wake-word", all(windows, debug_assertions)))]
+#[cfg(any(feature = "wake-word", windows))]
 pub mod wake_dictation;
 pub(crate) mod wake_lira;
 pub(crate) mod wake_runtime;

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static BUSY: AtomicBool = AtomicBool::new(false);
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 pub(crate) fn is_busy() -> bool {
     BUSY.load(Ordering::Acquire)
 }
@@ -29,6 +29,9 @@ pub(crate) fn reserve() -> AppResult<Reservation> {
     if !available() {
         return Err(AppError::Config(UNAVAILABLE.into()));
     }
+    reserve_worker()
+}
+pub(crate) fn reserve_worker() -> AppResult<Reservation> {
     BUSY.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .map_err(|_| AppError::Busy("Дождитесь завершения проверки записи.".into()))?;
     Ok(Reservation {

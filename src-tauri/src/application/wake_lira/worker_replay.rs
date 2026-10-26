@@ -45,7 +45,12 @@ fn real_worker_rearms_in_one_process_with_native_job_and_pipe_client() {
     assert!(!room.is_empty());
     let mut positive_with_tail = positive;
     positive_with_tail.extend(room.iter().copied().cycle().take(32_000));
-    let mut worker = WarmWorker::start(&Control::new()).expect("native worker handshake");
+    let mut worker = if let Some(root) = std::env::var_os("FONO_LIRA_PACKAGE") {
+        WarmWorker::start_bundle(&PathBuf::from(root), &Control::new())
+    } else {
+        WarmWorker::start(&Control::new())
+    }
+    .expect("native worker handshake");
     let control = Control::new();
     let mut vad = fono_audio::StreamingSpeechVad::new(
         &Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/vad/silero_vad.onnx"),

@@ -37,7 +37,7 @@ pub struct SpeechDecision {
 }
 
 impl SpeechGate {
-    #[cfg(all(windows, debug_assertions))]
+    #[cfg(windows)]
     pub(crate) fn reset(&mut self) {
         #[cfg(feature = "speech-vad")]
         self.inner.reset();

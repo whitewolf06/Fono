@@ -200,8 +200,48 @@ fn wait_ready(
     Ok(())
 }
 impl WarmWorker {
+    pub fn start_packaged_or_dev(app: &tauri::AppHandle, control: &Control) -> AppResult<Self> {
+        #[cfg(debug_assertions)]
+        {
+            let _ = app;
+            Self::start(control)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            use tauri::Manager;
+            let root = app
+                .path()
+                .resource_dir()
+                .map_err(|_| failed())?
+                .join("resources/lira");
+            Self::start_bundle(&root, control)
+        }
+    }
+    #[cfg(any(not(debug_assertions), test))]
+    pub(super) fn start_bundle(root: &std::path::Path, control: &Control) -> AppResult<Self> {
+        let expected = option_env!("FONO_LIRA_MANIFEST_SHA256");
+        #[cfg(not(test))]
+        if expected.is_none() {
+            return Err(failed());
+        }
+        super::package::verify(root, expected).map_err(|_| failure("package_integrity"))?;
+        let mut command = Command::new(root.join("runtime/python.exe"));
+        command
+            .arg("-I")
+            .arg("-B")
+            .arg(root.join("worker/worker.py"))
+            .current_dir(root)
+            .env_clear()
+            .env("PATH", root.join("runtime"));
+        for key in ["SystemRoot", "WINDIR"] {
+            if let Some(value) = std::env::var_os(key) {
+                command.env(key, value);
+            }
+        }
+        Self::spawn(command, control)
+    }
+    #[cfg(any(debug_assertions, test))]
     pub fn start(control: &Control) -> AppResult<Self> {
-        use std::os::windows::process::CommandExt;
         let python = std::env::var_os("FONO_WAKE_DEV_PYTHON").ok_or_else(failed)?;
         if !std::path::Path::new(&python).is_absolute() {
             return Err(failed());
@@ -214,13 +254,19 @@ impl WarmWorker {
         let entrypoint = std::env::var_os("FONO_LIRA_TEST_ENTRYPOINT")
             .map(std::path::PathBuf::from)
             .unwrap_or(entrypoint);
+        let mut command = Command::new(python);
+        command
+            .arg(entrypoint)
+            .current_dir(root)
+            .env("PYTHONPATH", root.join("build/wake-training-python"))
+            .env("PYTHONDONTWRITEBYTECODE", "1")
+            .env("PYTHONUTF8", "1");
+        Self::spawn(command, control)
+    }
+    fn spawn(mut command: Command, control: &Control) -> AppResult<Self> {
+        use std::os::windows::process::CommandExt;
         let mut child = OwnedChild(
-            Command::new(python)
-                .arg(entrypoint)
-                .current_dir(root)
-                .env("PYTHONPATH", root.join("build/wake-training-python"))
-                .env("PYTHONDONTWRITEBYTECODE", "1")
-                .env("PYTHONUTF8", "1")
+            command
                 // Interactive frame deadlines must not compete at background
                 // priority with a foreground build or another busy application.
                 .creation_flags(0x08000000 | 0x00000020)

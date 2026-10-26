@@ -32,11 +32,11 @@ pub struct ActivityLease<'a> {
     gate: &'a Gate,
 }
 /// A CPU wake listener blocks installation but does not pin the primary GPU model.
-#[cfg(any(all(windows, debug_assertions), test))]
+#[cfg(any(windows, test))]
 pub(crate) struct BackgroundCaptureLease<'a> {
     gate: &'a Gate,
 }
-#[cfg(any(all(windows, debug_assertions), test))]
+#[cfg(any(windows, test))]
 impl Drop for BackgroundCaptureLease<'_> {
     fn drop(&mut self) {
         self.gate.0.lock().background_capture -= 1;
@@ -158,7 +158,7 @@ pub fn begin() -> AppResult<StartGuard<'static>> {
 pub fn lease() -> AppResult<ActivityLease<'static>> {
     GATE.lease()
 }
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 pub(crate) fn background_capture_lease() -> AppResult<BackgroundCaptureLease<'static>> {
     let mut state = GATE.0.lock();
     if state.reserved {

@@ -1,6 +1,6 @@
 {
   "name": "fono",
-  "version": "0.7.84",
+  "version": "0.8.0",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
@@ -11,7 +11,7 @@
     "build": "tsc && vue-tsc --noEmit -p tsconfig.v3.json && vite build",
     "build:workers": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-stt-workers.ps1",
     "prepare:release-resources": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prepare-release-resources.ps1",
-    "release": "npm run tauri -- build",
+    "release": "npm run tauri -- build --config src-tauri/tauri.lira.conf.json",
     "build:setup": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-online-installer.ps1",
     "test:ui": "npm run test:v3",
     "version:check": "node scripts/version.mjs check",

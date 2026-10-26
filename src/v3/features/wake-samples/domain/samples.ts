@@ -68,12 +68,14 @@ export interface WakeSamplesState {
 }
 export interface LiraLiveSnapshot {
   available: boolean;
+  sampleToolsAvailable: boolean;
   sessionId: number | null;
   phase: "off" | "loading" | "listening" | "paused" | "stopping" | "error";
   message: string;
 }
 export const liraOff = (): LiraLiveSnapshot => ({
   available: false,
+  sampleToolsAvailable: false,
   sessionId: null,
   phase: "off",
   message: "",

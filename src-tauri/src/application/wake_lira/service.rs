@@ -102,7 +102,7 @@ pub(super) fn run(
     warm: &mut Option<WarmWorker>,
 ) -> AppResult<()> {
     if warm.is_none() {
-        *warm = Some(WarmWorker::start(control)?);
+        *warm = Some(WarmWorker::start_packaged_or_dev(app, control)?);
     }
     let worker = warm.as_mut().expect("initialized warm worker");
     let mut vad = super::super::speech_gate::SpeechGate::new(app)?;

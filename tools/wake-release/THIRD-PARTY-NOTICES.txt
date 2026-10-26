@@ -1,0 +1,49 @@
+Fono Lira Beta inference package
+
+Fono code and the small Lira candidate model: MIT, see worker/LICENSE-Fono.
+The candidate is unchanged from the synthetic/public-data development model.
+No owner voice, personal recordings or training corpus is distributed.
+Training provenance: synthetic utterances generated without reference audio,
+plus 20 negative ordinary-speech clips from google/fleurs by the FLEURS authors
+(Google), revision 437d9e667fa3a2a08a1957f810bf2c3b5050d221, CC-BY-4.0:
+https://huggingface.co/datasets/google/fleurs
+https://creativecommons.org/licenses/by/4.0/
+The training pipeline resampled/cropped those clips; no dataset audio is bundled.
+
+CPython 3.12.14, portable distribution by Astral:
+https://github.com/astral-sh/python-build-standalone/releases/tag/20260924
+Python Software Foundation and included component licenses: runtime/LICENSE.txt.
+The included OpenSSL 3.5.8 (Apache-2.0), libffi (MIT) and zlib (zlib license)
+have their original license texts in licenses/. SQLite is public domain:
+https://sqlite.org/copyright.html
+License sources:
+https://github.com/openssl/openssl/blob/openssl-3.5.8/LICENSE.txt
+https://github.com/libffi/libffi/blob/v3.4.6/LICENSE
+https://github.com/madler/zlib/blob/v1.3.2/LICENSE
+
+NumPy 1.26.4 and its bundled numerical libraries:
+BSD-3-Clause and bundled licenses, see packages/numpy-1.26.4.dist-info/LICENSE.txt.
+
+ONNX Runtime 1.23.2, Microsoft Corporation:
+MIT and included third-party notices, see packages/onnxruntime/LICENSE and
+packages/onnxruntime/ThirdPartyNotices.txt.
+CPU inference only; telemetry is explicitly disabled before model loading.
+
+packaging 24.2:
+BSD-2-Clause or Apache-2.0, see packages/packaging-24.2.dist-info/.
+
+T-one Russian streaming CTC model (2025-09-08), T-Software DC:
+Apache-2.0, see models/T-one-LICENSE and models/APACHE-2.0.txt.
+Unmodified model converted by sherpa-onnx from voicekit-team/T-one:
+https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-ctc/t-one-ctc-models.html
+
+Microsoft Visual C++ x64 runtime 14.44.35211.0:
+Microsoft Corporation. Redistributable code from the licensed build SDK,
+deployed locally with this application under the Visual Studio license terms.
+https://learn.microsoft.com/visualstudio/releases/2022/redistribution
+https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files
+These files are not covered by Fono's MIT license.
+
+All dependency archives, model files and runtime DLLs are hash-pinned in the
+source dependency lock and the generated manifest.json. Updating this package
+requires rebuilding and signing the application installer.

@@ -52,13 +52,14 @@ async function renderSection(
   section,
   component = Page,
   props = {},
-  { liveAvailable = false } = {},
+  { liveAvailable = false, sampleToolsAvailable = false } = {},
 ) {
   const previousWindow = globalThis.window;
   globalThis.window = { addEventListener() {}, removeEventListener() {} };
   const workspace = createWorkspace();
   workspace.native = true;
   workspace.wakeSamples.state.live.available = liveAvailable;
+  workspace.wakeSamples.state.live.sampleToolsAvailable = sampleToolsAvailable;
   const initial = JSON.stringify(workspace.state.preferences);
   const router = createRouter({
     history: createMemoryHistory(),
@@ -155,10 +156,17 @@ test("live wake stays in activation and its recording tools move to diagnostics 
     "diagnostics",
     Page,
     {},
-    { liveAvailable: true },
+    { liveAvailable: true, sampleToolsAvailable: true },
   );
   assert.match(diagnostics, /id="wake-tools"/);
   assert.match(diagnostics, /id="wake-samples"/);
+  const releaseDiagnostics = await renderSection(
+    "diagnostics",
+    Page,
+    {},
+    { liveAvailable: true },
+  );
+  assert.doesNotMatch(releaseDiagnostics, /id="wake-tools"|id="wake-samples"/);
   assert.doesNotMatch(await renderSection("diagnostics"), /id="wake-samples"/);
 });
 

@@ -1,0 +1,32 @@
+{
+  "schema": "fono-wake-lira-candidate@1",
+  "phrase_id": "privet_lira",
+  "phrase": "Привет, Лира",
+  "seed": 20261022,
+  "epochs": 32,
+  "threshold": 0.8,
+  "window_samples": 64000,
+  "stride_samples": 1280,
+  "tail_samples": 10240,
+  "cooldown_samples": 32000,
+  "training_seconds_limit": 180,
+  "causal_prefix_training": true,
+  "architecture": "conv8-16-24,pool2x3,adaptive1x10,fc32,fc1,sigmoid",
+  "source_sha256": "8cebd00245f952de33ab627bb427a98fa31f83de357b114675b2913f928fb31d",
+  "frontend_sha256": "0bb4a801ba11d24c672b9158d5283f77e4cd4de796e43462ff043f6be1fc027c",
+  "recording_loader_sha256": "53c95ff70b0dd8f6f6c812e72b7f5c0e84c000f0de0fe67032b7fd0d468ea576",
+  "synthetic_manifest_sha256": "87f2e5c1836d7cae4c05a0945d4867e7facc1239b484d95eb666c4caf338c35e",
+  "public_manifest_sha256": "9135c5d2c751146ce229dbedac783d89bd584590dd3840342567f12d57360241",
+  "public_original_split": "test",
+  "wake_split": "train",
+  "excluded_from_future_wake_test": "all google/fleurs data; speaker overlap unknown",
+  "owner_voice_used_for_training": false,
+  "qualified": false,
+  "versions": {
+    "numpy": "1.26.4",
+    "scipy": "1.17.1",
+    "torch": "2.7.1+cu128",
+    "onnx": "1.19.1",
+    "onnxruntime": "1.23.2"
+  }
+}

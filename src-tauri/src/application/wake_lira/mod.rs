@@ -1,20 +1,23 @@
-//! Explicit owner dev trial. Legacy wake settings and release availability stay unchanged.
+//! Explicit opt-in Lira beta. Legacy wake settings remain disabled.
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 mod discontinuity;
-#[cfg(all(windows, debug_assertions))]
+#[cfg(all(windows, any(not(debug_assertions), test)))]
+#[path = "../../../build_support/lira.rs"]
+mod package;
+#[cfg(windows)]
 mod service;
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 mod supervisor;
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 mod worker;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(not(all(windows, debug_assertions)), allow(dead_code))]
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) enum Phase {
     Off,
     Loading,
@@ -28,6 +31,7 @@ pub(crate) enum Phase {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Snapshot {
     pub available: bool,
+    pub sample_tools_available: bool,
     pub session_id: Option<u64>,
     pub phase: Phase,
     pub message: String,
@@ -36,6 +40,7 @@ impl Snapshot {
     fn off() -> Self {
         Self {
             available: available(),
+            sample_tools_available: super::wake_samples::testing::available(),
             session_id: None,
             phase: Phase::Off,
             message: String::new(),
@@ -49,18 +54,23 @@ impl Snapshot {
     }
 }
 pub(crate) fn available() -> bool {
-    cfg!(all(windows, debug_assertions)) && super::wake_samples::testing::available()
+    cfg!(windows)
+        && if cfg!(debug_assertions) {
+            super::wake_samples::testing::available()
+        } else {
+            option_env!("FONO_LIRA_MANIFEST_SHA256").is_some_and(|hash| hash.len() == 64)
+        }
 }
 
 #[derive(Default)]
 pub(crate) struct Runtime {
-    #[cfg(all(windows, debug_assertions))]
+    #[cfg(windows)]
     slot: parking_lot::Mutex<Option<Slot>>,
-    #[cfg(all(windows, debug_assertions))]
+    #[cfg(windows)]
     next: std::sync::atomic::AtomicU64,
 }
 
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 pub(crate) struct Control {
     pub route: parking_lot::Mutex<()>,
     pub cancelled: std::sync::atomic::AtomicBool,
@@ -68,7 +78,7 @@ pub(crate) struct Control {
     pub revision: std::sync::atomic::AtomicU64,
     pub operation: std::sync::atomic::AtomicU64,
 }
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 impl Control {
     fn new() -> Self {
         Self {
@@ -86,7 +96,7 @@ impl Control {
         }
     }
 }
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 struct Slot {
     id: u64,
     control: std::sync::Arc<Control>,
@@ -96,13 +106,13 @@ struct Slot {
 
 impl Runtime {
     pub fn snapshot(&self) -> Snapshot {
-        #[cfg(all(windows, debug_assertions))]
+        #[cfg(windows)]
         if let Some(slot) = self.slot.lock().as_ref() {
             return slot.status.lock().clone();
         }
         Snapshot::off()
     }
-    #[cfg(all(windows, debug_assertions))]
+    #[cfg(windows)]
     pub fn is_current(&self, id: u64) -> bool {
         self.slot.lock().as_ref().is_some_and(|s| {
             s.id == id
@@ -113,7 +123,7 @@ impl Runtime {
         })
     }
     pub fn start(&self, app: &AppHandle) -> AppResult<Snapshot> {
-        #[cfg(all(windows, debug_assertions))]
+        #[cfg(windows)]
         {
             use std::sync::{atomic::Ordering, Arc};
             if !available() {
@@ -156,10 +166,11 @@ impl Runtime {
                 }
             }
             let id = self.next.fetch_add(1, Ordering::AcqRel) + 1;
-            let worker_reservation = super::wake_samples::testing::reserve()?;
+            let worker_reservation = super::wake_samples::testing::reserve_worker()?;
             let control = Arc::new(Control::new());
             let snapshot = Snapshot {
                 available: true,
+                sample_tools_available: super::wake_samples::testing::available(),
                 session_id: Some(id),
                 phase: Phase::Loading,
                 message: String::new(),
@@ -255,7 +266,7 @@ impl Runtime {
             crate::tray::request_refresh(app);
             Ok(snapshot)
         }
-        #[cfg(not(all(windows, debug_assertions)))]
+        #[cfg(not(windows))]
         {
             let _ = app;
             Err(AppError::Config(
@@ -264,7 +275,7 @@ impl Runtime {
         }
     }
     pub fn request_stop(&self, id: u64, app: &AppHandle) -> Option<u64> {
-        #[cfg(all(windows, debug_assertions))]
+        #[cfg(windows)]
         {
             use std::sync::atomic::Ordering;
             let (control, status) = {
@@ -288,14 +299,14 @@ impl Runtime {
             }
             (operation != 0).then_some(operation)
         }
-        #[cfg(not(all(windows, debug_assertions)))]
+        #[cfg(not(windows))]
         {
             let _ = (id, app);
             None
         }
     }
     pub fn join(&self, id: u64) {
-        #[cfg(all(windows, debug_assertions))]
+        #[cfg(windows)]
         {
             let thread = self
                 .slot
@@ -314,15 +325,15 @@ impl Runtime {
                 }
             }
         }
-        #[cfg(not(all(windows, debug_assertions)))]
+        #[cfg(not(windows))]
         let _ = id;
     }
     fn suspend(&self, value: bool) {
-        #[cfg(all(windows, debug_assertions))]
+        #[cfg(windows)]
         if let Some(slot) = self.slot.lock().as_ref() {
             slot.control.set_paused(value);
         }
-        #[cfg(not(all(windows, debug_assertions)))]
+        #[cfg(not(windows))]
         let _ = value;
     }
 }
@@ -361,7 +372,7 @@ pub(crate) async fn stop(app: AppHandle, id: u64) -> AppResult<Snapshot> {
     Ok(app.state::<Runtime>().snapshot())
 }
 
-#[cfg(any(all(windows, debug_assertions), test))]
+#[cfg(any(windows, test))]
 pub(crate) fn strip_phrase(text: &str) -> String {
     static PHRASE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     let phrase = PHRASE.get_or_init(|| {

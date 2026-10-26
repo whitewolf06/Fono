@@ -35,7 +35,7 @@ pub async fn run(
     finish(app, operation, vad, settings).await
 }
 
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 pub(crate) async fn run_lira(
     app: AppHandle,
     control: std::sync::Arc<super::wake_lira::Control>,

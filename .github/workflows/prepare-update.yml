@@ -64,6 +64,14 @@ jobs:
       - name: Bootstrap pinned native runtime and GPU build SDKs
         shell: pwsh
         run: ./scripts/bootstrap-ci-resources.ps1 -InstallGpuSdks
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Wake inference packaging contracts
+        shell: pwsh
+        run: |
+          python scripts/test-wake-runtime.py
+          exit $LASTEXITCODE
       - name: Native gates
         working-directory: src-tauri
         env:

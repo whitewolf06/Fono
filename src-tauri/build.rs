@@ -6,6 +6,8 @@ use std::process::Command;
 
 #[path = "build_support/base_workers.rs"]
 mod base_worker_manifest;
+#[path = "build_support/lira.rs"]
+mod lira_resource;
 #[path = "build_support/vad.rs"]
 mod speech_vad_resource;
 #[path = "build_support/stt_workers.rs"]
@@ -36,6 +38,14 @@ fn main() {
     // bundle resource glob eagerly, so it must be skipped for that isolated
     // pre-build; the subsequent Tauri bundle build runs it normally.
     let preparing_release_resources = env::var_os("FONO_PREPARING_RELEASE_RESOURCES").is_some();
+    let lira_root = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("resources/lira");
+    println!("cargo:rerun-if-changed={}", lira_root.display());
+    if env::var("PROFILE").as_deref() == Ok("release") && lira_root.join("manifest.json").is_file()
+    {
+        let identity = lira_resource::verify(&lira_root, None)
+            .unwrap_or_else(|reason| panic!("invalid packaged Lira runtime: {reason}"));
+        println!("cargo:rustc-env=FONO_LIRA_MANIFEST_SHA256={identity}");
+    }
     if !preparing_release_resources {
         tauri_build::build();
     }

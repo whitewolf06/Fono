@@ -3,7 +3,9 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $pythonCommand = Get-Command python.exe -CommandType Application -All -ErrorAction SilentlyContinue |
-    Where-Object { $_.Source -notmatch '[\\/]WindowsApps[\\/]' } | Select-Object -First 1
+    Where-Object { $_.Source -notmatch '[\\/]WindowsApps[\\/]' } |
+    Where-Object { & $_.Source -c 'import sys; sys.exit(sys.version_info < (3, 12))'; $LASTEXITCODE -eq 0 } |
+    Select-Object -First 1
 if (!$pythonCommand) { throw 'A real Python 3.12+ executable on PATH is required for exact base-resource staging.' }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -23,6 +25,9 @@ function Invoke-Native([string]$File, [string[]]$Arguments) {
         throw "Command failed ($LASTEXITCODE): $File $($Arguments -join ' ')"
     }
 }
+
+Invoke-Native $pythonCommand.Source @((Join-Path $PSScriptRoot 'test-wake-runtime.py'))
+Invoke-Native $pythonCommand.Source @((Join-Path $PSScriptRoot 'prepare-wake-runtime.py'))
 
 & (Join-Path $PSScriptRoot 'build-stt-workers.ps1') -SkipCuda
 Invoke-Native $pythonCommand.Source @((Join-Path $PSScriptRoot 'cuda-package.py'), 'stage-base', '--workers', (Join-Path $tauriRoot 'resources\stt-workers'), '--output', (Join-Path $tauriRoot 'resources\stt-base'))

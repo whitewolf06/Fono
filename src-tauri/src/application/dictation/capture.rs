@@ -87,7 +87,7 @@ pub(crate) fn start_reserved_operation(app: AppHandle, capture: ReservedCapture)
     prepare_reserved(app, capture, OperationSource::Hotkey, &[], None, false)
 }
 
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 pub(crate) fn reserve_lira_operation(app: &AppHandle) -> AppResult<ReservedCapture> {
     let _admission = crate::application::capture_configuration::try_begin_capture()?;
     ensure_capture_allowed(app)?;
@@ -104,7 +104,7 @@ pub(crate) fn reserve_lira_operation(app: &AppHandle) -> AppResult<ReservedCaptu
         settings,
     })
 }
-#[cfg(all(windows, debug_assertions))]
+#[cfg(windows)]
 pub(crate) fn start_lira_reserved(
     app: AppHandle,
     capture: ReservedCapture,

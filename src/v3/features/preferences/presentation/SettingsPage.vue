@@ -60,7 +60,8 @@ const results = computed(() =>
       (item.field !== "wake-live" ||
         workspace.wakeSamples.state.live.available) &&
       (item.field !== "wake-samples" ||
-        (workspace.native && workspace.wakeSamples.state.live.available)) &&
+        (workspace.native &&
+          workspace.wakeSamples.state.live.sampleToolsAvailable)) &&
       (item.label + " " + item.keywords)
         .toLocaleLowerCase("ru")
         .includes(query.value.trim().toLocaleLowerCase("ru")),

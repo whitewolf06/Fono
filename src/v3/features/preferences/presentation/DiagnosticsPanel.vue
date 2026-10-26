@@ -91,7 +91,10 @@ async function checkAll() {
         ><FeedbackCard
       /></SettingsDisclosure>
       <SettingsDisclosure
-        v-if="workspace.native && workspace.wakeSamples.state.live.available"
+        v-if="
+          workspace.native &&
+          workspace.wakeSamples.state.live.sampleToolsAvailable
+        "
         id="wake-tools"
         :title="$t('settings.wakeTools')"
       >

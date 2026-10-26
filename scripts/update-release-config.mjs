@@ -29,7 +29,11 @@ try {
   const { publicKey, endpoint } = await updateChannel();
   const output = resolve(options.output);
   const config = {
-    bundle: { createUpdaterArtifacts: true, targets: ["nsis"] },
+    bundle: {
+      createUpdaterArtifacts: true,
+      targets: ["nsis"],
+      resources: { "resources/lira/": "resources/lira/" },
+    },
     plugins: {
       updater: {
         pubkey: publicKey,

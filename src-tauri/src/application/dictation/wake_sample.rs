@@ -52,6 +52,11 @@ fn stale() -> AppError {
 }
 // Memory-only admission fixes identity before native device work is queued.
 pub(crate) fn reserve(app: &AppHandle, request: SampleRequest) -> AppResult<Reservation> {
+    if !cfg!(debug_assertions) {
+        return Err(AppError::Config(
+            "Запись тестовых образцов недоступна в этой сборке.".into(),
+        ));
+    }
     request.validate()?;
     let lease = activity::lease()?;
     let _admission = crate::application::capture_configuration::try_begin_capture()?;
