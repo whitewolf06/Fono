@@ -25,7 +25,7 @@ cmake --build target-codex-review/release/build/whisper-rs-sys-10a4d8d8bf24a3cb/
 
 Оба повторных запуска завершились ошибкой вложенного `vulkan-shaders-gen`. Верхнее сообщение `No CMAKE_C_COMPILER/CMAKE_CXX_COMPILER` скрывает более точную диагностику: в `CMakeConfigureLog.yaml` записана `FileTracker FTK1011` при создании `CompilerIdC.tlog/link-rc.read.1.tlog` и `link-rc.write.1.tlog`. Полный путь первого файла на проверенной машине — 264 символа. Родительский CMake уже определил оба компилятора; обычный Developer Shell вложенную ошибку не устранил.
 
-Есть и различие исходников: `whisper-rs-sys 0.15.0` собирает whisper.cpp **1.8.3**, а закреплённый C++-путь — **1.9.1**. Одинаковый протокол не делает эти реализации эквивалентными по распознаванию. Хэши журналов и границы эксперимента — [stage4-worker-architecture.json](../evidence/stage4-worker-architecture.json).
+Есть и различие исходников: `whisper-rs-sys 0.15.0` собирает whisper.cpp **1.8.3**, а закреплённый C++-путь — **1.9.1**. Одинаковый протокол не делает эти реализации эквивалентными по распознаванию. Хэши журналов и границы эксперимента — [stage4-worker-architecture.json](../archive/improvement-plan/evidence/stage4-worker-architecture.json).
 
 ## Решение
 

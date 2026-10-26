@@ -86,7 +86,7 @@ prompt 224 токенами. Контекст предыдущего окна и
 Владелец токенов живёт до завершения inference. Workers protocol 3 требуют
 пересборки: молча игнорировать новые подсказки нельзя. Текущие greedy-пакеты
 GigaAM/Parakeet публикуют `hotwords: false`; неподдерживаемые подсказки до них
-не доходят. Подробности и ограничения качества — [FONO-132](improvement-fono132.md).
+не доходят. Подробности и ограничения качества — [FONO-132](archive/improvement-plan/improvement-fono132.md).
 
 ## Lifecycle и scheduling
 

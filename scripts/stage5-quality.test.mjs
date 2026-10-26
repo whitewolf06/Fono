@@ -15,8 +15,12 @@ const frozen = read("../src-tauri/tests/fixtures/stt-quality/baseline.json");
 // Historical reports are test fixtures only. Production consolidation rejects them
 // because they lack the new common-run lineage; these copies exercise mutations.
 function fixture(runId = "unit-test-candidate-run") {
-  const resampling = read("../docs/evidence/stage2-stt-quality-final.json");
-  const vad = read("../docs/evidence/stage4-quality.json");
+  const resampling = read(
+    "../docs/archive/improvement-plan/evidence/stage2-stt-quality-final.json",
+  );
+  const vad = read(
+    "../docs/archive/improvement-plan/evidence/stage4-quality.json",
+  );
   const lineage = {
     run_id: runId,
     source_revision: "1".repeat(40),

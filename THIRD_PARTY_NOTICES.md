@@ -186,9 +186,9 @@ Apache-2.0, установленный пакет кода содержит Apac
 20 публичных RU/EN PCM replay FLEURS, CC-BY-4.0, revision
 `437d9e667fa3a2a08a1957f810bf2c3b5050d221`; upstream test назначен wake train,
 FLEURS не считается независимым wake test. Условия и источники FLEURS
-сохранены в [описании проверочного корпуса](docs/improvement-fono119.md).
+сохранены в [описании проверочного корпуса](docs/archive/improvement-plan/improvement-fono119.md).
 Личные записи владельца остаются только dev. Кандидат не принят и не
-поставляется с приложением: [результат Лиры](docs/improvement-wake-lira-evaluation.md).
+поставляется с приложением: [результат Лиры](docs/archive/improvement-plan/improvement-wake-lira-evaluation.md).
 
 В v0.7.71 файловый CTC-verifier использует уже закреплённую русскую
 [T-one](https://github.com/voicekit-team/T-one), Apache-2.0, Copyright 2025
@@ -196,7 +196,7 @@ T-Software DC. Архив — существующий `sherpa-onnx-streaming-t-
 SHA256 `b9c907450e99a6e5049e279bf18368a17db0bdc5e63b7fa978943138debbe3ae`.
 Файлы модели, tokens и LICENSE побайтно сверены с архивом и закреплены
 отдельными SHA256 в research-коде. Веса не переобучались и не включались
-в приложение или Git; [границы проверки](docs/improvement-wake-lira-ctc.md).
+в приложение или Git; [границы проверки](docs/archive/improvement-plan/improvement-wake-lira-ctc.md).
 
 ## Microsoft и установщики
 

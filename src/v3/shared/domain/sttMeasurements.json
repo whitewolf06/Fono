@@ -5,7 +5,7 @@
   "corpus": "fono-fleurs-smoke-v1",
   "utterancesPerLanguage": 10,
   "complete": false,
-  "evidence": "docs/evidence/fono119-comparison.json",
+  "evidence": "docs/archive/improvement-plan/evidence/fono119-comparison.json",
   "models": [
     {
       "id": "giga_am:v3_e2e_rnnt_int8",

@@ -120,4 +120,4 @@ log-mel frontend пока выполняется в Python, native parity не �
    registration/download artifact, FONO-145 и ручная проверка. Персонализация
    FONO-146 остаётся отдельным шагом. Постоянное прослушивание выключено.
 
-Сводный отчёт: [wake-first-candidate.md](../../docs/improvement-wake-first-candidate.md).
+Сводный отчёт: [wake-first-candidate.md](../../docs/archive/improvement-plan/improvement-wake-first-candidate.md).

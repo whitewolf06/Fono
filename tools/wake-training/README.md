@@ -1,17 +1,22 @@
 # Подготовка обучения фиксированной фразы — FONO-144 / W-03
 
+Здесь описаны исследовательские скрипты и история подготовки. Пользовательский
+режим и ограничения выпуска — в [руководстве Лиры beta](../../docs/wake-lira.md),
+переносимые зависимости — в [wake-release](../wake-release/dependencies.json).
+Старые dev-метрики ниже не подменяют независимую приёмку текущей версии.
+
 Обновление **v0.7.71**: `lira_ctc.py` и точка
 [lira-ctc-exact/config.json](lira-ctc-exact/config.json) добавляют проверку
 полной фразы русской T-one без новых train/TTS прогонов. На том же dev
 сохранены 20/22 положительных, ложные события 4→0; прежние речевые негативы
 0/6. Это файловый research, native WakeWord выключен. Команды и хвосты —
-[в отчёте CTC](../../docs/improvement-wake-lira-ctc.md).
+[в отчёте CTC](../../docs/archive/improvement-plan/improvement-wake-lira-ctc.md).
 
 Обновление **v0.7.70**: для новой русской фразы «Привет, Лира» доступны
 `synthesize_candidate.py --phrase-id privet_lira` и `lira.py train/evaluate`.
 Один train/replay на 31 новом dev-образце: 20/22 целевых, но 4 события
 на 7 речевых негативах. **Кандидат не принят.** Команды, происхождение,
-точные параметры и хвосты — в [отчёте Лиры](../../docs/improvement-wake-lira-evaluation.md).
+точные параметры и хвосты — в [отчёте Лиры](../../docs/archive/improvement-plan/improvement-wake-lira-evaluation.md).
 Прежние данные не переименовываются, личный голос остаётся dev-only.
 
 Обновление 22 октября, v0.7.67: выполнены первое обучение собственного log-mel
@@ -151,4 +156,4 @@ tensor contract, license/notice, хэши config/corpus/environment и test-от
 принимает один ограниченный PCM16/16kHz WAV на stdin и возвращает только
 агрегаты в JSON. Сохраняет точные модели/исходники/порог v0.7.71, не обучает,
 не включает микрофон и ничего не пишет. Python и assets должны быть уже
-подготовлены локально; это не release runtime. [Порядок ручной проверки](../../docs/improvement-wake-lira-dev.md).
+подготовлены локально; это не release runtime. [Порядок ручной проверки](../../docs/archive/improvement-plan/improvement-wake-lira-dev.md).

@@ -145,7 +145,8 @@ export async function stage4Quality(options = {}) {
     },
   };
   const output = path.resolve(
-    options["--report"] ?? path.join(root, "docs/evidence/stage4-quality.json"),
+    options["--report"] ??
+      path.join(root, "build/stt-quality/stage4-report.json"),
   );
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, JSON.stringify(report, null, 2) + "\n");

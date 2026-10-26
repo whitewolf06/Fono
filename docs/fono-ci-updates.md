@@ -18,6 +18,17 @@
   Clippy и release EXE со статическим CRT. UI Kit этому job не нужен;
   загрузчик и NSIS не запускаются. Инструкции: [online-installer.md](online-installer.md).
 
+Численные wake-контракты запускаются с Python 3.12, NumPy/SciPy из
+`tools/wake-training/requirements-ci.txt` и PyTorch 2.7.1 из CPU-only индекса.
+Тесты не скачивают модели и не открывают микрофон. Переносимый release-runtime
+Лиры проверяется отдельно в signed-update workflow.
+
+Hosted Windows runner работает с административными правами. CUDA ACL-тесты
+создают собственные временные каталоги и проверяют запреты под ограниченным
+контекстом обычного пользователя; production ACL не ослабляются. Проверка
+истечения бюджета использует управляемое время и не зависит от uptime VM.
+Протокольный dispatcher использует Node, уже необходимый native wrapper.
+
 Actions привязаны к commit SHA. Версии Node и Rust закреплены в workflow;
 Rust должен соответствовать `src-tauri/rust-toolchain.toml`, UI Kit —
 `package.json` и lockfile.

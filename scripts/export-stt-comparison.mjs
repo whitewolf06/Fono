@@ -34,7 +34,7 @@ export function exportData(report) {
     corpus: report.corpus.name,
     utterancesPerLanguage: 10,
     complete: report.completed,
-    evidence: "docs/evidence/fono119-comparison.json",
+    evidence: "docs/archive/improvement-plan/evidence/fono119-comparison.json",
     models,
   };
 }
@@ -69,7 +69,10 @@ function main(args) {
   const data = exportData(report);
   data.evidenceSha256 = hash(Buffer.from(bytes));
   fs.writeFileSync(
-    path.join(root, "docs/evidence/fono119-comparison.json"),
+    path.join(
+      root,
+      "docs/archive/improvement-plan/evidence/fono119-comparison.json",
+    ),
     bytes,
   );
   fs.writeFileSync(

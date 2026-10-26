@@ -12,6 +12,13 @@ function collect(directory) {
   }
 }
 collect(path.join(root, "docs"));
+for (const directory of [
+  "tools/wake-bench",
+  "tools/wake-training",
+  "tools/wake-release",
+]) {
+  collect(path.join(root, directory));
+}
 for (const name of [
   "README.md",
   "README.ru.md",

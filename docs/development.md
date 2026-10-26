@@ -115,11 +115,21 @@ npm run dev:desktop:v3
 npm run release
 ```
 
+Команда подключает `src-tauri/tauri.lira.conf.json`: переносимый runtime и
+модели Лиры входят в NSIS/MSI. Закреплённые зависимости описаны в
+`tools/wake-release/dependencies.json`, сборка проверяет состав и SHA256.
+Обычный CPU dev и release с Лирой — разные конфигурации;
+[контракт beta](wake-lira.md) описывает их границы.
+
 Если frontend и release resources уже подготовлены и проверены отдельно, повторную упаковку
 можно запустить через Tauri CLI с `src-tauri/tauri.prebuilt.conf.json`; этот
 override пропускает их повторную подготовку, но перед bundling удаляет только
 известные legacy-артефакты предыдущего имени приложения из `target\release`.
 Rust build и bundling при этом остаются обязательными.
+
+Для повторной упаковки выпуска с Лирой сохраните также
+`src-tauri/tauri.lira.conf.json` в конфигурациях Tauri; один prebuilt override
+сам по себе не добавляет этот ресурсный пакет.
 
 Он запускает frontend build, затем `scripts/prepare-release-resources.ps1` и
 Tauri bundle. Подготовительный скрипт очищает только generated `.exe`/`.dll` в
@@ -157,7 +167,9 @@ src-tauri\target\release\bundle\msi\
 1. Запустить Fono и выбрать модель Whisper.
 2. Проверить CUDA, Vulkan, Auto и CPU через тест диктовки.
 3. Убедиться, что в логах есть `STT backend selected: CUDA` либо `Vulkan`.
-4. WakeWord временно недоступен; включение детектора и проверка wake-фразы относятся к отдельной будущей задаче качества.
+4. В сборке с runtime Лиры проверить явное включение beta, «Слушаю», сигнал
+   готовности и несколько пробуждений подряд. Обычный CPU dev без подготовленного
+   wake-runtime эту проверку не подтверждает; legacy-мастер своей фразы выключен.
 5. Проверить оба режима hotkey: удержание и повторное нажатие. Экспериментальная поэтапная вставка скрыта.
 6. Для command hotkey убедиться, что действие выполняется только после preview и confirm; смена настроек либо ожидание более 30 секунд инвалидирует preview.
 7. Проверить, что worker не открывает Terminal.

@@ -1,6 +1,9 @@
 # Проверки и ручная приёмка Fono
 
-Fono использует классическую диктовку с горячей клавишей в режимах `hold` и `toggle`. WakeWord временно недоступен, поэтапный вывод «На лету» скрыт. Методики этих экспериментов находятся в [fono-voice-reliability.md](qa/voice-reliability.md) и не входят в текущую приёмку.
+Fono использует классическую диктовку с hotkey `hold`/`toggle` и отдельное
+opt-in [пробуждение Лирой beta](wake-lira.md). Старый мастер своей wake-фразы
+и поэтапный вывод «На лету» скрыты. Методики будущих экспериментов находятся
+в [QA голосового ядра](qa/voice-reliability.md); они не включают эти функции.
 
 Проверяйте три уровня отдельно:
 
@@ -31,7 +34,16 @@ npm run format:check
 [Отдельный стенд WakeWord](../tools/wake-bench/README.md) проверяет корпус,
 изоляцию выборок и replay-метрики без приложения и микрофона. Его Python
 contracts выполняются в CI без моделей. Полный baseline требует реального
-согласованного корпуса; инженерный smoke не открывает WakeWord.
+согласованного корпуса; инженерный smoke не открывает legacy-мастер своей фразы.
+
+Численные контракты `tools/wake-training` требуют Python 3.12, NumPy/SciPy из
+`tools/wake-training/requirements-ci.txt` и PyTorch 2.7.1. В CI PyTorch ставится
+из CPU-only индекса; модели и микрофон для этих контрактов не нужны.
+
+Для release-пакета Лиры отдельно запускается `python scripts/test-wake-runtime.py`.
+Проверка файлов и короткий replay не закрывают качество на личном голосе,
+длительные negatives, hotplug и sleep/resume. Прогон выполняет пользователь;
+контракт и оставшиеся критерии — в [wake-lira.md](wake-lira.md).
 
 ### Rust и native runtime
 
@@ -90,7 +102,7 @@ Wrapper собирает выбранные тесты и размещает з�
 
 Сравнивайте одинаковые pinned model/corpus и явно выбранные decoding options. Фиксируйте WER и CER отдельно, результаты по языкам и условиям, полный PCM и каждый эксперимент с обрезкой. Измерения готовых 16 кГц WAV не заменяют проверку ресемплера или личного голоса.
 
-В [четвёртом этапе](improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для допуска речи и диагностики границ; STT получает полный PCM. [Финальный quality JSON](evidence/stage4-quality.json) и отрицательные результаты [150 мс](evidence/stage4-quality-preroll-150ms.json)/[2 с](evidence/stage4-quality-preroll-2s.json) сохранены.
+В [четвёртом этапе](archive/improvement-plan/improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для допуска речи и диагностики границ; STT получает полный PCM. [Финальный quality JSON](archive/improvement-plan/evidence/stage4-quality.json) и отрицательные результаты [150 мс](archive/improvement-plan/evidence/stage4-quality-preroll-150ms.json)/[2 с](archive/improvement-plan/evidence/stage4-quality-preroll-2s.json) сохранены.
 
 Контракты отчёта пятого этапа запускаются командой `npm run test:quality:stage5`. `scripts/stage5-quality.mjs --run` собирает свежий общий replay ресемплера, Silero и fast/accurate; укажите CPU runner, resampler, trimmer и отдельные пути отчётов. Один run ID, версия, исходники, модель, corpus и фактические параметры связывают все шесть вариантов.
 
@@ -115,7 +127,7 @@ Workflow `stt-quality.yml` запускает оба метода отдельн
 
 Для настоящего входного WAV 44,1/48/96 кГц example принимает `--native-input` последним аргументом. Он проверяет частоту заголовка и не реконструирует файл из 16 кГц. Этот флаг и `--bandlimited-reconstruction` взаимоисключающие. Архивы и native VoxForge WAV остаются в `build/perf04/`; обычный CI их не скачивает. Эталонные тексты входят в переносимые JSON и сохраняют GPL-3.0-or-later отдельно от MIT-кода. [Исходные notices и атрибуция](evidence/licenses/perf04-data-NOTICE.md), [полный GPLv3](evidence/licenses/perf04-voxforge-GPL-3.0.txt) включены рядом с отчётами.
 
-[Отчёт PERF-04](improvement-perf04.md) сохраняет все сравнения. Отдельный cardinal replay дал 85→85 ошибок на 450 слов, CER изменился 207→209 на 2846 символов. Он не заменяет исходный linear gate с 85→86. Дополнительный native diagnostic ухудшился относительно unfiltered linear 72→78/255 и улучшился относительно поставлявшегося FIR 79→78/255. На свежем native holdout Blackman дал 81/341 ошибок слов против 80 у обеих баз. **PERF-04 остаётся открытым: исходный и финальный native строгие WER gates не выполнены.** Эти результаты относятся к разным входам и базам; общего вывода о качестве на любом микрофоне из них не следует.
+[Отчёт PERF-04](archive/improvement-plan/improvement-perf04.md) сохраняет все сравнения. Отдельный cardinal replay дал 85→85 ошибок на 450 слов, CER изменился 207→209 на 2846 символов. Он не заменяет исходный linear gate с 85→86. Дополнительный native diagnostic ухудшился относительно unfiltered linear 72→78/255 и улучшился относительно поставлявшегося FIR 79→78/255. На свежем native holdout Blackman дал 81/341 ошибок слов против 80 у обеих баз. **PERF-04 остаётся открытым: исходный и финальный native строгие WER gates не выполнены.** Эти результаты относятся к разным входам и базам; общего вывода о качестве на любом микрофоне из них не следует.
 
 ### Lifecycle soak
 
@@ -152,9 +164,9 @@ Browser mock не подтверждает native IPC, глобальную кл
 
 | Сценарий                                                                      | Инструкция                                                   |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Удержание/повторное нажатие, отмена, ручной выбор, история и смена поля       | [dictation-controls-qa.md](qa/dictation-controls.md)         |
-| Индикатор без перехвата фокуса, сохранение выбора, промпты и пробная диктовка | [overlay-prompts-qa.md](qa/overlay-prompts.md)               |
-| Память Whisper, отключённый WakeWord и проверка обновлений                    | [fono-memory-updates-qa.md](qa/memory-updates.md)            |
+| Удержание/повторное нажатие, отмена, ручной выбор, история и смена поля       | [Диктовка](qa/dictation-controls.md)                         |
+| Индикатор без перехвата фокуса, сохранение выбора, промпты и пробная диктовка | [Overlay и промпты](qa/overlay-prompts.md)                   |
+| Память Whisper, legacy WakeWord и проверка обновлений                         | [Память и обновления](qa/memory-updates.md)                  |
 | Метаданные истории, локальный словарь и отчёт диагностики                     | [fono-quality-enhancements.md](fono-quality-enhancements.md) |
 | Health, WAV upload/polling, очередь и отмена API                              | [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md)     |
 | Загрузчик, продолжение загрузки, подпись, UAC и NSIS                          | [online-installer.md](online-installer.md)                   |

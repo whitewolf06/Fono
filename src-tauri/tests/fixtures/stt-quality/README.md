@@ -96,7 +96,7 @@ transcripts also appear in the committed numerical JSON reports and retain
 GPL-3.0-or-later independently of both these CC BY 4.0 fixtures and the Fono MIT
 code. The reports include [original notices and attribution](../../../../docs/evidence/licenses/perf04-data-NOTICE.md)
 and the [full GPLv3 text](../../../../docs/evidence/licenses/perf04-voxforge-GPL-3.0.txt). See the
-[PERF-04 report](../../../../docs/improvement-perf04.md) for selection,
+[PERF-04 report](../../../../docs/archive/improvement-plan/improvement-perf04.md) for selection,
 negative diagnostic results and acceptance limits.
 
 The fixed FLEURS comparison measures the shared **CPU protocol inference engine plus FIR replay**.
