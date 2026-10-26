@@ -1,0 +1,1247 @@
+{
+  "schema": "fono-lira-paired-context-regression@1",
+  "models_and_threshold_unchanged": true,
+  "live_policy_sha256": "30af90fe3467c9274710c6e5852b8a7d0d29a97359cec81ab7b72a57bf65ed01",
+  "candidate_context_samples": [
+    64000,
+    32000
+  ],
+  "native_vad": true,
+  "microphone_opened": false,
+  "owner_recordings_used_for_training": false,
+  "baseline_source_sha256": "5f6e17258ac8370ab60d0b13f51fe8b08e024a5f1ce7d179c8333a8af50189ed",
+  "candidate_source_sha256": "04c9a7c06a915189eb488e08fe88b5800f2f9a5c5bcf10e873409ee56ce49f3a",
+  "runtime_parity": false,
+  "prefill_parity": true,
+  "runtime_source_sha256": null,
+  "context": "isolated existing clips; legacy speech negatives included; room continuation looped",
+  "latency": "sample clock relative to recording file end only; not labelled phrase end or live latency/p95",
+  "wall_seconds": 90.891,
+  "rows": [
+    {
+      "case": 0,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9553474187850952,
+      "max_focused_score": 0.9553474187850952,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 820,
+        "event_samples": [
+          32000
+        ],
+        "max_frame_ms": 341.416,
+        "simulated_worker_ready_ms": [
+          2341.416
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 820,
+        "event_samples": [
+          32000
+        ],
+        "max_frame_ms": 95.333,
+        "simulated_worker_ready_ms": [
+          2093.545
+        ]
+      }
+    },
+    {
+      "case": 1,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.0064498186111450195,
+      "max_focused_score": 0.006473064422607422,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.239,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.096,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 2,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.8091586232185364,
+      "max_focused_score": 0.8091586232185364,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500,
+        "event_samples": [
+          29440
+        ],
+        "max_frame_ms": 303.841,
+        "simulated_worker_ready_ms": [
+          2143.841
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500,
+        "event_samples": [
+          29440
+        ],
+        "max_frame_ms": 146.774,
+        "simulated_worker_ready_ms": [
+          1986.774
+        ]
+      }
+    },
+    {
+      "case": 3,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.908126175403595,
+      "max_focused_score": 0.9087660312652588,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 696.384,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 113.485,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 4,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.8706505298614502,
+      "max_focused_score": 0.9207472801208496,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 684.018,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 118.02,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 5,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.8409042358398438,
+      "max_focused_score": 0.9030609130859375,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 627.53,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 124.863,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 6,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.012990862131118774,
+      "max_focused_score": 0.012990862131118774,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.146,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.152,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 7,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9533277153968811,
+      "max_focused_score": 0.9533277153968811,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 450,
+        "event_samples": [
+          37120,
+          72960
+        ],
+        "max_frame_ms": 640.659,
+        "simulated_worker_ready_ms": [
+          2776.968,
+          5200.659
+        ]
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 450,
+        "event_samples": [
+          37120,
+          72960
+        ],
+        "max_frame_ms": 119.625,
+        "simulated_worker_ready_ms": [
+          2405.03,
+          4679.625
+        ]
+      }
+    },
+    {
+      "case": 8,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.8766754865646362,
+      "max_focused_score": 0.8766754865646362,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 90,
+        "event_samples": [
+          29440
+        ],
+        "max_frame_ms": 303.907,
+        "simulated_worker_ready_ms": [
+          2143.907
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 90,
+        "event_samples": [
+          29440
+        ],
+        "max_frame_ms": 124.461,
+        "simulated_worker_ready_ms": [
+          1964.461
+        ]
+      }
+    },
+    {
+      "case": 9,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.823347806930542,
+      "max_focused_score": 0.823347806930542,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510,
+        "event_samples": [
+          30720
+        ],
+        "max_frame_ms": 306.475,
+        "simulated_worker_ready_ms": [
+          2226.475
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510,
+        "event_samples": [
+          30720
+        ],
+        "max_frame_ms": 85.973,
+        "simulated_worker_ready_ms": [
+          2005.973
+        ]
+      }
+    },
+    {
+      "case": 10,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9331324100494385,
+      "max_focused_score": 0.9331324100494385,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 267.362,
+        "simulated_worker_ready_ms": [
+          2027.362
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 79.496,
+        "simulated_worker_ready_ms": [
+          1839.496
+        ]
+      }
+    },
+    {
+      "case": 11,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.2994733452796936,
+      "max_focused_score": 0.2708527445793152,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.092,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.043,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 12,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9557579755783081,
+      "max_focused_score": 0.9557579755783081,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 130,
+        "event_samples": [
+          40960,
+          83200
+        ],
+        "max_frame_ms": 540.123,
+        "simulated_worker_ready_ms": [
+          2893.77,
+          5740.123
+        ]
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 130,
+        "event_samples": [
+          40960,
+          83200
+        ],
+        "max_frame_ms": 114.228,
+        "simulated_worker_ready_ms": [
+          2637.233,
+          5314.228
+        ]
+      }
+    },
+    {
+      "case": 13,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9550414681434631,
+      "max_focused_score": 0.9550414681434631,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 90,
+        "event_samples": [
+          40960,
+          72960
+        ],
+        "max_frame_ms": 554.673,
+        "simulated_worker_ready_ms": [
+          2992.759,
+          5114.673
+        ]
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 90,
+        "event_samples": [
+          40960,
+          72960
+        ],
+        "max_frame_ms": 130.656,
+        "simulated_worker_ready_ms": [
+          2661.016,
+          4690.656
+        ]
+      }
+    },
+    {
+      "case": 14,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9355736970901489,
+      "max_focused_score": 0.9355736970901489,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 280,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 243.858,
+        "simulated_worker_ready_ms": [
+          2003.858
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 280,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 90.908,
+        "simulated_worker_ready_ms": [
+          1850.908
+        ]
+      }
+    },
+    {
+      "case": 15,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.8807064890861511,
+      "max_focused_score": 0.9190772175788879,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 562.091,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 79.306,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 16,
+      "positive": false,
+      "condition": "noisy",
+      "max_full_score": 0.8656911253929138,
+      "max_focused_score": 0.9557000994682312,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 4,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 544.352,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 4,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 81.179,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 17,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9246854782104492,
+      "max_focused_score": 0.9246854782104492,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 660,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 239.063,
+        "simulated_worker_ready_ms": [
+          1999.063
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 660,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 83.46,
+        "simulated_worker_ready_ms": [
+          1843.46
+        ]
+      }
+    },
+    {
+      "case": 18,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.8584191799163818,
+      "max_focused_score": 0.9084337949752808,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 387.733,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 133.67,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 19,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9122275114059448,
+      "max_focused_score": 0.9122275114059448,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 370,
+        "event_samples": [
+          29440
+        ],
+        "max_frame_ms": 270.518,
+        "simulated_worker_ready_ms": [
+          2110.518
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 370,
+        "event_samples": [
+          29440
+        ],
+        "max_frame_ms": 95.288,
+        "simulated_worker_ready_ms": [
+          1935.288
+        ]
+      }
+    },
+    {
+      "case": 20,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9245157241821289,
+      "max_focused_score": 0.9245157241821289,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 710,
+        "event_samples": [
+          30720
+        ],
+        "max_frame_ms": 255.612,
+        "simulated_worker_ready_ms": [
+          2175.612
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 710,
+        "event_samples": [
+          30720
+        ],
+        "max_frame_ms": 70.195,
+        "simulated_worker_ready_ms": [
+          1990.195
+        ]
+      }
+    },
+    {
+      "case": 21,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9534506797790527,
+      "max_focused_score": 0.9534506797790527,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 590,
+        "event_samples": [
+          33280,
+          65280
+        ],
+        "max_frame_ms": 415.939,
+        "simulated_worker_ready_ms": [
+          2329.496,
+          4495.939
+        ]
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 590,
+        "event_samples": [
+          33280,
+          65280
+        ],
+        "max_frame_ms": 107.52,
+        "simulated_worker_ready_ms": [
+          2187.52,
+          4154.783
+        ]
+      }
+    },
+    {
+      "case": 22,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9284141063690186,
+      "max_focused_score": 0.9284141063690186,
+      "baseline": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 490,
+        "event_samples": [
+          39680,
+          75520
+        ],
+        "max_frame_ms": 488.596,
+        "simulated_worker_ready_ms": [
+          2829.599,
+          5208.596
+        ]
+      },
+      "candidate": {
+        "events": 2,
+        "detected": true,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": 490,
+        "event_samples": [
+          39680,
+          75520
+        ],
+        "max_frame_ms": 123.701,
+        "simulated_worker_ready_ms": [
+          2603.701,
+          4799.573
+        ]
+      }
+    },
+    {
+      "case": 23,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.943341076374054,
+      "max_focused_score": 0.943341076374054,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 310,
+        "event_samples": [
+          39680
+        ],
+        "max_frame_ms": 348.536,
+        "simulated_worker_ready_ms": [
+          2828.536
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 310,
+        "event_samples": [
+          39680
+        ],
+        "max_frame_ms": 132.014,
+        "simulated_worker_ready_ms": [
+          2612.014
+        ]
+      }
+    },
+    {
+      "case": 24,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.9458546042442322,
+      "max_focused_score": 0.9458546042442322,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510,
+        "event_samples": [
+          26880
+        ],
+        "max_frame_ms": 250.309,
+        "simulated_worker_ready_ms": [
+          1930.309
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 510,
+        "event_samples": [
+          26880
+        ],
+        "max_frame_ms": 96.591,
+        "simulated_worker_ready_ms": [
+          1776.591
+        ]
+      }
+    },
+    {
+      "case": 25,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9272457361221313,
+      "max_focused_score": 0.9272457361221313,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 610,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 295.234,
+        "simulated_worker_ready_ms": [
+          2055.234
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 610,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 104.64,
+        "simulated_worker_ready_ms": [
+          1864.64
+        ]
+      }
+    },
+    {
+      "case": 26,
+      "positive": false,
+      "condition": "quiet",
+      "max_full_score": 0.8553822040557861,
+      "max_focused_score": 0.9083069562911987,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 457.049,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 2,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 80.172,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 27,
+      "positive": true,
+      "condition": "quiet",
+      "max_full_score": 0.8614981174468994,
+      "max_focused_score": 0.8614981174468994,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 180,
+        "event_samples": [
+          33280
+        ],
+        "max_frame_ms": 248.463,
+        "simulated_worker_ready_ms": [
+          2328.463
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 180,
+        "event_samples": [
+          33280
+        ],
+        "max_frame_ms": 72.197,
+        "simulated_worker_ready_ms": [
+          2152.197
+        ]
+      }
+    },
+    {
+      "case": 28,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.9085977077484131,
+      "max_focused_score": 0.9086235761642456,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500,
+        "event_samples": [
+          34560
+        ],
+        "max_frame_ms": 304.182,
+        "simulated_worker_ready_ms": [
+          2464.182
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 500,
+        "event_samples": [
+          34560
+        ],
+        "max_frame_ms": 113.771,
+        "simulated_worker_ready_ms": [
+          2273.771
+        ]
+      }
+    },
+    {
+      "case": 29,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.8722996711730957,
+      "max_focused_score": 0.8722996711730957,
+      "baseline": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 810,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 250.254,
+        "simulated_worker_ready_ms": [
+          2010.254
+        ]
+      },
+      "candidate": {
+        "events": 1,
+        "detected": true,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": 810,
+        "event_samples": [
+          28160
+        ],
+        "max_frame_ms": 92.099,
+        "simulated_worker_ready_ms": [
+          1852.099
+        ]
+      }
+    },
+    {
+      "case": 30,
+      "positive": true,
+      "condition": "noisy",
+      "max_full_score": 0.2738311290740967,
+      "max_focused_score": 0.2738311290740967,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.203,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 0,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 0.065,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 31,
+      "positive": false,
+      "condition": "public",
+      "max_full_score": 0.873039722442627,
+      "max_focused_score": 0.9157457947731018,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 509.463,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 84.378,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 32,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8525896668434143,
+      "max_focused_score": 0.915238618850708,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 561.259,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 115.033,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 33,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8624391555786133,
+      "max_focused_score": 0.9180967807769775,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 710.753,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 97.715,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 34,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8852379322052002,
+      "max_focused_score": 0.9555630683898926,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 657.065,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 5,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 126.902,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 35,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.9241927862167358,
+      "max_focused_score": 0.9241927862167358,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 589.928,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 90.045,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 36,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.8310266733169556,
+      "max_focused_score": 0.9054591655731201,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 704.137,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 3,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 100.184,
+        "simulated_worker_ready_ms": []
+      }
+    },
+    {
+      "case": 37,
+      "positive": false,
+      "condition": "legacy_other_speech",
+      "max_full_score": 0.7829399108886719,
+      "max_focused_score": 0.9103529453277588,
+      "baseline": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 846.573,
+        "simulated_worker_ready_ms": []
+      },
+      "candidate": {
+        "events": 0,
+        "detected": false,
+        "early_events": 0,
+        "checks": 1,
+        "first_ready_after_recording_end_ms": null,
+        "event_samples": [],
+        "max_frame_ms": 111.673,
+        "simulated_worker_ready_ms": []
+      }
+    }
+  ],
+  "baseline": {
+    "positive_clips": 22,
+    "positive_hits": 20,
+    "negative_clips": 16,
+    "negative_events": 0,
+    "early_events_in_positive_context": 0,
+    "ctc_checks": 64
+  },
+  "candidate": {
+    "positive_clips": 22,
+    "positive_hits": 20,
+    "negative_clips": 16,
+    "negative_events": 0,
+    "early_events_in_positive_context": 0,
+    "ctc_checks": 64
+  },
+  "lost_positive_cases": [],
+  "identical_decisions_counts_and_sample_clocks": true,
+  "timing_limit": "Serial 80ms worker simulation using measured per-frame work, with cached identical CNN scores; excludes real microphone, CNN work, pipes, cue output and UI. Not live latency or p95."
+}

@@ -365,7 +365,10 @@ pub(crate) async fn stop(app: AppHandle, id: u64) -> AppResult<Snapshot> {
 pub(crate) fn strip_phrase(text: &str) -> String {
     static PHRASE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     let phrase = PHRASE.get_or_init(|| {
-        regex::Regex::new(r"(?i)\bпривет[\s,.:!?—-]+лира\b[\s,.:!?;—-]*").expect("fixed phrase")
+        // Dictation STT can spell the already-confirmed name differently from
+        // the separate wake verifier. This is cleanup only, never acceptance.
+        regex::Regex::new(r"(?i)\bпривет[\s,.:!?;–—-]+(?:лира|лера|ира)\b[\s,.:!?;–—-]*")
+            .expect("fixed phrase")
     });
     phrase.find(text).map_or_else(
         || text.trim().to_owned(),
@@ -388,5 +391,27 @@ mod tests {
             "Привет, Лиран. Запиши"
         );
         assert_eq!(strip_phrase("Расскажи про iPhone"), "Расскажи про iPhone");
+    }
+    #[test]
+    fn confirmed_wake_cleans_dictation_stt_name_variants_once_without_cutting_the_command() {
+        for name in ["Лира", "Лера", "Ира"] {
+            assert_eq!(
+                strip_phrase(&format!("Привет, {name}! Первое слово на месте.")),
+                "Первое слово на месте."
+            );
+            assert_eq!(strip_phrase(&format!("ПРИВЕТ – {name}.")), "");
+            assert_eq!(
+                strip_phrase(&format!("Привет {name}. Напиши: привет, Ира!")),
+                "Напиши: привет, Ира!"
+            );
+        }
+        for text in [
+            "Привет, Лиран. Запиши",
+            "Привет, Иран",
+            "Привет, Мира",
+            "Лира звучит красиво",
+        ] {
+            assert_eq!(strip_phrase(text), text);
+        }
     }
 }

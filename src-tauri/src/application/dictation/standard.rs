@@ -169,7 +169,18 @@ async fn stop_once(
     #[cfg(all(windows, debug_assertions))]
     if session.source == OperationSource::WakeWord && session.settings.wake_word == "Привет, Лира"
     {
-        transcript.text = crate::application::wake_lira::strip_phrase(&transcript.text);
+        let cleaned = crate::application::wake_lira::strip_phrase(&transcript.text);
+        tracing::info!(
+            event = "lira_wake_phrase_cleanup",
+            operation,
+            removed_chars = transcript
+                .text
+                .chars()
+                .count()
+                .saturating_sub(cleaned.chars().count()),
+            "confirmed wake phrase cleanup completed"
+        );
+        transcript.text = cleaned;
     }
     #[cfg(feature = "wake-word")]
     if session.source == OperationSource::WakeWord {

@@ -12,6 +12,41 @@ import live_worker
 
 
 class StreamTests(unittest.TestCase):
+    def test_prefill_runs_during_lookahead_but_never_advances_the_acceptance_clock(self):
+        calls = []
+        class Verifier:
+            def advance(self, pcm, *, final, max_chunks):
+                calls.append((len(pcm), final, max_chunks))
+                return True if final else None
+        stream = Stream(lambda _: 0.9, lambda _: self.fail("full verifier must not run"), Verifier)
+        frame = np.ones(common.STRIDE, np.float32)
+        for _ in range(common.TAIL // common.STRIDE):
+            self.assertFalse(stream.accept(frame, True)["detected"])
+        self.assertTrue(stream.accept(frame, True)["detected"])
+        self.assertEqual(len(calls), common.TAIL // common.STRIDE + 1)
+        self.assertTrue(all(not final for _, final, _ in calls[:-1]))
+        self.assertEqual(calls[-1], (common.TAIL + common.STRIDE, True, 2))
+        self.assertEqual(stream.stats["checks"], 1)
+        self.assertEqual(stream.stats["accepted"], 1)
+
+    def test_prefill_reset_cannot_publish_or_reuse_a_previous_proposal(self):
+        verifiers = []
+        class Verifier:
+            def __init__(self):
+                self.calls = []
+                verifiers.append(self)
+            def advance(self, pcm, *, final, max_chunks):
+                self.calls.append(pcm.copy())
+                return True if final else None
+        stream = Stream(lambda _: 0.9, lambda _: False, Verifier)
+        stream.accept(np.full(common.STRIDE, .1, np.float32), True)
+        stream.reset()
+        for _ in range(9): stream.accept(np.full(common.STRIDE, .2, np.float32), True)
+        self.assertEqual(len(verifiers), 2)
+        self.assertEqual(len(verifiers[0].calls), 1)
+        self.assertTrue(np.allclose(verifiers[1].calls[-1], .2))
+        self.assertEqual(stream.stats["accepted"], 1)
+
     def test_startup_reports_loading_and_publishes_ready_only_after_both_models_are_warm(self):
         events = []
         cnn, tone = mock.Mock(), mock.Mock()
@@ -183,7 +218,7 @@ class StreamTests(unittest.TestCase):
             self.assertEqual(value["processed"], common.STRIDE)
             self.assertEqual(set(value), {"schema", "pid", "updated_at", "processed", "frames",
                              "speech_frames", "max_abs", "max_cnn_score", "proposals", "checks", "accepted", "resets",
-                             "retries", "max_classify_ms", "max_verify_ms", "last_check"})
+                             "retries", "max_classify_ms", "max_verify_ms", "max_verify_step_ms", "last_check"})
             self.assertFalse(path.with_suffix(".tmp").exists())
             # Optional output failures never stop the live detector.
             Diagnostics(Path(directory) / "missing" / "counters.json").write(stream, force=True)

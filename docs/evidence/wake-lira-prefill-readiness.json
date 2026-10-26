@@ -1,0 +1,126 @@
+{
+  "schema": "fono-lira-prefill-readiness@1",
+  "date": "2026-10-26",
+  "version": "0.7.82",
+  "baseline": {
+    "version": "0.7.81",
+    "source_commit": "f46308c8c79f086e17512f7877085a6d7474abf4",
+    "owner_feedback": "Repeated wake works well; readiness is delayed and dictation STT sometimes leaves Privet Lira/Lera/Ira.",
+    "fresh_live_wakes": 5,
+    "capture_packet_drops": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "verifier_roundtrip_ms": [
+      293,
+      378,
+      616,
+      547,
+      453
+    ],
+    "ready_cue_dispatch_after_confirmation_ms": [
+      13,
+      12,
+      22,
+      13,
+      35
+    ],
+    "native_sound_playback_return_ms": [
+      290,
+      200,
+      300,
+      203,
+      199
+    ],
+    "timing_limit": "Dispatch and PlaySound completion are not acoustic onset or time from the labelled phrase end."
+  },
+  "changes": {
+    "verifier": "The same T-one chunks and recurrent state are processed in batches of at most two during the existing 640ms lookahead. Only immutable resampler output with a real 20-sample FIR right halo is committed. Finalization uses exactly the old padding, quantization and whole-phrase decision.",
+    "early_acceptance": false,
+    "context_samples": 64000,
+    "lookahead_samples": 10240,
+    "cnn_threshold": 0.8,
+    "rejected_retries": 2,
+    "models_and_acceptance_unchanged": true,
+    "reset": "Pending verifier and state discarded on every pause/reset; source prefix replacement and nonfinite data rejected.",
+    "cleanup": "After a confirmed Lira WakeWord operation, remove the first complete greeting with the observed dictation spellings Lira, Lera or Ira; retain the first command word and any subsequent greeting. Ordinary hotkey/UI dictation is unchanged.",
+    "cleanup_telemetry": "Only operation id and removed character count; no transcript or matched name is logged.",
+    "policy_schema": "fono-lira-live-policy@3",
+    "runtime_source_sha256": "b87baa5f44799d70a1ff9fca49c97d0a3d342435eb4a89e65affc39ab9afed0a"
+  },
+  "paired_quality": {
+    "reference_commit": "f46308c8c79f086e17512f7877085a6d7474abf4",
+    "baseline": {
+      "positive_clips": 22,
+      "positive_hits": 20,
+      "negative_clips": 16,
+      "negative_events": 0,
+      "early_events_in_positive_context": 0,
+      "ctc_checks": 64
+    },
+    "candidate": {
+      "positive_clips": 22,
+      "positive_hits": 20,
+      "negative_clips": 16,
+      "negative_events": 0,
+      "early_events_in_positive_context": 0,
+      "ctc_checks": 64
+    },
+    "identical_decisions_counts_and_sample_clocks": true,
+    "lost_positive_cases": [],
+    "wall_seconds": 90.891,
+    "detail": "wake-lira-prefill-parity.json",
+    "same_existing_consented_dev_recordings": true,
+    "new_independent_exposure": false,
+    "used_for_training": false
+  },
+  "timing": {
+    "matched_positive_cases": 20,
+    "simulated_readiness_gain_ms": {
+      "minimum": 141.976,
+      "median": 187.866,
+      "maximum": 371.938
+    },
+    "median_maximum_frame_work_ms": {
+      "baseline": 303.907,
+      "candidate": 104.64
+    },
+    "maximum_frame_work_ms": {
+      "baseline": 846.573,
+      "candidate": 146.774
+    },
+    "limit": "Serial 80ms worker simulation using measured per-frame work, with cached identical CNN scores; excludes real microphone, CNN work, pipes, cue output and UI. Not live latency or p95."
+  },
+  "validation": {
+    "python": {
+      "passed": 49,
+      "failed": 0
+    },
+    "rust_lira": {
+      "passed": 15,
+      "ignored": 1,
+      "failed": 0
+    },
+    "native_replay": "The explicit ignored native Job/pipes replay was not repeated; the real NumPy/ONNX cascade with native neural VAD was evaluated in the paired Python replay.",
+    "vue_ipc": {
+      "passed": 412,
+      "failed": 0
+    },
+    "release_ci_working_tree": {
+      "passed": 48,
+      "failed": 0
+    },
+    "typecheck_lint_frontend_build_format_version": "passed",
+    "microphone_activated_by_agent": false,
+    "kvorum": "Not accessed, per owner request."
+  },
+  "remaining": [
+    "Owner live UAT in dev 0.7.82: repeated wakes, perceived sound readiness, first command word and absence of the activation greeting in inserted text.",
+    "The full 640ms lookahead remains. The measured simulation gain is not a live latency or p95 guarantee.",
+    "The same two positive clips remain missed. Independent voices, long natural negatives and live resource/latency budgets remain open.",
+    "Standalone worker packaging remains open; this dev uses the prepared local Python environment."
+  ]
+}
