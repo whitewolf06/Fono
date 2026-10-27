@@ -5,7 +5,7 @@ resolver = "2"
 [package]
 license = "MIT"
 name = "fono"
-version = "0.8.6"
+version = "0.8.7"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -142,8 +142,8 @@ opt-level = 3
 panic = "abort"
 strip = true
 
-# whisper-rs-sys использует оптимизированный release-профиль;
-# переносимые CPU-флаги задаются в .cargo/config.toml.
+# whisper-rs-sys uses an optimized release profile; its MSVC-only CMake flags
+# are selected by the hook configured in .cargo/config.toml.
 [profile.release.package.whisper-rs-sys]
 opt-level = 3
 strip = true

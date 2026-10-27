@@ -1,6 +1,4 @@
-# Portable release configuration. Do not force target-cpu=native or AVX2 here:
-# a distributable binary must run on another Windows machine, not only on the
-# CPU that built it. Native/CUDA benchmarking belongs in an explicit local build.
+# Keep Windows release optimization in the CMake project, so Linux never
+# receives MSVC flags. Native CPU/CUDA tuning belongs in an explicit local build.
 [env]
-CMAKE_C_FLAGS_RELEASE = "/O2 /Ob2 /DNDEBUG"
-CMAKE_CXX_FLAGS_RELEASE = "/O2 /Ob2 /DNDEBUG"
+CMAKE_PROJECT_INCLUDE = { value = "cmake/whisper-msvc-release.cmake", relative = true }
