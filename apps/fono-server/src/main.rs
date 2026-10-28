@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use std::sync::Mutex;
 
 use clap::ArgMatches;
-use fono_server::{config, models, tokens};
+use fono_server::{config, models, runtime, tokens};
 use fono_service::rest_api::TokenScope;
 use fono_stt::models::download::{DownloadEvent, DownloadPhase};
 
@@ -45,6 +45,34 @@ fn check_config(path: &Path) -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(code) => code,
+    }
+}
+
+fn serve(path: &Path) -> ExitCode {
+    let config = match load_config(path) {
+        Ok(config) => config,
+        Err(code) => return code,
+    };
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("Server runtime error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let result = runtime.block_on(runtime::serve(config));
+    // A timed-out spawn_blocking task must not make dropping Tokio wait past
+    // the server's shutdown deadline. Successful shutdown joins its work first.
+    runtime.shutdown_background();
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("Server error: {error}");
+            ExitCode::FAILURE
+        }
     }
 }
 
@@ -199,7 +227,7 @@ fn main() -> ExitCode {
     };
     if matches.get_flag("product-version") {
         println!("fono-server {}", env!("FONO_PRODUCT_VERSION"));
-        println!("api_version: 2 (planned; HTTP server unavailable)");
+        println!("api_version: 1 (partial; API v2 planned)");
         println!("worker_protocol: {}", fono_stt_protocol::PROTOCOL_VERSION);
         return ExitCode::SUCCESS;
     }
@@ -208,7 +236,7 @@ fn main() -> ExitCode {
         std::env::var_os("FONO_CONFIG"),
     );
     match matches.subcommand() {
-        Some(("serve", _)) => unavailable("Server runtime"),
+        Some(("serve", _)) => serve(&config_path),
         Some(("models", arguments)) => run_models(&config_path, arguments),
         Some(("token", arguments)) => run_tokens(&config_path, arguments),
         Some(("doctor", _)) => unavailable("Server diagnostics"),

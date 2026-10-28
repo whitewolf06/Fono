@@ -30,6 +30,7 @@ pub struct RestApiState {
     pub protocol_version: u16,
     jobs: Option<Arc<dyn TranscriptionJobs>>,
     upload_dir: Arc<PathBuf>,
+    upload_policy: AudioIngestPolicy,
 }
 
 /// The desktop supplies one token; a server host can implement token-file
@@ -92,6 +93,7 @@ impl RestApiState {
             protocol_version,
             jobs: None,
             upload_dir: Arc::new(std::env::temp_dir().join("fono-transcription-uploads")),
+            upload_policy: AudioIngestPolicy::default(),
         }
     }
 
@@ -107,6 +109,11 @@ impl RestApiState {
 
     pub fn with_upload_dir(mut self, upload_dir: PathBuf) -> Self {
         self.upload_dir = Arc::new(upload_dir);
+        self
+    }
+
+    pub fn with_upload_policy(mut self, policy: AudioIngestPolicy) -> Self {
+        self.upload_policy = policy;
         self
     }
 }
@@ -272,7 +279,13 @@ async fn upload(
         Ok(activity) => activity,
         Err(_) => return api_error(StatusCode::SERVICE_UNAVAILABLE, "update_installing"),
     };
-    let request = match request_from_multipart(multipart, &state.upload_dir, &state.activity).await
+    let request = match request_from_multipart(
+        multipart,
+        &state.upload_dir,
+        &state.activity,
+        state.upload_policy,
+    )
+    .await
     {
         Ok(request) => request,
         Err(error) => return upload_error(error),
@@ -324,6 +337,7 @@ async fn request_from_multipart(
     mut multipart: Multipart,
     upload_dir: &Path,
     activity: &Arc<dyn ActivityGuard>,
+    policy: AudioIngestPolicy,
 ) -> Result<TranscriptionRequest, UploadError> {
     let mut language = "auto".to_string();
     let mut model = None;
@@ -339,7 +353,8 @@ async fn request_from_multipart(
                 Some("model") => model = Some(bounded_text(field).await?),
                 Some("audio") if audio_path.is_none() => {
                     let extension = upload_extension(field.file_name())?;
-                    audio_path = Some(write_upload(&mut field, upload_dir, &extension).await?);
+                    audio_path =
+                        Some(write_upload(&mut field, upload_dir, &extension, policy).await?);
                 }
                 Some("audio") => {
                     return Err(UploadError::Invalid(
@@ -350,16 +365,17 @@ async fn request_from_multipart(
             }
         }
         let audio_path = audio_path
-            .as_ref()
+            .take()
             .ok_or_else(|| UploadError::Invalid("audio field is required".into()))?;
         let decoded = tokio::task::spawn_blocking({
-            let audio_path = audio_path.clone();
             let activity = activity
                 .lease()
                 .map_err(|_| UploadError::Internal("application update is installing".into()))?;
             move || {
                 let _activity = activity;
-                audio_ingest::decode_file(&audio_path, AudioIngestPolicy::default())
+                // The file stays owned by the decoder even if the HTTP future
+                // is dropped while this blocking work is still running.
+                audio_ingest::decode_file(&audio_path.0, policy)
             }
         })
         .await
@@ -368,10 +384,15 @@ async fn request_from_multipart(
         Ok(audio.into_transcription_request(language, model))
     }
     .await;
-    if let Some(audio_path) = audio_path {
-        let _ = tokio::fs::remove_file(audio_path).await;
-    }
     result
+}
+
+struct UploadedFile(PathBuf);
+
+impl Drop for UploadedFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 async fn bounded_text(field: axum::extract::multipart::Field<'_>) -> Result<String, UploadError> {
@@ -391,12 +412,19 @@ async fn write_upload(
     field: &mut axum::extract::multipart::Field<'_>,
     upload_dir: &Path,
     extension: &str,
-) -> Result<PathBuf, UploadError> {
+    policy: AudioIngestPolicy,
+) -> Result<UploadedFile, UploadError> {
     tokio::fs::create_dir_all(upload_dir)
         .await
         .map_err(|error| UploadError::Internal(error.to_string()))?;
-    let path = upload_dir.join(format!("{}.{}", uuid::Uuid::new_v4().simple(), extension));
-    let mut file = tokio::fs::File::create(&path)
+    let path =
+        UploadedFile(upload_dir.join(format!("{}.{}", uuid::Uuid::new_v4().simple(), extension)));
+    let mut options = tokio::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options
+        .open(&path.0)
         .await
         .map_err(|error| UploadError::Internal(error.to_string()))?;
     let mut bytes_written = 0_u64;
@@ -406,17 +434,14 @@ async fn write_upload(
         .map_err(|error| UploadError::Invalid(error.to_string()))?
     {
         bytes_written = bytes_written.saturating_add(chunk.len() as u64);
-        if bytes_written > AudioIngestPolicy::default().max_file_bytes {
-            let _ = tokio::fs::remove_file(&path).await;
+        if bytes_written > policy.max_file_bytes {
             return Err(UploadError::TooLarge);
         }
         if let Err(error) = file.write_all(&chunk).await {
-            let _ = tokio::fs::remove_file(&path).await;
             return Err(UploadError::Internal(error.to_string()));
         }
     }
     if let Err(error) = file.flush().await {
-        let _ = tokio::fs::remove_file(&path).await;
         return Err(UploadError::Internal(error.to_string()));
     }
     drop(file);

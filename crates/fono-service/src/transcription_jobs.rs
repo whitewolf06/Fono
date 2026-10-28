@@ -136,6 +136,7 @@ pub trait TranscriptionJobs: Send + Sync {
 pub struct TranscriptionJobWorker {
     stopped: Arc<std::sync::atomic::AtomicBool>,
     jobs: Arc<dyn TranscriptionJobs>,
+    thread: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl TranscriptionJobWorker {
@@ -143,7 +144,7 @@ impl TranscriptionJobWorker {
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let stopped_for_thread = Arc::clone(&stopped);
         let jobs_for_thread = Arc::clone(&jobs);
-        std::thread::Builder::new()
+        let thread = std::thread::Builder::new()
             .name("fono-transcription-jobs".into())
             .spawn(move || {
                 while !stopped_for_thread.load(Ordering::Acquire) {
@@ -152,12 +153,27 @@ impl TranscriptionJobWorker {
                     }
                 }
             })?;
-        Ok(Self { stopped, jobs })
+        Ok(Self {
+            stopped,
+            jobs,
+            thread: Mutex::new(Some(thread)),
+        })
     }
 
     pub fn shutdown(&self) {
         self.stopped.store(true, Ordering::Release);
         self.jobs.cancel_all_jobs();
+    }
+
+    /// Wait for the queue thread after requesting shutdown. Call from a
+    /// blocking context: an active transcription must first observe its
+    /// cancellation before the thread can exit.
+    pub fn join(&self) -> std::thread::Result<()> {
+        if let Some(thread) = self.thread.lock().take() {
+            thread.join()
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -345,6 +361,39 @@ where
             .iter()
             .filter_map(|id| state.work.remove(id))
             .collect();
+        prune_terminal_jobs(&mut state);
+        drop(state);
+        for job in cancelled_jobs {
+            self.notify(&job);
+        }
+        drop(retired);
+    }
+
+    /// Reject queued work at shutdown without interrupting a transcription
+    /// that already started. Active jobs may finish within the grace period.
+    pub fn cancel_pending(&self) {
+        let mut state = self.state.lock();
+        let pending: Vec<_> = state.pending.drain(..).collect();
+        let mut cancelled_jobs = Vec::with_capacity(pending.len());
+        let mut retired = Vec::with_capacity(pending.len());
+        for id in pending {
+            if let Some(work) = state.work.get(&id) {
+                work.cancellation.cancel();
+            }
+            if let Some(job) = state.jobs.get_mut(&id) {
+                if !job.is_terminal() {
+                    job.state = JobState::Cancelled;
+                    job.finished_at_ms = Some(now_epoch_ms());
+                    job.error = Some(TranscriptionServiceError::Cancelled(
+                        "service shutdown".into(),
+                    ));
+                    cancelled_jobs.push(job.clone());
+                }
+            }
+            if let Some(work) = state.work.remove(&id) {
+                retired.push(work);
+            }
+        }
         prune_terminal_jobs(&mut state);
         drop(state);
         for job in cancelled_jobs {
@@ -790,6 +839,40 @@ mod tests {
         assert!(queue.run_next().is_none());
         assert_eq!(queue.get(&job.id).unwrap().state, JobState::Cancelled);
         assert_eq!(queue.service.runtime().calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn shutdown_cancels_pending_without_running_them() {
+        let queue = test_queue(
+            TranscriptionService::new(Runtime {
+                calls: AtomicUsize::new(0),
+            }),
+            Gate(AtomicBool::new(true)),
+            2,
+        );
+        let first = queue.submit(request()).unwrap();
+        let second = queue.submit(request()).unwrap();
+        queue.cancel_pending();
+        assert_eq!(queue.get(&first.id).unwrap().state, JobState::Cancelled);
+        assert_eq!(queue.get(&second.id).unwrap().state, JobState::Cancelled);
+        assert_eq!(queue.snapshot().queued, 0);
+        assert!(queue.state.lock().work.is_empty());
+        assert_eq!(queue.service.runtime().calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn worker_shutdown_can_be_joined() {
+        let queue: Arc<dyn TranscriptionJobs> = Arc::new(test_queue(
+            TranscriptionService::new(Runtime {
+                calls: AtomicUsize::new(0),
+            }),
+            NoInteractiveActivity,
+            1,
+        ));
+        let worker = TranscriptionJobWorker::start(queue).unwrap();
+        worker.shutdown();
+        worker.join().unwrap();
+        worker.join().unwrap();
     }
 
     #[test]

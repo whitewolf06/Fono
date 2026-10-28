@@ -496,6 +496,45 @@ async fn multipart_wav_without_model_uses_the_selected_model_and_cleans_up_uploa
     std::fs::remove_dir_all(upload_dir).unwrap();
 }
 
+#[tokio::test]
+async fn upload_respects_host_file_limit_before_decoding() {
+    let upload_dir = std::env::temp_dir().join(format!("fono-rest-test-{}", uuid::Uuid::new_v4()));
+    let app = router(
+        test_state()
+            .with_upload_dir(upload_dir.clone())
+            .with_upload_policy(crate::audio_ingest::AudioIngestPolicy {
+                max_file_bytes: 32,
+                max_duration_seconds: 1,
+            }),
+    );
+    let boundary = "fono-limited-upload";
+    let mut body = format!(
+        "--{boundary}\r\nContent-Disposition: form-data; name=\"audio\"; filename=\"sample.wav\"\r\nContent-Type: audio/wav\r\n\r\n"
+    )
+    .into_bytes();
+    body.extend_from_slice(include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/audio/tone-16k-mono.wav"
+    )));
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+    let response = app
+        .oneshot(
+            authorized_request("/v1/transcriptions")
+                .method("POST")
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(std::fs::read_dir(&upload_dir).unwrap().next().is_none());
+    std::fs::remove_dir_all(upload_dir).unwrap();
+}
+
 fn multipart_text(body: &mut Vec<u8>, boundary: &str, name: &str, value: &str) {
     body.extend_from_slice(
         format!(

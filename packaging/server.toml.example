@@ -14,7 +14,8 @@ max_upload_mb = 100
 max_audio_seconds = 300
 shutdown_grace = "10s"
 
-# TLS is optional. Provision both files before uncommenting this section.
+# TLS configuration is reserved for a later server stage. This build rejects
+# the section rather than silently serving plain HTTP.
 # [tls]
 # cert = "/etc/fono/tls/cert.pem"
 # key = "/etc/fono/tls/key.pem"
@@ -27,8 +28,8 @@ max_loaded = 2
 
 [[models.placement]]
 model = "whisper:large_turbo"
-device = "cpu" # Set to "cuda:0" only on a host with a supported GPU.
-residency = "resident"
+device = "cpu" # This server build supports CPU placement only.
+residency = "resident" # The default model stays loaded to keep /healthz ready.
 
 [[models.placement]]
 model = "giga_am:v3_e2e_rnnt_int8"
@@ -40,6 +41,7 @@ idle_unload_after = "30m"
 max_queued = 32
 max_inflight_per_token = 2
 cpu_parallel = 2
+# Per-token concurrency and CPU parallelism are applied by the SRV-06 scheduler.
 
 [metrics]
 enabled = false

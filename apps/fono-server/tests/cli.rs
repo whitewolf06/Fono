@@ -80,7 +80,7 @@ fn help_describes_the_server_commands() {
 }
 
 #[test]
-fn version_reports_product_and_worker_protocol_without_claiming_a_running_api() {
+fn version_reports_product_and_worker_protocol() {
     let output = run(&["--version"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
@@ -91,7 +91,7 @@ fn version_reports_product_and_worker_protocol_without_claiming_a_running_api() 
         .and_then(|line| line.split('"').nth(3))
         .expect("product version in package.json");
     assert!(stdout.contains(&format!("fono-server {product_version}")));
-    assert!(stdout.contains("api_version: 2 (planned"));
+    assert!(stdout.contains("api_version: 1 (partial; API v2 planned)"));
     assert!(stdout.contains(&format!(
         "worker_protocol: {}",
         fono_stt_protocol::PROTOCOL_VERSION
@@ -313,12 +313,25 @@ fn token_cli_prints_secret_once_and_never_lists_or_persists_it() {
 }
 
 #[test]
-fn pending_runtime_commands_fail_explicitly() {
-    for args in [&["serve"][..], &["doctor"]] {
-        let output = run(args);
-        assert!(!output.status.success(), "unexpected success: {args:?}");
-        assert!(String::from_utf8(output.stderr)
-            .unwrap()
-            .contains("not available"));
-    }
+fn pending_diagnostics_command_fails_explicitly() {
+    let output = run(&["doctor"]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("not available"));
+}
+
+#[test]
+fn serve_checks_the_token_store_before_binding() {
+    let missing_tokens = std::env::temp_dir().join(format!("fono-tokens-{}", Uuid::new_v4()));
+    let config = fixture_file(&format!(
+        "[server]\ntokens_file = '{}'\n",
+        missing_tokens.to_string_lossy().replace('\\', "/")
+    ));
+    let output = run(&["serve", "--config", config.to_str().unwrap()]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("Token store"));
+    std::fs::remove_file(config).unwrap();
 }

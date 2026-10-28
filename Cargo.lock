@@ -1395,7 +1395,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fono"
-version = "0.8.20"
+version = "0.8.21"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1470,19 +1470,23 @@ dependencies = [
 name = "fono-server"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "chrono",
  "clap",
  "fono-audio",
+ "fono-core",
  "fono-service",
  "fono-stt",
  "fono-stt-protocol",
  "fono-types",
  "libc",
+ "serde",
  "serde_json",
  "sha2",
  "subtle",
  "tokio",
  "toml 0.9.12+spec-1.1.0",
+ "tower",
  "tracing",
  "uuid",
 ]

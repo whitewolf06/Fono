@@ -57,6 +57,7 @@ struct PoolState {
     // custom Whisper path has variant `custom` and must not alias another file.
     known: HashMap<ModelId, ModelConfiguration>,
     tick: u64,
+    closed: bool,
 }
 
 impl PoolState {
@@ -207,6 +208,9 @@ impl ModelPool {
         if cancellation.is_cancelled() {
             return Err(cancelled());
         }
+        if self.shared.state.lock().closed {
+            return Err(shutting_down());
+        }
         if self.shared.max_estimated_bytes.is_some() && estimated_bytes == 0 {
             return Err(SttError::Config(
                 "A positive model memory estimate is required by this pool".into(),
@@ -282,6 +286,9 @@ impl ModelPool {
             let engine = Arc::new(SttEngine::new(environment));
             {
                 let mut state = self.shared.state.lock();
+                if state.closed {
+                    return Err(shutting_down());
+                }
                 state.slots.insert(
                     selection.id.clone(),
                     Slot {
@@ -297,10 +304,18 @@ impl ModelPool {
                 state.touch(&selection.id);
             }
 
-            let result = self
-                .shared
-                .lifecycle
-                .load(&engine, selection, acceleration, cancellation);
+            let result = if self.shared.state.lock().closed {
+                Err(shutting_down())
+            } else {
+                self.shared
+                    .lifecycle
+                    .load(&engine, selection, acceleration, cancellation)
+            };
+            let result = if self.shared.state.lock().closed {
+                Err(shutting_down())
+            } else {
+                result
+            };
             match result {
                 Ok(()) if !cancellation.is_cancelled() => {
                     let mut state = self.shared.state.lock();
@@ -354,6 +369,9 @@ impl ModelPool {
         }
         let engine = {
             let mut state = self.shared.state.lock();
+            if state.closed {
+                return Err(shutting_down());
+            }
             let slot = state.slots.get_mut(id).expect("idle slot");
             debug_assert_eq!(slot.state, SlotState::Loaded);
             debug_assert_eq!(slot.borrowers, 0);
@@ -369,12 +387,21 @@ impl ModelPool {
                 capacity_busy()
             });
         }
-        let result = self.shared.lifecycle.load(
-            &engine,
-            &configuration.selection,
-            configuration.acceleration,
-            cancellation,
-        );
+        let result = if self.shared.state.lock().closed {
+            Err(shutting_down())
+        } else {
+            self.shared.lifecycle.load(
+                &engine,
+                &configuration.selection,
+                configuration.acceleration,
+                cancellation,
+            )
+        };
+        let result = if self.shared.state.lock().closed {
+            Err(shutting_down())
+        } else {
+            result
+        };
         match result {
             Ok(()) if !cancellation.is_cancelled() => {
                 self.shared
@@ -417,6 +444,9 @@ impl ModelPool {
 
     fn try_existing(&self, configuration: &ModelConfiguration) -> SttResult<Existing> {
         let mut state = self.shared.state.lock();
+        if state.closed {
+            return Err(shutting_down());
+        }
         if state
             .known
             .get(&configuration.selection.id)
@@ -466,6 +496,9 @@ impl ModelPool {
             self.reap_retired();
             let candidate = {
                 let mut state = self.shared.state.lock();
+                if state.closed {
+                    return Err(shutting_down());
+                }
                 let fits_count = state.slots.len() < self.shared.max_loaded_models;
                 let fits_memory = self.shared.max_estimated_bytes.is_none_or(|limit| {
                     state
@@ -616,6 +649,59 @@ impl ModelPool {
             }
         }
         retired
+    }
+
+    /// Prevent new model acquisitions. Existing leases remain valid so a host
+    /// can first drain or cancel accepted requests before retiring workers.
+    /// Calls waiting on the admission gate observe this fence on their next
+    /// attempt; a load already in progress is retired when it returns.
+    pub fn begin_shutdown(&self) {
+        self.shared.state.lock().closed = true;
+    }
+
+    /// Retire every idle model, including `Resident`, and reap completed
+    /// worker cleanup. This is safe to call repeatedly after `begin_shutdown`.
+    /// A borrowed or natively busy model remains reserved until it can be
+    /// retired; the returned status must not be mistaken for completion.
+    pub fn reap_shutdown(&self) -> ModelPoolStatus {
+        if !self.shared.state.lock().closed {
+            return self.status();
+        }
+        let Some(_admission) = self.shared.admission.try_lock() else {
+            return self.status();
+        };
+        self.reap_retired();
+        let idle: Vec<_> = {
+            let mut state = self.shared.state.lock();
+            let entries: Vec<_> = state
+                .slots
+                .iter()
+                .filter(|(_, slot)| slot.state == SlotState::Loaded && slot.borrowers == 0)
+                .map(|(id, slot)| (id.clone(), Arc::clone(&slot.engine)))
+                .collect();
+            for (id, _) in &entries {
+                let slot = state.slots.get_mut(id).expect("idle shutdown slot");
+                slot.state = SlotState::Retiring;
+                slot.detached = false;
+            }
+            entries
+        };
+        for (id, engine) in idle {
+            if self.shared.lifecycle.retire(&engine) {
+                self.mark_detached(&id, &engine);
+                if !self.shared.lifecycle.cleanup_pending(&engine) {
+                    self.remove_retired(&id, &engine);
+                }
+            }
+        }
+        self.status()
+    }
+
+    /// True only after the pool was closed and every worker reservation and
+    /// supervised cleanup has been released.
+    pub fn shutdown_complete(&self) -> bool {
+        let state = self.shared.state.lock();
+        state.closed && state.slots.is_empty()
     }
 
     pub fn status(&self) -> ModelPoolStatus {
@@ -779,6 +865,10 @@ impl Drop for ModelLease {
 
 fn cancelled() -> SttError {
     SttError::Cancelled("Model pool request cancelled".into())
+}
+
+fn shutting_down() -> SttError {
+    SttError::Cancelled("Model pool is shutting down".into())
 }
 
 fn capacity_busy() -> SttError {
@@ -1160,5 +1250,63 @@ mod tests {
         ));
         drop(lease);
         assert_eq!(pool.status().loaded, 1);
+    }
+
+    #[test]
+    fn shutdown_retires_resident_models_and_rejects_new_acquisitions() {
+        let backend = Arc::new(FakeLifecycle::default());
+        let pool = pool(2, Arc::clone(&backend));
+        drop(acquire(&pool, "tiny", ModelResidency::Resident).unwrap());
+        drop(acquire(&pool, "base", ModelResidency::Resident).unwrap());
+        assert_eq!(pool.status().loaded, 2);
+
+        pool.begin_shutdown();
+        assert!(matches!(
+            acquire(&pool, "tiny", ModelResidency::Resident),
+            Err(SttError::Cancelled(_))
+        ));
+        assert_eq!(pool.reap_shutdown().loaded, 0);
+        assert!(pool.shutdown_complete());
+        assert_eq!(backend.retires.load(Ordering::Acquire), 2);
+    }
+
+    #[test]
+    fn shutdown_waits_for_last_borrower_and_supervised_cleanup() {
+        let backend = Arc::new(FakeLifecycle::default());
+        let pool = pool(1, Arc::clone(&backend));
+        let lease = acquire(&pool, "tiny", ModelResidency::Resident).unwrap();
+        pool.begin_shutdown();
+        assert_eq!(pool.reap_shutdown().loaded, 1);
+        assert!(!pool.shutdown_complete());
+        assert_eq!(backend.retires.load(Ordering::Acquire), 0);
+
+        drop(lease);
+        backend.retire_enters_cleanup.store(true, Ordering::Release);
+        assert_eq!(pool.reap_shutdown().retiring, 1);
+        assert!(!pool.shutdown_complete());
+        backend.cleanup_pending.store(false, Ordering::Release);
+        assert_eq!(pool.reap_shutdown().retiring, 0);
+        assert!(pool.shutdown_complete());
+    }
+
+    #[test]
+    fn shutdown_during_load_retires_it_without_publishing_a_lease() {
+        let backend = Arc::new(FakeLifecycle::default());
+        backend.hold_next.store(true, Ordering::Release);
+        let pool = pool(1, Arc::clone(&backend));
+        let loading_pool = pool.clone();
+        let loading =
+            std::thread::spawn(move || acquire(&loading_pool, "tiny", ModelResidency::Resident));
+        backend.load_started.wait();
+        assert_eq!(pool.status().loading, 1);
+        pool.begin_shutdown();
+        assert!(!pool.shutdown_complete());
+        backend.load_release.wait();
+        assert!(matches!(
+            loading.join().unwrap(),
+            Err(SttError::Cancelled(_))
+        ));
+        assert!(pool.shutdown_complete());
+        assert_eq!(backend.retires.load(Ordering::Acquire), 1);
     }
 }
