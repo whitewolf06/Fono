@@ -112,6 +112,7 @@ function checkLinuxContract(source) {
   assert.notEqual(index, -1, "Linux job must exist");
   const job = source.slice(jobs[index].index, jobs[index + 1]?.index);
   assert.match(job, /^ {4}runs-on: ubuntu-24\.04$/m);
+  assert.match(job, /^ {4}timeout-minutes: 35$/m);
   assert.match(job, /persist-credentials: false/);
   assert.doesNotMatch(job, /^\s+(?:needs|if|environment|continue-on-error):/m);
   assert.doesNotMatch(
@@ -133,6 +134,10 @@ function checkLinuxContract(source) {
   );
   const boundaries = job.indexOf("node scripts/check-crate-boundaries.mjs\n");
   const check = job.indexOf("run: cargo check --locked --workspace\n");
+  const serverBuild = job.indexOf("run: cargo build --locked -p fono-server\n");
+  const serverTests = job.indexOf(
+    "run: cargo test --locked -p fono-server --all-targets\n",
+  );
   const tests = job.indexOf(
     "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-stt -p fono-audio -p fono-wake --lib\n",
   );
@@ -146,7 +151,9 @@ function checkLinuxContract(source) {
       boundaryTests > bootstrap &&
       boundaries > boundaryTests &&
       check > boundaries &&
-      tests > check &&
+      serverBuild > check &&
+      serverTests > serverBuild &&
+      tests > serverTests &&
       wireTests > tests,
   );
   assert.equal((job.match(/^ {8}working-directory: \.$/gm) ?? []).length, 2);
@@ -166,10 +173,19 @@ test("Linux CI checks the normal workspace after verified native bootstrap", () 
     ],
     ["node scripts/check-crate-boundaries.mjs", "echo skipped-boundaries"],
     ['node-version: "22.23.3"', 'node-version: "latest"'],
+    ["timeout-minutes: 35", "timeout-minutes: 25"],
     ["cargo check --locked --workspace", "cargo check --locked -p fono-core"],
     [
       "cargo check --locked --workspace",
       "cargo check --locked --workspace --no-default-features",
+    ],
+    [
+      "cargo build --locked -p fono-server",
+      "cargo build --locked -p fono-core",
+    ],
+    [
+      "cargo test --locked -p fono-server --all-targets",
+      "cargo test --locked -p fono-server --lib",
     ],
     ["-p fono-audio -p fono-wake --lib", "-p fono-wake --lib"],
     ["-p fono-stt -p fono-audio", "-p fono-audio"],
@@ -189,6 +205,16 @@ test("Linux CI checks the normal workspace after verified native bootstrap", () 
     assert.ok(workflow.includes(before), `mutation target: ${before}`);
     assert.throws(() => checkLinuxContract(workflow.replace(before, after)));
   }
+  const buildCommand = "run: cargo build --locked -p fono-server";
+  const testCommand = "run: cargo test --locked -p fono-server --all-targets";
+  assert.throws(() =>
+    checkLinuxContract(
+      workflow
+        .replace(buildCommand, "run: __moved_server_build__")
+        .replace(testCommand, buildCommand)
+        .replace("run: __moved_server_build__", testCommand),
+    ),
+  );
 });
 
 test("Linux and Windows Sherpa pins match the shared Rust dependency version", async () => {

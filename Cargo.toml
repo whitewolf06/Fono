@@ -1,6 +1,5 @@
 [workspace]
-# Add apps/* when the first server manifest exists; unmatched globs are invalid.
-members = ["src-tauri", "crates/*"]
+members = ["src-tauri", "crates/*", "apps/*"]
 exclude = ["crates/fono-stt-vulkan-worker", "tools/fono-setup"]
 resolver = "2"
 

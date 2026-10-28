@@ -40,7 +40,7 @@ jobs:
   linux:
     name: Linux native workspace (CPU)
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       FONO_BUILD_REVISION: ${{ github.sha }}
     steps:
@@ -72,6 +72,10 @@ jobs:
       - name: Check Linux workspace
         working-directory: .
         run: cargo check --locked --workspace
+      - name: Build Fono Server
+        run: cargo build --locked -p fono-server
+      - name: Test Fono Server CLI
+        run: cargo test --locked -p fono-server --all-targets
       - name: Test shared Rust crates
         working-directory: .
         run: |
