@@ -26,6 +26,18 @@ Each `ModelId` is bound to one path and placement for the pool's lifetime.
 Current custom Whisper paths all share the `custom` ID, so a single pool
 rejects a second custom file instead of silently switching the first one.
 
+`scheduler::DeviceScheduler` admits server inference per resolved physical
+device (`Cpu` or `Cuda(index)`). CPU has a configurable shared slot limit;
+each configured CUDA device has one slot. Each device has FIFO queues for
+interactive and batch windows, with interactive waiters admitted first. When
+the device is full, an interactive waiter cancels active batch *window* tokens;
+the batch job keeps its own cancellation token and retries from a checkpoint.
+The host must acquire a new permit for each bounded batch window and retain
+that permit through the end of native inference and cleanup. Queue counts are
+observable through `status`; server queue size and token quotas are separate
+host policies. Desktop continues to use `SttScheduler` and its existing
+capture/Stop reservation behavior.
+
 Host implementations must retain ownership through actual background completion:
 
 - `ActivityGuard::lease` admits work; `cleanup_lease` retains already admitted

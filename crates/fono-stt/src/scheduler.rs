@@ -6,6 +6,9 @@ use parking_lot::{Condvar, Mutex};
 use std::sync::Arc;
 use std::time::Duration;
 
+mod device;
+pub use device::{DeviceId, DevicePermit, DeviceQueueStatus, DeviceScheduler, QueueClass};
+
 #[derive(Default)]
 pub struct SttScheduler {
     state: Mutex<State>,
