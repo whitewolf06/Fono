@@ -1364,7 +1364,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fono"
-version = "0.8.10"
+version = "0.8.11"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1380,6 +1380,7 @@ dependencies = [
  "fono-audio",
  "fono-core",
  "fono-stt-protocol",
+ "fono-types",
  "fono-wake",
  "minisign-verify",
  "once_cell",
@@ -1449,6 +1450,16 @@ dependencies = [
  "fono-stt-protocol",
  "serde_json",
  "whisper-rs",
+]
+
+[[package]]
+name = "fono-types"
+version = "0.1.0"
+dependencies = [
+ "fono-stt-protocol",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

@@ -12,7 +12,7 @@ import { score } from "./stage5-quality.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const manifestPath = path.join(
   root,
-  "src-tauri/resources/whisper-quantized-models.json",
+  "crates/fono-types/resources/whisper-quantized-models.json",
 );
 const corpusRoot = path.join(root, "src-tauri/tests/fixtures/stt-quality");
 const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));

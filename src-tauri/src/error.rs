@@ -276,6 +276,28 @@ impl From<fono_audio::AudioError> for AppError {
     }
 }
 
+impl From<fono_types::CoreError> for AppError {
+    fn from(error: fono_types::CoreError) -> Self {
+        use fono_types::ErrorCode;
+
+        // Keep the desktop IPC vocabulary and its exact-message allowlist.
+        // Core errors may also originate in a remote transport; their message
+        // is never permission to publish arbitrary details to the frontend.
+        match error.code {
+            ErrorCode::ModelNotFound => Self::ModelFileMissing,
+            ErrorCode::ModelNotReady => Self::ModelNotLoaded,
+            ErrorCode::Cancelled => Self::Cancelled(error.message),
+            ErrorCode::Busy => Self::Busy(error.message),
+            ErrorCode::InvalidRequest => Self::Config(error.message),
+            ErrorCode::UnsupportedAudio => Self::Audio(error.message),
+            ErrorCode::WorkerFailed => Self::Stt(error.message),
+            ErrorCode::Network | ErrorCode::Unauthorized | ErrorCode::Internal => {
+                Self::Internal(error.message)
+            }
+        }
+    }
+}
+
 #[cfg(feature = "wake-word")]
 impl From<fono_wake::WakeWordError> for AppError {
     fn from(e: fono_wake::WakeWordError) -> Self {
@@ -311,6 +333,62 @@ pub type AppResult<T> = Result<T, AppError>;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn core_errors_reuse_desktop_codes_without_exposing_source_messages() {
+        use fono_types::{CoreError, ErrorCode};
+
+        for (code, desktop_code) in [
+            (ErrorCode::ModelNotFound, "model_missing"),
+            (ErrorCode::ModelNotReady, "model_not_loaded"),
+            (ErrorCode::Cancelled, "cancelled"),
+            (ErrorCode::Busy, "busy"),
+            (ErrorCode::InvalidRequest, "config"),
+            (ErrorCode::UnsupportedAudio, "audio"),
+            (ErrorCode::WorkerFailed, "stt"),
+            (ErrorCode::Network, "internal"),
+            (ErrorCode::Unauthorized, "internal"),
+            (ErrorCode::Internal, "internal"),
+        ] {
+            for retryable in [false, true] {
+                let error = AppError::from(CoreError::new(
+                    code,
+                    r"Секретная фраза sk-PRIVATE_KEY C:\PRIVATE_PROFILE\model.bin",
+                    retryable,
+                ));
+                assert_eq!(
+                    serde_json::to_value(&error).unwrap(),
+                    serde_json::json!({"code":desktop_code,"params":{}})
+                );
+                assert!(!error.user_message().contains("PRIVATE"));
+            }
+        }
+    }
+
+    #[test]
+    fn core_error_adapter_preserves_only_exact_authored_guidance() {
+        use fono_types::{CoreError, ErrorCode};
+
+        let guidance = "Сначала завершите текущую диктовку";
+        assert_eq!(
+            serde_json::to_value(AppError::from(CoreError::new(
+                ErrorCode::Busy,
+                guidance,
+                true,
+            )))
+            .unwrap(),
+            serde_json::json!({"code":"busy","params":{"detail":guidance}})
+        );
+        assert_eq!(
+            serde_json::to_value(AppError::from(CoreError::new(
+                ErrorCode::Busy,
+                format!("{guidance}: PRIVATE_KEY"),
+                true,
+            )))
+            .unwrap(),
+            serde_json::json!({"code":"busy","params":{}})
+        );
+    }
 
     #[test]
     fn ipc_serialization_keeps_stable_codes_and_only_safe_parameters() {

@@ -1,0 +1,13 @@
+[package]
+name = "fono-types"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+description = "Transport-neutral speech recognition values and errors for Fono"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+fono-stt-protocol = { workspace = true, default-features = false }

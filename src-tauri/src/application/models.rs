@@ -212,7 +212,7 @@ fn set_model_blocking(
     state: &AppState,
     selection: SttModelSelection,
 ) -> AppResult<()> {
-    selection.validate()?;
+    crate::types::validate_stt_selection(&selection)?;
     let model_path = std::path::PathBuf::from(&selection.local_path);
     if !model_path.exists() {
         return Err(AppError::ModelFileMissing);

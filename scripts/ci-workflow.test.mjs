@@ -69,6 +69,38 @@ test("frontend checks run anonymously for external fork pull requests", () => {
   }
 });
 
+function checkCoreContract(source) {
+  const jobs = [...source.matchAll(/^ {2}([a-z][\w-]*):\r?\n/gm)];
+  const index = jobs.findIndex((match) => match[1] === "core");
+  assert.notEqual(index, -1, "core job must exist");
+  const job = source.slice(jobs[index].index, jobs[index + 1]?.index);
+  assert.match(job, /^ {4}runs-on: windows-2022$/m);
+  for (const command of ["test", "clippy"]) {
+    assert.ok(
+      job.includes(
+        `cargo ${command} --locked -p fono-core -p fono-types -p fono-stt-protocol --all-targets`,
+      ),
+      `the lightweight ${command} job must include shared type integration tests`,
+    );
+  }
+  assert.doesNotMatch(job, /--all-features|--features|\bnpm\b|\bnpx\b/);
+  return job;
+}
+
+test("lightweight core checks include shared type wire contracts and strict clippy", () => {
+  checkCoreContract(workflow);
+  for (const command of ["test", "clippy"]) {
+    const before = `cargo ${command} --locked -p fono-core -p fono-types -p fono-stt-protocol --all-targets`;
+    for (const after of [
+      before.replace(" -p fono-types", ""),
+      before.replace("--all-targets", "--lib"),
+    ]) {
+      assert.ok(workflow.includes(before), `mutation target: ${before}`);
+      assert.throws(() => checkCoreContract(workflow.replace(before, after)));
+    }
+  }
+});
+
 function checkLinuxContract(source) {
   const jobs = [...source.matchAll(/^ {2}([a-z][\w-]*):\r?\n/gm)];
   const index = jobs.findIndex((match) => match[1] === "linux");
@@ -86,9 +118,14 @@ function checkLinuxContract(source) {
   const bootstrap = job.indexOf("run: bash scripts/bootstrap-ci-linux.sh");
   const check = job.indexOf("run: cargo check --locked --workspace\n");
   const tests = job.indexOf(
-    "run: cargo test --locked -p fono-core -p fono-stt-protocol -p fono-audio -p fono-wake --lib\n",
+    "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-audio -p fono-wake --lib\n",
   );
-  assert.ok(bootstrap >= 0 && check > bootstrap && tests > check);
+  const wireTests = job.indexOf(
+    "cargo test --locked -p fono-types --test wire_contract\n",
+  );
+  assert.ok(
+    bootstrap >= 0 && check > bootstrap && tests > check && wireTests > tests,
+  );
   assert.equal((job.match(/^ {8}working-directory: \.$/gm) ?? []).length, 2);
   return job;
 }
@@ -106,6 +143,14 @@ test("Linux CI checks the normal workspace after verified native bootstrap", () 
       "cargo check --locked --workspace --no-default-features",
     ],
     ["-p fono-audio -p fono-wake --lib", "-p fono-wake --lib"],
+    [
+      "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-audio -p fono-wake --lib",
+      "cargo test --locked -p fono-core -p fono-stt-protocol -p fono-audio -p fono-wake --lib",
+    ],
+    [
+      "cargo test --locked -p fono-types --test wire_contract",
+      "cargo test --locked -p fono-types --lib",
+    ],
     [
       "- name: Check Linux workspace\n        working-directory: .",
       "- name: Check Linux workspace\n        working-directory: src-tauri",
@@ -404,6 +449,7 @@ test("native checks keep default WakeWord absent and cover independent live/wake
 
 test("public quality CI measures neural boundaries and decoding with verified CPU runtime", async () => {
   const quality = await read("../.github/workflows/stt-quality.yml");
+  assert.match(quality, /"crates\/fono-types\/\*\*"/);
   assert.match(quality, /src-tauri\/src\/application\/speech_gate\.rs/);
   assert.match(quality, /src-tauri\/src\/vad\/\*\*/);
   assert.match(quality, /scripts\/stage4-quality\*/);

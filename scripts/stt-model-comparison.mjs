@@ -121,7 +121,10 @@ async function main(args) {
     path.join(root, "src-tauri/src/stt/offline_models.json"),
   );
   const quantized = read(
-    path.join(root, "src-tauri/resources/whisper-quantized-models.json"),
+    path.join(
+      root,
+      "crates/fono-types/resources/whisper-quantized-models.json",
+    ),
   );
   const baseline = quantized.baselines.find(
     (model) => model.variant === "large_turbo",

@@ -23,7 +23,9 @@ pub(crate) fn settings_to_wake_config(
         threshold: settings.wake_word_threshold,
         sensitivity: settings.wake_word_sensitivity,
         vad_threshold: settings.wake_word_vad_threshold,
-        use_gpu: settings.acceleration.use_gpu(),
+        use_gpu: settings
+            .acceleration
+            .use_gpu(crate::types::acceleration_capabilities()),
         cooldown_ms: 2_000,
         phrase_stability_ms: 150 + (settings.wake_word_threshold.clamp(0.0, 1.0) * 700.0) as u64,
         phrase_confirmations: 2,

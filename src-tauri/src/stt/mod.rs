@@ -588,7 +588,7 @@ fn gpu_backend_compiled() -> bool {
 
 fn validate_model_selection(model: &SttModelSelection) -> AppResult<()> {
     if model.id.engine == crate::types::SttEngine::Whisper {
-        model.validate()
+        crate::types::validate_stt_selection(model)
     } else {
         #[cfg(feature = "offline-stt")]
         {

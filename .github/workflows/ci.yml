@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   core:
-    name: Rust core and protocol (no private packages)
+    name: Rust core, shared types and protocol (no private packages)
     runs-on: windows-2022
     timeout-minutes: 20
     steps:
@@ -32,9 +32,9 @@ jobs:
         run: |
           cargo fmt --all --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked -p fono-core -p fono-stt-protocol --all-targets
+          cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol --all-targets
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked -p fono-core -p fono-stt-protocol --all-targets -- -D warnings
+          cargo clippy --locked -p fono-core -p fono-types -p fono-stt-protocol --all-targets -- -D warnings
           exit $LASTEXITCODE
 
   linux:
@@ -67,7 +67,9 @@ jobs:
         run: cargo check --locked --workspace
       - name: Test shared Rust crates
         working-directory: .
-        run: cargo test --locked -p fono-core -p fono-stt-protocol -p fono-audio -p fono-wake --lib
+        run: |
+          cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-audio -p fono-wake --lib
+          cargo test --locked -p fono-types --test wire_contract
 
   setup:
     name: Online installer (Windows)

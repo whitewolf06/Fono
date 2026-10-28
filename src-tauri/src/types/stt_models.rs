@@ -1,118 +1,23 @@
-//! Stable speech-model identity, independent of a backend's local file path.
-use super::{Settings, WhisperArtifact, WhisperModelSize};
+//! Desktop settings migration and enabled-backend validation.
+
+use super::Settings;
+#[cfg(test)]
+use super::WhisperModelSize;
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+pub use fono_types::{ModelId, SttEngine, SttModelSelection};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SttEngine {
-    Whisper,
-    GigaAm,
-    Parakeet,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ModelId {
-    pub engine: SttEngine,
-    pub variant: String,
-}
-
-impl ModelId {
-    pub fn whisper_artifact(&self) -> AppResult<WhisperArtifact> {
-        if self.engine == SttEngine::Whisper {
-            if let Some(model) = WhisperArtifact::all()?
-                .into_iter()
-                .find(|m| m.variant == self.variant)
-            {
-                return Ok(model);
-            }
-        }
-        Err(AppError::Config(format!(
-            "Unknown managed Whisper model: {}",
-            self.public_id()
-        )))
+/// Structural validation is shared; enabled offline registries stay in desktop.
+pub fn validate_stt_selection(model: &SttModelSelection) -> AppResult<()> {
+    model.validate()?;
+    if model.id.engine != SttEngine::Whisper {
+        #[cfg(feature = "offline-stt")]
+        return crate::stt::offline_models::specification(&model.id).map(|_| ());
+        #[cfg(not(feature = "offline-stt"))]
+        return Err(AppError::Config(
+            "Offline STT is unavailable in this build".into(),
+        ));
     }
-
-    pub fn public_id(&self) -> String {
-        match self.engine {
-            SttEngine::Whisper => self.variant.clone(),
-            SttEngine::GigaAm => format!("giga_am:{}", self.variant),
-            SttEngine::Parakeet => format!("parakeet:{}", self.variant),
-        }
-    }
-
-    pub fn whisper(size: WhisperModelSize) -> Self {
-        Self {
-            engine: SttEngine::Whisper,
-            variant: size.api_identifier().into(),
-        }
-    }
-
-    /// Other backends acquire runnable artifacts in F-01.3; never route them
-    /// through the Whisper loader merely because their files exist.
-    pub fn whisper_size(&self) -> AppResult<WhisperModelSize> {
-        if self.engine != SttEngine::Whisper {
-            return Err(AppError::Config(format!(
-                "STT engine {:?} is not available in this build",
-                self.engine
-            )));
-        }
-        WhisperModelSize::ALL
-            .into_iter()
-            .find(|size| size.api_identifier() == self.variant)
-            .ok_or_else(|| AppError::Config(format!("Unknown Whisper model: {}", self.variant)))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SttModelSelection {
-    pub id: ModelId,
-    pub local_path: String,
-}
-
-impl SttModelSelection {
-    pub fn from_whisper_path(path: String) -> Self {
-        // Settings may move between platforms. Preserve the exact original
-        // path, including custom models; only inspect its final component.
-        let filename = path.rsplit(['/', '\\']).next().unwrap_or(&path);
-        let id = WhisperArtifact::from_filename(filename)
-            .map(|model| model.id())
-            .unwrap_or(ModelId {
-                engine: SttEngine::Whisper,
-                variant: "custom".into(),
-            });
-        Self {
-            id,
-            local_path: path,
-        }
-    }
-
-    pub fn validate(&self) -> AppResult<()> {
-        if self.local_path.trim().is_empty() {
-            return Err(AppError::Config("STT model path is empty".into()));
-        }
-        if self.id.engine != SttEngine::Whisper {
-            #[cfg(feature = "offline-stt")]
-            return crate::stt::offline_models::specification(&self.id).map(|_| ());
-            #[cfg(not(feature = "offline-stt"))]
-            return Err(AppError::Config(
-                "Offline STT is unavailable in this build".into(),
-            ));
-        }
-        if self.id.engine == SttEngine::Whisper && self.id.variant == "custom" {
-            return Ok(());
-        }
-        let artifact = self.id.whisper_artifact()?;
-        let filename = self.local_path.rsplit(['/', '\\']).next();
-        if filename != Some(artifact.filename.as_str()) {
-            return Err(AppError::Config(
-                "STT model identity does not match its file".into(),
-            ));
-        }
-        Ok(())
-    }
+    Ok(())
 }
 
 impl Settings {
@@ -128,7 +33,7 @@ impl Settings {
         let Some(model) = self.selected_stt_model() else {
             return Ok(());
         };
-        model.validate()?;
+        validate_stt_selection(&model)?;
         if model.id.engine != SttEngine::Whisper {
             let spec = crate::stt::offline_models::specification(&model.id)?;
             if self.language != "auto" && !spec.languages.contains(&self.language) {
@@ -168,7 +73,7 @@ impl Settings {
                 .map(SttModelSelection::from_whisper_path);
         }
         if let Some(selection) = &self.stt_model {
-            selection.validate()?;
+            validate_stt_selection(selection)?;
             self.whisper_model_path =
                 (selection.id.engine == SttEngine::Whisper).then(|| selection.local_path.clone());
         }
@@ -179,6 +84,29 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn desktop_validation_uses_the_enabled_offline_registry() {
+        for spec in crate::stt::offline_models::specifications().unwrap() {
+            let selection = SttModelSelection {
+                id: spec.id,
+                local_path: format!("/models/{}", spec.directory),
+            };
+            assert!(selection.validate().is_ok());
+            assert_eq!(
+                validate_stt_selection(&selection).is_ok(),
+                cfg!(feature = "offline-stt")
+            );
+            let unknown = SttModelSelection {
+                id: ModelId {
+                    variant: "unknown".into(),
+                    ..selection.id
+                },
+                ..selection
+            };
+            assert!(validate_stt_selection(&unknown).is_err());
+        }
+    }
     #[cfg(feature = "offline-stt")]
     #[test]
     fn offline_settings_never_mirror_package_directory_to_whisper_and_keep_decoding_preferences() {

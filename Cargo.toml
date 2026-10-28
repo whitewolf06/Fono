@@ -5,10 +5,11 @@ exclude = ["crates/fono-stt-vulkan-worker", "tools/fono-setup"]
 resolver = "2"
 
 [workspace.dependencies]
+fono-types = { version = "0.1.0", path = "crates/fono-types" }
 fono-core = { version = "0.1.0", path = "crates/fono-core" }
 fono-audio = { version = "0.1.0", path = "crates/fono-audio", default-features = false }
 fono-wake = { version = "0.1.0", path = "crates/fono-wake", default-features = false }
-fono-stt-protocol = { version = "0.1.0", path = "crates/fono-stt-protocol" }
+fono-stt-protocol = { version = "0.1.0", path = "crates/fono-stt-protocol", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"

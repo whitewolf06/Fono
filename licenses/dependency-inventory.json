@@ -4,11 +4,11 @@
   "inputs": [
     {
       "file": "package-lock.json",
-      "sha256": "2619b7856cd63b06fb4d1d40adfb06778b7d52fe3317991d09822cc14faada13"
+      "sha256": "cac01f3b11d42546858fcc036a12a353f1b0c335286cd53b7d0b532324c94db9"
     },
     {
       "file": "Cargo.lock",
-      "sha256": "961188d99a510009a211870dc5ef8708231ac56ad85dab8c57c8c9978222258c"
+      "sha256": "d22cb82c53c04301288daedccbc536050c5e5d20de0ee7b0ab25e6edb5582cb8"
     },
     {
       "file": "tools/fono-setup/Cargo.lock",
