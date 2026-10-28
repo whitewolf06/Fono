@@ -1,0 +1,45 @@
+# Fono Server example for /etc/fono/server.toml.
+# Keep the loopback bind unless access from another host is explicitly needed.
+# Set FONO_CONFIG to use another file, or pass --config to the CLI.
+# Individual fields can be overridden with FONO_<SECTION>_<KEY>.
+# String overrides use raw values, for example FONO_SERVER_BIND=127.0.0.1:17832.
+# Array overrides use TOML syntax, for example:
+# FONO_MODELS_PRELOAD='["whisper:large_turbo"]'
+# FONO_MODELS_PLACEMENT='[{model="whisper:large_turbo",device="cpu"}]'
+
+[server]
+bind = "127.0.0.1:17832"
+tokens_file = "/etc/fono/tokens"
+max_upload_mb = 100
+max_audio_seconds = 300
+shutdown_grace = "10s"
+
+# TLS is optional. Provision both files before uncommenting this section.
+# [tls]
+# cert = "/etc/fono/tls/cert.pem"
+# key = "/etc/fono/tls/key.pem"
+
+[models]
+dir = "/var/lib/fono/models"
+default = "whisper:large_turbo"
+preload = ["whisper:large_turbo"]
+max_loaded = 2
+
+[[models.placement]]
+model = "whisper:large_turbo"
+device = "cpu" # Set to "cuda:0" only on a host with a supported GPU.
+residency = "resident"
+
+[[models.placement]]
+model = "giga_am:v3_e2e_rnnt_int8"
+device = "cpu"
+residency = "idle_unload"
+idle_unload_after = "30m"
+
+[queue]
+max_queued = 32
+max_inflight_per_token = 2
+cpu_parallel = 2
+
+[metrics]
+enabled = false

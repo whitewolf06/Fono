@@ -4,7 +4,7 @@ fn config_argument() -> Arg {
     Arg::new("config")
         .long("config")
         .value_name("PATH")
-        .help("Path to the server TOML configuration")
+        .help("Server TOML path (default: FONO_CONFIG or /etc/fono/server.toml)")
 }
 
 pub fn command() -> Command {

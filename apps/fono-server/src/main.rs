@@ -18,7 +18,7 @@ fn unavailable(feature: &str) -> ExitCode {
 }
 
 fn check_config(path: &Path) -> ExitCode {
-    match config::load_and_validate(path) {
+    match config::load_and_validate_with_env(path, std::env::vars_os()) {
         Ok(_) => {
             println!("Configuration valid");
             ExitCode::SUCCESS

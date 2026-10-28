@@ -2,11 +2,33 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn invocation(args: &[&str]) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_fono-server"));
+    command.args(args);
+    // The parent process may have a server configuration of its own. Each CLI
+    // test supplies only the Fono variables it explicitly wants to exercise.
+    for (key, _) in std::env::vars_os() {
+        if key
+            .to_string_lossy()
+            .to_ascii_uppercase()
+            .starts_with("FONO_")
+        {
+            command.env_remove(key);
+        }
+    }
+    command
+}
+
+fn run_with_env(args: &[&str], environment: &[(&str, &str)]) -> Output {
+    let mut command = invocation(args);
+    for (key, value) in environment {
+        command.env(key, value);
+    }
+    command.output().expect("run fono-server CLI")
+}
+
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_fono-server"))
-        .args(args)
-        .output()
-        .expect("run fono-server CLI")
+    run_with_env(args, &[])
 }
 
 fn fixture_file(contents: &str) -> PathBuf {
@@ -23,6 +45,13 @@ fn fixture_file(contents: &str) -> PathBuf {
     ));
     std::fs::write(&path, contents).expect("write CLI fixture");
     path
+}
+
+fn example_config() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../packaging/server.toml.example")
+        .canonicalize()
+        .expect("repository server configuration example")
 }
 
 #[test]
@@ -77,6 +106,75 @@ fn config_check_accepts_valid_file_and_identifies_invalid_field() {
     let invalid = fixture_file("[server]\nbind = \"not-an-address\"\n");
     let invalid_path = invalid.to_str().unwrap();
     let output = run(&["config", "check", "--config", invalid_path]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("server.bind"));
+    std::fs::remove_file(invalid).unwrap();
+}
+
+#[test]
+fn checked_in_server_example_passes_config_check() {
+    let example = example_config();
+    let output = run(&["config", "check", "--config", example.to_str().unwrap()]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn environment_overrides_invalid_file_fields_before_validation() {
+    let config = fixture_file(
+        "[server]\nbind = 'invalid'\n[queue]\nmax_queued = 0\n[[models.placement]]\nmodel = 'whisper:large_turbo'\ndevice = 'invalid'\n",
+    );
+    let output = run_with_env(
+        &["config", "check", "--config", config.to_str().unwrap()],
+        &[
+            ("FONO_SERVER_BIND", "127.0.0.1:17832"),
+            ("FONO_QUEUE_MAX_QUEUED", "4"),
+            (
+                "FONO_MODELS_PLACEMENT",
+                "[{ model = 'whisper:large_turbo', device = 'cpu', residency = 'resident' }]",
+            ),
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    std::fs::remove_file(config).unwrap();
+}
+
+#[test]
+fn invalid_environment_value_reports_field_without_echoing_value() {
+    let example = example_config();
+    let secret = "private-invalid-bind-value";
+    let output = run_with_env(
+        &["config", "check", "--config", example.to_str().unwrap()],
+        &[("FONO_SERVER_BIND", secret)],
+    );
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("server.bind"), "{stderr}");
+    assert!(!stderr.contains(secret), "secret value was echoed");
+}
+
+#[test]
+fn explicit_config_path_overrides_environment_path() {
+    let example = example_config();
+    let invalid = fixture_file("[server]\nbind = 'invalid'\n");
+    let output = run_with_env(
+        &["config", "check"],
+        &[("FONO_CONFIG", example.to_str().unwrap())],
+    );
+    assert!(output.status.success());
+    let output = run_with_env(
+        &["config", "check", "--config", invalid.to_str().unwrap()],
+        &[("FONO_CONFIG", example.to_str().unwrap())],
+    );
     assert!(!output.status.success());
     assert!(String::from_utf8(output.stderr)
         .unwrap()

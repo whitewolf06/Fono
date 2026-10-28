@@ -3,6 +3,7 @@
 //! Runtime checks (installed models, tokens, TLS files and devices) belong to
 //! the commands that use them. This module only reads the requested TOML file.
 
+use std::ffi::OsString;
 use std::fmt;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -94,25 +95,42 @@ impl fmt::Display for ConfigError {
 
 impl std::error::Error for ConfigError {}
 
-/// Read and validate a config file without writing files, loading models or
-/// contacting the network. Path selection and environment overrides are host
-/// concerns; SRV-02 will apply the latter before semantic validation.
-pub fn load_and_validate(path: &Path) -> Result<ServerConfig, ConfigError> {
+/// Apply known FONO_<SECTION>_<KEY> values over the file, then validate the
+/// effective configuration. Unknown environment variables are left alone so
+/// desktop and build-time FONO_* settings do not become server config errors.
+/// This only reads the file; path selection is the CLI's responsibility.
+pub fn load_and_validate_with_env(
+    path: &Path,
+    environment: impl IntoIterator<Item = (OsString, OsString)>,
+) -> Result<ServerConfig, ConfigError> {
     let source = std::fs::read_to_string(path)
         .map_err(|_| ConfigError::new("config", "cannot read configuration file"))?;
-    parse_and_validate(&source)
+    parse_and_validate_with_env(&source, environment)
 }
 
+#[cfg(test)]
 fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
-    let root: Table = toml::from_str(source).map_err(|error: toml::de::Error| {
+    parse_and_validate_with_env(source, std::iter::empty())
+}
+
+fn parse_and_validate_with_env(
+    source: &str,
+    environment: impl IntoIterator<Item = (OsString, OsString)>,
+) -> Result<ServerConfig, ConfigError> {
+    let mut root: Table = toml::from_str(source).map_err(|error: toml::de::Error| {
         ConfigError::new(
             syntax_error_path(source, error.span()),
             "invalid TOML syntax",
         )
     })?;
-    known_keys(&root, &["server", "tls", "models", "queue", "metrics"], "")?;
+    apply_environment(&mut root, environment)?;
+    validate_table(&root)
+}
 
-    let server = section(&root, "server")?;
+fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
+    known_keys(root, &["server", "tls", "models", "queue", "metrics"], "")?;
+
+    let server = section(root, "server")?;
     if let Some(table) = server {
         known_keys(
             table,
@@ -153,7 +171,7 @@ fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
         positive_u64_or(server, "max_audio_seconds", "server.max_audio_seconds", 300)?;
     let shutdown_grace = duration_or(server, "shutdown_grace", "server.shutdown_grace", "10s")?;
 
-    let tls_table = section(&root, "tls")?;
+    let tls_table = section(root, "tls")?;
     let tls = if let Some(table) = tls_table {
         known_keys(table, &["cert", "key"], "tls")?;
         let cert = optional_path(table, "cert", "tls.cert")?;
@@ -172,7 +190,7 @@ fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
         None
     };
 
-    let models = section(&root, "models")?;
+    let models = section(root, "models")?;
     if let Some(table) = models {
         known_keys(
             table,
@@ -198,7 +216,7 @@ fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
         placement,
     };
 
-    let queue = section(&root, "queue")?;
+    let queue = section(root, "queue")?;
     if let Some(table) = queue {
         known_keys(
             table,
@@ -217,7 +235,7 @@ fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
         cpu_parallel: positive_usize_or(queue, "cpu_parallel", "queue.cpu_parallel", 2)?,
     };
 
-    let metrics = section(&root, "metrics")?;
+    let metrics = section(root, "metrics")?;
     if let Some(table) = metrics {
         known_keys(table, &["enabled"], "metrics")?;
     }
@@ -240,6 +258,96 @@ fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
         queue,
         metrics: MetricsSettings { enabled },
     })
+}
+
+#[derive(Clone, Copy)]
+enum EnvironmentValueKind {
+    String,
+    Integer,
+    Boolean,
+    TomlArray,
+}
+
+/// The allowlist keeps unrelated FONO_* variables out of the configuration
+/// and lets every supported field use its TOML type without echoing values.
+fn environment_field(name: &str) -> Option<(&'static str, &'static str, EnvironmentValueKind)> {
+    use EnvironmentValueKind::{Boolean, Integer, String, TomlArray};
+
+    Some(match name {
+        "FONO_SERVER_BIND" => ("server", "bind", String),
+        "FONO_SERVER_TOKENS_FILE" => ("server", "tokens_file", String),
+        "FONO_SERVER_MAX_UPLOAD_MB" => ("server", "max_upload_mb", Integer),
+        "FONO_SERVER_MAX_AUDIO_SECONDS" => ("server", "max_audio_seconds", Integer),
+        "FONO_SERVER_SHUTDOWN_GRACE" => ("server", "shutdown_grace", String),
+        "FONO_TLS_CERT" => ("tls", "cert", String),
+        "FONO_TLS_KEY" => ("tls", "key", String),
+        "FONO_MODELS_DIR" => ("models", "dir", String),
+        "FONO_MODELS_DEFAULT" => ("models", "default", String),
+        "FONO_MODELS_PRELOAD" => ("models", "preload", TomlArray),
+        "FONO_MODELS_MAX_LOADED" => ("models", "max_loaded", Integer),
+        "FONO_MODELS_PLACEMENT" => ("models", "placement", TomlArray),
+        "FONO_QUEUE_MAX_QUEUED" => ("queue", "max_queued", Integer),
+        "FONO_QUEUE_MAX_INFLIGHT_PER_TOKEN" => ("queue", "max_inflight_per_token", Integer),
+        "FONO_QUEUE_CPU_PARALLEL" => ("queue", "cpu_parallel", Integer),
+        "FONO_METRICS_ENABLED" => ("metrics", "enabled", Boolean),
+        _ => return None,
+    })
+}
+
+fn apply_environment(
+    root: &mut Table,
+    environment: impl IntoIterator<Item = (OsString, OsString)>,
+) -> Result<(), ConfigError> {
+    for (name, value) in environment {
+        let Some((section, key, kind)) = name.to_str().and_then(environment_field) else {
+            continue;
+        };
+        let path = format!("{section}.{key}");
+        let raw = value
+            .into_string()
+            .map_err(|_| ConfigError::new(&path, "environment value is not UTF-8"))?;
+        let parsed = parse_environment_value(&raw, kind, &path)?;
+        let section_table = root
+            .entry(section.to_owned())
+            .or_insert_with(|| Value::Table(Table::new()))
+            .as_table_mut()
+            .ok_or_else(|| ConfigError::new(section, "expected a table"))?;
+        section_table.insert(key.to_owned(), parsed);
+    }
+    Ok(())
+}
+
+fn parse_environment_value(
+    raw: &str,
+    kind: EnvironmentValueKind,
+    path: &str,
+) -> Result<Value, ConfigError> {
+    match kind {
+        EnvironmentValueKind::String => Ok(Value::String(raw.to_owned())),
+        EnvironmentValueKind::Integer => raw
+            .parse::<i64>()
+            .map(Value::Integer)
+            .map_err(|_| ConfigError::new(path, "expected an integer")),
+        EnvironmentValueKind::Boolean => match raw {
+            "true" => Ok(Value::Boolean(true)),
+            "false" => Ok(Value::Boolean(false)),
+            _ => Err(ConfigError::new(path, "expected true or false")),
+        },
+        EnvironmentValueKind::TomlArray => {
+            // Parse one isolated TOML assignment; reject extra keys/sections so
+            // a value cannot introduce a second configuration field.
+            let fragment = format!("value = {raw}");
+            let mut table: Table = toml::from_str(&fragment)
+                .map_err(|_| ConfigError::new(path, "expected a TOML array"))?;
+            if table.len() != 1 {
+                return Err(ConfigError::new(path, "expected a TOML array"));
+            }
+            match table.remove("value") {
+                Some(value @ Value::Array(_)) => Ok(value),
+                _ => Err(ConfigError::new(path, "expected a TOML array")),
+            }
+        }
+    }
 }
 
 /// Infer only known field names from the parser's source span. Never include
@@ -737,5 +845,124 @@ mod tests {
             error_path("[server]\nsecret_token = 'unterminated"),
             "config"
         );
+    }
+
+    #[test]
+    fn environment_overrides_every_supported_field_before_semantic_validation() {
+        let source = r#"
+            [server]
+            bind = "invalid-address"
+            tokens_file = "/old/tokens"
+            max_upload_mb = 100
+            max_audio_seconds = 300
+            shutdown_grace = "10s"
+
+            [tls]
+            cert = "/old/cert"
+            key = "/old/key"
+
+            [models]
+            dir = "/old/models"
+            default = "whisper:base"
+            preload = ["whisper:base"]
+            max_loaded = 2
+
+            [[models.placement]]
+            model = "whisper:base"
+            device = "cpu"
+            residency = "resident"
+
+            [queue]
+            max_queued = 0
+            max_inflight_per_token = 2
+            cpu_parallel = 2
+
+            [metrics]
+            enabled = false
+        "#;
+        let environment = [
+            ("FONO_SERVER_BIND", "0.0.0.0:18000"),
+            ("FONO_SERVER_TOKENS_FILE", "/new/tokens"),
+            ("FONO_SERVER_MAX_UPLOAD_MB", "64"),
+            ("FONO_SERVER_MAX_AUDIO_SECONDS", "120"),
+            ("FONO_SERVER_SHUTDOWN_GRACE", "15s"),
+            ("FONO_TLS_CERT", "/new/cert"),
+            ("FONO_TLS_KEY", "/new/key"),
+            ("FONO_MODELS_DIR", "/new/models"),
+            ("FONO_MODELS_DEFAULT", "whisper:small"),
+            ("FONO_MODELS_PRELOAD", "[\"whisper:small\"]"),
+            ("FONO_MODELS_MAX_LOADED", "3"),
+            (
+                "FONO_MODELS_PLACEMENT",
+                "[{ model = 'whisper:small', device = 'cuda:0', residency = 'idle_unload', idle_unload_after = '30m' }]",
+            ),
+            ("FONO_QUEUE_MAX_QUEUED", "8"),
+            ("FONO_QUEUE_MAX_INFLIGHT_PER_TOKEN", "1"),
+            ("FONO_QUEUE_CPU_PARALLEL", "4"),
+            ("FONO_METRICS_ENABLED", "true"),
+            ("FONO_CONFIG", "/not/a/field"),
+            ("FONO_BUILD_REVISION", "not-a-config-field"),
+        ];
+        let config = parse_and_validate_with_env(
+            source,
+            environment.map(|(name, value)| (OsString::from(name), OsString::from(value))),
+        )
+        .unwrap();
+        assert_eq!(config.server.bind, "0.0.0.0:18000".parse().unwrap());
+        assert_eq!(config.server.tokens_file, PathBuf::from("/new/tokens"));
+        assert_eq!(config.server.max_upload_mb, 64);
+        assert_eq!(config.server.max_audio_seconds, 120);
+        assert_eq!(config.server.shutdown_grace, Duration::from_secs(15));
+        let tls = config.tls.unwrap();
+        assert_eq!(tls.cert, PathBuf::from("/new/cert"));
+        assert_eq!(tls.key, PathBuf::from("/new/key"));
+        assert_eq!(config.models.dir, PathBuf::from("/new/models"));
+        assert_eq!(config.models.default, "whisper:small");
+        assert_eq!(config.models.preload, ["whisper:small"]);
+        assert_eq!(config.models.max_loaded, 3);
+        assert_eq!(config.models.placement.len(), 1);
+        assert_eq!(config.models.placement[0].model, "whisper:small");
+        assert_eq!(config.models.placement[0].device, "cuda:0");
+        assert_eq!(
+            config.models.placement[0].residency,
+            ModelResidency::IdleUnload
+        );
+        assert_eq!(
+            config.models.placement[0].idle_unload_after,
+            Some(Duration::from_secs(1800))
+        );
+        assert_eq!(config.queue.max_queued, 8);
+        assert_eq!(config.queue.max_inflight_per_token, 1);
+        assert_eq!(config.queue.cpu_parallel, 4);
+        assert!(config.metrics.enabled);
+    }
+
+    #[test]
+    fn invalid_environment_values_name_fields_without_echoing_values() {
+        let secret = "secret-do-not-print";
+        for (name, value, expected_path) in [
+            ("FONO_SERVER_BIND", secret, "server.bind"),
+            ("FONO_QUEUE_MAX_QUEUED", secret, "queue.max_queued"),
+            ("FONO_METRICS_ENABLED", secret, "metrics.enabled"),
+            ("FONO_MODELS_PRELOAD", secret, "models.preload"),
+            ("FONO_MODELS_PLACEMENT", secret, "models.placement"),
+        ] {
+            let error = parse_and_validate_with_env(
+                "[server]\n",
+                [(OsString::from(name), OsString::from(value))],
+            )
+            .unwrap_err();
+            assert_eq!(error.path, expected_path);
+            assert!(!error.to_string().contains(secret));
+        }
+        let error = parse_and_validate_with_env(
+            "[models]\n",
+            [(
+                OsString::from("FONO_MODELS_PLACEMENT"),
+                OsString::from("[{ model = 'whisper:base' }]"),
+            )],
+        )
+        .unwrap_err();
+        assert_eq!(error.path, "models.placement[0].device");
     }
 }
