@@ -1364,7 +1364,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fono"
-version = "0.8.14"
+version = "0.8.15"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1379,6 +1379,7 @@ dependencies = [
  "dirs 5.0.1",
  "fono-audio",
  "fono-core",
+ "fono-service",
  "fono-stt",
  "fono-stt-protocol",
  "fono-types",
@@ -1432,6 +1433,26 @@ dependencies = [
  "parking_lot",
  "serde",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "fono-service"
+version = "0.1.0"
+dependencies = [
+ "audiopus",
+ "axum",
+ "fono-core",
+ "fono-stt",
+ "fono-types",
+ "parking_lot",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "symphonia",
+ "tokio",
+ "tower",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ Fono при запуске поднимает REST-сервис только н�
 `FONO_API_PORT`; значение `0` и некорректные порты отклоняются.
 
 Полное машиночитаемое описание находится в
-[`src-tauri/openapi.json`](../src-tauri/openapi.json).
+[`crates/fono-service/openapi.json`](../crates/fono-service/openapi.json).
 
 ## Авторизация
 

@@ -8,7 +8,8 @@ use crate::application::desktop_transcription_runtime::DesktopTranscriptionRunti
 use crate::application::rest_api::{self, RestApiServer, RestApiState};
 use crate::application::transcription_contract::TRANSCRIPTION_PROTOCOL_VERSION;
 use crate::application::transcription_jobs::{
-    TranscriptionJobQueue, TranscriptionJobWorker, TranscriptionJobs, TranscriptionQueueSnapshot,
+    DesktopCaptureGate, DesktopQueueActivity, TranscriptionJobQueue, TranscriptionJobWorker,
+    TranscriptionJobs, TranscriptionQueueSnapshot,
 };
 use crate::application::transcription_service::TranscriptionService;
 use crate::error::{AppError, AppResult};
@@ -41,6 +42,8 @@ impl LocalTranscriptionService {
                 TranscriptionService::new(runtime.clone()),
                 runtime,
                 JOB_QUEUE_CAPACITY,
+                Arc::new(DesktopQueueActivity),
+                Arc::new(DesktopCaptureGate),
             )
             .with_observer(Arc::new(move |job| {
                 if let Err(error) = crate::service_history::upsert_terminal(job) {
@@ -77,9 +80,13 @@ impl LocalTranscriptionService {
             let upload_dir = crate::state::app_data_dir()?.join("transcription-uploads");
             let port = configured_port(std::env::var("FONO_API_PORT").ok())?;
             let server = tauri::async_runtime::block_on(rest_api::start(
-                RestApiState::new(token, TRANSCRIPTION_PROTOCOL_VERSION)
-                    .with_jobs(Arc::clone(&self.jobs))
-                    .with_upload_dir(upload_dir),
+                RestApiState::new(
+                    token,
+                    TRANSCRIPTION_PROTOCOL_VERSION,
+                    Arc::new(DesktopQueueActivity),
+                )
+                .with_jobs(Arc::clone(&self.jobs))
+                .with_upload_dir(upload_dir),
                 port,
             ))?;
             tracing::info!(address = %server.local_addr(), "local transcription REST service started");

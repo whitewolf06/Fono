@@ -32,6 +32,8 @@ impl InteractiveActivity for DesktopTranscriptionRuntime {
 }
 
 impl TranscriptionRuntime for DesktopTranscriptionRuntime {
+    type Error = AppError;
+
     fn configured_model(&self) -> AppResult<String> {
         let settings = self.app.state::<AppState>().settings();
         settings
