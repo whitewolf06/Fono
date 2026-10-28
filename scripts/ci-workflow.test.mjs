@@ -120,7 +120,18 @@ function checkLinuxContract(source) {
   );
   assert.match(job, /\blibopus-dev\b/);
   assert.match(job, /run: python3 scripts\/bootstrap-ci-linux\.test\.py/);
+  assert.match(
+    job,
+    /uses: actions\/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020/,
+  );
+  assert.match(job, /node-version: "22\.23\.3"/);
+  const toolchain = job.indexOf("run: rustup toolchain install 1.96.1");
+  const nodeSetup = job.indexOf("uses: actions/setup-node@");
   const bootstrap = job.indexOf("run: bash scripts/bootstrap-ci-linux.sh");
+  const boundaryTests = job.indexOf(
+    "node --test scripts/check-crate-boundaries.test.mjs\n",
+  );
+  const boundaries = job.indexOf("node scripts/check-crate-boundaries.mjs\n");
   const check = job.indexOf("run: cargo check --locked --workspace\n");
   const tests = job.indexOf(
     "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-stt -p fono-audio -p fono-wake --lib\n",
@@ -129,7 +140,14 @@ function checkLinuxContract(source) {
     "cargo test --locked -p fono-types --test wire_contract\n",
   );
   assert.ok(
-    bootstrap >= 0 && check > bootstrap && tests > check && wireTests > tests,
+    toolchain >= 0 &&
+      nodeSetup > toolchain &&
+      bootstrap > nodeSetup &&
+      boundaryTests > bootstrap &&
+      boundaries > boundaryTests &&
+      check > boundaries &&
+      tests > check &&
+      wireTests > tests,
   );
   assert.equal((job.match(/^ {8}working-directory: \.$/gm) ?? []).length, 2);
   return job;
@@ -142,6 +160,12 @@ test("Linux CI checks the normal workspace after verified native bootstrap", () 
     ["  linux:\n", "  linux:\n    continue-on-error: true\n"],
     ["  linux:\n", "  linux:\n    TAURI_CONFIG: '{}'\n"],
     ["bash scripts/bootstrap-ci-linux.sh", "echo skipped-bootstrap"],
+    [
+      "node --test scripts/check-crate-boundaries.test.mjs",
+      "node --test scripts/ci-workflow.test.mjs",
+    ],
+    ["node scripts/check-crate-boundaries.mjs", "echo skipped-boundaries"],
+    ['node-version: "22.23.3"', 'node-version: "latest"'],
     ["cargo check --locked --workspace", "cargo check --locked -p fono-core"],
     [
       "cargo check --locked --workspace",
