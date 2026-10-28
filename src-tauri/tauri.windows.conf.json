@@ -1,0 +1,32 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build && npm run prepare:release-resources"
+  },
+  "bundle": {
+    "targets": ["msi", "nsis"],
+    "resources": {
+      "resources/stt-base/fono-stt-vulkan-worker.exe": "resources/stt-workers/fono-stt-vulkan-worker.exe",
+      "resources/sherpa-onnx/*.dll": ""
+    },
+    "shortDescription": "Голосовой ввод для Windows",
+    "longDescription": "Локальное распознавание речи и голосовой ввод для Windows. Необязательная обработка и перевод текста через выбранное локальное или внешнее подключение.",
+    "windows": {
+      "wix": {
+        "template": "./windows/templates/fono.wxs"
+      },
+      "nsis": {
+        "installMode": "perMachine"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "requireSignedVersion": true,
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

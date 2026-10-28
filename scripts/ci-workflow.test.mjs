@@ -10,6 +10,9 @@ const read = async (path) =>
   );
 const workflow = await read("../.github/workflows/ci.yml");
 const tauriConfig = JSON.parse(await read("../src-tauri/tauri.conf.json"));
+const windowsTauriConfig = JSON.parse(
+  await read("../src-tauri/tauri.windows.conf.json"),
+);
 const releaseWorkflow = await read("../.github/workflows/prepare-update.yml");
 
 function frontendJob(source) {
@@ -265,12 +268,13 @@ test("native compile assets are inert and the real release frontend remains requ
   assert.match(fixture, /default-src 'none'/);
   assert.doesNotMatch(fixture, /<script|\b(?:src|href)\s*=/i);
   assert.equal(tauriConfig.build.frontendDist, "../dist");
+  assert.equal(tauriConfig.build.beforeBuildCommand, "npm run build");
   assert.equal(
-    tauriConfig.build.beforeBuildCommand,
+    windowsTauriConfig.build.beforeBuildCommand,
     "npm run build && npm run prepare:release-resources",
   );
   assert.equal(
-    tauriConfig.bundle.resources[
+    windowsTauriConfig.bundle.resources[
       "resources/stt-base/fono-stt-vulkan-worker.exe"
     ],
     "resources/stt-workers/fono-stt-vulkan-worker.exe",

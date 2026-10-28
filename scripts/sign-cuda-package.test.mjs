@@ -112,7 +112,7 @@ test("archive digest and size are mandatory before the release-only signing path
   }
 });
 
-test("the shipped base config has one exact Vulkan resource and CPU override removes it", async () => {
+test("platform configs preserve the Windows resource map and CPU override removes Vulkan", async () => {
   const base = JSON.parse(
     await readFile(
       new URL("../src-tauri/tauri.conf.json", import.meta.url),
@@ -125,19 +125,49 @@ test("the shipped base config has one exact Vulkan resource and CPU override rem
       "utf8",
     ),
   );
-  const workerResources = Object.fromEntries(
-    Object.entries(base.bundle.resources).filter(([name]) =>
-      name.includes("stt-"),
+  const windows = JSON.parse(
+    await readFile(
+      new URL("../src-tauri/tauri.windows.conf.json", import.meta.url),
+      "utf8",
     ),
   );
-  assert.deepEqual(workerResources, {
+  const resources = { ...base.bundle.resources, ...windows.bundle.resources };
+  assert.deepEqual(base.bundle.resources, {
+    "resources/whisper/*": "resources/whisper/",
+    "resources/vad/*.onnx": "resources/vad/",
+  });
+  assert.deepEqual(resources, {
+    "resources/whisper/*": "resources/whisper/",
     "resources/stt-base/fono-stt-vulkan-worker.exe":
       "resources/stt-workers/fono-stt-vulkan-worker.exe",
+    "resources/sherpa-onnx/*.dll": "",
+    "resources/vad/*.onnx": "resources/vad/",
   });
+  for (const field of [
+    "targets",
+    "windows",
+    "shortDescription",
+    "longDescription",
+  ]) {
+    assert.equal(base.bundle[field], undefined, `${field} is Windows-specific`);
+  }
+  assert.equal(base.plugins?.updater, undefined);
+  assert.deepEqual(windows.bundle.targets, ["msi", "nsis"]);
+  assert.deepEqual(windows.bundle.windows, {
+    wix: { template: "./windows/templates/fono.wxs" },
+    nsis: { installMode: "perMachine" },
+    webviewInstallMode: { type: "downloadBootstrapper" },
+  });
+  assert.deepEqual(windows.plugins.updater, {
+    pubkey: "",
+    requireSignedVersion: true,
+    windows: { installMode: "passive" },
+  });
+  const overlay = base.app.windows.find((window) => window.label === "overlay");
+  assert.equal(overlay.focus, false);
+  assert.equal(overlay.focusable, false);
   assert.equal(
     cpu.bundle.resources["resources/stt-base/fono-stt-vulkan-worker.exe"],
     null,
   );
-  assert.equal(base.bundle.resources["resources/sherpa-onnx/*.dll"], "");
-  assert.equal(base.bundle.resources["resources/vad/*.onnx"], "resources/vad/");
 });

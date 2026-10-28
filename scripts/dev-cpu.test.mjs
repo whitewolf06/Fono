@@ -421,14 +421,32 @@ test("CPU Tauri patch removes GPU resources and retains real Sherpa/VAD and nati
   const cpu = JSON.parse(
     readFileSync(path.join(repoRoot, "src-tauri/tauri.cpu.conf.json"), "utf8"),
   );
-  const resources = { ...base.bundle.resources, ...cpu.bundle.resources };
+  const windows = JSON.parse(
+    readFileSync(
+      path.join(repoRoot, "src-tauri/tauri.windows.conf.json"),
+      "utf8",
+    ),
+  );
+  const resources = {
+    ...base.bundle.resources,
+    ...windows.bundle.resources,
+    ...cpu.bundle.resources,
+  };
   for (const [key, value] of Object.entries(resources))
     if (value === null) delete resources[key];
   assert.equal(resources["resources/stt-workers/*"], undefined);
-  assert.equal(resources["resources/stt-base/fono-stt-vulkan-worker.exe"], undefined);
+  assert.equal(
+    resources["resources/stt-base/fono-stt-vulkan-worker.exe"],
+    undefined,
+  );
   assert.equal(resources["resources/sherpa-onnx/*.dll"], "");
   assert.equal(resources["resources/vad/*.onnx"], "resources/vad/");
   assert.equal(resources["resources/whisper/*"], "resources/whisper/");
+  assert.deepEqual(resources, {
+    "resources/whisper/*": "resources/whisper/",
+    "resources/sherpa-onnx/*.dll": "",
+    "resources/vad/*.onnx": "resources/vad/",
+  });
   assert.equal(cpu.build.beforeBuildCommand, "npm run build");
   assert.equal(cpu.build.beforeDevCommand, undefined);
   assert.equal(base.build.beforeDevCommand, "npm run dev");
