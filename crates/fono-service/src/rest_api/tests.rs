@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 use super::*;
 use crate::transcription_jobs::{
@@ -177,6 +180,126 @@ async fn host_token_verifier_controls_authorization() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+struct ScopedTokens {
+    admin_revoked: AtomicBool,
+}
+
+impl TokenVerifier for ScopedTokens {
+    fn verify(&self, token: &str) -> bool {
+        self.scope(token).is_some()
+    }
+
+    fn scope(&self, token: &str) -> Option<TokenScope> {
+        match token {
+            "recognize-token" => Some(TokenScope::Recognize),
+            "admin-token" if !self.admin_revoked.load(Ordering::Acquire) => Some(TokenScope::Admin),
+            _ => None,
+        }
+    }
+}
+
+async fn test_admin_route(State(state): State<RestApiState>, headers: HeaderMap) -> StatusCode {
+    match authorize_headers(&headers, state.verifier.as_ref(), TokenScope::Admin) {
+        TokenAuthorization::Allowed => StatusCode::OK,
+        TokenAuthorization::Unauthorized => StatusCode::UNAUTHORIZED,
+        TokenAuthorization::Forbidden => StatusCode::FORBIDDEN,
+    }
+}
+
+async fn request_status(app: &Router, uri: &str, headers: &[(&str, &str)]) -> StatusCode {
+    let mut request = Request::builder().uri(uri);
+    for &(name, value) in headers {
+        request = request.header(name, value);
+    }
+    app.clone()
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
+        .status()
+}
+
+#[tokio::test]
+async fn header_only_scope_check_distinguishes_unauthorized_and_forbidden() {
+    let tokens = Arc::new(ScopedTokens {
+        admin_revoked: AtomicBool::new(false),
+    });
+    let state = test_state().with_token_verifier(tokens.clone());
+    // API-08 will introduce the real admin endpoint. This probe route exists
+    // only in the test router and is never merged into the product router.
+    let admin = Router::new()
+        .route("/__test/admin", get(test_admin_route))
+        .with_state(state.clone());
+
+    assert_eq!(
+        request_status(&admin, "/__test/admin", &[]).await,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        request_status(&admin, "/__test/admin?token=admin-token", &[]).await,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        request_status(
+            &admin,
+            "/__test/admin",
+            &[(header::AUTHORIZATION.as_str(), "Bearer wrong-token")]
+        )
+        .await,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        request_status(
+            &admin,
+            "/__test/admin",
+            &[
+                (header::AUTHORIZATION.as_str(), "Bearer admin-token"),
+                (header::AUTHORIZATION.as_str(), "Bearer admin-token"),
+            ]
+        )
+        .await,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        request_status(
+            &admin,
+            "/__test/admin",
+            &[(header::AUTHORIZATION.as_str(), "Bearer recognize-token")]
+        )
+        .await,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        request_status(
+            &admin,
+            "/__test/admin",
+            &[(header::AUTHORIZATION.as_str(), "Bearer admin-token")]
+        )
+        .await,
+        StatusCode::OK
+    );
+
+    let product = router(state);
+    assert_eq!(
+        request_status(
+            &product,
+            "/v1/health",
+            &[(header::AUTHORIZATION.as_str(), "Bearer recognize-token")]
+        )
+        .await,
+        StatusCode::OK
+    );
+    tokens.admin_revoked.store(true, Ordering::Release);
+    assert_eq!(
+        request_status(
+            &admin,
+            "/__test/admin",
+            &[(header::AUTHORIZATION.as_str(), "Bearer admin-token")]
+        )
+        .await,
+        StatusCode::UNAUTHORIZED
+    );
 }
 
 #[tokio::test]

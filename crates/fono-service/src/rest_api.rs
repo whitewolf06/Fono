@@ -33,9 +33,28 @@ pub struct RestApiState {
 }
 
 /// The desktop supplies one token; a server host can implement token-file
-/// verification without changing route handlers.
+/// verification with an individual scope for each client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenScope {
+    Recognize,
+    Admin,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenAuthorization {
+    Allowed,
+    Unauthorized,
+    Forbidden,
+}
+
 pub trait TokenVerifier: Send + Sync {
     fn verify(&self, token: &str) -> bool;
+
+    /// The existing desktop token has full local access. Server token stores
+    /// override this to return each client's persisted scope.
+    fn scope(&self, token: &str) -> Option<TokenScope> {
+        self.verify(token).then_some(TokenScope::Admin)
+    }
 }
 
 pub struct StaticTokenVerifier(Arc<str>);
@@ -160,12 +179,46 @@ pub async fn serve_with_shutdown(
         .await
 }
 
-fn authorized(headers: &HeaderMap, state: &RestApiState) -> bool {
-    headers
-        .get(header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
+/// Authenticate only a single Bearer header and distinguish a missing or
+/// revoked token from a valid token without the required scope. No token value
+/// is included in the result or logged by this helper.
+pub fn authorize_headers(
+    headers: &HeaderMap,
+    verifier: &dyn TokenVerifier,
+    required: TokenScope,
+) -> TokenAuthorization {
+    let mut values = headers.get_all(header::AUTHORIZATION).iter();
+    let Some(value) = values.next() else {
+        return TokenAuthorization::Unauthorized;
+    };
+    if values.next().is_some() {
+        return TokenAuthorization::Unauthorized;
+    }
+    let Some(token) = value
+        .to_str()
+        .ok()
         .and_then(|value| value.strip_prefix("Bearer "))
-        .is_some_and(|token| state.verifier.verify(token))
+    else {
+        return TokenAuthorization::Unauthorized;
+    };
+    if token.is_empty() || token.bytes().any(|byte| byte.is_ascii_whitespace()) {
+        return TokenAuthorization::Unauthorized;
+    }
+    match verifier.scope(token) {
+        None => TokenAuthorization::Unauthorized,
+        Some(TokenScope::Admin) | Some(TokenScope::Recognize)
+            if required == TokenScope::Recognize =>
+        {
+            TokenAuthorization::Allowed
+        }
+        Some(TokenScope::Admin) => TokenAuthorization::Allowed,
+        Some(TokenScope::Recognize) => TokenAuthorization::Forbidden,
+    }
+}
+
+fn authorized(headers: &HeaderMap, state: &RestApiState) -> bool {
+    authorize_headers(headers, state.verifier.as_ref(), TokenScope::Recognize)
+        == TokenAuthorization::Allowed
 }
 
 fn api_error(status: StatusCode, code: &'static str) -> axum::response::Response {

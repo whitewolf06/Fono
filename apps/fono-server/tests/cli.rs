@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::process::{Command, Output};
-use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 fn invocation(args: &[&str]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_fono-server"));
@@ -35,13 +35,10 @@ fn fixture_file(contents: &str) -> PathBuf {
     let directory = std::env::var_os("CARGO_TARGET_TMPDIR")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir);
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
     let path = directory.join(format!(
-        "fono-server-cli-{}-{nonce}.toml",
-        std::process::id()
+        "fono-server-cli-{}-{}.toml",
+        std::process::id(),
+        Uuid::new_v4().simple()
     ));
     std::fs::write(&path, contents).expect("write CLI fixture");
     path
@@ -58,11 +55,11 @@ fn fixture_directory() -> PathBuf {
     let directory = std::env::var_os("CARGO_TARGET_TMPDIR")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir);
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let path = directory.join(format!("fono-server-models-{}-{nonce}", std::process::id()));
+    let path = directory.join(format!(
+        "fono-server-models-{}-{}",
+        std::process::id(),
+        Uuid::new_v4().simple()
+    ));
     std::fs::create_dir(&path).expect("create model fixture directory");
     path
 }
@@ -261,8 +258,63 @@ fn unknown_model_id_and_config_reference_fail_before_any_download() {
 }
 
 #[test]
+fn token_cli_prints_secret_once_and_never_lists_or_persists_it() {
+    let directory = fixture_directory();
+    let token_file = directory.join("tokens");
+    let config = fixture_file(&format!(
+        "[server]\ntokens_file = '{}'\n",
+        token_file.display()
+    ));
+    let path = config.to_str().unwrap();
+
+    let created = run(&[
+        "token",
+        "create",
+        "main-pc",
+        "--scope",
+        "recognize",
+        "--config",
+        path,
+    ]);
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    let secret = String::from_utf8(created.stdout).unwrap();
+    let secret = secret.trim();
+    assert!(secret.starts_with("fono_"));
+    assert!(!secret.contains(char::is_whitespace));
+    assert!(!String::from_utf8_lossy(&created.stderr).contains(secret));
+    let stored = std::fs::read_to_string(&token_file).unwrap();
+    assert!(stored.contains("main-pc\trecognize\t"));
+    assert!(!stored.contains(secret));
+
+    let duplicate = run(&["token", "create", "main-pc", "--config", path]);
+    assert!(!duplicate.status.success());
+    assert!(duplicate.stdout.is_empty());
+    assert!(!String::from_utf8_lossy(&duplicate.stderr).contains(secret));
+
+    let listed = run(&["token", "list", "--config", path]);
+    assert!(listed.status.success());
+    let listing = String::from_utf8(listed.stdout).unwrap();
+    assert!(listing.contains("main-pc\trecognize\t"));
+    assert!(!listing.contains(secret));
+
+    let revoked = run(&["token", "revoke", "main-pc", "--config", path]);
+    assert!(revoked.status.success());
+    assert!(!String::from_utf8_lossy(&revoked.stdout).contains(secret));
+    let after = run(&["token", "list", "--config", path]);
+    assert!(after.status.success());
+    assert!(after.stdout.is_empty());
+
+    std::fs::remove_file(config).unwrap();
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn pending_runtime_commands_fail_explicitly() {
-    for args in [&["serve"][..], &["token", "create", "client"], &["doctor"]] {
+    for args in [&["serve"][..], &["doctor"]] {
         let output = run(args);
         assert!(!output.status.success(), "unexpected success: {args:?}");
         assert!(String::from_utf8(output.stderr)

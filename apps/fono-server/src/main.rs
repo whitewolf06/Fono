@@ -6,7 +6,8 @@ use std::process::ExitCode;
 use std::sync::Mutex;
 
 use clap::ArgMatches;
-use fono_server::{config, models};
+use fono_server::{config, models, tokens};
+use fono_service::rest_api::TokenScope;
 use fono_stt::models::download::{DownloadEvent, DownloadPhase};
 
 fn selected_config_path(explicit: Option<&str>, environment: Option<OsString>) -> PathBuf {
@@ -140,6 +141,57 @@ fn run_models(path: &Path, matches: &ArgMatches) -> ExitCode {
     }
 }
 
+fn run_tokens(path: &Path, matches: &ArgMatches) -> ExitCode {
+    let config = match load_config(path) {
+        Ok(config) => config,
+        Err(code) => return code,
+    };
+    let file = &config.server.tokens_file;
+    let result = match matches.subcommand() {
+        Some(("create", arguments)) => {
+            let name = arguments
+                .get_one::<String>("name")
+                .expect("clap requires a client name");
+            let scope = match arguments.get_one::<String>("scope").map(String::as_str) {
+                Some("admin") => TokenScope::Admin,
+                _ => TokenScope::Recognize,
+            };
+            tokens::create(file, name, scope).map(|secret| {
+                // The token is returned exactly once, after the verified file update.
+                println!("{secret}");
+                ExitCode::SUCCESS
+            })
+        }
+        Some(("list", _)) => tokens::list(file).map(|entries| {
+            for entry in entries {
+                let scope = match entry.scope {
+                    TokenScope::Recognize => "recognize",
+                    TokenScope::Admin => "admin",
+                };
+                println!("{}\t{scope}\t{}", entry.name, entry.created_at);
+            }
+            ExitCode::SUCCESS
+        }),
+        Some(("revoke", arguments)) => {
+            let name = arguments
+                .get_one::<String>("name")
+                .expect("clap requires a client name");
+            tokens::revoke(file, name).map(|()| {
+                println!("Revoked {name}");
+                ExitCode::SUCCESS
+            })
+        }
+        _ => return ExitCode::from(2),
+    };
+    match result {
+        Ok(code) => code,
+        Err(error) => {
+            eprintln!("Token error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let matches = match cli::command().try_get_matches() {
         Ok(matches) => matches,
@@ -158,7 +210,7 @@ fn main() -> ExitCode {
     match matches.subcommand() {
         Some(("serve", _)) => unavailable("Server runtime"),
         Some(("models", arguments)) => run_models(&config_path, arguments),
-        Some(("token", _)) => unavailable("Token management"),
+        Some(("token", arguments)) => run_tokens(&config_path, arguments),
         Some(("doctor", _)) => unavailable("Server diagnostics"),
         Some(("config", matches)) => match matches.subcommand() {
             Some(("check", _)) => check_config(&config_path),
