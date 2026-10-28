@@ -30,7 +30,54 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
     }
 }
 
+fn idle_for_pool(state: &EngineState) -> bool {
+    match state {
+        EngineState::Empty => true,
+        #[cfg(feature = "offline-stt")]
+        EngineState::Offline { engine, .. } => exclusive(engine) && engine.is_idle(),
+        EngineState::Embedded { engine, .. } => exclusive(engine) && engine.is_idle(),
+        EngineState::Worker { session, .. } => {
+            exclusive(session) && session.is_quiescent_for_retirement()
+        }
+    }
+}
+
 impl SttEngine {
+    /// A pooled refresh may replace its backend only when no native work from
+    /// the previous borrower remains. The pool first blocks new borrowers.
+    pub(crate) fn is_quiescent_for_pool(&self) -> bool {
+        let Some(_load) = self.load_gate.try_lock() else {
+            return false;
+        };
+        !self.cleanup.is_pending() && idle_for_pool(&self.state.lock())
+    }
+
+    /// Retire a pooled engine only after its last borrower and native request
+    /// have finished. The pool retains this engine's slot while cleanup is
+    /// pending, so a replacement cannot overcommit the configured capacity.
+    pub(crate) fn retire_idle_for_pool(&self) -> bool {
+        let Some(_load) = self.load_gate.try_lock() else {
+            return false;
+        };
+        if self.cleanup.is_pending() {
+            return false;
+        }
+        let previous = {
+            let mut state = self.state.lock();
+            if !idle_for_pool(&state) {
+                return false;
+            }
+            let previous = std::mem::replace(&mut *state, EngineState::Empty);
+            self.generation
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            previous
+        };
+        // Native destruction and worker shutdown may block; never hold the
+        // routing lock while dropping the selected backend.
+        drop(previous);
+        true
+    }
+
     pub fn gpu_residency(&self) -> GpuResidency {
         self.reap_finished_worker();
         let state = self.state.lock();

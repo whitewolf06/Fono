@@ -75,6 +75,15 @@ fn encode_samples_i16_base64(samples: &[i16]) -> String {
 }
 
 impl WorkerMailbox {
+    /// A pool may retire a faulted worker once all submitted work has ended.
+    /// `is_idle` intentionally rejects faults for reuse, so it cannot serve as
+    /// the retirement predicate.
+    pub(super) fn is_quiescent_for_retirement(&self) -> bool {
+        !self.busy.load(Ordering::Acquire)
+            && !self.health_pending.load(Ordering::Acquire)
+            && self.command_tx.is_empty()
+    }
+
     pub(super) fn is_idle(&self) -> bool {
         !self.closing.load(Ordering::Acquire)
             && !self.cleanup.is_pending()

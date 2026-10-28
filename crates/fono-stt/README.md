@@ -10,6 +10,22 @@ GPU packages, activity admission, readiness observation and safe error messages.
 remain available for desktop selection snapshots and recovery. Recognition keeps
 the existing cancellation, scheduler priority, worker protocol and timestamps.
 
+`ModelPool` provides independent engines for server deployments while desktop
+keeps its single engine. Its hard `max_loaded_models` limit counts loading and
+retiring slots, including worker cleanup still in progress. `acquire` pins a
+model through a non-cloneable `ModelLease`; capacity pressure evicts the least
+recently used inactive model, and `reap_idle` retires expired `IdleUnload`
+models on the host's maintenance tick. `Resident` suppresses time-based
+unloading but remains eligible for inactive LRU eviction under the hard limit.
+The optional byte cap uses estimates supplied by the host for admission, not
+measured RAM or VRAM. Keep the lease inside the actual background work so an
+abandoned IPC waiter cannot free a slot while recognition is still running.
+When every reservation is active or retiring, `acquire` returns `SttError::Busy`;
+the host may retry after work or cleanup finishes.
+Each `ModelId` is bound to one path and placement for the pool's lifetime.
+Current custom Whisper paths all share the `custom` ID, so a single pool
+rejects a second custom file instead of silently switching the first one.
+
 Host implementations must retain ownership through actual background completion:
 
 - `ActivityGuard::lease` admits work; `cleanup_lease` retains already admitted

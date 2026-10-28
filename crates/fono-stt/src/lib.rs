@@ -26,6 +26,8 @@ pub mod ports;
 pub mod types {
     pub use fono_types::*;
 }
+pub mod model_pool;
+pub use model_pool::{ModelLease, ModelPool, ModelPoolStatus, ModelResidency};
 pub mod models;
 pub mod scheduler;
 pub mod segmented_transcription;
