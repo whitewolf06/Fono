@@ -54,6 +54,19 @@ fn example_config() -> PathBuf {
         .expect("repository server configuration example")
 }
 
+fn fixture_directory() -> PathBuf {
+    let directory = std::env::var_os("CARGO_TARGET_TMPDIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = directory.join(format!("fono-server-models-{}-{nonce}", std::process::id()));
+    std::fs::create_dir(&path).expect("create model fixture directory");
+    path
+}
+
 #[test]
 fn help_describes_the_server_commands() {
     let output = run(&["--help"]);
@@ -183,14 +196,73 @@ fn explicit_config_path_overrides_environment_path() {
 }
 
 #[test]
+fn model_cli_lists_catalog_and_rejects_missing_or_corrupt_required_model() {
+    let directory = fixture_directory();
+    let config = fixture_file(&format!(
+        "[models]\ndir = '{}'\ndefault = 'whisper:tiny'\npreload = ['whisper:tiny']\n",
+        directory.display()
+    ));
+    let path = config.to_str().unwrap();
+    let listed = run(&["models", "list", "--config", path]);
+    assert!(
+        listed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&listed.stderr)
+    );
+    let stdout = String::from_utf8(listed.stdout).unwrap();
+    assert!(stdout.contains("whisper:tiny\tmissing"));
+    assert!(stdout.contains("giga_am:v3_e2e_rnnt_int8"));
+
+    let missing = run(&["models", "verify", "--config", path]);
+    assert!(!missing.status.success());
+    assert!(String::from_utf8(missing.stdout)
+        .unwrap()
+        .contains("whisper:tiny\tmissing"));
+
+    let model = directory.join("ggml-tiny.bin");
+    std::fs::write(&model, b"corrupt").unwrap();
+    let corrupt = run(&["models", "verify", "--config", path]);
+    assert!(!corrupt.status.success());
+    assert!(String::from_utf8(corrupt.stdout)
+        .unwrap()
+        .contains("whisper:tiny\tinvalid"));
+
+    let blocked = run(&["models", "remove", "whisper:tiny", "--config", path]);
+    assert!(!blocked.status.success());
+    assert!(model.exists());
+
+    std::fs::remove_file(model).unwrap();
+    std::fs::remove_file(config).unwrap();
+    std::fs::remove_dir(directory).unwrap();
+}
+
+#[test]
+fn unknown_model_id_and_config_reference_fail_before_any_download() {
+    let directory = fixture_directory();
+    let config = fixture_file(&format!("[models]\ndir = '{}'\n", directory.display()));
+    let path = config.to_str().unwrap();
+    let unknown = run(&["models", "pull", "whisper:../private", "--config", path]);
+    assert!(!unknown.status.success());
+    assert!(String::from_utf8(unknown.stderr)
+        .unwrap()
+        .contains("Unknown managed model ID"));
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
+
+    let invalid = fixture_file("[models]\ndefault = 'private-model-id'\n");
+    let checked = run(&["config", "check", "--config", invalid.to_str().unwrap()]);
+    assert!(!checked.status.success());
+    let stderr = String::from_utf8(checked.stderr).unwrap();
+    assert!(stderr.contains("models.default"));
+    assert!(!stderr.contains("private-model-id"));
+
+    std::fs::remove_file(invalid).unwrap();
+    std::fs::remove_file(config).unwrap();
+    std::fs::remove_dir(directory).unwrap();
+}
+
+#[test]
 fn pending_runtime_commands_fail_explicitly() {
-    for args in [
-        &["serve"][..],
-        &["models", "list"],
-        &["models", "pull", "whisper:base"],
-        &["token", "create", "client"],
-        &["doctor"],
-    ] {
+    for args in [&["serve"][..], &["token", "create", "client"], &["doctor"]] {
         let output = run(args);
         assert!(!output.status.success(), "unexpected success: {args:?}");
         assert!(String::from_utf8(output.stderr)

@@ -4,6 +4,7 @@ fn config_argument() -> Arg {
     Arg::new("config")
         .long("config")
         .value_name("PATH")
+        .global(true)
         .help("Server TOML path (default: FONO_CONFIG or /etc/fono/server.toml)")
 }
 
@@ -11,6 +12,7 @@ pub fn command() -> Command {
     Command::new("fono-server")
         .about("Fono speech recognition server")
         .disable_version_flag(true)
+        .arg(config_argument())
         .arg(
             Arg::new("product-version")
                 .long("version")
@@ -19,11 +21,7 @@ pub fn command() -> Command {
                 .action(ArgAction::SetTrue)
                 .help("Show product, planned API and worker protocol versions"),
         )
-        .subcommand(
-            Command::new("serve")
-                .about("Start the HTTP server")
-                .arg(config_argument()),
-        )
+        .subcommand(Command::new("serve").about("Start the HTTP server"))
         .subcommand(
             Command::new("models")
                 .about("Manage server speech models")
@@ -69,11 +67,7 @@ pub fn command() -> Command {
             Command::new("config")
                 .about("Inspect server configuration")
                 .subcommand_required(true)
-                .subcommand(
-                    Command::new("check")
-                        .about("Validate a TOML configuration file")
-                        .arg(config_argument()),
-                ),
+                .subcommand(Command::new("check").about("Validate a TOML configuration file")),
         )
 }
 
