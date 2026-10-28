@@ -40,7 +40,7 @@ mod tests {
     #[cfg(feature = "speech-vad")]
     #[test]
     fn public_wav_segments_produce_bounded_summary_without_pcm_retention() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src-tauri");
         let wav =
             std::fs::read(root.join("tests/fixtures/audio/jfk-short-speech-16k-mono.wav")).unwrap();
         let speech = wav[44..]

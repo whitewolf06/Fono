@@ -22,6 +22,29 @@ git commit -m "fix(scope): описание [v0.5.1]"
 предложите следующую minor-версию и согласуйте её состав; после согласования
 используйте `npm run version:bump -- minor`. Публикация выполняется отдельно.
 
+## Rust workspace
+
+Общий Rust workspace находится в корне: `Cargo.toml`, `Cargo.lock` и
+`rust-toolchain.toml`. Общие библиотеки и workers лежат в `crates/`,
+а desktop-приложение остаётся в `src-tauri/`. Общие версии зависимостей
+задаются в `[workspace.dependencies]`.
+
+Из корня можно проверить весь workspace:
+
+```powershell
+cargo check --locked --workspace
+cargo test --locked -p fono-core -p fono-stt-protocol --all-targets
+```
+
+Корневой `.cargo/config.toml` сохраняет сборки в `src-tauri/target`.
+Для изолированной проверки задайте абсолютный `CARGO_TARGET_DIR`, указывающий
+на `src-tauri/target-codex-review`. Ресурсы и Tauri-конфиги по-прежнему
+задают пути относительно `src-tauri`.
+
+`tools/fono-setup` остаётся отдельным workspace со своим lockfile и
+статическим CRT. Запускайте его Cargo-команды из `tools/fono-setup`,
+чтобы применялись его настройки и каталог `tools/fono-setup/target`.
+
 ## Требования машины сборки
 
 | Режим              | Окружение                                                                                                                                                            |

@@ -27,9 +27,9 @@ class PackageTests(unittest.TestCase):
         self.repo.mkdir()
         self.workers.mkdir()
         self.write("package.json", '{"version":"0.7.22"}')
-        self.write("src-tauri/crates/fono-stt-protocol/src/lib.rs", "pub const PROTOCOL_VERSION: u16 = 4;")
+        self.write("crates/fono-stt-protocol/src/lib.rs", "pub const PROTOCOL_VERSION: u16 = 4;")
         self.write("LICENSE", "MIT Fono fixture; never distributed")
-        self.write("src-tauri/vendor/whisper.cpp/LICENSE", "MIT ggml fixture")
+        self.write("vendor/whisper.cpp/LICENSE", "MIT ggml fixture")
         self.write("licenses/dependency-notices.txt", "Complete source inventory fixture")
         entries = []
         for name in ("NVIDIA-CUDA-13.3.1-EULA.txt", "NVIDIA-CUDA-13.3.1-third-party.txt"):

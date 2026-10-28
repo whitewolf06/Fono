@@ -1,12 +1,12 @@
 use super::*;
 
 fn model() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources/vad/silero_vad.onnx")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src-tauri/resources/vad/silero_vad.onnx")
 }
 
 fn speech(relative: &str, gain: f32) -> Vec<i16> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures")
+        .join("../../src-tauri/tests/fixtures")
         .join(relative);
     let wav = sherpa_onnx::Wave::read(&path.to_string_lossy()).unwrap();
     assert_eq!(wav.sample_rate(), SAMPLE_RATE as i32);

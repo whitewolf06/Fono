@@ -93,6 +93,6 @@
       "fileVersion": null
     }
   ],
-  "modelDefinitions": "src-tauri/crates/fono-wake/src/models.rs",
+  "modelDefinitions": "crates/fono-wake/src/models.rs",
   "whisperModelDefinitions": "src-tauri/src/types.rs"
 }

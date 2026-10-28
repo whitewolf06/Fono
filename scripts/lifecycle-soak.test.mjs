@@ -315,13 +315,14 @@ function checkManualWorkflow(source) {
     /run: \.\/scripts\/bootstrap-ci-resources\.ps1\n/,
   );
   const build = step(critical[2]);
+  assert.match(build, /^ {8}working-directory: \.$/m);
   assert.match(
     build,
     /^ {10}cargo build --locked --release --no-default-features -p fono-stt-worker --bin fono-stt-worker$/m,
   );
   assert.match(
     build,
-    /^ {10}cargo test --locked -p fono --lib --no-default-features --features cpu-only --no-run --message-format=json > \.\.\/build\/lifecycle-soak\/tests\.jsonl$/m,
+    /^ {10}cargo test --locked -p fono --lib --no-default-features --features cpu-only --no-run --message-format=json > build\/lifecycle-soak\/tests\.jsonl$/m,
   );
   assert.equal(
     [

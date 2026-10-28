@@ -1,0 +1,21 @@
+[package]
+license = "MIT"
+name = "fono-audio"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Shared audio capture and speech VAD for Fono"
+publish = false
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+crossbeam-channel = { workspace = true }
+cpal = { workspace = true }
+sherpa-onnx = { workspace = true, optional = true, default-features = false, features = ["shared"] }
+
+[features]
+default = ["speech-vad"]
+speech-vad = ["dep:sherpa-onnx"]

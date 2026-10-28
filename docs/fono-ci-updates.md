@@ -30,7 +30,7 @@ Hosted Windows runner работает с административными п�
 Протокольный dispatcher использует Node, уже необходимый native wrapper.
 
 Actions привязаны к commit SHA. Версии Node и Rust закреплены в workflow;
-Rust должен соответствовать `src-tauri/rust-toolchain.toml`, UI Kit —
+Rust должен соответствовать `rust-toolchain.toml`, UI Kit —
 `package.json` и lockfile.
 
 Автоматические задания используют обычные `ubuntu-24.04` / `windows-2022` hosted

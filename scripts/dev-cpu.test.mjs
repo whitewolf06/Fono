@@ -302,7 +302,7 @@ with tarfile.open(pathlib.Path(sys.argv[1]), 'w:bz2') as archive:
   mkdirSync(path.dirname(vad), { recursive: true });
   writeFileSync(vad, "fixture VAD");
   writeFileSync(
-    path.join(setup.directory, "src-tauri/Cargo.lock"),
+    path.join(setup.directory, "Cargo.lock"),
     '[[package]]\nname = "sherpa-onnx-sys"\nversion = "1.13.4"\n',
   );
   writeFileSync(

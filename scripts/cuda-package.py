@@ -94,7 +94,7 @@ def prepare(repo, workers, output, revision):
     version = json.loads(regular_bytes(repo / "package.json", 64 * 1024))["version"]
     if not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
         raise ValueError("Invalid exact stable app version")
-    protocol_source = regular_bytes(repo / "src-tauri/crates/fono-stt-protocol/src/lib.rs", 256 * 1024).decode()
+    protocol_source = regular_bytes(repo / "crates/fono-stt-protocol/src/lib.rs", 256 * 1024).decode()
     matches = re.findall(r"pub const PROTOCOL_VERSION:\s*u16\s*=\s*([0-9]+)\s*;", protocol_source)
     if len(matches) != 1 or not 0 < int(matches[0]) <= 65535:
         raise ValueError("Invalid STT protocol version")
@@ -118,7 +118,7 @@ def prepare(repo, workers, output, revision):
         "NVIDIA-CUDA-EULA.txt": "licenses/upstream/NVIDIA-CUDA-13.3.1-EULA.txt",
         "NVIDIA-CUDA-third-party.txt": "licenses/upstream/NVIDIA-CUDA-13.3.1-third-party.txt",
         "FONO-LICENSE.txt": "LICENSE",
-        "WHISPER-CPP-LICENSE.txt": "src-tauri/vendor/whisper.cpp/LICENSE",
+        "WHISPER-CPP-LICENSE.txt": "vendor/whisper.cpp/LICENSE",
         "DEPENDENCY-NOTICES.txt": "licenses/dependency-notices.txt",
     }
     upstream = json.loads(regular_bytes(repo / "licenses/upstream-sources.json", 256 * 1024))

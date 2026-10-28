@@ -143,7 +143,7 @@ async function main() {
     await readFile(resolve(repo, "package.json"), "utf8"),
   ).version;
   const protocolSource = await readFile(
-    resolve(repo, "src-tauri/crates/fono-stt-protocol/src/lib.rs"),
+    resolve(repo, "crates/fono-stt-protocol/src/lib.rs"),
     "utf8",
   );
   const protocol = Number(

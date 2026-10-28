@@ -8,7 +8,7 @@ use std::time::Duration;
 /// Verifies binaries, rather than trusting a sidecar written by an older build.
 /// Hello loads no model and invokes no GPU inference.
 pub fn validate(manifest: &Path, directory: &Path) -> Result<(), String> {
-    let source = fs::read_to_string(manifest.join("crates/fono-stt-protocol/src/lib.rs"))
+    let source = fs::read_to_string(manifest.join("../crates/fono-stt-protocol/src/lib.rs"))
         .map_err(|error| error.to_string())?;
     let version: u16 = source
         .lines()

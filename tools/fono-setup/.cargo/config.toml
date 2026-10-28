@@ -1,2 +1,5 @@
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+[build]
+# This installer remains a separate workspace with its own build outputs.
+target-dir = "target"

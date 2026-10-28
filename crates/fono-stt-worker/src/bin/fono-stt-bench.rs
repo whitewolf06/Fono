@@ -12,10 +12,10 @@ mod stt {
     pub use fono_stt_protocol::{TimedSegment, WindowTranscript};
 }
 #[allow(dead_code)]
-#[path = "../../../../src/application/live_agreement.rs"]
+#[path = "../../../../src-tauri/src/application/live_agreement.rs"]
 mod live_agreement;
 #[allow(dead_code)]
-#[path = "../../../../src/application/live_windows.rs"]
+#[path = "../../../../src-tauri/src/application/live_windows.rs"]
 mod live_windows;
 
 use fono_stt_protocol::{inference::InferenceState, BackendKind, WindowTranscript};

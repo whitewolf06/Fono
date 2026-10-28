@@ -9,7 +9,7 @@ const paths = [
   "package-lock.json",
   "src-tauri/tauri.conf.json",
   "src-tauri/Cargo.toml",
-  "src-tauri/Cargo.lock",
+  "Cargo.lock",
 ];
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
@@ -63,7 +63,7 @@ function replaceVersion(file, content, version) {
     lock.packages[""].version = version;
     return `${JSON.stringify(lock, null, 2)}\n`;
   }
-  if (file === "src-tauri/Cargo.lock") {
+  if (file === "Cargo.lock") {
     return content.replace(
       /^(name = "fono"\r?\nversion = ")[^"]+("\r?$)/m,
       `$1${version}$2`,

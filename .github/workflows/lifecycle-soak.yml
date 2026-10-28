@@ -52,12 +52,12 @@ jobs:
         run: ./scripts/bootstrap-ci-resources.ps1
       - name: Build real CPU helper and ignored native test executable
         shell: pwsh
-        working-directory: src-tauri
+        working-directory: .
         run: |
-          New-Item -ItemType Directory -Force ../build/lifecycle-soak | Out-Null
+          New-Item -ItemType Directory -Force build/lifecycle-soak | Out-Null
           cargo build --locked --release --no-default-features -p fono-stt-worker --bin fono-stt-worker
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked -p fono --lib --no-default-features --features cpu-only --no-run --message-format=json > ../build/lifecycle-soak/tests.jsonl
+          cargo test --locked -p fono --lib --no-default-features --features cpu-only --no-run --message-format=json > build/lifecycle-soak/tests.jsonl
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Stage verified native VAD DLLs beside test executable
         shell: pwsh

@@ -6,7 +6,13 @@ import vue from "eslint-plugin-vue";
 import vueParser from "vue-eslint-parser";
 export default [
   {
-    ignores: ["dist/**", "build/**", "node_modules/**", "src-tauri/**"],
+    ignores: [
+      "dist/**",
+      "build/**",
+      "node_modules/**",
+      "src-tauri/**",
+      "vendor/whisper.cpp/**",
+    ],
   },
   js.configs.recommended,
   ...vue.configs["flat/essential"],

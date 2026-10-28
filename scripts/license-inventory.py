@@ -14,7 +14,7 @@ import re
 import sys
 import tomllib
 
-LOCKFILES = ("package-lock.json", "src-tauri/Cargo.lock", "tools/fono-setup/Cargo.lock")
+LOCKFILES = ("package-lock.json", "Cargo.lock", "tools/fono-setup/Cargo.lock")
 NOTICE_NAME = re.compile(r"^(?:licen[sc]e|copying|notice|copyright|unlicense)(?:[._-].*)?$", re.I)
 SKIP_DIRECTORIES = {".git", "node_modules", "target", "__pycache__"}
 
@@ -131,9 +131,9 @@ def inventory(root, cargo_home):
             cargo[key] = entry
 
     vendored = [{
-        "path": "src-tauri/vendor/whisper.cpp",
+        "path": "vendor/whisper.cpp",
         "source": "https://github.com/ggml-org/whisper.cpp",
-        "notices": collect(root / "src-tauri/vendor/whisper.cpp", texts),
+        "notices": collect(root / "vendor/whisper.cpp", texts),
     }]
     result = {
         "schemaVersion": 1,

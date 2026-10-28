@@ -22,4 +22,4 @@ CUDA и Vulkan работают в отдельных процессах. При
 
 GPU runtime поставляется отдельно от embedded CPU. Worker можно завершить и восстановить, сохранив UI. За изоляцию приходится платить сериализацией аудио, проверкой совместимости бинарников и отдельным lifecycle. Успешный handshake подтверждает контракт процесса, но сам по себе не подтверждает качество распознавания или работу драйвера на всех GPU.
 
-Код: `src-tauri/src/stt/worker_session.rs`, `worker_mailbox.rs`, `recovery.rs`, `src-tauri/crates/fono-stt-protocol`. Задачи: PERF-06 / FONO-81, ARC-08.
+Код: `src-tauri/src/stt/worker_session.rs`, `worker_mailbox.rs`, `recovery.rs`, `crates/fono-stt-protocol`. Задачи: PERF-06 / FONO-81, ARC-08.

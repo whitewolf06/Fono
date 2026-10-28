@@ -1,6 +1,6 @@
 # Inventory input hashes must survive a Windows/Linux checkout.
 package-lock.json text eol=lf
-src-tauri/Cargo.lock text eol=lf
+Cargo.lock text eol=lf
 tools/fono-setup/Cargo.lock text eol=lf
 scripts/bootstrap-ci-linux.sh text eol=lf
 

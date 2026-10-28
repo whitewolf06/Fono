@@ -2,7 +2,9 @@
 
 ## Версия приложения и коммиты
 
-- Источник версии Fono — `package.json`. Версия приложения должна совпадать в `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` и записи `fono` в `src-tauri/Cargo.lock`.
+- Общий Rust workspace, `Cargo.lock`, `rust-toolchain.toml` и `.cargo/config.toml` находятся в корне. Общие crates — в `crates/`, desktop — в `src-tauri/`. Версии общих зависимостей задаются в корневом `[workspace.dependencies]`; профили сборки тоже остаются в корне. C++ Vulkan worker и самостоятельный `tools/fono-setup` исключены из Rust workspace. Корневой config сохраняет выходы в `src-tauri/target`; для установщика Cargo запускается из `tools/fono-setup`, где задан отдельный target и статический CRT.
+
+- Источник версии Fono — `package.json`. Версия приложения должна совпадать в `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` и записи `fono` в `Cargo.lock`.
 - Новая схема начинается с базового коммита `0.5.0`; актуальную версию всегда читать из `package.json`. Каждый следующий коммит поднимает patch ровно на 1 (`0.5.0` → `0.5.1`) через `npm run version:bump -- patch`.
 - При подготовке публикации предложить пользователю следующую minor-версию и её состав. Поднимать minor (`0.5.x` → `0.6.0`) через `npm run version:bump -- minor` только после согласования; публикация и изменение minor — отдельные решения.
 - В теме **каждого** нового коммита указывать версию в виде `vX.Y.Z`, например `fix(wake): сохранить фразу [v0.5.1]`. Не создавать коммит без изменения версии, включая docs, исправления и merge-коммиты.

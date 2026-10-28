@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const protocol = fs.readFileSync(
-  path.join(root, "src-tauri/crates/fono-stt-protocol/src/lib.rs"),
+  path.join(root, "crates/fono-stt-protocol/src/lib.rs"),
   "utf8",
 );
 const version = Number(

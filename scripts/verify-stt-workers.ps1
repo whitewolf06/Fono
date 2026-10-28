@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if (!$WorkersDirectory) { $WorkersDirectory = Join-Path $repoRoot 'src-tauri\resources\stt-workers' }
 $WorkersDirectory = [IO.Path]::GetFullPath($WorkersDirectory)
-$protocolSource = Get-Content -LiteralPath (Join-Path $repoRoot 'src-tauri\crates\fono-stt-protocol\src\lib.rs') -Raw
+$protocolSource = Get-Content -LiteralPath (Join-Path $repoRoot 'crates\fono-stt-protocol\src\lib.rs') -Raw
 if ($protocolSource -notmatch 'PROTOCOL_VERSION:\s*u16\s*=\s*(\d+)') { throw 'Cannot read STT protocol version.' }
 $protocolVersion = [int]$Matches[1]
 

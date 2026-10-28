@@ -63,7 +63,7 @@ try {
     }
 
     if (!$SkipVulkan) {
-        Invoke-Native 'cmake' @('-S', 'crates\fono-stt-vulkan-worker', '-B', 'target-vulkan-worker', '-A', 'x64', '-DCMAKE_BUILD_TYPE=Release')
+        Invoke-Native 'cmake' @('-S', '..\crates\fono-stt-vulkan-worker', '-B', 'target-vulkan-worker', '-A', 'x64', '-DCMAKE_BUILD_TYPE=Release')
         Invoke-Native 'cmake' @('--build', 'target-vulkan-worker', '--config', 'Release', '--target', 'fono-stt-vulkan-worker', '--parallel', '8')
         Copy-Item 'target-vulkan-worker\Release\fono-stt-vulkan-worker.exe' (Join-Path $workersDir 'fono-stt-vulkan-worker.exe') -Force
     }

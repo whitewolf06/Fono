@@ -89,7 +89,7 @@ function checkLinuxContract(source) {
     "run: cargo test --locked -p fono-core -p fono-stt-protocol -p fono-audio -p fono-wake --lib\n",
   );
   assert.ok(bootstrap >= 0 && check > bootstrap && tests > check);
-  assert.equal((job.match(/working-directory: src-tauri/g) ?? []).length, 2);
+  assert.equal((job.match(/^ {8}working-directory: \.$/gm) ?? []).length, 2);
   return job;
 }
 
@@ -106,6 +106,10 @@ test("Linux CI checks the normal workspace after verified native bootstrap", () 
       "cargo check --locked --workspace --no-default-features",
     ],
     ["-p fono-audio -p fono-wake --lib", "-p fono-wake --lib"],
+    [
+      "- name: Check Linux workspace\n        working-directory: .",
+      "- name: Check Linux workspace\n        working-directory: src-tauri",
+    ],
   ]) {
     assert.ok(workflow.includes(before), `mutation target: ${before}`);
     assert.throws(() => checkLinuxContract(workflow.replace(before, after)));
@@ -127,16 +131,16 @@ test("Linux and Windows Sherpa pins match the shared Rust dependency version", a
   assert.ok(
     linux.downloadTimeoutSeconds > 0 && linux.downloadTimeoutSeconds <= 600,
   );
-  const manifest = await read("../src-tauri/Cargo.toml");
+  const manifest = await read("../Cargo.toml");
   const version = manifest.match(
     /sherpa-onnx\s*=\s*\{[^}]*version\s*=\s*"=([^"]+)"/,
   );
   assert.equal(version?.[1], linux.version);
-  const lockedVersion = (await read("../src-tauri/Cargo.lock")).match(
+  const lockedVersion = (await read("../Cargo.lock")).match(
     /^name = "sherpa-onnx"\nversion = "([^"]+)"$/m,
   );
   assert.equal(lockedVersion?.[1], linux.version);
-  const channel = (await read("../src-tauri/rust-toolchain.toml")).match(
+  const channel = (await read("../rust-toolchain.toml")).match(
     /^channel = "([^"]+)"$/m,
   )?.[1];
   assert.ok(channel);
@@ -265,12 +269,12 @@ function checkNativeContract(source) {
     "CUDA package tests must precede launcher/native tests",
   );
   assert.ok(
-    job.indexOf("../scripts/test-native.ps1") > launcher,
+    job.indexOf("./scripts/test-native.ps1") > launcher,
     "Native workspace tests must follow packaging and launcher gates",
   );
   assert.match(
     job,
-    /\.\.\/scripts\/test-native\.ps1\r?\n\s+if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}/,
+    /^ {10}\.\/scripts\/test-native\.ps1\r?\n\s+if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}/m,
   );
   assert.match(
     job,
@@ -311,10 +315,10 @@ test("the native contract rejects regressions that skip forks or hide failing ap
   }
   for (const [before, after] of [
     ["python scripts/cuda-package.test.py", "python --version"],
-    ["../scripts/test-native.ps1", "cargo test --locked -p fono-core"],
+    ["./scripts/test-native.ps1", "cargo test --locked -p fono-core"],
     [
-      "../scripts/test-native.ps1\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
-      "../scripts/test-native.ps1",
+      "./scripts/test-native.ps1\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+      "./scripts/test-native.ps1",
     ],
     [
       "cargo clippy --locked --workspace --all-targets -- -D warnings",
@@ -332,12 +336,16 @@ test("the native contract rejects regressions that skip forks or hide failing ap
 
 test("the wrapper selects the whole workspace and the app remains a workspace member", async () => {
   const wrapper = await read("./test-native.ps1");
-  const manifest = await read("../src-tauri/Cargo.toml");
+  const manifest = await read("../Cargo.toml");
+  const desktopManifest = await read("../src-tauri/Cargo.toml");
   assert.match(
     wrapper,
     /\$CargoArguments = @\('--locked', '--workspace', '--all-targets'\)/,
   );
-  assert.match(manifest, /members = \["\."[,\]]/);
+  assert.match(manifest, /^\[workspace\]$/m);
+  const members = manifest.match(/^members\s*=\s*\[([\s\S]*?)\]/m)?.[1] ?? "";
+  assert.match(members, /"src-tauri"/);
+  assert.doesNotMatch(desktopManifest, /^\[workspace\]$/m);
 });
 
 test("native compile assets are inert and the real release frontend remains required", async () => {

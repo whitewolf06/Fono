@@ -4,13 +4,15 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "src-tauri/crates/fono-audio/**"
-      - "src-tauri/crates/fono-stt-protocol/**"
-      - "src-tauri/crates/fono-stt-worker/**"
+      - "crates/fono-audio/**"
+      - "crates/fono-stt-protocol/**"
+      - "crates/fono-stt-worker/**"
+      - "Cargo.toml"
       - "src-tauri/Cargo.toml"
-      - "src-tauri/Cargo.lock"
-      - "src-tauri/rust-toolchain.toml"
-      - "src-tauri/.cargo/**"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".cargo/**"
+      - "src-tauri/cmake/**"
       - "src-tauri/src/stt/**"
       - "src-tauri/src/types/whisper_artifacts.rs"
       - "src-tauri/src/stt/comparison_tests.rs"
@@ -64,11 +66,11 @@ jobs:
         shell: pwsh
         run: ./scripts/bootstrap-ci-resources.ps1
       - name: Build offline CPU tools without private frontend or GPU
-        working-directory: src-tauri
+        working-directory: .
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force ../build/stt-quality | Out-Null
-          cargo build --locked --release --no-default-features --features fono-audio/speech-vad -p fono-audio --example resample-wav --example trim-vad-wav -p fono-stt-worker --bin fono-stt-quality --message-format=json > ../build/stt-quality/tools.jsonl
+          New-Item -ItemType Directory -Force build/stt-quality | Out-Null
+          cargo build --locked --release --no-default-features --features fono-audio/speech-vad -p fono-audio --example resample-wav --example trim-vad-wav -p fono-stt-worker --bin fono-stt-quality --message-format=json > build/stt-quality/tools.jsonl
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Stage verified VAD DLLs beside the emitted CPU tools
         shell: pwsh

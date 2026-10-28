@@ -31,7 +31,7 @@ fn main() {
                 && env::var_os("CARGO_FEATURE_VULKAN").is_none()),
         "cpu-only cannot be combined with cuda or vulkan"
     );
-    // The whisper.cpp CMake hook is configured in .cargo/config.toml because
+    // The whisper.cpp CMake hook is configured in ../.cargo/config.toml because
     // this build script only applies to the application crate.
     // The release-resource preparation build runs before the Sherpa DLLs
     // exist in `resources/sherpa-onnx`.  `tauri_build::build()` expands the

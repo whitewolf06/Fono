@@ -283,7 +283,7 @@ async function run() {
   }
   const source = path.join(
     root,
-    "src-tauri/crates/fono-audio/src/audio_source/resample.rs",
+    "crates/fono-audio/src/audio_source/resample.rs",
   );
   const revision = spawnSync("git", ["rev-parse", "HEAD"], {
     cwd: root,

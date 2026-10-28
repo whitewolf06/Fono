@@ -8,16 +8,18 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export function qualityLineage() {
   const inputs = [
-    "src-tauri/crates/fono-audio",
-    "src-tauri/crates/fono-stt-protocol",
-    "src-tauri/crates/fono-stt-worker",
+    "crates/fono-audio",
+    "crates/fono-stt-protocol",
+    "crates/fono-stt-worker",
     "src-tauri/src/application/speech_gate.rs",
     "src-tauri/src/application/dictation/capture.rs",
     "src-tauri/src/vad",
-    "src-tauri/Cargo.lock",
+    "Cargo.lock",
+    "Cargo.toml",
     "src-tauri/Cargo.toml",
-    "src-tauri/rust-toolchain.toml",
-    "src-tauri/.cargo/config.toml",
+    "rust-toolchain.toml",
+    ".cargo/config.toml",
+    "src-tauri/cmake/whisper-msvc-release.cmake",
     "scripts/stt-quality.mjs",
     "scripts/stage4-quality.mjs",
     "scripts/stage5-quality.mjs",
@@ -35,7 +37,7 @@ export function qualityLineage() {
     if (fs.statSync(absolute).isDirectory()) {
       for (const name of fs.readdirSync(absolute).sort())
         visit(`${relative}/${name}`);
-    } else if (/\.(?:rs|toml|lock|mjs|json|py|ps1|yml)$/.test(relative)) {
+    } else if (/\.(?:rs|toml|lock|mjs|json|py|ps1|yml|cmake)$/.test(relative)) {
       files.push({ path: relative, sha256: digest(fs.readFileSync(absolute)) });
     }
   }

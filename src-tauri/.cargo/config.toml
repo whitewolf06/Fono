@@ -1,4 +1,0 @@
-# Keep Windows release optimization in the CMake project, so Linux never
-# receives MSVC flags. Native CPU/CUDA tuning belongs in an explicit local build.
-[env]
-CMAKE_PROJECT_INCLUDE = { value = "cmake/whisper-msvc-release.cmake", relative = true }

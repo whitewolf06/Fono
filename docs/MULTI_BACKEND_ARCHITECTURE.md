@@ -11,9 +11,9 @@ Fono UI → Rust pipeline → SttEngine
                           +-- встроенный Whisper
 ```
 
-CUDA worker — Rust crate `src-tauri/crates/fono-stt-worker` на `whisper-rs`.
-Vulkan worker — CMake-проект `src-tauri/crates/fono-stt-vulkan-worker`
-на закреплённом `src-tauri/vendor/whisper.cpp`.
+CUDA worker — Rust crate `crates/fono-stt-worker` на `whisper-rs`.
+Vulkan worker — CMake-проект `crates/fono-stt-vulkan-worker`
+на закреплённом `vendor/whisper.cpp`.
 
 ## Выбор ускорения
 
@@ -40,7 +40,7 @@ Vulkan worker — CMake-проект `src-tauri/crates/fono-stt-vulkan-worker`
 
 ## Worker protocol 4
 
-Источник контракта — `src-tauri/crates/fono-stt-protocol/src/lib.rs`.
+Источник контракта — `crates/fono-stt-protocol/src/lib.rs`.
 Transport — JSON Lines через `stdin`/`stdout`; `stderr` используется
 для технических логов. PCM — моно i16 little-endian в base64.
 Максимальный request frame — 16 MiB, response frame — 1 MiB.

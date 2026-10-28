@@ -7,10 +7,10 @@ publish = false
 default-run = "fono-stt-worker"
 
 [dependencies]
-base64 = "0.22"
-fono-stt-protocol = { path = "../fono-stt-protocol", features = ["inference"] }
-serde_json = "1.0"
-whisper-rs = "0.16"
+base64 = { workspace = true }
+fono-stt-protocol = { workspace = true, features = ["inference"] }
+serde_json = { workspace = true }
+whisper-rs = { workspace = true }
 
 [features]
 default = []

@@ -1,6 +1,6 @@
 # Dependency and supply-chain policy
 
-`src-tauri/Cargo.lock` and `src-tauri/rust-toolchain.toml` are release inputs and
+`Cargo.lock` and `rust-toolchain.toml` are release inputs and
 must be reviewed in the same change as dependency updates.
 
 Before merging a Rust dependency update, bootstrap the verified native runtime

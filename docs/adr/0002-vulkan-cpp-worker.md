@@ -46,4 +46,4 @@ cmake --build target-codex-review/release/build/whisper-rs-sys-10a4d8d8bf24a3cb/
 
 До унификации поддерживаются две реализации протокола и один общий process contract. Изменения, включая `supports_decoding_options` и параметры Greedy/Beam Search, вносятся в обе реализации и требуют пересборки workers. Этот эксперимент не даёт основания сравнивать их скорость, размер или WER: Rust/Vulkan-кандидат не дошёл до inference.
 
-Код: `scripts/build-stt-workers.ps1`, `src-tauri/crates/fono-stt-vulkan-worker`, `src-tauri/crates/fono-stt-worker/Cargo.toml`. Контракт: [STT backend-ы](../MULTI_BACKEND_ARCHITECTURE.md).
+Код: `scripts/build-stt-workers.ps1`, `crates/fono-stt-vulkan-worker`, `crates/fono-stt-worker/Cargo.toml`. Контракт: [STT backend-ы](../MULTI_BACKEND_ARCHITECTURE.md).

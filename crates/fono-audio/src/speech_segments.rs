@@ -207,7 +207,7 @@ mod tests {
     #[cfg(feature = "speech-vad")]
     #[test]
     fn long_public_wav_is_partitioned_without_copying_or_trimming_pcm() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src-tauri");
         let wav = sherpa_onnx::Wave::read(
             &root
                 .join("tests/fixtures/stt-quality/ru-01.wav")

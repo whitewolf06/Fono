@@ -73,7 +73,7 @@ jobs:
           python scripts/test-wake-runtime.py
           exit $LASTEXITCODE
       - name: Native gates
-        working-directory: src-tauri
+        working-directory: .
         env:
           # GPU workers are built by beforeBuildCommand after these CPU gates.
           TAURI_CONFIG: '{"bundle":{"resources":{"resources/stt-base/fono-stt-vulkan-worker.exe":null}}}'
@@ -81,7 +81,7 @@ jobs:
         run: |
           cargo fmt --all --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ../scripts/test-native.ps1
+          ./scripts/test-native.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo clippy --locked --workspace --all-targets -- -D warnings
           exit $LASTEXITCODE
@@ -94,7 +94,7 @@ jobs:
           if (!$env:TAURI_SIGNING_PRIVATE_KEY) { throw 'Set TAURI_SIGNING_PRIVATE_KEY in the protected environment.' }
           node node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis --config build/update-release.conf.json -- --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git diff --exit-code -- src-tauri/Cargo.lock package-lock.json
+          git diff --exit-code -- Cargo.lock package-lock.json
           exit $LASTEXITCODE
       - name: Verify workers and create update manifest
         env:

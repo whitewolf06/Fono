@@ -27,7 +27,7 @@ jobs:
         shell: pwsh
         run: rustup toolchain install 1.96.1 --profile minimal --component rustfmt --component clippy
       - name: Format, core tests and clippy
-        working-directory: src-tauri
+        working-directory: .
         shell: pwsh
         run: |
           cargo fmt --all --check
@@ -63,10 +63,10 @@ jobs:
         timeout-minutes: 10
         run: bash scripts/bootstrap-ci-linux.sh
       - name: Check Linux workspace
-        working-directory: src-tauri
+        working-directory: .
         run: cargo check --locked --workspace
       - name: Test shared Rust crates
-        working-directory: src-tauri
+        working-directory: .
         run: cargo test --locked -p fono-core -p fono-stt-protocol -p fono-audio -p fono-wake --lib
 
   setup:
@@ -168,12 +168,12 @@ jobs:
         shell: pwsh
         run: node --test scripts/dev-cpu.test.mjs
       - name: Test and lint native workspace
-        working-directory: src-tauri
+        working-directory: .
         shell: pwsh
         run: |
           cargo fmt --all --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ../scripts/test-native.ps1
+          ./scripts/test-native.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo clippy --locked --workspace --all-targets -- -D warnings
           exit $LASTEXITCODE
@@ -181,7 +181,7 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/bootstrap-ci-resources.ps1 -ValidateOnly
-          Push-Location src-tauri
+          Push-Location $env:GITHUB_WORKSPACE
           try {
             $defaultTree = & cargo tree --locked -p fono --edges normal
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

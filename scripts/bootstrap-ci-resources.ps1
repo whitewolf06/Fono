@@ -172,7 +172,7 @@ function Invoke-PythonArchiveCommand([string[]]$Arguments) {
     }
 }
 
-$cargoLock = Get-Content -LiteralPath (Join-Path $repoRoot 'src-tauri\Cargo.lock') -Raw
+$cargoLock = Get-Content -LiteralPath (Join-Path $repoRoot 'Cargo.lock') -Raw
 $expectedVersion = [regex]::Escape($manifest.sherpa.version)
 if ($cargoLock -notmatch "name = `"sherpa-onnx-sys`"\r?\nversion = `"$expectedVersion`"") {
     throw 'Sherpa lock version changed: update CI dependency URL and SHA-256 together.'

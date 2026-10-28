@@ -1,0 +1,52 @@
+[workspace]
+# Add apps/* when the first server manifest exists; unmatched globs are invalid.
+members = ["src-tauri", "crates/*"]
+exclude = ["crates/fono-stt-vulkan-worker", "tools/fono-setup"]
+resolver = "2"
+
+[workspace.dependencies]
+fono-core = { version = "0.1.0", path = "crates/fono-core" }
+fono-audio = { version = "0.1.0", path = "crates/fono-audio", default-features = false }
+fono-wake = { version = "0.1.0", path = "crates/fono-wake", default-features = false }
+fono-stt-protocol = { version = "0.1.0", path = "crates/fono-stt-protocol" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+parking_lot = "0.12"
+tracing = "0.1"
+crossbeam-channel = "0.5"
+crossbeam-queue = "0.3"
+cpal = "0.15"
+sherpa-onnx = { version = "=1.13.4", default-features = false, features = ["shared"] }
+whisper-rs = "0.16"
+tokio = "1.41"
+axum = "0.7"
+reqwest = "0.12"
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+base64 = "0.22"
+sha2 = "0.10"
+anyhow = "1.0"
+regex = "1"
+tower = "0.5"
+once_cell = "1.20"
+dirs = "5.0"
+chrono = "0.4"
+tar = "0.4"
+bzip2 = "0.4"
+uuid = "1"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+codegen-units = 1
+lto = true
+# Whisper needs speed rather than size optimization.
+opt-level = 3
+panic = "abort"
+strip = true
+
+# MSVC-only CMake options are selected by the root Cargo configuration.
+[profile.release.package.whisper-rs-sys]
+opt-level = 3
+strip = true

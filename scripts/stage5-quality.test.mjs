@@ -368,9 +368,12 @@ test("quality workflow identifies one run, triggers on runner inputs and retains
     /STT_QUALITY_RUN_ID: \$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/,
   );
   for (const input of [
-    "src-tauri/crates/fono-stt-worker/**",
-    "src-tauri/crates/fono-stt-protocol/**",
-    "src-tauri/Cargo.lock",
+    "crates/fono-stt-worker/**",
+    "crates/fono-stt-protocol/**",
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    ".cargo/**",
     "scripts/stt-quality*",
     "scripts/stage4-quality*",
     "scripts/stage5-quality*",

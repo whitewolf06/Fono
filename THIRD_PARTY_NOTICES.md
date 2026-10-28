@@ -13,7 +13,7 @@ copyright notices. Наличие MIT у Fono не означает, что ве
 ## Полные тексты и воспроизводимый реестр
 
 - [Инвентарь npm и Cargo](licenses/dependency-inventory.json) содержит точные
-  версии из `package-lock.json`, `src-tauri/Cargo.lock` и
+  версии из `package-lock.json`, `Cargo.lock` и
   `tools/fono-setup/Cargo.lock`, заявленные SPDX-выражения, пути notices внутри
   пакетов и SHA-256 исходных текстов. Выражения `OR` и `AND` сохранены как у автора.
 - [Собранные полные notices](licenses/dependency-notices.txt) содержат тексты из
@@ -123,8 +123,8 @@ notices; лицензия whisper.cpp их не покрывает.
 | KWS `sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01`         | Исторический архив; backend и downloader удалены в W-01                                       | README локального model pack заявляет Apache License 2.0 и происхождение icefall/GigaSpeech; [модель издателя](https://www.modelscope.cn/models/pkufool/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01), [полный Apache-2.0](licenses/upstream/icefall-APACHE-2.0.txt) |
 
 Archive URL и хэши двух исследовательских streaming packs сохраняются в
-`src-tauri/crates/fono-wake/src/models.rs`. GigaSpeech KWS удалён в W-01; его
-историческая декларация доступна в [исходниках v0.7.0](https://github.com/whitewolf06/fono/blob/e91f201eb96fab40151a9d228fecab5c2b18f6a9/src-tauri/crates/fono-wake/src/models.rs). Лицензия icefall на тренировочный код
+`crates/fono-wake/src/models.rs`. GigaSpeech KWS удалён в W-01; его
+историческая декларация доступна в [исходниках v0.7.0](https://github.com/whitewolf06/fono/blob/e91f201eb96fab40151a9d228fecab5c2b18f6a9/crates/fono-wake/src/models.rs). Лицензия icefall на тренировочный код
 сама по себе не лицензирует любые обученные веса или исходные датасеты. Здесь
 модельные декларации проверены отдельно; тренировочные датасеты и sample WAV не
 объявляются MIT Fono. Для перераспространения тестовых WAV/нового корпуса нужна

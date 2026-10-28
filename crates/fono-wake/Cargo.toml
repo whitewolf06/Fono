@@ -8,17 +8,17 @@ description = "Wake word subsystem for Fono"
 publish = false
 
 [dependencies]
-fono-audio = { version = "0.1.0", path = "../fono-audio", default-features = false }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "2.0"
-tracing = "0.1"
-parking_lot = "0.12"
-crossbeam-channel = "0.5"
-cpal = "0.15"
+fono-audio = { workspace = true, default-features = false }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+crossbeam-channel = { workspace = true }
+cpal = { workspace = true }
 
 # Sherpa-ONNX backend
-sherpa-onnx = { version = "1.13", optional = true, default-features = false, features = ["shared"] }
+sherpa-onnx = { workspace = true, optional = true, default-features = false, features = ["shared"] }
 
 [features]
 default = []

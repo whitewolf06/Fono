@@ -2,14 +2,15 @@ use super::*;
 
 fn bundled_vad() -> StreamingSpeechVad {
     StreamingSpeechVad::new(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources/vad/silero_vad.onnx"),
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../src-tauri/resources/vad/silero_vad.onnx"),
     )
     .expect("bundled neural VAD")
 }
 
 fn short_speech(gain: f32) -> Vec<i16> {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/audio/jfk-short-speech-16k-mono.wav");
+        .join("../../src-tauri/tests/fixtures/audio/jfk-short-speech-16k-mono.wav");
     let wav = sherpa_onnx::Wave::read(&fixture.to_string_lossy()).expect("public speech fixture");
     assert_eq!(wav.sample_rate(), 16_000);
     wav.samples()
