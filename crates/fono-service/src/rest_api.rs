@@ -6,10 +6,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::audio_ingest::{self, AudioIngestError, AudioIngestPolicy};
-use crate::transcription_jobs::TranscriptionJobs;
+use crate::transcription_jobs::{JobReservation, TranscriptionJobs};
 use axum::{
-    extract::{DefaultBodyLimit, Multipart, Path as AxumPath, State},
-    http::{header, HeaderMap, StatusCode},
+    extract::{DefaultBodyLimit, FromRequest, Multipart, Path as AxumPath, Request, State},
+    http::{header, HeaderMap, HeaderValue, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
@@ -48,6 +48,14 @@ pub enum TokenAuthorization {
     Forbidden,
 }
 
+/// Opaque, nonsecret identity used for per-client admission. Hosts that keep
+/// multiple bearer tokens override `principal` to return a distinct key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TokenPrincipal {
+    pub client_key: String,
+    pub scope: TokenScope,
+}
+
 pub trait TokenVerifier: Send + Sync {
     fn verify(&self, token: &str) -> bool;
 
@@ -55,6 +63,13 @@ pub trait TokenVerifier: Send + Sync {
     /// override this to return each client's persisted scope.
     fn scope(&self, token: &str) -> Option<TokenScope> {
         self.verify(token).then_some(TokenScope::Admin)
+    }
+
+    fn principal(&self, token: &str) -> Option<TokenPrincipal> {
+        self.scope(token).map(|scope| TokenPrincipal {
+            client_key: "desktop".into(),
+            scope,
+        })
     }
 }
 
@@ -129,6 +144,19 @@ struct ApiError {
     code: &'static str,
 }
 
+#[derive(Serialize)]
+struct ApiErrorV2 {
+    error: ApiErrorV2Detail,
+}
+
+#[derive(Serialize)]
+struct ApiErrorV2Detail {
+    code: &'static str,
+    message: &'static str,
+    retryable: bool,
+    request_id: String,
+}
+
 pub fn router(state: RestApiState) -> Router {
     meta_routes()
         .merge(jobs_routes())
@@ -194,32 +222,39 @@ pub fn authorize_headers(
     verifier: &dyn TokenVerifier,
     required: TokenScope,
 ) -> TokenAuthorization {
+    match authorize_principal_headers(headers, verifier, required) {
+        Ok(_) => TokenAuthorization::Allowed,
+        Err(error) => error,
+    }
+}
+
+pub fn authorize_principal_headers(
+    headers: &HeaderMap,
+    verifier: &dyn TokenVerifier,
+    required: TokenScope,
+) -> Result<TokenPrincipal, TokenAuthorization> {
     let mut values = headers.get_all(header::AUTHORIZATION).iter();
     let Some(value) = values.next() else {
-        return TokenAuthorization::Unauthorized;
+        return Err(TokenAuthorization::Unauthorized);
     };
     if values.next().is_some() {
-        return TokenAuthorization::Unauthorized;
+        return Err(TokenAuthorization::Unauthorized);
     }
     let Some(token) = value
         .to_str()
         .ok()
         .and_then(|value| value.strip_prefix("Bearer "))
     else {
-        return TokenAuthorization::Unauthorized;
+        return Err(TokenAuthorization::Unauthorized);
     };
     if token.is_empty() || token.bytes().any(|byte| byte.is_ascii_whitespace()) {
-        return TokenAuthorization::Unauthorized;
+        return Err(TokenAuthorization::Unauthorized);
     }
-    match verifier.scope(token) {
-        None => TokenAuthorization::Unauthorized,
-        Some(TokenScope::Admin) | Some(TokenScope::Recognize)
-            if required == TokenScope::Recognize =>
-        {
-            TokenAuthorization::Allowed
-        }
-        Some(TokenScope::Admin) => TokenAuthorization::Allowed,
-        Some(TokenScope::Recognize) => TokenAuthorization::Forbidden,
+    match verifier.principal(token) {
+        None => Err(TokenAuthorization::Unauthorized),
+        Some(principal) if required == TokenScope::Recognize => Ok(principal),
+        Some(principal) if principal.scope == TokenScope::Admin => Ok(principal),
+        Some(_) => Err(TokenAuthorization::Forbidden),
     }
 }
 
@@ -232,38 +267,118 @@ fn api_error(status: StatusCode, code: &'static str) -> axum::response::Response
     (status, Json(ApiError { code })).into_response()
 }
 
-fn submission_error(service_error: TranscriptionServiceError) -> axum::response::Response {
-    match service_error {
-        TranscriptionServiceError::InvalidRequest(_) => {
-            api_error(StatusCode::BAD_REQUEST, "invalid_request")
-        }
-        TranscriptionServiceError::Busy(_) => {
-            api_error(StatusCode::TOO_MANY_REQUESTS, "queue_full")
-        }
-        TranscriptionServiceError::ModelNotReady(_) => {
-            api_error(StatusCode::SERVICE_UNAVAILABLE, "model_not_ready")
-        }
-        TranscriptionServiceError::Cancelled(_) => api_error(StatusCode::CONFLICT, "cancelled"),
-        TranscriptionServiceError::Failed(_) => {
-            api_error(StatusCode::INTERNAL_SERVER_ERROR, "transcription_failed")
-        }
+fn submission_error(
+    service_error: TranscriptionServiceError,
+    protocol_version: u16,
+    headers: &HeaderMap,
+) -> axum::response::Response {
+    let (status, code, message, retryable) = match service_error {
+        TranscriptionServiceError::InvalidRequest(_) => (
+            StatusCode::BAD_REQUEST,
+            "invalid_request",
+            "Invalid transcription request",
+            false,
+        ),
+        TranscriptionServiceError::Busy(_) => (
+            StatusCode::TOO_MANY_REQUESTS,
+            if protocol_version >= 2 {
+                "busy"
+            } else {
+                "queue_full"
+            },
+            "Recognition queue is busy",
+            true,
+        ),
+        TranscriptionServiceError::ModelNotReady(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "model_not_ready",
+            "Recognition model is not ready",
+            true,
+        ),
+        TranscriptionServiceError::Cancelled(_) => (
+            StatusCode::CONFLICT,
+            "cancelled",
+            "Transcription was cancelled",
+            false,
+        ),
+        TranscriptionServiceError::Failed(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            if protocol_version >= 2 {
+                "internal"
+            } else {
+                "transcription_failed"
+            },
+            "Transcription failed",
+            false,
+        ),
+    };
+    if protocol_version < 2 {
+        return api_error(status, code);
     }
+    let request_id = headers
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let mut response = (
+        status,
+        Json(ApiErrorV2 {
+            error: ApiErrorV2Detail {
+                code,
+                message,
+                retryable,
+                request_id: request_id.clone(),
+            },
+        }),
+    )
+        .into_response();
+    response.headers_mut().insert(
+        "x-request-id",
+        HeaderValue::from_str(&request_id).expect("request id came from a valid header"),
+    );
+    if retryable {
+        response
+            .headers_mut()
+            .insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
+    }
+    response
 }
 
 async fn submit(
     State(state): State<RestApiState>,
     headers: HeaderMap,
-    Json(request): Json<TranscriptionRequest>,
+    body: Request,
 ) -> impl IntoResponse {
-    if !authorized(&headers, &state) {
-        return api_error(StatusCode::UNAUTHORIZED, "unauthorized");
-    }
+    let principal =
+        match authorize_principal_headers(&headers, state.verifier.as_ref(), TokenScope::Recognize)
+        {
+            Ok(principal) => principal,
+            Err(_) => return api_error(StatusCode::UNAUTHORIZED, "unauthorized"),
+        };
+    let reservation = match state
+        .jobs
+        .as_ref()
+        .map(|jobs| jobs.reserve_for_client(&principal.client_key))
+        .transpose()
+    {
+        Ok(reservation) => reservation,
+        Err(error) => return submission_error(error, state.protocol_version, &headers),
+    };
+    let _activity = match state.activity.lease() {
+        Ok(activity) => activity,
+        Err(_) => return api_error(StatusCode::SERVICE_UNAVAILABLE, "update_installing"),
+    };
+    let Json(request) = match Json::<TranscriptionRequest>::from_request(body, &state).await {
+        Ok(request) => request,
+        Err(error) => return error.into_response(),
+    };
     let Some(jobs) = state.jobs.as_ref() else {
         return api_error(StatusCode::SERVICE_UNAVAILABLE, "service_unavailable");
     };
-    match jobs.submit_job(request) {
+    let reservation = reservation.expect("job reservation exists when jobs are configured");
+    match jobs.submit_job_reserved(reservation, request) {
         Ok(job) => (StatusCode::ACCEPTED, Json(job)).into_response(),
-        Err(error) => submission_error(error),
+        Err(error) => submission_error(error, state.protocol_version, &headers),
     }
 }
 
@@ -272,18 +387,31 @@ async fn upload(
     headers: HeaderMap,
     multipart: Multipart,
 ) -> axum::response::Response {
-    if !authorized(&headers, &state) {
-        return api_error(StatusCode::UNAUTHORIZED, "unauthorized");
-    }
+    let principal =
+        match authorize_principal_headers(&headers, state.verifier.as_ref(), TokenScope::Recognize)
+        {
+            Ok(principal) => principal,
+            Err(_) => return api_error(StatusCode::UNAUTHORIZED, "unauthorized"),
+        };
+    let reservation = match state
+        .jobs
+        .as_ref()
+        .map(|jobs| jobs.reserve_for_client(&principal.client_key))
+        .transpose()
+    {
+        Ok(reservation) => reservation,
+        Err(error) => return submission_error(error, state.protocol_version, &headers),
+    };
     let _activity = match state.activity.lease() {
         Ok(activity) => activity,
         Err(_) => return api_error(StatusCode::SERVICE_UNAVAILABLE, "update_installing"),
     };
-    let request = match request_from_multipart(
+    let (request, reservation) = match request_from_multipart(
         multipart,
         &state.upload_dir,
         &state.activity,
         state.upload_policy,
+        reservation,
     )
     .await
     {
@@ -293,9 +421,10 @@ async fn upload(
     let Some(jobs) = state.jobs.as_ref() else {
         return api_error(StatusCode::SERVICE_UNAVAILABLE, "service_unavailable");
     };
-    match jobs.submit_job(request) {
+    let reservation = reservation.expect("job reservation exists when jobs are configured");
+    match jobs.submit_job_reserved(reservation, request) {
         Ok(job) => (StatusCode::ACCEPTED, Json(job)).into_response(),
-        Err(error) => submission_error(error),
+        Err(error) => submission_error(error, state.protocol_version, &headers),
     }
 }
 
@@ -338,7 +467,8 @@ async fn request_from_multipart(
     upload_dir: &Path,
     activity: &Arc<dyn ActivityGuard>,
     policy: AudioIngestPolicy,
-) -> Result<TranscriptionRequest, UploadError> {
+    reservation: Option<JobReservation>,
+) -> Result<(TranscriptionRequest, Option<JobReservation>), UploadError> {
     let mut language = "auto".to_string();
     let mut model = None;
     let mut audio_path = None;
@@ -367,7 +497,7 @@ async fn request_from_multipart(
         let audio_path = audio_path
             .take()
             .ok_or_else(|| UploadError::Invalid("audio field is required".into()))?;
-        let decoded = tokio::task::spawn_blocking({
+        let (decoded, reservation) = tokio::task::spawn_blocking({
             let activity = activity
                 .lease()
                 .map_err(|_| UploadError::Internal("application update is installing".into()))?;
@@ -375,13 +505,19 @@ async fn request_from_multipart(
                 let _activity = activity;
                 // The file stays owned by the decoder even if the HTTP future
                 // is dropped while this blocking work is still running.
-                audio_ingest::decode_file(&audio_path.0, policy)
+                (
+                    audio_ingest::decode_file(&audio_path.0, policy),
+                    reservation,
+                )
             }
         })
         .await
         .map_err(|error| UploadError::Internal(format!("audio decoder join failed: {error}")))?;
         let audio = decoded.map_err(UploadError::Audio)?;
-        Ok(audio.into_transcription_request(language, model))
+        Ok((
+            audio.into_transcription_request(language, model),
+            reservation,
+        ))
     }
     .await;
     result

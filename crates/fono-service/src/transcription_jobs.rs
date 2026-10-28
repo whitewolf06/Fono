@@ -113,6 +113,29 @@ pub trait TranscriptionJobs: Send + Sync {
         &self,
         request: TranscriptionRequest,
     ) -> Result<TranscriptionJob, TranscriptionServiceError>;
+    fn submit_job_for_client(
+        &self,
+        _client_key: &str,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_job(request)
+    }
+    /// Reserve capacity before a potentially expensive HTTP upload/decode.
+    /// The reservation is either transferred to the queued job or dropped on
+    /// any parse, decode, or submission failure.
+    fn reserve_for_client(
+        &self,
+        client_key: &str,
+    ) -> Result<JobReservation, TranscriptionServiceError> {
+        Ok(JobReservation::unbounded(client_key))
+    }
+    fn submit_job_reserved(
+        &self,
+        reservation: JobReservation,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_job_for_client(&reservation.client_key, request)
+    }
     fn submit_file(
         &self,
         _path: PathBuf,
@@ -122,12 +145,143 @@ pub trait TranscriptionJobs: Send + Sync {
             "file input is unavailable".into(),
         ))
     }
+    fn submit_file_for_client(
+        &self,
+        _client_key: &str,
+        path: PathBuf,
+        language: String,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_file(path, language)
+    }
     fn get_job(&self, id: &str) -> Option<TranscriptionJob>;
     fn cancel_job(&self, id: &str) -> Option<TranscriptionJob>;
     fn run_next_job(&self) -> Option<TranscriptionJob>;
     fn cancel_all_jobs(&self);
     fn snapshot(&self) -> TranscriptionQueueSnapshot {
         TranscriptionQueueSnapshot::default()
+    }
+}
+
+/// Shared admission for all work owned by one server token, including active
+/// interactive requests. The lease is held through the actual worker lifetime.
+#[derive(Clone)]
+pub struct ClientInflightLimit {
+    inner: Arc<ClientInflightState>,
+}
+
+struct ClientInflightState {
+    maximum: usize,
+    counts: Mutex<BTreeMap<String, usize>>,
+}
+
+pub struct ClientInflightLease {
+    inner: Arc<ClientInflightState>,
+    client_key: String,
+}
+
+impl ClientInflightLimit {
+    pub fn new(maximum: usize) -> Self {
+        Self {
+            inner: Arc::new(ClientInflightState {
+                maximum,
+                counts: Mutex::new(BTreeMap::new()),
+            }),
+        }
+    }
+
+    pub fn try_acquire(
+        &self,
+        client_key: &str,
+    ) -> Result<ClientInflightLease, TranscriptionServiceError> {
+        let mut counts = self.inner.counts.lock();
+        let count = counts.entry(client_key.to_owned()).or_default();
+        if *count >= self.inner.maximum {
+            return Err(TranscriptionServiceError::Busy(
+                "client has too many in-flight requests".into(),
+            ));
+        }
+        *count += 1;
+        Ok(ClientInflightLease {
+            inner: Arc::clone(&self.inner),
+            client_key: client_key.to_owned(),
+        })
+    }
+}
+
+impl Drop for ClientInflightLease {
+    fn drop(&mut self) {
+        let mut counts = self.inner.counts.lock();
+        if let Some(count) = counts.get_mut(&self.client_key) {
+            *count -= 1;
+            if *count == 0 {
+                counts.remove(&self.client_key);
+            }
+        }
+    }
+}
+
+/// One shared bound for requests waiting to begin work on the server. Batch
+/// jobs release this lease when a worker takes them from the queue.
+#[derive(Clone)]
+pub struct PendingLimit {
+    inner: Arc<PendingLimitState>,
+}
+
+struct PendingLimitState {
+    maximum: usize,
+    count: Mutex<usize>,
+}
+
+pub struct PendingLease {
+    inner: Arc<PendingLimitState>,
+}
+
+/// Owned admission for one upload, with no bearer secret or audio data.
+pub struct JobReservation {
+    client_key: String,
+    client: Option<ClientInflightLease>,
+    pending: Option<PendingLease>,
+}
+
+impl JobReservation {
+    fn unbounded(client_key: &str) -> Self {
+        Self {
+            client_key: client_key.to_owned(),
+            client: None,
+            pending: None,
+        }
+    }
+}
+
+impl PendingLimit {
+    pub fn new(maximum: usize) -> Self {
+        Self {
+            inner: Arc::new(PendingLimitState {
+                maximum,
+                count: Mutex::new(0),
+            }),
+        }
+    }
+
+    pub fn try_acquire(&self) -> Result<PendingLease, TranscriptionServiceError> {
+        let mut count = self.inner.count.lock();
+        if *count >= self.inner.maximum {
+            return Err(TranscriptionServiceError::Busy(
+                "transcription queue is full".into(),
+            ));
+        }
+        *count += 1;
+        Ok(PendingLease {
+            inner: Arc::clone(&self.inner),
+        })
+    }
+}
+
+impl Drop for PendingLease {
+    fn drop(&mut self) {
+        let mut count = self.inner.count.lock();
+        debug_assert!(*count > 0);
+        *count -= 1;
     }
 }
 
@@ -199,6 +353,8 @@ enum JobInput {
 struct QueuedJob {
     input: Option<JobInput>,
     _activity: ActivityLease,
+    _client: Option<ClientInflightLease>,
+    pending: Option<PendingLease>,
     cancellation: OperationCancellation,
 }
 
@@ -215,6 +371,8 @@ pub struct TranscriptionJobQueue<R, G> {
     activity: Arc<dyn ActivityGuard>,
     capture: Arc<dyn CaptureGate>,
     capacity: usize,
+    client_limit: Option<ClientInflightLimit>,
+    pending_limit: Option<PendingLimit>,
     // Only owned data/atomic mutations happen under this nonpoisoning lock.
     // Runtime and observer callbacks always execute after dropping the guard.
     state: Mutex<QueueState>,
@@ -241,6 +399,8 @@ where
             activity,
             capture,
             capacity,
+            client_limit: None,
+            pending_limit: None,
             state: Mutex::new(QueueState::default()),
             observer: None,
         }
@@ -251,11 +411,29 @@ where
         self
     }
 
+    pub fn with_client_limit(mut self, limit: ClientInflightLimit) -> Self {
+        self.client_limit = Some(limit);
+        self
+    }
+
+    pub fn with_pending_limit(mut self, limit: PendingLimit) -> Self {
+        self.pending_limit = Some(limit);
+        self
+    }
+
     pub fn submit(
         &self,
         request: TranscriptionRequest,
     ) -> Result<TranscriptionJob, TranscriptionServiceError> {
-        self.submit_input(JobInput::Pcm(request))
+        self.submit_input(JobInput::Pcm(request), None, None)
+    }
+
+    pub fn submit_for_client(
+        &self,
+        client_key: &str,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_input(JobInput::Pcm(request), Some(client_key), None)
     }
 
     pub fn submit_file(
@@ -263,10 +441,53 @@ where
         path: PathBuf,
         language: String,
     ) -> Result<TranscriptionJob, TranscriptionServiceError> {
-        self.submit_input(JobInput::File { path, language })
+        self.submit_input(JobInput::File { path, language }, None, None)
     }
 
-    fn submit_input(&self, input: JobInput) -> Result<TranscriptionJob, TranscriptionServiceError> {
+    pub fn submit_file_for_client(
+        &self,
+        client_key: &str,
+        path: PathBuf,
+        language: String,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_input(JobInput::File { path, language }, Some(client_key), None)
+    }
+
+    pub fn reserve_for_client(
+        &self,
+        client_key: &str,
+    ) -> Result<JobReservation, TranscriptionServiceError> {
+        let pending = self
+            .pending_limit
+            .as_ref()
+            .map(PendingLimit::try_acquire)
+            .transpose()?;
+        let client = self
+            .client_limit
+            .as_ref()
+            .map(|limit| limit.try_acquire(client_key))
+            .transpose()?;
+        Ok(JobReservation {
+            client_key: client_key.to_owned(),
+            client,
+            pending,
+        })
+    }
+
+    pub fn submit_reserved(
+        &self,
+        reservation: JobReservation,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_input(JobInput::Pcm(request), None, Some(reservation))
+    }
+
+    fn submit_input(
+        &self,
+        input: JobInput,
+        client_key: Option<&str>,
+        reservation: Option<JobReservation>,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
         let activity = self.activity.lease().map_err(|_| {
             TranscriptionServiceError::Busy("application update is installing".into())
         })?;
@@ -277,6 +498,20 @@ where
                 "transcription queue is full".into(),
             ));
         }
+        let (pending, client) = if let Some(reservation) = reservation {
+            (reservation.pending, reservation.client)
+        } else {
+            let pending = self
+                .pending_limit
+                .as_ref()
+                .map(PendingLimit::try_acquire)
+                .transpose()?;
+            let client = match (&self.client_limit, client_key) {
+                (Some(limit), Some(key)) => Some(limit.try_acquire(key)?),
+                _ => None,
+            };
+            (pending, client)
+        };
         // Stable across lazy runtime/API restarts and durable history.
         let id = format!("tr_{}", uuid::Uuid::new_v4().simple());
         let (language, name) = match &input {
@@ -296,6 +531,8 @@ where
                 input: Some(input),
                 cancellation: OperationCancellation::default(),
                 _activity: activity,
+                _client: client,
+                pending,
             },
         );
         state.jobs.insert(id, job.clone());
@@ -413,10 +650,15 @@ where
         let (id, input, cancellation, preparing) = {
             let mut state = self.state.lock();
             let id = state.pending.pop_front()?;
-            let (input, cancellation) = {
+            let (input, cancellation, pending) = {
                 let work = state.work.get_mut(&id)?;
-                (work.input.take()?, work.cancellation.clone())
+                (
+                    work.input.take()?,
+                    work.cancellation.clone(),
+                    work.pending.take(),
+                )
             };
+            drop(pending);
             let job = state.jobs.get_mut(&id)?;
             if job.state == JobState::Cancelled {
                 return Some(job.clone());
@@ -558,12 +800,40 @@ where
     ) -> Result<TranscriptionJob, TranscriptionServiceError> {
         self.submit(request)
     }
+    fn submit_job_for_client(
+        &self,
+        client_key: &str,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_for_client(client_key, request)
+    }
+    fn reserve_for_client(
+        &self,
+        client_key: &str,
+    ) -> Result<JobReservation, TranscriptionServiceError> {
+        self.reserve_for_client(client_key)
+    }
+    fn submit_job_reserved(
+        &self,
+        reservation: JobReservation,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_reserved(reservation, request)
+    }
     fn submit_file(
         &self,
         path: PathBuf,
         language: String,
     ) -> Result<TranscriptionJob, TranscriptionServiceError> {
         self.submit_file(path, language)
+    }
+    fn submit_file_for_client(
+        &self,
+        client_key: &str,
+        path: PathBuf,
+        language: String,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        self.submit_file_for_client(client_key, path, language)
     }
     fn get_job(&self, id: &str) -> Option<TranscriptionJob> {
         self.get(id)
@@ -736,6 +1006,82 @@ mod tests {
     }
 
     #[test]
+    fn client_limit_counts_queued_jobs_independently_and_releases_on_cancel() {
+        let queue = test_queue(
+            TranscriptionService::new(Runtime {
+                calls: AtomicUsize::new(0),
+            }),
+            NoInteractiveActivity,
+            2,
+        )
+        .with_client_limit(ClientInflightLimit::new(1));
+        let first = queue.submit_for_client("client-a", request()).unwrap();
+        assert!(matches!(
+            queue.submit_for_client("client-a", request()),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
+        let second = queue.submit_for_client("client-b", request()).unwrap();
+        assert!(matches!(
+            queue.submit_for_client("client-c", request()),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
+        queue.cancel(&first.id).unwrap();
+        let replacement = queue.submit_for_client("client-a", request()).unwrap();
+        assert_eq!(queue.run_next().unwrap().id, second.id);
+        assert_eq!(queue.run_next().unwrap().id, replacement.id);
+        assert!(queue.submit_for_client("client-a", request()).is_ok());
+    }
+
+    #[test]
+    fn shared_pending_limit_releases_on_worker_start_or_queued_cancel() {
+        let pending = PendingLimit::new(1);
+        let queue = test_queue(
+            TranscriptionService::new(Runtime {
+                calls: AtomicUsize::new(0),
+            }),
+            NoInteractiveActivity,
+            2,
+        )
+        .with_pending_limit(pending.clone());
+        let first = queue.submit(request()).unwrap();
+        assert!(matches!(
+            pending.try_acquire(),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
+        queue.cancel(&first.id).unwrap();
+        let interactive_wait = pending.try_acquire().unwrap();
+        assert!(matches!(
+            queue.submit(request()),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
+        drop(interactive_wait);
+        queue.submit(request()).unwrap();
+        queue.run_next().unwrap();
+        assert!(pending.try_acquire().is_ok());
+    }
+
+    #[test]
+    fn upload_reservation_transfers_limits_into_job_without_double_counting() {
+        let queue = test_queue(
+            TranscriptionService::new(Runtime {
+                calls: AtomicUsize::new(0),
+            }),
+            NoInteractiveActivity,
+            1,
+        )
+        .with_client_limit(ClientInflightLimit::new(1))
+        .with_pending_limit(PendingLimit::new(1));
+        let reservation = queue.reserve_for_client("client-a").unwrap();
+        assert!(matches!(
+            queue.submit_for_client("client-a", request()),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
+        let job = queue.submit_reserved(reservation, request()).unwrap();
+        assert_eq!(queue.run_next().unwrap().id, job.id);
+        assert!(queue.submit_for_client("client-a", request()).is_ok());
+    }
+
+    #[test]
     fn cancel_and_shutdown_keep_actual_work_admitted_until_native_return() {
         struct BlockingRuntime {
             started: std::sync::mpsc::Sender<()>,
@@ -783,17 +1129,20 @@ mod tests {
         let (started_tx, started_rx) = std::sync::mpsc::channel();
         let (finish_tx, finish_rx) = std::sync::mpsc::channel();
         let activity = CountingActivity::default();
-        let queue = Arc::new(TranscriptionJobQueue::new(
-            TranscriptionService::new(BlockingRuntime {
-                started: started_tx,
-                finish: Mutex::new(finish_rx),
-            }),
-            NoInteractiveActivity,
-            4,
-            Arc::new(activity.clone()),
-            Arc::new(NoCaptureGate),
-        ));
-        let job = queue.submit(request()).unwrap();
+        let queue = Arc::new(
+            TranscriptionJobQueue::new(
+                TranscriptionService::new(BlockingRuntime {
+                    started: started_tx,
+                    finish: Mutex::new(finish_rx),
+                }),
+                NoInteractiveActivity,
+                4,
+                Arc::new(activity.clone()),
+                Arc::new(NoCaptureGate),
+            )
+            .with_client_limit(ClientInflightLimit::new(1)),
+        );
+        let job = queue.submit_for_client("client-a", request()).unwrap();
         let active_queue = queue.clone();
         let worker = std::thread::spawn(move || active_queue.run_next().unwrap());
         started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
@@ -802,11 +1151,16 @@ mod tests {
         assert_eq!(queue.get(&job.id).unwrap().state, JobState::Cancelled);
         assert!(activity.is_busy());
         assert!(queue.state.lock().work.contains_key(&job.id));
+        assert!(matches!(
+            queue.submit_for_client("client-a", request()),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
         finish_tx.send(()).unwrap();
         let terminal = worker.join().unwrap();
         assert_eq!(terminal.state, JobState::Cancelled);
         assert!(terminal.result.is_none());
         assert!(queue.state.lock().work.is_empty());
+        assert!(queue.submit_for_client("client-a", request()).is_ok());
     }
 
     #[test]

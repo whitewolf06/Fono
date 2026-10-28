@@ -5,7 +5,8 @@ use std::sync::{
 
 use super::*;
 use crate::transcription_jobs::{
-    JobState, NoCaptureGate, NoInteractiveActivity, TranscriptionJob, TranscriptionJobQueue,
+    ClientInflightLimit, JobState, NoCaptureGate, NoInteractiveActivity, PendingLimit,
+    TranscriptionJob, TranscriptionJobQueue,
 };
 use crate::transcription_service::{TranscriptionRuntime, TranscriptionService};
 use axum::{body::Body, http::Request};
@@ -424,6 +425,147 @@ async fn a_full_queue_returns_retryable_client_status() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(response.headers().get(header::RETRY_AFTER).is_none());
+}
+
+struct NamedTokens;
+
+impl TokenVerifier for NamedTokens {
+    fn verify(&self, token: &str) -> bool {
+        matches!(token, "client-a" | "client-b")
+    }
+
+    fn principal(&self, token: &str) -> Option<TokenPrincipal> {
+        self.verify(token).then(|| TokenPrincipal {
+            client_key: token.to_owned(),
+            scope: TokenScope::Recognize,
+        })
+    }
+}
+
+#[tokio::test]
+async fn v2_jobs_limit_each_token_and_retry_after_busy() {
+    let queue = Arc::new(
+        TranscriptionJobQueue::new(
+            TranscriptionService::new(CompletingRuntime {
+                requested_language: Arc::new(Mutex::new(None)),
+                pcm_samples: Arc::new(Mutex::new(Vec::new())),
+            }),
+            NoInteractiveActivity,
+            2,
+            Arc::new(NoopActivity),
+            Arc::new(NoCaptureGate),
+        )
+        .with_client_limit(ClientInflightLimit::new(1)),
+    );
+    let mut state = test_state().with_jobs(queue.clone());
+    state.protocol_version = 2;
+    let app = router(state.with_token_verifier(Arc::new(NamedTokens)));
+    let body = serde_json::to_vec(&TranscriptionRequest {
+        pcm_samples: vec![1],
+        language: "auto".into(),
+        model: None,
+    })
+    .unwrap();
+    let submit = |token: &'static str| {
+        Request::builder()
+            .uri("/v1/transcription-jobs")
+            .method("POST")
+            .header(header::AUTHORIZATION, format!("Bearer {token}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body.clone()))
+            .unwrap()
+    };
+
+    assert_eq!(
+        app.clone()
+            .oneshot(submit("client-a"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::ACCEPTED
+    );
+    let busy = app.clone().oneshot(submit("client-a")).await.unwrap();
+    assert_eq!(busy.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(busy.headers().get(header::RETRY_AFTER).unwrap(), "1");
+    let busy_body = axum::body::to_bytes(busy.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let error: serde_json::Value = serde_json::from_slice(&busy_body).unwrap();
+    assert_eq!(error["error"]["code"], "busy");
+    assert_eq!(error["error"]["retryable"], true);
+    assert!(error["error"]["request_id"].as_str().is_some());
+    assert_eq!(
+        app.oneshot(submit("client-b")).await.unwrap().status(),
+        StatusCode::ACCEPTED
+    );
+}
+
+#[tokio::test]
+async fn multipart_upload_reserves_client_and_queue_before_decoding() {
+    let queue = Arc::new(
+        TranscriptionJobQueue::new(
+            TranscriptionService::new(CompletingRuntime {
+                requested_language: Arc::new(Mutex::new(None)),
+                pcm_samples: Arc::new(Mutex::new(Vec::new())),
+            }),
+            NoInteractiveActivity,
+            1,
+            Arc::new(NoopActivity),
+            Arc::new(NoCaptureGate),
+        )
+        .with_client_limit(ClientInflightLimit::new(1))
+        .with_pending_limit(PendingLimit::new(1)),
+    );
+    let first = queue
+        .submit_for_client(
+            "client-a",
+            TranscriptionRequest {
+                pcm_samples: vec![1],
+                language: "auto".into(),
+                model: None,
+            },
+        )
+        .unwrap();
+    let mut state = test_state().with_jobs(queue.clone());
+    state.protocol_version = 2;
+    let app = router(state.with_token_verifier(Arc::new(NamedTokens)));
+    let malformed_upload = || {
+        Request::builder()
+            .uri("/v1/transcriptions")
+            .method("POST")
+            .header(header::AUTHORIZATION, "Bearer client-a")
+            .header(header::CONTENT_TYPE, "multipart/form-data; boundary=bad")
+            .body(Body::from("invalid multipart"))
+            .unwrap()
+    };
+    let busy = app.clone().oneshot(malformed_upload()).await.unwrap();
+    assert_eq!(busy.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(busy.headers().get(header::RETRY_AFTER).unwrap(), "1");
+    let malformed_json = || {
+        Request::builder()
+            .uri("/v1/transcription-jobs")
+            .method("POST")
+            .header(header::AUTHORIZATION, "Bearer client-a")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from("{invalid"))
+            .unwrap()
+    };
+    assert_eq!(
+        app.clone()
+            .oneshot(malformed_json())
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::TOO_MANY_REQUESTS,
+    );
+    queue.cancel(&first.id).unwrap();
+    let invalid = app.clone().oneshot(malformed_upload()).await.unwrap();
+    assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        app.oneshot(malformed_json()).await.unwrap().status(),
+        StatusCode::BAD_REQUEST
+    );
 }
 
 #[tokio::test]

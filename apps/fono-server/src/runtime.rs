@@ -22,11 +22,12 @@ use axum::{
 use fono_core::OperationCancellation;
 use fono_service::audio_ingest::AudioIngestPolicy;
 use fono_service::rest_api::{
-    self, authorize_headers, RestApiState, TokenAuthorization, TokenScope, TokenVerifier,
+    self, authorize_headers, authorize_principal_headers, RestApiState, TokenAuthorization,
+    TokenScope, TokenVerifier,
 };
 use fono_service::transcription_jobs::TranscriptionJobs;
 use fono_stt::{ModelPool, SttEnvironment, SttHealth};
-use fono_types::{ModelId, TRANSCRIPTION_PROTOCOL_VERSION};
+use fono_types::ModelId;
 use serde::Serialize;
 use tokio::sync::oneshot;
 use tokio::time::Instant;
@@ -35,12 +36,14 @@ use uuid::Uuid;
 use crate::config::ServerConfig;
 use crate::jobs::{acceleration_for_device, ServerActivity, ServerJobs};
 use crate::models::{self, DiskState, PreloadPlan};
+use crate::recognize::{self, RecognizeState};
 use crate::tokens::{FileTokenVerifier, TokenError};
 
 const MULTIPART_OVERHEAD_BYTES: usize = 64 * 1024;
 const CLEANUP_ALLOWANCE: Duration = Duration::from_secs(2);
 const SHUTDOWN_POLL: Duration = Duration::from_millis(25);
 const MODEL_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(30);
+const SERVER_API_VERSION: u16 = 2;
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -179,10 +182,15 @@ pub async fn serve_with_shutdown(
             }
         },
     );
+    let queued_interactive: Arc<dyn Fn() -> usize + Send + Sync> = {
+        let jobs = Arc::clone(&jobs);
+        Arc::new(move || jobs.queued_interactive())
+    };
     let health = Arc::new(HealthState {
         verifier: Arc::clone(&verifier),
         pool: Arc::clone(&pool),
         jobs: jobs.jobs(),
+        queued_interactive,
         default_id: default_plan.selection.id.clone(),
         default_name: default_plan.id.clone(),
         models: configured_models,
@@ -190,7 +198,16 @@ pub async fn serve_with_shutdown(
         failed: Mutex::new(HashSet::new()),
         stopping: AtomicBool::new(false),
     });
-    let state = RestApiState::new("", TRANSCRIPTION_PROTOCOL_VERSION, activity.clone())
+    let recognize = RecognizeState::new(
+        jobs.clone(),
+        activity.clone(),
+        upload_dir.clone(),
+        AudioIngestPolicy {
+            max_file_bytes: max_file_bytes as u64,
+            max_duration_seconds: max_audio_seconds,
+        },
+    );
+    let state = RestApiState::new("", SERVER_API_VERSION, activity.clone())
         .with_token_verifier(verifier)
         .with_jobs(jobs.jobs())
         .with_upload_dir(upload_dir.clone())
@@ -198,7 +215,7 @@ pub async fn serve_with_shutdown(
             max_file_bytes: max_file_bytes as u64,
             max_duration_seconds: max_audio_seconds,
         });
-    let app = server_router(state, Arc::clone(&health), max_file_bytes);
+    let app = server_router(state, Arc::clone(&health), recognize, max_file_bytes);
     let preload_cancel = OperationCancellation::default();
     let mut preload = tokio::task::spawn_blocking({
         let pool = Arc::clone(&pool);
@@ -460,6 +477,7 @@ struct HealthState {
     verifier: Arc<dyn TokenVerifier>,
     pool: Arc<ModelPool>,
     jobs: Arc<dyn TranscriptionJobs>,
+    queued_interactive: Arc<dyn Fn() -> usize + Send + Sync>,
     default_id: ModelId,
     default_name: String,
     models: Vec<PreloadPlan>,
@@ -503,8 +521,17 @@ struct ErrorCode {
     code: &'static str,
 }
 
-fn server_router(state: RestApiState, health: Arc<HealthState>, max_file_bytes: usize) -> Router {
+fn server_router(
+    state: RestApiState,
+    health: Arc<HealthState>,
+    recognize_state: Arc<RecognizeState>,
+    max_file_bytes: usize,
+) -> Router {
     let jobs = rest_api::jobs_routes().route_layer(middleware::from_fn_with_state(
+        Arc::clone(&health.verifier),
+        authorize_job_request,
+    ));
+    let recognize = recognize::routes(recognize_state).route_layer(middleware::from_fn_with_state(
         Arc::clone(&health.verifier),
         authorize_job_request,
     ));
@@ -512,27 +539,32 @@ fn server_router(state: RestApiState, health: Arc<HealthState>, max_file_bytes: 
         .route("/healthz", get(healthz))
         .route("/v1/health", get(detailed_health))
         .layer(Extension(health));
-    jobs.merge(meta)
+    jobs.merge(recognize)
+        .merge(meta)
         .layer(DefaultBodyLimit::max(
             max_file_bytes.saturating_add(MULTIPART_OVERHEAD_BYTES),
         ))
         .with_state(state)
+        .layer(middleware::from_fn(recognize::request_id_middleware))
 }
 
 async fn authorize_job_request(
     State(verifier): State<Arc<dyn TokenVerifier>>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Response {
     let headers = request.headers().clone();
-    let authorized = tokio::task::spawn_blocking(move || {
-        authorize_headers(&headers, verifier.as_ref(), TokenScope::Recognize)
+    let authorization = tokio::task::spawn_blocking(move || {
+        authorize_principal_headers(&headers, verifier.as_ref(), TokenScope::Recognize)
     })
     .await
-    .unwrap_or(TokenAuthorization::Unauthorized);
-    match authorized {
-        TokenAuthorization::Allowed => next.run(request).await,
-        TokenAuthorization::Unauthorized => (
+    .unwrap_or(Err(TokenAuthorization::Unauthorized));
+    match authorization {
+        Ok(principal) => {
+            request.extensions_mut().insert(principal);
+            next.run(request).await
+        }
+        Err(TokenAuthorization::Unauthorized | TokenAuthorization::Allowed) => (
             StatusCode::UNAUTHORIZED,
             Json(ApiError {
                 error: ErrorCode {
@@ -541,7 +573,7 @@ async fn authorize_job_request(
             }),
         )
             .into_response(),
-        TokenAuthorization::Forbidden => (
+        Err(TokenAuthorization::Forbidden) => (
             StatusCode::FORBIDDEN,
             Json(ApiError {
                 error: ErrorCode { code: "forbidden" },
@@ -675,7 +707,7 @@ async fn detailed_health(
             },
             models: statuses,
             queue: HealthQueue {
-                interactive: 0,
+                interactive: (state.queued_interactive)(),
                 batch: queue.queued + queue.preparing + queue.transcribing,
             },
         }),
@@ -705,12 +737,17 @@ async fn drain_pool(pool: &Arc<ModelPool>, deadline: Instant) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::recognize::{AdmittedRecognition, InteractiveRecognizer};
     use axum::body::{to_bytes, Body};
     use axum::http::Request;
     use fono_service::transcription_jobs::{TranscriptionJob, TranscriptionQueueSnapshot};
-    use fono_types::{TranscriptionRequest, TranscriptionServiceError};
+    use fono_stt::scheduler::QueueClass;
+    use fono_types::{
+        Transcript, TranscriptionRequest, TranscriptionResult, TranscriptionServiceError,
+    };
     use std::ffi::OsString;
     use std::path::Path;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use tower::ServiceExt;
 
     struct RecognizeVerifier;
@@ -726,6 +763,68 @@ mod tests {
     }
 
     struct StubJobs;
+
+    struct ReadyRecognizer;
+
+    impl InteractiveRecognizer for ReadyRecognizer {
+        fn admit(
+            self: Arc<Self>,
+            _client_key: &str,
+        ) -> Result<AdmittedRecognition, TranscriptionServiceError> {
+            Ok(Box::new(
+                |request: TranscriptionRequest,
+                 _class: QueueClass,
+                 _cancellation: OperationCancellation| {
+                    Ok(TranscriptionResult::from_transcript(
+                        Transcript {
+                            text: "test transcript".into(),
+                            detected_language: Some(request.language),
+                            transcribe_secs: Some(0.001),
+                            audio_secs: Some(request.pcm_samples.len() as f32 / 16_000.0),
+                            device: Some("CPU".into()),
+                        },
+                        "whisper:small".into(),
+                    ))
+                },
+            ))
+        }
+    }
+
+    struct BusyRecognizer;
+
+    impl InteractiveRecognizer for BusyRecognizer {
+        fn admit(
+            self: Arc<Self>,
+            _client_key: &str,
+        ) -> Result<AdmittedRecognition, TranscriptionServiceError> {
+            Err(TranscriptionServiceError::Busy("test cap".into()))
+        }
+    }
+
+    struct CancelRecognizer {
+        started: Arc<AtomicBool>,
+        cancelled: Arc<AtomicBool>,
+    }
+
+    impl InteractiveRecognizer for CancelRecognizer {
+        fn admit(
+            self: Arc<Self>,
+            _client_key: &str,
+        ) -> Result<AdmittedRecognition, TranscriptionServiceError> {
+            Ok(Box::new(
+                move |_request: TranscriptionRequest,
+                      _class: QueueClass,
+                      cancellation: OperationCancellation| {
+                    self.started.store(true, Ordering::Release);
+                    while !cancellation.is_cancelled() {
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                    self.cancelled.store(true, Ordering::Release);
+                    Err(TranscriptionServiceError::Cancelled("disconnected".into()))
+                },
+            ))
+        }
+    }
 
     impl TranscriptionJobs for StubJobs {
         fn submit_job(
@@ -767,6 +866,12 @@ mod tests {
     }
 
     fn test_router() -> (Router, Arc<HealthState>) {
+        test_router_with_recognizer(Arc::new(ReadyRecognizer))
+    }
+
+    fn test_router_with_recognizer(
+        recognizer: Arc<dyn InteractiveRecognizer>,
+    ) -> (Router, Arc<HealthState>) {
         let config = sample_config();
         let plan = required_preload(&config).unwrap().remove(0);
         let activity = ServerActivity::new();
@@ -786,6 +891,7 @@ mod tests {
             verifier: Arc::clone(&verifier),
             pool,
             jobs: Arc::clone(&jobs),
+            queued_interactive: Arc::new(|| 0),
             default_id: plan.selection.id.clone(),
             default_name: plan.id.clone(),
             models: vec![plan.clone()],
@@ -793,10 +899,22 @@ mod tests {
             failed: Mutex::new(HashSet::new()),
             stopping: AtomicBool::new(false),
         });
-        let rest = RestApiState::new("", TRANSCRIPTION_PROTOCOL_VERSION, activity)
+        let recognize = RecognizeState::new(
+            recognizer,
+            activity.clone(),
+            std::env::temp_dir(),
+            AudioIngestPolicy {
+                max_file_bytes: 4096,
+                max_duration_seconds: 1,
+            },
+        );
+        let rest = RestApiState::new("", SERVER_API_VERSION, activity)
             .with_token_verifier(verifier)
             .with_jobs(jobs);
-        (server_router(rest, Arc::clone(&health), 1024), health)
+        (
+            server_router(rest, Arc::clone(&health), recognize, 4096),
+            health,
+        )
     }
 
     async fn get_json(
@@ -849,6 +967,134 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn recognize_auth_precedes_audio_extraction_and_returns_request_id() {
+        let (app, _) = test_router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/recognize")
+                    .header("content-type", "audio/unsupported")
+                    .header("x-request-id", "test-unauthorized")
+                    .body(Body::from("invalid audio"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(response.headers()["x-request-id"], "test-unauthorized");
+    }
+
+    #[tokio::test]
+    async fn recognize_returns_api_v2_shape_and_busy_retry_after() {
+        let request = || {
+            Request::builder()
+                .method("POST")
+                .uri("/v1/recognize?language=ru&priority=interactive")
+                .header("Authorization", "Bearer test-recognize-token")
+                .header("content-type", "audio/L16; rate=16000; channels=1")
+                .header("x-request-id", "sample-recognize")
+                .body(Body::from(vec![1, 0, 2, 0]))
+                .unwrap()
+        };
+        let (app, _) = test_router();
+        let response = app.oneshot(request()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["x-request-id"], "sample-recognize");
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["text"], "test transcript");
+        assert_eq!(json["language"], "ru");
+        assert_eq!(json["model"], "whisper:small");
+        assert_eq!(json["backend"], "cpu");
+        assert_eq!(json["device"], "cpu");
+        assert_eq!(json["request_id"], "sample-recognize");
+        assert!(json["timings"]["queue_ms"].is_null());
+
+        let (busy_app, _) = test_router_with_recognizer(Arc::new(BusyRecognizer));
+        let response = busy_app.oneshot(request()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(response.headers()["retry-after"], "1");
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"]["code"], "busy");
+        assert_eq!(json["error"]["request_id"], "sample-recognize");
+    }
+
+    #[tokio::test]
+    async fn recognize_accepts_wav_and_rejects_oversized_audio() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../crates/fono-service/tests/fixtures/audio/tone-16k-mono.wav");
+        let body = fs::read(path).unwrap();
+        let (app, _) = test_router();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/recognize?language=en")
+                    .header("Authorization", "Bearer test-recognize-token")
+                    .header("content-type", "audio/wav")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/recognize")
+                    .header("Authorization", "Bearer test-recognize-token")
+                    .header("content-type", "audio/L16;rate=16000;channels=1")
+                    .body(Body::from(vec![0u8; 4097]))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"]["code"], "payload_too_large");
+    }
+
+    #[tokio::test]
+    async fn recognize_disconnect_cancels_native_work() {
+        let started = Arc::new(AtomicBool::new(false));
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let recognizer = Arc::new(CancelRecognizer {
+            started: Arc::clone(&started),
+            cancelled: Arc::clone(&cancelled),
+        });
+        let (app, _) = test_router_with_recognizer(recognizer);
+        let request = Request::builder()
+            .method("POST")
+            .uri("/v1/recognize")
+            .header("Authorization", "Bearer test-recognize-token")
+            .header("content-type", "audio/L16; rate=16000; channels=1")
+            .body(Body::from(vec![1, 0, 2, 0]))
+            .unwrap();
+        let pending = tokio::spawn(async move { app.oneshot(request).await });
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !started.load(Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        pending.abort();
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !cancelled.load(Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
     }
 
     #[tokio::test]

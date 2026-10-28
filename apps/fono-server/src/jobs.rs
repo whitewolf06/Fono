@@ -4,17 +4,24 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
+use fono_audio::speech_segments::{
+    SpeechSegment, SpeechSegmentPlanner, DEFAULT_MAX_SEGMENT_SAMPLES,
+};
 use fono_core::OperationCancellation;
 use fono_service::transcription_jobs::{
-    NoCaptureGate, NoInteractiveActivity, TranscriptionJob, TranscriptionJobQueue,
-    TranscriptionJobWorker, TranscriptionJobs, TranscriptionQueueSnapshot,
+    ClientInflightLease, ClientInflightLimit, JobReservation, NoCaptureGate, NoInteractiveActivity,
+    PendingLease, PendingLimit, TranscriptionJob, TranscriptionJobQueue, TranscriptionJobWorker,
+    TranscriptionJobs, TranscriptionQueueSnapshot,
 };
 use fono_service::transcription_service::{TranscriptionRuntime, TranscriptionService};
 use fono_stt::error::{SttError, SttResult};
-use fono_stt::{ActivityGuard, ActivityLease, ModelPool};
+use fono_stt::scheduler::{DeviceId, DeviceScheduler, QueueClass};
+use fono_stt::segmented_transcription;
+use fono_stt::{ActivityGuard, ActivityLease, ModelPool, WindowTranscript};
+use fono_stt_protocol::BackendKind;
 use fono_types::{
-    AccelerationMode, CoreError, ErrorCode, Transcript, TranscriptionRequest,
-    TranscriptionServiceError,
+    validate_request, AccelerationMode, CoreError, ErrorCode, SubtitleSegment, Transcript,
+    TranscriptionRequest, TranscriptionResult, TranscriptionServiceError,
 };
 
 use crate::config::ServerConfig;
@@ -133,11 +140,146 @@ pub fn acceleration_for_device(device: &str) -> Result<AccelerationMode, String>
     }
 }
 
+#[derive(Clone)]
 struct PoolTranscriptionRuntime {
     pool: Arc<ModelPool>,
+    scheduler: Arc<DeviceScheduler>,
     plan: PreloadPlan,
     acceleration: AccelerationMode,
     max_audio_samples: usize,
+}
+
+impl PoolTranscriptionRuntime {
+    fn transcribe_windowed(
+        &self,
+        pcm_samples: &[i16],
+        language: &str,
+        class: QueueClass,
+        cancellation: &OperationCancellation,
+        pending: Option<PendingLease>,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> Result<WindowTranscript, TranscriptionServiceError> {
+        validate_samples(pcm_samples.len(), self.max_audio_samples)?;
+        let model = self
+            .pool
+            .acquire(
+                &self.plan.selection,
+                self.acceleration,
+                self.plan.residency,
+                0,
+                cancellation,
+            )
+            .map_err(service_error_from_stt)?;
+        let segments = fixed_windows(pcm_samples.len()).map_err(service_error_from_stt)?;
+        transcribe_scheduled(
+            (&self.scheduler, class),
+            pcm_samples,
+            &segments,
+            cancellation,
+            pending,
+            progress,
+            |window, offset, window_cancel| {
+                model.transcribe_window_with_options(
+                    window,
+                    language,
+                    None,
+                    0,
+                    window_cancel,
+                    offset,
+                    fono_stt_protocol::DecodingOptions::default(),
+                )
+            },
+        )
+        .map_err(service_error_from_stt)
+    }
+}
+
+fn fixed_windows(samples: usize) -> SttResult<Vec<SpeechSegment>> {
+    let mut planner = SpeechSegmentPlanner::new(DEFAULT_MAX_SEGMENT_SAMPLES)?;
+    let mut windows = Vec::new();
+    while let Some(window) = planner.next_cut(samples, None)? {
+        windows.push(window);
+    }
+    windows.extend(planner.finish(samples)?);
+    Ok(windows)
+}
+
+/// The current server shares one loaded recognizer per model. Both the
+/// embedded and offline engines serialize inference behind their own mutex,
+/// so admitting two windows would let a batch waiter bypass an interactive
+/// request at that mutex. Workers may still prepare/decode concurrently.
+fn server_model_scheduler(configured_cpu_parallel: usize) -> SttResult<Arc<DeviceScheduler>> {
+    if configured_cpu_parallel == 0 {
+        return Err(SttError::Config("cpu_parallel must be positive".into()));
+    }
+    DeviceScheduler::new(1, []).map(Arc::new)
+}
+
+/// Keep a device slot only for the current inference window. The segmented
+/// helper retries a preempted window without losing earlier committed text.
+fn transcribe_scheduled(
+    (scheduler, class): (&Arc<DeviceScheduler>, QueueClass),
+    pcm_samples: &[i16],
+    segments: &[SpeechSegment],
+    cancellation: &OperationCancellation,
+    mut pending: Option<PendingLease>,
+    progress: &(dyn Fn(f32) + Sync),
+    mut recognize: impl FnMut(&[i16], u64, &OperationCancellation) -> SttResult<WindowTranscript>,
+) -> SttResult<WindowTranscript> {
+    segmented_transcription::transcribe_segments(
+        pcm_samples,
+        segments,
+        cancellation,
+        |window, offset| {
+            let permit = match scheduler.acquire(DeviceId::Cpu, class, cancellation) {
+                Ok(permit) => permit,
+                Err(error) => return (Err(error), false),
+            };
+            // The request is active once its first device window starts.
+            drop(pending.take());
+            let result = recognize(window, offset, &permit.cancellation);
+            let preempted = class == QueueClass::Batch
+                && permit.cancellation.is_cancelled()
+                && !cancellation.is_cancelled();
+            let report_progress = result.is_ok() && !preempted;
+            // Release the inference slot before invoking queue observers.
+            drop(permit);
+            if report_progress {
+                let done = offset as usize + window.len();
+                progress(done as f32 / pcm_samples.len() as f32);
+            }
+            (result, preempted)
+        },
+    )
+}
+
+fn transcript_from_window(result: &WindowTranscript) -> Transcript {
+    Transcript {
+        text: result.text.clone(),
+        detected_language: result.detected_language.clone(),
+        transcribe_secs: Some(result.transcribe_secs),
+        audio_secs: Some(result.audio_secs),
+        device: Some(
+            match result.backend {
+                BackendKind::Cpu => "CPU",
+                BackendKind::Cuda => "CUDA",
+                BackendKind::Vulkan => "Vulkan",
+            }
+            .into(),
+        ),
+    }
+}
+
+fn subtitles_from_window(result: &WindowTranscript) -> Vec<SubtitleSegment> {
+    result
+        .segments
+        .iter()
+        .map(|segment| SubtitleSegment {
+            start_ms: segment.start_sample / 16,
+            end_ms: segment.end_sample / 16,
+            text: segment.text.clone(),
+        })
+        .collect()
 }
 
 impl TranscriptionRuntime for PoolTranscriptionRuntime {
@@ -153,20 +295,36 @@ impl TranscriptionRuntime for PoolTranscriptionRuntime {
         language: &str,
         cancellation: OperationCancellation,
     ) -> Result<Transcript, Self::Error> {
-        validate_samples(pcm_samples.len(), self.max_audio_samples)?;
-        let model = self
-            .pool
-            .acquire(
-                &self.plan.selection,
-                self.acceleration,
-                self.plan.residency,
-                0,
-                &cancellation,
-            )
-            .map_err(service_error_from_stt)?;
-        model
-            .transcribe_cancellable(pcm_samples, language, cancellation)
-            .map_err(service_error_from_stt)
+        self.transcribe_windowed(
+            pcm_samples,
+            language,
+            QueueClass::Batch,
+            &cancellation,
+            None,
+            &|_| {},
+        )
+        .map(|result| transcript_from_window(&result))
+    }
+
+    fn transcribe_with_progress(
+        &self,
+        pcm_samples: &[i16],
+        language: &str,
+        cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> Result<(Transcript, Vec<SubtitleSegment>), Self::Error> {
+        let result = self.transcribe_windowed(
+            pcm_samples,
+            language,
+            QueueClass::Batch,
+            &cancellation,
+            None,
+            progress,
+        )?;
+        Ok((
+            transcript_from_window(&result),
+            subtitles_from_window(&result),
+        ))
     }
 }
 
@@ -206,6 +364,31 @@ impl TranscriptionJobs for LimitedJobs {
         self.inner.submit_job(request)
     }
 
+    fn submit_job_for_client(
+        &self,
+        client_key: &str,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        validate_samples(request.pcm_samples.len(), self.max_audio_samples)?;
+        self.inner.submit_job_for_client(client_key, request)
+    }
+
+    fn reserve_for_client(
+        &self,
+        client_key: &str,
+    ) -> Result<JobReservation, TranscriptionServiceError> {
+        self.inner.reserve_for_client(client_key)
+    }
+
+    fn submit_job_reserved(
+        &self,
+        reservation: JobReservation,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        validate_samples(request.pcm_samples.len(), self.max_audio_samples)?;
+        self.inner.submit_job_reserved(reservation, request)
+    }
+
     fn submit_file(
         &self,
         path: PathBuf,
@@ -220,6 +403,24 @@ impl TranscriptionJobs for LimitedJobs {
             ));
         }
         self.inner.submit_file(path, language)
+    }
+
+    fn submit_file_for_client(
+        &self,
+        client_key: &str,
+        path: PathBuf,
+        language: String,
+    ) -> Result<TranscriptionJob, TranscriptionServiceError> {
+        let size = std::fs::metadata(&path)
+            .map_err(|_| TranscriptionServiceError::InvalidRequest("invalid audio file".into()))?
+            .len();
+        if size > self.max_file_bytes {
+            return Err(TranscriptionServiceError::InvalidRequest(
+                "audio exceeds server.max_upload_mb".into(),
+            ));
+        }
+        self.inner
+            .submit_file_for_client(client_key, path, language)
     }
 
     fn get_job(&self, id: &str) -> Option<TranscriptionJob> {
@@ -245,10 +446,21 @@ impl TranscriptionJobs for LimitedJobs {
 
 type ServerQueue = TranscriptionJobQueue<PoolTranscriptionRuntime, NoInteractiveActivity>;
 
+/// Admission begins before HTTP audio decoding and ends after inference.
+/// The pending slot is released when the first inference window starts.
+pub struct RecognitionAdmission {
+    _client: ClientInflightLease,
+    pending: PendingLease,
+}
+
 pub struct ServerJobs {
     queue: Arc<ServerQueue>,
     jobs: Arc<dyn TranscriptionJobs>,
-    worker: TranscriptionJobWorker,
+    runtime: PoolTranscriptionRuntime,
+    activity: Arc<ServerActivity>,
+    client_limit: ClientInflightLimit,
+    pending_limit: PendingLimit,
+    workers: Vec<TranscriptionJobWorker>,
 }
 
 impl ServerJobs {
@@ -272,35 +484,131 @@ impl ServerJobs {
             .ok()
             .and_then(|megabytes| megabytes.checked_mul(1024 * 1024))
             .ok_or("server.max_upload_mb exceeds the supported byte range")?;
+        let scheduler = server_model_scheduler(config.queue.cpu_parallel)
+            .map_err(|_| "cannot initialize device scheduler")?;
+        let client_limit = ClientInflightLimit::new(config.queue.max_inflight_per_token);
+        let pending_limit = PendingLimit::new(config.queue.max_queued);
         let runtime = PoolTranscriptionRuntime {
             pool,
+            scheduler,
             plan: default_plan,
             acceleration,
             max_audio_samples,
         };
-        let queue = Arc::new(TranscriptionJobQueue::new(
-            TranscriptionService::new(runtime),
-            NoInteractiveActivity,
-            config.queue.max_queued,
-            activity,
-            Arc::new(NoCaptureGate),
-        ));
+        let queue = Arc::new(
+            TranscriptionJobQueue::new(
+                TranscriptionService::new(runtime.clone()),
+                NoInteractiveActivity,
+                config.queue.max_queued,
+                activity.clone(),
+                Arc::new(NoCaptureGate),
+            )
+            .with_client_limit(client_limit.clone())
+            .with_pending_limit(pending_limit.clone()),
+        );
         let jobs: Arc<dyn TranscriptionJobs> = Arc::new(LimitedJobs {
             inner: queue.clone(),
             max_audio_samples,
             max_file_bytes,
         });
-        let worker = TranscriptionJobWorker::start(jobs.clone())
-            .map_err(|_| "cannot start transcription job worker".to_owned())?;
+        let mut workers = Vec::with_capacity(config.queue.cpu_parallel);
+        for _ in 0..config.queue.cpu_parallel {
+            match TranscriptionJobWorker::start(jobs.clone()) {
+                Ok(worker) => workers.push(worker),
+                Err(_) => {
+                    for worker in &workers {
+                        worker.shutdown();
+                    }
+                    for worker in &workers {
+                        let _ = worker.join();
+                    }
+                    return Err("cannot start transcription job worker".into());
+                }
+            }
+        }
         Ok(Self {
             queue,
             jobs,
-            worker,
+            runtime,
+            activity,
+            client_limit,
+            pending_limit,
+            workers,
         })
     }
 
     pub fn jobs(&self) -> Arc<dyn TranscriptionJobs> {
         Arc::clone(&self.jobs)
+    }
+
+    pub fn queued_interactive(&self) -> usize {
+        self.runtime
+            .scheduler
+            .status(DeviceId::Cpu)
+            .expect("server CPU scheduler is configured")
+            .queued_interactive
+    }
+
+    pub fn admit_client(
+        &self,
+        client_key: &str,
+    ) -> Result<RecognitionAdmission, TranscriptionServiceError> {
+        let client = self.client_limit.try_acquire(client_key)?;
+        let pending = self.pending_limit.try_acquire()?;
+        Ok(RecognitionAdmission {
+            _client: client,
+            pending,
+        })
+    }
+
+    /// Synchronous server recognition. The caller must run it on a blocking
+    /// thread and keep its cancellation token alive through disconnects.
+    pub fn recognize(
+        &self,
+        client_key: &str,
+        request: TranscriptionRequest,
+        class: QueueClass,
+        cancellation: OperationCancellation,
+    ) -> Result<TranscriptionResult, TranscriptionServiceError> {
+        let admission = self.admit_client(client_key)?;
+        self.recognize_admitted(request, class, cancellation, admission)
+    }
+
+    /// The caller may move `admission` into a blocking decode task. Its token
+    /// lease remains owned until native inference and cleanup have returned.
+    pub fn recognize_admitted(
+        &self,
+        request: TranscriptionRequest,
+        class: QueueClass,
+        cancellation: OperationCancellation,
+        admission: RecognitionAdmission,
+    ) -> Result<TranscriptionResult, TranscriptionServiceError> {
+        let RecognitionAdmission { _client, pending } = admission;
+        validate_request(&request)?;
+        if let Some(model) = &request.model {
+            if model != &self.runtime.plan.id {
+                return Err(TranscriptionServiceError::InvalidRequest(format!(
+                    "model must match the selected Fono model ({})",
+                    self.runtime.plan.id
+                )));
+            }
+        }
+        validate_samples(request.pcm_samples.len(), self.runtime.max_audio_samples)?;
+        let _activity = self.activity.lease().map_err(service_error_from_stt)?;
+        let result = self.runtime.transcribe_windowed(
+            &request.pcm_samples,
+            &request.language,
+            class,
+            &cancellation,
+            Some(pending),
+            &|_| {},
+        )?;
+        let mut response = TranscriptionResult::from_transcript(
+            transcript_from_window(&result),
+            self.runtime.plan.id.clone(),
+        );
+        response.segments = subtitles_from_window(&result);
+        Ok(response)
     }
 
     pub fn running_count(&self) -> usize {
@@ -318,12 +626,20 @@ impl ServerJobs {
     }
 
     pub fn shutdown_worker(&self) {
-        self.worker.shutdown();
+        for worker in &self.workers {
+            worker.shutdown();
+        }
     }
 
     /// Join on a blocking thread; it can wait for native recognition cleanup.
     pub fn join_worker(&self) -> std::thread::Result<()> {
-        self.worker.join()
+        let mut first_failure = None;
+        for worker in &self.workers {
+            if let Err(error) = worker.join() {
+                first_failure.get_or_insert(error);
+            }
+        }
+        first_failure.map_or(Ok(()), Err)
     }
 }
 
@@ -333,6 +649,9 @@ mod tests {
     use fono_stt::SttEnvironment;
     use fono_types::{ModelId, SttEngine, SttModelSelection};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Instant;
 
     #[test]
     fn shutdown_blocks_new_work_but_keeps_cleanup_accounted() {
@@ -419,6 +738,7 @@ mod tests {
         let pool = Arc::new(ModelPool::new(SttEnvironment::default(), 1).unwrap());
         let runtime = PoolTranscriptionRuntime {
             pool: Arc::clone(&pool),
+            scheduler: Arc::new(DeviceScheduler::new(1, []).unwrap()),
             plan: PreloadPlan {
                 id: "whisper:base".into(),
                 selection: SttModelSelection {
@@ -447,5 +767,206 @@ mod tests {
         assert_eq!(acceleration_for_device("cpu"), Ok(AccelerationMode::Cpu));
         assert!(acceleration_for_device("cuda:0").is_err());
         assert!(acceleration_for_device("cuda:1").is_err());
+    }
+
+    #[test]
+    fn interactive_starts_at_batch_window_boundary_and_batch_retries_checkpoint() {
+        // The configured CPU worker count is two; this single model keeps one
+        // inference slot to preserve interactive priority at the engine mutex.
+        let scheduler = server_model_scheduler(2).unwrap();
+        assert_eq!(scheduler.status(DeviceId::Cpu).unwrap().capacity, 1);
+        let batch_scheduler = Arc::clone(&scheduler);
+        let (window_started_tx, window_started_rx) = mpsc::channel();
+        let (finish_window_tx, finish_window_rx) = mpsc::channel();
+        let (order_tx, order_rx) = mpsc::channel();
+        let batch_order = order_tx.clone();
+        let batch = thread::spawn(move || {
+            let job_cancel = OperationCancellation::default();
+            let segments = [
+                SpeechSegment {
+                    start: 0,
+                    end: 4,
+                    forced: true,
+                },
+                SpeechSegment {
+                    start: 4,
+                    end: 8,
+                    forced: false,
+                },
+            ];
+            let mut first_attempt = true;
+            let result = transcribe_scheduled(
+                (&batch_scheduler, QueueClass::Batch),
+                &[1; 8],
+                &segments,
+                &job_cancel,
+                None,
+                &|_| {},
+                |window, offset, window_cancel| {
+                    if first_attempt {
+                        first_attempt = false;
+                        window_started_tx.send(()).unwrap();
+                        finish_window_rx
+                            .recv_timeout(Duration::from_secs(2))
+                            .unwrap();
+                        assert!(window_cancel.is_cancelled());
+                        return Err(SttError::Cancelled("preempted window".into()));
+                    }
+                    batch_order.send(offset).unwrap();
+                    Ok(WindowTranscript {
+                        text: if offset == 0 { "first" } else { "second" }.into(),
+                        segments: Vec::new(),
+                        words: Vec::new(),
+                        detected_language: Some("en".into()),
+                        transcribe_secs: 0.01,
+                        audio_secs: window.len() as f32 / SAMPLE_RATE_HZ as f32,
+                        backend: BackendKind::Cpu,
+                    })
+                },
+            )
+            .unwrap();
+            assert!(!job_cancel.is_cancelled());
+            result.text
+        });
+        window_started_rx
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap();
+
+        let interactive_scheduler = Arc::clone(&scheduler);
+        let interactive = thread::spawn(move || {
+            let request_cancel = OperationCancellation::default();
+            let _permit = interactive_scheduler
+                .acquire(DeviceId::Cpu, QueueClass::Interactive, &request_cancel)
+                .unwrap();
+            order_tx.send(u64::MAX).unwrap();
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while scheduler
+            .status(DeviceId::Cpu)
+            .is_some_and(|state| state.queued_interactive == 0)
+            && Instant::now() < deadline
+        {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(
+            scheduler.status(DeviceId::Cpu).unwrap().queued_interactive,
+            1
+        );
+        finish_window_tx.send(()).unwrap();
+
+        assert_eq!(
+            order_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            u64::MAX
+        );
+        assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), 0);
+        assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), 4);
+        interactive.join().unwrap();
+        assert_eq!(batch.join().unwrap(), "first second");
+    }
+
+    #[test]
+    fn batch_pending_blocks_interactive_until_dequeue_then_releases_on_first_window() {
+        struct BlockingRuntime {
+            started: mpsc::Sender<()>,
+            finish: Mutex<mpsc::Receiver<()>>,
+        }
+        impl TranscriptionRuntime for BlockingRuntime {
+            type Error = TranscriptionServiceError;
+
+            fn configured_model(&self) -> Result<String, Self::Error> {
+                Ok("test-model".into())
+            }
+
+            fn transcribe(
+                &self,
+                _: &[i16],
+                _: &str,
+                _: OperationCancellation,
+            ) -> Result<Transcript, Self::Error> {
+                self.started.send(()).unwrap();
+                self.finish
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_secs(2))
+                    .unwrap();
+                Ok(Transcript {
+                    text: "batch".into(),
+                    detected_language: None,
+                    transcribe_secs: None,
+                    audio_secs: None,
+                    device: None,
+                })
+            }
+        }
+
+        let pending = PendingLimit::new(1);
+        let (started_tx, started_rx) = mpsc::channel();
+        let (finish_tx, finish_rx) = mpsc::channel();
+        let queue = Arc::new(
+            TranscriptionJobQueue::new(
+                TranscriptionService::new(BlockingRuntime {
+                    started: started_tx,
+                    finish: Mutex::new(finish_rx),
+                }),
+                NoInteractiveActivity,
+                2,
+                Arc::new(fono_stt::NoopActivity),
+                Arc::new(NoCaptureGate),
+            )
+            .with_pending_limit(pending.clone()),
+        );
+        queue
+            .submit(TranscriptionRequest {
+                pcm_samples: vec![1],
+                language: "en".into(),
+                model: None,
+            })
+            .unwrap();
+        assert!(matches!(
+            pending.try_acquire(),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
+
+        let working_queue = Arc::clone(&queue);
+        let worker = thread::spawn(move || working_queue.run_next().unwrap());
+        started_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let interactive_pending = pending.try_acquire().unwrap();
+        assert!(matches!(
+            pending.try_acquire(),
+            Err(TranscriptionServiceError::Busy(_))
+        ));
+        let scheduler = server_model_scheduler(2).unwrap();
+        let segments = [SpeechSegment {
+            start: 0,
+            end: 4,
+            forced: false,
+        }];
+        let cancellation = OperationCancellation::default();
+        transcribe_scheduled(
+            (&scheduler, QueueClass::Interactive),
+            &[1; 4],
+            &segments,
+            &cancellation,
+            Some(interactive_pending),
+            &|_| {},
+            |window, _, _| {
+                assert!(pending.try_acquire().is_ok());
+                Ok(WindowTranscript {
+                    text: "interactive".into(),
+                    segments: Vec::new(),
+                    words: Vec::new(),
+                    detected_language: None,
+                    transcribe_secs: 0.01,
+                    audio_secs: window.len() as f32 / SAMPLE_RATE_HZ as f32,
+                    backend: BackendKind::Cpu,
+                })
+            },
+        )
+        .unwrap();
+        finish_tx.send(()).unwrap();
+        assert_eq!(
+            worker.join().unwrap().state,
+            fono_service::transcription_jobs::JobState::Completed
+        );
     }
 }

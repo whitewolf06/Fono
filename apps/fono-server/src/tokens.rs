@@ -9,9 +9,9 @@ use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
 use chrono::{SecondsFormat, Utc};
-use fono_service::rest_api::{TokenScope, TokenVerifier};
+use fono_service::rest_api::{TokenPrincipal, TokenScope, TokenVerifier};
 use sha2::{Digest, Sha256};
-use subtle::ConstantTimeEq;
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 use uuid::Uuid;
 
 #[cfg(unix)]
@@ -84,32 +84,41 @@ impl FileTokenVerifier {
 
 impl TokenVerifier for FileTokenVerifier {
     fn verify(&self, token: &str) -> bool {
-        self.scope(token).is_some()
+        self.principal(token).is_some()
     }
 
     fn scope(&self, token: &str) -> Option<TokenScope> {
+        self.principal(token).map(|principal| principal.scope)
+    }
+
+    fn principal(&self, token: &str) -> Option<TokenPrincipal> {
         if !valid_token_format(token) {
             return None;
         }
         let records = read_records(&self.path, false).ok()?;
-        let mut recognize = 0u8;
-        let mut admin = 0u8;
-        for record in records {
+        let mut matched_index = 0u32;
+        let mut found = Choice::from(0u8);
+        for (index, record) in records.iter().enumerate() {
             let digest = digest_token(&record.salt, token);
-            let equal = digest
-                .as_slice()
-                .ct_eq(record.digest.as_slice())
-                .unwrap_u8();
-            recognize |= equal & u8::from(record.scope == TokenScope::Recognize);
-            admin |= equal & u8::from(record.scope == TokenScope::Admin);
+            let equal = digest.as_slice().ct_eq(record.digest.as_slice());
+            matched_index = u32::conditional_select(&matched_index, &(index as u32), equal);
+            found |= equal;
         }
-        if admin != 0 {
-            Some(TokenScope::Admin)
-        } else if recognize != 0 {
-            Some(TokenScope::Recognize)
-        } else {
-            None
+        if found.unwrap_u8() == 0 {
+            return None;
         }
+        let record = &records[matched_index as usize];
+        // Key each admission to the persisted credential, not its reusable
+        // client name. Rotation cannot inherit an old in-flight quota.
+        let client_key = record
+            .digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        Some(TokenPrincipal {
+            client_key,
+            scope: record.scope,
+        })
     }
 }
 
@@ -600,12 +609,26 @@ mod tests {
         let verifier = FileTokenVerifier::open(&fixture.tokens).unwrap();
         assert_eq!(verifier.scope(&recognize), Some(TokenScope::Recognize));
         assert_eq!(verifier.scope(&admin), Some(TokenScope::Admin));
+        let principal = verifier.principal(&recognize).unwrap();
+        assert_eq!(principal.scope, TokenScope::Recognize);
+        assert_eq!(principal.client_key.len(), 64);
+        assert_eq!(verifier.principal(&recognize), Some(principal.clone()));
+        assert_ne!(
+            verifier.principal(&admin).unwrap().client_key,
+            principal.client_key
+        );
         assert!(verifier.verify(&recognize));
         assert_eq!(verifier.scope("fono_bad"), None);
         revoke(&fixture.tokens, "desktop-1").unwrap();
+        assert_eq!(verifier.principal(&recognize), None);
+        let rotated = create(&fixture.tokens, "desktop-1", TokenScope::Recognize).unwrap();
+        assert_ne!(
+            verifier.principal(&rotated).unwrap().client_key,
+            principal.client_key
+        );
         assert_eq!(verifier.scope(&recognize), None);
         assert_eq!(verifier.scope(&admin), Some(TokenScope::Admin));
-        assert_eq!(list(&fixture.tokens).unwrap().len(), 1);
+        assert_eq!(list(&fixture.tokens).unwrap().len(), 2);
     }
 
     #[test]
