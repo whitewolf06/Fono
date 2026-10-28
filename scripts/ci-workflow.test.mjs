@@ -69,6 +69,84 @@ test("frontend checks run anonymously for external fork pull requests", () => {
   }
 });
 
+function checkLinuxContract(source) {
+  const jobs = [...source.matchAll(/^ {2}([a-z][\w-]*):\r?\n/gm)];
+  const index = jobs.findIndex((match) => match[1] === "linux");
+  assert.notEqual(index, -1, "Linux job must exist");
+  const job = source.slice(jobs[index].index, jobs[index + 1]?.index);
+  assert.match(job, /^ {4}runs-on: ubuntu-24\.04$/m);
+  assert.match(job, /persist-credentials: false/);
+  assert.doesNotMatch(job, /^\s+(?:needs|if|environment|continue-on-error):/m);
+  assert.doesNotMatch(
+    job,
+    /secrets\.|\bnpm\b|\bnpx\b|TAURI_CONFIG|--no-default-features|--all-features/,
+  );
+  assert.match(job, /\blibopus-dev\b/);
+  assert.match(job, /run: python3 scripts\/bootstrap-ci-linux\.test\.py/);
+  const bootstrap = job.indexOf("run: bash scripts/bootstrap-ci-linux.sh");
+  const check = job.indexOf("run: cargo check --locked --workspace\n");
+  const tests = job.indexOf(
+    "run: cargo test --locked -p fono-core -p fono-stt-protocol -p fono-audio -p fono-wake --lib\n",
+  );
+  assert.ok(bootstrap >= 0 && check > bootstrap && tests > check);
+  assert.equal((job.match(/working-directory: src-tauri/g) ?? []).length, 2);
+  return job;
+}
+
+test("Linux CI checks the normal workspace after verified native bootstrap", () => {
+  checkLinuxContract(workflow);
+  for (const [before, after] of [
+    ["  linux:\n", "  linux:\n    needs: frontend\n"],
+    ["  linux:\n", "  linux:\n    continue-on-error: true\n"],
+    ["  linux:\n", "  linux:\n    TAURI_CONFIG: '{}'\n"],
+    ["bash scripts/bootstrap-ci-linux.sh", "echo skipped-bootstrap"],
+    ["cargo check --locked --workspace", "cargo check --locked -p fono-core"],
+    [
+      "cargo check --locked --workspace",
+      "cargo check --locked --workspace --no-default-features",
+    ],
+    ["-p fono-audio -p fono-wake --lib", "-p fono-wake --lib"],
+  ]) {
+    assert.ok(workflow.includes(before), `mutation target: ${before}`);
+    assert.throws(() => checkLinuxContract(workflow.replace(before, after)));
+  }
+});
+
+test("Linux and Windows Sherpa pins match the shared Rust dependency version", async () => {
+  const pins = JSON.parse(await read("./ci-native-dependencies.json"));
+  const linux = pins.sherpaLinux;
+  assert.equal(linux.version, pins.sherpa.version);
+  const directory = `sherpa-onnx-v${linux.version}-linux-x64-shared-lib`;
+  assert.equal(linux.directory, directory);
+  assert.equal(
+    linux.url,
+    `https://github.com/k2-fsa/sherpa-onnx/releases/download/v${linux.version}/${directory}.tar.bz2`,
+  );
+  assert.match(linux.sha256, /^[a-f0-9]{64}$/);
+  assert.ok(Number.isInteger(linux.downloadTimeoutSeconds));
+  assert.ok(
+    linux.downloadTimeoutSeconds > 0 && linux.downloadTimeoutSeconds <= 600,
+  );
+  const manifest = await read("../src-tauri/Cargo.toml");
+  const version = manifest.match(
+    /sherpa-onnx\s*=\s*\{[^}]*version\s*=\s*"=([^"]+)"/,
+  );
+  assert.equal(version?.[1], linux.version);
+  const lockedVersion = (await read("../src-tauri/Cargo.lock")).match(
+    /^name = "sherpa-onnx"\nversion = "([^"]+)"$/m,
+  );
+  assert.equal(lockedVersion?.[1], linux.version);
+  const channel = (await read("../src-tauri/rust-toolchain.toml")).match(
+    /^channel = "([^"]+)"$/m,
+  )?.[1];
+  assert.ok(channel);
+  assert.ok(
+    checkLinuxContract(workflow).includes(
+      `rustup toolchain install ${channel} --profile minimal`,
+    ),
+  );
+});
+
 test("wake numerical contracts install pinned CPU dependencies before running without skips", async () => {
   const job = frontendJob(workflow);
   const dependencies = await read("../tools/wake-training/requirements-ci.txt");

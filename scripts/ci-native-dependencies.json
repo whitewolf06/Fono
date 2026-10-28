@@ -6,6 +6,13 @@
     "downloadTimeoutSeconds": 120,
     "directory": "sherpa-onnx-v1.13.4-win-x64-shared-MT-Release-lib"
   },
+  "sherpaLinux": {
+    "version": "1.13.4",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.4/sherpa-onnx-v1.13.4-linux-x64-shared-lib.tar.bz2",
+    "sha256": "3e7ce80379c938668f11157b1f54a0272b40972f618f445dcae71d122764d1fa",
+    "downloadTimeoutSeconds": 120,
+    "directory": "sherpa-onnx-v1.13.4-linux-x64-shared-lib"
+  },
   "cuda": {
     "version": "13.3.1",
     "url": "https://developer.download.nvidia.com/compute/cuda/13.3.1/local_installers/cuda_13.3.1_windows.exe",
