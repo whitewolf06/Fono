@@ -8,7 +8,7 @@ impl WorkerSession {
         request: &WorkerRequest,
         cancellation: Option<&OperationCancellation>,
     ) -> AppResult<WorkerResponse> {
-        let _activity = crate::application::updates::activity::lease()?;
+        let _activity = self.cleanup.activity.lease()?;
         let timeout = self.timeouts.for_request(request);
         let deadline = Instant::now() + timeout;
         if cancellation.is_some_and(OperationCancellation::is_cancelled) {
@@ -49,7 +49,7 @@ impl WorkerSession {
             }
             match result_rx.recv_timeout(remaining.min(CANCELLATION_POLL_INTERVAL)) {
                 Ok(Ok(())) => {
-                    #[cfg(test)]
+                    #[cfg(any(test, feature = "test-support"))]
                     self.written_frames.fetch_add(1, Ordering::AcqRel);
                     break;
                 }
@@ -118,7 +118,7 @@ impl WorkerSession {
         RequestMeta::new(format!("{kind}-{}", self.next_request_id), operation_id)
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, windows))]
     fn is_alive(&mut self) -> bool {
         matches!(self.child.try_wait(), Ok(None))
             && self
@@ -167,7 +167,7 @@ impl WorkerSession {
                 WorkerCleanupStatus::Pending
             };
         }
-        let activity = Some(crate::application::updates::activity::cleanup_lease());
+        let activity = Some(self.cleanup.activity.cleanup_lease());
         let _fence = self.cleanup.begin();
         self.child.stopping.store(true, Ordering::Release);
         self.transport_stopping.store(true, Ordering::Release);
@@ -194,11 +194,11 @@ impl WorkerSession {
         WorkerCleanupStatus::Pending
     }
 
-    pub(super) fn shutdown(&mut self) -> WorkerCleanupStatus {
+    pub fn shutdown(&mut self) -> WorkerCleanupStatus {
         if self.cleanup_ticket.is_some() {
             return self.terminate();
         }
-        let _activity = crate::application::updates::activity::cleanup_lease();
+        let _activity = self.cleanup.activity.cleanup_lease();
         let _fence = self.cleanup.begin();
         self.request_graceful_shutdown();
         self.terminate()

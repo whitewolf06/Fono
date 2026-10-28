@@ -2,7 +2,7 @@
 use super::*;
 
 #[derive(Clone, Copy)]
-pub(crate) struct GpuResidency {
+pub struct GpuResidency {
     pub loaded: bool,
     pub resident: bool,
     pub exclusive: bool,
@@ -20,18 +20,18 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
         #[cfg(feature = "offline-stt")]
         EngineState::Offline { .. } => (false, false),
         EngineState::Worker { session, device } => {
-            let gpu = matches!(*device, "CUDA" | "Vulkan") && session.has_resources();
+            let gpu = matches!(device.as_ref(), "CUDA" | "Vulkan") && session.has_resources();
             (gpu, gpu && exclusive(session) && session.is_idle())
         }
         EngineState::Embedded { engine, device, .. } => {
-            let gpu = matches!(*device, "CUDA" | "Vulkan");
+            let gpu = matches!(device.as_ref(), "CUDA" | "Vulkan");
             (gpu, gpu && exclusive(engine) && engine.is_idle())
         }
     }
 }
 
 impl SttEngine {
-    pub(crate) fn gpu_residency(&self) -> GpuResidency {
+    pub fn gpu_residency(&self) -> GpuResidency {
         self.reap_finished_worker();
         let state = self.state.lock();
         let (resident, exclusive) = resident_gpu(&state);
@@ -48,7 +48,7 @@ impl SttEngine {
     /// The caller fences operations, queues and leases around `detach`. Worker
     /// cleanup runs outside that admission fence, but inside the load gate, so
     /// a new on-demand load never competes with VRAM that is still being freed.
-    pub(crate) fn release_idle_gpu(
+    pub fn release_idle_gpu(
         &self,
         expected_generation: u64,
         fenced: impl FnOnce(&mut dyn FnMut() -> bool) -> bool,
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn an_empty_engine_never_claims_gpu_memory() {
-        let engine = SttEngine::new();
+        let engine = SttEngine::default();
         let residency = engine.gpu_residency();
         assert!(!residency.resident);
         assert!(!residency.exclusive);
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn stale_pressure_cannot_admit_release_of_a_fresh_generation() {
-        let engine = SttEngine::new();
+        let engine = SttEngine::default();
         let observed = engine.gpu_residency().generation;
         engine
             .generation

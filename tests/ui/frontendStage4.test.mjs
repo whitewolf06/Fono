@@ -50,7 +50,7 @@ before(async () => {
 
 test("CPU measurements require the exact artifact identity and never transfer to quantized variants", () => {
   const [gigaam] = JSON.parse(
-    fs.readFileSync("src-tauri/src/stt/offline_models.json"),
+    fs.readFileSync("crates/fono-stt/src/offline_models.json"),
   );
   const id = "giga_am:v3_e2e_rnnt_int8";
   assert.match(measurements.measuredModel(id, gigaam.files), /RU: WER/);
@@ -70,7 +70,7 @@ test("CPU measurements require the exact artifact identity and never transfer to
 });
 test("native catalog attaches benchmark facts only to the pinned model package", () => {
   const [spec] = JSON.parse(
-    fs.readFileSync("src-tauri/src/stt/offline_models.json"),
+    fs.readFileSync("crates/fono-stt/src/offline_models.json"),
   );
   const entry = {
     id: spec.id,

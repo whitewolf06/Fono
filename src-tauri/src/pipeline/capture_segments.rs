@@ -312,7 +312,11 @@ fn run(
         if speech.has_speech {
             loop {
                 phase.store(Phase::Queued as u8, Ordering::Release);
-                let permit = match input.scheduler.acquire_capture(input.operation, &cancelled) {
+                let permit = match input
+                    .scheduler
+                    .acquire_capture(input.operation, &cancelled)
+                    .map_err(AppError::from)
+                {
                     Ok(permit) => permit,
                     Err(_) if cancelled.is_cancelled() => break,
                     // Stop may close the scheduler lane before the consumer

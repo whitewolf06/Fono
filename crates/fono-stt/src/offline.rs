@@ -151,8 +151,8 @@ impl Recognizer for SherpaRecognizer {
     fn model(&self) -> &ModelId {
         &self.spec.id
     }
-    fn device(&self) -> &'static str {
-        "CPU"
+    fn device(&self) -> std::borrow::Cow<'static, str> {
+        "CPU".into()
     }
     fn capabilities(&self) -> RecognizerCapabilities {
         RecognizerCapabilities {
@@ -181,7 +181,7 @@ impl Recognizer for SherpaRecognizer {
         )
         .map_err(|error| AppError::Stt(error.to_string()))?
         .ok_or_else(|| AppError::Cancelled("Offline segmentation cancelled".into()))?;
-        let result = crate::application::segmented_transcription::transcribe_segments(
+        let result = crate::segmented_transcription::transcribe_segments(
             samples,
             &segments,
             cancellation,

@@ -106,7 +106,10 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                     &segments,
                     &cancellation,
                     |window, start| {
-                        let permit = match scheduler.acquire(false, &cancellation) {
+                        let permit = match scheduler
+                            .acquire(false, &cancellation)
+                            .map_err(AppError::from)
+                        {
                             Ok(permit) => permit,
                             Err(error) => return (Err(error), false),
                         };
@@ -164,7 +167,10 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                 pcm_samples,
                 &cancellation,
                 |window, start, context| {
-                    let permit = match scheduler.acquire(false, &cancellation) {
+                    let permit = match scheduler
+                        .acquire(false, &cancellation)
+                        .map_err(AppError::from)
+                    {
                         Ok(permit) => permit,
                         Err(error) => return (Err(error), false),
                     };

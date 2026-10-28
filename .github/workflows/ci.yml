@@ -68,7 +68,7 @@ jobs:
       - name: Test shared Rust crates
         working-directory: .
         run: |
-          cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-audio -p fono-wake --lib
+          cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-stt -p fono-audio -p fono-wake --lib
           cargo test --locked -p fono-types --test wire_contract
 
   setup:

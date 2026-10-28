@@ -1,7 +1,7 @@
 [package]
 license = "MIT"
 name = "fono"
-version = "0.8.11"
+version = "0.8.12"
 description = "Голосовой ввод и голосовое управление компьютером для Windows"
 authors = ["Fono"]
 edition = "2021"
@@ -29,6 +29,7 @@ tauri-plugin-single-instance = "=2.4.3"
 
 # Wake word subsystem
 fono-types = { workspace = true }
+fono-stt = { workspace = true }
 fono-wake = { workspace = true, optional = true, default-features = false }
 fono-stt-protocol = { workspace = true, features = ["inference"] }
 fono-core = { workspace = true }
@@ -114,15 +115,18 @@ custom-protocol = ["tauri/custom-protocol"]
 # Portable CPU build is the release default. GPU builds are explicit opt-in so
 # a normal installer does not require CUDA/CUBLAS on the target machine.
 default = ["speech-vad", "offline-stt"]
-speech-vad = ["fono-audio/speech-vad"]
-offline-stt = ["dep:sherpa-onnx", "speech-vad"]
+speech-vad = ["fono-audio/speech-vad", "fono-stt/speech-vad"]
+offline-stt = ["dep:sherpa-onnx", "speech-vad", "fono-stt/offline-stt"]
 # Contributor profile: real speech VAD and embedded CPU Whisper, with no GPU workers.
-cpu-only = ["speech-vad", "offline-stt"]
+cpu-only = ["speech-vad", "offline-stt", "fono-stt/cpu-only"]
 wake-word = ["dep:fono-wake"]
 experimental-live = []
 # Встроенное GPU-ускорение через CUDA для явной сборки с CUDA Toolkit.
-cuda = ["whisper-rs/cuda"]
+cuda = ["whisper-rs/cuda", "fono-stt/cuda"]
 # Встроенное GPU-ускорение через Vulkan для явной сборки с Vulkan SDK.
-vulkan = ["whisper-rs/vulkan"]
+vulkan = ["whisper-rs/vulkan", "fono-stt/vulkan"]
 # Wake word backends
 sherpa-wake = ["wake-word", "speech-vad", "fono-wake/sherpa-wake"]
+
+[dev-dependencies]
+fono-stt = { workspace = true, features = ["test-support"] }

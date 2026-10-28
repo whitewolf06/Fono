@@ -248,13 +248,13 @@ fn adaptive_release_keeps_pending_worker_residency_and_blocks_auto_loading_until
     let child = Arc::clone(&session.child);
     child.force_kill_fail.store(true, Ordering::Release);
     let failure = ResetForcedKillFailure(Arc::clone(&child));
-    let mut engine = crate::stt::SttEngine::new();
+    let mut engine = crate::SttEngine::default();
     engine.cleanup = Arc::clone(&supervisor);
-    *engine.state.lock() = crate::stt::routing::EngineState::Worker {
+    *engine.state.lock() = crate::routing::EngineState::Worker {
         session: Arc::new(WorkerMailbox::start(session)),
-        device: "CUDA",
+        device: "CUDA".into(),
     };
-    let ready = crate::stt::SttReadiness::Ready {
+    let ready = crate::SttReadiness::Ready {
         device: "CUDA".into(),
     };
     engine.set_readiness(ready.clone());
@@ -275,7 +275,7 @@ fn adaptive_release_keeps_pending_worker_residency_and_blocks_auto_loading_until
     let retry = engine.ensure_loaded(
         Path::new("unused-cleanup-fixture.bin"),
         crate::types::AccelerationMode::Auto,
-        &crate::stt::WorkerPaths::default(),
+        &crate::WorkerPaths::default(),
     );
     assert!(matches!(retry, Err(AppError::Busy(_))));
     assert_eq!(engine.readiness(), ready);
@@ -288,7 +288,7 @@ fn adaptive_release_keeps_pending_worker_residency_and_blocks_auto_loading_until
     assert!(!engine.is_loaded());
     assert!(matches!(
         *engine.state.lock(),
-        crate::stt::routing::EngineState::Empty
+        crate::routing::EngineState::Empty
     ));
     assert_eq!(engine.readiness(), ready);
 }

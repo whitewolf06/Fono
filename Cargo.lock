@@ -1364,7 +1364,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fono"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1379,6 +1379,7 @@ dependencies = [
  "dirs 5.0.1",
  "fono-audio",
  "fono-core",
+ "fono-stt",
  "fono-stt-protocol",
  "fono-types",
  "fono-wake",
@@ -1431,6 +1432,32 @@ dependencies = [
  "parking_lot",
  "serde",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "fono-stt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "audiopus",
+ "base64 0.22.1",
+ "crossbeam-channel",
+ "fono-audio",
+ "fono-core",
+ "fono-stt-protocol",
+ "fono-types",
+ "once_cell",
+ "parking_lot",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sherpa-onnx",
+ "symphonia",
+ "thiserror 2.0.18",
+ "tracing",
+ "uuid",
+ "whisper-rs",
 ]
 
 [[package]]

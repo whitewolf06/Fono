@@ -43,8 +43,8 @@ impl Recognizer for EmbeddedRecognizer {
         &self.model
     }
 
-    fn device(&self) -> &'static str {
-        self.device
+    fn device(&self) -> std::borrow::Cow<'static, str> {
+        self.device.into()
     }
 
     fn capabilities(&self) -> RecognizerCapabilities {

@@ -85,7 +85,7 @@ impl WorkerTimeouts {
     }
 }
 
-pub(super) struct WorkerSession {
+pub struct WorkerSession {
     backend: BackendKind,
     path: PathBuf,
     model_path: String,
@@ -104,7 +104,7 @@ pub(super) struct WorkerSession {
     supports_decoding_options: bool,
     // A test observer distinguishes complete transport writes from requests
     // cancelled before transport. This counter is absent from production.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     written_frames: Arc<AtomicUsize>,
 }
 
@@ -150,7 +150,7 @@ enum WorkerCommand {
         cancellation: OperationCancellation,
         audio_start_sample: u64,
         response_tx: Sender<AppResult<fono_stt_protocol::WindowTranscript>>,
-        activity: crate::application::updates::activity::ActivityLease<'static>,
+        activity: crate::ports::ActivityLease,
     },
     Transcribe {
         samples: Vec<i16>,
@@ -159,11 +159,11 @@ enum WorkerCommand {
         glossary: Vec<String>,
         cancellation: OperationCancellation,
         response_tx: Sender<AppResult<Transcript>>,
-        activity: crate::application::updates::activity::ActivityLease<'static>,
+        activity: crate::ports::ActivityLease,
     },
     Ping {
         response_tx: Sender<AppResult<()>>,
-        activity: crate::application::updates::activity::ActivityLease<'static>,
+        activity: crate::ports::ActivityLease,
     },
     Shutdown {
         response_tx: Sender<WorkerCleanupStatus>,
@@ -181,9 +181,7 @@ include!("worker_request.rs");
 include!("worker_mailbox.rs");
 include!("worker_transport.rs");
 include!("worker_cleanup.rs");
-#[cfg(all(test, windows))]
-#[path = "lifecycle_soak.rs"]
-mod lifecycle_soak;
+
 #[cfg(test)]
 #[path = "worker_tests.rs"]
 mod tests;

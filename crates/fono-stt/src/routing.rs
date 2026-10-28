@@ -9,13 +9,13 @@ pub(super) enum EngineState {
     },
     Embedded {
         engine: Arc<EmbeddedRecognizer>,
-        device: &'static str,
+        device: std::borrow::Cow<'static, str>,
         model_path: String,
         use_gpu: bool,
     },
     Worker {
         session: Arc<WorkerMailbox>,
-        device: &'static str,
+        device: std::borrow::Cow<'static, str>,
     },
 }
 
@@ -41,7 +41,7 @@ pub enum SttHealth {
     Failed { device: String, message: String },
 }
 
-pub(super) type SttReadinessObserver = Arc<dyn Fn(SttReadiness) + Send + Sync>;
+pub type SttReadinessObserver = Arc<dyn Fn(SttReadiness) + Send + Sync>;
 
 #[derive(Clone)]
 pub(super) enum ActiveEngine {
@@ -92,7 +92,7 @@ impl EngineState {
             Self::Empty => "CPU".into(),
             #[cfg(feature = "offline-stt")]
             Self::Offline { .. } => "CPU".into(),
-            Self::Embedded { device, .. } | Self::Worker { device, .. } => (*device).into(),
+            Self::Embedded { device, .. } | Self::Worker { device, .. } => device.to_string(),
         }
     }
 
@@ -139,7 +139,11 @@ impl ActiveEngine {
         matches!(self, Self::Worker(session) if session.is_faulted())
     }
 
-    pub(super) fn health(&self, device: String) -> SttHealth {
+    pub(super) fn health(
+        &self,
+        device: String,
+        presentation: &crate::ports::ErrorMessage,
+    ) -> SttHealth {
         match self {
             #[cfg(feature = "offline-stt")]
             Self::Offline(engine) => {
@@ -161,7 +165,7 @@ impl ActiveEngine {
                 MailboxHealth::Ready => SttHealth::Ready { device },
                 MailboxHealth::Failed(error) => SttHealth::Failed {
                     device,
-                    message: error.user_message(),
+                    message: presentation(&error),
                 },
             },
         }

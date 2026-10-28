@@ -1,6 +1,11 @@
 impl Recognizer for WorkerMailbox {
     fn load(request: &RecognizerLoad<'_>) -> AppResult<Self> {
-        let super::EngineCandidate::Worker { backend, path, package } = request.candidate else {
+        let super::EngineCandidate::Worker {
+            backend,
+            path,
+            package,
+        } = request.candidate
+        else {
             return Err(AppError::Config("Expected a worker recognizer".into()));
         };
         let session = WorkerSession::start(
@@ -19,8 +24,8 @@ impl Recognizer for WorkerMailbox {
         &self.model
     }
 
-    fn device(&self) -> &'static str {
-        backend_name(self.backend)
+    fn device(&self) -> std::borrow::Cow<'static, str> {
+        backend_name(self.backend).into()
     }
 
     fn capabilities(&self) -> RecognizerCapabilities {
@@ -34,7 +39,11 @@ impl Recognizer for WorkerMailbox {
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
         self.transcribe_cancellable_with_options(
-            samples, options.language, cancellation, options.decoding, options.glossary,
+            samples,
+            options.language,
+            cancellation,
+            options.decoding,
+            options.glossary,
         )
     }
 
@@ -154,8 +163,13 @@ impl WorkerMailbox {
                     } => {
                         let _activity = activity;
                         thread_busy.store(true, Ordering::Release);
-                        let result =
-                            session.transcribe_cancellable_with_options(&samples, &language, &cancellation, decoding, &glossary);
+                        let result = session.transcribe_cancellable_with_options(
+                            &samples,
+                            &language,
+                            &cancellation,
+                            decoding,
+                            &glossary,
+                        );
                         thread_busy.store(false, Ordering::Release);
                         let keep_running = session.stdin_tx.is_some();
                         if !keep_running {
@@ -253,22 +267,28 @@ impl WorkerMailbox {
                 .owner_thread
                 .lock()
                 .as_ref()
-                .map_or(true, JoinHandle::is_finished)
+                .is_none_or(JoinHandle::is_finished)
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, windows))]
     pub(super) fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
         self.transcribe_cancellable(samples, language, &OperationCancellation::default())
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, windows))]
     pub(super) fn transcribe_cancellable(
         &self,
         samples: &[i16],
         language: &str,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
-        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default(), &[])
+        self.transcribe_cancellable_with_options(
+            samples,
+            language,
+            cancellation,
+            fono_stt_protocol::DecodingOptions::default(),
+            &[],
+        )
     }
 
     pub(super) fn transcribe_cancellable_with_options(
@@ -285,7 +305,7 @@ impl WorkerMailbox {
             ));
         }
         let (response_tx, response_rx) = bounded(1);
-        let activity = crate::application::updates::activity::lease()?;
+        let activity = self.cleanup.activity.lease()?;
         self.enqueue(
             WorkerCommand::Transcribe {
                 samples: samples.to_vec(),
@@ -315,7 +335,7 @@ impl WorkerMailbox {
         if self.closing.load(Ordering::Acquire) || self.cleanup.is_pending() {
             return MailboxHealth::Busy;
         }
-        let Ok(activity) = crate::application::updates::activity::lease() else {
+        let Ok(activity) = self.cleanup.activity.lease() else {
             return MailboxHealth::Busy;
         };
         if self.busy.load(Ordering::Acquire)
@@ -355,7 +375,7 @@ impl WorkerMailbox {
             }
             return WorkerCleanupStatus::Exited;
         }
-        let activity = Some(crate::application::updates::activity::cleanup_lease());
+        let activity = Some(self.cleanup.activity.cleanup_lease());
         let _fence = self.cleanup.begin();
         self.closing.store(true, Ordering::Release);
         let Some(owner) = self.owner_thread.lock().take() else {

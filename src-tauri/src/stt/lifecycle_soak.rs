@@ -3,7 +3,15 @@
 use super::*;
 use crate::pipeline::Pipeline;
 use fono_core::{OperationPhase, OperationSource, TerminalReason};
+use fono_stt::test_support::{WorkerChild, WorkerCleanupSupervisor, WorkerSession};
+use fono_stt_protocol::BackendKind;
 use serde_json::{json, Value};
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+    time::{Duration, Instant},
+};
 
 #[path = "lifecycle_soak_config.rs"]
 mod config;
@@ -78,7 +86,7 @@ fn start_worker(config: &Config, cleanup: &Arc<WorkerCleanupSupervisor>) -> Resu
     .map_err(|e| e.to_string())
 }
 fn child_pid(worker: &WorkerSession) -> u32 {
-    worker.child.process.lock().id()
+    worker.child_handle().process_id()
 }
 fn cleanup_confirmed(child: &Arc<WorkerChild>, cleanup: &WorkerCleanupSupervisor) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -92,7 +100,7 @@ fn cleanup_confirmed(child: &Arc<WorkerChild>, cleanup: &WorkerCleanupSupervisor
     Ok(())
 }
 fn shutdown(worker: &mut WorkerSession, cleanup: &WorkerCleanupSupervisor) -> Result<()> {
-    let child = worker.child.clone();
+    let child = worker.child_handle();
     let _ = worker.shutdown();
     cleanup_confirmed(&child, cleanup)
 }
@@ -123,7 +131,7 @@ fn active_cancel(
 ) -> Result<(f64, bool)> {
     let pid = child_pid(worker);
     let baseline = win32::cpu_seconds(pid)?;
-    let written_frames = worker.written_frames.clone();
+    let written_frames = worker.written_frames();
     let before_write = written_frames.load(Ordering::Acquire);
     let pipeline_for_cancel = pipeline.clone();
     let controller = thread::spawn(move || {
@@ -167,7 +175,7 @@ fn active_cancel(
         "operation cancellation was not propagated",
     )?;
     require(
-        matches!(result, Err(AppError::Cancelled(_))),
+        matches!(result, Err(fono_stt::error::SttError::Cancelled(_))),
         "active real-worker request did not return Cancelled",
     )?;
     Ok((cancel_ms, observed))
@@ -255,7 +263,7 @@ fn capture_cycle(
         )?;
         let result = worker.transcribe_cancellable(&samples, "en", &permit.cancellation);
         require(
-            matches!(result, Err(AppError::Cancelled(_))),
+            matches!(result, Err(fono_stt::error::SttError::Cancelled(_))),
             "pretransport cancellation reached worker inference",
         )?;
         latency.cancel.push(milliseconds(cancelled));
@@ -313,7 +321,7 @@ fn run(config: &Config, report: &mut Value) -> Result<()> {
         pcm: pcm.clone(),
         active: AtomicBool::new(false),
     })));
-    let cleanup = Arc::new(WorkerCleanupSupervisor::default());
+    let cleanup = Arc::new(WorkerCleanupSupervisor::new(Arc::new(DesktopActivity)));
     let mut latency = Latencies::default();
     checkpoint(report, "cold_pre_worker", 0, None)?;
     let loading = Instant::now();
@@ -376,13 +384,13 @@ fn run(config: &Config, report: &mut Value) -> Result<()> {
         }
     }
     for fault in 1..=config.faults {
-        let child = worker.child.clone();
+        let child = worker.child_handle();
         let pid = child_pid(&worker);
         require(
-            matches!(child.try_wait(), Ok(None)),
+            matches!(child.exit_status(), Ok(None)),
             "fault target exited before the injected kill",
         )?;
-        child.kill().map_err(|e| e.to_string())?;
+        child.request_kill().map_err(|e| e.to_string())?;
         report["completed"]["fault_kills"] = json!(fault);
         require(
             worker.ping().is_err(),
@@ -390,7 +398,7 @@ fn run(config: &Config, report: &mut Value) -> Result<()> {
         )?;
         shutdown(&mut worker, &cleanup)?;
         require(child.exited(), "faulted owned worker was not reaped")?;
-        report["worker_faults"].as_array_mut().ok_or("missing worker-fault receipts")?.push(json!({ "index": fault, "owned_pid": pid, "alive_before_kill": true, "confirmed_exit": true, "exit_code": child.try_wait().map_err(|e| e.to_string())?.and_then(|v| v.code()) }));
+        report["worker_faults"].as_array_mut().ok_or("missing worker-fault receipts")?.push(json!({ "index": fault, "owned_pid": pid, "alive_before_kill": true, "confirmed_exit": true, "exit_code": child.exit_status().map_err(|e| e.to_string())?.and_then(|v| v.code()) }));
         report["completed"]["fault_reaps"] = json!(fault);
         let reload = Instant::now();
         worker = start_worker(config, &cleanup)?;

@@ -84,6 +84,11 @@ function checkCoreContract(source) {
     );
   }
   assert.doesNotMatch(job, /--all-features|--features|\bnpm\b|\bnpx\b/);
+  assert.doesNotMatch(
+    job,
+    /-p fono-stt(?:\s|$)/,
+    "the lightweight job must not build native inference",
+  );
   return job;
 }
 
@@ -118,7 +123,7 @@ function checkLinuxContract(source) {
   const bootstrap = job.indexOf("run: bash scripts/bootstrap-ci-linux.sh");
   const check = job.indexOf("run: cargo check --locked --workspace\n");
   const tests = job.indexOf(
-    "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-audio -p fono-wake --lib\n",
+    "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-stt -p fono-audio -p fono-wake --lib\n",
   );
   const wireTests = job.indexOf(
     "cargo test --locked -p fono-types --test wire_contract\n",
@@ -143,8 +148,9 @@ test("Linux CI checks the normal workspace after verified native bootstrap", () 
       "cargo check --locked --workspace --no-default-features",
     ],
     ["-p fono-audio -p fono-wake --lib", "-p fono-wake --lib"],
+    ["-p fono-stt -p fono-audio", "-p fono-audio"],
     [
-      "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-audio -p fono-wake --lib",
+      "cargo test --locked -p fono-core -p fono-types -p fono-stt-protocol -p fono-stt -p fono-audio -p fono-wake --lib",
       "cargo test --locked -p fono-core -p fono-stt-protocol -p fono-audio -p fono-wake --lib",
     ],
     [
@@ -450,6 +456,7 @@ test("native checks keep default WakeWord absent and cover independent live/wake
 test("public quality CI measures neural boundaries and decoding with verified CPU runtime", async () => {
   const quality = await read("../.github/workflows/stt-quality.yml");
   assert.match(quality, /"crates\/fono-types\/\*\*"/);
+  assert.match(quality, /"crates\/fono-stt\/\*\*"/);
   assert.match(quality, /src-tauri\/src\/application\/speech_gate\.rs/);
   assert.match(quality, /src-tauri\/src\/vad\/\*\*/);
   assert.match(quality, /scripts\/stage4-quality\*/);

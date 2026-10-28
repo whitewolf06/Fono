@@ -1,6 +1,6 @@
 /// ACK acknowledges the request, not process exit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum WorkerCleanupStatus {
+pub enum WorkerCleanupStatus {
     Exited,
     Pending,
 }
@@ -9,11 +9,11 @@ pub(super) fn worker_cleanup_busy() -> AppError {
     AppError::Busy("STT worker cleanup is still pending; retry after it exits".into())
 }
 
-pub(super) struct WorkerChild {
+pub struct WorkerChild {
     process: Mutex<Child>,
     // File and directory sharing guards outlive every process/IO owner,
     // including deferred cleanup after a failed handshake or load.
-    _package: Option<crate::application::cuda_packages::VerifiedPackage>,
+    _package: Option<crate::ports::GpuPackageHandle>,
     stopping: AtomicBool,
     #[cfg(test)]
     kill_count: AtomicUsize,
@@ -22,7 +22,19 @@ pub(super) struct WorkerChild {
 }
 
 impl WorkerChild {
-    fn new(child: Child, package: Option<crate::application::cuda_packages::VerifiedPackage>) -> Self {
+    #[cfg(feature = "test-support")]
+    pub fn exit_status(&self) -> std::io::Result<Option<ExitStatus>> {
+        self.try_wait()
+    }
+    #[cfg(feature = "test-support")]
+    pub fn request_kill(&self) -> std::io::Result<()> {
+        self.kill()
+    }
+    #[cfg(feature = "test-support")]
+    pub fn process_id(&self) -> u32 {
+        self.process.lock().id()
+    }
+    fn new(child: Child, package: Option<crate::ports::GpuPackageHandle>) -> Self {
         Self {
             process: Mutex::new(child),
             _package: package,
@@ -49,7 +61,7 @@ impl WorkerChild {
         self.process.lock().kill()
     }
 
-    fn exited(&self) -> bool {
+    pub fn exited(&self) -> bool {
         matches!(self.try_wait(), Ok(Some(_)))
     }
 
@@ -76,8 +88,8 @@ impl WorkerChild {
 }
 
 /// Retirements are scoped to one STT engine and survive failed starts as well.
-#[derive(Default)]
-pub(super) struct WorkerCleanupSupervisor {
+pub struct WorkerCleanupSupervisor {
+    pub(super) activity: Arc<dyn crate::ports::ActivityGuard>,
     pending: AtomicUsize,
 }
 
@@ -88,12 +100,24 @@ impl Drop for WorkerCleanupFence {
     }
 }
 
+impl Default for WorkerCleanupSupervisor {
+    fn default() -> Self {
+        Self::new(Arc::new(crate::ports::NoopActivity))
+    }
+}
+
 impl WorkerCleanupSupervisor {
+    pub fn new(activity: Arc<dyn crate::ports::ActivityGuard>) -> Self {
+        Self {
+            pending: AtomicUsize::new(0),
+            activity,
+        }
+    }
     fn begin(self: &Arc<Self>) -> WorkerCleanupFence {
         self.pending.fetch_add(1, Ordering::AcqRel);
         WorkerCleanupFence(Arc::clone(self))
     }
-    pub(super) fn is_pending(&self) -> bool {
+    pub fn is_pending(&self) -> bool {
         self.pending.load(Ordering::Acquire) != 0
     }
 
@@ -102,13 +126,13 @@ impl WorkerCleanupSupervisor {
         child: Arc<WorkerChild>,
         handles: Vec<JoinHandle<()>>,
         stopping: Arc<AtomicBool>,
-        activity: Option<crate::application::updates::activity::ActivityLease<'static>>,
+        activity: Option<crate::ports::ActivityLease>,
     ) -> Arc<AtomicBool> {
         struct Retirement {
             child: Arc<WorkerChild>,
             handles: Vec<JoinHandle<()>>,
             stopping: Arc<AtomicBool>,
-            _activity: Option<crate::application::updates::activity::ActivityLease<'static>>,
+            _activity: Option<crate::ports::ActivityLease>,
         }
         self.pending.fetch_add(1, Ordering::AcqRel);
         let completed = Arc::new(AtomicBool::new(false));
@@ -203,9 +227,9 @@ fn bounded_join(mut handles: Vec<JoinHandle<()>>, deadline: Instant) -> Vec<Join
 fn terminate_unstarted_child(
     child: Child,
     cleanup: &Arc<WorkerCleanupSupervisor>,
-    package: Option<crate::application::cuda_packages::VerifiedPackage>,
+    package: Option<crate::ports::GpuPackageHandle>,
 ) {
-    let activity = Some(crate::application::updates::activity::cleanup_lease());
+    let activity = Some(cleanup.activity.cleanup_lease());
     let _fence = cleanup.begin();
     let child = Arc::new(WorkerChild::new(child, package));
     if !child.force_exit(Instant::now() + FORCE_EXIT_TIMEOUT) {

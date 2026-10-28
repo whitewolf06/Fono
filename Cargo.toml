@@ -5,6 +5,7 @@ exclude = ["crates/fono-stt-vulkan-worker", "tools/fono-setup"]
 resolver = "2"
 
 [workspace.dependencies]
+fono-stt = { version = "0.1.0", path = "crates/fono-stt", default-features = false }
 fono-types = { version = "0.1.0", path = "crates/fono-types" }
 fono-core = { version = "0.1.0", path = "crates/fono-core" }
 fono-audio = { version = "0.1.0", path = "crates/fono-audio", default-features = false }

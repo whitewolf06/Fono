@@ -35,7 +35,7 @@ fn explicit_vulkan_never_adds_cpu_fallback() {
 
 #[test]
 fn readiness_starts_unloaded_and_records_model_errors() {
-    let engine = SttEngine::new();
+    let engine = SttEngine::default();
     assert_eq!(engine.readiness(), SttReadiness::Unloaded);
 
     let error = engine
@@ -47,20 +47,51 @@ fn readiness_starts_unloaded_and_records_model_errors() {
         .expect_err("missing model must fail before backend startup");
 
     assert!(matches!(error, AppError::ModelFileMissing));
+    let public_error = fono_types::CoreError::from(&error);
     assert_eq!(
-        serde_json::to_value(&error).unwrap()["code"],
-        "model_missing"
+        serde_json::to_value(&public_error).unwrap()["code"],
+        "model_not_found"
     );
-    assert!(matches!(
+    assert_eq!(public_error.message, "The selected model was not found");
+    assert_eq!(
         engine.readiness(),
-        SttReadiness::Failed { message } if message.contains("Файл выбранной модели не найден")
-            && !message.contains("missing-model-for-readiness-test.bin")
-    ));
+        SttReadiness::Failed {
+            message: public_error.message
+        }
+    );
+}
+
+#[test]
+fn environment_message_adapter_and_observer_preserve_the_hosts_authored_contract() {
+    let observed = Arc::new(Mutex::new(Vec::new()));
+    let listener = observed.clone();
+    let engine = SttEngine::new(SttEnvironment {
+        error_message: Arc::new(|error| match error {
+            AppError::ModelFileMissing => "host-authored model guidance".into(),
+            _ => "host-authored generic guidance".into(),
+        }),
+        readiness: Some(Arc::new(move |state| listener.lock().push(state))),
+        ..SttEnvironment::default()
+    });
+    assert_eq!(observed.lock().as_slice(), &[SttReadiness::Unloaded]);
+    let _ = engine.ensure_loaded(
+        Path::new("missing-model-for-host-message-contract.bin"),
+        AccelerationMode::Cpu,
+        &WorkerPaths::default(),
+    );
+    let failed = SttReadiness::Failed {
+        message: "host-authored model guidance".into(),
+    };
+    assert_eq!(engine.readiness(), failed);
+    assert_eq!(
+        observed.lock().as_slice(),
+        &[SttReadiness::Unloaded, failed]
+    );
 }
 
 #[test]
 fn readiness_observer_receives_current_and_failed_states() {
-    let engine = SttEngine::new();
+    let engine = SttEngine::default();
     let observed = Arc::new(Mutex::new(Vec::new()));
     let observed_by_listener = Arc::clone(&observed);
     engine.set_readiness_observer(Arc::new(move |readiness| {
@@ -81,5 +112,5 @@ fn readiness_observer_receives_current_and_failed_states() {
 
 #[test]
 fn health_is_unloaded_before_any_model_is_prepared() {
-    assert_eq!(SttEngine::new().health(), SttHealth::Unloaded);
+    assert_eq!(SttEngine::default().health(), SttHealth::Unloaded);
 }

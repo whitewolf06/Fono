@@ -11,6 +11,8 @@ export function qualityLineage() {
     "crates/fono-audio",
     "crates/fono-stt-protocol",
     "crates/fono-stt-worker",
+    "crates/fono-stt",
+    "crates/fono-types",
     "src-tauri/src/application/speech_gate.rs",
     "src-tauri/src/application/dictation/capture.rs",
     "src-tauri/src/vad",

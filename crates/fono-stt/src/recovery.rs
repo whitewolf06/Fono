@@ -1,7 +1,7 @@
 //! Crash-only bounded worker recovery. Deliberate shutdown/cancel/detach never
 //! emits a fault; stale generations and selections cannot publish a reload.
 use super::*;
-use crate::application::updates::activity::{self, ActivityLease};
+use crate::ports::ActivityLease;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use std::{
     sync::{
@@ -69,7 +69,7 @@ pub struct RecoverySelection {
 pub type RecoverySelectionProvider = Arc<dyn Fn() -> Option<RecoverySelection> + Send + Sync>;
 
 #[derive(Clone)]
-pub(crate) struct PreparedRecoverySelection {
+pub struct PreparedRecoverySelection {
     generation: u64,
     selection: RecoverySelection,
 }
@@ -81,7 +81,7 @@ struct PublishedSelection {
 struct Fault {
     generation: u64,
     selection: RecoverySelection,
-    _activity: ActivityLease<'static>,
+    _activity: ActivityLease,
     manual_revision: u64,
 }
 
@@ -217,7 +217,7 @@ impl SttEngine {
         let _ = self.recovery.sender.set(tx);
         Ok(())
     }
-    pub(crate) fn stop_recovery(&self) {
+    pub fn stop_recovery(&self) {
         {
             let _publication = self.recovery.publication.lock();
             self.recovery.stopped.store(true, Ordering::Release);
@@ -230,11 +230,11 @@ impl SttEngine {
     }
     /// Only explicit model/acceleration selection resets the bounded crash
     /// budget. Ordinary ensure_loaded calls during dictation never reset it.
-    pub(crate) fn reset_recovery_budget(&self) {
+    pub fn reset_recovery_budget(&self) {
         let _publication = self.recovery.publication.lock();
         self.recovery.manual_revision.fetch_add(1, Ordering::AcqRel);
     }
-    pub(crate) fn prepared_recovery_selection(
+    pub fn prepared_recovery_selection(
         &self,
         selection: &RecoverySelection,
     ) -> Option<PreparedRecoverySelection> {
@@ -252,11 +252,8 @@ impl SttEngine {
     /// The native prepare precedes persistence. A fault in that gap is latched
     /// but cannot reload settings that have not been committed. Only the exact
     /// successful transaction may acknowledge and requeue its current fault.
-    pub(crate) fn acknowledge_recovery_selection(
-        &self,
-        prepared: PreparedRecoverySelection,
-    ) -> bool {
-        let Ok(activity) = activity::lease() else {
+    pub fn acknowledge_recovery_selection(&self, prepared: PreparedRecoverySelection) -> bool {
+        let Ok(activity) = self.environment.activity.lease() else {
             return false;
         };
         let _publication = self.recovery_publication();
@@ -342,6 +339,7 @@ impl SttEngine {
             _ => return,
         };
         let control = self.recovery.clone();
+        let activity_provider = self.environment.activity.clone();
         mailbox.arm_fault(Arc::new(move || {
             faulted.store(true, Ordering::Release);
             if control.stopped.load(Ordering::Acquire) {
@@ -350,7 +348,7 @@ impl SttEngine {
             if control.sender.get().is_none() {
                 return;
             }
-            let Ok(activity) = activity::lease() else {
+            let Ok(activity) = activity_provider.lease() else {
                 return;
             };
             // The owner callback does no loading, settings I/O or native teardown.
@@ -371,7 +369,7 @@ fn queue_fault(
     generation: u64,
     selection: RecoverySelection,
     manual_revision: u64,
-    activity: ActivityLease<'static>,
+    activity: ActivityLease,
 ) {
     let mut latest = control.latest.lock();
     if control.stopped.load(Ordering::Acquire) {
@@ -567,7 +565,7 @@ mod tests {
         let fault = Fault {
             generation: 1,
             selection: selection.clone(),
-            _activity: activity::lease().unwrap(),
+            _activity: crate::ports::ActivityLease::new(()),
             manual_revision: 0,
         };
         let now = Instant::now();
@@ -581,7 +579,7 @@ mod tests {
         let next = Fault {
             generation: 2,
             selection,
-            _activity: activity::lease().unwrap(),
+            _activity: crate::ports::ActivityLease::new(()),
             manual_revision: 0,
         };
         assert!(policy.accept(&next, now + TIMING.stable_window, TIMING));

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { createHash } from "node:crypto";
+import { qualityLineage } from "./stt-quality-lineage.mjs";
 import {
   compareLatency,
   consolidate,
@@ -12,6 +14,28 @@ const read = (name) =>
   JSON.parse(fs.readFileSync(new URL(name, import.meta.url)));
 const manifest = read("../src-tauri/tests/fixtures/stt-quality/manifest.json");
 const frozen = read("../src-tauri/tests/fixtures/stt-quality/baseline.json");
+
+test("current quality lineage includes the portable engine, scheduling and shared wire contracts", () => {
+  const lineage = qualityLineage();
+  const inputs = new Map(
+    lineage.source_inputs.map((entry) => [entry.path, entry.sha256]),
+  );
+  for (const file of [
+    "crates/fono-stt/src/scheduler.rs",
+    "crates/fono-stt/src/segmented_transcription.rs",
+    "crates/fono-stt/src/offline_models.json",
+    "crates/fono-types/src/lib.rs",
+  ]) {
+    assert.equal(
+      inputs.get(file),
+      createHash("sha256")
+        .update(fs.readFileSync(new URL(`../${file}`, import.meta.url)))
+        .digest("hex"),
+      `quality evidence must hash the current shared source: ${file}`,
+    );
+  }
+});
+
 // Historical reports are test fixtures only. Production consolidation rejects them
 // because they lack the new common-run lineage; these copies exercise mutations.
 function fixture(runId = "unit-test-candidate-run") {
@@ -369,6 +393,8 @@ test("quality workflow identifies one run, triggers on runner inputs and retains
   );
   for (const input of [
     "crates/fono-stt-worker/**",
+    "crates/fono-stt/**",
+    "crates/fono-types/**",
     "crates/fono-stt-protocol/**",
     "Cargo.toml",
     "Cargo.lock",

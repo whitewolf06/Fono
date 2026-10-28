@@ -1,6 +1,6 @@
 use super::*;
-use crate::stt::{SttEngine, SttHealth, SttReadiness, WorkerPaths};
 use crate::types::{AccelerationMode, SttModelSelection};
+use crate::{SttEngine, SttHealth, SttReadiness, WorkerPaths};
 use sha2::{Digest, Sha256};
 
 #[test]
@@ -81,9 +81,9 @@ fn explicit_gpu_mode_cannot_silently_run_an_offline_cpu_model() {
         id: spec.id,
         local_path: env!("CARGO_MANIFEST_DIR").into(),
     };
-    let engine = SttEngine::new();
+    let engine = SttEngine::default();
     let error = engine
-        .ensure_model_loaded(
+        .ensure_model_loaded_with_paths(
             &model,
             AccelerationMode::Cuda,
             &WorkerPaths::default(),
@@ -97,11 +97,11 @@ fn explicit_gpu_mode_cannot_silently_run_an_offline_cpu_model() {
 #[test]
 #[ignore = "requires explicitly downloaded and hash-verified offline model packages"]
 fn offline_public_wav_cpu_contract() {
-    use crate::application::audio_ingest::{decode_file, AudioIngestPolicy};
+    use crate::test_audio_ingest::{decode_file, AudioIngestPolicy};
     let directory = PathBuf::from(
         std::env::var("FONO_OFFLINE_TEST_MODELS").expect("explicit model cache required"),
     );
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src-tauri");
     let workers =
         WorkerPaths::default().with_speech_vad(root.join("resources/vad/silero_vad.onnx"));
     let manifest: serde_json::Value = serde_json::from_slice(
@@ -117,9 +117,9 @@ fn offline_public_wav_cpu_contract() {
                 .to_string_lossy()
                 .into_owned(),
         };
-        let engine = SttEngine::new();
+        let engine = SttEngine::default();
         engine
-            .ensure_model_loaded(&model, AccelerationMode::Cpu, &workers, &cancel)
+            .ensure_model_loaded_with_paths(&model, AccelerationMode::Cpu, &workers, &cancel)
             .unwrap();
         assert_eq!(engine.model(), Some(spec.id.clone()));
         assert_eq!(engine.device(), "CPU");
@@ -174,7 +174,7 @@ fn offline_public_wav_cpu_contract() {
                 let mut long = Vec::new();
                 for _ in 0..4 {
                     long.extend_from_slice(&audio.pcm_samples);
-                    long.extend(std::iter::repeat(0).take(16_000));
+                    long.extend(std::iter::repeat_n(0, 16_000));
                 }
                 let result = engine
                     .transcribe_cancellable(&long, "ru", cancel.clone())

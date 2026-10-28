@@ -21,9 +21,9 @@ pub(crate) fn activate(
     let state = app.state::<AppState>();
     let settings = state.settings();
     let old_paths = stt::worker_paths_for_app(app);
-    let mut new_paths = old_paths.clone();
-    new_paths.cuda = Some(package.worker_path().to_owned());
-    new_paths.cuda_package = Some(package.clone());
+    let new_paths = old_paths
+        .clone()
+        .with_cuda_package(fono_stt::ports::GpuPackageHandle::new(package.clone()));
     let stt = app.state::<Pipeline>().stt().clone();
     let selected = settings.whisper_model_path.as_deref().filter(|_| {
         matches!(

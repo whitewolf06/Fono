@@ -92,7 +92,7 @@ impl WorkerSession {
 
 impl WorkerMailbox {
     #[allow(clippy::too_many_arguments)]
-    pub(in crate::stt) fn transcribe_window(
+    pub(crate) fn transcribe_window(
         &self,
         samples: &[i16],
         language: &str,
@@ -107,7 +107,7 @@ impl WorkerMailbox {
             return Err(AppError::Cancelled("window cancelled before queue".into()));
         }
         let (response_tx, response_rx) = bounded(1);
-        let activity = crate::application::updates::activity::lease()?;
+        let activity = self.cleanup.activity.lease()?;
         self.enqueue(
             WorkerCommand::Window {
                 samples: samples.to_vec(),

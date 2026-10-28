@@ -2,7 +2,7 @@
 //! Never opens app settings, a microphone, a window or external input.
 use super::{SttEngine, WorkerPaths};
 use crate::{
-    application::audio_ingest::{decode_file, AudioIngestPolicy},
+    test_audio_ingest::{decode_file, AudioIngestPolicy},
     types::{AccelerationMode, SttModelSelection},
 };
 use fono_audio::speech_segments::{segment_recording, SpeechSegment, DEFAULT_MAX_SEGMENT_SAMPLES};
@@ -28,7 +28,7 @@ fn recognize(engine: &SttEngine, audio: &Prepared, operation: u64) -> (String, f
         return (String::new(), 0.0);
     }
     let cancellation = OperationCancellation::default();
-    let result = crate::application::segmented_transcription::transcribe_segments(
+    let result = crate::segmented_transcription::transcribe_segments(
         &audio.samples,
         &audio.segments,
         &cancellation,
@@ -74,7 +74,7 @@ fn public_corpus_model_comparison() {
         std::env::var("FONO_COMPARISON_OUTPUT").expect("explicit report path required"),
     );
     assert!(output.is_absolute());
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src-tauri");
     let corpus_dir = root.join("tests/fixtures/stt-quality");
     let corpus_bytes = std::fs::read(corpus_dir.join("manifest.json")).unwrap();
     let manifest: Value = serde_json::from_slice(&corpus_bytes).unwrap();
@@ -101,7 +101,8 @@ fn public_corpus_model_comparison() {
         let decision = gate
             .analyze_recording(&audio.pcm_samples, || false)
             .unwrap();
-        let (samples, _) = crate::vad::prepare_recording_with_result(&audio.pcm_samples, &decision);
+        let bounds = fono_audio::recorded_speech_bounds(audio.pcm_samples.len(), &decision);
+        let samples = audio.pcm_samples[bounds.start_sample..].to_vec();
         let segments =
             segment_recording(&samples, &vad_path, DEFAULT_MAX_SEGMENT_SAMPLES, || false)
                 .unwrap()
@@ -134,10 +135,10 @@ fn public_corpus_model_comparison() {
             "whisper_threads":8,"whisper_strategy":"fast","sherpa_threads":2,"sherpa_decoding":"greedy_search"},
         "preprocessing":preprocessing,"entries":[],"completed":false});
     save(&output, &report);
-    let engine = SttEngine::new();
+    let engine = SttEngine::default();
     let started = Instant::now();
     engine
-        .ensure_model_loaded(
+        .ensure_model_loaded_with_paths(
             &selection,
             AccelerationMode::Cpu,
             &WorkerPaths::default().with_speech_vad(vad_path),

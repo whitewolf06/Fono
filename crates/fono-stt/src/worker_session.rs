@@ -1,10 +1,18 @@
 impl WorkerSession {
-    pub(super) fn start(
+    #[cfg(feature = "test-support")]
+    pub fn child_handle(&self) -> Arc<WorkerChild> {
+        self.child.clone()
+    }
+    #[cfg(feature = "test-support")]
+    pub fn written_frames(&self) -> Arc<AtomicUsize> {
+        self.written_frames.clone()
+    }
+    pub fn start(
         path: PathBuf,
         backend: BackendKind,
         model_path: &Path,
         cleanup: Arc<WorkerCleanupSupervisor>,
-        package: Option<crate::application::cuda_packages::VerifiedPackage>,
+        package: Option<crate::ports::GpuPackageHandle>,
     ) -> AppResult<Self> {
         Self::start_owned(
             path,
@@ -16,7 +24,7 @@ impl WorkerSession {
         )
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, windows))]
     fn start_with_timeouts(
         path: PathBuf,
         backend: BackendKind,
@@ -32,7 +40,7 @@ impl WorkerSession {
         )
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, windows))]
     fn start_with_timeouts_and_supervisor(
         path: PathBuf,
         backend: BackendKind,
@@ -49,7 +57,7 @@ impl WorkerSession {
         model_path: &Path,
         timeouts: WorkerTimeouts,
         cleanup: Arc<WorkerCleanupSupervisor>,
-        package: Option<crate::application::cuda_packages::VerifiedPackage>,
+        package: Option<crate::ports::GpuPackageHandle>,
     ) -> AppResult<Self> {
         let mut worker = Self::connect(path, backend, model_path, timeouts, cleanup, package)?;
         let load_meta = worker.next_meta("load", None);
@@ -57,15 +65,21 @@ impl WorkerSession {
             meta: load_meta,
             model_path: worker.model_path.clone(),
         })? {
-            WorkerResponse::ModelLoaded { backend: actual, .. } if actual == backend => {}
+            WorkerResponse::ModelLoaded {
+                backend: actual, ..
+            } if actual == backend => {}
             WorkerResponse::Error { message, .. } => {
                 return Err(AppError::Stt(format!(
-                    "{} worker could not load model: {message}", backend_name(backend)
+                    "{} worker could not load model: {message}",
+                    backend_name(backend)
                 )))
             }
-            other => return Err(AppError::Stt(format!(
-                "{} worker returned an unexpected load result: {other:?}", backend_name(backend)
-            ))),
+            other => {
+                return Err(AppError::Stt(format!(
+                    "{} worker returned an unexpected load result: {other:?}",
+                    backend_name(backend)
+                )))
+            }
         }
         tracing::info!("{} worker loaded the Whisper model", backend_name(backend));
         Ok(worker)
@@ -77,14 +91,16 @@ impl WorkerSession {
         model_path: &Path,
         timeouts: WorkerTimeouts,
         cleanup: Arc<WorkerCleanupSupervisor>,
-        package: Option<crate::application::cuda_packages::VerifiedPackage>,
+        package: Option<crate::ports::GpuPackageHandle>,
     ) -> AppResult<Self> {
         if cleanup.is_pending() {
             return Err(worker_cleanup_busy());
         }
         if let Some(package) = package.as_ref() {
             if path != package.worker_path() {
-                return Err(AppError::Config("CUDA package worker path differs from its verified manifest".into()));
+                return Err(AppError::Config(
+                    "CUDA package worker path differs from its verified manifest".into(),
+                ));
             }
             // Signed files and ancestors remain locked. Directory handles do
             // not prevent adding a new child; reject unexpected DLLs again at
@@ -93,7 +109,11 @@ impl WorkerSession {
         }
         let mut command = Command::new(&path);
         if package.is_some() {
-            command.current_dir(path.parent().ok_or_else(|| AppError::Config("CUDA package directory is unavailable".into()))?);
+            command.current_dir(
+                path.parent().ok_or_else(|| {
+                    AppError::Config("CUDA package directory is unavailable".into())
+                })?,
+            );
         }
         command
             .stdin(Stdio::piped())
@@ -151,7 +171,7 @@ impl WorkerSession {
             next_request_id: 0,
             timeouts,
             supports_decoding_options: false,
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             written_frames: Arc::new(AtomicUsize::new(0)),
         };
         let hello_meta = worker.next_meta("hello", None);
@@ -168,7 +188,10 @@ impl WorkerSession {
                 && capabilities.supports_cancel
                 && capabilities.supports_token_timestamps
                 && capabilities.maximum_request_bytes >= MAX_REQUEST_FRAME_BYTES
-                && capabilities.maximum_response_bytes >= MAX_RESPONSE_FRAME_BYTES => { worker.supports_decoding_options = capabilities.supports_decoding_options; }
+                && capabilities.maximum_response_bytes >= MAX_RESPONSE_FRAME_BYTES =>
+            {
+                worker.supports_decoding_options = capabilities.supports_decoding_options;
+            }
             other => {
                 return Err(AppError::Stt(format!(
                     "{} worker returned an unexpected handshake: {other:?}",
@@ -181,11 +204,16 @@ impl WorkerSession {
 
     pub(super) fn probe(
         path: PathBuf,
-        package: Option<crate::application::cuda_packages::VerifiedPackage>,
+        package: Option<crate::ports::GpuPackageHandle>,
+        activity: Arc<dyn crate::ports::ActivityGuard>,
     ) -> AppResult<()> {
         let mut worker = Self::connect(
-            path, BackendKind::Cuda, Path::new(""), PRODUCTION_TIMEOUTS,
-            Arc::default(), package,
+            path,
+            BackendKind::Cuda,
+            Path::new(""),
+            PRODUCTION_TIMEOUTS,
+            Arc::new(WorkerCleanupSupervisor::new(activity)),
+            package,
         )?;
         if worker.shutdown() != WorkerCleanupStatus::Exited {
             return Err(worker_cleanup_busy());
@@ -193,7 +221,7 @@ impl WorkerSession {
         Ok(())
     }
 
-    pub(super) fn ping(&mut self) -> AppResult<()> {
+    pub fn ping(&mut self) -> AppResult<()> {
         let meta = self.next_meta("ping", None);
         match self.request(&WorkerRequest::Ping { meta: meta.clone() })? {
             WorkerResponse::Pong {
@@ -208,9 +236,15 @@ impl WorkerSession {
         }
     }
 
-    #[cfg(test)]
-    pub(super) fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
-        self.transcribe_with_cancellation(samples, language, None, fono_stt_protocol::DecodingOptions::default(), &[])
+    #[cfg(any(all(test, windows), feature = "test-support"))]
+    pub fn transcribe(&mut self, samples: &[i16], language: &str) -> AppResult<Transcript> {
+        self.transcribe_with_cancellation(
+            samples,
+            language,
+            None,
+            fono_stt_protocol::DecodingOptions::default(),
+            &[],
+        )
     }
 
     fn validate_decoding(&self, decoding: fono_stt_protocol::DecodingOptions) -> AppResult<()> {
@@ -221,17 +255,23 @@ impl WorkerSession {
         Ok(())
     }
 
-    #[cfg(test)]
-    pub(super) fn transcribe_cancellable(
+    #[cfg(any(all(test, windows), feature = "test-support"))]
+    pub fn transcribe_cancellable(
         &mut self,
         samples: &[i16],
         language: &str,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
-        self.transcribe_cancellable_with_options(samples, language, cancellation, fono_stt_protocol::DecodingOptions::default(), &[])
+        self.transcribe_cancellable_with_options(
+            samples,
+            language,
+            cancellation,
+            fono_stt_protocol::DecodingOptions::default(),
+            &[],
+        )
     }
 
-    pub(super) fn transcribe_cancellable_with_options(
+    pub fn transcribe_cancellable_with_options(
         &mut self,
         samples: &[i16],
         language: &str,

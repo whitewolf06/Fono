@@ -91,7 +91,8 @@ impl SttEngine {
             ));
         }
         let active = self.state.lock().active().ok_or(AppError::ModelNotLoaded)?;
-        let result = recognizer::transcribe_window(
+        let result = recognizer::transcribe_window_with_activity(
+            self.environment.activity.as_ref(),
             active.recognizer(),
             samples,
             recognizer::WindowOptions {
@@ -111,7 +112,7 @@ impl SttEngine {
             && !matches!(result, Err(AppError::Cancelled(_)))
         {
             if let Err(error) = &result {
-                self.retire_failed_active(&active, error.user_message());
+                self.retire_failed_active(&active, self.error_message(error));
             }
         }
         result

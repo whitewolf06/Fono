@@ -83,7 +83,7 @@ pub(super) trait Recognizer: Send + Sync {
         Self: Sized;
 
     fn model(&self) -> &ModelId;
-    fn device(&self) -> &'static str;
+    fn device(&self) -> std::borrow::Cow<'static, str>;
     fn capabilities(&self) -> RecognizerCapabilities;
     fn transcribe(
         &self,
@@ -110,48 +110,53 @@ pub(super) fn check_cancellation(cancellation: &OperationCancellation) -> AppRes
 /// Keep admission until the actual backend returns, even for a backend that
 /// cannot interrupt a native decode. A cancelled late result never escapes.
 pub(super) fn run<T>(
+    activity: &dyn crate::ports::ActivityGuard,
     cancellation: &OperationCancellation,
     work: impl FnOnce() -> AppResult<T>,
 ) -> AppResult<T> {
     check_cancellation(cancellation)?;
-    let _activity = crate::application::updates::activity::lease()?;
+    let _activity = activity.lease()?;
     let result = work();
     check_cancellation(cancellation)?;
     result
 }
 
 pub(super) fn load(request: RecognizerLoad<'_>) -> AppResult<EngineState> {
-    run(request.cancellation, || {
-        super::validate_model_selection(request.model)?;
-        match request.candidate {
-            EngineCandidate::Embedded { use_gpu } => {
-                let engine = EmbeddedRecognizer::load(&request)?;
-                let device = engine.device();
-                Ok(EngineState::Embedded {
-                    engine: Arc::new(engine),
-                    device,
-                    model_path: request.model.local_path.clone(),
-                    use_gpu: *use_gpu,
-                })
+    run(
+        request.cleanup.activity.as_ref(),
+        request.cancellation,
+        || {
+            super::validate_model_selection(request.model)?;
+            match request.candidate {
+                EngineCandidate::Embedded { use_gpu } => {
+                    let engine = EmbeddedRecognizer::load(&request)?;
+                    let device = engine.device();
+                    Ok(EngineState::Embedded {
+                        engine: Arc::new(engine),
+                        device,
+                        model_path: request.model.local_path.clone(),
+                        use_gpu: *use_gpu,
+                    })
+                }
+                EngineCandidate::Worker { .. } => {
+                    let session = WorkerMailbox::load(&request)?;
+                    let device = Recognizer::device(&session);
+                    Ok(EngineState::Worker {
+                        session: Arc::new(session),
+                        device,
+                    })
+                }
+                #[cfg(feature = "offline-stt")]
+                EngineCandidate::Offline => {
+                    let engine = super::offline::SherpaRecognizer::load(&request)?;
+                    Ok(EngineState::Offline {
+                        engine: Arc::new(engine),
+                        model_path: request.model.local_path.clone(),
+                    })
+                }
             }
-            EngineCandidate::Worker { .. } => {
-                let session = WorkerMailbox::load(&request)?;
-                let device = Recognizer::device(&session);
-                Ok(EngineState::Worker {
-                    session: Arc::new(session),
-                    device,
-                })
-            }
-            #[cfg(feature = "offline-stt")]
-            EngineCandidate::Offline => {
-                let engine = super::offline::SherpaRecognizer::load(&request)?;
-                Ok(EngineState::Offline {
-                    engine: Arc::new(engine),
-                    model_path: request.model.local_path.clone(),
-                })
-            }
-        }
-    })
+        },
+    )
 }
 
 fn validate(recognizer: &dyn Recognizer, options: RecognitionOptions<'_>) -> AppResult<()> {
@@ -170,13 +175,14 @@ fn validate(recognizer: &dyn Recognizer, options: RecognitionOptions<'_>) -> App
     Ok(())
 }
 
-pub(super) fn transcribe(
+pub(super) fn transcribe_with_activity(
+    activity: &dyn crate::ports::ActivityGuard,
     recognizer: &dyn Recognizer,
     samples: &[i16],
     mut options: RecognitionOptions<'_>,
     cancellation: &OperationCancellation,
 ) -> AppResult<Transcript> {
-    run(cancellation, || {
+    run(activity, cancellation, || {
         let capabilities = recognizer.capabilities();
         if !capabilities.initial_prompt && !capabilities.hotwords {
             options.glossary = &[];
@@ -186,13 +192,14 @@ pub(super) fn transcribe(
     })
 }
 
-pub(super) fn transcribe_window(
+pub(super) fn transcribe_window_with_activity(
+    activity: &dyn crate::ports::ActivityGuard,
     recognizer: &dyn Recognizer,
     samples: &[i16],
     mut options: WindowOptions<'_>,
     cancellation: &OperationCancellation,
 ) -> AppResult<WindowTranscript> {
-    run(cancellation, || {
+    run(activity, cancellation, || {
         let capabilities = recognizer.capabilities();
         if !capabilities.initial_prompt && !capabilities.hotwords {
             options.recognition.glossary = &[];
@@ -216,3 +223,35 @@ pub(super) fn transcribe_window(
 #[cfg(test)]
 #[path = "recognizer_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+pub(super) fn transcribe(
+    recognizer: &dyn Recognizer,
+    samples: &[i16],
+    options: RecognitionOptions<'_>,
+    cancellation: &OperationCancellation,
+) -> AppResult<Transcript> {
+    transcribe_with_activity(
+        &crate::ports::NoopActivity,
+        recognizer,
+        samples,
+        options,
+        cancellation,
+    )
+}
+
+#[cfg(test)]
+pub(super) fn transcribe_window(
+    recognizer: &dyn Recognizer,
+    samples: &[i16],
+    options: WindowOptions<'_>,
+    cancellation: &OperationCancellation,
+) -> AppResult<WindowTranscript> {
+    transcribe_window_with_activity(
+        &crate::ports::NoopActivity,
+        recognizer,
+        samples,
+        options,
+        cancellation,
+    )
+}

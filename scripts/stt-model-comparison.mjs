@@ -118,7 +118,7 @@ async function main(args) {
   const corpus = read(path.join(corpusRoot, "manifest.json"));
   validateCorpus(corpus, corpusRoot);
   const packages = read(
-    path.join(root, "src-tauri/src/stt/offline_models.json"),
+    path.join(root, "crates/fono-stt/src/offline_models.json"),
   );
   const quantized = read(
     path.join(
@@ -159,7 +159,9 @@ async function main(args) {
     collector_sha256: hash(fs.readFileSync(fileURLToPath(import.meta.url))),
     native_runner_sha256: await fileHash(runner),
     runner_source_sha256: hash(
-      fs.readFileSync(path.join(root, "src-tauri/src/stt/comparison_tests.rs")),
+      fs.readFileSync(
+        path.join(root, "crates/fono-stt/src/comparison_tests.rs"),
+      ),
     ),
     hardware: {
       cpu: os.cpus()[0]?.model,
@@ -228,7 +230,7 @@ async function main(args) {
           runner,
           [
             "--exact",
-            "stt::comparison_tests::public_corpus_model_comparison",
+            "comparison_tests::public_corpus_model_comparison",
             "--ignored",
             "--nocapture",
             "--test-threads=1",

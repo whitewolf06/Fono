@@ -1,7 +1,7 @@
 use super::*;
-use crate::pipeline::scheduler::SttScheduler;
-use crate::stt::{SttEngine, SttReadiness, WorkerPaths};
+use crate::scheduler::SttScheduler;
 use crate::types::{AccelerationMode, SttEngine as ModelEngine};
+use crate::{SttEngine, SttReadiness, WorkerPaths};
 use fono_stt_protocol::{BackendKind, DecodingStrategy};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -34,8 +34,8 @@ impl Recognizer for OfflineFixture {
     fn model(&self) -> &ModelId {
         &self.model
     }
-    fn device(&self) -> &'static str {
-        "CPU"
+    fn device(&self) -> std::borrow::Cow<'static, str> {
+        "CPU".into()
     }
     fn capabilities(&self) -> RecognizerCapabilities {
         RecognizerCapabilities {
@@ -246,11 +246,13 @@ fn cancellation_does_not_release_a_permit_while_native_work_is_still_running() {
     let cancel = OperationCancellation::default();
     let worker_cancel = cancel.clone();
     let worker_scheduler = scheduler.clone();
+    let activity = crate::ports::TestActivity::default();
+    let worker_activity = activity.clone();
     let (entered_tx, entered_rx) = std::sync::mpsc::channel();
     let (release_tx, release_rx) = std::sync::mpsc::channel();
     let worker = std::thread::spawn(move || {
         let permit = worker_scheduler.acquire(false, &worker_cancel)?;
-        run(&permit.cancellation, || {
+        run(&worker_activity, &permit.cancellation, || {
             entered_tx.send(()).unwrap();
             release_rx.recv().unwrap();
             Ok(())
@@ -261,7 +263,7 @@ fn cancellation_does_not_release_a_permit_while_native_work_is_still_running() {
         .unwrap();
     cancel.cancel();
     assert!(scheduler.is_busy());
-    assert!(crate::application::updates::activity::is_busy());
+    assert!(activity.is_busy());
     release_tx.send(()).unwrap();
     assert!(matches!(
         worker.join().unwrap(),
@@ -272,7 +274,7 @@ fn cancellation_does_not_release_a_permit_while_native_work_is_still_running() {
 
 #[test]
 fn typed_loading_rejects_unavailable_engines_without_changing_readiness() {
-    let engine = SttEngine::new();
+    let engine = SttEngine::default();
     let model = SttModelSelection {
         id: ModelId {
             engine: ModelEngine::GigaAm,
@@ -281,7 +283,7 @@ fn typed_loading_rejects_unavailable_engines_without_changing_readiness() {
         local_path: "not-a-whisper-model.onnx".into(),
     };
     assert!(matches!(
-        engine.ensure_model_loaded(
+        engine.ensure_model_loaded_with_paths(
             &model,
             AccelerationMode::Cpu,
             &WorkerPaths::default(),
@@ -297,7 +299,7 @@ fn typed_loading_rejects_unavailable_engines_without_changing_readiness() {
     cancel.cancel();
     let model = SttModelSelection::from_whisper_path("missing.bin".into());
     assert!(matches!(
-        engine.ensure_model_loaded(
+        engine.ensure_model_loaded_with_paths(
             &model,
             AccelerationMode::Cpu,
             &WorkerPaths::default(),
@@ -311,8 +313,8 @@ fn typed_loading_rejects_unavailable_engines_without_changing_readiness() {
 #[test]
 #[ignore = "requires the explicitly supplied pinned multilingual Tiny model"]
 fn embedded_whisper_public_wav_contract() {
-    use crate::application::audio_ingest::{decode_file, AudioIngestPolicy};
-    use crate::stt::embedded::EmbeddedEngine;
+    use crate::embedded::EmbeddedEngine;
+    use crate::test_audio_ingest::{decode_file, AudioIngestPolicy};
     use sha2::{Digest, Sha256};
     use std::path::{Path, PathBuf};
 
@@ -324,7 +326,9 @@ fn embedded_whisper_public_wav_contract() {
         model_hash,
         "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21"
     );
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stt-quality");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../src-tauri")
+        .join("tests/fixtures/stt-quality");
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("manifest.json")).unwrap()).unwrap();
     let cancel = OperationCancellation::default();
@@ -333,10 +337,10 @@ fn embedded_whisper_public_wav_contract() {
         ..Default::default()
     };
     let mut direct = EmbeddedEngine::load(&model_path, false).unwrap();
-    let routed = SttEngine::new();
+    let routed = SttEngine::default();
     let model = SttModelSelection::from_whisper_path(model_path.to_string_lossy().into_owned());
     routed
-        .ensure_model_loaded(
+        .ensure_model_loaded_with_paths(
             &model,
             AccelerationMode::Cpu,
             &WorkerPaths::default(),

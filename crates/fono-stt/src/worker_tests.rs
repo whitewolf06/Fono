@@ -1,28 +1,43 @@
 use std::fs;
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+#[cfg(windows)]
+use std::path::Path;
+use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
+#[cfg(windows)]
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(windows)]
+use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::*;
+#[cfg(windows)]
 use fono_core::{OperationCoordinator, OperationSource};
 
 #[path = "worker_cleanup_tests.rs"]
 mod cleanup;
 
-// Parallel workspace tests can briefly delay Windows cmd fixture startup;
-// keep this distinct from the production request deadlines.
+// Measured requests keep short deadlines after a fixture is ready. Parallel
+// workspace builds may delay process startup before Hello or Load is received.
+#[cfg(windows)]
 const TEST_TIMEOUT: Duration = Duration::from_secs(1);
+#[cfg(windows)]
 const TEST_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
     ping: TEST_TIMEOUT,
     load: TEST_TIMEOUT,
     transcribe_base: TEST_TIMEOUT,
     transcribe_max: TEST_TIMEOUT,
 };
+#[cfg(windows)]
+const FIXTURE_STARTUP_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
+    ping: Duration::from_secs(5),
+    load: Duration::from_secs(5),
+    ..TEST_TIMEOUTS
+};
 // EOF tests verify transport semantics, not inference deadlines. Their file
 // barrier/controller needs scheduling headroom during parallel workspace gates.
+#[cfg(windows)]
 const EOF_FIXTURE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[test]
@@ -46,6 +61,36 @@ fn worker_writer_publishes_json_and_delimiter_together() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn unix_worker_probe_validates_the_same_strict_handshake_without_model_loading() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = WorkerFixture::create("");
+    let ready = r#"{"type":"ready","protocol_version":4,"request_id":"hello-1","backend":"cuda","capabilities":{"protocol_version":4,"supports_health":true,"supports_shutdown":true,"supports_window":true,"supports_cancel":true,"supports_token_timestamps":true,"maximum_request_bytes":16777216,"maximum_response_bytes":1048576}}"#;
+    let script = format!(
+        "#!/bin/sh\nIFS= read -r request\nprintf '%s\\n' '{ready}'\nIFS= read -r request\nprintf '%s\\n' '{{\"type\":\"shutting_down\",\"protocol_version\":4,\"request_id\":\"shutdown-2\",\"backend\":\"cuda\"}}'\n"
+    );
+    fs::write(&fixture.script, &script).unwrap();
+    fs::set_permissions(&fixture.script, fs::Permissions::from_mode(0o700)).unwrap();
+    WorkerSession::probe(
+        fixture.script.clone(),
+        None,
+        Arc::new(crate::ports::NoopActivity),
+    )
+    .expect("portable probe sends only Hello and Shutdown");
+    fs::write(
+        &fixture.script,
+        script.replace("\"supports_cancel\":true", "\"supports_cancel\":false"),
+    )
+    .unwrap();
+    assert!(WorkerSession::probe(
+        fixture.script.clone(),
+        None,
+        Arc::new(crate::ports::NoopActivity),
+    )
+    .is_err());
+}
+
 #[cfg(windows)]
 #[test]
 fn common_recognizer_preserves_worker_model_device_and_negotiated_capabilities() {
@@ -53,10 +98,10 @@ fn common_recognizer_preserves_worker_model_device_and_negotiated_capabilities()
     let model_path = fixture.directory.join("ggml-small.bin");
     fs::write(&model_path, b"protocol fixture, not a neural model").unwrap();
     let model = SttModelSelection::from_whisper_path(model_path.to_string_lossy().into_owned());
-    let engine = crate::stt::SttEngine::new();
-    let paths = crate::stt::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None);
+    let engine = crate::SttEngine::default();
+    let paths = crate::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None);
     engine
-        .ensure_model_loaded(
+        .ensure_model_loaded_with_paths(
             &model,
             crate::types::AccelerationMode::Cuda,
             &paths,
@@ -196,14 +241,19 @@ lines.on('line', (line) => {
         fixture
     }
 
+    #[cfg(windows)]
     fn start(&self) -> WorkerSession {
-        WorkerSession::start_with_timeouts(
+        let mut session = WorkerSession::start_with_timeouts(
             self.script.clone(),
             BackendKind::Cuda,
             Path::new("fixture-model.bin"),
-            TEST_TIMEOUTS,
+            FIXTURE_STARTUP_TIMEOUTS,
         )
-        .expect("fixture worker completes handshake")
+        .expect("fixture worker completes handshake");
+        // Startup headroom ends with Hello + Load. Health, inference,
+        // cancellation and retirement keep their original test deadlines.
+        session.timeouts = TEST_TIMEOUTS;
+        session
     }
 }
 
@@ -213,6 +263,7 @@ impl Drop for WorkerFixture {
     }
 }
 
+#[cfg(windows)]
 fn assert_session_is_terminated(session: &mut WorkerSession) {
     // Request failure may transfer process/IO ownership to the cleanup
     // supervisor. Assert confirmed cleanup, not an immediate post-error exit.
@@ -221,9 +272,9 @@ fn assert_session_is_terminated(session: &mut WorkerSession) {
         assert!(Instant::now() < deadline,
             "fixture cleanup did not finish: child={:?}, stdin_done={}, stdout_done={}, stderr_done={}",
             session.child.try_wait(),
-            session.stdin_thread.as_ref().map_or(true, |t| t.is_finished()),
-            session.stdout_thread.as_ref().map_or(true, |t| t.is_finished()),
-            session.stderr_thread.as_ref().map_or(true, |t| t.is_finished()));
+            session.stdin_thread.as_ref().is_none_or(|t| t.is_finished()),
+            session.stdout_thread.as_ref().is_none_or(|t| t.is_finished()),
+            session.stderr_thread.as_ref().is_none_or(|t| t.is_finished()));
         thread::sleep(Duration::from_millis(10));
     }
     assert!(matches!(session.child.try_wait(), Ok(Some(_))));
@@ -233,6 +284,7 @@ fn assert_session_is_terminated(session: &mut WorkerSession) {
     assert!(session.stderr_thread.is_none());
 }
 
+#[cfg(windows)]
 #[test]
 fn package_probe_requires_strict_hello_without_loading_a_model() {
     let fixture = WorkerFixture::create("");
@@ -241,29 +293,39 @@ fn package_probe_requires_strict_hello_without_loading_a_model() {
         "@echo off\r\nset /p request=\r\necho {ready}\r\nset /p request=\r\necho {{\"type\":\"shutting_down\",\"protocol_version\":4,\"request_id\":\"shutdown-2\",\"backend\":\"cuda\"}}\r\nexit /b 0\r\n"
     );
     fs::write(&fixture.script, &script).unwrap();
-    WorkerSession::probe(fixture.script.clone(), None)
-        .expect("probe sends hello then shutdown, never load");
+    WorkerSession::probe(
+        fixture.script.clone(),
+        None,
+        Arc::new(crate::ports::NoopActivity),
+    )
+    .expect("probe sends hello then shutdown, never load");
     fs::write(
         &fixture.script,
         script.replace("\"supports_cancel\":true", "\"supports_cancel\":false"),
     )
     .unwrap();
-    assert!(WorkerSession::probe(fixture.script.clone(), None).is_err());
+    assert!(WorkerSession::probe(
+        fixture.script.clone(),
+        None,
+        Arc::new(crate::ports::NoopActivity)
+    )
+    .is_err());
 }
 
+#[cfg(windows)]
 #[test]
 fn rejected_uncommitted_runtime_retires_worker_and_publishes_failed_readiness() {
     let fixture = WorkerFixture::create(":hang\r\nset /p ignored=\r\ngoto hang");
-    let engine = crate::stt::SttEngine::new();
-    *engine.state.lock() = crate::stt::routing::EngineState::Worker {
+    let engine = crate::SttEngine::default();
+    *engine.state.lock() = crate::routing::EngineState::Worker {
         session: Arc::new(WorkerMailbox::start(fixture.start())),
-        device: "CUDA",
+        device: "CUDA".into(),
     };
     let generation = engine.generation.load(std::sync::atomic::Ordering::Acquire);
     engine.reject_prepared_selection("installation rolled back");
     assert!(matches!(
         engine.readiness(),
-        crate::stt::SttReadiness::Failed { .. }
+        crate::SttReadiness::Failed { .. }
     ));
     assert!(!engine.is_loaded());
     assert!(engine.generation.load(std::sync::atomic::Ordering::Acquire) > generation);
@@ -423,7 +485,10 @@ fn hung_worker_response_respects_deadline_and_terminates_the_session() {
     let error = session.transcribe(&[0; 160], "auto").unwrap_err();
 
     assert!(started.elapsed() < Duration::from_secs(5));
-    assert!(error.to_string().contains("timed out"));
+    assert!(
+        error.to_string().contains("timed out after 1.0s"),
+        "fixture startup headroom must not extend the inference deadline: {error}"
+    );
     assert_session_is_terminated(&mut session);
 }
 
@@ -508,8 +573,8 @@ fn recovery_fixture(
     after_load: &str,
 ) -> (
     WorkerFixture,
-    Arc<crate::stt::SttEngine>,
-    Arc<Mutex<Option<crate::stt::RecoverySelection>>>,
+    Arc<crate::SttEngine>,
+    Arc<Mutex<Option<crate::RecoverySelection>>>,
 ) {
     recovery_fixture_with_worker(WorkerFixture::create(after_load))
 }
@@ -519,23 +584,23 @@ fn recovery_fixture_with_worker(
     fixture: WorkerFixture,
 ) -> (
     WorkerFixture,
-    Arc<crate::stt::SttEngine>,
-    Arc<Mutex<Option<crate::stt::RecoverySelection>>>,
+    Arc<crate::SttEngine>,
+    Arc<Mutex<Option<crate::RecoverySelection>>>,
 ) {
     let model_path = fixture.directory.join("fixture-model.bin");
     fs::write(&model_path, []).unwrap();
-    let selection = crate::stt::RecoverySelection {
+    let selection = crate::RecoverySelection {
         model_path: model_path.clone(),
         acceleration: crate::types::AccelerationMode::Cuda,
-        worker_paths: crate::stt::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None),
+        worker_paths: crate::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None),
     };
     let provider = Arc::new(Mutex::new(Some(selection.clone())));
     let selected = provider.clone();
-    let engine = Arc::new(crate::stt::SttEngine::new());
+    let engine = Arc::new(crate::SttEngine::default());
     engine
         .enable_recovery_with_timing(
             Arc::new(move || selected.lock().clone()),
-            crate::stt::recovery::Timing {
+            crate::recovery::Timing {
                 backoff: [
                     Duration::from_millis(30),
                     Duration::from_millis(60),
@@ -556,9 +621,9 @@ fn recovery_fixture_with_worker(
 }
 
 #[cfg(windows)]
-fn kill_only_fixture_worker(engine: &crate::stt::SttEngine) {
+fn kill_only_fixture_worker(engine: &crate::SttEngine) {
     let child = match &*engine.state.lock() {
-        crate::stt::EngineState::Worker { session, .. } => session.child.clone(),
+        crate::EngineState::Worker { session, .. } => session.child.clone(),
         _ => panic!("fake worker is not installed"),
     };
     child.kill().unwrap();
@@ -584,7 +649,7 @@ fn idle_fixture_worker_eof_recovers_without_health_or_transcription_poll() {
     kill_only_fixture_worker(&engine);
     wait_for_fixture_state(|| {
         engine.generation.load(Ordering::Acquire) > old
-            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+            && matches!(engine.readiness(), crate::SttReadiness::Ready { .. })
     });
     engine.stop_recovery();
 }
@@ -598,13 +663,13 @@ fn repeated_fixture_worker_crashes_stop_after_three_automatic_reloads() {
         kill_only_fixture_worker(&engine);
         wait_for_fixture_state(|| {
             engine.generation.load(Ordering::Acquire) > old
-                && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+                && matches!(engine.readiness(), crate::SttReadiness::Ready { .. })
         });
     }
     let bounded = engine.generation.load(Ordering::Acquire);
     kill_only_fixture_worker(&engine);
     wait_for_fixture_state(
-        || matches!(engine.readiness(), crate::stt::SttReadiness::Failed { ref message } if message.contains("трёх")),
+        || matches!(engine.readiness(), crate::SttReadiness::Failed { ref message } if message.contains("трёх")),
     );
     thread::sleep(Duration::from_millis(250));
     assert_eq!(engine.generation.load(Ordering::Acquire), bounded);
@@ -612,8 +677,8 @@ fn repeated_fixture_worker_crashes_stop_after_three_automatic_reloads() {
     // ensure_loaded even when the selected model path has not changed.
     let selected = provider.lock().clone().unwrap();
     wait_for_fixture_state(|| match &*engine.state.lock() {
-        crate::stt::EngineState::Worker { session, .. } => session.is_retired(),
-        crate::stt::EngineState::Empty => true,
+        crate::EngineState::Worker { session, .. } => session.is_retired(),
+        crate::EngineState::Empty => true,
         _ => false,
     });
     engine.reset_recovery_budget();
@@ -628,7 +693,7 @@ fn repeated_fixture_worker_crashes_stop_after_three_automatic_reloads() {
     kill_only_fixture_worker(&engine);
     wait_for_fixture_state(|| {
         engine.generation.load(Ordering::Acquire) > manual_generation
-            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+            && matches!(engine.readiness(), crate::SttReadiness::Ready { .. })
     });
     engine.stop_recovery();
 }
@@ -654,7 +719,7 @@ fn stale_fixture_fault_cannot_reload_old_model_after_new_selection() {
         selected_generation
     );
     assert!(
-        matches!(&*engine.state.lock(), crate::stt::EngineState::Worker { session, .. }
+        matches!(&*engine.state.lock(), crate::EngineState::Worker { session, .. }
         if session.model_path == next.model_path.to_string_lossy())
     );
     engine.stop_recovery();
@@ -686,8 +751,8 @@ fn intentional_adaptive_release_does_not_trigger_fixture_recovery() {
     // A health request is legal before adaptive release. Its response must not
     // consume the fixture's eventual Shutdown or depend on a fixed request ID.
     wait_for_fixture_state(|| match engine.health() {
-        crate::stt::SttHealth::Ready { .. } => true,
-        crate::stt::SttHealth::Busy { .. } => false,
+        crate::SttHealth::Ready { .. } => true,
+        crate::SttHealth::Busy { .. } => false,
         other => panic!("request-dispatch fixture health failed: {other:?}"),
     });
     let old = engine.generation.load(Ordering::Acquire);
@@ -698,10 +763,7 @@ fn intentional_adaptive_release_does_not_trigger_fixture_recovery() {
         engine.generation.load(Ordering::Acquire),
         released_generation
     );
-    assert!(matches!(
-        &*engine.state.lock(),
-        crate::stt::EngineState::Empty
-    ));
+    assert!(matches!(&*engine.state.lock(), crate::EngineState::Empty));
     engine.stop_recovery();
 }
 
@@ -714,7 +776,7 @@ fn stale_health_failure_cannot_overwrite_replacement_ready() {
     // before its delayed error is delivered. Keep recovery out of this setup
     // so only the explicit replacement publishes Ready.
     engine.stop_recovery();
-    if let crate::stt::ActiveEngine::Worker(session) = &old {
+    if let crate::ActiveEngine::Worker(session) = &old {
         session.shutdown();
     }
     wait_for_fixture_state(|| !engine.cleanup.is_pending());
@@ -730,17 +792,17 @@ fn stale_health_failure_cannot_overwrite_replacement_ready() {
         .unwrap();
     assert!(matches!(
         engine.readiness(),
-        crate::stt::SttReadiness::Ready { .. }
+        crate::SttReadiness::Ready { .. }
     ));
     // Deterministically deliver the old probe's failure after replacement Ready.
     assert!(!engine.retire_failed_active(&old, "late old health failure".into()));
     assert!(matches!(
         engine.readiness(),
-        crate::stt::SttReadiness::Ready { .. }
+        crate::SttReadiness::Ready { .. }
     ));
     assert!(matches!(
         events.lock().last(),
-        Some(crate::stt::SttReadiness::Ready { .. })
+        Some(crate::SttReadiness::Ready { .. })
     ));
     engine.stop_recovery();
 }
@@ -786,7 +848,7 @@ fn health_fault_during_publication_is_armed_before_retirement_and_recovers() {
     );
     wait_for_fixture_state(|| {
         engine.generation.load(Ordering::Acquire) > selected_generation
-            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+            && matches!(engine.readiness(), crate::SttReadiness::Ready { .. })
     });
     engine.stop_recovery();
 }
@@ -800,8 +862,8 @@ fn persistence_ack_requeues_only_the_exact_current_fault() {
     *provider.lock() = None;
     kill_only_fixture_worker(&engine);
     wait_for_fixture_state(|| match &*engine.state.lock() {
-        crate::stt::EngineState::Worker { session, .. } => session.is_retired(),
-        crate::stt::EngineState::Empty => true,
+        crate::EngineState::Worker { session, .. } => session.is_retired(),
+        crate::EngineState::Empty => true,
         _ => false,
     });
     let mut next = old_selection;
@@ -815,8 +877,8 @@ fn persistence_ack_requeues_only_the_exact_current_fault() {
     let prepared_generation = engine.generation.load(Ordering::Acquire);
     kill_only_fixture_worker(&engine);
     wait_for_fixture_state(|| match &*engine.state.lock() {
-        crate::stt::EngineState::Worker { session, .. } => session.is_retired(),
-        crate::stt::EngineState::Empty => true,
+        crate::EngineState::Worker { session, .. } => session.is_retired(),
+        crate::EngineState::Empty => true,
         _ => false,
     });
     // A failed/uncommitted settings transaction never acknowledges its prepare.
@@ -836,11 +898,11 @@ fn persistence_ack_requeues_only_the_exact_current_fault() {
     assert!(engine.acknowledge_recovery_selection(token.clone()));
     wait_for_fixture_state(|| {
         engine.generation.load(Ordering::Acquire) > prepared_generation
-            && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+            && matches!(engine.readiness(), crate::SttReadiness::Ready { .. })
     });
     assert!(!engine.acknowledge_recovery_selection(token));
     assert!(
-        matches!(&*engine.state.lock(), crate::stt::EngineState::Worker { session, .. }
+        matches!(&*engine.state.lock(), crate::EngineState::Worker { session, .. }
         if session.model_path == next.model_path.to_string_lossy())
     );
     engine.stop_recovery();
@@ -890,7 +952,7 @@ fn explicit_acceleration_change_replaces_compatible_worker_and_recovers_saved_se
         let prepared_generation = engine.generation.load(Ordering::Acquire);
         assert!(prepared_generation > old_generation);
         let prepared = engine.prepared_recovery_selection(&selected).unwrap();
-        if let crate::stt::ActiveEngine::Worker(session) = &old {
+        if let crate::ActiveEngine::Worker(session) = &old {
             session.shutdown();
         }
         drop(old);
@@ -900,7 +962,7 @@ fn explicit_acceleration_change_replaces_compatible_worker_and_recovers_saved_se
         kill_only_fixture_worker(&engine);
         wait_for_fixture_state(|| {
             engine.generation.load(Ordering::Acquire) > prepared_generation
-                && matches!(engine.readiness(), crate::stt::SttReadiness::Ready { .. })
+                && matches!(engine.readiness(), crate::SttReadiness::Ready { .. })
         });
     }
     engine.stop_recovery();

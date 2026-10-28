@@ -276,6 +276,94 @@ impl From<fono_audio::AudioError> for AppError {
     }
 }
 
+impl From<fono_stt::error::RecognitionBackend> for RecognitionBackend {
+    fn from(backend: fono_stt::error::RecognitionBackend) -> Self {
+        match backend {
+            fono_stt::error::RecognitionBackend::Auto => Self::Auto,
+            fono_stt::error::RecognitionBackend::Cpu => Self::Cpu,
+            fono_stt::error::RecognitionBackend::Cuda => Self::Cuda,
+            fono_stt::error::RecognitionBackend::Vulkan => Self::Vulkan,
+        }
+    }
+}
+
+impl From<fono_stt::error::SttError> for AppError {
+    fn from(error: fono_stt::error::SttError) -> Self {
+        use fono_stt::error::SttError as E;
+        match error {
+            E::Busy(message) => Self::Busy(message),
+            E::Cancelled(message) => Self::Cancelled(message),
+            E::Audio(message) => Self::Audio(message),
+            E::Stt(message) => Self::Stt(message),
+            E::Io(error) => Self::Io(error),
+            E::Json(error) => Self::Json(error),
+            E::Config(message) => Self::Config(message),
+            E::ModelNotLoaded => Self::ModelNotLoaded,
+            E::ModelNotSelected => Self::ModelNotSelected,
+            E::ModelFileMissing => Self::ModelFileMissing,
+            E::BackendUnavailable(backend) => Self::BackendUnavailable(backend.into()),
+            E::BackendStartFailed(backend) => Self::BackendStartFailed(backend.into()),
+            E::Internal(message) => Self::Internal(message),
+        }
+    }
+}
+
+pub(crate) fn stt_user_message(error: &fono_stt::error::SttError) -> String {
+    use fono_stt::error::SttError as E;
+    let (code, raw, backend) = match error {
+        E::Busy(message) => (UserErrorCode::Busy, Some(message), None),
+        E::Cancelled(message) => (UserErrorCode::Cancelled, Some(message), None),
+        E::Audio(message) => (UserErrorCode::Audio, Some(message), None),
+        E::Stt(message) => (UserErrorCode::Stt, Some(message), None),
+        E::Config(message) => (UserErrorCode::Config, Some(message), None),
+        E::Io(_) => (UserErrorCode::Io, None, None),
+        E::Json(_) => (UserErrorCode::Json, None, None),
+        E::ModelNotLoaded => (UserErrorCode::ModelNotLoaded, None, None),
+        E::ModelNotSelected => (UserErrorCode::ModelNotSelected, None, None),
+        E::ModelFileMissing => (UserErrorCode::ModelMissing, None, None),
+        E::BackendUnavailable(backend) => (
+            UserErrorCode::BackendUnavailable,
+            None,
+            Some((*backend).into()),
+        ),
+        E::BackendStartFailed(backend) => (
+            UserErrorCode::BackendStartFailed,
+            None,
+            Some((*backend).into()),
+        ),
+        E::Internal(_) => (UserErrorCode::Internal, None, None),
+    };
+    raw.and_then(|message| trusted_detail(message))
+        .unwrap_or_else(|| default_user_message(code, backend))
+}
+
+impl From<AppError> for fono_stt::error::SttError {
+    fn from(error: AppError) -> Self {
+        use fono_stt::error::RecognitionBackend as B;
+        let backend = |backend| match backend {
+            RecognitionBackend::Auto => B::Auto,
+            RecognitionBackend::Cpu => B::Cpu,
+            RecognitionBackend::Cuda => B::Cuda,
+            RecognitionBackend::Vulkan => B::Vulkan,
+        };
+        match error {
+            AppError::Busy(message) => Self::Busy(message),
+            AppError::Cancelled(message) => Self::Cancelled(message),
+            AppError::Audio(message) => Self::Audio(message),
+            AppError::Stt(message) => Self::Stt(message),
+            AppError::Io(error) => Self::Io(error),
+            AppError::Json(error) => Self::Json(error),
+            AppError::Config(message) => Self::Config(message),
+            AppError::ModelNotLoaded => Self::ModelNotLoaded,
+            AppError::ModelNotSelected => Self::ModelNotSelected,
+            AppError::ModelFileMissing => Self::ModelFileMissing,
+            AppError::BackendUnavailable(value) => Self::BackendUnavailable(backend(value)),
+            AppError::BackendStartFailed(value) => Self::BackendStartFailed(backend(value)),
+            other => Self::Internal(other.to_string()),
+        }
+    }
+}
+
 impl From<fono_types::CoreError> for AppError {
     fn from(error: fono_types::CoreError) -> Self {
         use fono_types::ErrorCode;
@@ -333,6 +421,42 @@ pub type AppResult<T> = Result<T, AppError>;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_engine_errors_keep_the_desktop_backend_and_safe_detail_contract() {
+        use fono_stt::error::{RecognitionBackend as Backend, SttError};
+        let error = AppError::from(SttError::BackendUnavailable(Backend::Cuda));
+        assert_eq!(
+            serde_json::to_value(error).unwrap(),
+            serde_json::json!({
+                "code": "backend_unavailable", "params": {"backend": "cuda"}
+            })
+        );
+        let message = "Сначала завершите текущую диктовку";
+        let error = AppError::from(SttError::Busy(message.into()));
+        assert_eq!(
+            serde_json::to_value(error).unwrap(),
+            serde_json::json!({
+                "code": "busy", "params": {"detail": message}
+            })
+        );
+        let private = SttError::Stt("PRIVATE_KEY C:\\profile\\model.bin".into());
+        assert!(!stt_user_message(&private).contains("PRIVATE"));
+        assert_eq!(
+            serde_json::to_value(AppError::from(private)).unwrap(),
+            serde_json::json!({"code":"stt", "params":{}})
+        );
+    }
+
+    #[test]
+    fn shared_json_readiness_uses_the_existing_json_message() {
+        let error = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
+        let shared = fono_stt::error::SttError::Json(error);
+        assert_eq!(
+            stt_user_message(&shared),
+            default_user_message(UserErrorCode::Json, None)
+        );
+    }
 
     #[test]
     fn core_errors_reuse_desktop_codes_without_exposing_source_messages() {
