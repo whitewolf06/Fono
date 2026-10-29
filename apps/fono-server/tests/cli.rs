@@ -80,7 +80,7 @@ fn help_describes_the_server_commands() {
 }
 
 #[test]
-fn version_reports_product_and_worker_protocol() {
+fn version_reports_product_api_and_worker_protocol() {
     let output = run(&["--version"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
@@ -91,7 +91,7 @@ fn version_reports_product_and_worker_protocol() {
         .and_then(|line| line.split('"').nth(3))
         .expect("product version in package.json");
     assert!(stdout.contains(&format!("fono-server {product_version}")));
-    assert!(stdout.contains("api_version: 1 (partial; API v2 planned)"));
+    assert!(stdout.contains("api_version: 2"));
     assert!(stdout.contains(&format!(
         "worker_protocol: {}",
         fono_stt_protocol::PROTOCOL_VERSION

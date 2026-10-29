@@ -43,7 +43,8 @@ const MULTIPART_OVERHEAD_BYTES: usize = 64 * 1024;
 const CLEANUP_ALLOWANCE: Duration = Duration::from_secs(2);
 const SHUTDOWN_POLL: Duration = Duration::from_millis(25);
 const MODEL_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(30);
-const SERVER_API_VERSION: u16 = 2;
+/// HTTP API contract version shared by the runtime and CLI.
+pub const SERVER_API_VERSION: u16 = 2;
 
 #[derive(Debug)]
 pub enum RuntimeError {

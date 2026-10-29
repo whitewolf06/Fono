@@ -19,7 +19,7 @@ pub fn command() -> Command {
                 .short('V')
                 .global(true)
                 .action(ArgAction::SetTrue)
-                .help("Show product, planned API and worker protocol versions"),
+                .help("Show product, API and worker protocol versions"),
         )
         .subcommand(Command::new("serve").about("Start the HTTP server"))
         .subcommand(

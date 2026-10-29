@@ -89,6 +89,8 @@ pub(super) struct EmbeddedEngine {
 
 impl EmbeddedEngine {
     pub(super) fn load(model_path: &Path, use_gpu: bool) -> AppResult<Self> {
+        // Native Whisper logs can contain decoded tokens even when print flags are off.
+        whisper_rs::install_logging_hooks();
         let model_path = model_path.to_string_lossy().to_string();
         let use_gpu = use_gpu && super::gpu_backend_compiled();
         let mut params = WhisperContextParameters::default();

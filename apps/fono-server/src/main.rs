@@ -227,7 +227,7 @@ fn main() -> ExitCode {
     };
     if matches.get_flag("product-version") {
         println!("fono-server {}", env!("FONO_PRODUCT_VERSION"));
-        println!("api_version: 1 (partial; API v2 planned)");
+        println!("api_version: {}", runtime::SERVER_API_VERSION);
         println!("worker_protocol: {}", fono_stt_protocol::PROTOCOL_VERSION);
         return ExitCode::SUCCESS;
     }
