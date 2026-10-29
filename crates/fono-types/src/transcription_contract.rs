@@ -61,7 +61,9 @@ pub enum TranscriptionServiceError {
     InvalidRequest(String),
     Cancelled(String),
     Busy(String),
+    ModelNotFound(String),
     ModelNotReady(String),
+    WorkerFailed(String),
     Failed(String),
 }
 
@@ -196,8 +198,16 @@ mod tests {
             ),
             (TranscriptionServiceError::Busy("message".into()), "busy"),
             (
+                TranscriptionServiceError::ModelNotFound("message".into()),
+                "model_not_found",
+            ),
+            (
                 TranscriptionServiceError::ModelNotReady("message".into()),
                 "model_not_ready",
+            ),
+            (
+                TranscriptionServiceError::WorkerFailed("message".into()),
+                "worker_failed",
             ),
             (
                 TranscriptionServiceError::Failed("message".into()),

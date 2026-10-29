@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fono Server API v2</title>
+    <style>
+      :root { color-scheme: light dark; font: 16px/1.6 system-ui, sans-serif; }
+      body { max-width: 960px; margin: 3rem auto; padding: 0 1.5rem; }
+      code, pre { font-family: ui-monospace, monospace; }
+      pre { padding: 1rem; border: 1px solid #888; border-radius: .5rem; overflow: auto; }
+      table { border-collapse: collapse; width: 100%; }
+      td, th { text-align: left; padding: .6rem; border-bottom: 1px solid #888; }
+      h1, h2 { line-height: 1.25; }
+    </style>
+  </head>
+  <body>
+    <h1>Fono Server API v2</h1>
+    <p>Standalone speech recognition. Fetch <code>/v1/capabilities</code> and <code>/v1/models</code> to discover this server's limits, available models, and feature gates. The current server build provides CPU recognition.</p>
+    <p>All routes except <code>/healthz</code> require <code>Authorization: Bearer &lt;token&gt;</code>. Administrative model commands and metrics require an admin token. Keep bearer tokens in your client or local environment; this page does not collect or store them.</p>
+    <h2>Recognize an audio file</h2>
+    <pre>curl -H "Authorization: Bearer $FONO_TOKEN" \
+  -H 'Content-Type: audio/wav' --data-binary @speech.wav \
+  'http://127.0.0.1:17832/v1/recognize?language=ru&amp;timestamps=segments'</pre>
+    <p>Raw <code>audio/L16;rate=16000;channels=1</code> means signed <strong>big-endian</strong> 16-bit PCM. WAV and Ogg/Opus are supported as complete bodies. Use <code>timestamps=none|segments|words</code> and <code>decoding=fast|accurate</code>; the selected model must support the requested options. Timings are measured or supplied by the recognizer, never synthesized.</p>
+    <p><code>X-Fono-Glossary</code> contains base64url UTF-8 JSON with an array of strings. Decoded JSON is limited to 4096 bytes; the native prompt additionally limits input to 32 terms and 896 term bytes. See per-model feature flags before sending glossary or accurate decoding.</p>
+    <h2>OpenAI-compatible clients</h2>
+    <pre>from openai import OpenAI
+client = OpenAI(base_url="http://127.0.0.1:17832/v1", api_key=token)
+with open("speech.wav", "rb") as audio:
+    result = client.audio.transcriptions.create(
+        model="whisper:tiny", file=audio, language="ru")
+print(result.text)</pre>
+    <p><code>POST /v1/audio/transcriptions</code> accepts multipart <code>file</code>, <code>model</code>, optional <code>language</code>, <code>prompt</code>, <code>response_format</code>, <code>timestamp_granularities[]</code> and <code>temperature</code>. A prompt is limited to <strong>224 UTF-8 bytes</strong> and requires a model with initial-prompt support. Larger prompts are rejected instead of silently truncated. Formats: <code>json</code>, <code>text</code>, <code>srt</code>, <code>vtt</code>, <code>verbose_json</code>. Temperature from 0 through 1 is accepted and ignored. Timestamp arrays in verbose JSON use seconds; Fono recognition segments use milliseconds.</p>
+    <h2>Routes</h2>
+    <table>
+      <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /healthz</code></td><td>Public minimum readiness probe.</td></tr>
+        <tr><td><code>GET /v1/health</code></td><td>Authenticated model and queue status.</td></tr>
+        <tr><td><code>GET /v1/capabilities</code></td><td>Version, formats, limits, CPU device and feature gates.</td></tr>
+        <tr><td><code>GET /v1/models</code></td><td>Installed models, checksum observation, runtime state and capabilities.</td></tr>
+        <tr><td><code>POST /v1/recognize</code></td><td>Synchronous audio-body recognition.</td></tr>
+        <tr><td><code>POST /v1/audio/transcriptions</code></td><td>OpenAI-compatible multipart recognition.</td></tr>
+        <tr><td><code>POST /v1/transcriptions</code></td><td>Create a batch job from multipart <code>audio</code>.</td></tr>
+        <tr><td><code>POST /v1/transcription-jobs</code></td><td>Create a batch job from normalized PCM JSON.</td></tr>
+        <tr><td><code>GET /v1/transcription-jobs/{id}</code></td><td>Read job state and result.</td></tr>
+        <tr><td><code>POST /v1/transcription-jobs/{id}/cancel</code></td><td>Cancel a queued or active job.</td></tr>
+        <tr><td><code>POST /v1/models/{id}/load</code></td><td>Admin: verify and load an installed model.</td></tr>
+        <tr><td><code>POST /v1/models/{id}/unload</code></td><td>Admin: unload an idle model; default model stays resident.</td></tr>
+        <tr><td><code>GET /metrics</code></td><td>Admin: Prometheus counters and gauges when enabled.</td></tr>
+        <tr><td><code>GET /openapi.json</code></td><td>Complete machine-readable API v2 specification.</td></tr>
+      </tbody>
+    </table>
+    <h2>Limits, errors and cancellation</h2>
+    <p>Every response carries <code>X-Request-Id</code>. JSON errors contain a stable code and safe message. HTTP 401 means a missing or revoked token; 403 means insufficient scope or a disabled feature; 404 means an unknown or missing model; 408 means a body reception timeout; 413 means a size or duration limit; 429 means admission is busy and includes <code>Retry-After</code>. A slow upload has a total reception deadline, while recognition may continue longer.</p>
+    <p>Disconnecting a synchronous recognition request cancels its operation. Native work holds admission until it actually returns. Batch jobs have an independent lifecycle and use explicit cancellation. Do not automatically repeat a request if the first operation's outcome is unknown.</p>
+    <p>Client model control is disabled by default. Enable <code>models.client_model_load=true</code> explicitly to use admin load/unload. Model files are installed through the server CLI; the API never downloads them. Metrics are enabled independently with <code>metrics.enabled=true</code>.</p>
+    <p>The default listener is loopback. For a protected private network, configure the exact Host allowlist and explicit network assertion. This build does not provide TLS. CORS grants no cross-origin browser access. Read the network contract in the source documentation before changing the bind address.</p>
+  </body>
+</html>

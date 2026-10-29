@@ -204,6 +204,28 @@ impl ModelPool {
         estimated_bytes: u64,
         cancellation: &OperationCancellation,
     ) -> SttResult<ModelLease> {
+        self.acquire_verified(
+            selection,
+            acceleration,
+            residency,
+            estimated_bytes,
+            cancellation,
+            || Ok(()),
+        )
+    }
+
+    /// Validate the host's pinned artifact under the load admission gate
+    /// immediately before creating a new native model. Existing leases reuse
+    /// their already loaded identity without rehashing weights per request.
+    pub fn acquire_verified(
+        &self,
+        selection: &SttModelSelection,
+        acceleration: AccelerationMode,
+        residency: ModelResidency,
+        estimated_bytes: u64,
+        cancellation: &OperationCancellation,
+        mut verify: impl FnMut() -> SttResult<()>,
+    ) -> SttResult<ModelLease> {
         super::validate_model_selection(selection)?;
         if cancellation.is_cancelled() {
             return Err(cancelled());
@@ -274,6 +296,7 @@ impl ModelPool {
                 Existing::Missing => {}
             }
 
+            verify()?;
             self.make_room(estimated_bytes, cancellation)?;
             if cancellation.is_cancelled() {
                 return Err(cancelled());
@@ -651,6 +674,45 @@ impl ModelPool {
         retired
     }
 
+    /// Explicitly retire an idle model, including a resident one. Admission
+    /// remains reserved while supervised worker cleanup is still pending.
+    /// Active leases, native work and concurrent loads fail with `Busy`.
+    pub fn unload(&self, id: &ModelId) -> SttResult<bool> {
+        let Some(_admission) = self.shared.admission.try_lock() else {
+            return Err(capacity_busy());
+        };
+        self.reap_retired();
+        let engine = {
+            let mut state = self.shared.state.lock();
+            if state.closed {
+                return Err(shutting_down());
+            }
+            let Some(slot) = state.slots.get_mut(id) else {
+                return Ok(false);
+            };
+            if slot.state != SlotState::Loaded || slot.borrowers != 0 {
+                return Err(capacity_busy());
+            }
+            slot.state = SlotState::Retiring;
+            slot.detached = false;
+            Arc::clone(&slot.engine)
+        };
+        if !self.shared.lifecycle.retire(&engine) {
+            let mut state = self.shared.state.lock();
+            if let Some(slot) = state.slots.get_mut(id) {
+                if Arc::ptr_eq(&slot.engine, &engine) {
+                    slot.state = SlotState::Loaded;
+                }
+            }
+            return Err(capacity_busy());
+        }
+        self.mark_detached(id, &engine);
+        if !self.shared.lifecycle.cleanup_pending(&engine) {
+            self.remove_retired(id, &engine);
+        }
+        Ok(true)
+    }
+
     /// Prevent new model acquisitions. Existing leases remain valid so a host
     /// can first drain or cancel accepted requests before retiring workers.
     /// Calls waiting on the admission gate observe this fence on their next
@@ -734,6 +796,20 @@ impl ModelPool {
         models
     }
 
+    /// Reservation state without probing the backend or causing a load.
+    pub fn model_reservation_state(&self, id: &ModelId) -> Option<&'static str> {
+        self.shared
+            .state
+            .lock()
+            .slots
+            .get(id)
+            .map(|slot| match slot.state {
+                SlotState::Loading => "loading",
+                SlotState::Loaded => "loaded",
+                SlotState::Retiring => "retiring",
+            })
+    }
+
     /// Read one model without borrowing it or triggering a load. A retiring
     /// reservation has no published readiness to report.
     pub fn model_readiness(&self, id: &ModelId) -> Option<SttReadiness> {
@@ -795,6 +871,10 @@ impl ModelLease {
         self.engine.device()
     }
 
+    pub fn capabilities(&self) -> Option<crate::RecognizerCapabilities> {
+        self.engine.capabilities()
+    }
+
     pub fn transcribe_segments(
         &self,
         samples: &[i16],
@@ -847,6 +927,30 @@ impl ModelLease {
             cancellation,
             audio_start_sample,
             decoding,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn transcribe_window_with_glossary(
+        &self,
+        samples: &[i16],
+        language: &str,
+        context: Option<&str>,
+        operation_id: u64,
+        cancellation: &OperationCancellation,
+        audio_start_sample: u64,
+        decoding: DecodingOptions,
+        glossary: &[String],
+    ) -> SttResult<WindowTranscript> {
+        self.engine.transcribe_window_with_glossary(
+            samples,
+            language,
+            context,
+            operation_id,
+            cancellation,
+            audio_start_sample,
+            decoding,
+            glossary,
         )
     }
 }
@@ -1047,6 +1151,89 @@ mod tests {
         assert_eq!(pool.loaded_model_ids(), vec![selection("tiny").id]);
         backend.busy.store(false, Ordering::Release);
         drop(acquire(&pool, "base", ModelResidency::Resident).unwrap());
+    }
+
+    #[test]
+    fn explicit_unload_preserves_borrowers_and_native_work() {
+        let backend = Arc::new(FakeLifecycle::default());
+        let pool = pool(1, Arc::clone(&backend));
+        let active = acquire(&pool, "tiny", ModelResidency::Resident).unwrap();
+        let id = selection("tiny").id;
+        assert!(matches!(pool.unload(&id), Err(SttError::Busy(_))));
+        assert_eq!(backend.retires.load(Ordering::Acquire), 0);
+        assert_eq!(pool.model_reservation_state(&id), Some("loaded"));
+        drop(active);
+
+        backend.busy.store(true, Ordering::Release);
+        assert!(matches!(pool.unload(&id), Err(SttError::Busy(_))));
+        assert_eq!(pool.model_reservation_state(&id), Some("loaded"));
+        backend.busy.store(false, Ordering::Release);
+        assert!(pool.unload(&id).unwrap());
+        assert_eq!(pool.model_reservation_state(&id), None);
+        assert!(!pool.unload(&id).unwrap());
+    }
+
+    #[test]
+    fn explicit_unload_keeps_capacity_reserved_through_late_cleanup() {
+        let backend = Arc::new(FakeLifecycle::default());
+        let pool = pool(1, Arc::clone(&backend));
+        drop(acquire(&pool, "tiny", ModelResidency::Resident).unwrap());
+        let id = selection("tiny").id;
+        backend.retire_enters_cleanup.store(true, Ordering::Release);
+        assert!(pool.unload(&id).unwrap());
+        assert_eq!(pool.model_reservation_state(&id), Some("retiring"));
+        assert_eq!(pool.status().retiring, 1);
+        assert!(matches!(pool.unload(&id), Err(SttError::Busy(_))));
+        assert!(matches!(
+            acquire(&pool, "base", ModelResidency::Resident),
+            Err(SttError::Busy(_))
+        ));
+        backend.cleanup_pending.store(false, Ordering::Release);
+        drop(acquire(&pool, "base", ModelResidency::Resident).unwrap());
+        assert_eq!(pool.model_reservation_state(&id), None);
+        assert_eq!(pool.status().loaded, 1);
+    }
+
+    #[test]
+    fn pinned_verification_runs_again_after_unload_or_lru_eviction() {
+        let backend = Arc::new(FakeLifecycle::default());
+        let pool = pool(1, Arc::clone(&backend));
+        let checks = AtomicUsize::new(0);
+        let verified = |name: &str| {
+            pool.acquire_verified(
+                &selection(name),
+                AccelerationMode::Cpu,
+                ModelResidency::Resident,
+                0,
+                &OperationCancellation::default(),
+                || {
+                    checks.fetch_add(1, Ordering::Relaxed);
+                    Ok(())
+                },
+            )
+        };
+        let first = verified("tiny").unwrap();
+        let second = verified("tiny").unwrap();
+        assert_eq!(checks.load(Ordering::Relaxed), 1);
+        drop((first, second));
+        assert!(pool.unload(&selection("tiny").id).unwrap());
+        drop(verified("tiny").unwrap());
+        drop(verified("base").unwrap());
+        assert_eq!(checks.load(Ordering::Relaxed), 3);
+        let loads_before = backend.loads.load(Ordering::Acquire);
+        assert!(matches!(
+            pool.acquire_verified(
+                &selection("tiny"),
+                AccelerationMode::Cpu,
+                ModelResidency::Resident,
+                0,
+                &OperationCancellation::default(),
+                || Err(SttError::ModelFileMissing),
+            ),
+            Err(SttError::ModelFileMissing)
+        ));
+        assert_eq!(backend.loads.load(Ordering::Acquire), loads_before);
+        assert_eq!(pool.loaded_model_ids(), vec![selection("base").id]);
     }
 
     #[test]

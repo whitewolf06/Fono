@@ -306,6 +306,18 @@ fn submission_error(
             "Recognition model is not ready",
             true,
         ),
+        TranscriptionServiceError::ModelNotFound(_) => (
+            StatusCode::NOT_FOUND,
+            "model_not_found",
+            "Recognition model is not installed",
+            false,
+        ),
+        TranscriptionServiceError::WorkerFailed(_) => (
+            StatusCode::BAD_GATEWAY,
+            "worker_failed",
+            "Recognition worker failed",
+            true,
+        ),
         TranscriptionServiceError::Cancelled(_) => (
             StatusCode::CONFLICT,
             "cancelled",

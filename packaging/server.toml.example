@@ -32,6 +32,8 @@ dir = "/var/lib/fono/models"
 default = "whisper:large_turbo"
 preload = ["whisper:large_turbo"]
 max_loaded = 2
+# Admin token may load/unload installed models only when this is enabled.
+client_model_load = false
 
 [[models.placement]]
 model = "whisper:large_turbo"

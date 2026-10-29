@@ -11,23 +11,25 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axum::body::to_bytes;
-use axum::extract::{Extension, Query, Request};
+use axum::extract::{rejection::QueryRejection, Extension, Query, Request};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use axum::{Json, Router};
+use base64::Engine;
 use fono_core::OperationCancellation;
 use fono_service::audio_ingest::{decode_file_cancellable, AudioIngestError, AudioIngestPolicy};
 use fono_service::rest_api::{RestApiState, TokenPrincipal};
 use fono_stt::scheduler::QueueClass;
 use fono_stt::ActivityGuard;
 use fono_types::{
-    SubtitleSegment, TranscriptionRequest, TranscriptionResult, TranscriptionServiceError,
+    DecodingStrategy, SubtitleSegment, TranscriptionRequest, TranscriptionServiceError,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::jobs::{ServerActivity, ServerJobs};
+use crate::recognition_options::{RecognitionOptions, RecognitionOutput, TimestampMode};
 
 const REQUEST_ID_HEADER: &str = "x-request-id";
 const GLOSSARY_HEADER: &str = "x-fono-glossary";
@@ -70,8 +72,9 @@ pub type AdmittedRecognition = Box<
     dyn FnOnce(
             TranscriptionRequest,
             QueueClass,
+            RecognitionOptions,
             OperationCancellation,
-        ) -> Result<TranscriptionResult, TranscriptionServiceError>
+        ) -> Result<RecognitionOutput, TranscriptionServiceError>
         + Send,
 >;
 
@@ -88,8 +91,8 @@ impl InteractiveRecognizer for ServerJobs {
         client_key: &str,
     ) -> Result<AdmittedRecognition, TranscriptionServiceError> {
         let admission = self.admit_client(client_key)?;
-        Ok(Box::new(move |request, class, cancellation| {
-            self.recognize_admitted(request, class, cancellation, admission)
+        Ok(Box::new(move |request, class, options, cancellation| {
+            self.recognize_admitted_with_options(request, class, options, cancellation, admission)
         }))
     }
 }
@@ -98,8 +101,8 @@ pub struct RecognizeState {
     recognizer: Arc<dyn InteractiveRecognizer>,
     activity: Arc<ServerActivity>,
     upload_dir: PathBuf,
-    policy: AudioIngestPolicy,
-    body_read_timeout: Duration,
+    pub(crate) policy: AudioIngestPolicy,
+    pub(crate) body_read_timeout: Duration,
 }
 
 impl RecognizeState {
@@ -123,6 +126,7 @@ impl RecognizeState {
 pub fn routes(state: Arc<RecognizeState>) -> Router<RestApiState> {
     Router::new()
         .route("/v1/recognize", post(recognize))
+        .merge(crate::openai::routes())
         .layer(Extension(state))
 }
 
@@ -137,10 +141,13 @@ struct RecognizeQuery {
 }
 
 #[derive(Clone, Copy)]
-enum AudioFormat {
+pub(crate) enum AudioFormat {
     Pcm,
     Wav,
     Opus,
+    Mp3,
+    Flac,
+    Ogg,
 }
 
 #[derive(Serialize)]
@@ -151,6 +158,8 @@ struct RecognitionResponse {
     backend: Option<String>,
     device: Option<String>,
     segments: Vec<SubtitleSegment>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    words: Vec<SubtitleSegment>,
     timings: RecognitionTimings,
     request_id: String,
 }
@@ -178,7 +187,7 @@ struct ErrorDetail {
 }
 
 #[derive(Debug)]
-struct HttpError {
+pub(crate) struct HttpError {
     status: StatusCode,
     code: &'static str,
     message: &'static str,
@@ -186,7 +195,7 @@ struct HttpError {
 }
 
 impl HttpError {
-    fn invalid() -> Self {
+    pub(crate) fn invalid() -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
             code: "invalid_request",
@@ -195,7 +204,7 @@ impl HttpError {
         }
     }
 
-    fn unsupported() -> Self {
+    pub(crate) fn unsupported() -> Self {
         Self {
             status: StatusCode::UNSUPPORTED_MEDIA_TYPE,
             code: "unsupported_audio",
@@ -204,7 +213,7 @@ impl HttpError {
         }
     }
 
-    fn too_large() -> Self {
+    pub(crate) fn too_large() -> Self {
         Self {
             status: StatusCode::PAYLOAD_TOO_LARGE,
             code: "payload_too_large",
@@ -213,7 +222,7 @@ impl HttpError {
         }
     }
 
-    fn body_timeout() -> Self {
+    pub(crate) fn body_timeout() -> Self {
         Self {
             status: StatusCode::REQUEST_TIMEOUT,
             code: "body_read_timeout",
@@ -222,7 +231,7 @@ impl HttpError {
         }
     }
 
-    fn internal() -> Self {
+    pub(crate) fn internal() -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             code: "internal",
@@ -231,7 +240,7 @@ impl HttpError {
         }
     }
 
-    fn into_response(self, request_id: &RequestId) -> Response {
+    pub(crate) fn into_response(self, request_id: &RequestId) -> Response {
         let mut response = (
             self.status,
             Json(ErrorResponse {
@@ -251,16 +260,67 @@ impl HttpError {
         }
         response
     }
+
+    pub(crate) fn into_openai_response(self, request_id: &RequestId) -> Response {
+        let kind = if self.status.is_server_error() {
+            "server_error"
+        } else {
+            "invalid_request_error"
+        };
+        let mut response = (
+            self.status,
+            Json(serde_json::json!({"error": {
+                "message": self.message,
+                "type": kind,
+                "param": null,
+                "code": self.code,
+                "request_id": request_id.0
+            }})),
+        )
+            .into_response();
+        if self.retryable {
+            response
+                .headers_mut()
+                .insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
+        }
+        response
+    }
 }
 
 fn service_error(error: TranscriptionServiceError) -> HttpError {
     match error {
+        TranscriptionServiceError::InvalidRequest(message)
+            if message == "Selected model does not support the requested recognition options" =>
+        {
+            HttpError {
+                status: StatusCode::BAD_REQUEST,
+                code: "unsupported_options",
+                message: "Selected model does not support the requested recognition options",
+                retryable: false,
+            }
+        }
+        TranscriptionServiceError::InvalidRequest(message)
+            if message == "Selected model does not support the requested language" =>
+        {
+            HttpError {
+                status: StatusCode::BAD_REQUEST,
+                code: "unsupported_language",
+                message: "Selected model does not support the requested language",
+                retryable: false,
+            }
+        }
         TranscriptionServiceError::InvalidRequest(_) => HttpError::invalid(),
         TranscriptionServiceError::Busy(_) => HttpError {
             status: StatusCode::TOO_MANY_REQUESTS,
             code: "busy",
             message: "Recognition queue is busy",
             retryable: true,
+        },
+        TranscriptionServiceError::ModelNotFound(_) => HttpError {
+            status: StatusCode::NOT_FOUND,
+            code: "model_not_found",
+            message: "Recognition model is not installed",
+            retryable: false,
         },
         TranscriptionServiceError::ModelNotReady(_) => HttpError {
             status: StatusCode::SERVICE_UNAVAILABLE,
@@ -275,6 +335,12 @@ fn service_error(error: TranscriptionServiceError) -> HttpError {
             retryable: false,
         },
         TranscriptionServiceError::Failed(_) => HttpError::internal(),
+        TranscriptionServiceError::WorkerFailed(_) => HttpError {
+            status: StatusCode::BAD_GATEWAY,
+            code: "worker_failed",
+            message: "Recognition worker failed",
+            retryable: true,
+        },
     }
 }
 
@@ -306,24 +372,25 @@ async fn recognize(
     Extension(principal): Extension<TokenPrincipal>,
     Extension(request_id): Extension<RequestId>,
     headers: HeaderMap,
-    Query(query): Query<RecognizeQuery>,
+    query: Result<Query<RecognizeQuery>, QueryRejection>,
     request: Request,
 ) -> Response {
     let started = Instant::now();
+    let query = match query {
+        Ok(Query(query)) => query,
+        Err(_) => return HttpError::invalid().into_response(&request_id),
+    };
     let format = match audio_format(&headers) {
         Ok(format) => format,
         Err(error) => return error.into_response(&request_id),
     };
-    let (language, model, class) = match validate_query(&query, &headers) {
+    let (language, model, class, options) = match validate_query(&query, &headers) {
         Ok(parameters) => parameters,
         Err(error) => return error.into_response(&request_id),
     };
-    let recognizer = Arc::clone(&state.recognizer);
-    let client_key = principal.client_key.clone();
-    let admission = match tokio::task::spawn_blocking(move || recognizer.admit(&client_key)).await {
-        Ok(Ok(admission)) => admission,
-        Ok(Err(error)) => return service_error(error).into_response(&request_id),
-        Err(_) => return HttpError::internal().into_response(&request_id),
+    let admission = match admit(&state, principal.client_key).await {
+        Ok(admission) => admission,
+        Err(error) => return error.into_response(&request_id),
     };
     let max_file_bytes = usize::try_from(state.policy.max_file_bytes).unwrap_or(usize::MAX);
     let body = match tokio::time::timeout(
@@ -342,36 +409,27 @@ async fn recognize(
     if body.len() as u64 > state.policy.max_file_bytes {
         return HttpError::too_large().into_response(&request_id);
     }
-    let cancellation = OperationCancellation::default();
-    let _cancel_on_drop = CancelOnDrop(cancellation.clone());
-    let worker = tokio::task::spawn_blocking(move || {
-        let _activity = state.activity.lease().map_err(|_| {
-            service_error(TranscriptionServiceError::Busy(
-                "server is shutting down".into(),
-            ))
-        })?;
-        let samples = decode_audio(
-            &body,
+    match execute(
+        state,
+        admission,
+        RecognitionInput {
+            body: body.to_vec(),
             format,
-            &state.upload_dir,
-            state.policy,
-            &cancellation,
-        )?;
-        let audio_ms = samples.len() as u64 * 1_000 / 16_000;
-        let result = admission(
-            TranscriptionRequest {
-                pcm_samples: samples,
-                language: language.clone(),
-                model,
-            },
+            language,
+            model,
             class,
-            cancellation,
-        )
-        .map_err(service_error)?;
-        Ok::<_, HttpError>((result, audio_ms, language))
-    });
-    match worker.await {
-        Ok(Ok((result, audio_ms, requested_language))) => {
+            options,
+        },
+    )
+    .await
+    {
+        Ok(completed) => {
+            let CompletedRecognition {
+                output,
+                audio_ms,
+                requested_language,
+            } = completed;
+            let result = output.result;
             let language = result
                 .detected_language
                 .or_else(|| (requested_language != "auto").then_some(requested_language));
@@ -384,6 +442,7 @@ async fn recognize(
                 backend,
                 device,
                 segments: result.segments,
+                words: output.words,
                 timings: RecognitionTimings {
                     queue_ms: None,
                     load_ms: None,
@@ -395,9 +454,78 @@ async fn recognize(
             })
             .into_response()
         }
-        Ok(Err(error)) => error.into_response(&request_id),
-        Err(_) => HttpError::internal().into_response(&request_id),
+        Err(error) => error.into_response(&request_id),
     }
+}
+
+pub(crate) struct RecognitionInput {
+    pub body: Vec<u8>,
+    pub format: AudioFormat,
+    pub language: String,
+    pub model: Option<String>,
+    pub class: QueueClass,
+    pub options: RecognitionOptions,
+}
+
+pub(crate) struct CompletedRecognition {
+    pub output: RecognitionOutput,
+    pub audio_ms: u64,
+    pub requested_language: String,
+}
+
+/// Admission happens before receiving bytes, including multipart uploads.
+pub(crate) async fn admit(
+    state: &Arc<RecognizeState>,
+    client_key: String,
+) -> Result<AdmittedRecognition, HttpError> {
+    let recognizer = Arc::clone(&state.recognizer);
+    match tokio::task::spawn_blocking(move || recognizer.admit(&client_key)).await {
+        Ok(result) => result.map_err(service_error),
+        Err(_) => Err(HttpError::internal()),
+    }
+}
+
+/// Shared execution for native and OpenAI-style HTTP inputs. The cancellation
+/// guard belongs to the waiting HTTP future; the lease belongs to real work.
+pub(crate) async fn execute(
+    state: Arc<RecognizeState>,
+    admission: AdmittedRecognition,
+    input: RecognitionInput,
+) -> Result<CompletedRecognition, HttpError> {
+    let cancellation = OperationCancellation::default();
+    let _cancel_on_drop = CancelOnDrop(cancellation.clone());
+    let worker = tokio::task::spawn_blocking(move || {
+        let _activity = state.activity.lease().map_err(|_| {
+            service_error(TranscriptionServiceError::Busy(
+                "server is shutting down".into(),
+            ))
+        })?;
+        let samples = decode_audio(
+            &input.body,
+            input.format,
+            &state.upload_dir,
+            state.policy,
+            &cancellation,
+        )?;
+        let audio_ms = samples.len() as u64 * 1_000 / 16_000;
+        let output = admission(
+            TranscriptionRequest {
+                pcm_samples: samples,
+                language: input.language.clone(),
+                model: input.model,
+            },
+            input.class,
+            input.options,
+            cancellation,
+        )
+        .map_err(service_error)?;
+        Ok(CompletedRecognition {
+            output,
+            audio_ms,
+            requested_language: input.language,
+        })
+    });
+    worker.await.map_err(|_| HttpError::internal())?
 }
 
 fn normalize_backend(backend: Option<String>) -> Option<String> {
@@ -412,20 +540,27 @@ fn normalize_backend(backend: Option<String>) -> Option<String> {
 fn validate_query(
     query: &RecognizeQuery,
     headers: &HeaderMap,
-) -> Result<(String, Option<String>, QueueClass), HttpError> {
-    // These options need recognizer support. Reject them until API-02 can
-    // implement their semantics rather than silently ignoring the request.
-    if headers.contains_key(GLOSSARY_HEADER)
-        || !matches!(query.timestamps.as_deref(), None | Some("none"))
-        || !matches!(query.decoding.as_deref(), None | Some("fast"))
-    {
-        return Err(HttpError::invalid());
-    }
+) -> Result<(String, Option<String>, QueueClass, RecognitionOptions), HttpError> {
+    let timestamps = match query.timestamps.as_deref() {
+        None | Some("none") => TimestampMode::None,
+        Some("segments") => TimestampMode::Segments,
+        Some("words") => TimestampMode::Words,
+        _ => return Err(HttpError::invalid()),
+    };
+    let strategy = match query.decoding.as_deref() {
+        None | Some("fast") => DecodingStrategy::Fast,
+        Some("accurate") => DecodingStrategy::Accurate,
+        _ => return Err(HttpError::invalid()),
+    };
     let language = query.language.as_deref().unwrap_or("auto");
     if !matches!(language, "auto" | "ru" | "en") {
         return Err(HttpError::invalid());
     }
-    if query.model.as_deref().is_some_and(str::is_empty) {
+    if query
+        .model
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty() || value.len() > 128)
+    {
         return Err(HttpError::invalid());
     }
     let class = match query.priority.as_deref() {
@@ -433,7 +568,39 @@ fn validate_query(
         Some("batch") => QueueClass::Batch,
         _ => return Err(HttpError::invalid()),
     };
-    Ok((language.to_owned(), query.model.clone(), class))
+    let options = RecognitionOptions {
+        decoding: fono_types::DecodingOptions {
+            strategy,
+            ..Default::default()
+        },
+        timestamps,
+        glossary: parse_glossary(headers)?,
+        ..RecognitionOptions::default()
+    };
+    Ok((language.to_owned(), query.model.clone(), class, options))
+}
+
+fn parse_glossary(headers: &HeaderMap) -> Result<Vec<String>, HttpError> {
+    let mut values = headers.get_all(GLOSSARY_HEADER).iter();
+    let value = match (values.next(), values.next()) {
+        (None, None) => return Ok(Vec::new()),
+        (Some(value), None) => value.to_str().map_err(|_| HttpError::invalid())?,
+        _ => return Err(HttpError::invalid()),
+    };
+    // Bound encoded bytes before decoding so a header cannot allocate freely.
+    if value.len() > 5464 {
+        return Err(HttpError::invalid());
+    }
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(value)
+        .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(value))
+        .map_err(|_| HttpError::invalid())?;
+    if decoded.len() > 4096 {
+        return Err(HttpError::invalid());
+    }
+    let terms: Vec<String> = serde_json::from_slice(&decoded).map_err(|_| HttpError::invalid())?;
+    fono_stt_protocol::prompt::validate(&terms).map_err(|_| HttpError::invalid())?;
+    Ok(terms)
 }
 
 fn audio_format(headers: &HeaderMap) -> Result<AudioFormat, HttpError> {
@@ -499,7 +666,7 @@ fn decode_audio(
         }
         return Ok(body
             .chunks_exact(2)
-            .map(|pair| i16::from_le_bytes([pair[0], pair[1]]))
+            .map(|pair| i16::from_be_bytes([pair[0], pair[1]]))
             .collect());
     }
     let extension = match format {
@@ -509,6 +676,9 @@ fn decode_audio(
             "wav"
         }
         AudioFormat::Opus if is_ogg_opus(body) => "ogg",
+        AudioFormat::Mp3 => "mp3",
+        AudioFormat::Flac => "flac",
+        AudioFormat::Ogg => "ogg",
         _ => return Err(HttpError::unsupported()),
     };
     let path = directory.join(format!(
@@ -582,22 +752,30 @@ mod tests {
     }
 
     #[test]
-    fn raw_pcm_is_little_endian_and_duration_bounded() {
+    fn raw_l16_pcm_uses_network_byte_order_and_duration_bound() {
         let policy = AudioIngestPolicy {
             max_file_bytes: 1024,
             max_duration_seconds: 1,
         };
         let samples = decode_audio(
-            &[0x34, 0x12, 0xff, 0xff],
+            &[0x12, 0x34, 0xff, 0xfe, 0x80, 0x00, 0x7f, 0xff],
             AudioFormat::Pcm,
             Path::new("."),
             policy,
             &OperationCancellation::default(),
         )
         .unwrap();
-        assert_eq!(samples, vec![0x1234, -1]);
+        assert_eq!(samples, vec![0x1234, -2, i16::MIN, i16::MAX]);
         assert!(decode_audio(
             &[0x01],
+            AudioFormat::Pcm,
+            Path::new("."),
+            policy,
+            &OperationCancellation::default(),
+        )
+        .is_err());
+        assert!(decode_audio(
+            &vec![0; 16_001 * 2],
             AudioFormat::Pcm,
             Path::new("."),
             policy,
@@ -643,5 +821,33 @@ mod tests {
             validate_query(&batch, &headers).unwrap().2,
             QueueClass::Batch
         );
+    }
+
+    #[test]
+    fn query_carries_advanced_decoding_real_timestamps_and_bounded_glossary() {
+        let mut headers = HeaderMap::new();
+        let encoded =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"["Fono","Kubernetes"]"#);
+        headers.insert(GLOSSARY_HEADER, encoded.parse().unwrap());
+        let query = RecognizeQuery {
+            timestamps: Some("words".into()),
+            decoding: Some("accurate".into()),
+            ..RecognizeQuery::default()
+        };
+        let (_, _, _, options) = validate_query(&query, &headers).unwrap();
+        assert!(matches!(options.timestamps, TimestampMode::Words));
+        assert_eq!(options.decoding.strategy, DecodingStrategy::Accurate);
+        assert_eq!(options.glossary, ["Fono", "Kubernetes"]);
+        for invalid in [
+            "not-base64!".into(),
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"["bad\nterm"]"#),
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode("x".repeat(4097)),
+        ] {
+            headers.insert(GLOSSARY_HEADER, invalid.parse().unwrap());
+            assert!(validate_query(&query, &headers).is_err());
+        }
+        headers.insert(GLOSSARY_HEADER, encoded.parse().unwrap());
+        headers.append(GLOSSARY_HEADER, encoded.parse().unwrap());
+        assert!(validate_query(&query, &headers).is_err());
     }
 }

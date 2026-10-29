@@ -26,6 +26,7 @@ use fono_types::{
 
 use crate::config::ServerConfig;
 use crate::models::PreloadPlan;
+use crate::recognition_options::{RecognitionOptions, RecognitionOutput, TimestampMode};
 
 const SAMPLE_RATE_HZ: usize = 16_000;
 
@@ -147,9 +148,52 @@ struct PoolTranscriptionRuntime {
     plan: PreloadPlan,
     acceleration: AccelerationMode,
     max_audio_samples: usize,
+    config: Arc<ServerConfig>,
 }
 
 impl PoolTranscriptionRuntime {
+    fn for_model(&self, requested: Option<&str>) -> Result<Self, TranscriptionServiceError> {
+        let id = requested.unwrap_or(&self.plan.id);
+        if id == self.plan.id
+            && self
+                .pool
+                .model_reservation_state(&self.plan.selection.id)
+                .is_some()
+        {
+            return Ok(self.clone());
+        }
+        let mut configuration = (*self.config).clone();
+        configuration.models.preload = vec![id.to_owned()];
+        let plan = crate::models::resolve_preload(&configuration)
+            .map_err(|_| TranscriptionServiceError::ModelNotFound("Unknown server model".into()))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| {
+                TranscriptionServiceError::ModelNotFound("Unknown server model".into())
+            })?;
+        let plan = if self
+            .pool
+            .model_reservation_state(&plan.selection.id)
+            .is_none()
+        {
+            crate::models::resolve_installed(&configuration, id).map_err(|message| {
+                if message == "Requested model is not installed" {
+                    TranscriptionServiceError::ModelNotFound(message)
+                } else {
+                    TranscriptionServiceError::ModelNotReady(message)
+                }
+            })?
+        } else {
+            plan
+        };
+        let acceleration = acceleration_for_device(&plan.device)
+            .map_err(TranscriptionServiceError::InvalidRequest)?;
+        let mut selected = self.clone();
+        selected.plan = plan;
+        selected.acceleration = acceleration;
+        Ok(selected)
+    }
+
     fn transcribe_windowed(
         &self,
         pcm_samples: &[i16],
@@ -159,17 +203,74 @@ impl PoolTranscriptionRuntime {
         pending: Option<PendingLease>,
         progress: &(dyn Fn(f32) + Sync),
     ) -> Result<WindowTranscript, TranscriptionServiceError> {
+        self.transcribe_windowed_with_options(
+            pcm_samples,
+            language,
+            class,
+            cancellation,
+            pending,
+            progress,
+            &RecognitionOptions::default(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn transcribe_windowed_with_options(
+        &self,
+        pcm_samples: &[i16],
+        language: &str,
+        class: QueueClass,
+        cancellation: &OperationCancellation,
+        pending: Option<PendingLease>,
+        progress: &(dyn Fn(f32) + Sync),
+        options: &RecognitionOptions,
+    ) -> Result<WindowTranscript, TranscriptionServiceError> {
         validate_samples(pcm_samples.len(), self.max_audio_samples)?;
+        if self.plan.selection.id.engine != fono_types::SttEngine::Whisper && language != "auto" {
+            let specification = fono_stt::offline_models::specification(&self.plan.selection.id)
+                .map_err(service_error_from_stt)?;
+            if !specification
+                .languages
+                .iter()
+                .any(|supported| supported == language)
+            {
+                return Err(TranscriptionServiceError::InvalidRequest(
+                    "Selected model does not support the requested language".into(),
+                ));
+            }
+        }
+        options
+            .decoding
+            .validate()
+            .map_err(TranscriptionServiceError::InvalidRequest)?;
+        fono_stt_protocol::prompt::validate(&options.glossary)
+            .map_err(|message| TranscriptionServiceError::InvalidRequest(message.into()))?;
+        validate_prompt(options.prompt.as_deref())?;
         let model = self
             .pool
-            .acquire(
+            .acquire_verified(
                 &self.plan.selection,
                 self.acceleration,
                 self.plan.residency,
                 0,
                 cancellation,
+                || {
+                    crate::models::resolve_installed(&self.config, &self.plan.id)
+                        .map(|_| ())
+                        .map_err(|message| {
+                            if message == "Requested model is not installed" {
+                                SttError::ModelFileMissing
+                            } else {
+                                SttError::ModelNotLoaded
+                            }
+                        })
+                },
             )
             .map_err(service_error_from_stt)?;
+        let capabilities = model.capabilities().ok_or_else(|| {
+            TranscriptionServiceError::ModelNotReady("Model capabilities are unavailable".into())
+        })?;
+        validate_options(options, capabilities)?;
         let segments = fixed_windows(pcm_samples.len()).map_err(service_error_from_stt)?;
         transcribe_scheduled(
             (&self.scheduler, class),
@@ -179,19 +280,50 @@ impl PoolTranscriptionRuntime {
             pending,
             progress,
             |window, offset, window_cancel| {
-                model.transcribe_window_with_options(
+                model.transcribe_window_with_glossary(
                     window,
                     language,
-                    None,
+                    options.prompt.as_deref(),
                     0,
                     window_cancel,
                     offset,
-                    fono_stt_protocol::DecodingOptions::default(),
+                    options.decoding,
+                    &options.glossary,
                 )
             },
         )
         .map_err(service_error_from_stt)
     }
+}
+
+fn validate_prompt(prompt: Option<&str>) -> Result<(), TranscriptionServiceError> {
+    // Whisper's byte-level tokenizer cannot produce more text tokens than
+    // input UTF-8 bytes. This conservative server-only bound prevents the
+    // shared 224-token prompt builder from dropping an accepted context.
+    if prompt.is_some_and(|prompt| {
+        prompt.len() > fono_stt_protocol::prompt::MAX_PROMPT_TOKENS || prompt.contains('\0')
+    }) {
+        return Err(TranscriptionServiceError::InvalidRequest(
+            "prompt is invalid or exceeds the native prompt budget".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_options(
+    options: &RecognitionOptions,
+    capabilities: fono_stt::RecognizerCapabilities,
+) -> Result<(), TranscriptionServiceError> {
+    let unsupported = (!options.decoding.is_default() && !capabilities.decoding_options)
+        || (!options.glossary.is_empty() && !capabilities.initial_prompt && !capabilities.hotwords)
+        || (options.prompt.is_some() && !capabilities.initial_prompt)
+        || (options.timestamps == TimestampMode::Words && !capabilities.token_timestamps);
+    if unsupported {
+        return Err(TranscriptionServiceError::InvalidRequest(
+            "Selected model does not support the requested recognition options".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn fixed_windows(samples: usize) -> SttResult<Vec<SpeechSegment>> {
@@ -289,6 +421,22 @@ impl TranscriptionRuntime for PoolTranscriptionRuntime {
         Ok(self.plan.id.clone())
     }
 
+    fn selected_model(&self, requested: Option<&str>) -> Result<String, TranscriptionServiceError> {
+        self.for_model(requested).map(|selected| selected.plan.id)
+    }
+
+    fn transcribe_selected_with_progress(
+        &self,
+        model: &str,
+        pcm_samples: &[i16],
+        language: &str,
+        cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> Result<(Transcript, Vec<SubtitleSegment>), Self::Error> {
+        let selected = self.for_model(Some(model))?;
+        selected.transcribe_with_progress(pcm_samples, language, cancellation, progress)
+    }
+
     fn transcribe(
         &self,
         pcm_samples: &[i16],
@@ -333,9 +481,10 @@ fn service_error_from_stt(error: SttError) -> TranscriptionServiceError {
     match public.code {
         ErrorCode::Busy => TranscriptionServiceError::Busy(public.message),
         ErrorCode::Cancelled => TranscriptionServiceError::Cancelled(public.message),
-        ErrorCode::ModelNotReady | ErrorCode::ModelNotFound => {
-            TranscriptionServiceError::ModelNotReady(public.message)
-        }
+        ErrorCode::ModelNotFound => TranscriptionServiceError::ModelNotFound(public.message),
+        ErrorCode::InvalidRequest => TranscriptionServiceError::InvalidRequest(public.message),
+        ErrorCode::WorkerFailed => TranscriptionServiceError::WorkerFailed(public.message),
+        ErrorCode::ModelNotReady => TranscriptionServiceError::ModelNotReady(public.message),
         _ => TranscriptionServiceError::Failed(public.message),
     }
 }
@@ -494,6 +643,7 @@ impl ServerJobs {
             plan: default_plan,
             acceleration,
             max_audio_samples,
+            config: Arc::new(config.clone()),
         };
         let queue = Arc::new(
             TranscriptionJobQueue::new(
@@ -583,32 +733,65 @@ impl ServerJobs {
         cancellation: OperationCancellation,
         admission: RecognitionAdmission,
     ) -> Result<TranscriptionResult, TranscriptionServiceError> {
+        self.recognize_admitted_with_options(
+            request,
+            class,
+            RecognitionOptions {
+                timestamps: TimestampMode::Segments,
+                ..Default::default()
+            },
+            cancellation,
+            admission,
+        )
+        .map(|output| output.result)
+    }
+
+    pub fn recognize_admitted_with_options(
+        &self,
+        request: TranscriptionRequest,
+        class: QueueClass,
+        options: RecognitionOptions,
+        cancellation: OperationCancellation,
+        admission: RecognitionAdmission,
+    ) -> Result<RecognitionOutput, TranscriptionServiceError> {
         let RecognitionAdmission { _client, pending } = admission;
         validate_request(&request)?;
-        if let Some(model) = &request.model {
-            if model != &self.runtime.plan.id {
-                return Err(TranscriptionServiceError::InvalidRequest(format!(
-                    "model must match the selected Fono model ({})",
-                    self.runtime.plan.id
-                )));
-            }
-        }
         validate_samples(request.pcm_samples.len(), self.runtime.max_audio_samples)?;
         let _activity = self.activity.lease().map_err(service_error_from_stt)?;
-        let result = self.runtime.transcribe_windowed(
+        let runtime = self.runtime.for_model(request.model.as_deref())?;
+        let result = runtime.transcribe_windowed_with_options(
             &request.pcm_samples,
             &request.language,
             class,
             &cancellation,
             Some(pending),
             &|_| {},
+            &options,
         )?;
         let mut response = TranscriptionResult::from_transcript(
             transcript_from_window(&result),
-            self.runtime.plan.id.clone(),
+            runtime.plan.id.clone(),
         );
-        response.segments = subtitles_from_window(&result);
-        Ok(response)
+        if options.timestamps != TimestampMode::None {
+            response.segments = subtitles_from_window(&result);
+        }
+        let words = if options.timestamps == TimestampMode::Words {
+            result
+                .words
+                .iter()
+                .map(|word| SubtitleSegment {
+                    start_ms: word.start_sample / 16,
+                    end_ms: word.end_sample / 16,
+                    text: word.text.clone(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        Ok(RecognitionOutput {
+            result: response,
+            words,
+        })
     }
 
     pub fn running_count(&self) -> usize {
@@ -652,6 +835,16 @@ mod tests {
     use std::sync::mpsc;
     use std::thread;
     use std::time::Instant;
+
+    fn sample_config() -> ServerConfig {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../packaging/server.toml.example");
+        crate::config::load_and_validate_with_env(
+            &path,
+            std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
+        )
+        .unwrap()
+    }
 
     #[test]
     fn shutdown_blocks_new_work_but_keeps_cleanup_accounted() {
@@ -753,6 +946,7 @@ mod tests {
             },
             acceleration: AccelerationMode::Cpu,
             max_audio_samples: 1,
+            config: Arc::new(sample_config()),
         };
         assert!(matches!(
             runtime.transcribe(&[0, 1], "auto", OperationCancellation::default()),
@@ -760,6 +954,121 @@ mod tests {
         ));
         assert_eq!(pool.status().loaded, 0);
         assert_eq!(pool.status().loading, 0);
+    }
+
+    #[test]
+    fn unavailable_requested_model_fails_before_inference_or_default_fallback() {
+        let pool = Arc::new(ModelPool::new(SttEnvironment::default(), 1).unwrap());
+        let mut config = sample_config();
+        config.models.dir =
+            std::env::temp_dir().join(format!("fono-missing-model-{}", uuid::Uuid::new_v4()));
+        let mut selected_config = config.clone();
+        selected_config.models.preload = vec![config.models.default.clone()];
+        let default_plan = crate::models::resolve_preload(&selected_config)
+            .unwrap()
+            .remove(0);
+        let runtime = PoolTranscriptionRuntime {
+            pool: Arc::clone(&pool),
+            scheduler: Arc::new(DeviceScheduler::new(1, []).unwrap()),
+            plan: default_plan,
+            acceleration: AccelerationMode::Cpu,
+            max_audio_samples: 16_000,
+            config: Arc::new(config),
+        };
+        for id in [
+            "whisper:tiny",
+            "whisper:not-a-managed-model",
+            "../model.bin",
+        ] {
+            assert!(
+                matches!(
+                    runtime.for_model(Some(id)),
+                    Err(TranscriptionServiceError::ModelNotFound(_))
+                ),
+                "{id}"
+            );
+        }
+        assert_eq!(pool.status().loaded, 0);
+        assert_eq!(pool.status().loading, 0);
+    }
+
+    #[test]
+    fn advanced_options_fail_closed_when_selected_engine_lacks_capability() {
+        let unsupported = fono_stt::RecognizerCapabilities {
+            max_segment_samples: 30 * 16_000,
+            window_transcription: true,
+            initial_prompt: false,
+            hotwords: false,
+            language_detection: true,
+            automatic_language: true,
+            token_timestamps: false,
+            decoding_options: false,
+            cancellation: fono_stt::CancellationSupport::Cooperative,
+        };
+        assert!(validate_options(&RecognitionOptions::default(), unsupported).is_ok());
+        for options in [
+            RecognitionOptions {
+                glossary: vec!["Fono".into()],
+                ..Default::default()
+            },
+            RecognitionOptions {
+                prompt: Some("Context".into()),
+                ..Default::default()
+            },
+            RecognitionOptions {
+                timestamps: TimestampMode::Words,
+                ..Default::default()
+            },
+            RecognitionOptions {
+                decoding: fono_types::DecodingOptions {
+                    strategy: fono_types::DecodingStrategy::Accurate,
+                    threads: None,
+                },
+                ..Default::default()
+            },
+        ] {
+            assert!(matches!(
+                validate_options(&options, unsupported),
+                Err(TranscriptionServiceError::InvalidRequest(_))
+            ));
+        }
+        let supported = fono_stt::RecognizerCapabilities {
+            initial_prompt: true,
+            token_timestamps: true,
+            decoding_options: true,
+            ..unsupported
+        };
+        assert!(validate_options(
+            &RecognitionOptions {
+                glossary: vec!["Fono".into()],
+                prompt: Some("Context".into()),
+                timestamps: TimestampMode::Words,
+                decoding: fono_types::DecodingOptions {
+                    strategy: fono_types::DecodingStrategy::Accurate,
+                    threads: None
+                },
+            },
+            supported
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn prompt_utf8_byte_bound_stays_within_the_native_token_budget() {
+        let limit = fono_stt_protocol::prompt::MAX_PROMPT_TOKENS;
+        assert!(validate_prompt(None).is_ok());
+        assert!(validate_prompt(Some(&"x".repeat(limit))).is_ok());
+        assert!(validate_prompt(Some(&"я".repeat(limit / 2))).is_ok());
+        for prompt in [
+            "x".repeat(limit + 1),
+            "я".repeat(limit / 2 + 1),
+            "x\0y".into(),
+        ] {
+            assert!(matches!(
+                validate_prompt(Some(&prompt)),
+                Err(TranscriptionServiceError::InvalidRequest(_))
+            ));
+        }
     }
 
     #[test]

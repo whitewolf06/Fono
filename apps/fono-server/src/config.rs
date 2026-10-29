@@ -44,6 +44,7 @@ pub struct ModelSettings {
     pub default: String,
     pub preload: Vec<String>,
     pub max_loaded: usize,
+    pub client_model_load: bool,
     pub placement: Vec<ModelPlacement>,
 }
 
@@ -230,7 +231,14 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
     if let Some(table) = models {
         known_keys(
             table,
-            &["dir", "default", "preload", "max_loaded", "placement"],
+            &[
+                "dir",
+                "default",
+                "preload",
+                "max_loaded",
+                "placement",
+                "client_model_load",
+            ],
             "models",
         )?;
     }
@@ -249,6 +257,12 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
         default,
         preload,
         max_loaded,
+        client_model_load: boolean_or(
+            models,
+            "client_model_load",
+            "models.client_model_load",
+            false,
+        )?,
         placement,
     };
 
@@ -327,6 +341,7 @@ fn environment_field(name: &str) -> Option<(&'static str, &'static str, Environm
         "FONO_MODELS_DEFAULT" => ("models", "default", String),
         "FONO_MODELS_PRELOAD" => ("models", "preload", TomlArray),
         "FONO_MODELS_MAX_LOADED" => ("models", "max_loaded", Integer),
+        "FONO_MODELS_CLIENT_MODEL_LOAD" => ("models", "client_model_load", Boolean),
         "FONO_MODELS_PLACEMENT" => ("models", "placement", TomlArray),
         "FONO_QUEUE_MAX_QUEUED" => ("queue", "max_queued", Integer),
         "FONO_QUEUE_MAX_INFLIGHT_PER_TOKEN" => ("queue", "max_inflight_per_token", Integer),
@@ -446,7 +461,7 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
         "tls" => matches!(key, "cert" | "key"),
         "models" => matches!(
             key,
-            "dir" | "default" | "preload" | "max_loaded" | "placement"
+            "dir" | "default" | "preload" | "max_loaded" | "placement" | "client_model_load"
         ),
         "models.placement" => {
             matches!(key, "model" | "device" | "residency" | "idle_unload_after")
@@ -900,6 +915,7 @@ mod tests {
         assert!(!config.server.trusted_private_network);
         assert_eq!(config.server.body_read_timeout, Duration::from_secs(60));
         assert_eq!(config.models.preload, ["whisper:large_turbo"]);
+        assert!(!config.models.client_model_load);
         assert_eq!(config.queue.cpu_parallel, 2);
         assert!(config.tls.is_none());
         assert!(!config.metrics.enabled);
@@ -1112,6 +1128,7 @@ mod tests {
             ("FONO_MODELS_DEFAULT", "whisper:small"),
             ("FONO_MODELS_PRELOAD", "[\"whisper:small\"]"),
             ("FONO_MODELS_MAX_LOADED", "3"),
+            ("FONO_MODELS_CLIENT_MODEL_LOAD", "true"),
             (
                 "FONO_MODELS_PLACEMENT",
                 "[{ model = 'whisper:small', device = 'cuda:0', residency = 'idle_unload', idle_unload_after = '30m' }]",
@@ -1143,6 +1160,7 @@ mod tests {
         assert_eq!(config.models.default, "whisper:small");
         assert_eq!(config.models.preload, ["whisper:small"]);
         assert_eq!(config.models.max_loaded, 3);
+        assert!(config.models.client_model_load);
         assert_eq!(config.models.placement.len(), 1);
         assert_eq!(config.models.placement[0].model, "whisper:small");
         assert_eq!(config.models.placement[0].device, "cuda:0");

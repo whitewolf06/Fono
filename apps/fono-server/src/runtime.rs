@@ -33,6 +33,7 @@ use tokio::sync::oneshot;
 use tokio::time::Instant;
 use uuid::Uuid;
 
+use crate::api::{self, ApiState};
 use crate::config::ServerConfig;
 use crate::jobs::{acceleration_for_device, ServerActivity, ServerJobs};
 use crate::models::{self, DiskState, PreloadPlan};
@@ -208,6 +209,19 @@ pub async fn serve_with_shutdown(
         failed: Mutex::new(HashSet::new()),
         stopping: AtomicBool::new(false),
     });
+    let api_state = match ApiState::new(
+        config.clone(),
+        Arc::clone(&pool),
+        jobs.jobs(),
+        Arc::clone(&verifier),
+        activity.clone(),
+    ) {
+        Ok(state) => state,
+        Err(error) => {
+            let _ = cleanup_upload_dir(&upload_dir);
+            return Err(RuntimeError::Model(error));
+        }
+    };
     let recognize = RecognizeState::new(
         jobs.clone(),
         activity.clone(),
@@ -233,6 +247,7 @@ pub async fn serve_with_shutdown(
         recognize,
         max_file_bytes,
         config.server.allowed_hosts.clone(),
+        api_state,
     );
     let preload_cancel = OperationCancellation::default();
     let mut preload = tokio::task::spawn_blocking({
@@ -545,6 +560,7 @@ fn server_router(
     recognize_state: Arc<RecognizeState>,
     max_file_bytes: usize,
     allowed_hosts: Vec<String>,
+    api_state: Arc<ApiState>,
 ) -> Router {
     let jobs = rest_api::jobs_routes().route_layer(middleware::from_fn_with_state(
         Arc::clone(&health.verifier),
@@ -560,6 +576,7 @@ fn server_router(
         .layer(Extension(health));
     jobs.merge(recognize)
         .merge(meta)
+        .merge(api::routes(Arc::clone(&api_state)))
         .layer(DefaultBodyLimit::max(
             max_file_bytes.saturating_add(MULTIPART_OVERHEAD_BYTES),
         ))
@@ -567,6 +584,10 @@ fn server_router(
         .layer(middleware::from_fn_with_state(
             Arc::new(allowed_hosts.into_iter().collect::<HashSet<_>>()),
             enforce_host,
+        ))
+        .layer(middleware::from_fn_with_state(
+            api_state,
+            api::observe_request,
         ))
         .layer(middleware::from_fn(recognize::request_id_middleware))
 }
@@ -651,6 +672,7 @@ async fn authorize_job_request(
     mut request: Request,
     next: Next,
 ) -> Response {
+    let openai_endpoint = request.uri().path() == "/v1/audio/transcriptions";
     let headers = request.headers().clone();
     let authorization = tokio::task::spawn_blocking(move || {
         authorize_principal_headers(&headers, verifier.as_ref(), TokenScope::Recognize)
@@ -662,23 +684,33 @@ async fn authorize_job_request(
             request.extensions_mut().insert(principal);
             next.run(request).await
         }
-        Err(TokenAuthorization::Unauthorized | TokenAuthorization::Allowed) => (
-            StatusCode::UNAUTHORIZED,
-            Json(ApiError {
-                error: ErrorCode {
-                    code: "unauthorized",
-                },
-            }),
-        )
-            .into_response(),
-        Err(TokenAuthorization::Forbidden) => (
-            StatusCode::FORBIDDEN,
-            Json(ApiError {
-                error: ErrorCode { code: "forbidden" },
-            }),
-        )
-            .into_response(),
+        Err(TokenAuthorization::Unauthorized | TokenAuthorization::Allowed) => {
+            authentication_error(StatusCode::UNAUTHORIZED, "unauthorized", openai_endpoint)
+        }
+        Err(TokenAuthorization::Forbidden) => {
+            authentication_error(StatusCode::FORBIDDEN, "forbidden", openai_endpoint)
+        }
     }
+}
+
+fn authentication_error(status: StatusCode, code: &'static str, openai_endpoint: bool) -> Response {
+    if openai_endpoint {
+        return (
+            status,
+            Json(serde_json::json!({"error": {
+                "message": "A valid bearer token with the required scope is required",
+                "type": "authentication_error", "param": null, "code": code
+            }})),
+        )
+            .into_response();
+    }
+    (
+        status,
+        Json(ApiError {
+            error: ErrorCode { code },
+        }),
+    )
+        .into_response()
 }
 
 async fn healthz(Extension(state): Extension<Arc<HealthState>>) -> Response {
@@ -835,6 +867,7 @@ async fn drain_pool(pool: &Arc<ModelPool>, deadline: Instant) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::recognition_options::{RecognitionOptions, RecognitionOutput};
     use crate::recognize::{AdmittedRecognition, InteractiveRecognizer};
     use axum::body::{to_bytes, Body, Bytes};
     use axum::http::Request;
@@ -873,17 +906,21 @@ mod tests {
             Ok(Box::new(
                 |request: TranscriptionRequest,
                  _class: QueueClass,
+                 _options: RecognitionOptions,
                  _cancellation: OperationCancellation| {
-                    Ok(TranscriptionResult::from_transcript(
-                        Transcript {
-                            text: "test transcript".into(),
-                            detected_language: Some(request.language),
-                            transcribe_secs: Some(0.001),
-                            audio_secs: Some(request.pcm_samples.len() as f32 / 16_000.0),
-                            device: Some("CPU".into()),
-                        },
-                        "whisper:small".into(),
-                    ))
+                    Ok(RecognitionOutput {
+                        result: TranscriptionResult::from_transcript(
+                            Transcript {
+                                text: "test transcript".into(),
+                                detected_language: Some(request.language),
+                                transcribe_secs: Some(0.001),
+                                audio_secs: Some(request.pcm_samples.len() as f32 / 16_000.0),
+                                device: Some("CPU".into()),
+                            },
+                            "whisper:small".into(),
+                        ),
+                        words: Vec::new(),
+                    })
                 },
             ))
         }
@@ -913,6 +950,7 @@ mod tests {
             Ok(Box::new(
                 move |_request: TranscriptionRequest,
                       _class: QueueClass,
+                      _options: RecognitionOptions,
                       cancellation: OperationCancellation| {
                     self.started.store(true, Ordering::Release);
                     while !cancellation.is_cancelled() {
@@ -1015,6 +1053,14 @@ mod tests {
             },
             body_read_timeout,
         );
+        let api_state = ApiState::new(
+            config.clone(),
+            Arc::clone(&health.pool),
+            Arc::clone(&jobs),
+            Arc::clone(&verifier),
+            activity.clone(),
+        )
+        .unwrap();
         let rest = RestApiState::new("", SERVER_API_VERSION, activity)
             .with_token_verifier(verifier)
             .with_jobs(jobs)
@@ -1026,6 +1072,7 @@ mod tests {
                 recognize,
                 4096,
                 config.server.allowed_hosts,
+                api_state,
             ),
             health,
         )
@@ -1064,6 +1111,70 @@ mod tests {
         assert_eq!(body["status"], "starting");
         assert_eq!(body["models"][0]["state"], "loading");
         assert_eq!(body["queue"]["batch"], 2);
+    }
+
+    #[tokio::test]
+    async fn standalone_discovery_and_documentation_are_registered_and_protected() {
+        let (app, _) = test_router();
+        for path in [
+            "/v1/capabilities",
+            "/v1/models",
+            "/openapi.json",
+            "/docs",
+            "/metrics",
+        ] {
+            let (status, _) = get_json(app.clone(), path, None).await;
+            assert_eq!(status, StatusCode::UNAUTHORIZED, "{path}");
+        }
+        let (status, capabilities) = get_json(
+            app.clone(),
+            "/v1/capabilities",
+            Some("test-recognize-token"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(capabilities["api_version"], SERVER_API_VERSION);
+        assert_eq!(capabilities["devices"][0]["id"], "cpu");
+        assert_eq!(capabilities["features"]["openai_compatible"], true);
+        assert_eq!(capabilities["features"]["client_model_load"], false);
+        let (status, models) =
+            get_json(app.clone(), "/v1/models", Some("test-recognize-token")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(models["object"], "list");
+        let (status, spec) = get_json(app, "/openapi.json", Some("test-recognize-token")).await;
+        assert_eq!(status, StatusCode::OK);
+        for path in [
+            "/v1/recognize",
+            "/v1/models",
+            "/v1/capabilities",
+            "/v1/audio/transcriptions",
+            "/v1/transcriptions",
+            "/metrics",
+        ] {
+            assert!(spec["paths"].get(path).is_some(), "{path}");
+        }
+    }
+
+    #[tokio::test]
+    async fn openai_authentication_errors_keep_sdk_error_fields() {
+        let (app, _) = test_router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/audio/transcriptions")
+                    .header("host", "localhost")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert!(response.headers().contains_key("x-request-id"));
+        let body = to_bytes(response.into_body(), 4096).await.unwrap();
+        let error: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(error["error"]["message"].is_string());
+        assert_eq!(error["error"]["type"], "authentication_error");
     }
 
     #[tokio::test]
@@ -1149,7 +1260,11 @@ mod tests {
         let (app, _) =
             test_router_with_timeout(Arc::new(ReadyRecognizer), Duration::from_millis(100));
         let pending_body = || Body::from_stream(stream::pending::<Result<Bytes, std::io::Error>>());
-        for path in ["/v1/recognize", "/v1/transcriptions"] {
+        for path in [
+            "/v1/recognize",
+            "/v1/transcriptions",
+            "/v1/audio/transcriptions",
+        ] {
             let response = tokio::time::timeout(
                 Duration::from_secs(1),
                 app.clone().oneshot(

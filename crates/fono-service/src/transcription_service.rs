@@ -24,6 +24,18 @@ pub trait TranscriptionRuntime: Send + Sync {
     /// metadata, never a filesystem path.
     fn configured_model(&self) -> Result<String, Self::Error>;
 
+    /// Hosts with a model pool may override selection per request. The
+    /// desktop keeps its historical selected-model restriction by default.
+    fn selected_model(&self, requested: Option<&str>) -> TranscriptionServiceResult<String> {
+        let configured = self.configured_model().map_err(Into::into)?;
+        if requested.is_some_and(|requested| requested != configured) {
+            return Err(TranscriptionServiceError::InvalidRequest(format!(
+                "model must match the selected Fono model ({configured})"
+            )));
+        }
+        Ok(configured)
+    }
+
     fn transcribe(
         &self,
         pcm_samples: &[i16],
@@ -40,6 +52,17 @@ pub trait TranscriptionRuntime: Send + Sync {
     ) -> Result<(Transcript, Vec<SubtitleSegment>), Self::Error> {
         self.transcribe(pcm_samples, language, cancellation)
             .map(|transcript| (transcript, Vec::new()))
+    }
+
+    fn transcribe_selected_with_progress(
+        &self,
+        _model: &str,
+        pcm_samples: &[i16],
+        language: &str,
+        cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> Result<(Transcript, Vec<SubtitleSegment>), Self::Error> {
+        self.transcribe_with_progress(pcm_samples, language, cancellation, progress)
     }
 }
 
@@ -134,17 +157,11 @@ where
                 "transcription cancelled before readiness check".into(),
             ));
         }
-        let configured_model = self.runtime.configured_model().map_err(Into::into)?;
-        if let Some(requested_model) = request.model.as_deref() {
-            if requested_model != configured_model {
-                return Err(TranscriptionServiceError::InvalidRequest(format!(
-                    "model must match the selected Fono model ({configured_model})"
-                )));
-            }
-        }
+        let configured_model = self.runtime.selected_model(request.model.as_deref())?;
         let (transcript, segments) = self
             .runtime
-            .transcribe_with_progress(
+            .transcribe_selected_with_progress(
+                &configured_model,
                 &request.pcm_samples,
                 &request.language,
                 cancellation,
@@ -292,6 +309,86 @@ mod tests {
             Err(TranscriptionServiceError::InvalidRequest(_))
         ));
         assert_eq!(service.runtime.transcribe_calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn pooled_runtime_routes_requested_model_and_reports_the_actual_selection() {
+        struct PooledRuntime {
+            requested: Mutex<Vec<String>>,
+        }
+        impl TranscriptionRuntime for PooledRuntime {
+            type Error = TranscriptionServiceError;
+
+            fn configured_model(&self) -> Result<String, Self::Error> {
+                Ok("whisper:base".into())
+            }
+
+            fn selected_model(
+                &self,
+                requested: Option<&str>,
+            ) -> TranscriptionServiceResult<String> {
+                let model = requested.unwrap_or("whisper:base");
+                match model {
+                    "whisper:base" | "whisper:tiny" => Ok(model.into()),
+                    _ => Err(TranscriptionServiceError::ModelNotFound(
+                        "unknown model".into(),
+                    )),
+                }
+            }
+
+            fn transcribe(
+                &self,
+                _pcm_samples: &[i16],
+                _language: &str,
+                _cancellation: OperationCancellation,
+            ) -> Result<Transcript, Self::Error> {
+                panic!("pooled requests must use the explicitly selected model")
+            }
+
+            fn transcribe_selected_with_progress(
+                &self,
+                model: &str,
+                pcm_samples: &[i16],
+                language: &str,
+                _cancellation: OperationCancellation,
+                progress: &(dyn Fn(f32) + Sync),
+            ) -> Result<(Transcript, Vec<SubtitleSegment>), Self::Error> {
+                assert_eq!(pcm_samples, &[0, 4, -4]);
+                assert_eq!(language, "ru");
+                self.requested.lock().unwrap().push(model.into());
+                progress(1.0);
+                Ok((transcript(), Vec::new()))
+            }
+        }
+
+        let service = TranscriptionService::new(PooledRuntime {
+            requested: Mutex::new(Vec::new()),
+        });
+        let selected = service
+            .transcribe(TranscriptionRequest {
+                model: Some("whisper:tiny".into()),
+                ..request()
+            })
+            .unwrap();
+        assert_eq!(selected.model, "whisper:tiny");
+        let default = service
+            .transcribe(TranscriptionRequest {
+                model: None,
+                ..request()
+            })
+            .unwrap();
+        assert_eq!(default.model, "whisper:base");
+        assert!(matches!(
+            service.transcribe(TranscriptionRequest {
+                model: Some("unknown".into()),
+                ..request()
+            }),
+            Err(TranscriptionServiceError::ModelNotFound(_))
+        ));
+        assert_eq!(
+            &*service.runtime.requested.lock().unwrap(),
+            &["whisper:tiny", "whisper:base"]
+        );
     }
 
     #[test]

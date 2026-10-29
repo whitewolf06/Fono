@@ -333,6 +333,23 @@ pub fn resolve_preload(config: &ServerConfig) -> Result<Vec<PreloadPlan>, String
         .collect()
 }
 
+/// Resolve a single installed model after checking its pinned artifact.
+/// This never downloads a model or accepts a caller-controlled filesystem path.
+pub fn resolve_installed(config: &ServerConfig, id: &str) -> Result<PreloadPlan, String> {
+    let model = resolve(id)?;
+    match model.verify(&config.models.dir) {
+        Ok(true) => {}
+        Ok(false) => return Err("Requested model is not installed".into()),
+        Err(_) => return Err("Requested model failed artifact verification".into()),
+    }
+    let mut selection = config.clone();
+    selection.models.preload = vec![id.to_owned()];
+    resolve_preload(&selection)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "Requested model has no runtime plan".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
