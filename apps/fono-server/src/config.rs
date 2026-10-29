@@ -817,7 +817,9 @@ fn valid_device(device: &str) -> bool {
     device.strip_prefix("cuda:").is_some_and(|index| {
         !index.is_empty()
             && index.bytes().all(|digit| digit.is_ascii_digit())
-            && index.parse::<u32>().is_ok()
+            && index
+                .parse::<u32>()
+                .is_ok_and(|value| value.to_string() == index)
     })
 }
 

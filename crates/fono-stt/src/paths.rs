@@ -19,6 +19,13 @@ impl WorkerPaths {
         self.cuda_package = Some(package);
         self
     }
+    pub(crate) fn with_cuda_device(mut self, device: u32) -> Self {
+        self.cuda_package = self
+            .cuda_package
+            .take()
+            .map(|package| package.with_cuda_device(device));
+        self
+    }
     pub fn with_speech_vad(mut self, path: PathBuf) -> Self {
         self.speech_vad = Some(path);
         self

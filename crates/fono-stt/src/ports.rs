@@ -43,6 +43,10 @@ pub trait GpuPackage: Send + Sync {
     fn worker_path(&self) -> &Path;
     fn identity(&self) -> &str;
     fn validate_layout(&self) -> SttResult<()>;
+    /// Server-selected CUDA ordinal, scoped to this child process only.
+    fn cuda_device(&self) -> Option<u32> {
+        None
+    }
 }
 
 #[derive(Clone)]
@@ -59,6 +63,36 @@ impl GpuPackageHandle {
     }
     pub fn validate_layout(&self) -> SttResult<()> {
         self.0.validate_layout()
+    }
+    pub fn cuda_device(&self) -> Option<u32> {
+        self.0.cuda_device()
+    }
+    pub fn with_cuda_device(self, device: u32) -> Self {
+        struct SelectedDevice {
+            package: GpuPackageHandle,
+            device: u32,
+            identity: String,
+        }
+        impl GpuPackage for SelectedDevice {
+            fn worker_path(&self) -> &Path {
+                self.package.worker_path()
+            }
+            fn identity(&self) -> &str {
+                &self.identity
+            }
+            fn validate_layout(&self) -> SttResult<()> {
+                self.package.validate_layout()
+            }
+            fn cuda_device(&self) -> Option<u32> {
+                Some(self.device)
+            }
+        }
+        let identity = format!("{}:cuda:{device}", self.identity());
+        Self::new(SelectedDevice {
+            package: self,
+            device,
+            identity,
+        })
     }
 }
 impl PartialEq for GpuPackageHandle {

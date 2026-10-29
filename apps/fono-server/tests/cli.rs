@@ -313,12 +313,19 @@ fn token_cli_prints_secret_once_and_never_lists_or_persists_it() {
 }
 
 #[test]
-fn pending_diagnostics_command_fails_explicitly() {
-    let output = run(&["doctor"]);
+fn doctor_reports_missing_dependencies_without_leaking_paths() {
+    let config = fixture_file("[models]\ndir = '/missing-fono-doctor-models'\n[server]\ntokens_file = '/missing-fono-doctor-tokens'\n");
+    let output = run(&["doctor", "--config", config.to_str().unwrap()]);
     assert!(!output.status.success());
-    assert!(String::from_utf8(output.stderr)
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["ready"], false);
+    assert!(report["checks"]
+        .as_array()
         .unwrap()
-        .contains("not available"));
+        .iter()
+        .any(|check| check["name"] == "tokens" && check["ok"] == false));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("/missing-fono"));
+    std::fs::remove_file(config).unwrap();
 }
 
 #[test]

@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1
+# Both CUDA stages are pinned to the same Ubuntu 22.04 / CUDA 12.8.1 release.
+FROM rust:1.96.1-bookworm@sha256:a339861ae23e9abb272cea45dfafde21760d2ce6577a70f8a926153677902663 AS rust-toolchain
+FROM nvidia/cuda:12.8.1-devel-ubuntu22.04@sha256:a99a1860ba8e2916e5c3e73b72ec4c4301653a84586e05bfc9a2aa2d58027e97 AS build
+ENV DEBIAN_FRONTEND=noninteractive \
+    CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup \
+    PATH=/usr/local/cargo/bin:/usr/local/cuda/bin:${PATH}
+COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
+COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential clang cmake curl ca-certificates pkg-config python3 \
+      libasound2-dev libopus-dev libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+ARG CUDA_ARCHITECTURES="75;80;86;89;90;100;120"
+ARG BUILD_JOBS=4
+ARG FONO_BUILD_REVISION=unknown
+ENV FONO_BUILD_REVISION=${FONO_BUILD_REVISION}
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,target=/src/src-tauri/target,sharing=locked \
+    bash packaging/docker/build-cuda.sh
+
+FROM nvidia/cuda:12.8.1-runtime-ubuntu22.04@sha256:4a801ef9232d2b05e69df4eb8aa054dbbe2824e5499e1e6e857320bb01ac41a9 AS runtime
+ENV DEBIAN_FRONTEND=noninteractive \
+    LD_LIBRARY_PATH=/usr/lib/fono:/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    FONO_CONFIG=/etc/fono/server.toml
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl libasound2 libopus0 libssl3 libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 fono \
+    && useradd --uid 10001 --gid 10001 --home-dir /var/lib/fono --no-create-home fono \
+    && install -d -o fono -g fono /var/lib/fono/models \
+    && install -d -o root -g root /etc/fono /usr/lib/fono
+COPY --from=build /out/ /usr/lib/fono/
+COPY packaging/docker/server.profile-a.toml /etc/fono/server.toml
+RUN ln -s /usr/lib/fono/fono-server /usr/bin/fono-server \
+    && ldconfig \
+    && ldd /usr/lib/fono/fono-server | tee /tmp/fono-ldd \
+    && ! grep -q 'not found' /tmp/fono-ldd \
+    && ! grep -Eiq 'libcuda|libcublas|libcudart' /tmp/fono-ldd \
+    && rm /tmp/fono-ldd
+USER 10001:10001
+WORKDIR /var/lib/fono
+VOLUME ["/var/lib/fono/models"]
+EXPOSE 17832
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+    CMD curl --fail --silent --max-time 4 http://127.0.0.1:17832/healthz || exit 1
+ENTRYPOINT ["fono-server"]
+CMD ["serve"]

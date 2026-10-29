@@ -196,6 +196,8 @@ fn load<'a>(path: &str, loaded: &'a mut Loaded) -> Result<&'a mut InferenceState
         if !Path::new(path).exists() {
             return Err(format!("model not found: {path}"));
         }
+        #[cfg(all(target_os = "linux", feature = "cuda"))]
+        validate_cuda_device()?;
         let mut params = WhisperContextParameters::default();
         params.use_gpu(!matches!(backend(), BackendKind::Cpu));
         let context =
@@ -203,6 +205,33 @@ fn load<'a>(path: &str, loaded: &'a mut Loaded) -> Result<&'a mut InferenceState
         *loaded = Some((path.into(), InferenceState::new(Arc::new(context))?));
     }
     Ok(&mut loaded.as_mut().ok_or("model state is unavailable")?.1)
+}
+
+/// NVML visibility alone does not prove that CUDA can create a compute context.
+/// Reject an unusable explicit CUDA placement before Whisper can select CPU.
+#[cfg(all(target_os = "linux", feature = "cuda"))]
+fn validate_cuda_device() -> Result<(), String> {
+    #[link(name = "cudart")]
+    unsafe extern "C" {
+        fn cudaGetDeviceCount(count: *mut std::ffi::c_int) -> std::ffi::c_int;
+        fn cudaSetDevice(device: std::ffi::c_int) -> std::ffi::c_int;
+        fn cudaFree(pointer: *mut std::ffi::c_void) -> std::ffi::c_int;
+    }
+    let mut count = 0;
+    // SAFETY: count points to a live integer. Logical ordinal 0 is the first
+    // device in the child-scoped CUDA_VISIBLE_DEVICES list. cudaFree(NULL) is
+    // CUDA's supported no-op that initializes the selected primary context.
+    let usable = unsafe {
+        cudaGetDeviceCount(&mut count) == 0
+            && count > 0
+            && cudaSetDevice(0) == 0
+            && cudaFree(std::ptr::null_mut()) == 0
+    };
+    if usable {
+        Ok(())
+    } else {
+        Err("CUDA compute device is unavailable".into())
+    }
 }
 
 fn decode_i16(value: &str) -> Result<Vec<i16>, String> {

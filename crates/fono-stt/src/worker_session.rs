@@ -108,6 +108,10 @@ impl WorkerSession {
             package.validate_layout()?;
         }
         let mut command = Command::new(&path);
+        if let Some(device) = package.as_ref().and_then(|package| package.cuda_device()) {
+            command.env("CUDA_DEVICE_ORDER", "PCI_BUS_ID");
+            command.env("CUDA_VISIBLE_DEVICES", device.to_string());
+        }
         if package.is_some() {
             command.current_dir(
                 path.parent().ok_or_else(|| {

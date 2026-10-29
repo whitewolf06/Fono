@@ -1,0 +1,37 @@
+# GPU speech recognition. Publish the container port only on a trusted interface.
+[server]
+bind = "0.0.0.0:17832"
+allowed_hosts = ["localhost", "127.0.0.1"] # Add the exact LAN IP/DNS used by clients.
+trusted_private_network = true
+tokens_file = "/etc/fono/tokens"
+max_upload_mb = 100
+max_audio_seconds = 300
+body_read_timeout = "60s"
+shutdown_grace = "10s"
+
+[models]
+dir = "/var/lib/fono/models"
+default = "whisper:large_turbo"
+preload = ["whisper:large_turbo"]
+max_loaded = 2
+client_model_load = false
+
+[[models.placement]]
+model = "whisper:large_turbo"
+device = "cuda:0"
+residency = "resident"
+
+# Optional second recognizer; pull it explicitly before requesting this model.
+[[models.placement]]
+model = "giga_am:v3_e2e_rnnt_int8"
+device = "cpu"
+residency = "idle_unload"
+idle_unload_after = "30m"
+
+[queue]
+max_queued = 32
+max_inflight_per_token = 2
+cpu_parallel = 2
+
+[metrics]
+enabled = false

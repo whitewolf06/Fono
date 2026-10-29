@@ -74,6 +74,7 @@ workers and the separate Lira release resources.
 - [Documentation index](docs/README.md), [user guide](docs/user-guide.md).
 - [Architecture](docs/architecture.md), [ADRs](docs/adr/README.md).
 - [Contributing](CONTRIBUTING.md), [checks and CI](docs/testing.md).
+- [Ubuntu API server](docs/server.md), [server API v2](docs/server-api.md).
 - [Current status](docs/STATUS.md), [remaining work](docs/roadmap.md).
 - [Historical UI captures](docs/assets/README.md), with dates and demo provenance.
 - [Historical implementation reports and measurements](docs/archive/README.md).

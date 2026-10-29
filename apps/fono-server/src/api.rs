@@ -226,9 +226,14 @@ struct Capabilities {
 }
 #[derive(Serialize)]
 struct Device {
-    id: &'static str,
+    id: String,
     kind: &'static str,
-    threads: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    threads: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    memory_total_mb: Option<u64>,
 }
 #[derive(Serialize)]
 struct Features {
@@ -246,6 +251,29 @@ async fn capabilities(Extension(state): Extension<Arc<ApiState>>, headers: Heade
     if let Err(error) = authorize(&state, &headers, TokenScope::Recognize).await {
         return error.response(&headers);
     }
+    let mut devices = vec![Device {
+        id: "cpu".into(),
+        kind: "cpu",
+        threads: Some(std::thread::available_parallelism().map_or(1, usize::from)),
+        name: None,
+        memory_total_mb: None,
+    }];
+    if crate::backends::cuda_enabled() {
+        let observed = tokio::task::spawn_blocking(|| {
+            crate::backends::installed_worker()?;
+            crate::backends::cuda_devices()
+        })
+        .await;
+        if let Ok(Ok(gpus)) = observed {
+            devices.extend(gpus.into_iter().map(|gpu| Device {
+                id: format!("cuda:{}", gpu.index),
+                kind: "cuda",
+                threads: None,
+                name: Some(gpu.name),
+                memory_total_mb: Some(gpu.memory_total_mb),
+            }));
+        }
+    }
     Json(Capabilities {
         product: "fono-server",
         version: env!("FONO_PRODUCT_VERSION"),
@@ -259,11 +287,7 @@ async fn capabilities(Extension(state): Extension<Arc<ApiState>>, headers: Heade
         max_audio_seconds: state.config.server.max_audio_seconds,
         max_upload_bytes: (state.config.server.max_upload_mb as u64).saturating_mul(1024 * 1024),
         body_read_timeout_seconds: state.config.server.body_read_timeout.as_secs(),
-        devices: vec![Device {
-            id: "cpu",
-            kind: "cpu",
-            threads: std::thread::available_parallelism().map_or(1, usize::from),
-        }],
+        devices,
         features: Features {
             cancel_on_disconnect: true,
             glossary: true,
@@ -357,9 +381,18 @@ fn inventory(state: &ApiState) -> Result<ModelList, ApiError> {
             .find(|placement| placement.model == public_id)
             .map_or("cpu", |placement| placement.device.as_str());
         let (model_state, device) = match health {
-            Some(SttHealth::Ready { device }) => ("ready", device.to_ascii_lowercase()),
-            Some(SttHealth::Busy { device }) => ("busy", device.to_ascii_lowercase()),
-            Some(SttHealth::Failed { device, .. }) => ("failed", device.to_ascii_lowercase()),
+            Some(SttHealth::Ready { device }) => (
+                "ready",
+                crate::backends::reported_device(&device, configured_device),
+            ),
+            Some(SttHealth::Busy { device }) => (
+                "busy",
+                crate::backends::reported_device(&device, configured_device),
+            ),
+            Some(SttHealth::Failed { device, .. }) => (
+                "failed",
+                crate::backends::reported_device(&device, configured_device),
+            ),
             Some(SttHealth::Unloaded) | None => (
                 match reservation {
                     Some("loading") => "loading",
@@ -550,9 +583,10 @@ async fn model_command(
         })?;
         state
             .pool
-            .acquire_verified(
+            .acquire_on_device_verified(
                 &plan.selection,
                 acceleration,
+                crate::backends::cuda_index(&plan.device),
                 plan.residency,
                 0,
                 &cancellation,

@@ -1,0 +1,47 @@
+services:
+  fono:
+    image: ${FONO_IMAGE:-fono-server:cuda-local}
+    build:
+      context: ../..
+      dockerfile: packaging/docker/Dockerfile.cuda
+    # Default publication is local. For LAN set FONO_BIND_IP to the private IP
+    # and add that exact IP to server.toml's allowed_hosts.
+    ports:
+      - "${FONO_BIND_IP:-127.0.0.1}:17832:17832"
+    volumes:
+      - fono-models:/var/lib/fono/models
+      - type: bind
+        source: ./server.toml
+        target: /etc/fono/server.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      # Mount the directory so atomic token rotation is visible immediately.
+      - type: bind
+        source: ./credentials
+        target: /etc/fono/credentials
+        read_only: true
+        bind:
+          create_host_path: false
+    environment:
+      FONO_SERVER_TOKENS_FILE: /etc/fono/credentials/tokens
+    # Docker Engine >=28.3 with a generated NVIDIA CDI specification.
+    devices:
+      - "nvidia.com/gpu=all"
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 15s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  fono-models: {}

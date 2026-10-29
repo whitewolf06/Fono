@@ -17,11 +17,6 @@ fn selected_config_path(explicit: Option<&str>, environment: Option<OsString>) -
         .unwrap_or_else(|| PathBuf::from("/etc/fono/server.toml"))
 }
 
-fn unavailable(feature: &str) -> ExitCode {
-    eprintln!("{feature} is not available in this build");
-    ExitCode::from(2)
-}
-
 fn load_config(path: &Path) -> Result<config::ServerConfig, ExitCode> {
     match config::load_and_validate_with_env(path, std::env::vars_os()) {
         Ok(config) => match models::validate_configuration(&config) {
@@ -239,7 +234,22 @@ fn main() -> ExitCode {
         Some(("serve", _)) => serve(&config_path),
         Some(("models", arguments)) => run_models(&config_path, arguments),
         Some(("token", arguments)) => run_tokens(&config_path, arguments),
-        Some(("doctor", _)) => unavailable("Server diagnostics"),
+        Some(("doctor", _)) => match load_config(&config_path) {
+            Ok(config) => {
+                let report = fono_server::doctor::inspect(&config);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report)
+                        .expect("diagnostic report is serializable")
+                );
+                if report.ready {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::FAILURE
+                }
+            }
+            Err(code) => code,
+        },
         Some(("config", matches)) => match matches.subcommand() {
             Some(("check", _)) => check_config(&config_path),
             _ => ExitCode::from(2),

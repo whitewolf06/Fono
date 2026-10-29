@@ -6,9 +6,9 @@ settings. The machine-readable contract is
 clients can also read `/openapi.json` and the self-contained `/docs` page.
 
 Keep the default loopback listener unless access is restricted by a protected
-network or tunnel. See [the network contract](server-security.md). This build
-provides CPU recognition; a successful API test does not confirm CUDA support or
-a permanent service installation.
+network or tunnel. See [the network contract](server-security.md). The default
+Cargo build provides CPU recognition; the [CUDA image](server.md) adds supervised
+GPU workers. A successful API test does not confirm a permanent service installation.
 
 ## Discovery and authentication
 

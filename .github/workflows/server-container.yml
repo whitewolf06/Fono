@@ -1,0 +1,109 @@
+name: Fono Server container
+
+on:
+  pull_request:
+    paths:
+      - "apps/fono-server/**"
+      - "crates/**"
+      - "packaging/docker/**"
+      - "Cargo*"
+      - ".dockerignore"
+      - ".github/workflows/server-container.yml"
+      - "scripts/smoke-server-container.py"
+      - "scripts/server-container-workflow.test.mjs"
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the tested release image to GHCR
+        type: boolean
+        default: false
+      confirm_sha:
+        description: Full commit SHA of the selected release tag (required to publish)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fono-server-container-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify publication policy
+        run: node --test scripts/server-container-workflow.test.mjs
+      - name: Make room for the CUDA build on the disposable hosted runner
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet
+          df -h /
+      - name: Build CUDA image and native contracts
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          docker build --build-arg FONO_BUILD_REVISION="$REVISION" --build-arg BUILD_JOBS=4 \
+            -f packaging/docker/Dockerfile.cuda -t fono-server:verified .
+      - name: CPU API smoke without GPU
+        run: python3 scripts/smoke-server-container.py --image fono-server:verified
+      - name: Save tested image
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        run: docker save fono-server:verified | gzip > fono-server-tested.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        with:
+          name: fono-server-tested-image
+          path: fono-server-tested.tar.gz
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: fono-server-release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Require an exact release tag and explicitly confirmed SHA
+        id: version
+        env:
+          CONFIRM_SHA: ${{ inputs.confirm_sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          REVISION: ${{ github.sha }}
+        run: |
+          test "$REF_TYPE" = tag
+          test "$CONFIRM_SHA" = "$REVISION"
+          version="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
+          test "$REF_NAME" = "v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Download tested image from this workflow run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          GH_REPO: ${{ github.repository }}
+        run: gh run download "$RUN_ID" --name fono-server-tested-image
+      - name: Publish tested image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ACTOR: ${{ github.actor }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gzip -dc fono-server-tested.tar.gz | docker load
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GH_ACTOR" --password-stdin
+          docker tag fono-server:verified "ghcr.io/whitewolf06/fono-server:$VERSION-cuda"
+          docker tag fono-server:verified ghcr.io/whitewolf06/fono-server:cuda
+          docker push "ghcr.io/whitewolf06/fono-server:$VERSION-cuda"
+          docker push ghcr.io/whitewolf06/fono-server:cuda

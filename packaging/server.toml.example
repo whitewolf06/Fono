@@ -37,7 +37,7 @@ client_model_load = false
 
 [[models.placement]]
 model = "whisper:large_turbo"
-device = "cpu" # This server build supports CPU placement only.
+device = "cpu" # The default build is CPU-only; the CUDA image also accepts cuda:N.
 residency = "resident" # The default model stays loaded to keep /healthz ready.
 
 [[models.placement]]

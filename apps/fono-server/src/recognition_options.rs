@@ -23,4 +23,5 @@ pub struct RecognitionOptions {
 pub struct RecognitionOutput {
     pub result: TranscriptionResult,
     pub words: Vec<SubtitleSegment>,
+    pub device: Option<String>,
 }

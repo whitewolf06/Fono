@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 fono-service = { workspace = true }
 fono-core = { workspace = true }
-fono-stt = { workspace = true, features = ["cpu-only"] }
+fono-stt = { workspace = true, features = ["speech-vad", "offline-stt"] }
 fono-audio = { workspace = true }
 fono-types = { workspace = true }
 fono-stt-protocol = { workspace = true }
@@ -35,3 +35,9 @@ serde_json = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 serde_json = { workspace = true }
 futures-util = { workspace = true }
+
+[features]
+default = ["cpu-only"]
+cpu-only = ["fono-stt/cpu-only"]
+# Process-isolated CUDA: the server itself does not link the CUDA toolkit.
+cuda-worker = []

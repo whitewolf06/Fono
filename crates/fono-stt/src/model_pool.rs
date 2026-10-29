@@ -29,6 +29,7 @@ pub enum ModelResidency {
 struct ModelConfiguration {
     selection: SttModelSelection,
     acceleration: AccelerationMode,
+    cuda_device: Option<u32>,
     residency: ModelResidency,
     estimated_bytes: u64,
 }
@@ -224,8 +225,40 @@ impl ModelPool {
         residency: ModelResidency,
         estimated_bytes: u64,
         cancellation: &OperationCancellation,
+        verify: impl FnMut() -> SttResult<()>,
+    ) -> SttResult<ModelLease> {
+        self.acquire_on_device_verified(
+            selection,
+            acceleration,
+            None,
+            residency,
+            estimated_bytes,
+            cancellation,
+            verify,
+        )
+    }
+
+    /// Select a packaged CUDA worker's ordinal without changing process-wide
+    /// environment. The ordinal is part of the model's permanent pool identity.
+    #[allow(clippy::too_many_arguments)]
+    pub fn acquire_on_device_verified(
+        &self,
+        selection: &SttModelSelection,
+        acceleration: AccelerationMode,
+        cuda_device: Option<u32>,
+        residency: ModelResidency,
+        estimated_bytes: u64,
+        cancellation: &OperationCancellation,
         mut verify: impl FnMut() -> SttResult<()>,
     ) -> SttResult<ModelLease> {
+        if cuda_device.is_some()
+            && (acceleration != AccelerationMode::Cuda
+                || self.shared.environment.workers.cuda_package.is_none())
+        {
+            return Err(SttError::Config(
+                "Explicit CUDA device requires a packaged CUDA worker".into(),
+            ));
+        }
         super::validate_model_selection(selection)?;
         if cancellation.is_cancelled() {
             return Err(cancelled());
@@ -250,6 +283,7 @@ impl ModelPool {
         let configuration = ModelConfiguration {
             selection: selection.clone(),
             acceleration,
+            cuda_device,
             residency,
             estimated_bytes,
         };
@@ -303,6 +337,9 @@ impl ModelPool {
             }
 
             let mut environment = self.shared.environment.clone();
+            if let Some(device) = configuration.cuda_device {
+                environment.workers = environment.workers.with_cuda_device(device);
+            }
             // A shared observer cannot identify which model changed state.
             // The pool exposes per-model readiness through its lease instead.
             environment.readiness = None;
@@ -985,6 +1022,7 @@ fn identity_conflict() -> SttError {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use std::sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Barrier,
@@ -1094,6 +1132,87 @@ mod tests {
         assert_eq!(pool.loaded_model_ids().len(), 2);
         drop((first, second));
         assert_eq!(pool.status().loaded, 2);
+    }
+
+    #[test]
+    fn cuda_ordinal_is_bound_to_the_model_and_scoped_to_its_engine() {
+        struct Package;
+        impl crate::GpuPackage for Package {
+            fn worker_path(&self) -> &Path {
+                Path::new("/fixtures/cuda-worker")
+            }
+            fn identity(&self) -> &str {
+                "fixture-package"
+            }
+            fn validate_layout(&self) -> SttResult<()> {
+                Ok(())
+            }
+        }
+        let environment = SttEnvironment {
+            workers: crate::WorkerPaths::default()
+                .with_cuda_package(crate::GpuPackageHandle::new(Package)),
+            ..SttEnvironment::default()
+        };
+        let pool =
+            ModelPool::build(environment, 1, None, Arc::new(FakeLifecycle::default())).unwrap();
+        let selected = selection("tiny");
+        let lease = pool
+            .acquire_on_device_verified(
+                &selected,
+                AccelerationMode::Cuda,
+                Some(2),
+                ModelResidency::Resident,
+                0,
+                &OperationCancellation::default(),
+                || Ok(()),
+            )
+            .unwrap();
+        assert_eq!(
+            lease
+                .engine
+                .environment
+                .workers
+                .cuda_package
+                .as_ref()
+                .unwrap()
+                .cuda_device(),
+            Some(2)
+        );
+        assert_eq!(
+            pool.shared
+                .environment
+                .workers
+                .cuda_package
+                .as_ref()
+                .unwrap()
+                .cuda_device(),
+            None
+        );
+        drop(lease);
+        assert!(matches!(
+            pool.acquire_on_device_verified(
+                &selected,
+                AccelerationMode::Cuda,
+                Some(3),
+                ModelResidency::Resident,
+                0,
+                &OperationCancellation::default(),
+                || Ok(())
+            ),
+            Err(SttError::Config(_))
+        ));
+        assert!(matches!(
+            pool.acquire_on_device_verified(
+                &selected,
+                AccelerationMode::Cpu,
+                Some(2),
+                ModelResidency::Resident,
+                0,
+                &OperationCancellation::default(),
+                || Ok(())
+            ),
+            Err(SttError::Config(_))
+        ));
     }
 
     #[test]

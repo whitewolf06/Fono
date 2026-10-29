@@ -133,6 +133,14 @@ pub async fn serve_with_shutdown(
                 "server.max_upload_mb is too large",
             ))?;
     models::validate_configuration(&config).map_err(RuntimeError::Model)?;
+    let worker_config = config.clone();
+    let workers = tokio::task::spawn_blocking(move || {
+        crate::backends::validate_devices(&worker_config)?;
+        crate::backends::worker_paths(&worker_config)
+    })
+    .await
+    .map_err(|_| RuntimeError::Task("Worker validation task failed"))?
+    .map_err(RuntimeError::Model)?;
     let plans = required_preload(&config)?;
     for plan in &plans {
         acceleration_for_device(&plan.device).map_err(RuntimeError::Model)?;
@@ -152,6 +160,7 @@ pub async fn serve_with_shutdown(
     let environment = SttEnvironment {
         models_dir: config.models.dir.clone(),
         activity: activity.clone(),
+        workers,
         ..SttEnvironment::default()
     };
     let pool = Arc::new(
@@ -488,9 +497,17 @@ fn preload_models(
             break;
         }
         let result = acceleration_for_device(&plan.device).and_then(|mode| {
-            pool.acquire(&plan.selection, mode, plan.residency, 0, &cancellation)
-                .map(drop)
-                .map_err(|_| "Model preload failed".to_owned())
+            pool.acquire_on_device_verified(
+                &plan.selection,
+                mode,
+                crate::backends::cuda_index(&plan.device),
+                plan.residency,
+                0,
+                &cancellation,
+                || Ok(()),
+            )
+            .map(drop)
+            .map_err(|_| "Model preload failed".to_owned())
         });
         lock(&health.loading).remove(&plan.id);
         if result.is_err() && !cancellation.is_cancelled() {
@@ -792,9 +809,18 @@ async fn detailed_health(
             .map(|plan| {
                 let health = pool.model_health(&plan.selection.id);
                 let (state, device) = match health {
-                    Some(SttHealth::Ready { device }) => ("ready", device),
-                    Some(SttHealth::Busy { device }) => ("busy", device),
-                    Some(SttHealth::Failed { device, .. }) => ("failed", device),
+                    Some(SttHealth::Ready { device }) => (
+                        "ready",
+                        crate::backends::reported_device(&device, &plan.device),
+                    ),
+                    Some(SttHealth::Busy { device }) => (
+                        "busy",
+                        crate::backends::reported_device(&device, &plan.device),
+                    ),
+                    Some(SttHealth::Failed { device, .. }) => (
+                        "failed",
+                        crate::backends::reported_device(&device, &plan.device),
+                    ),
                     Some(SttHealth::Unloaded) | None if failed.contains(&plan.id) => {
                         ("failed", plan.device)
                     }
@@ -909,6 +935,7 @@ mod tests {
                  _options: RecognitionOptions,
                  _cancellation: OperationCancellation| {
                     Ok(RecognitionOutput {
+                        device: Some("cpu".into()),
                         result: TranscriptionResult::from_transcript(
                             Transcript {
                                 text: "test transcript".into(),

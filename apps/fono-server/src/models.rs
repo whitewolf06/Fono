@@ -210,6 +210,13 @@ pub fn validate_configuration(config: &ServerConfig) -> Result<(), String> {
                 "models.placement[{index}].model: unknown managed model ID"
             ));
         }
+        if placement.device != "cpu"
+            && resolve(&placement.model)?.model_id().engine != fono_types::SttEngine::Whisper
+        {
+            return Err(format!(
+                "models.placement[{index}].device: offline models require cpu placement"
+            ));
+        }
     }
     Ok(())
 }

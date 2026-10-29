@@ -355,6 +355,7 @@ mod tests {
     fn completed() -> CompletedRecognition {
         CompletedRecognition {
             output: RecognitionOutput {
+                device: Some("cpu".into()),
                 result: TranscriptionResult {
                     protocol_version: 1,
                     text: "Hello world".into(),

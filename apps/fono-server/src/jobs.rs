@@ -132,13 +132,24 @@ impl ActivityGuard for ServerActivity {
     }
 }
 
-/// The current server package intentionally includes only the CPU backend.
-/// A requested CUDA placement must fail instead of silently using CPU.
+/// Explicit placement never falls back to another backend.
 pub fn acceleration_for_device(device: &str) -> Result<AccelerationMode, String> {
     match device {
         "cpu" => Ok(AccelerationMode::Cpu),
+        _ if crate::backends::cuda_enabled() && crate::backends::cuda_index(device).is_some() => {
+            Ok(AccelerationMode::Cuda)
+        }
         _ => Err("models.placement.device: backend is unavailable in this build".into()),
     }
+}
+
+fn scheduler_device(device: &str) -> SttResult<DeviceId> {
+    if device == "cpu" {
+        return Ok(DeviceId::Cpu);
+    }
+    crate::backends::cuda_index(device)
+        .map(DeviceId::Cuda)
+        .ok_or_else(|| SttError::Config("Invalid model device".into()))
 }
 
 #[derive(Clone)]
@@ -248,9 +259,10 @@ impl PoolTranscriptionRuntime {
         validate_prompt(options.prompt.as_deref())?;
         let model = self
             .pool
-            .acquire_verified(
+            .acquire_on_device_verified(
                 &self.plan.selection,
                 self.acceleration,
+                crate::backends::cuda_index(&self.plan.device),
                 self.plan.residency,
                 0,
                 cancellation,
@@ -273,7 +285,11 @@ impl PoolTranscriptionRuntime {
         validate_options(options, capabilities)?;
         let segments = fixed_windows(pcm_samples.len()).map_err(service_error_from_stt)?;
         transcribe_scheduled(
-            (&self.scheduler, class),
+            (
+                &self.scheduler,
+                scheduler_device(&self.plan.device).map_err(service_error_from_stt)?,
+                class,
+            ),
             pcm_samples,
             &segments,
             cancellation,
@@ -340,17 +356,20 @@ fn fixed_windows(samples: usize) -> SttResult<Vec<SpeechSegment>> {
 /// embedded and offline engines serialize inference behind their own mutex,
 /// so admitting two windows would let a batch waiter bypass an interactive
 /// request at that mutex. Workers may still prepare/decode concurrently.
-fn server_model_scheduler(configured_cpu_parallel: usize) -> SttResult<Arc<DeviceScheduler>> {
+fn server_model_scheduler(
+    configured_cpu_parallel: usize,
+    cuda_devices: impl IntoIterator<Item = u32>,
+) -> SttResult<Arc<DeviceScheduler>> {
     if configured_cpu_parallel == 0 {
         return Err(SttError::Config("cpu_parallel must be positive".into()));
     }
-    DeviceScheduler::new(1, []).map(Arc::new)
+    DeviceScheduler::new(1, cuda_devices).map(Arc::new)
 }
 
 /// Keep a device slot only for the current inference window. The segmented
 /// helper retries a preempted window without losing earlier committed text.
 fn transcribe_scheduled(
-    (scheduler, class): (&Arc<DeviceScheduler>, QueueClass),
+    (scheduler, device, class): (&Arc<DeviceScheduler>, DeviceId, QueueClass),
     pcm_samples: &[i16],
     segments: &[SpeechSegment],
     cancellation: &OperationCancellation,
@@ -363,7 +382,7 @@ fn transcribe_scheduled(
         segments,
         cancellation,
         |window, offset| {
-            let permit = match scheduler.acquire(DeviceId::Cpu, class, cancellation) {
+            let permit = match scheduler.acquire(device, class, cancellation) {
                 Ok(permit) => permit,
                 Err(error) => return (Err(error), false),
             };
@@ -633,8 +652,11 @@ impl ServerJobs {
             .ok()
             .and_then(|megabytes| megabytes.checked_mul(1024 * 1024))
             .ok_or("server.max_upload_mb exceeds the supported byte range")?;
-        let scheduler = server_model_scheduler(config.queue.cpu_parallel)
-            .map_err(|_| "cannot initialize device scheduler")?;
+        let scheduler = server_model_scheduler(
+            config.queue.cpu_parallel,
+            crate::backends::configured_cuda_devices(config),
+        )
+        .map_err(|_| "cannot initialize device scheduler")?;
         let client_limit = ClientInflightLimit::new(config.queue.max_inflight_per_token);
         let pending_limit = PendingLimit::new(config.queue.max_queued);
         let runtime = PoolTranscriptionRuntime {
@@ -692,11 +714,15 @@ impl ServerJobs {
     }
 
     pub fn queued_interactive(&self) -> usize {
-        self.runtime
-            .scheduler
-            .status(DeviceId::Cpu)
-            .expect("server CPU scheduler is configured")
-            .queued_interactive
+        std::iter::once(DeviceId::Cpu)
+            .chain(
+                crate::backends::configured_cuda_devices(&self.runtime.config)
+                    .into_iter()
+                    .map(DeviceId::Cuda),
+            )
+            .filter_map(|device| self.runtime.scheduler.status(device))
+            .map(|status| status.queued_interactive)
+            .sum()
     }
 
     pub fn admit_client(
@@ -791,6 +817,7 @@ impl ServerJobs {
         Ok(RecognitionOutput {
             result: response,
             words,
+            device: Some(runtime.plan.device),
         })
     }
 
@@ -1074,15 +1101,21 @@ mod tests {
     #[test]
     fn cuda_placement_is_not_silently_mapped_to_cpu() {
         assert_eq!(acceleration_for_device("cpu"), Ok(AccelerationMode::Cpu));
-        assert!(acceleration_for_device("cuda:0").is_err());
-        assert!(acceleration_for_device("cuda:1").is_err());
+        for device in ["cuda:0", "cuda:1"] {
+            if crate::backends::cuda_enabled() {
+                assert_eq!(acceleration_for_device(device), Ok(AccelerationMode::Cuda));
+            } else {
+                assert!(acceleration_for_device(device).is_err());
+            }
+        }
+        assert!(acceleration_for_device("cuda:01").is_err());
     }
 
     #[test]
     fn interactive_starts_at_batch_window_boundary_and_batch_retries_checkpoint() {
         // The configured CPU worker count is two; this single model keeps one
         // inference slot to preserve interactive priority at the engine mutex.
-        let scheduler = server_model_scheduler(2).unwrap();
+        let scheduler = server_model_scheduler(2, []).unwrap();
         assert_eq!(scheduler.status(DeviceId::Cpu).unwrap().capacity, 1);
         let batch_scheduler = Arc::clone(&scheduler);
         let (window_started_tx, window_started_rx) = mpsc::channel();
@@ -1105,7 +1138,7 @@ mod tests {
             ];
             let mut first_attempt = true;
             let result = transcribe_scheduled(
-                (&batch_scheduler, QueueClass::Batch),
+                (&batch_scheduler, DeviceId::Cpu, QueueClass::Batch),
                 &[1; 8],
                 &segments,
                 &job_cancel,
@@ -1171,6 +1204,24 @@ mod tests {
         assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), 4);
         interactive.join().unwrap();
         assert_eq!(batch.join().unwrap(), "first second");
+    }
+
+    #[test]
+    fn gpu_work_does_not_occupy_cpu_or_another_gpu_lane() {
+        let scheduler = server_model_scheduler(2, [0, 1]).unwrap();
+        let cancel = OperationCancellation::default();
+        let gpu = scheduler
+            .acquire(DeviceId::Cuda(0), QueueClass::Batch, &cancel)
+            .unwrap();
+        let cpu = scheduler
+            .acquire(DeviceId::Cpu, QueueClass::Interactive, &cancel)
+            .unwrap();
+        let other = scheduler
+            .acquire(DeviceId::Cuda(1), QueueClass::Batch, &cancel)
+            .unwrap();
+        assert!(!gpu.cancellation.is_cancelled());
+        drop((gpu, cpu, other));
+        assert!(scheduler.status(DeviceId::Cuda(2)).is_none());
     }
 
     #[test]
@@ -1244,7 +1295,7 @@ mod tests {
             pending.try_acquire(),
             Err(TranscriptionServiceError::Busy(_))
         ));
-        let scheduler = server_model_scheduler(2).unwrap();
+        let scheduler = server_model_scheduler(2, []).unwrap();
         let segments = [SpeechSegment {
             start: 0,
             end: 4,
@@ -1252,7 +1303,7 @@ mod tests {
         }];
         let cancellation = OperationCancellation::default();
         transcribe_scheduled(
-            (&scheduler, QueueClass::Interactive),
+            (&scheduler, DeviceId::Cpu, QueueClass::Interactive),
             &[1; 4],
             &segments,
             &cancellation,

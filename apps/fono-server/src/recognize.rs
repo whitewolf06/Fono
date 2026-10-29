@@ -434,7 +434,7 @@ async fn recognize(
                 .detected_language
                 .or_else(|| (requested_language != "auto").then_some(requested_language));
             let backend = normalize_backend(result.backend);
-            let device = backend.clone();
+            let device = output.device.or_else(|| backend.clone());
             Json(RecognitionResponse {
                 text: result.text,
                 language,
