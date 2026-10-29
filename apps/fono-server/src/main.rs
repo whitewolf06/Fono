@@ -234,9 +234,20 @@ fn main() -> ExitCode {
         Some(("serve", _)) => serve(&config_path),
         Some(("models", arguments)) => run_models(&config_path, arguments),
         Some(("token", arguments)) => run_tokens(&config_path, arguments),
-        Some(("doctor", _)) => match load_config(&config_path) {
+        Some(("doctor", arguments)) => match load_config(&config_path) {
             Ok(config) => {
-                let report = fono_server::doctor::inspect(&config);
+                let report = fono_server::doctor::inspect(
+                    &config,
+                    &config_path,
+                    fono_server::doctor::Options {
+                        skip_self_test: arguments.get_flag("skip-self-test"),
+                        self_test_timeout: std::time::Duration::from_secs(
+                            *arguments
+                                .get_one::<u64>("self-test-timeout-seconds")
+                                .expect("clap sets the timeout"),
+                        ),
+                    },
+                );
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&report)
@@ -247,6 +258,17 @@ fn main() -> ExitCode {
                 } else {
                     ExitCode::FAILURE
                 }
+            }
+            Err(code) => code,
+        },
+        Some(("doctor-probe", _)) => match load_config(&config_path) {
+            Ok(config) => {
+                let result = fono_server::doctor::run_native_probe(&config);
+                println!(
+                    "{}",
+                    serde_json::to_string(&result).expect("probe result is serializable")
+                );
+                ExitCode::SUCCESS
             }
             Err(code) => code,
         },

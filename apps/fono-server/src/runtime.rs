@@ -417,7 +417,7 @@ fn cleanup_upload_dir(path: &Path) -> std::io::Result<()> {
     fs::remove_dir_all(path)
 }
 
-fn required_preload(config: &ServerConfig) -> Result<Vec<PreloadPlan>, RuntimeError> {
+pub(crate) fn required_preload(config: &ServerConfig) -> Result<Vec<PreloadPlan>, RuntimeError> {
     let mut preload_config = config.clone();
     if !preload_config
         .models

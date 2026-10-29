@@ -62,7 +62,26 @@ pub fn command() -> Command {
                         .arg(Arg::new("name").required(true).value_name("NAME")),
                 ),
         )
-        .subcommand(Command::new("doctor").about("Check server readiness"))
+        .subcommand(
+            Command::new("doctor")
+                .about("Check preflight readiness and recognize embedded speech")
+                .arg(
+                    Arg::new("skip-self-test")
+                        .long("skip-self-test")
+                        .action(ArgAction::SetTrue)
+                        .help("Check installation without loading a recognition model"),
+                )
+                .arg(
+                    Arg::new("self-test-timeout-seconds")
+                        .long("self-test-timeout-seconds")
+                        .value_parser(clap::value_parser!(u64).range(1..=600))
+                        .default_value("120")
+                        .help(
+                            "Native recognition deadline, including worker cleanup (1-600 seconds)",
+                        ),
+                ),
+        )
+        .subcommand(Command::new("doctor-probe").hide(true))
         .subcommand(
             Command::new("config")
                 .about("Inspect server configuration")
@@ -75,6 +94,40 @@ pub fn command() -> Command {
 mod tests {
     use super::*;
     use clap::error::ErrorKind;
+
+    #[test]
+    fn doctor_has_bounded_explicit_probe_options_and_hides_the_child_command() {
+        let matches = command()
+            .try_get_matches_from([
+                "fono-server",
+                "doctor",
+                "--skip-self-test",
+                "--self-test-timeout-seconds",
+                "30",
+            ])
+            .unwrap();
+        let args = matches.subcommand_matches("doctor").unwrap();
+        assert!(args.get_flag("skip-self-test"));
+        assert_eq!(
+            *args.get_one::<u64>("self-test-timeout-seconds").unwrap(),
+            30
+        );
+        for value in ["0", "601", "bad"] {
+            assert!(command()
+                .try_get_matches_from([
+                    "fono-server",
+                    "doctor",
+                    "--self-test-timeout-seconds",
+                    value
+                ])
+                .is_err());
+        }
+        let help = command()
+            .try_get_matches_from(["fono-server", "--help"])
+            .unwrap_err()
+            .to_string();
+        assert!(!help.contains("doctor-probe"));
+    }
 
     #[test]
     fn root_help_lists_every_command_family() {

@@ -78,6 +78,10 @@ residency = "resident"
         diagnosis = json.loads(docker(*run, image, "doctor"))
         if not diagnosis["ready"]:
             raise RuntimeError("Installation diagnostics failed")
+        probe = diagnosis.get("self_test", {})
+        if (probe.get("status"), probe.get("model"), probe.get("device")) != (
+                "passed", args.model, args.device):
+            raise RuntimeError("Doctor did not verify speech on the configured model/backend")
         # Upstream JFK fixture pinned to whisper.cpp v1.8.3.
         url = "https://raw.githubusercontent.com/ggml-org/whisper.cpp/2eeeba56e9edd762b4b38467bab96c2517163158/samples/jfk.wav"
         with urllib.request.urlopen(url, timeout=60) as response:
@@ -115,7 +119,7 @@ residency = "resident"
                 raise RuntimeError("Recognition smoke failed")
             summary = {"healthz": 200, "unauthorized": 401, "capabilities": 200, "recognize": 200,
                        "device": result["device"], "audio_ms": result["timings"]["audio_ms"],
-                       "doctor": diagnosis["ready"], "model": args.model}
+                       "doctor": diagnosis["ready"], "doctor_probe": probe["status"], "model": args.model}
             if args.device != "cpu":
                 gpu_processes = docker("exec", container, "nvidia-smi",
                                        "--query-compute-apps=process_name,used_gpu_memory", "--format=csv,noheader,nounits")

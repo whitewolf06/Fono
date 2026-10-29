@@ -102,15 +102,14 @@ If the port is published on a LAN interface, use that IP in the curl URL.
 `/healthz` returns 503 while the default model loads and 200 after it becomes
 ready. All detailed API routes require a bearer token.
 
-`doctor` currently checks token-store ownership and format, installed model
-hashes, observed NVIDIA devices and the CUDA worker protocol-4 handshake. It
-prints JSON and returns nonzero for failed required checks. GPU memory and
-driver values come from `nvidia-smi`; each check exposes `required` and `ok`.
-Top-level `ready` depends on required checks. Optional unavailable CUDA support
-can therefore be reported honestly while a CPU configuration remains ready.
-The command does not yet
-test a recognition fixture, free disk space, port availability or TLS files.
-Those extended diagnostics remain SRV-09 work.
+`doctor` is a full preflight check: credentials, model hashes, directories and
+free space, listener availability, network exposure, TLS files, driver inventory,
+worker handshakes and recognition of embedded public speech on the default
+model. Run it before starting the service, as the same service account. It
+prints JSON with remediation hints and returns nonzero for failed required
+checks. See [the doctor guide](server-doctor.md) for checks, timeouts and
+`--skip-self-test`. Native TLS serving remains SRV-11 work; valid TLS files do
+not enable an unsupported listener.
 
 The service is non-root, has a read-only root filesystem and credentials,
 drops capabilities, and uses a bounded temporary filesystem. Only the model

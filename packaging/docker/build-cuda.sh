@@ -57,6 +57,9 @@ with open(vad, 'rb') as source:
 shutil.copyfile(vad, '/out/silero_vad.onnx')
 shutil.copyfile('LICENSE', '/out/LICENSE')
 shutil.copyfile('docs/evidence/licenses/offline-stt-NOTICE.md', '/out/offline-stt-NOTICE.md')
+shutil.copyfile('docs/evidence/licenses/server-doctor-NOTICE.md', '/out/server-doctor-NOTICE.md')
+for path in glob.glob('apps/fono-server/resources/doctor-*-LICENSE.txt'):
+    shutil.copyfile(path, '/out/' + os.path.basename(path))
 shutil.copyfile('licenses/dependency-notices.txt', '/out/dependency-notices.txt')
 for name in ('sherpa-onnx-1.13.4-APACHE-2.0.txt', 'onnxruntime-1.27.0-MIT.txt',
              'onnxruntime-1.27.0-ThirdPartyNotices.txt', 'silero-vad-MIT.txt'):

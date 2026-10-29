@@ -11,18 +11,18 @@ const workflow = (
 
 function verify(source) {
   assert.doesNotMatch(source, /pull_request_target|self-hosted/);
-  const build = source.split(/^  build:\n/m)[1]?.split(/^  publish:\n/m)[0];
-  const publish = source.split(/^  publish:\n/m)[1];
+  const build = source.split(/^ {2}build:\n/m)[1]?.split(/^ {2}publish:\n/m)[0];
+  const publish = source.split(/^ {2}publish:\n/m)[1];
   assert.ok(build && publish);
-  assert.match(source, /^permissions:\n  contents: read\n/m);
+  assert.match(source, /^permissions:\n {2}contents: read\n/m);
   assert.doesNotMatch(build, /packages: write|secrets\.|docker (?:login|push)/);
   assert.match(build, /python3 scripts\/smoke-server-container\.py/);
   assert.match(
     publish,
-    /^    if: github\.event_name == 'workflow_dispatch' && inputs\.publish$/m,
+    /^ {4}if: github\.event_name == 'workflow_dispatch' && inputs\.publish$/m,
   );
-  assert.match(publish, /^    needs: build$/m);
-  assert.match(publish, /^    environment: fono-server-release$/m);
+  assert.match(publish, /^ {4}needs: build$/m);
+  assert.match(publish, /^ {4}environment: fono-server-release$/m);
   for (const guard of [
     'test "$REF_TYPE" = tag',
     'test "$CONFIRM_SHA" = "$REVISION"',
