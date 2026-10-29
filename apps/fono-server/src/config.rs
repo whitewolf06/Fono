@@ -5,7 +5,7 @@
 
 use std::ffi::OsString;
 use std::fmt;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -23,9 +23,12 @@ pub struct ServerConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServerSettings {
     pub bind: SocketAddr,
+    pub allowed_hosts: Vec<String>,
+    pub trusted_private_network: bool,
     pub tokens_file: PathBuf,
     pub max_upload_mb: usize,
     pub max_audio_seconds: u64,
+    pub body_read_timeout: Duration,
     pub shutdown_grace: Duration,
 }
 
@@ -136,9 +139,12 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
             table,
             &[
                 "bind",
+                "allowed_hosts",
+                "trusted_private_network",
                 "tokens_file",
                 "max_upload_mb",
                 "max_audio_seconds",
+                "body_read_timeout",
                 "shutdown_grace",
             ],
             "server",
@@ -154,6 +160,30 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
                 ))
             }
         };
+    let allowed_hosts = allowed_hosts_or(server, bind.ip().is_loopback())?;
+    let trusted_private_network = boolean_or(
+        server,
+        "trusted_private_network",
+        "server.trusted_private_network",
+        false,
+    )?;
+    if !bind.ip().is_loopback() {
+        if !trusted_private_network {
+            return Err(ConfigError::new(
+                "server.trusted_private_network",
+                "required for a non-loopback bind",
+            ));
+        }
+        if server
+            .and_then(|table| table.get("allowed_hosts"))
+            .is_none()
+        {
+            return Err(ConfigError::new(
+                "server.allowed_hosts",
+                "an explicit non-empty host allowlist is required for a non-loopback bind",
+            ));
+        }
+    }
     let tokens_file = path_or(
         server,
         "tokens_file",
@@ -169,6 +199,12 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
     }
     let max_audio_seconds =
         positive_u64_or(server, "max_audio_seconds", "server.max_audio_seconds", 300)?;
+    let body_read_timeout = duration_or(
+        server,
+        "body_read_timeout",
+        "server.body_read_timeout",
+        "60s",
+    )?;
     let shutdown_grace = duration_or(server, "shutdown_grace", "server.shutdown_grace", "10s")?;
 
     let tls_table = section(root, "tls")?;
@@ -248,9 +284,12 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
     Ok(ServerConfig {
         server: ServerSettings {
             bind,
+            allowed_hosts,
+            trusted_private_network,
             tokens_file,
             max_upload_mb,
             max_audio_seconds,
+            body_read_timeout,
             shutdown_grace,
         },
         tls,
@@ -275,9 +314,12 @@ fn environment_field(name: &str) -> Option<(&'static str, &'static str, Environm
 
     Some(match name {
         "FONO_SERVER_BIND" => ("server", "bind", String),
+        "FONO_SERVER_ALLOWED_HOSTS" => ("server", "allowed_hosts", TomlArray),
+        "FONO_SERVER_TRUSTED_PRIVATE_NETWORK" => ("server", "trusted_private_network", Boolean),
         "FONO_SERVER_TOKENS_FILE" => ("server", "tokens_file", String),
         "FONO_SERVER_MAX_UPLOAD_MB" => ("server", "max_upload_mb", Integer),
         "FONO_SERVER_MAX_AUDIO_SECONDS" => ("server", "max_audio_seconds", Integer),
+        "FONO_SERVER_BODY_READ_TIMEOUT" => ("server", "body_read_timeout", String),
         "FONO_SERVER_SHUTDOWN_GRACE" => ("server", "shutdown_grace", String),
         "FONO_TLS_CERT" => ("tls", "cert", String),
         "FONO_TLS_KEY" => ("tls", "key", String),
@@ -392,7 +434,14 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
     let known = match section {
         "server" => matches!(
             key,
-            "bind" | "tokens_file" | "max_upload_mb" | "max_audio_seconds" | "shutdown_grace"
+            "bind"
+                | "allowed_hosts"
+                | "trusted_private_network"
+                | "tokens_file"
+                | "max_upload_mb"
+                | "max_audio_seconds"
+                | "body_read_timeout"
+                | "shutdown_grace"
         ),
         "tls" => matches!(key, "cert" | "key"),
         "models" => matches!(
@@ -478,6 +527,91 @@ fn optional_path(table: &Table, key: &str, path: &str) -> Result<Option<PathBuf>
         Some(Value::String(value)) if !value.trim().is_empty() => Ok(Some(PathBuf::from(value))),
         Some(_) => Err(ConfigError::new(path, "expected a non-empty path")),
     }
+}
+
+fn boolean_or(
+    table: Option<&Table>,
+    key: &str,
+    path: &str,
+    default: bool,
+) -> Result<bool, ConfigError> {
+    match table.and_then(|table| table.get(key)) {
+        None => Ok(default),
+        Some(Value::Boolean(value)) => Ok(*value),
+        Some(_) => Err(ConfigError::new(path, "expected a boolean")),
+    }
+}
+
+fn allowed_hosts_or(server: Option<&Table>, loopback: bool) -> Result<Vec<String>, ConfigError> {
+    let Some(value) = server.and_then(|table| table.get("allowed_hosts")) else {
+        return Ok(if loopback {
+            ["localhost", "127.0.0.1", "::1"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        } else {
+            Vec::new()
+        });
+    };
+    let hosts = value
+        .as_array()
+        .ok_or_else(|| ConfigError::new("server.allowed_hosts", "expected a non-empty array"))?;
+    if hosts.is_empty() {
+        return Err(ConfigError::new(
+            "server.allowed_hosts",
+            "expected a non-empty array",
+        ));
+    }
+    let mut allowed = Vec::with_capacity(hosts.len());
+    for (index, host) in hosts.iter().enumerate() {
+        let path = format!("server.allowed_hosts[{index}]");
+        let normalized = host
+            .as_str()
+            .and_then(normalize_host_name)
+            .ok_or_else(|| ConfigError::new(&path, "expected a hostname or IP literal"))?;
+        if allowed.contains(&normalized) {
+            return Err(ConfigError::new(path, "duplicate host"));
+        }
+        allowed.push(normalized);
+    }
+    Ok(allowed)
+}
+
+/// Canonicalize a host without accepting an authority, URL or wildcard.
+/// The request Host header may have a port; the HTTP layer removes it first.
+pub(crate) fn normalize_host_name(raw: &str) -> Option<String> {
+    if raw.is_empty() || raw.len() > 253 || raw.trim() != raw {
+        return None;
+    }
+    if let Some(inner) = raw
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return match inner.parse::<IpAddr>().ok()? {
+            IpAddr::V6(address) if !address.is_unspecified() => Some(address.to_string()),
+            _ => None,
+        };
+    }
+    if let Ok(address) = raw.parse::<IpAddr>() {
+        return (!address.is_unspecified()).then(|| address.to_string());
+    }
+    if !raw.is_ascii()
+        || raw
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte == b'.')
+    {
+        return None;
+    }
+    let valid = raw.split('.').all(|label| {
+        let bytes = label.as_bytes();
+        (1..=63).contains(&bytes.len())
+            && bytes.first().is_some_and(u8::is_ascii_alphanumeric)
+            && bytes.last().is_some_and(u8::is_ascii_alphanumeric)
+            && bytes
+                .iter()
+                .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'-')
+    });
+    valid.then(|| raw.to_ascii_lowercase())
 }
 
 fn positive_u64_or(
@@ -687,9 +821,12 @@ mod tests {
             r#"
             [server]
             bind = "127.0.0.1:17832"
+            allowed_hosts = ["LOCALHOST", "127.0.0.1", "[::1]"]
+            trusted_private_network = false
             tokens_file = "/etc/fono/tokens"
             max_upload_mb = 100
             max_audio_seconds = 300
+            body_read_timeout = "60s"
             shutdown_grace = "10s"
 
             [tls]
@@ -727,6 +864,12 @@ mod tests {
             config.server.bind,
             SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 17832)
         );
+        assert_eq!(
+            config.server.allowed_hosts,
+            ["localhost", "127.0.0.1", "::1"]
+        );
+        assert!(!config.server.trusted_private_network);
+        assert_eq!(config.server.body_read_timeout, Duration::from_secs(60));
         assert_eq!(config.server.shutdown_grace, Duration::from_secs(10));
         assert_eq!(
             config.models.placement[1].idle_unload_after,
@@ -750,6 +893,12 @@ mod tests {
             SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 17832)
         );
         assert_eq!(config.server.max_upload_mb, 100);
+        assert_eq!(
+            config.server.allowed_hosts,
+            ["localhost", "127.0.0.1", "::1"]
+        );
+        assert!(!config.server.trusted_private_network);
+        assert_eq!(config.server.body_read_timeout, Duration::from_secs(60));
         assert_eq!(config.models.preload, ["whisper:large_turbo"]);
         assert_eq!(config.queue.cpu_parallel, 2);
         assert!(config.tls.is_none());
@@ -771,9 +920,22 @@ mod tests {
         for (source, expected) in [
             ("[server]\nbind = 'localhost:17832'", "server.bind"),
             ("[server]\nmax_upload_mb = 0", "server.max_upload_mb"),
+            ("[server]\nallowed_hosts = []", "server.allowed_hosts"),
+            (
+                "[server]\nallowed_hosts = 'localhost'",
+                "server.allowed_hosts",
+            ),
+            (
+                "[server]\ntrusted_private_network = 'true'",
+                "server.trusted_private_network",
+            ),
             (
                 "[server]\nmax_audio_seconds = -1",
                 "server.max_audio_seconds",
+            ),
+            (
+                "[server]\nbody_read_timeout = '0s'",
+                "server.body_read_timeout",
             ),
             ("[server]\nshutdown_grace = '0s'", "server.shutdown_grace"),
             ("[queue]\ncpu_parallel = 0", "queue.cpu_parallel"),
@@ -783,6 +945,55 @@ mod tests {
         ] {
             assert_eq!(error_path(source), expected, "{source}");
         }
+    }
+
+    #[test]
+    fn non_loopback_bind_requires_explicit_trust_and_allowed_hosts() {
+        assert_eq!(
+            error_path("[server]\nbind = '0.0.0.0:17832'"),
+            "server.trusted_private_network"
+        );
+        assert_eq!(
+            error_path("[server]\nbind = '0.0.0.0:17832'\ntrusted_private_network = true"),
+            "server.allowed_hosts"
+        );
+        let config = parse_and_validate(
+            "[server]\nbind = '0.0.0.0:17832'\ntrusted_private_network = true\nallowed_hosts = ['KARI-SERVER', '192.168.1.8']",
+        )
+        .unwrap();
+        assert_eq!(config.server.allowed_hosts, ["kari-server", "192.168.1.8"]);
+        assert!(config.server.trusted_private_network);
+    }
+
+    #[test]
+    fn allowed_hosts_reject_ambiguous_or_unsafe_values() {
+        for raw in [
+            "*",
+            "example.com:17832",
+            "https://example.com",
+            "user@example.com",
+            "example.com,other.example",
+            "bad_host",
+            "example.com.",
+            "  localhost",
+            "0.0.0.0",
+            "192.168.01.8",
+            "[127.0.0.1]",
+            "[::1]:17832",
+        ] {
+            assert_eq!(normalize_host_name(raw), None, "{raw}");
+            let source = format!("[server]\nallowed_hosts = ['{raw}']");
+            assert_eq!(error_path(&source), "server.allowed_hosts[0]", "{raw}");
+        }
+        assert_eq!(
+            normalize_host_name("KARI-SERVER"),
+            Some("kari-server".into())
+        );
+        assert_eq!(normalize_host_name("[::1]"), Some("::1".into()));
+        assert_eq!(
+            error_path("[server]\nallowed_hosts = ['LOCALHOST', 'localhost']"),
+            "server.allowed_hosts[1]"
+        );
     }
 
     #[test]
@@ -852,9 +1063,12 @@ mod tests {
         let source = r#"
             [server]
             bind = "invalid-address"
+            allowed_hosts = ["bad:host"]
+            trusted_private_network = false
             tokens_file = "/old/tokens"
             max_upload_mb = 100
             max_audio_seconds = 300
+            body_read_timeout = "0s"
             shutdown_grace = "10s"
 
             [tls]
@@ -882,9 +1096,15 @@ mod tests {
         "#;
         let environment = [
             ("FONO_SERVER_BIND", "0.0.0.0:18000"),
+            (
+                "FONO_SERVER_ALLOWED_HOSTS",
+                "['KARI-SERVER', '192.168.1.8']",
+            ),
+            ("FONO_SERVER_TRUSTED_PRIVATE_NETWORK", "true"),
             ("FONO_SERVER_TOKENS_FILE", "/new/tokens"),
             ("FONO_SERVER_MAX_UPLOAD_MB", "64"),
             ("FONO_SERVER_MAX_AUDIO_SECONDS", "120"),
+            ("FONO_SERVER_BODY_READ_TIMEOUT", "45s"),
             ("FONO_SERVER_SHUTDOWN_GRACE", "15s"),
             ("FONO_TLS_CERT", "/new/cert"),
             ("FONO_TLS_KEY", "/new/key"),
@@ -909,9 +1129,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(config.server.bind, "0.0.0.0:18000".parse().unwrap());
+        assert_eq!(config.server.allowed_hosts, ["kari-server", "192.168.1.8"]);
+        assert!(config.server.trusted_private_network);
         assert_eq!(config.server.tokens_file, PathBuf::from("/new/tokens"));
         assert_eq!(config.server.max_upload_mb, 64);
         assert_eq!(config.server.max_audio_seconds, 120);
+        assert_eq!(config.server.body_read_timeout, Duration::from_secs(45));
         assert_eq!(config.server.shutdown_grace, Duration::from_secs(15));
         let tls = config.tls.unwrap();
         assert_eq!(tls.cert, PathBuf::from("/new/cert"));
@@ -942,6 +1165,17 @@ mod tests {
         let secret = "secret-do-not-print";
         for (name, value, expected_path) in [
             ("FONO_SERVER_BIND", secret, "server.bind"),
+            ("FONO_SERVER_ALLOWED_HOSTS", secret, "server.allowed_hosts"),
+            (
+                "FONO_SERVER_TRUSTED_PRIVATE_NETWORK",
+                secret,
+                "server.trusted_private_network",
+            ),
+            (
+                "FONO_SERVER_BODY_READ_TIMEOUT",
+                secret,
+                "server.body_read_timeout",
+            ),
             ("FONO_QUEUE_MAX_QUEUED", secret, "queue.max_queued"),
             ("FONO_METRICS_ENABLED", secret, "metrics.enabled"),
             ("FONO_MODELS_PRELOAD", secret, "models.preload"),

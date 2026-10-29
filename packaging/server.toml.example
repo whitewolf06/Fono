@@ -1,4 +1,5 @@
 # Fono Server example for /etc/fono/server.toml.
+# Network contract: docs/server-security.md.
 # Keep the loopback bind unless access from another host is explicitly needed.
 # Set FONO_CONFIG to use another file, or pass --config to the CLI.
 # Individual fields can be overridden with FONO_<SECTION>_<KEY>.
@@ -9,9 +10,15 @@
 
 [server]
 bind = "127.0.0.1:17832"
+# Exact hostnames/IP literals without ports. IPv6 may be written as ::1 or [::1].
+allowed_hosts = ["localhost", "127.0.0.1", "::1"]
+# Non-loopback bind requires this explicit assertion and an explicit host list.
+# Enable only when access is restricted to a protected private network/tunnel.
+trusted_private_network = false
 tokens_file = "/etc/fono/tokens"
 max_upload_mb = 100
 max_audio_seconds = 300
+body_read_timeout = "60s"
 shutdown_grace = "10s"
 
 # TLS configuration is reserved for a later server stage. This build rejects

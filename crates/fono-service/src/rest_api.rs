@@ -4,6 +4,7 @@
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::audio_ingest::{self, AudioIngestError, AudioIngestPolicy};
 use crate::transcription_jobs::{JobReservation, TranscriptionJobs};
@@ -20,6 +21,7 @@ use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 
 const UPLOAD_BODY_LIMIT_BYTES: usize = 101 * 1024 * 1024;
+const MAX_TEXT_FIELD_BYTES: usize = 64;
 const OPENAPI_SPEC: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/openapi.json"));
 const API_DOCUMENTATION: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/api-docs.html"));
 
@@ -31,6 +33,7 @@ pub struct RestApiState {
     jobs: Option<Arc<dyn TranscriptionJobs>>,
     upload_dir: Arc<PathBuf>,
     upload_policy: AudioIngestPolicy,
+    body_read_timeout: Option<Duration>,
 }
 
 /// The desktop supplies one token; a server host can implement token-file
@@ -109,6 +112,7 @@ impl RestApiState {
             jobs: None,
             upload_dir: Arc::new(std::env::temp_dir().join("fono-transcription-uploads")),
             upload_policy: AudioIngestPolicy::default(),
+            body_read_timeout: None,
         }
     }
 
@@ -129,6 +133,13 @@ impl RestApiState {
 
     pub fn with_upload_policy(mut self, policy: AudioIngestPolicy) -> Self {
         self.upload_policy = policy;
+        self
+    }
+
+    /// The host may bound total HTTP body reception without timing native
+    /// decoding or recognition. Desktop callers keep the existing default.
+    pub fn with_body_read_timeout(mut self, timeout: Duration) -> Self {
+        self.body_read_timeout = Some(timeout);
         self
     }
 }
@@ -312,6 +323,28 @@ fn submission_error(
             false,
         ),
     };
+    versioned_error(status, code, message, retryable, protocol_version, headers)
+}
+
+fn body_timeout_error(protocol_version: u16, headers: &HeaderMap) -> axum::response::Response {
+    versioned_error(
+        StatusCode::REQUEST_TIMEOUT,
+        "body_read_timeout",
+        "Request body read exceeded the configured deadline",
+        false,
+        protocol_version,
+        headers,
+    )
+}
+
+fn versioned_error(
+    status: StatusCode,
+    code: &'static str,
+    message: &'static str,
+    retryable: bool,
+    protocol_version: u16,
+    headers: &HeaderMap,
+) -> axum::response::Response {
     if protocol_version < 2 {
         return api_error(status, code);
     }
@@ -368,7 +401,15 @@ async fn submit(
         Ok(activity) => activity,
         Err(_) => return api_error(StatusCode::SERVICE_UNAVAILABLE, "update_installing"),
     };
-    let Json(request) = match Json::<TranscriptionRequest>::from_request(body, &state).await {
+    let extraction = Json::<TranscriptionRequest>::from_request(body, &state);
+    let parsed = match state.body_read_timeout {
+        Some(timeout) => match tokio::time::timeout(timeout, extraction).await {
+            Ok(parsed) => parsed,
+            Err(_) => return body_timeout_error(state.protocol_version, &headers),
+        },
+        None => extraction.await,
+    };
+    let Json(request) = match parsed {
         Ok(request) => request,
         Err(error) => return error.into_response(),
     };
@@ -411,12 +452,13 @@ async fn upload(
         &state.upload_dir,
         &state.activity,
         state.upload_policy,
+        state.body_read_timeout,
         reservation,
     )
     .await
     {
         Ok(request) => request,
-        Err(error) => return upload_error(error),
+        Err(error) => return upload_error(error, state.protocol_version, &headers),
     };
     let Some(jobs) = state.jobs.as_ref() else {
         return api_error(StatusCode::SERVICE_UNAVAILABLE, "service_unavailable");
@@ -463,64 +505,74 @@ async fn cancel(
 }
 
 async fn request_from_multipart(
-    mut multipart: Multipart,
+    multipart: Multipart,
     upload_dir: &Path,
     activity: &Arc<dyn ActivityGuard>,
     policy: AudioIngestPolicy,
+    body_read_timeout: Option<Duration>,
     reservation: Option<JobReservation>,
 ) -> Result<(TranscriptionRequest, Option<JobReservation>), UploadError> {
+    let read_body = read_multipart_body(multipart, upload_dir, policy);
+    let (language, model, audio_path) = match body_read_timeout {
+        Some(timeout) => tokio::time::timeout(timeout, read_body)
+            .await
+            .map_err(|_| UploadError::TimedOut)??,
+        None => read_body.await?,
+    };
+    let (decoded, reservation) = tokio::task::spawn_blocking({
+        let activity = activity
+            .lease()
+            .map_err(|_| UploadError::Internal("application update is installing".into()))?;
+        move || {
+            let _activity = activity;
+            // The file stays owned by the decoder even if the HTTP future
+            // is dropped while this blocking work is still running.
+            (
+                audio_ingest::decode_file(&audio_path.0, policy),
+                reservation,
+            )
+        }
+    })
+    .await
+    .map_err(|error| UploadError::Internal(format!("audio decoder join failed: {error}")))?;
+    let audio = decoded.map_err(UploadError::Audio)?;
+    Ok((
+        audio.into_transcription_request(language, model),
+        reservation,
+    ))
+}
+
+async fn read_multipart_body(
+    mut multipart: Multipart,
+    upload_dir: &Path,
+    policy: AudioIngestPolicy,
+) -> Result<(String, Option<String>, UploadedFile), UploadError> {
     let mut language = "auto".to_string();
     let mut model = None;
     let mut audio_path = None;
-    let result = async {
-        while let Some(mut field) = multipart
-            .next_field()
-            .await
-            .map_err(|error| UploadError::Invalid(error.to_string()))?
-        {
-            match field.name() {
-                Some("language") => language = bounded_text(field).await?,
-                Some("model") => model = Some(bounded_text(field).await?),
-                Some("audio") if audio_path.is_none() => {
-                    let extension = upload_extension(field.file_name())?;
-                    audio_path =
-                        Some(write_upload(&mut field, upload_dir, &extension, policy).await?);
-                }
-                Some("audio") => {
-                    return Err(UploadError::Invalid(
-                        "only one audio file is allowed".into(),
-                    ))
-                }
-                _ => return Err(UploadError::Invalid("unsupported multipart field".into())),
-            }
-        }
-        let audio_path = audio_path
-            .take()
-            .ok_or_else(|| UploadError::Invalid("audio field is required".into()))?;
-        let (decoded, reservation) = tokio::task::spawn_blocking({
-            let activity = activity
-                .lease()
-                .map_err(|_| UploadError::Internal("application update is installing".into()))?;
-            move || {
-                let _activity = activity;
-                // The file stays owned by the decoder even if the HTTP future
-                // is dropped while this blocking work is still running.
-                (
-                    audio_ingest::decode_file(&audio_path.0, policy),
-                    reservation,
-                )
-            }
-        })
+    while let Some(mut field) = multipart
+        .next_field()
         .await
-        .map_err(|error| UploadError::Internal(format!("audio decoder join failed: {error}")))?;
-        let audio = decoded.map_err(UploadError::Audio)?;
-        Ok((
-            audio.into_transcription_request(language, model),
-            reservation,
-        ))
+        .map_err(|error| UploadError::Invalid(error.to_string()))?
+    {
+        match field.name() {
+            Some("language") => language = bounded_text(field).await?,
+            Some("model") => model = Some(bounded_text(field).await?),
+            Some("audio") if audio_path.is_none() => {
+                let extension = upload_extension(field.file_name())?;
+                audio_path = Some(write_upload(&mut field, upload_dir, &extension, policy).await?);
+            }
+            Some("audio") => {
+                return Err(UploadError::Invalid(
+                    "only one audio file is allowed".into(),
+                ))
+            }
+            _ => return Err(UploadError::Invalid("unsupported multipart field".into())),
+        }
     }
-    .await;
-    result
+    let audio_path =
+        audio_path.ok_or_else(|| UploadError::Invalid("audio field is required".into()))?;
+    Ok((language, model, audio_path))
 }
 
 struct UploadedFile(PathBuf);
@@ -531,14 +583,27 @@ impl Drop for UploadedFile {
     }
 }
 
-async fn bounded_text(field: axum::extract::multipart::Field<'_>) -> Result<String, UploadError> {
-    let text = field
-        .text()
+async fn bounded_text(
+    mut field: axum::extract::multipart::Field<'_>,
+) -> Result<String, UploadError> {
+    let mut bytes = Vec::new();
+    while let Some(chunk) = field
+        .chunk()
         .await
-        .map_err(|error| UploadError::Invalid(error.to_string()))?;
-    if text.len() > 64 || text.trim().is_empty() {
+        .map_err(|error| UploadError::Invalid(error.to_string()))?
+    {
+        if chunk.len() > MAX_TEXT_FIELD_BYTES.saturating_sub(bytes.len()) {
+            return Err(UploadError::Invalid(
+                "text fields must contain 1 through 64 bytes".into(),
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    let text = String::from_utf8(bytes)
+        .map_err(|_| UploadError::Invalid("text fields must be UTF-8".into()))?;
+    if text.trim().is_empty() {
         return Err(UploadError::Invalid(
-            "text fields must contain 1 through 64 characters".into(),
+            "text fields must contain 1 through 64 bytes".into(),
         ));
     }
     Ok(text)
@@ -600,14 +665,20 @@ fn upload_extension(file_name: Option<&str>) -> Result<String, UploadError> {
 
 enum UploadError {
     Invalid(String),
+    TimedOut,
     TooLarge,
     Unsupported,
     Audio(AudioIngestError),
     Internal(String),
 }
 
-fn upload_error(error: UploadError) -> axum::response::Response {
+fn upload_error(
+    error: UploadError,
+    protocol_version: u16,
+    headers: &HeaderMap,
+) -> axum::response::Response {
     match error {
+        UploadError::TimedOut => body_timeout_error(protocol_version, headers),
         UploadError::Invalid(message) => {
             let _ = message;
             tracing::warn!("invalid transcription upload");

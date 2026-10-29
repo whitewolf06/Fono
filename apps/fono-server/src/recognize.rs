@@ -8,7 +8,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::body::to_bytes;
 use axum::extract::{Extension, Query, Request};
@@ -99,6 +99,7 @@ pub struct RecognizeState {
     activity: Arc<ServerActivity>,
     upload_dir: PathBuf,
     policy: AudioIngestPolicy,
+    body_read_timeout: Duration,
 }
 
 impl RecognizeState {
@@ -107,12 +108,14 @@ impl RecognizeState {
         activity: Arc<ServerActivity>,
         upload_dir: PathBuf,
         policy: AudioIngestPolicy,
+        body_read_timeout: Duration,
     ) -> Arc<Self> {
         Arc::new(Self {
             recognizer,
             activity,
             upload_dir,
             policy,
+            body_read_timeout,
         })
     }
 }
@@ -206,6 +209,15 @@ impl HttpError {
             status: StatusCode::PAYLOAD_TOO_LARGE,
             code: "payload_too_large",
             message: "Audio exceeds the configured limit",
+            retryable: false,
+        }
+    }
+
+    fn body_timeout() -> Self {
+        Self {
+            status: StatusCode::REQUEST_TIMEOUT,
+            code: "body_read_timeout",
+            message: "Request body read exceeded the configured deadline",
             retryable: false,
         }
     }
@@ -314,9 +326,15 @@ async fn recognize(
         Err(_) => return HttpError::internal().into_response(&request_id),
     };
     let max_file_bytes = usize::try_from(state.policy.max_file_bytes).unwrap_or(usize::MAX);
-    let body = match to_bytes(request.into_body(), max_file_bytes).await {
-        Ok(body) => body,
-        Err(_) => return HttpError::too_large().into_response(&request_id),
+    let body = match tokio::time::timeout(
+        state.body_read_timeout,
+        to_bytes(request.into_body(), max_file_bytes),
+    )
+    .await
+    {
+        Ok(Ok(body)) => body,
+        Ok(Err(_)) => return HttpError::too_large().into_response(&request_id),
+        Err(_) => return HttpError::body_timeout().into_response(&request_id),
     };
     if body.is_empty() {
         return HttpError::invalid().into_response(&request_id);

@@ -12,7 +12,7 @@ fono-stt = { workspace = true }
 axum = { workspace = true, features = ["multipart"] }
 parking_lot = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt", "sync"] }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt", "sync", "time"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 symphonia = { version = "0.5.5", default-features = false, features = ["wav", "mp3", "flac", "ogg", "vorbis", "pcm"] }
@@ -22,3 +22,4 @@ audiopus = "0.2"
 serde_json = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 reqwest = { workspace = true, features = ["json"] }
+futures-util = { workspace = true }

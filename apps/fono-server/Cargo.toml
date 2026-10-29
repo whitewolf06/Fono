@@ -32,3 +32,4 @@ serde_json = { workspace = true }
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
 serde_json = { workspace = true }
+futures-util = { workspace = true }

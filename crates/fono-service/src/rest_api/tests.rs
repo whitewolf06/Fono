@@ -2,6 +2,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
+use std::time::Duration;
 
 use super::*;
 use crate::transcription_jobs::{
@@ -9,10 +10,14 @@ use crate::transcription_jobs::{
     TranscriptionJob, TranscriptionJobQueue,
 };
 use crate::transcription_service::{TranscriptionRuntime, TranscriptionService};
-use axum::{body::Body, http::Request};
+use axum::{
+    body::{Body, Bytes},
+    http::Request,
+};
 use fono_core::OperationCancellation;
 use fono_stt::NoopActivity;
 use fono_types::Transcript;
+use futures_util::{stream, StreamExt};
 use tower::ServiceExt;
 
 fn test_state() -> RestApiState {
@@ -674,6 +679,164 @@ async fn upload_respects_host_file_limit_before_decoding() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     assert!(std::fs::read_dir(&upload_dir).unwrap().next().is_none());
+    std::fs::remove_dir_all(upload_dir).unwrap();
+}
+
+#[tokio::test]
+async fn stalled_json_body_times_out_and_releases_client_capacity() {
+    let queue = Arc::new(
+        TranscriptionJobQueue::new(
+            TranscriptionService::new(CompletingRuntime {
+                requested_language: Arc::new(Mutex::new(None)),
+                pcm_samples: Arc::new(Mutex::new(Vec::new())),
+            }),
+            NoInteractiveActivity,
+            1,
+            Arc::new(NoopActivity),
+            Arc::new(NoCaptureGate),
+        )
+        .with_client_limit(ClientInflightLimit::new(1))
+        .with_pending_limit(PendingLimit::new(1)),
+    );
+    let mut state = test_state().with_jobs(queue);
+    state.protocol_version = 2;
+    let app = router(
+        state
+            .with_token_verifier(Arc::new(NamedTokens))
+            .with_body_read_timeout(Duration::from_millis(60)),
+    );
+    let stalled = Request::builder()
+        .uri("/v1/transcription-jobs")
+        .method("POST")
+        .header(header::AUTHORIZATION, "Bearer client-a")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-request-id", "slow-json")
+        .body(Body::from_stream(stream::pending::<
+            Result<Bytes, std::io::Error>,
+        >()))
+        .unwrap();
+    let timed_out = tokio::time::timeout(Duration::from_secs(2), app.clone().oneshot(stalled))
+        .await
+        .expect("body deadline must terminate a stalled stream")
+        .unwrap();
+    assert_eq!(timed_out.status(), StatusCode::REQUEST_TIMEOUT);
+    assert_eq!(timed_out.headers()["x-request-id"], "slow-json");
+    let body = axum::body::to_bytes(timed_out.into_body(), 1024)
+        .await
+        .unwrap();
+    let error: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(error["error"]["code"], "body_read_timeout");
+    assert_eq!(
+        error["error"]["message"],
+        "Request body read exceeded the configured deadline"
+    );
+    assert_eq!(error["error"]["retryable"], false);
+    assert_eq!(error["error"]["request_id"], "slow-json");
+
+    let valid = TranscriptionRequest {
+        pcm_samples: vec![1],
+        language: "auto".into(),
+        model: None,
+    };
+    let accepted = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/transcription-jobs")
+                .method("POST")
+                .header(header::AUTHORIZATION, "Bearer client-a")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&valid).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+}
+
+#[tokio::test]
+async fn stalled_multipart_body_times_out_and_cleans_partial_upload() {
+    let upload_dir = std::env::temp_dir().join(format!("fono-rest-test-{}", uuid::Uuid::new_v4()));
+    let queue = Arc::new(
+        TranscriptionJobQueue::new(
+            TranscriptionService::new(CompletingRuntime {
+                requested_language: Arc::new(Mutex::new(None)),
+                pcm_samples: Arc::new(Mutex::new(Vec::new())),
+            }),
+            NoInteractiveActivity,
+            1,
+            Arc::new(NoopActivity),
+            Arc::new(NoCaptureGate),
+        )
+        .with_client_limit(ClientInflightLimit::new(1))
+        .with_pending_limit(PendingLimit::new(1)),
+    );
+    let mut state = test_state()
+        .with_jobs(queue)
+        .with_upload_dir(upload_dir.clone())
+        .with_body_read_timeout(Duration::from_millis(150));
+    state.protocol_version = 2;
+    let app = router(state.with_token_verifier(Arc::new(NamedTokens)));
+    let boundary = "fono-slow-upload";
+    let mut partial = format!(
+        "--{boundary}\r\nContent-Disposition: form-data; name=\"audio\"; filename=\"sample.wav\"\r\nContent-Type: audio/wav\r\n\r\n"
+    )
+    .into_bytes();
+    partial.extend_from_slice(include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/audio/tone-16k-mono.wav"
+    )));
+    let stalled_body = Body::from_stream(
+        stream::once(async move { Ok::<Bytes, std::io::Error>(Bytes::from(partial)) })
+            .chain(stream::pending()),
+    );
+    let stalled = Request::builder()
+        .uri("/v1/transcriptions")
+        .method("POST")
+        .header(header::AUTHORIZATION, "Bearer client-a")
+        .header(
+            header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .header("x-request-id", "slow-upload")
+        .body(stalled_body)
+        .unwrap();
+    let timed_out = tokio::time::timeout(Duration::from_secs(2), app.clone().oneshot(stalled))
+        .await
+        .expect("body deadline must terminate a stalled upload")
+        .unwrap();
+    assert_eq!(timed_out.status(), StatusCode::REQUEST_TIMEOUT);
+    assert_eq!(timed_out.headers()["x-request-id"], "slow-upload");
+    let body = axum::body::to_bytes(timed_out.into_body(), 1024)
+        .await
+        .unwrap();
+    let error: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(error["error"]["code"], "body_read_timeout");
+    assert_eq!(
+        error["error"]["message"],
+        "Request body read exceeded the configured deadline"
+    );
+    assert_eq!(error["error"]["retryable"], false);
+    assert_eq!(error["error"]["request_id"], "slow-upload");
+    assert!(std::fs::read_dir(&upload_dir).unwrap().next().is_none());
+
+    let valid = TranscriptionRequest {
+        pcm_samples: vec![1],
+        language: "auto".into(),
+        model: None,
+    };
+    let accepted = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/transcription-jobs")
+                .method("POST")
+                .header(header::AUTHORIZATION, "Bearer client-a")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&valid).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(accepted.status(), StatusCode::ACCEPTED);
     std::fs::remove_dir_all(upload_dir).unwrap();
 }
 

@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use axum::{
     extract::{DefaultBodyLimit, Extension, Request, State},
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::get,
@@ -113,6 +113,13 @@ pub async fn serve_with_shutdown(
             "TLS is configured but unavailable in this server build",
         ));
     }
+    if !config.server.bind.ip().is_loopback()
+        && (!config.server.trusted_private_network || config.server.allowed_hosts.is_empty())
+    {
+        return Err(RuntimeError::Configuration(
+            "Non-loopback HTTP requires a trusted private network and explicit allowed hosts",
+        ));
+    }
     let max_audio_seconds = u32::try_from(config.server.max_audio_seconds).map_err(|_| {
         RuntimeError::Configuration("server.max_audio_seconds exceeds the decoder limit")
     })?;
@@ -161,7 +168,9 @@ pub async fn serve_with_shutdown(
     };
     let bound = listener.local_addr().map_err(RuntimeError::Bind)?;
     if !bound.ip().is_loopback() && config.tls.is_none() {
-        tracing::warn!("Fono Server is listening outside loopback without TLS");
+        eprintln!(
+            "Warning: Fono Server listens outside loopback over HTTP; allow access only from a protected private network"
+        );
     }
 
     let default_plan = plans
@@ -207,6 +216,7 @@ pub async fn serve_with_shutdown(
             max_file_bytes: max_file_bytes as u64,
             max_duration_seconds: max_audio_seconds,
         },
+        config.server.body_read_timeout,
     );
     let state = RestApiState::new("", SERVER_API_VERSION, activity.clone())
         .with_token_verifier(verifier)
@@ -215,8 +225,15 @@ pub async fn serve_with_shutdown(
         .with_upload_policy(AudioIngestPolicy {
             max_file_bytes: max_file_bytes as u64,
             max_duration_seconds: max_audio_seconds,
-        });
-    let app = server_router(state, Arc::clone(&health), recognize, max_file_bytes);
+        })
+        .with_body_read_timeout(config.server.body_read_timeout);
+    let app = server_router(
+        state,
+        Arc::clone(&health),
+        recognize,
+        max_file_bytes,
+        config.server.allowed_hosts.clone(),
+    );
     let preload_cancel = OperationCancellation::default();
     let mut preload = tokio::task::spawn_blocking({
         let pool = Arc::clone(&pool);
@@ -527,6 +544,7 @@ fn server_router(
     health: Arc<HealthState>,
     recognize_state: Arc<RecognizeState>,
     max_file_bytes: usize,
+    allowed_hosts: Vec<String>,
 ) -> Router {
     let jobs = rest_api::jobs_routes().route_layer(middleware::from_fn_with_state(
         Arc::clone(&health.verifier),
@@ -546,7 +564,86 @@ fn server_router(
             max_file_bytes.saturating_add(MULTIPART_OVERHEAD_BYTES),
         ))
         .with_state(state)
+        .layer(middleware::from_fn_with_state(
+            Arc::new(allowed_hosts.into_iter().collect::<HashSet<_>>()),
+            enforce_host,
+        ))
         .layer(middleware::from_fn(recognize::request_id_middleware))
+}
+
+async fn enforce_host(
+    State(allowed_hosts): State<Arc<HashSet<String>>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let Some(host) = request_host(&request) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiError {
+                error: ErrorCode {
+                    code: "invalid_host",
+                },
+            }),
+        )
+            .into_response();
+    };
+    if !allowed_hosts.contains(&host) {
+        return (
+            StatusCode::MISDIRECTED_REQUEST,
+            Json(ApiError {
+                error: ErrorCode {
+                    code: "host_not_allowed",
+                },
+            }),
+        )
+            .into_response();
+    }
+    next.run(request).await
+}
+
+fn request_host(request: &Request) -> Option<String> {
+    let mut hosts = request.headers().get_all(header::HOST).iter();
+    let header_host = match (hosts.next(), hosts.next()) {
+        (Some(value), None) => Some(normalize_authority_host(value.to_str().ok()?)?),
+        (None, None) => None,
+        _ => return None,
+    };
+    let uri_host = match request.uri().authority() {
+        Some(authority) => Some(normalize_authority_host(authority.as_str())?),
+        None => None,
+    };
+    match (header_host, uri_host) {
+        (Some(header), Some(uri)) if header == uri => Some(header),
+        (Some(header), None) => Some(header),
+        (None, Some(uri)) => Some(uri),
+        _ => None,
+    }
+}
+
+fn normalize_authority_host(raw: &str) -> Option<String> {
+    if raw.is_empty()
+        || raw
+            .bytes()
+            .any(|byte| byte <= b' ' || matches!(byte, b'/' | b'\\' | b'@' | b',' | b'?' | b'#'))
+    {
+        return None;
+    }
+    let host_end = if raw.starts_with('[') {
+        raw.find(']')? + 1
+    } else {
+        raw.find(':').unwrap_or(raw.len())
+    };
+    let (host, suffix) = raw.split_at(host_end);
+    if !suffix.is_empty() {
+        let port = suffix.strip_prefix(':')?;
+        if port.is_empty()
+            || !port.bytes().all(|byte| byte.is_ascii_digit())
+            || port.parse::<u16>().ok().filter(|port| *port > 0).is_none()
+        {
+            return None;
+        }
+    }
+    crate::config::normalize_host_name(host)
 }
 
 async fn authorize_job_request(
@@ -739,16 +836,17 @@ async fn drain_pool(pool: &Arc<ModelPool>, deadline: Instant) -> bool {
 mod tests {
     use super::*;
     use crate::recognize::{AdmittedRecognition, InteractiveRecognizer};
-    use axum::body::{to_bytes, Body};
+    use axum::body::{to_bytes, Body, Bytes};
     use axum::http::Request;
     use fono_service::transcription_jobs::{TranscriptionJob, TranscriptionQueueSnapshot};
     use fono_stt::scheduler::QueueClass;
     use fono_types::{
         Transcript, TranscriptionRequest, TranscriptionResult, TranscriptionServiceError,
     };
+    use futures_util::stream;
     use std::ffi::OsString;
     use std::path::Path;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use tower::ServiceExt;
 
     struct RecognizeVerifier;
@@ -873,6 +971,13 @@ mod tests {
     fn test_router_with_recognizer(
         recognizer: Arc<dyn InteractiveRecognizer>,
     ) -> (Router, Arc<HealthState>) {
+        test_router_with_timeout(recognizer, Duration::from_secs(60))
+    }
+
+    fn test_router_with_timeout(
+        recognizer: Arc<dyn InteractiveRecognizer>,
+        body_read_timeout: Duration,
+    ) -> (Router, Arc<HealthState>) {
         let config = sample_config();
         let plan = required_preload(&config).unwrap().remove(0);
         let activity = ServerActivity::new();
@@ -908,12 +1013,20 @@ mod tests {
                 max_file_bytes: 4096,
                 max_duration_seconds: 1,
             },
+            body_read_timeout,
         );
         let rest = RestApiState::new("", SERVER_API_VERSION, activity)
             .with_token_verifier(verifier)
-            .with_jobs(jobs);
+            .with_jobs(jobs)
+            .with_body_read_timeout(body_read_timeout);
         (
-            server_router(rest, Arc::clone(&health), recognize, 4096),
+            server_router(
+                rest,
+                Arc::clone(&health),
+                recognize,
+                4096,
+                config.server.allowed_hosts,
+            ),
             health,
         )
     }
@@ -923,7 +1036,7 @@ mod tests {
         path: &str,
         token: Option<&str>,
     ) -> (StatusCode, serde_json::Value) {
-        let mut request = Request::builder().uri(path);
+        let mut request = Request::builder().uri(path).header("host", "localhost");
         if let Some(token) = token {
             request = request.header("Authorization", format!("Bearer {token}"));
         }
@@ -954,6 +1067,166 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn host_allowlist_rejects_missing_malformed_and_unlisted_hosts() {
+        let (app, _) = test_router();
+        for (host, expected) in [
+            (Some("LOCALHOST:17832"), StatusCode::SERVICE_UNAVAILABLE),
+            (Some("[::1]:17832"), StatusCode::SERVICE_UNAVAILABLE),
+            (None, StatusCode::BAD_REQUEST),
+            (
+                Some("localhost.evil.example"),
+                StatusCode::MISDIRECTED_REQUEST,
+            ),
+            (Some("localhost:"), StatusCode::BAD_REQUEST),
+            (Some("localhost:0"), StatusCode::BAD_REQUEST),
+            (Some("localhost:99999"), StatusCode::BAD_REQUEST),
+            (Some("localhost,evil.example"), StatusCode::BAD_REQUEST),
+        ] {
+            let mut request = Request::builder()
+                .uri("/healthz")
+                .header("x-request-id", "host-check");
+            if let Some(host) = host {
+                request = request.header("host", host);
+            }
+            let response = app
+                .clone()
+                .oneshot(request.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected, "Host: {host:?}");
+            assert_eq!(response.headers()["x-request-id"], "host-check");
+        }
+
+        let mut request = Request::builder()
+            .uri("/healthz")
+            .header("host", "localhost")
+            .body(Body::empty())
+            .unwrap();
+        request
+            .headers_mut()
+            .append(header::HOST, "evil.example".parse().unwrap());
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let request = Request::builder()
+            .uri("http://evil.example/healthz")
+            .header("host", "localhost")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(request_host(&request), None);
+    }
+
+    #[tokio::test]
+    async fn cross_origin_preflight_does_not_receive_cors_permission() {
+        let (app, _) = test_router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri("/v1/recognize")
+                    .header("host", "localhost")
+                    .header("origin", "https://untrusted.example")
+                    .header("access-control-request-method", "POST")
+                    .header("access-control-request-headers", "authorization")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(response.status(), StatusCode::OK);
+        assert!(response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+            .is_none());
+        assert!(response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_HEADERS)
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn unauthenticated_stalled_body_is_rejected_before_reading() {
+        let (app, _) =
+            test_router_with_timeout(Arc::new(ReadyRecognizer), Duration::from_millis(100));
+        let pending_body = || Body::from_stream(stream::pending::<Result<Bytes, std::io::Error>>());
+        for path in ["/v1/recognize", "/v1/transcriptions"] {
+            let response = tokio::time::timeout(
+                Duration::from_secs(1),
+                app.clone().oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri(path)
+                        .header("host", "localhost")
+                        .header("content-type", "audio/L16; rate=16000; channels=1")
+                        .body(pending_body())
+                        .unwrap(),
+                ),
+            )
+            .await
+            .expect("authentication must not wait for the body")
+            .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{path}");
+        }
+    }
+
+    #[tokio::test]
+    async fn recognize_total_body_deadline_rejects_slow_drip_and_recovers() {
+        let (app, _) =
+            test_router_with_timeout(Arc::new(ReadyRecognizer), Duration::from_millis(100));
+        let chunks_sent = Arc::new(AtomicUsize::new(0));
+        let stream = stream::unfold(
+            (0usize, Arc::clone(&chunks_sent)),
+            |(index, sent)| async move {
+                if index == 8 {
+                    return None;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                sent.fetch_add(1, Ordering::Relaxed);
+                Some((
+                    Ok::<_, std::io::Error>(Bytes::from_static(&[0])),
+                    (index + 1, sent),
+                ))
+            },
+        );
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/recognize")
+                    .header("host", "localhost")
+                    .header("Authorization", "Bearer test-recognize-token")
+                    .header("content-type", "audio/L16; rate=16000; channels=1")
+                    .header("x-request-id", "slow-body")
+                    .body(Body::from_stream(stream))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
+        assert_eq!(response.headers()["x-request-id"], "slow-body");
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"]["code"], "body_read_timeout");
+        assert!(chunks_sent.load(Ordering::Relaxed) >= 2);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/recognize")
+                    .header("host", "localhost")
+                    .header("Authorization", "Bearer test-recognize-token")
+                    .header("content-type", "audio/L16; rate=16000; channels=1")
+                    .body(Body::from(vec![1, 0, 2, 0]))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
     async fn jobs_auth_runs_before_json_extraction() {
         let (app, _) = test_router();
         let response = app
@@ -961,6 +1234,7 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/v1/transcription-jobs")
+                    .header("host", "localhost")
                     .header("content-type", "application/json")
                     .body(Body::from("{invalid"))
                     .unwrap(),
@@ -978,6 +1252,7 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/v1/recognize")
+                    .header("host", "localhost")
                     .header("content-type", "audio/unsupported")
                     .header("x-request-id", "test-unauthorized")
                     .body(Body::from("invalid audio"))
@@ -995,6 +1270,7 @@ mod tests {
             Request::builder()
                 .method("POST")
                 .uri("/v1/recognize?language=ru&priority=interactive")
+                .header("host", "localhost")
                 .header("Authorization", "Bearer test-recognize-token")
                 .header("content-type", "audio/L16; rate=16000; channels=1")
                 .header("x-request-id", "sample-recognize")
@@ -1037,6 +1313,7 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/v1/recognize?language=en")
+                    .header("host", "localhost")
                     .header("Authorization", "Bearer test-recognize-token")
                     .header("content-type", "audio/wav")
                     .body(Body::from(body))
@@ -1051,6 +1328,7 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/v1/recognize")
+                    .header("host", "localhost")
                     .header("Authorization", "Bearer test-recognize-token")
                     .header("content-type", "audio/L16;rate=16000;channels=1")
                     .body(Body::from(vec![0u8; 4097]))
@@ -1076,6 +1354,7 @@ mod tests {
         let request = Request::builder()
             .method("POST")
             .uri("/v1/recognize")
+            .header("host", "localhost")
             .header("Authorization", "Bearer test-recognize-token")
             .header("content-type", "audio/L16; rate=16000; channels=1")
             .body(Body::from(vec![1, 0, 2, 0]))

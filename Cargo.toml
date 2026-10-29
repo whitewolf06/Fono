@@ -23,6 +23,7 @@ sherpa-onnx = { version = "=1.13.4", default-features = false, features = ["shar
 whisper-rs = "0.16"
 tokio = "1.41"
 axum = "0.7"
+futures-util = "0.3"
 reqwest = "0.12"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 base64 = "0.22"
