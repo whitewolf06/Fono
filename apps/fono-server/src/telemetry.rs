@@ -35,6 +35,8 @@ pub enum Phase {
     SignalFailed,
     ShutdownTimedOut,
     NetworkExposure,
+    TlsReloaded,
+    TlsReloadRejected,
 }
 
 #[derive(Clone, Copy, Serialize)]

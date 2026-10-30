@@ -69,7 +69,8 @@ export FONO_BIND_IP=192.168.1.8
 The container listens on `0.0.0.0` so Docker port forwarding works. The host
 publication controls which interface is reachable. Plain HTTP is intended for
 a protected private network; use a TLS reverse proxy or encrypted tunnel when
-transport protection is required. Native `[tls]` is currently rejected. See
+transport protection is required. Native `[tls]` is supported; see
+[TLS setup and certificate renewal](server-tls.md) and
 [the network contract](server-security.md).
 
 ## Initialize models and credentials
@@ -108,8 +109,8 @@ worker handshakes and recognition of embedded public speech on the default
 model. Run it before starting the service, as the same service account. It
 prints JSON with remediation hints and returns nonzero for failed required
 checks. See [the doctor guide](server-doctor.md) for checks, timeouts and
-`--skip-self-test`. Native TLS serving remains SRV-11 work; valid TLS files do
-not enable an unsupported listener.
+`--skip-self-test`. A configured TLS listener is validated with rustls as well
+as the certificate and key file checks.
 
 The service is non-root, has a read-only root filesystem and credentials,
 drops capabilities, and uses a bounded temporary filesystem. Only the model

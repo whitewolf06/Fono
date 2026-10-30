@@ -44,6 +44,7 @@ pub struct ApiState {
     verifier: Arc<dyn TokenVerifier>,
     activity: Arc<ServerActivity>,
     requests: RequestMetrics,
+    rate: Arc<crate::rate_limit::RateState>,
 }
 
 impl ApiState {
@@ -57,6 +58,10 @@ impl ApiState {
     ) -> Result<Arc<Self>, String> {
         models::validate_configuration(&config)?;
         Ok(Arc::new(Self {
+            rate: Arc::new(crate::rate_limit::RateState {
+                limiter: crate::rate_limit::RateLimiter::new(config.rate_limit.clone()),
+                verifier: verifier.clone(),
+            }),
             config,
             pool,
             jobs,
@@ -64,6 +69,10 @@ impl ApiState {
             activity,
             requests: RequestMetrics::default(),
         }))
+    }
+
+    pub fn rate_limits(&self) -> Arc<crate::rate_limit::RateState> {
+        self.rate.clone()
     }
 }
 

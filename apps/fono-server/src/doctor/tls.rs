@@ -12,9 +12,10 @@ pub(super) fn inspect(config: &ServerConfig, report: &mut Report) {
         );
         return;
     };
-    // The file checks are useful preflight even while SRV-11 is pending.
-    report.check("tls_runtime", true, false, "Native TLS serving is unavailable in this build",
-        "Use a TLS reverse proxy or encrypted tunnel; remove the native tls section until SRV-11 is implemented.");
+    let ready = crate::tls::load_config(tls).is_ok();
+    report.check("tls_runtime", true, ready,
+        if ready { "Rustls TLS 1.2/1.3 configuration validated" } else { "TLS material is invalid or unsupported by rustls" },
+        "Repair cert/key, validity, ownership and permissions; use a supported unencrypted PEM key.");
     #[cfg(unix)]
     inspect_unix(tls, report);
     #[cfg(not(unix))]
@@ -61,12 +62,8 @@ fn inspect_unix(tls: &crate::config::TlsSettings, report: &mut Report) {
     report.check("tls_private_key", true, key.is_some(),
         if key.is_some() { "PEM private key parsed without prompting" } else { "Private key is missing, unreadable, encrypted or invalid PEM" },
         "Provide the matching unencrypted PEM private key in tls.key with restricted file permissions.");
-    let permissions_ok = std::fs::metadata(&tls.key).is_ok_and(|metadata| {
-        use std::os::unix::fs::MetadataExt;
-        metadata.is_file()
-            && metadata.mode() & 0o027 == 0
-            && (metadata.uid() == 0 || metadata.uid() == unsafe { libc::geteuid() })
-    });
+    let permissions_ok =
+        std::fs::metadata(&tls.key).is_ok_and(|metadata| crate::tls::key_permissions(&metadata));
     report.check("tls_key_permissions", true, permissions_ok,
         if permissions_ok { "Private key ownership and permissions are restricted" } else { "Private key ownership or permissions are unsafe" },
         "Use an owner-controlled regular key file with mode 0600, 0400 or a trusted read-only group (0640).");
@@ -190,7 +187,7 @@ mod tests {
             .iter()
             .filter(|check| check.name != "tls_runtime")
             .all(|check| check.ok));
-        assert!(!report.required_checks_pass()); // Serving still waits for SRV-11.
+        assert!(report.required_checks_pass());
         let encoded = serde_json::to_string(&report).unwrap();
         for secret in [
             "private-key.pem",

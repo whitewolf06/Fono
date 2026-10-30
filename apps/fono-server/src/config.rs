@@ -19,6 +19,7 @@ pub struct ServerConfig {
     pub queue: QueueSettings,
     pub metrics: MetricsSettings,
     pub logging: LoggingSettings,
+    pub rate_limit: RateLimitSettings,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,6 +74,13 @@ pub struct QueueSettings {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MetricsSettings {
     pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RateLimitSettings {
+    pub enabled: bool,
+    pub requests_per_minute: usize,
+    pub burst: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
@@ -135,6 +143,49 @@ fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
 
 #[cfg(test)]
 #[test]
+fn request_rate_configuration_has_bounded_validated_defaults_and_overrides() {
+    let defaults = parse_and_validate("").unwrap().rate_limit;
+    assert!(defaults.enabled);
+    assert_eq!(defaults.requests_per_minute, 120);
+    assert_eq!(defaults.burst, 20);
+    for (key, value) in [
+        ("requests_per_minute", "0"),
+        ("requests_per_minute", "60001"),
+        ("burst", "0"),
+        ("burst", "1025"),
+        ("enabled", "'secret-private'"),
+    ] {
+        let error = parse_and_validate(&format!("[rate_limit]\n{key} = {value}")).unwrap_err();
+        assert_eq!(error.path, format!("rate_limit.{key}"));
+        assert!(!error.to_string().contains("secret-private"));
+    }
+    let configured = parse_and_validate_with_env(
+        "",
+        [
+            (
+                OsString::from("FONO_RATE_LIMIT_ENABLED"),
+                OsString::from("false"),
+            ),
+            (
+                OsString::from("FONO_RATE_LIMIT_REQUESTS_PER_MINUTE"),
+                OsString::from("60"),
+            ),
+            (OsString::from("FONO_RATE_LIMIT_BURST"), OsString::from("2")),
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        configured.rate_limit,
+        RateLimitSettings {
+            enabled: false,
+            requests_per_minute: 60,
+            burst: 2
+        }
+    );
+}
+
+#[cfg(test)]
+#[test]
 fn logging_levels_and_environment_are_validated_without_echoing_values() {
     for (value, level) in [
         ("off", LogLevel::Off),
@@ -178,7 +229,15 @@ fn parse_and_validate_with_env(
 fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
     known_keys(
         root,
-        &["server", "tls", "models", "queue", "metrics", "logging"],
+        &[
+            "server",
+            "tls",
+            "models",
+            "queue",
+            "metrics",
+            "logging",
+            "rate_limit",
+        ],
         "",
     )?;
 
@@ -360,6 +419,33 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
             ))
         }
     };
+    let rate_table = section(root, "rate_limit")?;
+    if let Some(table) = rate_table {
+        known_keys(
+            table,
+            &["enabled", "requests_per_minute", "burst"],
+            "rate_limit",
+        )?;
+    }
+    let rate_limit = RateLimitSettings {
+        enabled: boolean_or(rate_table, "enabled", "rate_limit.enabled", true)?,
+        requests_per_minute: positive_usize_or(
+            rate_table,
+            "requests_per_minute",
+            "rate_limit.requests_per_minute",
+            120,
+        )?,
+        burst: positive_usize_or(rate_table, "burst", "rate_limit.burst", 20)?,
+    };
+    if rate_limit.requests_per_minute > 60_000 {
+        return Err(ConfigError::new(
+            "rate_limit.requests_per_minute",
+            "must not exceed 60000",
+        ));
+    }
+    if rate_limit.burst > 1024 {
+        return Err(ConfigError::new("rate_limit.burst", "must not exceed 1024"));
+    }
     Ok(ServerConfig {
         server: ServerSettings {
             bind,
@@ -376,6 +462,7 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
         queue,
         metrics: MetricsSettings { enabled },
         logging: LoggingSettings { level },
+        rate_limit,
     })
 }
 
@@ -414,6 +501,9 @@ fn environment_field(name: &str) -> Option<(&'static str, &'static str, Environm
         "FONO_QUEUE_CPU_PARALLEL" => ("queue", "cpu_parallel", Integer),
         "FONO_METRICS_ENABLED" => ("metrics", "enabled", Boolean),
         "FONO_LOGGING_LEVEL" => ("logging", "level", String),
+        "FONO_RATE_LIMIT_ENABLED" => ("rate_limit", "enabled", Boolean),
+        "FONO_RATE_LIMIT_REQUESTS_PER_MINUTE" => ("rate_limit", "requests_per_minute", Integer),
+        "FONO_RATE_LIMIT_BURST" => ("rate_limit", "burst", Integer),
         _ => return None,
     })
 }
@@ -505,6 +595,7 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
             "[queue]" => section = "queue",
             "[metrics]" => section = "metrics",
             "[logging]" => section = "logging",
+            "[rate_limit]" => section = "rate_limit",
             "[[models.placement]]" => {
                 section = "models.placement";
                 placement_index = Some(placement_count);
@@ -540,6 +631,7 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
         ),
         "metrics" => key == "enabled",
         "logging" => key == "level",
+        "rate_limit" => matches!(key, "enabled" | "requests_per_minute" | "burst"),
         _ => false,
     };
     if !known {

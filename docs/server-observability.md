@@ -23,6 +23,8 @@ events carry a fixed `phase`; HTTP completion carries numeric `status` and
 glossaries, headers, URLs, query strings, request IDs, model paths or credentials.
 Native/third-party tracing output is not subscribed into this stream and
 `RUST_LOG` does not override the schema or configured threshold.
+TLS renewal adds fixed lifecycle phases `tls_reloaded` and
+`tls_reload_rejected`; certificate names, paths and parser errors remain absent.
 
 The writer runs on its own thread with a 256-record queue. Producers never wait
 for stdout I/O. Queue overflow and write failures increment

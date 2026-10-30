@@ -42,3 +42,9 @@ Thumbs.db
 # Misc
 *.tsbuildinfo
 __pycache__/
+
+# Local Ubuntu deployment material (never commit credentials or private keys).
+/packaging/docker/server.toml
+/packaging/docker/credentials/
+/packaging/docker/tls/
+/packaging/docker/private-ca/

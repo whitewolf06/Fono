@@ -227,8 +227,8 @@ fn inspect_network(config: &ServerConfig, report: &mut Report) {
         loopback || (config.server.trusted_private_network && !config.server.allowed_hosts.is_empty()),
         "Non-loopback access requires a trusted private network and explicit hosts",
         "Set an explicit allowed_hosts list and trusted_private_network only for a protected network.");
-    report.check("network_exposure", false, loopback,
-        if loopback { "Listener is restricted to loopback" } else { "Plain HTTP is reachable beyond loopback" },
+    report.check("network_exposure", false, loopback || config.tls.is_some(),
+        if loopback { "Listener is restricted to loopback" } else if config.tls.is_some() { "Listener is configured for TLS" } else { "Plain HTTP is reachable beyond loopback" },
         "Restrict the published interface and firewall; use an encrypted tunnel or TLS reverse proxy.");
     let (ok, detail, hint) = match TcpListener::bind(config.server.bind) {
         Ok(listener) => { drop(listener); (true, "Configured listener can bind", "") }

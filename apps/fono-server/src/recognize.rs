@@ -195,6 +195,14 @@ pub(crate) struct HttpError {
 }
 
 impl HttpError {
+    pub(crate) fn rate_limited() -> Self {
+        Self {
+            status: StatusCode::TOO_MANY_REQUESTS,
+            code: "rate_limited",
+            message: "Credential request rate exceeded",
+            retryable: true,
+        }
+    }
     pub(crate) fn invalid() -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
@@ -262,7 +270,9 @@ impl HttpError {
     }
 
     pub(crate) fn into_openai_response(self, request_id: &RequestId) -> Response {
-        let kind = if self.status.is_server_error() {
+        let kind = if self.code == "rate_limited" {
+            "rate_limit_error"
+        } else if self.status.is_server_error() {
             "server_error"
         } else {
             "invalid_request_error"

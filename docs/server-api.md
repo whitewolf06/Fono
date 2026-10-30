@@ -119,7 +119,11 @@ retryability. Common statuses are 400 invalid request, 401 token missing or
 revoked, 403 insufficient scope/disabled gate, 404 model missing, 408 total body
 reception deadline, 413 size/duration limit, 415 unsupported audio, 429 busy with
 `Retry-After`, and 503 model not ready. Body reception is bounded separately
-from native loading, decoding and recognition time.
+from native loading, decoding and recognition time. Per-credential request
+quotas return 429 with `rate_limited` and `Retry-After`, separately from queue
+`busy`. They cover every authenticated route before body extraction; see the
+[rate-limit contract](server-security.md#per-credential-request-rate). HTTPS and
+SIGHUP renewal are described in [TLS setup](server-tls.md).
 
 Server deployment, image publication and owner acceptance remain separate
 operations. Automated public-WAV replay does not replace microphone, hotkey,

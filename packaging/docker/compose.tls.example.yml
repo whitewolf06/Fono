@@ -1,0 +1,31 @@
+# Use alongside compose.example.yml after creating ./tls and server.toml.
+# FONO_TLS_SERVER_NAME must match the certificate SAN and allowed_hosts.
+services:
+  fono:
+    volumes:
+      - type: bind
+        source: ./tls
+        target: /etc/fono/tls
+        read_only: true
+        bind:
+          create_host_path: false
+    environment:
+      FONO_TLS_CERT: /etc/fono/tls/cert.pem
+      FONO_TLS_KEY: /etc/fono/tls/key.pem
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - --max-time
+        - "4"
+        - --cacert
+        - ${FONO_TLS_CA_FILE:-/etc/ssl/certs/ca-certificates.crt}
+        - --resolve
+        - ${FONO_TLS_SERVER_NAME:?Set the certificate DNS name}:17832:127.0.0.1
+        - https://${FONO_TLS_SERVER_NAME:?Set the certificate DNS name}:17832/healthz
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3

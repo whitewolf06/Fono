@@ -60,6 +60,7 @@ pub enum RuntimeError {
     Signal(std::io::Error),
     Task(&'static str),
     ShutdownTimeout,
+    Tls(crate::tls::TlsError),
 }
 
 impl fmt::Display for RuntimeError {
@@ -74,6 +75,7 @@ impl fmt::Display for RuntimeError {
             Self::Signal(error) => write!(formatter, "Cannot install shutdown signal: {error}"),
             Self::Task(message) => formatter.write_str(message),
             Self::ShutdownTimeout => formatter.write_str("Server shutdown exceeded its deadline"),
+            Self::Tls(error) => write!(formatter, "TLS configuration: {error}"),
         }
     }
 }
@@ -95,6 +97,9 @@ impl RuntimeError {
                 "Server runtime failed; inspect the structured technical events"
             }
             Self::ShutdownTimeout => "Server shutdown exceeded its deadline",
+            Self::Tls(_) => {
+                "TLS configuration failed validation; run doctor before starting the server"
+            }
         }
     }
     fn event_phase(&self) -> Phase {
@@ -106,6 +111,7 @@ impl RuntimeError {
             Self::Upload(_) => Phase::UploadFailed,
             Self::Signal(_) => Phase::SignalFailed,
             Self::ShutdownTimeout => Phase::ShutdownTimedOut,
+            Self::Tls(_) => Phase::ConfigurationFailed,
             Self::Server(_) | Self::Task(_) => Phase::Failed,
         }
     }
@@ -165,11 +171,15 @@ async fn serve_observed(
     observability: Arc<Observability>,
 ) -> Result<(), RuntimeError> {
     let mut shutdown = Box::pin(shutdown);
-    if config.tls.is_some() {
-        return Err(RuntimeError::Configuration(
-            "TLS is configured but unavailable in this server build",
-        ));
-    }
+    let tls = match config.tls.clone() {
+        None => None,
+        Some(settings) => Some(Arc::new(
+            tokio::task::spawn_blocking(move || crate::tls::TlsState::new(settings))
+                .await
+                .map_err(|_| RuntimeError::Tls(crate::tls::TlsError::Task))?
+                .map_err(RuntimeError::Tls)?,
+        )),
+    };
     if !config.server.bind.ip().is_loopback()
         && (!config.server.trusted_private_network || config.server.allowed_hosts.is_empty())
     {
@@ -351,9 +361,16 @@ async fn serve_observed(
     });
 
     let (stop_tx, stop_rx) = oneshot::channel();
-    let mut http = tokio::spawn(rest_api::serve_with_shutdown(app, listener, async move {
-        let _ = stop_rx.await;
-    }));
+    let http_activity = activity.clone();
+    let mut http = tokio::spawn(async move {
+        let stop = async move {
+            let _ = stop_rx.await;
+        };
+        match tls {
+            Some(tls) => crate::tls::serve(app, listener, tls, http_activity, stop).await,
+            None => rest_api::serve_with_shutdown(app, listener, stop).await,
+        }
+    });
     observability.event(LogLevel::Info, Phase::Listening);
     let early_server_result = tokio::select! {
         _ = &mut shutdown => None,
@@ -667,6 +684,10 @@ fn server_router(
             max_file_bytes.saturating_add(MULTIPART_OVERHEAD_BYTES),
         ))
         .with_state(state)
+        .layer(middleware::from_fn_with_state(
+            api_state.rate_limits(),
+            crate::rate_limit::enforce,
+        ))
         .layer(middleware::from_fn_with_state(
             Arc::new(allowed_hosts.into_iter().collect::<HashSet<_>>()),
             enforce_host,
@@ -1646,7 +1667,7 @@ mod tests {
         let error = serve_with_shutdown(config, std::future::pending())
             .await
             .unwrap_err();
-        assert!(matches!(error, RuntimeError::Configuration(_)));
+        assert!(matches!(error, RuntimeError::Tls(_)));
         assert!(error.to_string().contains("TLS"));
     }
 

@@ -23,6 +23,10 @@ sherpa-onnx = { version = "=1.13.4", default-features = false, features = ["shar
 whisper-rs = "0.16"
 tokio = "1.41"
 axum = "0.7"
+hyper-util = "=0.1.20"
+rustls = { version = "=0.23.46", default-features = false }
+tokio-rustls = { version = "=0.26.4", default-features = false }
+zeroize = "=1.9.0"
 futures-util = "0.3"
 reqwest = "0.12"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }

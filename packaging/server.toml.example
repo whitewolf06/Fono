@@ -21,8 +21,8 @@ max_audio_seconds = 300
 body_read_timeout = "60s"
 shutdown_grace = "10s"
 
-# TLS configuration is reserved for a later server stage. This build rejects
-# the section rather than silently serving plain HTTP.
+# Optional native rustls HTTPS. Mount the whole certificate directory read-only
+# so atomic renewal is visible. SIGHUP validates and replaces cert/key together.
 # [tls]
 # cert = "/etc/fono/tls/cert.pem"
 # key = "/etc/fono/tls/key.pem"
@@ -58,3 +58,9 @@ enabled = false
 [logging]
 # JSON events on stdout; no RUST_LOG override or raw native messages.
 level = "info" # off, error, warn, info, debug
+
+[rate_limit]
+enabled = true
+requests_per_minute = 120
+burst = 20
+# This per-credential token bucket is separate from queue/inflight limits.

@@ -67,9 +67,9 @@ the configured upload limit.
 TLS inspection accepts a matching unencrypted PEM key with restricted ownership
 and mode 0600, 0400 or a trusted read-only group such as 0640. Encrypted keys fail
 without an interactive password prompt. Certificate parsing/date/key checks do
-not establish client trust. Native TLS serving is currently unavailable: a
-configured `[tls]` section fails `tls_runtime` even when its files are valid.
-Use the supported reverse proxy/tunnel setup described in [server security](server-security.md).
+not establish client trust. `tls_runtime` validates the pair with the same
+rustls loader used at startup and renewal. See [native TLS setup](server-tls.md)
+and the [network contract](server-security.md).
 
 ## Running services and deadlines
 
