@@ -10,4 +10,5 @@ pub mod openai;
 pub mod recognition_options;
 pub mod recognize;
 pub mod runtime;
+pub mod telemetry;
 pub mod tokens;

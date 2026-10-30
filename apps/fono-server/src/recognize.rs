@@ -500,13 +500,19 @@ pub(crate) async fn execute(
                 "server is shutting down".into(),
             ))
         })?;
+        let started = std::time::Instant::now();
         let samples = decode_audio(
             &input.body,
             input.format,
             &state.upload_dir,
             state.policy,
             &cancellation,
-        )?;
+        );
+        state
+            .activity
+            .observability
+            .audio_decoded(started.elapsed());
+        let samples = samples?;
         let audio_ms = samples.len() as u64 * 1_000 / 16_000;
         let output = admission(
             TranscriptionRequest {

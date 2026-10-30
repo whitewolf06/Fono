@@ -34,10 +34,12 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use crate::api::{self, ApiState};
+use crate::config::LogLevel;
 use crate::config::ServerConfig;
 use crate::jobs::{acceleration_for_device, ServerActivity, ServerJobs};
 use crate::models::{self, DiskState, PreloadPlan};
 use crate::recognize::{self, RecognizeState};
+use crate::telemetry::{Observability, Phase};
 use crate::tokens::{FileTokenVerifier, TokenError};
 
 const MULTIPART_OVERHEAD_BYTES: usize = 64 * 1024;
@@ -78,6 +80,37 @@ impl fmt::Display for RuntimeError {
 
 impl std::error::Error for RuntimeError {}
 
+impl RuntimeError {
+    pub fn public_message(&self) -> &'static str {
+        match self {
+            Self::Configuration(_) => "Server configuration is unsupported; run doctor",
+            Self::Model(_) => "Model validation or initialization failed; run doctor",
+            Self::Tokens(_) => "Token store validation failed; run doctor or use the token CLI",
+            Self::Bind(_) => "Cannot bind server listener; run doctor to check the configured port",
+            Self::Upload(_) => {
+                "Private upload storage is unavailable; check temporary directory access"
+            }
+            Self::Signal(_) => "Cannot install server shutdown signals",
+            Self::Server(_) | Self::Task(_) => {
+                "Server runtime failed; inspect the structured technical events"
+            }
+            Self::ShutdownTimeout => "Server shutdown exceeded its deadline",
+        }
+    }
+    fn event_phase(&self) -> Phase {
+        match self {
+            Self::Configuration(_) => Phase::ConfigurationFailed,
+            Self::Model(_) => Phase::ModelFailed,
+            Self::Tokens(_) => Phase::TokensFailed,
+            Self::Bind(_) => Phase::BindFailed,
+            Self::Upload(_) => Phase::UploadFailed,
+            Self::Signal(_) => Phase::SignalFailed,
+            Self::ShutdownTimeout => Phase::ShutdownTimedOut,
+            Self::Server(_) | Self::Task(_) => Phase::Failed,
+        }
+    }
+}
+
 /// Run until SIGTERM or SIGINT. The caller owns the Tokio runtime.
 pub async fn serve(config: ServerConfig) -> Result<(), RuntimeError> {
     #[cfg(unix)]
@@ -107,6 +140,29 @@ pub async fn serve(config: ServerConfig) -> Result<(), RuntimeError> {
 pub async fn serve_with_shutdown(
     config: ServerConfig,
     shutdown: impl Future<Output = ()> + Send,
+) -> Result<(), RuntimeError> {
+    let (observability, writer) = Observability::stdout(config.logging.level)
+        .map_err(|_| RuntimeError::Task("Cannot start JSON log writer"))?;
+    observability.event(LogLevel::Info, Phase::Starting);
+    let result = serve_observed(config, shutdown, observability.clone()).await;
+    observability.event(
+        if result.is_ok() {
+            LogLevel::Info
+        } else {
+            LogLevel::Error
+        },
+        result
+            .as_ref()
+            .map_or_else(|error| error.event_phase(), |()| Phase::Stopped),
+    );
+    let _ = tokio::task::spawn_blocking(move || writer.finish()).await;
+    result
+}
+
+async fn serve_observed(
+    config: ServerConfig,
+    shutdown: impl Future<Output = ()> + Send,
+    observability: Arc<Observability>,
 ) -> Result<(), RuntimeError> {
     let mut shutdown = Box::pin(shutdown);
     if config.tls.is_some() {
@@ -156,7 +212,7 @@ pub async fn serve_with_shutdown(
         result = verify_required_models(&config, &plans) => result?,
     }
 
-    let activity = ServerActivity::new();
+    let activity = ServerActivity::with_observability(observability.clone());
     let environment = SttEnvironment {
         models_dir: config.models.dir.clone(),
         activity: activity.clone(),
@@ -178,9 +234,7 @@ pub async fn serve_with_shutdown(
     };
     let bound = listener.local_addr().map_err(RuntimeError::Bind)?;
     if !bound.ip().is_loopback() && config.tls.is_none() {
-        eprintln!(
-            "Warning: Fono Server listens outside loopback over HTTP; allow access only from a protected private network"
-        );
+        observability.event(LogLevel::Warn, Phase::NetworkExposure);
     }
 
     let default_plan = plans
@@ -263,12 +317,15 @@ pub async fn serve_with_shutdown(
         let pool = Arc::clone(&pool);
         let health = Arc::clone(&health);
         let cancellation = preload_cancel.clone();
-        move || preload_models(pool, plans, health, cancellation)
+        let observability = observability.clone();
+        move || preload_models(pool, plans, health, cancellation, &observability)
     });
     let (maintenance_stop, mut maintenance_stop_rx) = oneshot::channel::<()>();
     let mut maintenance = tokio::spawn({
         let pool = Arc::clone(&pool);
+        let observability = observability.clone();
         async move {
+            let mut gpu_tick = tokio::time::interval(Duration::from_secs(5));
             let mut tick = tokio::time::interval_at(
                 Instant::now() + MODEL_MAINTENANCE_INTERVAL,
                 MODEL_MAINTENANCE_INTERVAL,
@@ -276,6 +333,12 @@ pub async fn serve_with_shutdown(
             loop {
                 tokio::select! {
                     _ = &mut maintenance_stop_rx => break,
+                    _ = gpu_tick.tick(), if crate::backends::cuda_enabled() => {
+                        let sampler = observability.clone();
+                        if tokio::task::spawn_blocking(move || {
+                            sampler.observe_gpu(crate::backends::cuda_devices().ok());
+                        }).await.is_err() { observability.observe_gpu(None); }
+                    }
                     _ = tick.tick() => {
                         let pool = Arc::clone(&pool);
                         if tokio::task::spawn_blocking(move || pool.reap_idle()).await.is_err() {
@@ -291,12 +354,13 @@ pub async fn serve_with_shutdown(
     let mut http = tokio::spawn(rest_api::serve_with_shutdown(app, listener, async move {
         let _ = stop_rx.await;
     }));
-    tracing::info!(address = %bound, "Fono Server listening");
+    observability.event(LogLevel::Info, Phase::Listening);
     let early_server_result = tokio::select! {
         _ = &mut shutdown => None,
         result = &mut http => Some(result),
     };
     health.stopping.store(true, Ordering::Release);
+    observability.event(LogLevel::Info, Phase::Stopping);
     activity.close();
     jobs.cancel_pending();
     preload_cancel.cancel();
@@ -491,11 +555,13 @@ fn preload_models(
     plans: Vec<PreloadPlan>,
     health: Arc<HealthState>,
     cancellation: OperationCancellation,
+    observability: &Observability,
 ) {
     for plan in plans {
         if cancellation.is_cancelled() {
             break;
         }
+        let started = std::time::Instant::now();
         let result = acceleration_for_device(&plan.device).and_then(|mode| {
             pool.acquire_on_device_verified(
                 &plan.selection,
@@ -509,10 +575,13 @@ fn preload_models(
             .map(drop)
             .map_err(|_| "Model preload failed".to_owned())
         });
+        observability.model_acquired(started.elapsed());
         lock(&health.loading).remove(&plan.id);
         if result.is_err() && !cancellation.is_cancelled() {
             lock(&health.failed).insert(plan.id.clone());
-            tracing::error!(model_id = %plan.id, "Model preload failed");
+            observability.event(LogLevel::Error, Phase::ModelFailed);
+        } else if result.is_ok() {
+            observability.event(LogLevel::Info, Phase::ModelReady);
         }
     }
 }

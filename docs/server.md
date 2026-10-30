@@ -144,6 +144,9 @@ configured for an explicit CUDA placement. A failed GPU worker produces
 
 ## Verification and publication
 
+Structured JSON logs and protected queue, timing, RTF and driver metrics are
+described in [the observability guide](server-observability.md).
+
 Run the reproducible CPU smoke against the CUDA image without GPU access:
 
 ```sh

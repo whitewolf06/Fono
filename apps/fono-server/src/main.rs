@@ -65,7 +65,7 @@ fn serve(path: &Path) -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("Server error: {error}");
+            eprintln!("{}", error.public_message());
             ExitCode::FAILURE
         }
     }

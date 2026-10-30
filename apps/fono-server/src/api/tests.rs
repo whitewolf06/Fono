@@ -64,6 +64,14 @@ impl Drop for TestDirectory {
 }
 
 fn test_state(control: bool, metrics_enabled: bool) -> (Arc<ApiState>, TestDirectory) {
+    test_state_with_activity(control, metrics_enabled, ServerActivity::new())
+}
+
+fn test_state_with_activity(
+    control: bool,
+    metrics_enabled: bool,
+    activity: Arc<ServerActivity>,
+) -> (Arc<ApiState>, TestDirectory) {
     let config_path =
         FilePath::new(env!("CARGO_MANIFEST_DIR")).join("../../packaging/server.toml.example");
     let mut config = crate::config::load_and_validate_with_env(
@@ -75,7 +83,6 @@ fn test_state(control: bool, metrics_enabled: bool) -> (Arc<ApiState>, TestDirec
     config.models.dir = directory.0.clone();
     config.models.client_model_load = control;
     config.metrics.enabled = metrics_enabled;
-    let activity = ServerActivity::new();
     let pool = Arc::new(
         ModelPool::new(
             SttEnvironment {
@@ -89,6 +96,47 @@ fn test_state(control: bool, metrics_enabled: bool) -> (Arc<ApiState>, TestDirec
     );
     let state = ApiState::new(config, pool, Arc::new(Jobs), Arc::new(Tokens), activity).unwrap();
     (state, directory)
+}
+
+#[tokio::test]
+async fn http_telemetry_never_copies_untrusted_headers_query_or_request_id() {
+    use std::sync::Mutex;
+    #[derive(Clone)]
+    struct Output(Arc<Mutex<Vec<u8>>>);
+    impl std::io::Write for Output {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let output = Arc::new(Mutex::new(Vec::new()));
+    let (observer, guard) = crate::telemetry::Observability::with_writer(
+        crate::config::LogLevel::Debug,
+        Output(output.clone()),
+    )
+    .unwrap();
+    let (state, _directory) =
+        test_state_with_activity(false, true, ServerActivity::with_observability(observer));
+    let request = axum::http::Request::builder()
+        .uri("/docs?private=secret-transcript")
+        .header("authorization", "Bearer secret-token")
+        .header("x-request-id", "secret-request-id")
+        .header("x-fono-glossary", "secret-glossary")
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(
+        test_router(state).oneshot(request).await.unwrap().status(),
+        StatusCode::UNAUTHORIZED
+    );
+    guard.finish();
+    let log = String::from_utf8(output.lock().unwrap().clone()).unwrap();
+    assert!(!log.contains("secret-"));
+    let event: serde_json::Value = serde_json::from_str(log.trim()).unwrap();
+    assert_eq!(event["event"], "http_completed");
+    assert_eq!(event["status"], 401);
 }
 fn test_router(state: Arc<ApiState>) -> Router {
     routes(Arc::clone(&state))
@@ -356,7 +404,9 @@ async fn cancelled_http_future_releases_the_inflight_gauge() {
     pending.abort();
     let _ = pending.await;
     assert_eq!(state.requests.inflight.load(Ordering::Relaxed), 0);
-    assert_eq!(state.requests.completed.load(Ordering::Relaxed), 0);
+    let mut metrics = String::new();
+    state.activity.observability.render(&mut metrics);
+    assert!(metrics.contains("fono_http_request_duration_seconds_count 0\n"));
 }
 
 #[test]

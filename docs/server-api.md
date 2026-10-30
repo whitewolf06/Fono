@@ -108,6 +108,8 @@ cleanup continues to hold its pool reservation and may report `retiring`.
 Prometheus output exposes global HTTP request/error/inflight/duration metrics,
 pool reservations, aggregate job states and active operations. It has no labels
 derived from URLs, token identities, model paths, audio or transcript contents.
+Queue/native timing histograms, RTF, status counters, driver memory and JSON
+events are described in [the observability contract](server-observability.md).
 
 ## Errors and limits
 

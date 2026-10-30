@@ -18,6 +18,7 @@ pub struct ServerConfig {
     pub models: ModelSettings,
     pub queue: QueueSettings,
     pub metrics: MetricsSettings,
+    pub logging: LoggingSettings,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,6 +75,21 @@ pub struct MetricsSettings {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Off,
+    Error,
+    Warn,
+    Info,
+    Debug,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoggingSettings {
+    pub level: LogLevel,
+}
+
 /// The field path is safe to print. Messages never contain the rejected value,
 /// which may have come from a secret-bearing configuration file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +133,34 @@ fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
     parse_and_validate_with_env(source, std::iter::empty())
 }
 
+#[cfg(test)]
+#[test]
+fn logging_levels_and_environment_are_validated_without_echoing_values() {
+    for (value, level) in [
+        ("off", LogLevel::Off),
+        ("error", LogLevel::Error),
+        ("warn", LogLevel::Warn),
+        ("info", LogLevel::Info),
+        ("debug", LogLevel::Debug),
+    ] {
+        let source = format!("[logging]\nlevel = '{value}'\n");
+        assert_eq!(parse_and_validate(&source).unwrap().logging.level, level);
+        assert_eq!(
+            parse_and_validate_with_env(
+                "",
+                [(OsString::from("FONO_LOGGING_LEVEL"), OsString::from(value))]
+            )
+            .unwrap()
+            .logging
+            .level,
+            level
+        );
+    }
+    let error = parse_and_validate("[logging]\nlevel = 'secret-private-level'\n").unwrap_err();
+    assert_eq!(error.path, "logging.level");
+    assert!(!error.to_string().contains("secret-private"));
+}
+
 fn parse_and_validate_with_env(
     source: &str,
     environment: impl IntoIterator<Item = (OsString, OsString)>,
@@ -132,7 +176,11 @@ fn parse_and_validate_with_env(
 }
 
 fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
-    known_keys(root, &["server", "tls", "models", "queue", "metrics"], "")?;
+    known_keys(
+        root,
+        &["server", "tls", "models", "queue", "metrics", "logging"],
+        "",
+    )?;
 
     let server = section(root, "server")?;
     if let Some(table) = server {
@@ -295,6 +343,23 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
         Some(_) => return Err(ConfigError::new("metrics.enabled", "expected a boolean")),
     };
 
+    let logging = section(root, "logging")?;
+    if let Some(table) = logging {
+        known_keys(table, &["level"], "logging")?;
+    }
+    let level = match string_or(logging, "level", "logging.level", "info")?.as_str() {
+        "off" => LogLevel::Off,
+        "error" => LogLevel::Error,
+        "warn" => LogLevel::Warn,
+        "info" => LogLevel::Info,
+        "debug" => LogLevel::Debug,
+        _ => {
+            return Err(ConfigError::new(
+                "logging.level",
+                "expected off, error, warn, info or debug",
+            ))
+        }
+    };
     Ok(ServerConfig {
         server: ServerSettings {
             bind,
@@ -310,6 +375,7 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
         models,
         queue,
         metrics: MetricsSettings { enabled },
+        logging: LoggingSettings { level },
     })
 }
 
@@ -347,6 +413,7 @@ fn environment_field(name: &str) -> Option<(&'static str, &'static str, Environm
         "FONO_QUEUE_MAX_INFLIGHT_PER_TOKEN" => ("queue", "max_inflight_per_token", Integer),
         "FONO_QUEUE_CPU_PARALLEL" => ("queue", "cpu_parallel", Integer),
         "FONO_METRICS_ENABLED" => ("metrics", "enabled", Boolean),
+        "FONO_LOGGING_LEVEL" => ("logging", "level", String),
         _ => return None,
     })
 }
@@ -437,6 +504,7 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
             "[models]" => section = "models",
             "[queue]" => section = "queue",
             "[metrics]" => section = "metrics",
+            "[logging]" => section = "logging",
             "[[models.placement]]" => {
                 section = "models.placement";
                 placement_index = Some(placement_count);
@@ -471,6 +539,7 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
             "max_queued" | "max_inflight_per_token" | "cpu_parallel"
         ),
         "metrics" => key == "enabled",
+        "logging" => key == "level",
         _ => false,
     };
     if !known {

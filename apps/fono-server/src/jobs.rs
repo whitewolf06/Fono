@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
+use std::time::Instant;
 
 use fono_audio::speech_segments::{
     SpeechSegment, SpeechSegmentPlanner, DEFAULT_MAX_SEGMENT_SAMPLES,
@@ -39,6 +40,7 @@ struct ActivityState {
 /// admission never revokes leases that an already admitted operation owns.
 pub struct ServerActivity {
     inner: Arc<ActivityInner>,
+    pub(crate) observability: Arc<crate::telemetry::Observability>,
 }
 
 struct ActivityInner {
@@ -48,7 +50,12 @@ struct ActivityInner {
 
 impl ServerActivity {
     pub fn new() -> Arc<Self> {
+        Self::with_observability(Arc::new(crate::telemetry::Observability::default()))
+    }
+
+    pub fn with_observability(observability: Arc<crate::telemetry::Observability>) -> Arc<Self> {
         Arc::new(Self {
+            observability,
             inner: Arc::new(ActivityInner {
                 state: Mutex::new(ActivityState {
                     accepting: true,
@@ -160,6 +167,7 @@ struct PoolTranscriptionRuntime {
     acceleration: AccelerationMode,
     max_audio_samples: usize,
     config: Arc<ServerConfig>,
+    observability: Arc<crate::telemetry::Observability>,
 }
 
 impl PoolTranscriptionRuntime {
@@ -257,34 +265,34 @@ impl PoolTranscriptionRuntime {
         fono_stt_protocol::prompt::validate(&options.glossary)
             .map_err(|message| TranscriptionServiceError::InvalidRequest(message.into()))?;
         validate_prompt(options.prompt.as_deref())?;
-        let model = self
-            .pool
-            .acquire_on_device_verified(
-                &self.plan.selection,
-                self.acceleration,
-                crate::backends::cuda_index(&self.plan.device),
-                self.plan.residency,
-                0,
-                cancellation,
-                || {
-                    crate::models::resolve_installed(&self.config, &self.plan.id)
-                        .map(|_| ())
-                        .map_err(|message| {
-                            if message == "Requested model is not installed" {
-                                SttError::ModelFileMissing
-                            } else {
-                                SttError::ModelNotLoaded
-                            }
-                        })
-                },
-            )
-            .map_err(service_error_from_stt)?;
+        let acquired_at = Instant::now();
+        let model = self.pool.acquire_on_device_verified(
+            &self.plan.selection,
+            self.acceleration,
+            crate::backends::cuda_index(&self.plan.device),
+            self.plan.residency,
+            0,
+            cancellation,
+            || {
+                crate::models::resolve_installed(&self.config, &self.plan.id)
+                    .map(|_| ())
+                    .map_err(|message| {
+                        if message == "Requested model is not installed" {
+                            SttError::ModelFileMissing
+                        } else {
+                            SttError::ModelNotLoaded
+                        }
+                    })
+            },
+        );
+        self.observability.model_acquired(acquired_at.elapsed());
+        let model = model.map_err(service_error_from_stt)?;
         let capabilities = model.capabilities().ok_or_else(|| {
             TranscriptionServiceError::ModelNotReady("Model capabilities are unavailable".into())
         })?;
         validate_options(options, capabilities)?;
         let segments = fixed_windows(pcm_samples.len()).map_err(service_error_from_stt)?;
-        transcribe_scheduled(
+        transcribe_scheduled_observed(
             (
                 &self.scheduler,
                 scheduler_device(&self.plan.device).map_err(service_error_from_stt)?,
@@ -295,6 +303,7 @@ impl PoolTranscriptionRuntime {
             cancellation,
             pending,
             progress,
+            Some(&self.observability),
             |window, offset, window_cancel| {
                 model.transcribe_window_with_glossary(
                     window,
@@ -368,13 +377,37 @@ fn server_model_scheduler(
 
 /// Keep a device slot only for the current inference window. The segmented
 /// helper retries a preempted window without losing earlier committed text.
+#[cfg(test)]
 fn transcribe_scheduled(
+    scheduling: (&Arc<DeviceScheduler>, DeviceId, QueueClass),
+    pcm_samples: &[i16],
+    segments: &[SpeechSegment],
+    cancellation: &OperationCancellation,
+    pending: Option<PendingLease>,
+    progress: &(dyn Fn(f32) + Sync),
+    recognize: impl FnMut(&[i16], u64, &OperationCancellation) -> SttResult<WindowTranscript>,
+) -> SttResult<WindowTranscript> {
+    transcribe_scheduled_observed(
+        scheduling,
+        pcm_samples,
+        segments,
+        cancellation,
+        pending,
+        progress,
+        None,
+        recognize,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn transcribe_scheduled_observed(
     (scheduler, device, class): (&Arc<DeviceScheduler>, DeviceId, QueueClass),
     pcm_samples: &[i16],
     segments: &[SpeechSegment],
     cancellation: &OperationCancellation,
     mut pending: Option<PendingLease>,
     progress: &(dyn Fn(f32) + Sync),
+    observability: Option<&crate::telemetry::Observability>,
     mut recognize: impl FnMut(&[i16], u64, &OperationCancellation) -> SttResult<WindowTranscript>,
 ) -> SttResult<WindowTranscript> {
     segmented_transcription::transcribe_segments(
@@ -382,19 +415,40 @@ fn transcribe_scheduled(
         segments,
         cancellation,
         |window, offset| {
+            let waiting = observability.map(|observer| observer.waiting(class));
             let permit = match scheduler.acquire(device, class, cancellation) {
                 Ok(permit) => permit,
                 Err(error) => return (Err(error), false),
             };
+            drop(waiting);
+            let active = observability.map(|observer| observer.active(class));
             // The request is active once its first device window starts.
             drop(pending.take());
+            let started = Instant::now();
             let result = recognize(window, offset, &permit.cancellation);
             let preempted = class == QueueClass::Batch
                 && permit.cancellation.is_cancelled()
                 && !cancellation.is_cancelled();
             let report_progress = result.is_ok() && !preempted;
+            if let Some(observer) = observability {
+                use crate::telemetry::Outcome;
+                let outcome = if preempted {
+                    Outcome::Preempted
+                } else {
+                    match &result {
+                        Ok(_) => Outcome::Ok,
+                        Err(error) => match CoreError::from(error).code {
+                            ErrorCode::Cancelled => Outcome::Cancelled,
+                            ErrorCode::WorkerFailed => Outcome::WorkerFailed,
+                            _ => Outcome::Failed,
+                        },
+                    }
+                };
+                observer.inference(outcome, started.elapsed(), window.len());
+            }
             // Release the inference slot before invoking queue observers.
             drop(permit);
+            drop(active);
             if report_progress {
                 let done = offset as usize + window.len();
                 progress(done as f32 / pcm_samples.len() as f32);
@@ -660,6 +714,7 @@ impl ServerJobs {
         let client_limit = ClientInflightLimit::new(config.queue.max_inflight_per_token);
         let pending_limit = PendingLimit::new(config.queue.max_queued);
         let runtime = PoolTranscriptionRuntime {
+            observability: Arc::clone(&activity.observability),
             pool,
             scheduler,
             plan: default_plan,
@@ -958,6 +1013,7 @@ mod tests {
         let pool = Arc::new(ModelPool::new(SttEnvironment::default(), 1).unwrap());
         let runtime = PoolTranscriptionRuntime {
             pool: Arc::clone(&pool),
+            observability: Arc::default(),
             scheduler: Arc::new(DeviceScheduler::new(1, []).unwrap()),
             plan: PreloadPlan {
                 id: "whisper:base".into(),
@@ -996,6 +1052,7 @@ mod tests {
             .remove(0);
         let runtime = PoolTranscriptionRuntime {
             pool: Arc::clone(&pool),
+            observability: Arc::default(),
             scheduler: Arc::new(DeviceScheduler::new(1, []).unwrap()),
             plan: default_plan,
             acceleration: AccelerationMode::Cpu,
@@ -1118,6 +1175,8 @@ mod tests {
         let scheduler = server_model_scheduler(2, []).unwrap();
         assert_eq!(scheduler.status(DeviceId::Cpu).unwrap().capacity, 1);
         let batch_scheduler = Arc::clone(&scheduler);
+        let observations = Arc::new(crate::telemetry::Observability::default());
+        let batch_observations = observations.clone();
         let (window_started_tx, window_started_rx) = mpsc::channel();
         let (finish_window_tx, finish_window_rx) = mpsc::channel();
         let (order_tx, order_rx) = mpsc::channel();
@@ -1137,13 +1196,14 @@ mod tests {
                 },
             ];
             let mut first_attempt = true;
-            let result = transcribe_scheduled(
+            let result = transcribe_scheduled_observed(
                 (&batch_scheduler, DeviceId::Cpu, QueueClass::Batch),
                 &[1; 8],
                 &segments,
                 &job_cancel,
                 None,
                 &|_| {},
+                Some(&batch_observations),
                 |window, offset, window_cancel| {
                     if first_attempt {
                         first_attempt = false;
@@ -1204,6 +1264,36 @@ mod tests {
         assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), 4);
         interactive.join().unwrap();
         assert_eq!(batch.join().unwrap(), "first second");
+        let mut metrics = String::new();
+        observations.render(&mut metrics);
+        assert!(metrics.contains("fono_stt_windows_total{outcome=\"preempted\"} 1\n"));
+        assert!(metrics.contains("fono_stt_decode_seconds_count 3\n"));
+        assert!(metrics.contains("fono_stt_realtime_factor_count 2\n"));
+        assert!(metrics.contains("fono_stt_active{priority=\"batch\"} 0\n"));
+    }
+
+    #[test]
+    fn cancelled_native_window_releases_observation_guards_and_has_no_success_rtf() {
+        let scheduler = server_model_scheduler(1, []).unwrap();
+        let observer = crate::telemetry::Observability::default();
+        let result = transcribe_scheduled_observed(
+            (&scheduler, DeviceId::Cpu, QueueClass::Interactive),
+            &[1; 16_000],
+            &fixed_windows(16_000).unwrap(),
+            &OperationCancellation::default(),
+            None,
+            &|_| {},
+            Some(&observer),
+            |_, _, _| Err(SttError::Cancelled("private-native-error".into())),
+        );
+        assert!(matches!(result, Err(SttError::Cancelled(_))));
+        let mut metrics = String::new();
+        observer.render(&mut metrics);
+        assert!(metrics.contains("fono_stt_windows_total{outcome=\"cancelled\"} 1\n"));
+        assert!(metrics.contains("fono_stt_realtime_factor_count 0\n"));
+        assert!(metrics.contains("fono_stt_active{priority=\"interactive\"} 0\n"));
+        assert!(metrics.contains("fono_stt_waiting{priority=\"interactive\"} 0\n"));
+        assert!(!metrics.contains("private-native-error"));
     }
 
     #[test]

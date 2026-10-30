@@ -35,8 +35,6 @@ struct RequestMetrics {
     requests: AtomicU64,
     errors: AtomicU64,
     inflight: AtomicU64,
-    completed: AtomicU64,
-    duration_micros: AtomicU64,
 }
 
 pub struct ApiState {
@@ -99,11 +97,10 @@ pub async fn observe_request(
     let _inflight = Inflight(Arc::clone(&state));
     let started = Instant::now();
     let response = next.run(request).await;
-    state.requests.completed.fetch_add(1, Ordering::Relaxed);
-    state.requests.duration_micros.fetch_add(
-        started.elapsed().as_micros().min(u64::MAX as u128) as u64,
-        Ordering::Relaxed,
-    );
+    state
+        .activity
+        .observability
+        .http_completed(response.status().as_u16(), started.elapsed());
     if response.status().is_client_error() || response.status().is_server_error() {
         state.requests.errors.fetch_add(1, Ordering::Relaxed);
     }
@@ -617,10 +614,11 @@ async fn metrics(Extension(state): Extension<Arc<ApiState>>, headers: HeaderMap)
     let pool = state.pool.status();
     let queue = state.jobs.snapshot();
     let counters = &state.requests;
-    let body = format!(
-        "# TYPE fono_http_requests_total counter\nfono_http_requests_total {}\n# TYPE fono_http_errors_total counter\nfono_http_errors_total {}\n# TYPE fono_http_inflight gauge\nfono_http_inflight {}\n# TYPE fono_http_request_duration_seconds summary\nfono_http_request_duration_seconds_sum {:.6}\nfono_http_request_duration_seconds_count {}\n# TYPE fono_models gauge\nfono_models{{state=\"loaded\"}} {}\nfono_models{{state=\"loading\"}} {}\nfono_models{{state=\"retiring\"}} {}\n# TYPE fono_jobs gauge\nfono_jobs{{state=\"queued\"}} {}\nfono_jobs{{state=\"preparing\"}} {}\nfono_jobs{{state=\"transcribing\"}} {}\nfono_jobs{{state=\"completed\"}} {}\nfono_jobs{{state=\"failed\"}} {}\nfono_jobs{{state=\"cancelled\"}} {}\n# TYPE fono_activity gauge\nfono_activity {}\n",
-        counters.requests.load(Ordering::Relaxed), counters.errors.load(Ordering::Relaxed), counters.inflight.load(Ordering::Relaxed), counters.duration_micros.load(Ordering::Relaxed) as f64 / 1_000_000.0, counters.completed.load(Ordering::Relaxed), pool.loaded, pool.loading, pool.retiring, queue.queued, queue.preparing, queue.transcribing, queue.completed, queue.failed, queue.cancelled, state.activity.active(),
+    let mut body = format!(
+        "# TYPE fono_http_requests_total counter\nfono_http_requests_total {}\n# TYPE fono_http_errors_total counter\nfono_http_errors_total {}\n# TYPE fono_http_inflight gauge\nfono_http_inflight {}\n# TYPE fono_models gauge\nfono_models{{state=\"loaded\"}} {}\nfono_models{{state=\"loading\"}} {}\nfono_models{{state=\"retiring\"}} {}\n# TYPE fono_jobs gauge\nfono_jobs{{state=\"queued\"}} {}\nfono_jobs{{state=\"preparing\"}} {}\nfono_jobs{{state=\"transcribing\"}} {}\nfono_jobs{{state=\"completed\"}} {}\nfono_jobs{{state=\"failed\"}} {}\nfono_jobs{{state=\"cancelled\"}} {}\n# TYPE fono_activity gauge\nfono_activity {}\n",
+        counters.requests.load(Ordering::Relaxed), counters.errors.load(Ordering::Relaxed), counters.inflight.load(Ordering::Relaxed), pool.loaded, pool.loading, pool.retiring, queue.queued, queue.preparing, queue.transcribing, queue.completed, queue.failed, queue.cancelled, state.activity.active(),
     );
+    state.activity.observability.render(&mut body);
     (
         [(
             header::CONTENT_TYPE,
