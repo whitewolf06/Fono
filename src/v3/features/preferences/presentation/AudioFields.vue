@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { message as $t } from "../../../shared/domain/messages";
 
-import { computed, watch } from "vue";
+import { computed, shallowRef, watch } from "vue";
 import { WlButton } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import { microphones, languages, accelerations } from "../domain/preferences";
@@ -13,10 +13,21 @@ import SettingsDisclosure from "../../../shared/presentation/SettingsDisclosure.
 import GpuMemoryField from "./GpuMemoryField.vue";
 import DecodingFields from "./DecodingFields.vue";
 import { compatibleModelPreferences } from "../../../shared/domain/speechModels";
+import type { RemoteServerInfo } from "../../../shared/domain/recognitionSource";
+import RecognitionSourceFields from "./RecognitionSourceFields.vue";
 const props = defineProps<{ scope?: "microphone" | "recognition" }>();
 const draft = defineModel<Preferences>({ required: true });
 const workspace = useWorkspace();
 const { run, busy, error } = useFeedback();
+const remote = computed(
+  () => draft.value.recognitionSource.source === "fono_server",
+);
+const server = shallowRef<RemoteServerInfo | null>(null);
+const remoteSelected = computed(() =>
+  server.value?.models.find(
+    (model) => model.id === draft.value.recognitionSource.model,
+  ),
+);
 const selected = computed(() =>
   workspace.state.models.find((m) => m.id === draft.value.model),
 );
@@ -24,14 +35,20 @@ const offline = computed(
   () => selected.value?.engine && selected.value.engine !== "whisper",
 );
 const languageOptions = computed(() =>
-  offline.value
+  remote.value && remoteSelected.value
     ? languages.filter(
-        (l) =>
-          l.value === "auto" ||
-          (selected.value?.languageSelection &&
-            selected.value.languages?.includes(l.value)),
+        (language) =>
+          language.value === "auto" ||
+          remoteSelected.value?.languages.includes(language.value),
       )
-    : languages,
+    : offline.value && !remote.value
+      ? languages.filter(
+          (l) =>
+            l.value === "auto" ||
+            (selected.value?.languageSelection &&
+              selected.value.languages?.includes(l.value)),
+        )
+      : languages,
 );
 const accelerationOptions = computed(() =>
   (workspace.state.accelerations || accelerations).filter(
@@ -40,11 +57,13 @@ const accelerationOptions = computed(() =>
 );
 watch(
   () => draft.value.model,
-  () =>
+  () => {
+    if (remote.value) return;
     Object.assign(
       draft.value,
       compatibleModelPreferences(selected.value, draft.value),
-    ),
+    );
+  },
 );
 const installed = computed(() =>
   workspace.state.models
@@ -113,7 +132,12 @@ const installed = computed(() =>
       }}</small>
     </template>
     <template v-if="props.scope !== 'microphone'">
+      <RecognitionSourceFields
+        v-model="draft"
+        @checked="(value) => (server = value)"
+      />
       <SelectField
+        v-if="!remote"
         id="model"
         v-model="draft.model"
         :label="$t('ui.8b9baf7846')"
@@ -126,17 +150,27 @@ const installed = computed(() =>
         :label="$t('ui.5bd57038db')"
         :options="languageOptions"
       />
-      <slot name="models" />
+      <slot name="models" :remote="remote" :server="server" />
       <SettingsDisclosure id="audio-advanced">
         <SelectField
+          v-if="!remote"
           id="acceleration"
           v-model="draft.acceleration"
           :label="$t('ui.c2ccfcfe69')"
           :options="accelerationOptions"
         />
-        <p v-if="offline" class="muted">{{ $t("ui.fd0519ddd2") }}</p>
-        <GpuMemoryField v-if="!offline" v-model="draft" />
-        <DecodingFields v-if="!offline" v-model="draft" />
+        <p v-if="offline && !remote" class="muted">{{ $t("ui.fd0519ddd2") }}</p>
+        <GpuMemoryField v-if="remote || !offline" v-model="draft" />
+        <DecodingFields
+          v-if="
+            (!remote && !offline) ||
+            (remote &&
+              draft.recognitionSource.model &&
+              !draft.recognitionSource.model.includes(':'))
+          "
+          v-model="draft"
+          :remote="remote"
+        />
         <slot name="advanced" />
       </SettingsDisclosure>
     </template>

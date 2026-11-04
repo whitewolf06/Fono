@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../shared/domain/messages";
+import { createNativeRecognitionSource } from "../shared/infrastructure/native/recognitionSource";
 import { createNativeHistoryRewrite } from "../features/history/infrastructure/nativeRewrite";
 import { createNativeSnippetTransfer } from "../features/snippets/infrastructure/nativeSnippets";
 import { createNativeFiles } from "../features/files/infrastructure/nativeFiles";
@@ -264,6 +265,7 @@ export function createNativeWorkspace(): Workspace {
   void refresh();
   return {
     native: true,
+    recognition: createNativeRecognitionSource(call, ctx.serialize),
     report: createNativeDiagnosticReport(),
     feedback: createNativeFeedbackChannel(),
     updates,
@@ -327,6 +329,21 @@ export function createNativeWorkspace(): Workspace {
       void refresh();
     },
     diagnostics() {
+      const source = state.preferences.recognitionSource;
+      const remote = source?.source === "fono_server";
+      const modelReady = remote
+        ? Boolean(source.url && source.model)
+        : state.models.some(
+            (m) => m.id === state.preferences.model && m.status === "installed",
+          );
+      const modelDescription = remote
+        ? [
+            source.displayName || uiMessage("recognitionSource.server"),
+            source.model,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : state.preferences.model || uiMessage("ui.c4dac53b9a");
       return [
         {
           id: "mic",
@@ -344,12 +361,8 @@ export function createNativeWorkspace(): Workspace {
           get title() {
             return uiMessage("ui.7894eb1ac6");
           },
-          health: state.models.some(
-            (m) => m.id === state.preferences.model && m.status === "installed",
-          )
-            ? "ready"
-            : "missing",
-          detail: state.preferences.model || uiMessage("ui.c4dac53b9a"),
+          health: modelReady ? "ready" : "missing",
+          detail: modelDescription,
           section: "audio",
         },
         {

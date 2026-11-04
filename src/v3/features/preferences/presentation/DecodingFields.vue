@@ -4,6 +4,7 @@ import type { Preferences } from "../../../shared/domain/contracts";
 import { message } from "../../../shared/domain/messages";
 import SelectField from "../../../shared/presentation/SelectField.vue";
 const draft = defineModel<Preferences>({ required: true });
+defineProps<{ remote?: boolean }>();
 const modes = [
   {
     value: "fast",
@@ -56,6 +57,7 @@ const threads = computed({
       :hint="message('decoding.hint')"
     />
     <SelectField
+      v-if="!remote"
       id="whisper-threads"
       v-model="threads"
       :label="message('decoding.threads')"

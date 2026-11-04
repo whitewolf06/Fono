@@ -94,6 +94,7 @@ mod tests {
             stt_source: SttSource::FonoServer,
             remote_stt: Some(RemoteSttSettings {
                 url: "http://127.0.0.1:17833".into(),
+                display_name: None,
                 model: ModelId::whisper(WhisperModelSize::LargeTurbo),
                 ca_pem: None,
                 fallback: RemoteFallback::None,

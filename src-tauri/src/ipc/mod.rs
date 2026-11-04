@@ -13,6 +13,7 @@ pub mod models;
 pub mod processing;
 pub mod processing_capture;
 pub mod project;
+pub(crate) mod remote_stt;
 pub mod selection;
 pub mod service;
 pub mod settings;

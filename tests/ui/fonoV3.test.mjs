@@ -1162,6 +1162,117 @@ test("saved forms stop being dirty and external toggles stay in sync", async () 
   }
 });
 
+test("server-only demo dictation does not require a dormant local model", async () => {
+  const { capturePreferences } = await server.ssrLoadModule(
+    "/src/v3/features/dictation/infrastructure/mockSession.ts",
+  );
+  workspace.state.models = [];
+  workspace.state.preferences.model = "";
+  workspace.state.preferences.recognitionSource = {
+    ...workspace.state.preferences.recognitionSource,
+    source: "fono_server",
+    url: "http://127.0.0.1:17833",
+    displayName: "Kari",
+    model: "large_turbo",
+  };
+  const captured = capturePreferences(workspace.state);
+  workspace.state.preferences.recognitionSource.model = "small";
+  assert.equal(captured.modelLabel, "large_turbo");
+  assert.equal(captured.preferences.recognitionSource.model, "large_turbo");
+  workspace.dictation.start();
+  assert.equal(workspace.state.phase, "listening");
+  assert.equal(workspace.state.error, "");
+  workspace.dictation.cancel();
+  workspace.state.preferences.recognitionSource.source = "local";
+  workspace.dictation.start();
+  assert.equal(workspace.state.phase, "error");
+});
+
+test("recognition card names the selected Fono Server instead of a dormant local model", async () => {
+  const { createRouter, createMemoryHistory } = await import("vue-router");
+  const { default: Tools } = await server.ssrLoadModule(
+    "/src/v3/features/dictation/presentation/VoiceTools.vue",
+  );
+  const { workspaceKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/workspace.ts",
+  );
+  const { interactionKey, createInteraction } = await server.ssrLoadModule(
+    "/src/v3/shared/application/interaction.ts",
+  );
+  workspace.state.preferences.model = "PRIVATE_LOCAL_MODEL";
+  workspace.state.preferences.recognitionSource = {
+    ...workspace.state.preferences.recognitionSource,
+    source: "fono_server",
+    url: "http://127.0.0.1:17833",
+    displayName: "Kari",
+    model: "large_turbo",
+  };
+  const app = createSSRApp({ render: () => h(Tools) });
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/", component: { render: () => null } }],
+  });
+  await router.push("/");
+  app.use(router).use(WlConfig).use(WlToastService);
+  app.provide(workspaceKey, workspace);
+  app.provide(interactionKey, createInteraction());
+  const html = await renderToString(app);
+  assert.match(html, /Kari · large_turbo/);
+  assert.doesNotMatch(html, /PRIVATE_LOCAL_MODEL/);
+});
+
+test("server-only onboarding can continue without local weights and keeps its catalog read-only", async () => {
+  const { createRouter, createMemoryHistory, RouterView } = await import("vue-router");
+  const { default: Page } = await server.ssrLoadModule(
+    "/src/v3/features/onboarding/presentation/OnboardingPage.vue",
+  );
+  const { workspaceKey } = await server.ssrLoadModule(
+    "/src/v3/shared/application/workspace.ts",
+  );
+  const { interactionKey, createInteraction } = await server.ssrLoadModule(
+    "/src/v3/shared/application/interaction.ts",
+  );
+  const previous = globalThis.window;
+  globalThis.window = { addEventListener() {}, removeEventListener() {} };
+  workspace.state.onboardingStep = 1;
+  workspace.state.models = [];
+  workspace.state.preferences.model = "";
+  workspace.state.preferences.recognitionSource = {
+    ...workspace.state.preferences.recognitionSource,
+    source: "fono_server",
+    url: "http://127.0.0.1:17833",
+    model: "large_turbo",
+  };
+  async function render() {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/", component: { render: () => null } },
+        { path: "/onboarding", component: Page },
+      ],
+    });
+    await router.push("/onboarding");
+    const app = createSSRApp({ render: () => h(RouterView) });
+    app.use(router).use(WlConfig).use(WlToastService);
+    app.provide(workspaceKey, workspace);
+    app.provide(interactionKey, createInteraction());
+    return renderToString(app);
+  }
+  try {
+    const remote = await render();
+    const footer = remote.match(/<footer[^>]*class="wizard-footer"[^>]*>(.*?)<\/footer>/s)?.[1];
+    assert.ok(footer);
+    assert.doesNotMatch(footer, /\sdisabled(?:=|\s|>)/);
+    assert.match(remote, /Модели сервера/);
+    workspace.state.preferences.recognitionSource.source = "local";
+    const local = await render();
+    assert.match(local.match(/<footer[^>]*class="wizard-footer"[^>]*>(.*?)<\/footer>/s)?.[1] ?? "", /\sdisabled(?:=|\s|>)/);
+  } finally {
+    if (previous === undefined) delete globalThis.window;
+    else globalThis.window = previous;
+  }
+});
+
 test("hidden live pipeline skips AI and publishes one result even when history is disabled", async () => {
   await workspace.settings.save({
     historyEnabled: false,

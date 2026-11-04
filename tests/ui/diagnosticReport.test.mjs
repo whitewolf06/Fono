@@ -34,6 +34,7 @@ test("report excludes private text, settings, device names, errors and job resul
       instruction: privateText,
       dictionaryEntries: [privateText],
       apiKey: privateText,
+      recognitionSource: {source:"fono_server", url:privateText,displayName:privateText,caPem:privateText,token:privateText},
     },
     microphoneAvailable: true,
     aiAvailable: false,

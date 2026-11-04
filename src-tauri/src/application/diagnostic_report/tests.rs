@@ -59,6 +59,26 @@ fn custom_model_paths_and_names_are_not_exported() {
 }
 
 #[test]
+fn remote_connection_address_name_and_ca_are_not_exported() {
+    let settings = Settings {
+        stt_source: crate::types::SttSource::FonoServer,
+        remote_stt: Some(crate::types::RemoteSttSettings {
+            url: "https://PRIVATE_SERVER.invalid".into(),
+            display_name: Some("PRIVATE_SERVER_NAME".into()),
+            ca_pem: Some("PRIVATE_CA".into()),
+            model: crate::types::ModelId::whisper(crate::types::WhisperModelSize::LargeTurbo),
+            fallback: Default::default(),
+        }),
+        ..Settings::default()
+    };
+    let mut data = snapshot();
+    data.model = model_label(&settings);
+    let text = render(&data, None);
+    assert!(!text.contains("PRIVATE"));
+    assert!(!text.contains("https://"));
+}
+
+#[test]
 fn only_public_catalog_model_ids_are_exported() {
     let settings = Settings {
         whisper_model_path: Some("ggml-large-v3-turbo.bin".into()),

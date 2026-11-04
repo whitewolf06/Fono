@@ -26,6 +26,8 @@ pub enum RemoteFallback {
 #[serde(deny_unknown_fields)]
 pub struct RemoteSttSettings {
     pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub model: ModelId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ca_pem: Option<String>,

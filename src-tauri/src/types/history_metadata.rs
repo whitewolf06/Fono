@@ -176,6 +176,7 @@ mod tests {
             stt_source: super::super::SttSource::FonoServer,
             remote_stt: Some(super::super::RemoteSttSettings {
                 url: "https://PRIVATE_SERVER.invalid".into(),
+                display_name: None,
                 model: super::super::ModelId {
                     engine: super::super::SttEngine::Whisper,
                     variant: "large_turbo".into(),

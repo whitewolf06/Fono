@@ -12,6 +12,8 @@ import AppIcon from "../../../shared/presentation/AppIcon.vue";
 import { computed } from "vue";
 import { engineNames } from "../../../shared/domain/speechModels";
 import { measurementContextMessage } from "../../../shared/domain/sttMeasurements";
+import type { RemoteServerInfo } from "../../../shared/domain/recognitionSource";
+defineProps<{ remote?: boolean; server?: RemoteServerInfo | null }>();
 const workspace = useWorkspace();
 const { run } = useFeedback();
 const ui = useInteraction();
@@ -59,7 +61,26 @@ async function remove(id: string) {
 }
 </script>
 <template>
-  <section class="model-manager">
+  <section v-if="remote" class="model-manager">
+    <h3>{{ $t("recognitionSource.serverModels") }}</h3>
+    <p class="muted">{{ $t("recognitionSource.serverModelsHint") }}</p>
+    <p v-if="!server" class="muted">{{ $t("recognitionSource.modelHint") }}</p>
+    <div v-for="model in server?.models" :key="model.id" class="model-row">
+      <AppIcon name="inbox" />
+      <div>
+        <strong>{{ model.label }}</strong>
+        <p>
+          {{ model.languages.join(", ").toUpperCase() }} · {{ model.device }}
+        </p>
+        <small>{{
+          model.installed
+            ? $t("recognitionSource.installed")
+            : $t("recognitionSource.notInstalled")
+        }}</small>
+      </div>
+    </div>
+  </section>
+  <section v-else class="model-manager">
     <h3>{{ $t("ui.68db4cb08c") }}</h3>
     <p class="muted">
       {{ workspace.native ? $t("ui.8451e6adab") : $t("ui.43e32779b3") }}

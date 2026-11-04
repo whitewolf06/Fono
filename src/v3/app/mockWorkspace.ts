@@ -1,4 +1,5 @@
 import { message as uiMessage } from "../shared/domain/messages";
+import { createMockRecognitionSource } from "../shared/infrastructure/mockRecognitionSource";
 import { createMockWakeSamples } from "../features/wake-samples/infrastructure/mockSamples";
 import { createBrowserSnippetTransfer } from "../features/snippets/infrastructure/browserSnippets";
 import { createMockFiles } from "../features/files/infrastructure/mockFiles";
@@ -221,6 +222,7 @@ export function createMockWorkspace(): Workspace {
     wakeSamples,
     dictation,
     settings: createSettingsPort(state),
+    recognition: createMockRecognitionSource(state),
     selection,
     triggerCapture: createTriggerCapture(state),
     commands: createCommandsPort(state),

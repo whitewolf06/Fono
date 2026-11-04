@@ -1,4 +1,5 @@
 use super::*;
+mod inspection_tests;
 use crate::error::AppError;
 use crate::ports::TestActivity;
 use serde_json::{json, Value};
@@ -143,7 +144,7 @@ fn wait(condition: impl Fn() -> bool) {
 }
 
 fn capabilities() -> Value {
-    json!({"product":"fono-server","api_version":2,"audio_formats":[PCM_TYPE],"max_audio_seconds":300,
+    json!({"product":"fono-server","version":"0.8.30","devices":[{"id":"cpu","kind":"cpu"},{"id":"cuda:0","kind":"cuda","name":"NVIDIA GeForce RTX 3060 Ti"}],"api_version":2,"audio_formats":[PCM_TYPE],"max_audio_seconds":300,
         "max_upload_bytes":10485760,"features":{"cancel_on_disconnect":true,"glossary":true,"timestamps":["none","segments","words"],"decoding":["fast","accurate"]}})
 }
 fn models() -> Value {

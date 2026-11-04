@@ -23,7 +23,7 @@ The server source uses `stt_source: "fono_server"` and `remote_stt`:
 An optional `ca_pem` contains the public CA certificate. A token is never part
 of this object: the desktop blocking adapter reads the existing OS credential
 `Fono/stt-server-token`. Missing credentials fail preparation without selecting
-a local fallback. The credential editor/IPC and server controls are RC-06/RC-05.
+a local fallback. The connection form and credential IPC are described below.
 
 The existing settings transaction prepares the new engine before persisting its
 source, and restores the old configured source when persistence fails. Active
@@ -39,6 +39,44 @@ diagnostics and voice-command transcription use the configured source; capture
 and processing remain on the desktop. Forwarding local API jobs and background
 segments through a remote server belongs to RC-11: those API jobs currently fail
 explicitly in remote mode, and never load a dormant local model.
+
+## Connection settings (RC-05)
+
+Open Settings → Audio and choose **Fono Server**. The local model and GPU
+preferences remain saved for switching back. Enter the server root URL, a display
+name and a token. For Kari, use the existing SSH tunnel at
+`http://127.0.0.1:17833`; HTTPS is required for non-loopback endpoints. An optional
+public CA PEM supports private certificates without disabling TLS verification.
+OpenAI-compatible servers and Opus compression remain separate tasks; this
+connection sends the existing PCM format.
+
+For a first connection: enter the token, **Check connection**, select an installed
+server model and a reserve policy, **Save token**, then save the settings section.
+Checking a draft does not save it, send audio, load a model or switch the engine.
+The reply shows the actual server version, devices, inventory and readiness.
+Server models are read-only; downloads and deletion remain server administration.
+Local GPU controls are hidden while using the server. An installed local model
+may be selected for the CPU reserve from RC-04.
+
+The password field is transient and never displays the stored token. Save and
+Delete use Windows Credential Manager. Saving settings explicitly prepares the
+chosen endpoint using that credential. Metadata checks with an omitted token
+reuse it only when the normalized URL and CA match the saved connection;
+checking a changed destination requires entering a token. Typing an address
+does not start a request. Late results cannot validate a newer draft.
+
+The browser runtime uses marked demo responses and makes no server requests.
+It keeps connection drafts and credential presence only in memory; URLs, CA
+contents and tokens are excluded from browser persistence. Remote-only setup
+also works in onboarding; diagnostics and the recognition card use the selected
+source instead of demanding dormant local weights.
+
+The native boundary exposes async `get_remote_stt_status`,
+`test_remote_stt_server`, `list_remote_stt_models`, `set_remote_stt_token` and
+`clear_remote_stt_token`. Network and credential work runs on admitted blocking
+workers. Credential changes share the configuration/settings fences with capture,
+inference and pending results. Status returns only credential presence; there is
+no token getter. Public source preferences use the existing settings transaction.
 
 ## Transport and discovery
 

@@ -13,10 +13,13 @@ export interface CaptureSnapshot {
 export function capturePreferences(state: WorkspaceState): CaptureSnapshot {
   return {
     modelLabel:
-      state.models.find((model) => model.id === state.preferences.model)
-        ?.name || state.preferences.model,
+      state.preferences.recognitionSource?.source === "fono_server"
+        ? state.preferences.recognitionSource.model
+        : state.models.find((model) => model.id === state.preferences.model)
+            ?.name || state.preferences.model,
     preferences: {
       ...state.preferences,
+      recognitionSource: { ...state.preferences.recognitionSource },
       dictionaryEntries: state.preferences.dictionaryEntries.map((entry) => ({
         ...entry,
         spoken: [...entry.spoken],

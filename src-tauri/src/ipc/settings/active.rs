@@ -54,6 +54,7 @@ mod tests {
         let mut updated = next.clone();
         updated.remote_stt = Some(crate::types::RemoteSttSettings {
             url: "http://127.0.0.1:17833".into(),
+            display_name: None,
             model: crate::types::ModelId::whisper(crate::types::WhisperModelSize::Small),
             ca_pem: None,
             fallback: Default::default(),

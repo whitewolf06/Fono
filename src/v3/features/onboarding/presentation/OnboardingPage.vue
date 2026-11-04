@@ -20,6 +20,7 @@ import {
 import PageHeading from "../../../shared/presentation/PageHeading.vue";
 
 import { RecordControl } from "../../dictation";
+import { validRemoteEndpoint } from "../../../shared/domain/recognitionSource";
 const workspace = useWorkspace();
 const router = useRouter();
 const { run, busy, error } = useFeedback();
@@ -33,7 +34,7 @@ const names = [
 ];
 const fields: (keyof Preferences)[][] = [
   ["microphone"],
-  ["model", "language", "acceleration"],
+  ["recognitionSource", "model", "language", "acceleration"],
   [
     "hotkey",
     "dictationTrigger",
@@ -64,9 +65,12 @@ const ready = computed(() =>
   step.value === 0
     ? workspace.state.microphoneAvailable
     : step.value === 1
-      ? workspace.state.models.some(
-          (m) => m.id === draft.model && m.status === "installed",
-        )
+      ? draft.recognitionSource?.source === "fono_server"
+        ? validRemoteEndpoint(draft.recognitionSource.url) &&
+          !!draft.recognitionSource.model
+        : workspace.state.models.some(
+            (m) => m.id === draft.model && m.status === "installed",
+          )
       : true,
 );
 onBeforeRouteLeave(canLeave);
@@ -130,9 +134,11 @@ async function skip() {
         }}
       </h2>
       <AudioFields v-if="step === 0" v-model="draft" scope="microphone" />
-      <template v-if="step === 1"
-        ><AudioFields v-model="draft" scope="recognition" /><ModelManager
-      /></template>
+      <AudioFields v-if="step === 1" v-model="draft" scope="recognition">
+        <template #models="{ remote, server }">
+          <ModelManager :remote="remote" :server="server" />
+        </template>
+      </AudioFields>
       <ActivationFields v-if="step === 2" v-model="draft" />
       <template v-if="step === 3"
         ><p class="muted">{{ $t("ui.60312f8a50") }}</p>

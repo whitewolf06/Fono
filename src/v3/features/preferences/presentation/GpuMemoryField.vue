@@ -30,7 +30,14 @@ const options = [
 ];
 </script>
 <template>
-  <div class="form-stack">
+  <p
+    v-if="draft.recognitionSource.source === 'fono_server'"
+    id="gpu-memory"
+    class="notice"
+  >
+    {{ $t("recognitionSource.gpuUnused") }}
+  </p>
+  <div v-else class="form-stack">
     <SelectField
       id="gpu-memory"
       v-model="draft.gpuModelResidency"

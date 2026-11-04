@@ -133,6 +133,7 @@ export interface Settings {
   stt_source?: "local" | "fono_server";
   remote_stt?: {
     url: string;
+    display_name?: string | null;
     model: ModelId;
     ca_pem?: string | null;
     fallback?: "none" | "ask" | { local: ModelId };

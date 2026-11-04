@@ -14,7 +14,12 @@ let server,
   catalog,
   sectionKeys,
   focusField,
-  Overlay;
+  Overlay,
+  SourceFields,
+  AudioFields,
+  RemoteModels,
+  createSourceController,
+  connectionErrorText;
 before(async () => {
   server = await createServer({
     appType: "custom",
@@ -44,6 +49,21 @@ before(async () => {
   ));
   ({ focusField } = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/focus.ts",
+  ));
+  ({ default: SourceFields } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/presentation/RecognitionSourceFields.vue",
+  ));
+  ({ default: AudioFields } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/presentation/AudioFields.vue",
+  ));
+  ({ default: RemoteModels } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/presentation/ModelManager.vue",
+  ));
+  ({
+    createRecognitionSourceController: createSourceController,
+    connectionErrorText,
+  } = await server.ssrLoadModule(
+    "/src/v3/features/preferences/application/recognitionSource.ts",
   ));
 });
 after(async () => await server?.close());
@@ -251,4 +271,269 @@ test("interactive overlay examples cannot change actual processing or recognitio
   assert.equal(JSON.stringify(preferences), before);
   assert.equal(bindings.previewPreferences.value.processingMode, "formal");
   assert.equal(bindings.previewPreferences.value.language, "en");
+});
+
+const remoteServer = () => ({
+  version: "0.8.35",
+  apiVersion: 2,
+  state: "ready",
+  devices: [
+    { id: "cuda:0", name: "Demo GPU", backend: "cuda", available: true },
+  ],
+  models: [
+    {
+      id: "large_turbo",
+      label: "Remote Whisper",
+      installed: true,
+      state: "ready",
+      languages: ["ru", "en"],
+      device: "cuda:0",
+    },
+  ],
+});
+const sourceSettings = () => ({
+  source: "fono_server",
+  url: "https://server.example",
+  displayName: "Kari",
+  model: "large_turbo",
+  caPem: "",
+  fallback: "none",
+  fallbackModel: "",
+});
+function sourcePort(overrides = {}) {
+  return {
+    status: async () => ({ hasToken: false }),
+    test: async () => ({ kind: "ok", server: remoteServer() }),
+    saveToken: async () => {},
+    clearToken: async () => {},
+    ...overrides,
+  };
+}
+function deferred() {
+  let resolve;
+  return {
+    promise: new Promise((done) => (resolve = done)),
+    resolve: (...args) => resolve(...args),
+  };
+}
+
+test("recognition checks show every typed failure and do not persist settings or a draft credential", async () => {
+  for (const error of [
+    "invalid_endpoint",
+    "not_configured",
+    "network",
+    "timeout",
+    "unauthorized",
+    "incompatible_version",
+    "model_not_found",
+    "invalid_response",
+    "busy",
+    "server_failed",
+  ]) {
+    const settings = sourceSettings();
+    const before = JSON.stringify(settings);
+    let writes = 0;
+    const controller = createSourceController({
+      settings: () => settings,
+      port: sourcePort({
+        test: async () => ({ kind: "error", error }),
+        saveToken: async () => writes++,
+      }),
+    });
+    controller.setToken("DRAFT_ONLY");
+    await controller.check();
+    assert.equal(controller.state.result.error, error);
+    assert.ok(connectionErrorText(error).length > 12);
+    assert.equal(controller.state.checking, false);
+    assert.equal(JSON.stringify(settings), before);
+    assert.equal(writes, 0);
+    assert.doesNotMatch(JSON.stringify(controller.state.result), /DRAFT_ONLY/);
+    controller.dispose();
+    assert.equal(controller.state.token, "");
+  }
+});
+
+test("changed address, model, token and disposed form cannot accept a late connection reply", async () => {
+  for (const change of ["url", "model", "token", "dispose"]) {
+    const settings = sourceSettings();
+    const pending = deferred();
+    const published = [];
+    const controller = createSourceController({
+      settings: () => settings,
+      port: sourcePort({ test: () => pending.promise }),
+      checked: (value) => published.push(value),
+    });
+    const checking = controller.check();
+    if (change === "token") controller.setToken("NEW_DRAFT");
+    else if (change === "dispose") controller.dispose();
+    else {
+      settings[change] = "changed";
+      controller.invalidate(change !== "model");
+    }
+    pending.resolve({ kind: "ok", server: remoteServer() });
+    await checking;
+    assert.equal(controller.state.server, null);
+    assert.equal(controller.state.result, null);
+    assert.ok(published.every((value) => value === null));
+    controller.dispose();
+  }
+});
+
+test("missing selected model retains inventory so a replacement can be chosen", async () => {
+  const settings = sourceSettings();
+  settings.model = "removed_model";
+  let request;
+  const controller = createSourceController({
+    settings: () => settings,
+    port: sourcePort({
+      test: async (input) => {
+        request = input;
+        return { kind: "ok", server: remoteServer() };
+      },
+    }),
+  });
+  await controller.check();
+  assert.equal(
+    request.model,
+    undefined,
+    "discovery cannot be blocked by a removed model",
+  );
+  assert.equal(controller.state.result.error, "model_not_found");
+  assert.equal(controller.state.server.models[0].id, "large_turbo");
+  settings.model = "large_turbo";
+  controller.invalidate(false);
+  assert.ok(controller.state.server);
+  await controller.check();
+  assert.equal(controller.state.result.kind, "ok");
+  controller.dispose();
+});
+
+test("credential save is explicit, clears the form and prevents late status from undoing it", async () => {
+  const pending = deferred();
+  const saved = [];
+  const settings = sourceSettings();
+  const before = JSON.stringify(settings);
+  const controller = createSourceController({
+    settings: () => settings,
+    port: sourcePort({
+      status: () => pending.promise,
+      saveToken: async (value) => saved.push(value),
+    }),
+  });
+  const loading = controller.loadStatus();
+  controller.setToken("TRANSIENT_SECRET");
+  await controller.check();
+  assert.equal(saved.length, 0);
+  await controller.saveToken();
+  pending.resolve({ hasToken: false });
+  await loading;
+  assert.deepEqual(saved, ["TRANSIENT_SECRET"]);
+  assert.equal(controller.state.hasToken, true);
+  assert.equal(controller.state.token, "");
+  assert.equal(
+    controller.state.result.kind,
+    "ok",
+    "save keeps the just-tested observation",
+  );
+  assert.doesNotMatch(JSON.stringify(controller.state), /TRANSIENT_SECRET/);
+  assert.equal(JSON.stringify(settings), before);
+  await controller.clearToken();
+  assert.equal(controller.state.hasToken, false);
+  assert.equal(controller.state.server, null);
+  assert.equal(controller.state.result, null);
+  controller.dispose();
+});
+
+async function renderRecognition(
+  Component,
+  {
+    settings = sourceSettings(),
+    port = sourcePort(),
+    prepare,
+    props = {},
+    native = true,
+  } = {},
+) {
+  const previousWindow = globalThis.window;
+  globalThis.window = { addEventListener() {}, removeEventListener() {} };
+  const workspace = createWorkspace();
+  workspace.native = native;
+  workspace.recognition = port;
+  workspace.state.preferences.recognitionSource = settings;
+  const model = JSON.parse(JSON.stringify(workspace.state.preferences));
+  const Probe = prepare
+    ? {
+        ...Component,
+        async setup(componentProps, context) {
+          const bindings = Component.setup(componentProps, context);
+          await prepare(bindings);
+          return bindings;
+        },
+      }
+    : Component;
+  const app = createSSRApp({
+    render: () => h(Probe, { modelValue: model, ...props }),
+  });
+  app.use(WlConfig);
+  app.use(WlToastService);
+  app.provide(workspaceKey, workspace);
+  app.provide(interactionKey, {
+    confirm: async () => false,
+    state: { quick: null, confirmation: null },
+  });
+  try {
+    return await renderToString(app);
+  } finally {
+    workspace.dispose();
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+}
+
+test("server settings render password-only credential controls, privacy, reserve and checked metadata", async () => {
+  const html = await renderRecognition(SourceFields, {
+    prepare: async (bindings) => {
+      await bindings.controller.loadStatus();
+      await bindings.controller.check();
+    },
+  });
+  assert.match(html, /type="password"/);
+  assert.match(html, /Сохранить токен/);
+  assert.match(html, /Удалить токен/);
+  assert.match(html, /Kari/);
+  assert.match(html, /Аудио будет отправляться/);
+  assert.match(html, /Сервер ответил/);
+  assert.match(html, /Demo GPU/);
+  assert.match(html, /API 2/);
+  assert.match(html, /Проверка не сохраняет токен/);
+  assert.match(html, /Если сервер недоступен/);
+  const demo = await renderRecognition(SourceFields, { native: false });
+  assert.match(demo, /браузерный пример/);
+});
+
+test("typed connection failure is visible as an alert without leaking transport details", async () => {
+  const html = await renderRecognition(SourceFields, {
+    port: sourcePort({
+      test: async () => ({ kind: "error", error: "unauthorized" }),
+    }),
+    prepare: (bindings) => bindings.controller.check(),
+  });
+  assert.match(html, /role="alert"/);
+  assert.match(html, /Сервер не принял токен/);
+  assert.doesNotMatch(html, /\n\s+at |Authorization:|Bearer /);
+});
+
+test("remote model manager is read-only and remote recognition hides local GPU and thread settings", async () => {
+  const models = await renderRecognition(RemoteModels, {
+    props: { remote: true, server: remoteServer() },
+  });
+  assert.match(models, /Remote Whisper/);
+  assert.match(models, /только для просмотра/);
+  assert.doesNotMatch(models, /<button|<progress/);
+  const audio = await renderRecognition(AudioFields, {
+    props: { scope: "recognition" },
+  });
+  assert.match(audio, /Локальная видеокарта не используется/);
+  assert.doesNotMatch(audio, /id="(?:acceleration|whisper-threads)"/);
+  assert.ok(sectionKeys.audio.includes("recognitionSource"));
 });

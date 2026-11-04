@@ -144,17 +144,29 @@ const tools = computed<
       icon: "message",
       panel: "recognition",
       value:
-        model?.status === "installed"
-          ? model.name
-          : model?.status === "downloading"
-            ? uiMessage("ui.a04b52b1ad") + model.progress + "%"
-            : uiMessage("ui.bca25035b9"),
+        p.recognitionSource?.source === "fono_server"
+          ? [
+              p.recognitionSource.displayName ||
+                uiMessage("recognitionSource.server"),
+              p.recognitionSource.model,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : model?.status === "installed"
+            ? model.name
+            : model?.status === "downloading"
+              ? uiMessage("ui.a04b52b1ad") + model.progress + "%"
+              : uiMessage("ui.bca25035b9"),
       health:
-        model?.status === "installed"
-          ? "ready"
-          : model?.status === "downloading"
-            ? "loading"
-            : "missing",
+        p.recognitionSource?.source === "fono_server"
+          ? p.recognitionSource.url && p.recognitionSource.model
+            ? "ready"
+            : "missing"
+          : model?.status === "installed"
+            ? "ready"
+            : model?.status === "downloading"
+              ? "loading"
+              : "missing",
     },
     {
       get title() {

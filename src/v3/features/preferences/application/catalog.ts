@@ -87,6 +87,15 @@ export const searchIndex: {
 }[] = [
   {
     get label() {
+      return uiMessage("recognitionSource.title");
+    },
+    section: "audio",
+    field: "recognition-source",
+    keywords:
+      "сервер Fono источник подключение токен адрес резерв Kari remote server connection token fallback",
+  },
+  {
+    get label() {
       return uiMessage("recordingSounds.label");
     },
     section: "activation",

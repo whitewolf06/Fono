@@ -49,6 +49,7 @@ mod tests {
             stt_source: crate::types::SttSource::FonoServer,
             remote_stt: Some(crate::types::RemoteSttSettings {
                 url: "https://PRIVATE_SERVER.invalid".into(),
+                display_name: None,
                 model: ModelId {
                     engine: SttEngine::Whisper,
                     variant: "small".into(),

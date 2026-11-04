@@ -38,6 +38,13 @@ impl Settings {
                 Ok(())
             };
         };
+        if remote
+            .display_name
+            .as_ref()
+            .is_some_and(|name| name.len() > 128 || name.chars().any(char::is_control))
+        {
+            return Err(AppError::Config("Invalid server display name".into()));
+        }
         let mut endpoint =
             fono_stt::remote::RemoteEndpoint::new(&remote.url, "configuration-validation")?;
         if let Some(pem) = &remote.ca_pem {
@@ -147,6 +154,7 @@ mod tests {
         let original_decoding = settings.decoding_options();
         settings.remote_stt = Some(super::super::RemoteSttSettings {
             url: "http://127.0.0.1:17833".into(),
+            display_name: None,
             model: ModelId::whisper(WhisperModelSize::Tiny),
             ca_pem: None,
             fallback: Default::default(),
@@ -181,6 +189,7 @@ mod tests {
         assert!(settings.validate_stt_preferences().is_err());
         settings.remote_stt = Some(super::super::RemoteSttSettings {
             url: "http://127.0.0.1:17833".into(),
+            display_name: None,
             model: ModelId::whisper(WhisperModelSize::Tiny),
             ca_pem: None,
             fallback: Default::default(),

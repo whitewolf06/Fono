@@ -1,4 +1,8 @@
 import { message as uiMessage } from "../../../shared/domain/messages";
+import {
+  defaultRecognitionSource,
+  validRemoteEndpoint,
+} from "../../../shared/domain/recognitionSource";
 import { validToggleAutoStop } from "../../../shared/domain/toggleAutoStop";
 import { validRecordingSoundsVolume } from "../../../shared/domain/recordingSounds";
 import { validateSnippets } from "../../snippets/domain/snippets";
@@ -17,6 +21,7 @@ import {
   validateProcessingPrompts,
 } from "./processingPrompts";
 export const defaults: Preferences = {
+  recognitionSource: defaultRecognitionSource(),
   uiLanguage: "auto",
   applicationProfiles: [],
   snippetsEnabled: false,
@@ -85,6 +90,7 @@ export const defaults: Preferences = {
 export const sectionKeys: Record<Section, (keyof Preferences)[]> = {
   general: ["uiLanguage", "autostart", "insertion", "applicationProfiles"],
   audio: [
+    "recognitionSource",
     "microphone",
     "model",
     "language",
@@ -154,6 +160,7 @@ export const quickKeys: Record<QuickPanel, (keyof Preferences)[]> = {
   microphone: ["microphone"],
   wake: ["wakePhrase", "wakeLanguage", "silenceMs"],
   recognition: [
+    "recognitionSource",
     "model",
     "language",
     "acceleration",
@@ -258,6 +265,17 @@ export const profiles = [
   },
 ];
 export function validatePreferences(p: Preferences): string | null {
+  if (
+    p.recognitionSource?.source === "fono_server" &&
+    (!validRemoteEndpoint(p.recognitionSource.url) ||
+      !p.recognitionSource.model ||
+      p.recognitionSource.displayName.length > 80 ||
+      p.recognitionSource.caPem.length > 256 * 1024 ||
+      !["none", "ask", "local"].includes(p.recognitionSource.fallback) ||
+      (p.recognitionSource.fallback === "local" &&
+        !p.recognitionSource.fallbackModel))
+  )
+    return uiMessage("recognitionSource.invalidSettings");
   if (!validRecordingSoundsVolume(p.recordingSoundsVolume))
     return uiMessage("recordingSounds.invalidVolume");
   if (!validToggleAutoStop(p.toggleAutoStopMs))

@@ -30,6 +30,7 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
         throw new Error(uiMessage("ui.13ccc97bac"));
       if (
         [
+          "recognitionSource",
           "dictationMode",
           "dictationTrigger",
           "selectionCaptureEnabled",
@@ -71,9 +72,12 @@ export function createSettingsPort(state: WorkspaceState): SettingsPort {
       ),
     };
     const selected = state.models.find((m) => m.id === next.model);
-    if ("model" in patch)
+    if ("model" in patch && next.recognitionSource.source === "local")
       Object.assign(next, compatibleModelPreferences(selected, next));
-    if (["model", "language", "acceleration"].some((key) => key in patch))
+    if (
+      next.recognitionSource.source === "local" &&
+      ["model", "language", "acceleration"].some((key) => key in patch)
+    )
       validateModelPreferences(selected, next);
     const phraseChanged =
       next.wakePhrase !== state.preferences.wakePhrase ||

@@ -13,6 +13,116 @@ let server,
   rawDefaults,
   defaults;
 let calls, invoke, callbacks, listeners;
+
+test("remote source saves and restores public preferences without requiring dormant local weights", () => {
+  const local = { id:{engine:"whisper",variant:"small"}, filename:"ggml-small.bin", bytes:10, local_path:null, languages:["ru","en"], capabilities:{language_selection:true,decoding_options:true,accelerations:["cpu"]} };
+  const raw = {...structuredClone(rawDefaults), stt_model:{id:local.id,local_path:"PRIVATE/ggml-small.bin"}, whisper_model_path:"PRIVATE/ggml-small.bin", acceleration:"cuda", whisper_threads:4};
+  const connection = {source:"fono_server",url:"http://127.0.0.1:17833",displayName:"Kari",model:"large_turbo",caPem:"",fallback:"local",fallbackModel:"small",token:"DO_NOT_PERSIST"};
+  const saved = mapping.applyPreferences(raw,{recognitionSource:connection},[local]);
+  assert.equal(saved.stt_source,"fono_server");
+  assert.deepEqual(saved.stt_model,raw.stt_model);
+  assert.equal(saved.acceleration,"cuda");
+  assert.equal(saved.whisper_threads,4);
+  assert.equal(saved.remote_stt.display_name,"Kari");
+  assert.deepEqual(saved.remote_stt.fallback,{local:local.id});
+  assert.ok(!JSON.stringify(saved).includes("DO_NOT_PERSIST"));
+  const restored = mapping.preferencesFromNative(saved,[local]);
+  const publicConnection={...connection};
+  delete publicConnection.token;
+  assert.deepEqual(restored.recognitionSource,publicConnection);
+});
+
+test("switching back to local preserves the saved server while discarding invalid remote draft edits", () => {
+  const remote = {...structuredClone(rawDefaults),stt_source:"fono_server",remote_stt:{url:"https://saved.example",display_name:"Saved",model:{engine:"whisper",variant:"large_turbo"},fallback:"ask"}};
+  const draft = {...defaults.recognitionSource,source:"local",url:"not a url"};
+  const saved = mapping.applyPreferences(remote,{recognitionSource:draft},[]);
+  assert.equal(saved.stt_source,"local");
+  assert.deepEqual(saved.remote_stt,remote.remote_stt);
+  assert.deepEqual(mapping.preferencesFromNative(structuredClone(rawDefaults),[]).recognitionSource,defaults.recognitionSource);
+});
+
+test("custom installed local reserve retains its path privately and roundtrips the model identity", () => {
+  const raw={...structuredClone(rawDefaults),stt_model:{id:{engine:"whisper",variant:"custom"},local_path:"PRIVATE/custom-model.bin"},whisper_model_path:"PRIVATE/custom-model.bin"};
+  const value={...defaults.recognitionSource,source:"fono_server",url:"https://saved.example",model:"large_turbo",fallback:"local",fallbackModel:raw.stt_model.local_path};
+  const saved=mapping.applyPreferences(raw,{recognitionSource:value},[]);
+  assert.deepEqual(saved.remote_stt.fallback,{local:raw.stt_model.id});
+  assert.ok(!JSON.stringify(saved.remote_stt).includes("PRIVATE"));
+  assert.equal(mapping.preferencesFromNative(saved,[]).recognitionSource.fallbackModel,raw.stt_model.local_path);
+});
+
+test("browser connection demo exercises errors and stores only credential presence in memory", async () => {
+  const {createMockRecognitionSource}=await server.ssrLoadModule("/src/v3/shared/infrastructure/mockRecognitionSource.ts");
+  const state={preferences:structuredClone(defaults),phase:"idle"};
+  const port=createMockRecognitionSource(state);
+  assert.deepEqual(await port.status(),{hasToken:false});
+  assert.deepEqual(await port.test({url:"https://demo.example"}),{kind:"error",error:"not_configured"});
+  for(const [url,token,error] of [["https://unavailable.example","DRAFT","network"],["https://timeout.example","DRAFT","timeout"],["https://incompatible.example","DRAFT","incompatible_version"],["https://demo.example","invalid","unauthorized"]])
+    assert.deepEqual(await port.test({url,token}),{kind:"error",error});
+  const checked=await port.test({url:"https://demo.example",token:"DRAFT"});
+  assert.equal(checked.kind,"ok");
+  assert.match(checked.server.version,/demo/);
+  await port.saveToken("DRAFT");
+  assert.deepEqual(await port.status(),{hasToken:true});
+  assert.ok(!JSON.stringify(state).includes("DRAFT"));
+  state.preferences.recognitionSource.url="https://demo.example";
+  assert.equal((await port.test({url:"https://demo.example"})).kind,"ok");
+  assert.deepEqual(await port.test({url:"https://other.example"}),{kind:"error",error:"not_configured"});
+  state.phase="listening";
+  await assert.rejects(port.clearToken());
+  assert.deepEqual(await port.status(),{hasToken:true});
+  state.phase="idle";
+  await port.clearToken();
+  assert.deepEqual(await port.status(),{hasToken:false});
+});
+
+test("native connection adapter maps only whitelisted metadata and all typed failures", async () => {
+  const {remoteConnectionFromNative} = await server.ssrLoadModule("/src/v3/shared/infrastructure/native/recognitionSource.ts");
+  const raw = {kind:"ok",token:"DO_NOT_EXPOSE",server:{version:"0.8.35",api_version:2,state:"ready",devices:[{id:"cuda:0",name:"GPU",backend:"cuda",available:true,private:"DO_NOT_EXPOSE"}],models:[{id:{engine:"whisper",variant:"large_turbo"},label:"Whisper",installed:true,state:"ready",languages:["ru"],device:"cuda:0",private:"DO_NOT_EXPOSE"}]}};
+  const result = remoteConnectionFromNative(raw);
+  assert.equal(result.kind,"ok");
+  assert.equal(result.server.apiVersion,2);
+  assert.equal(result.server.models[0].id,"large_turbo");
+  assert.ok(!JSON.stringify(result).includes("DO_NOT_EXPOSE"));
+  for(const error of ["invalid_endpoint","not_configured","network","timeout","unauthorized","incompatible_version","model_not_found","invalid_response","busy","server_failed"])
+    assert.deepEqual(remoteConnectionFromNative({kind:"error",error,detail:"DO_NOT_EXPOSE"}),{kind:"error",error});
+  for(const value of [null,{kind:"error",error:"PRIVATE"},{...raw,server:{...raw.server,devices:[{...raw.server.devices[0],name:"bad\nname"}]}},{...raw,server:{...raw.server,models:[{...raw.server.models[0],id:{engine:"whisper",variant:"../PRIVATE"}}]}}])
+    assert.deepEqual(remoteConnectionFromNative(value),{kind:"error",error:"invalid_response"});
+});
+
+test("native connection check and credential actions use separate IPC without returning the stored token", async () => {
+  const {createNativeRecognitionSource} = await server.ssrLoadModule("/src/v3/shared/infrastructure/native/recognitionSource.ts");
+  const sent=[];
+  let serialized=0;
+  const port=createNativeRecognitionSource(async(command,args)=>{
+    sent.push([command,args]);
+    return command==="get_remote_stt_status" ? {has_token:true,token:"DO_NOT_RETURN"} : command==="test_remote_stt_server" ? {kind:"error",error:"unauthorized"} : undefined;
+  },async(action)=>{serialized++;return action();});
+  assert.deepEqual(await port.status(),{hasToken:true});
+  assert.deepEqual(await port.test({url:"http://192.168.1.8:17832",token:"DRAFT"}),{kind:"error",error:"invalid_endpoint"});
+  assert.equal(sent.length,1,"invalid plaintext address must not invoke IPC");
+  assert.deepEqual(await port.test({url:"http://127.0.0.1:17833",token:"DRAFT",model:"large_turbo"}),{kind:"error",error:"unauthorized"});
+  assert.deepEqual(sent[1],["test_remote_stt_server",{request:{url:"http://127.0.0.1:17833",token:"DRAFT",model:{engine:"whisper",variant:"large_turbo"}}}]);
+  await port.saveToken("DRAFT"); await port.clearToken();
+  assert.equal(serialized,2);
+  assert.deepEqual(sent.slice(-2),[["set_remote_stt_token",{token:"DRAFT"}],["clear_remote_stt_token",undefined]]);
+  const {NativeIpcError}=await server.ssrLoadModule("/src/v3/shared/infrastructure/native/nativeErrors.ts");
+  const busy=createNativeRecognitionSource(async()=>{throw new NativeIpcError({code:"busy"})});
+  assert.deepEqual(await busy.test({url:"https://demo.example"}),{kind:"error",error:"busy"});
+});
+
+test("remote preferences are in-memory demo data and never enter browser persistence", async () => {
+  const storage = globalThis.localStorage;
+  let serialized="";
+  globalThis.localStorage={setItem(_key,value){serialized=value},getItem(){return serialized}};
+  try {
+    const browser=await server.ssrLoadModule("/src/v3/shared/infrastructure/browser.ts");
+    const value=structuredClone(defaults);
+    value.recognitionSource={...value.recognitionSource,source:"fono_server",url:"https://PRIVATE_SERVER.example",caPem:"PRIVATE_CA",token:"PRIVATE_TOKEN"};
+    browser.persistPreferences(value);
+    assert.ok(!serialized.includes("PRIVATE"));
+    assert.deepEqual(browser.readPreferences().recognitionSource,defaults.recognitionSource);
+  } finally { if(storage===undefined)delete globalThis.localStorage;else globalThis.localStorage=storage; }
+});
 test("native preference mapping exposes, saves and preserves every selected trigger", () => {
   for (const trigger of [
     "shortcut",

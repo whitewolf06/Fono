@@ -114,4 +114,96 @@ export const ruMessages = {
   "recovery.historyFallback": "Резерв · локально на CPU",
   "remoteCheck.localFallback": "Сервер не готов · попробуем резерв на CPU",
   "remoteCheck.askFallback": "Сервер не готов · после записи будет выбор",
+  "recognitionSource.title": "Где распознавать речь",
+  "recognitionSource.local": "Этот компьютер",
+  "recognitionSource.server": "Сервер Fono",
+  "recognitionSource.name": "Имя сервера",
+  "recognitionSource.namePlaceholder": "Например, Kari",
+  "recognitionSource.url": "Адрес сервера",
+  "recognitionSource.urlHint":
+    "HTTPS или HTTP через локальный SSH-туннель. Для Kari: http://127.0.0.1:17833. HTTP по сети недоступен.",
+  "recognitionSource.privacy":
+    "Аудио будет отправляться на сервер «{server}» после сохранения этих настроек.",
+  "recognitionSource.unnamed": "Fono",
+  "recognitionSource.demo":
+    "Это браузерный пример: данные сервера демонстрационные, сетевых запросов и сохранения токена нет.",
+  "recognitionSource.token": "Токен доступа",
+  "recognitionSource.tokenHint":
+    "Проверка не сохраняет токен. Сохраните токен отдельно, затем настройки подключения. Сохранённый токен не показывается.",
+  "recognitionSource.saveToken": "Сохранить токен",
+  "recognitionSource.deleteToken": "Удалить токен",
+  "recognitionSource.tokenStored": "Токен сохранён",
+  "recognitionSource.tokenMissing": "Токен не сохранён",
+  "recognitionSource.tokenUnknown": "Проверяем наличие токена…",
+  "recognitionSource.tokenSaved":
+    "Токен сохранён. Адрес, источник и модель применяются кнопкой «Сохранить» в настройках.",
+  "recognitionSource.tokenDeleted":
+    "Токен удалён. Для подключения понадобится новый.",
+  "recognitionSource.tokenStatusFailed":
+    "Не удалось проверить наличие токена. Повторите открытие настроек.",
+  "recognitionSource.tokenSaveFailed":
+    "Не удалось сохранить токен. Завершите активные операции и попробуйте ещё раз.",
+  "recognitionSource.tokenDeleteFailed":
+    "Не удалось удалить токен. Завершите активные операции и попробуйте ещё раз.",
+  "recognitionSource.ca": "Сертификат собственного центра доверия",
+  "recognitionSource.caHint":
+    "Необязательно: публичный CA-сертификат в формате PEM. Проверка HTTPS остаётся включённой.",
+  "recognitionSource.check": "Проверить подключение",
+  "recognitionSource.checking": "Проверяем сервер…",
+  "recognitionSource.checked": "Сервер ответил",
+  "recognitionSource.observation":
+    "Результат последней проверки черновика. Настройки ещё нужно сохранить.",
+  "recognitionSource.state": "Состояние",
+  "recognitionSource.state.ready": "Готов",
+  "recognitionSource.state.starting": "Запускается",
+  "recognitionSource.state.busy": "Занят",
+  "recognitionSource.state.failed": "Ошибка сервера",
+  "recognitionSource.state.stopping": "Останавливается",
+  "recognitionSource.deviceUnavailable": "недоступно",
+  "recognitionSource.model": "Модель на сервере",
+  "recognitionSource.modelHint":
+    "Проверьте подключение, чтобы выбрать установленную модель сервера.",
+  "recognitionSource.fallback": "Если сервер недоступен",
+  "recognitionSource.fallbackNone": "Сохранить запись и предложить повтор",
+  "recognitionSource.fallbackAsk": "Спросить перед отправкой записи",
+  "recognitionSource.fallbackLocal": "Использовать локальный резерв",
+  "recognitionSource.fallbackModel": "Резервная модель на этом компьютере",
+  "recognitionSource.fallbackHint":
+    "Используется только установленная модель, на CPU. Она загрузится при обращении к резерву.",
+  "recognitionSource.manualFallback":
+    "Для ручного локального повтора используется сохранённая модель этого компьютера.",
+  "recognitionSource.limits":
+    "Подключается только Fono Server. Аудио передаётся без сжатия.",
+  "recognitionSource.locked":
+    "Источник и параметры подключения меняются между диктовками. Завершите текущую операцию.",
+  "recognitionSource.gpuUnused":
+    "Локальная видеокарта не используется для распознавания на сервере. Резерв работает на CPU.",
+  "recognitionSource.serverModels": "Модели сервера",
+  "recognitionSource.serverModelsHint":
+    "Список только для просмотра. Установка и удаление моделей выполняются на сервере.",
+  "recognitionSource.installed": "Установлена на сервере",
+  "recognitionSource.notInstalled": "Не установлена",
+  "recognitionSource.invalidEndpoint":
+    "Проверьте адрес: нужен HTTPS либо HTTP на 127.0.0.1 или localhost через SSH-туннель, без пути и параметров.",
+  "recognitionSource.notConfigured":
+    "Для нового адреса или сертификата введите токен и проверьте подключение. Сохранённый токен используется только для сохранённого подключения.",
+  "recognitionSource.network":
+    "Сервер недоступен. Проверьте адрес, сеть и SSH-туннель.",
+  "recognitionSource.timeout": "Сервер не ответил вовремя. Попробуйте ещё раз.",
+  "recognitionSource.unauthorized":
+    "Сервер не принял токен. Проверьте его и повторите подключение.",
+  "recognitionSource.incompatible":
+    "Эта версия Fono Server несовместима с приложением. Обновите сервер.",
+  "recognitionSource.modelMissing":
+    "Выбранная модель не установлена на сервере. Выберите другую из полученного списка.",
+  "recognitionSource.invalidResponse":
+    "Сервер вернул неподдерживаемый ответ. Проверьте адрес и версию Fono Server.",
+  "recognitionSource.busy":
+    "Сервер занят. Попробуйте проверить подключение позже.",
+  "recognitionSource.serverFailed":
+    "На сервере ошибка. Проверьте его состояние в веб-панели.",
+  "recognitionSource.invalidSettings":
+    "Проверьте адрес, модель и параметры резервного распознавания.",
+  "recognitionSource.invalidToken":
+    "Введите токен без пробелов, до 4096 символов.",
 } as const;

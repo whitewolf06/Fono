@@ -55,6 +55,7 @@ export type QuickPanel =
   | "hotkey"
   | "command-hotkey";
 export interface Preferences {
+  recognitionSource: import("./recognitionSource").RecognitionSourceSettings;
   uiLanguage: import("./locale").UiLanguage;
   snippetsEnabled: boolean;
   snippets: import("../../features/snippets/domain/snippets").Snippet[];
@@ -340,6 +341,7 @@ export interface ServicePort {
   retry(id: string): void;
 }
 export interface Workspace {
+  recognition?: import("./recognitionSource").RecognitionSourcePort;
   native?: boolean;
   wake?: WakePort;
   wakeSamples: import("../../features/wake-samples/domain/samples").WakeSamplesPort;

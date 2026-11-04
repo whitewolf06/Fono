@@ -8,9 +8,30 @@ fn isolated_test_profile() -> bool {
 
 const LLM_API_KEY_TARGET: &str = "Fono/llm-api-key";
 const LLM_PROFILE_API_KEY_PREFIX: &str = "Fono/llm-profile/";
+const STT_SERVER_TOKEN_TARGET: &str = "Fono/stt-server-token";
 
 pub(crate) fn load_stt_server_token() -> AppResult<Option<String>> {
-    load_secret("Fono/stt-server-token")
+    load_secret(STT_SERVER_TOKEN_TARGET)
+}
+pub(crate) fn store_stt_server_token(value: &str) -> AppResult<()> {
+    store_stt_token_with(value, isolated_test_profile(), |value| {
+        store_secret(STT_SERVER_TOKEN_TARGET, value)
+    })
+}
+fn store_stt_token_with(
+    value: &str,
+    isolated: bool,
+    write: impl FnOnce(&str) -> AppResult<()>,
+) -> AppResult<()> {
+    if isolated {
+        return Err(AppError::Config(
+            "Сохранение ключей отключено в изолированном тестовом профиле".into(),
+        ));
+    }
+    write(value)
+}
+pub(crate) fn delete_stt_server_token() -> AppResult<()> {
+    delete_secret(STT_SERVER_TOKEN_TARGET)
 }
 
 pub fn load_llm_profile_api_key(profile_id: &str) -> AppResult<Option<String>> {
@@ -123,7 +144,7 @@ fn store_secret(secret_target: &str, value: &str) -> AppResult<()> {
     }
     let mut target = wide(secret_target);
     let mut username = wide("Fono");
-    let mut blob = value.as_bytes().to_vec();
+    let mut blob = zeroize::Zeroizing::new(value.as_bytes().to_vec());
     let credential = CREDENTIALW {
         Type: CRED_TYPE_GENERIC,
         TargetName: PWSTR(target.as_mut_ptr()),
@@ -207,4 +228,24 @@ pub fn delete_llm_api_key() -> AppResult<()> {
 #[cfg(not(windows))]
 fn delete_secret(_secret_target: &str) -> AppResult<()> {
     Ok(())
+}
+
+#[cfg(test)]
+mod stt_tests {
+    use super::*;
+    #[test]
+    fn isolated_profile_rejects_stt_secret_before_os_storage_is_called() {
+        assert!(store_stt_token_with("fixture-token", true, |_| panic!(
+            "isolated profile must not access OS credentials"
+        ))
+        .is_err());
+        let mut stored = false;
+        store_stt_token_with("fixture-token", false, |value| {
+            assert_eq!(value, "fixture-token");
+            stored = true;
+            Ok(())
+        })
+        .unwrap();
+        assert!(stored);
+    }
 }

@@ -13,6 +13,7 @@ import {
 import { createPendingWorkflow } from "./mockPending";
 import { createMockDraftActions } from "./mockDraft";
 import { processDemoText } from "./mockText";
+import { validRemoteEndpoint } from "../../../shared/domain/recognitionSource";
 export { selectLatest } from "./mockSession";
 
 const wait = (milliseconds: number) =>
@@ -68,13 +69,16 @@ export function createDictationPort(
         state.phase = "error";
         return;
       }
-      if (
-        !state.models.some(
-          (model) =>
-            model.id === state.preferences.model &&
-            model.status === "installed",
-        )
-      ) {
+      const remote = state.preferences.recognitionSource;
+      const modelConfigured =
+        remote?.source === "fono_server"
+          ? validRemoteEndpoint(remote.url) && !!remote.model
+          : state.models.some(
+              (model) =>
+                model.id === state.preferences.model &&
+                model.status === "installed",
+            );
+      if (!modelConfigured) {
         state.error = uiMessage("ui.566676488a");
         state.phase = "error";
         return;

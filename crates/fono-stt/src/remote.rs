@@ -1,10 +1,14 @@
 //! Native Fono Server API v2 client. Blocking entry points belong on the host's
 //! blocking executor, just like the other recognizers; no Tauri or settings I/O.
 mod health;
+mod inspection;
 mod transport;
 mod wire;
 pub use health::{
     probe_health, RemoteHealth, RemoteModelHealth, RemoteServerHealth, REMOTE_HEALTH_TIMEOUT,
+};
+pub use inspection::{
+    inspect_server, RemoteDevice, RemoteInspection, RemoteInspectionState, RemoteModel,
 };
 
 use std::{borrow::Cow, fmt, sync::Arc};

@@ -50,6 +50,7 @@ const { draft, dirty, reset, save, canLeave } = useDraft(
 const { run, busy, error } = useFeedback();
 const whisperSelected = computed(
   () =>
+    draft.recognitionSource.source !== "fono_server" &&
     (workspace.state.models.find((m) => m.id === draft.model)?.engine ||
       "whisper") === "whisper",
 );
@@ -227,9 +228,9 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
           </SettingsDisclosure>
         </div>
         <AudioFields v-else-if="section === 'audio'" v-model="draft">
-          <template #models>
+          <template #models="{ remote, server }">
             <SettingsDisclosure id="models" :title="$t('settings.models')">
-              <ModelManager />
+              <ModelManager :remote="remote" :server="server" />
             </SettingsDisclosure>
           </template>
           <template #advanced>
@@ -240,7 +241,9 @@ async function navigateResult(item: (typeof searchIndex)[number]) {
             >
               <CudaPackagePanel :unsaved="dirty" />
             </SettingsDisclosure>
-            <PretranscriptionField />
+            <PretranscriptionField
+              v-if="draft.recognitionSource.source !== 'fono_server'"
+            />
             <SettingsDisclosure
               id="dictionary-tools"
               :title="

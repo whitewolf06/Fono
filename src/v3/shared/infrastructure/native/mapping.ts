@@ -1,4 +1,8 @@
 import { message as uiMessage } from "../../domain/messages";
+import {
+  applyRecognitionSource,
+  recognitionSourceFromNative,
+} from "./recognitionSourceMapping";
 import { applicationContextFromNative } from "../../../features/history/domain/applicationContext";
 import { recordingSoundsVolume } from "../../domain/recordingSounds";
 import type {
@@ -46,6 +50,7 @@ export function preferencesFromNative(
     : undefined;
   return {
     ...defaults,
+    recognitionSource: recognitionSourceFromNative(s),
     uiLanguage: availableUiLanguage(s.ui_language),
     applicationProfiles: cloneApplicationProfiles(s.application_profiles ?? []),
     pretranscriptionEnabled: s.pretranscription_enabled === true,
@@ -170,9 +175,11 @@ export function applyPreferences(
   let p = { ...preferencesFromNative(s, models), ...patch };
   const catalog = modelsFromNative(models);
   const selected = catalog.find((m) => m.id === p.model);
-  if ("model" in patch)
+  if ("model" in patch && p.recognitionSource.source === "local")
     p = { ...p, ...compatibleModelPreferences(selected, p) };
   const has = (key: keyof Preferences) => key in patch;
+  if (has("recognitionSource"))
+    applyRecognitionSource(next, p.recognitionSource);
   if (has("applicationProfiles"))
     next.application_profiles = cloneApplicationProfiles(p.applicationProfiles);
   const pairs = {
@@ -226,7 +233,7 @@ export function applyPreferences(
       written: entry.written,
       spoken: [...entry.spoken],
     }));
-  if (has("model")) {
+  if (has("model") && p.recognitionSource.source === "local") {
     const model = models.find(
       (m) => modelKey(m.id) === p.model && m.local_path,
     );
@@ -240,7 +247,8 @@ export function applyPreferences(
       next.acceleration = p.acceleration as Settings["acceleration"];
     }
   }
-  if (selected) validateModelPreferences(selected, p);
+  if (selected && p.recognitionSource.source === "local")
+    validateModelPreferences(selected, p);
   if (has("hotkey")) next.hotkey = p.hotkey.replaceAll(" ", "");
   if (has("hotkeyMode")) next.hotkey_mode = p.hotkeyMode;
   if (has("selectionHotkey"))

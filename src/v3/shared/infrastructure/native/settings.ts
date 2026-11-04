@@ -33,6 +33,7 @@ export function nativeSettings(ctx: NativeContext): SettingsPort {
       if (patch.wakeEnabled) ensureWakeAvailable();
       if (
         [
+          "recognitionSource",
           "dictationMode",
           "pretranscriptionEnabled",
           "gpuModelResidency",
