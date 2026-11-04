@@ -251,13 +251,35 @@ impl Transport {
         request: RequestBuilder,
         limit: usize,
     ) -> AppResult<T> {
+        self.json_response(request, limit, false)
+            .await
+            .map(|(_, body)| body)
+    }
+
+    /// Health uses a valid typed JSON document for both ready (200) and
+    /// not-ready (503); all other routes retain their existing error boundary.
+    pub(super) async fn health_json<T: DeserializeOwned>(
+        &self,
+        request: RequestBuilder,
+        limit: usize,
+    ) -> AppResult<(u16, T)> {
+        self.json_response(request, limit, true).await
+    }
+
+    async fn json_response<T: DeserializeOwned>(
+        &self,
+        request: RequestBuilder,
+        limit: usize,
+        health: bool,
+    ) -> AppResult<(u16, T)> {
         let mut response = request
             .header(reqwest::header::ACCEPT, "application/json")
             .send()
             .await
             .map_err(network)?;
         let status = response.status();
-        if !status.is_success() {
+        let health_unready = health && status.as_u16() == 503;
+        if !status.is_success() && !health_unready {
             // Do not read/log an untrusted error body (which can echo secrets).
             let kind = match status.as_u16() {
                 401 | 403 => RemoteErrorKind::Unauthorized,
@@ -282,7 +304,7 @@ impl Transport {
             }
             .into());
         }
-        if status.as_u16() != 200
+        if (status.as_u16() != 200 && !health_unready)
             || response.content_length().is_some_and(|n| n > limit as u64)
             || response
                 .headers()
@@ -304,6 +326,7 @@ impl Transport {
             bytes.extend_from_slice(&chunk);
         }
         serde_json::from_slice(&bytes)
+            .map(|body| (status.as_u16(), body))
             .map_err(|_| RemoteError::new(RemoteErrorKind::InvalidResponse).into())
     }
 }

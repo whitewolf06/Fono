@@ -1,11 +1,16 @@
 import type { PipelineState, Settings } from "./ipcTypes";
 import type { GpuMemoryStatus } from "../../domain/gpuMemory";
 import {
+  isRemoteCheckSnapshot,
+  type RemoteCheckSnapshot,
+} from "../../domain/remoteCheck";
+import {
   isDictationOutcomeEvent,
   type DictationOutcomeEvent,
 } from "../../domain/dictationOutcome";
 
 interface Payloads {
+  remote_server_check: RemoteCheckSnapshot;
   dictation_outcome: DictationOutcomeEvent;
   operation: {
     kind: "phase_changed" | "finished";
@@ -64,6 +69,7 @@ export type BackendEventV1 = {
 }[keyof Payloads];
 
 const kinds = new Set<keyof Payloads>([
+  "remote_server_check",
   "dictation_outcome",
   "operation",
   "pipeline_state",
@@ -89,6 +95,8 @@ export function isBackendEventV1(value: unknown): value is BackendEventV1 {
     kinds.has(envelope.kind as keyof Payloads) &&
     "payload" in envelope &&
     (envelope.kind !== "dictation_outcome" ||
-      isDictationOutcomeEvent(envelope.payload))
+      isDictationOutcomeEvent(envelope.payload)) &&
+    (envelope.kind !== "remote_server_check" ||
+      isRemoteCheckSnapshot(envelope.payload))
   );
 }

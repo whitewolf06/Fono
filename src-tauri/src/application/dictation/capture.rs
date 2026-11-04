@@ -157,6 +157,7 @@ fn prepare_reserved(
             cursor,
         )?;
         drop(admission);
+        super::remote_check::start(&app, operation, &capture.settings);
         // Resolve identity outside capture/configuration locks and before any overlay.
         super::workflow::capture_target(&app, operation, source);
         let executable = if !command

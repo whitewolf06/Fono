@@ -91,7 +91,9 @@ impl Pipeline {
                 "Запись ещё запускается или завершается".into(),
             ));
         }
-        Ok(self.operations.start(source)?.id)
+        let operation = self.operations.start(source)?;
+        self.reset_remote_check_for_new(operation.id);
+        Ok(operation.id)
     }
 
     #[cfg(test)]
@@ -142,6 +144,7 @@ impl Pipeline {
             return false;
         }
         if self.operations.cancel(operation).is_some() {
+            self.retire_remote_check_for(operation);
             self.scheduler.release_reservation(operation);
         }
         if self.capture_operation.load(Ordering::Acquire) == operation
@@ -170,7 +173,11 @@ impl Pipeline {
             return Err(AppError::Busy("audio recording is already active".into()));
         }
         let operation = match requested {
-            CaptureOperation::New(source) => self.operations.start(source)?,
+            CaptureOperation::New(source) => {
+                let operation = self.operations.start(source)?;
+                self.reset_remote_check_for_new(operation.id);
+                operation
+            }
             CaptureOperation::Reserved(id) => self
                 .current_operation()
                 .filter(|current| {
@@ -185,6 +192,7 @@ impl Pipeline {
             .acquire_resource(operation.id, OperationResource::Audio)?;
         if pre_roll.len() > MAX_RECORDING_SAMPLES {
             let _ = self.operations.finish(operation.id, TerminalReason::Failed);
+            self.retire_remote_check_for(operation.id);
             return Err(AppError::Audio(format!(
                 "pre-roll exceeds the maximum recording length of {MAX_RECORDING_SECONDS} seconds"
             )));
@@ -211,6 +219,7 @@ impl Pipeline {
         ) {
             self.scheduler.release_reservation(operation.id);
             let _ = self.operations.finish(operation.id, TerminalReason::Failed);
+            self.retire_remote_check_for(operation.id);
             return Err(error);
         }
 
@@ -243,6 +252,7 @@ impl Pipeline {
 
     pub fn stop_recording(&self) -> AppResult<Vec<i16>> {
         let operation = self.capture_operation.load(Ordering::Acquire);
+        self.cancel_remote_check_locked(operation);
         Ok(self.stop_recording_for(operation)?.unwrap_or_default())
     }
 

@@ -4,6 +4,10 @@ import { message as uiMessage } from "../../../shared/domain/messages";
 import { computed } from "vue";
 import type { DictationOutcomeKind } from "../../../shared/domain/dictationOutcome";
 import { message } from "../../../shared/domain/messages";
+import {
+  remoteCheckStatus,
+  type RemoteCheckSnapshot,
+} from "../../../shared/domain/remoteCheck";
 import type {
   Phase,
   Preferences,
@@ -24,6 +28,8 @@ const props = withDefaults(
   defineProps<{
     preferences: Preferences;
     phase?: Phase;
+    sessionId?: number | null;
+    remoteCheck?: RemoteCheckSnapshot | null;
     outcome?: DictationOutcomeKind;
     level?: number;
     seconds?: number;
@@ -70,6 +76,13 @@ const choice = computed<OverlayProcessingChoice>(
 const indicator = computed<IndicatorState>(() => {
   const pending = props.pending;
   const error = props.processingError || pending?.error || props.error || "";
+  const serverStatus = !pending
+    ? remoteCheckStatus(props.remoteCheck, props.sessionId, props.phase)
+    : undefined;
+  const silenceStatus =
+    props.phase === "silence" && !pending
+      ? uiMessage("ui.237038a7be", { v0: String(props.seconds) })
+      : undefined;
   const phase = pending
     ? pending.phase === "processing"
       ? "processing"
@@ -90,7 +103,7 @@ const indicator = computed<IndicatorState>(() => {
   return {
     applicationProfile: props.applicationProfile,
     phase,
-    sessionId: pending?.sessionId ?? 0,
+    sessionId: pending?.sessionId ?? props.sessionId ?? 0,
     elapsedMs: props.elapsed * 1000,
     level: props.level,
     result: pending?.resultText || pending?.originalText || "",
@@ -100,9 +113,8 @@ const indicator = computed<IndicatorState>(() => {
     status:
       props.outcome === "no_speech"
         ? message("dictation.noSpeech")
-        : props.phase === "silence" && !pending
-          ? uiMessage("ui.237038a7be", { v0: String(props.seconds) })
-          : undefined,
+        : [serverStatus, silenceStatus].filter(Boolean).join(" · ") ||
+          undefined,
     postprocessingOn:
       choice.value.processingEnabled ?? props.preferences.processingEnabled,
     translationOn:

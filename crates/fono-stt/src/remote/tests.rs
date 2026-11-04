@@ -37,6 +37,7 @@ enum Mode {
     Disconnect,
     Redirect(String),
     Reply(Value),
+    HealthReply(u16, Value),
     Oversized,
 }
 struct Capture {
@@ -154,6 +155,10 @@ fn reply(samples: usize) -> Value {
     json!({"text":"fixture transcript","language":"en","model":"whisper:tiny","backend":"cuda","device":"cuda:0",
         "segments":[{"start_ms":0,"end_ms":samples / 16,"text":"fixture transcript"}],"timings":{"audio_ms":samples / 16,"total_ms":25}})
 }
+fn health(server: &str, state: &str) -> Value {
+    json!({"status":server,"models":[{"id":"whisper:tiny","state":state,"device":"PRIVATE_device_name"}],
+        "queue":{"interactive":2,"batch":3}})
+}
 fn read_request(stream: &mut TcpStream, stop: &AtomicBool) -> Option<Capture> {
     let mut bytes = Vec::new();
     while !bytes.ends_with(b"\r\n\r\n") {
@@ -250,7 +255,17 @@ fn serve(
         }
         let action = mode.lock().unwrap().clone();
         match action {
-            Mode::Ok => respond(&mut stream, 200, &reply(samples).to_string(), ""),
+            Mode::Ok => respond(
+                &mut stream,
+                200,
+                &if path == "/v1/health" {
+                    health("ready", "ready")
+                } else {
+                    reply(samples)
+                }
+                .to_string(),
+                "",
+            ),
             Mode::Status(status) => respond(
                 &mut stream,
                 status,
@@ -258,6 +273,9 @@ fn serve(
                 "Retry-After: 3\r\n",
             ),
             Mode::Reply(value) => respond(&mut stream, 200, &value.to_string(), ""),
+            Mode::HealthReply(status, value) => {
+                respond(&mut stream, status, &value.to_string(), "")
+            }
             Mode::Oversized => {
                 let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 999999999\r\n\r\n");
             }
@@ -265,7 +283,7 @@ fn serve(
             Mode::Disconnect => return,
             Mode::Hang | Mode::SlowBody => {
                 if matches!(action, Mode::SlowBody) {
-                    stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100000\r\n\r\n{").unwrap();
+                    stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 32768\r\n\r\n{").unwrap();
                 }
                 while !stop.load(Ordering::Acquire) {
                     let mut byte = [0];
@@ -839,4 +857,212 @@ fn unsupported_options_and_pre_cancelled_audio_are_never_transmitted() {
         )
         .is_err());
     assert_eq!(server.recognition_count(), 0);
+}
+
+#[test]
+fn health_probe_is_authenticated_metadata_only_and_preserves_recognizer_state() {
+    let server = Fixture::new();
+    let activity = Arc::new(TestActivity::default());
+    let result = probe_health(
+        server.endpoint(),
+        &model(),
+        activity.clone(),
+        &OperationCancellation::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        result,
+        RemoteHealth {
+            server: RemoteServerHealth::Ready,
+            selected_model: RemoteModelHealth::Ready,
+            interactive_queue: 2,
+            batch_queue: 3
+        }
+    );
+    assert!(!activity.is_busy());
+    let encoded = serde_json::to_string(&result).unwrap();
+    assert!(!encoded.contains("PRIVATE"));
+    assert!(!encoded.contains("whisper"));
+    {
+        let requests = server.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].path, "/v1/health");
+        assert!(requests[0].headers.contains(&format!("Bearer {TOKEN}")));
+        assert!(requests[0].body.is_empty());
+    }
+    let client = server.client(activity);
+    assert_eq!(
+        client
+            .probe_health(&OperationCancellation::default())
+            .unwrap()
+            .server,
+        RemoteServerHealth::Ready
+    );
+    assert_eq!(client.device_name(), "remote:cuda:0");
+    assert!(client.is_idle());
+    assert_eq!(server.recognition_count(), 0);
+}
+
+#[test]
+fn health_probe_accepts_starting_or_failed_503_and_unknown_on_demand_model() {
+    let server = Fixture::new();
+    for (status, state) in [
+        ("starting", RemoteServerHealth::Starting),
+        ("failed", RemoteServerHealth::Failed),
+        ("stopping", RemoteServerHealth::Stopping),
+    ] {
+        *server.mode.lock().unwrap() = Mode::HealthReply(503, health(status, "loading"));
+        let value = probe_health(
+            server.endpoint(),
+            &model(),
+            Arc::new(crate::NoopActivity),
+            &OperationCancellation::default(),
+        )
+        .unwrap();
+        assert_eq!(value.server, state);
+        assert_eq!(value.selected_model, RemoteModelHealth::Loading);
+    }
+    let mut document = health("ready", "ready");
+    document["models"][0]["id"] = json!("whisper:different-preload");
+    *server.mode.lock().unwrap() = Mode::HealthReply(200, document);
+    let value = probe_health(
+        server.endpoint(),
+        &model(),
+        Arc::new(crate::NoopActivity),
+        &OperationCancellation::default(),
+    )
+    .unwrap();
+    assert_eq!(value.server, RemoteServerHealth::Ready);
+    assert_eq!(value.selected_model, RemoteModelHealth::Unknown);
+}
+
+#[test]
+fn health_probe_rejects_malformed_contradictory_and_unbounded_metadata() {
+    let server = Fixture::new();
+    let mut duplicate = health("ready", "ready");
+    let first = duplicate["models"][0].clone();
+    duplicate["models"].as_array_mut().unwrap().push(first);
+    let mut unknown = health("ready", "PRIVATE");
+    unknown["status"] = json!("PRIVATE");
+    let mut huge_queue = health("ready", "ready");
+    huge_queue["queue"]["batch"] = json!(4294967296_u64);
+    for (status, document) in [
+        (200, json!({"error":{"message":"PRIVATE"}})),
+        (200, duplicate),
+        (200, unknown),
+        (200, huge_queue),
+        (200, health("failed", "failed")),
+        (503, health("ready", "ready")),
+    ] {
+        *server.mode.lock().unwrap() = Mode::HealthReply(status, document);
+        let error = probe_health(
+            server.endpoint(),
+            &model(),
+            Arc::new(crate::NoopActivity),
+            &OperationCancellation::default(),
+        )
+        .unwrap_err();
+        assert!(!format!("{error:?} {error}").contains("PRIVATE"));
+        assert_eq!(kind(error).kind, RemoteErrorKind::InvalidResponse);
+    }
+    *server.mode.lock().unwrap() = Mode::Oversized;
+    assert_eq!(
+        kind(
+            probe_health(
+                server.endpoint(),
+                &model(),
+                Arc::new(crate::NoopActivity),
+                &OperationCancellation::default()
+            )
+            .unwrap_err()
+        )
+        .kind,
+        RemoteErrorKind::InvalidResponse
+    );
+}
+
+#[test]
+fn health_probe_classifies_authentication_and_disconnect_without_echoing_errors() {
+    let server = Fixture::new();
+    for (mode, expected) in [
+        (Mode::Status(401), RemoteErrorKind::Unauthorized),
+        (Mode::Disconnect, RemoteErrorKind::Network),
+    ] {
+        *server.mode.lock().unwrap() = mode;
+        let error = probe_health(
+            server.endpoint(),
+            &model(),
+            Arc::new(crate::NoopActivity),
+            &OperationCancellation::default(),
+        )
+        .unwrap_err();
+        assert!(!format!("{error:?} {error}").contains("PRIVATE"));
+        assert_eq!(kind(error).kind, expected);
+    }
+    let cancel = OperationCancellation::default();
+    cancel.cancel();
+    let requests = server.requests.lock().unwrap().len();
+    assert!(matches!(
+        probe_health(
+            server.endpoint(),
+            &model(),
+            Arc::new(crate::NoopActivity),
+            &cancel
+        ),
+        Err(AppError::Cancelled(_))
+    ));
+    assert_eq!(server.requests.lock().unwrap().len(), requests);
+}
+
+#[test]
+fn health_probe_deadline_covers_headers_and_body_then_releases_admission() {
+    for mode in [Mode::Hang, Mode::SlowBody] {
+        let server = Fixture::new();
+        let activity = Arc::new(TestActivity::default());
+        *server.mode.lock().unwrap() = mode;
+        let started = Instant::now();
+        let error = probe_health(
+            server.endpoint(),
+            &model(),
+            activity.clone(),
+            &OperationCancellation::default(),
+        )
+        .unwrap_err();
+        assert_eq!(kind(error).kind, RemoteErrorKind::Timeout);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        wait(|| server.disconnected.load(Ordering::Acquire));
+        assert!(!activity.is_busy());
+        assert_eq!(server.recognition_count(), 0);
+    }
+}
+
+#[test]
+fn health_probe_cancellation_closes_socket_and_allows_another_probe() {
+    let server = Fixture::new();
+    let activity = Arc::new(TestActivity::default());
+    *server.mode.lock().unwrap() = Mode::Hang;
+    let endpoint = server.endpoint();
+    let token = OperationCancellation::default();
+    let cancellation = token.clone();
+    let owned_activity = activity.clone();
+    let job =
+        thread::spawn(move || probe_health(endpoint, &model(), owned_activity, &cancellation));
+    wait(|| !server.requests.lock().unwrap().is_empty());
+    assert!(activity.is_busy());
+    token.cancel();
+    assert!(matches!(job.join().unwrap(), Err(AppError::Cancelled(_))));
+    wait(|| server.disconnected.load(Ordering::Acquire));
+    assert!(!activity.is_busy());
+    *server.mode.lock().unwrap() = Mode::Ok;
+    assert_eq!(
+        probe_health(
+            server.endpoint(),
+            &model(),
+            activity,
+            &OperationCancellation::default()
+        )
+        .unwrap()
+        .server,
+        RemoteServerHealth::Ready
+    );
 }

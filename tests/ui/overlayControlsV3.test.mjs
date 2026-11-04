@@ -907,6 +907,155 @@ test("a delayed outcome queues one overlay follow-up while the successor snapsho
   }
 });
 
+test("remote server checks stay informational and late responses cannot replace the next recording", async () => {
+  const baseline = invoke;
+  let reads = 0;
+  let snapshot = {
+    state: "listening",
+    operation_id: 10,
+    source: "hotkey",
+    level: 0,
+    last: null,
+    remote_check: { operation_id: 10, state: "checking" },
+  };
+  let deferredSnapshot;
+  invoke = async (name, args) => {
+    if (name === "get_desktop_snapshot") {
+      reads++;
+      const delayed = deferredSnapshot;
+      deferredSnapshot = undefined;
+      return delayed ? delayed.promise : structuredClone(snapshot);
+    }
+    return baseline(name, args);
+  };
+  const overlay = createNativeOverlay();
+  const emit = (kind, payload) =>
+    listeners.get("backend-event-v1")({
+      payload: { schema_version: 1, kind, payload },
+    });
+  try {
+    for (let index = 0; index < 6; index++) await flush();
+    assert.equal(overlay.state.remoteCheck.state, "checking");
+    snapshot.remote_check = {
+      operation_id: 10,
+      state: "unavailable",
+      reason: "timeout",
+    };
+    emit("remote_server_check", snapshot.remote_check);
+    for (let index = 0; index < 4; index++) await flush();
+    assert.equal(overlay.state.remoteCheck.reason, "timeout");
+    assert.equal(overlay.state.phase, "listening");
+    assert.equal(overlay.state.error, "");
+    const readCount = reads;
+    emit("remote_server_check", { operation_id: 9, state: "ready" });
+    emit("remote_server_check", {
+      operation_id: 10,
+      state: "unavailable",
+      reason: "PRIVATE invalid reason",
+    });
+    await flush();
+    assert.equal(
+      reads,
+      readCount,
+      "old and malformed probes cannot refresh current capture state",
+    );
+
+    const older = deferred();
+    deferredSnapshot = older;
+    emit("remote_server_check", { operation_id: 10, state: "starting" });
+    await flush();
+    snapshot = {
+      ...snapshot,
+      operation_id: 11,
+      remote_check: { operation_id: 11, state: "ready" },
+    };
+    emit("pipeline_state", { state: "listening" });
+    older.resolve({
+      ...snapshot,
+      operation_id: 10,
+      remote_check: { operation_id: 10, state: "starting" },
+    });
+    for (let index = 0; index < 8; index++) await flush();
+    assert.equal(overlay.state.sessionId, 11);
+    assert.deepEqual(
+      { ...overlay.state.remoteCheck },
+      { operation_id: 11, state: "ready" },
+    );
+    emit("remote_server_check", {
+      operation_id: 10,
+      state: "unavailable",
+      reason: "network",
+    });
+    await flush();
+    assert.equal(overlay.state.remoteCheck.operation_id, 11);
+    assert.equal(overlay.state.phase, "listening");
+
+    await overlay.finish();
+    await overlay.cancel();
+    assert.ok(
+      calls.some(
+        ([name, args]) =>
+          name === "finish_overlay_dictation" && args.sessionId === 11,
+      ),
+    );
+    assert.ok(
+      calls.some(
+        ([name, args]) => name === "cancel_dictation" && args.sessionId === 11,
+      ),
+    );
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("recording displays safe server status without blocking controls or leaking into later phases", async () => {
+  const unavailable = {
+    operation_id: 10,
+    state: "unavailable",
+    reason: "network",
+  };
+  const html = await render(
+    {},
+    {
+      sessionId: 10,
+      remoteCheck: unavailable,
+      phase: "listening",
+      interactive: true,
+    },
+  );
+  assert.match(html, /Сервер недоступен/);
+  const silence = await render(
+    {},
+    { sessionId: 10, remoteCheck: unavailable, phase: "silence", seconds: 3 },
+  );
+  assert.match(silence, /Сервер недоступен/);
+  assert.match(silence, /Пауза · 3 с/);
+  assert.ok(!html.includes('data-phase="error"'));
+  assert.ok(!html.includes("резерв"));
+  for (const phase of ["transcribing", "processing", "idle"]) {
+    const later = await render(
+      {},
+      { sessionId: 10, remoteCheck: unavailable, phase },
+    );
+    assert.ok(!later.includes("Сервер недоступен"));
+  }
+  const next = await render(
+    {},
+    { sessionId: 11, remoteCheck: unavailable, phase: "listening" },
+  );
+  assert.ok(!next.includes("Сервер недоступен"));
+  const malformed = await render(
+    {},
+    {
+      sessionId: 10,
+      remoteCheck: { ...unavailable, reason: "PRIVATE" },
+      phase: "listening",
+    },
+  );
+  assert.ok(!malformed.includes("PRIVATE"));
+});
+
 test("native terminal Close dismisses the overlay; only positive active session IDs can stop/cancel a capture", async () => {
   const overlay = createNativeOverlay();
   try {

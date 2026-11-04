@@ -43,6 +43,8 @@ onUnmounted(overlay.dispose);
       v-if="!showSelection"
       :preferences="overlay.state.preferences"
       :phase="phase"
+      :session-id="overlay.state.sessionId"
+      :remote-check="overlay.state.remoteCheck"
       :outcome="overlay.state.dictationOutcome"
       :level="overlay.state.level"
       :seconds="overlay.state.seconds"

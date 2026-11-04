@@ -15,8 +15,10 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    if !(args.len() == 4 || (args.len() == 5 && args[4] == "--source-roundtrip")) {
-        return Err("Usage: remote-recognize <server-root-url> <token-file> <mono-16k-pcm16.wav> <model-id> [--source-roundtrip]".into());
+    if !(args.len() == 4
+        || (args.len() == 5 && matches!(args[4].as_str(), "--source-roundtrip" | "--health-only")))
+    {
+        return Err("Usage: remote-recognize <server-root-url> <token-file> <mono-16k-pcm16.wav or -> <model-id> [--source-roundtrip|--health-only]".into());
     }
     let token =
         Zeroizing::new(fs::read_to_string(&args[1]).map_err(|_| "Cannot read the token file")?);
@@ -33,6 +35,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         },
         variant: variant.into(),
     };
+    if args.get(4).is_some_and(|arg| arg == "--health-only") {
+        let started = Instant::now();
+        let health = fono_stt::remote::probe_health(
+            endpoint,
+            &model,
+            std::sync::Arc::new(fono_stt::NoopActivity),
+            &OperationCancellation::default(),
+        )?;
+        println!(
+            "{}",
+            serde_json::json!({ "health":health, "request_elapsed_ms":started.elapsed().as_millis(), "network_timeout_ms":fono_stt::remote::REMOTE_HEALTH_TIMEOUT.as_millis() })
+        );
+        return Ok(());
+    }
     let wav = fs::read(&args[2]).map_err(|_| "Cannot read the WAV file")?;
     let samples = pcm_wav(&wav)?;
     let engine = SttEngine::default();

@@ -2157,5 +2157,16 @@
   "wakeLive.paused": "Wake-up paused: another operation is active or dictation is paused. The microphone stays on.",
   "wakeLive.stopping": "Turning wake-up off…",
   "wakeLive.error": "Wake-up has stopped",
-  "wakeLive.samplesPaused": "Turn wake-up off before recording, playing or checking samples."
+  "wakeLive.samplesPaused": "Turn wake-up off before recording, playing or checking samples.",
+  "remoteCheck.checking": "Checking server…",
+  "remoteCheck.ready": "Server is reachable",
+  "remoteCheck.starting": "Server is starting",
+  "remoteCheck.stopping": "Server is stopping",
+  "remoteCheck.busy": "Server is busy",
+  "remoteCheck.modelNotReady": "Server model is not ready yet",
+  "remoteCheck.timeout": "Server did not respond in time",
+  "remoteCheck.unauthorized": "Server rejected the token",
+  "remoteCheck.notConfigured": "Server connection is not configured",
+  "remoteCheck.invalidResponse": "Could not check the server",
+  "remoteCheck.unavailable": "Server is unavailable"
 }

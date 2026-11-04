@@ -25,6 +25,9 @@ async fn await_task<T: Send + 'static>(
 }
 
 async fn load(session: &Session) -> AppResult<bool> {
+    if let Some(check) = &session.remote_check {
+        tracing::debug!(operation = session.operation, state = ?check.state, "recording server preflight snapshot");
+    }
     session
         .settings
         .recognition_model_id()

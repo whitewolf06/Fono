@@ -64,6 +64,227 @@ fn fixture() -> (Pipeline, Arc<CaptureProbe>) {
     )
 }
 
+#[test]
+fn remote_check_failure_does_not_stop_or_replace_the_current_audio() {
+    use super::remote_check::{RemoteCheckReason, RemoteCheckState};
+    let (pipeline, probe) = fixture();
+    let operation = pipeline
+        .start_recording_from(None, OperationSource::Hotkey)
+        .unwrap();
+    let cancellation = pipeline.begin_remote_check_for(operation).unwrap();
+    assert!(pipeline.begin_remote_check_for(operation).is_none());
+    assert!(pipeline.complete_remote_check_for(
+        operation,
+        RemoteCheckState::Unavailable {
+            reason: RemoteCheckReason::Timeout,
+        }
+    ));
+    assert!(!cancellation.is_cancelled());
+    assert!(pipeline.is_recording());
+    assert!(pipeline.is_operation_active(operation));
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 0);
+    assert_eq!(pipeline.recording_window(0, 8).1, vec![1]);
+    let snapshot = pipeline.remote_check_for(operation).unwrap();
+    pipeline
+        .freeze_session_for_completion(operation, crate::types::Settings::default)
+        .unwrap();
+    assert_eq!(pipeline.remote_check_for(operation), Some(snapshot.clone()));
+    assert_eq!(
+        pipeline.stop_recording_for(operation).unwrap(),
+        Some(vec![1, 7, 8])
+    );
+    assert_eq!(pipeline.remote_check_for(operation), Some(snapshot));
+    pipeline
+        .finish_operation(operation, TerminalReason::Completed)
+        .unwrap();
+    assert!(cancellation.is_cancelled());
+    assert!(pipeline.remote_check_for(operation).is_none());
+}
+
+#[test]
+fn stopping_pending_check_cancels_only_its_network_work_and_keeps_capture_controllable() {
+    use super::remote_check::RemoteCheckState;
+    let (pipeline, probe) = fixture();
+    let operation = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    let dictation = pipeline.cancellation(operation).unwrap();
+    let check = pipeline.begin_remote_check_for(operation).unwrap();
+    pipeline
+        .freeze_session_for_completion(operation, crate::types::Settings::default)
+        .unwrap();
+    assert!(check.is_cancelled());
+    assert!(!dictation.is_cancelled());
+    assert_eq!(
+        pipeline.remote_check_for(operation).unwrap().state,
+        RemoteCheckState::Cancelled
+    );
+    assert!(!pipeline.complete_remote_check_for(operation, RemoteCheckState::Ready));
+    assert!(pipeline.begin_remote_check_for(operation).is_none());
+    assert!(pipeline.is_recording());
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        pipeline.stop_recording_for(operation).unwrap(),
+        Some(vec![1, 7, 8])
+    );
+    pipeline
+        .finish_operation(operation, TerminalReason::Completed)
+        .unwrap();
+}
+
+#[test]
+fn a_delayed_remote_reply_cannot_publish_into_the_next_capture() {
+    use super::remote_check::{RemoteCheckReason, RemoteCheckState};
+    use std::{sync::mpsc, thread};
+    let (pipeline, probe) = fixture();
+    let pipeline = Arc::new(pipeline);
+    let old = pipeline
+        .start_recording_from(None, OperationSource::Hotkey)
+        .unwrap();
+    let old_check = pipeline.begin_remote_check_for(old).unwrap();
+    let (release, pending) = mpsc::sync_channel(1);
+    let late_pipeline = pipeline.clone();
+    let publications = Arc::new(AtomicUsize::new(0));
+    let observed = publications.clone();
+    let delayed = thread::spawn(move || {
+        pending.recv().unwrap();
+        late_pipeline.complete_remote_check_and_publish_for(old, RemoteCheckState::Ready, |_| {
+            observed.fetch_add(1, Ordering::SeqCst);
+        })
+    });
+    pipeline.cancel_for(old).unwrap();
+    assert!(old_check.is_cancelled());
+    assert_eq!(
+        pipeline.stop_recording_for(old).unwrap(),
+        Some(vec![1, 7, 8])
+    );
+    let next = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    let next_check = pipeline.begin_remote_check_for(next).unwrap();
+    release.send(()).unwrap();
+    assert!(!delayed.join().unwrap());
+    assert_eq!(publications.load(Ordering::SeqCst), 0);
+    assert!(!next_check.is_cancelled());
+    assert_eq!(
+        pipeline.remote_check_for(next).unwrap().state,
+        RemoteCheckState::Checking
+    );
+    assert!(pipeline.complete_remote_check_for(
+        next,
+        RemoteCheckState::Unavailable {
+            reason: RemoteCheckReason::Network
+        }
+    ));
+    assert!(pipeline.is_recording());
+    assert_eq!(pipeline.recording_window(0, 8).1, vec![2]);
+    assert_eq!(probe.starts.load(Ordering::SeqCst), 2);
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 1);
+    pipeline.stop_recording_for(next).unwrap();
+    pipeline
+        .finish_operation(next, TerminalReason::Completed)
+        .unwrap();
+}
+
+#[test]
+fn an_aborted_capture_cancels_its_probe_and_never_cancels_a_successor() {
+    use super::remote_check::RemoteCheckState;
+    let (pipeline, probe) = fixture();
+    let old = pipeline.reserve_capture(OperationSource::Hotkey).unwrap();
+    let old_check = pipeline.begin_remote_check_for(old).unwrap();
+    assert!(pipeline.abort_capture_setup(old));
+    assert!(old_check.is_cancelled());
+    assert!(pipeline.remote_check_for(old).is_none());
+    let next = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    let next_check = pipeline.begin_remote_check_for(next).unwrap();
+    assert!(pipeline.abort_capture_setup(old));
+    assert!(!next_check.is_cancelled());
+    assert!(pipeline.is_recording());
+    assert!(pipeline.complete_remote_check_for(next, RemoteCheckState::Starting));
+    assert_eq!(probe.stops.load(Ordering::SeqCst), 0);
+    pipeline.stop_recording_for(next).unwrap();
+    pipeline
+        .finish_operation(next, TerminalReason::Completed)
+        .unwrap();
+}
+
+#[test]
+fn cancelling_only_a_probe_does_not_cancel_its_dictation() {
+    use super::remote_check::RemoteCheckState;
+    let (pipeline, _) = fixture();
+    let operation = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    let dictation = pipeline.cancellation(operation).unwrap();
+    let check = pipeline.begin_remote_check_for(operation).unwrap();
+    assert!(pipeline.cancel_remote_check_for(operation));
+    assert!(!pipeline.cancel_remote_check_for(operation));
+    assert!(check.is_cancelled());
+    assert!(!dictation.is_cancelled());
+    assert!(pipeline.is_recording());
+    assert!(!pipeline.complete_remote_check_for(operation, RemoteCheckState::Ready));
+    pipeline.stop_recording_for(operation).unwrap();
+    pipeline
+        .finish_operation(operation, TerminalReason::Completed)
+        .unwrap();
+}
+
+#[test]
+fn remote_status_publication_finishes_before_terminal_retirement_can_claim_the_operation() {
+    use super::remote_check::RemoteCheckState;
+    use std::{sync::mpsc, thread, time::Duration};
+    let (pipeline, _) = fixture();
+    let pipeline = Arc::new(pipeline);
+    let operation = pipeline
+        .start_recording_from(None, OperationSource::Ui)
+        .unwrap();
+    let check = pipeline.begin_remote_check_for(operation).unwrap();
+    let (entered, entered_receiver) = mpsc::sync_channel(1);
+    let (release, release_receiver) = mpsc::sync_channel(1);
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let publisher_pipeline = pipeline.clone();
+    let publication_events = events.clone();
+    let publisher = thread::spawn(move || {
+        publisher_pipeline.complete_remote_check_and_publish_for(
+            operation,
+            RemoteCheckState::Ready,
+            |_| {
+                entered.send(()).unwrap();
+                release_receiver.recv().unwrap();
+                publication_events.lock().push("availability");
+            },
+        )
+    });
+    entered_receiver
+        .recv_timeout(Duration::from_secs(2))
+        .unwrap();
+    let terminal_pipeline = pipeline.clone();
+    let terminal_events = events.clone();
+    let (retired, retired_receiver) = mpsc::sync_channel(1);
+    let finisher = thread::spawn(move || {
+        terminal_pipeline
+            .finish_operation(operation, TerminalReason::Completed)
+            .unwrap();
+        terminal_events.lock().push("terminal");
+        retired.send(()).unwrap();
+    });
+    assert!(retired_receiver
+        .recv_timeout(Duration::from_millis(20))
+        .is_err());
+    release.send(()).unwrap();
+    assert!(publisher.join().unwrap());
+    retired_receiver
+        .recv_timeout(Duration::from_secs(2))
+        .unwrap();
+    finisher.join().unwrap();
+    assert_eq!(*events.lock(), vec!["availability", "terminal"]);
+    assert!(check.is_cancelled());
+    assert!(pipeline.remote_check_for(operation).is_none());
+    pipeline.stop_recording_for(operation).unwrap();
+}
+
 #[tokio::test]
 async fn auto_stop_and_manual_stop_share_one_capture_result_and_cannot_claim_a_successor() {
     use super::{

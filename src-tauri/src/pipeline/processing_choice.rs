@@ -54,6 +54,7 @@ impl Pipeline {
         let cancellation = self.cancellation(operation)?;
         self.processing_frozen_for
             .store(operation, Ordering::Release);
+        self.cancel_remote_check_locked(operation);
         let settings = self
             .session_settings_for(operation)
             .unwrap_or_else(fallback);

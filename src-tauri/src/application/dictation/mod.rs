@@ -11,6 +11,7 @@ mod outcome;
 mod postprocess;
 mod processing_test;
 mod recognition;
+mod remote_check;
 #[cfg(feature = "speech-vad")]
 mod segment_completion;
 mod standard;

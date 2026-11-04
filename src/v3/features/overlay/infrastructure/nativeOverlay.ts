@@ -1,4 +1,8 @@
 import { reactive } from "vue";
+import {
+  isRemoteCheckSnapshot,
+  type RemoteCheckSnapshot,
+} from "../../../shared/domain/remoteCheck";
 import { toggleAutoStopCountdown } from "../../../shared/domain/toggleAutoStop";
 import { createNativeSelectionCapture } from "../../selection/infrastructure/nativeSelection";
 import type {
@@ -48,6 +52,7 @@ export function createNativeOverlay() {
     pending: null as PendingDictation | null,
     preview: null as Preview | null,
     sessionId: null as number | null,
+    remoteCheck: null as RemoteCheckSnapshot | null,
     processingChoice: null as OverlayProcessingChoice | null,
     sessionChoice: null as OverlayProcessingChoice | null,
     recognition: {
@@ -84,6 +89,7 @@ export function createNativeOverlay() {
       state.phase = value.outcome === "cancelled" ? "cancelled" : "idle";
       state.error = "";
       state.level = 0;
+      state.remoteCheck = null;
     }
   }
   const releases: (() => void)[] = [];
@@ -262,6 +268,11 @@ export function createNativeOverlay() {
       if (v.operation_id > 0 && v.operation_id < operation) return;
       if (!pending.current(ticket)) return;
       state.sessionId = v.operation_id > 0 ? v.operation_id : null;
+      state.remoteCheck =
+        isRemoteCheckSnapshot(v.remote_check) &&
+        v.remote_check.operation_id === v.operation_id
+          ? v.remote_check
+          : null;
       const session = v.session_preferences;
       state.sessionChoice =
         session?.sessionId === state.sessionId ? session : null;
@@ -336,6 +347,18 @@ export function createNativeOverlay() {
       if (event.kind === "dictation_outcome") {
         sessionRevision++;
         outcome(event.payload);
+        void refreshSession();
+      } else if (event.kind === "remote_server_check") {
+        if (
+          event.payload.operation_id <
+          Math.max(
+            operation,
+            state.sessionId || 0,
+            state.pending?.sessionId || 0,
+          )
+        )
+          return;
+        sessionRevision++;
         void refreshSession();
       } else if (event.kind === "audio_level") {
         if (

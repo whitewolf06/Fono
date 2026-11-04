@@ -59,6 +59,38 @@ explicitly in remote mode, and never load a dormant local model.
 upload and reading the complete response are inside the deadline. At most two
 requests per client can be active; additional work receives a busy error.
 
+## Recording preflight (RC-03)
+
+After physical capture starts, a separate blocking worker checks `/v1/health`
+with authentication and an **800 ms network deadline**, parallel to audio and
+focus preparation. It uploads no audio, does not load a model, and does not wait
+on the interactive STT scheduler. Local source starts no probe.
+
+The pipeline retains a typed, operation-scoped `remote_check` snapshot. Checking
+and completion publish through `backend-event-v1` (`remote_server_check`); the
+desktop snapshot also carries the state so a newly opened overlay can recover
+it. Only the current, editable capture can publish. Stop cancels a pending
+check using its own token, preserving completed results for the frozen session.
+Cancel, abort and terminal completion retire the slot. A late response cannot
+change another capture, its status, PCM, phase or controls.
+
+Readiness failures remain advisory: the recording continues and Stop/Cancel
+remain available. No automatic fallback is claimed or selected (RC-04).
+Recognition makes an authoritative attempt at Stop even if the earlier probe
+failed or timed out. The indicator shows localized status while recording and
+keeps the silence countdown. No URL, device name, server error text or bearer
+is copied into the status event or preflight snapshot.
+
+The server's health list contains preloads rather than its entire inventory.
+A missing selected model therefore means `unknown`, not "model absent". Valid
+503 responses distinguish startup/failure from transport errors. The current
+server reports stopping as starting; clients cannot infer a definite shutdown
+from that older response.
+
+For an explicit metadata-only Kari check, pass `-` instead of a WAV and add
+`--health-only` to the file-only example below. It reads the existing token file
+without printing its contents and sends just the health request.
+
 ## Recognition and ownership
 
 `RecognitionOptions` specifies language, decoding strategy and glossary. PCM is

@@ -34,6 +34,7 @@ pub mod pretranscription;
 mod processing_choice;
 mod publication;
 mod recording;
+pub mod remote_check;
 pub(crate) use publication::{
     publish_terminal_claim, set_idle_if_no_operation, settle_outcome, sync_overlay_window,
 };
@@ -70,6 +71,7 @@ pub struct Pipeline {
     auto_stop: Mutex<auto_stop::Status>,
     scheduler: Arc<scheduler::SttScheduler>,
     session_settings: Mutex<Option<(u64, crate::types::Settings)>>,
+    remote_check: Mutex<Option<remote_check::RemoteCheck>>,
     processing_frozen_for: AtomicU64,
     meter_operation: AtomicU64,
     #[cfg(feature = "speech-vad")]
@@ -104,6 +106,7 @@ impl Pipeline {
             auto_stop: Mutex::new(auto_stop::Status::inactive(0)),
             scheduler: Arc::new(scheduler::SttScheduler::default()),
             session_settings: Mutex::new(None),
+            remote_check: Mutex::new(None),
             processing_frozen_for: AtomicU64::new(0),
             meter_operation: AtomicU64::new(0),
             #[cfg(feature = "speech-vad")]

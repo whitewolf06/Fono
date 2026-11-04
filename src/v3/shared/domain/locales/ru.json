@@ -2157,5 +2157,16 @@
   "wakeLive.paused": "Пробуждение на паузе: идёт другая операция или приостановлена диктовка. Микрофон остаётся включённым.",
   "wakeLive.stopping": "Выключаем пробуждение…",
   "wakeLive.error": "Пробуждение остановилось",
-  "wakeLive.samplesPaused": "Чтобы записать, прослушать или проверить образцы, сначала выключите пробуждение."
+  "wakeLive.samplesPaused": "Чтобы записать, прослушать или проверить образцы, сначала выключите пробуждение.",
+  "remoteCheck.checking": "Проверяем сервер…",
+  "remoteCheck.ready": "Сервер доступен",
+  "remoteCheck.starting": "Сервер запускается",
+  "remoteCheck.stopping": "Сервер завершает работу",
+  "remoteCheck.busy": "Сервер занят",
+  "remoteCheck.modelNotReady": "Модель на сервере пока не готова",
+  "remoteCheck.timeout": "Сервер не ответил вовремя",
+  "remoteCheck.unauthorized": "Сервер отклонил токен",
+  "remoteCheck.notConfigured": "Подключение к серверу не настроено",
+  "remoteCheck.invalidResponse": "Не удалось проверить сервер",
+  "remoteCheck.unavailable": "Сервер недоступен"
 }

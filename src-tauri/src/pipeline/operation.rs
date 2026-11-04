@@ -13,6 +13,7 @@ impl Pipeline {
         let _capture = self.recording.lock();
         let event = self.operations.cancel(operation);
         if event.is_some() {
+            self.retire_remote_check_for(operation);
             #[cfg(feature = "speech-vad")]
             self.capture_segments.stop(operation);
             self.scheduler.release_reservation(operation);
@@ -37,7 +38,7 @@ impl Pipeline {
         #[cfg(feature = "speech-vad")]
         self.capture_segments.stop(operation_id);
         self.scheduler.release_reservation(operation_id);
-        self.operations.finish(operation_id, reason)
+        self.finish_operation_with_remote_check(operation_id, reason)
     }
 
     pub fn operation_id(&self) -> u64 {
@@ -199,8 +200,12 @@ impl Pipeline {
         terminal_reason: TerminalReason,
     ) -> Option<OperationEvent> {
         let event = match state {
-            PipelineState::Idle => self.operations.finish(operation_id, terminal_reason),
-            PipelineState::Error => self.operations.finish(operation_id, TerminalReason::Failed),
+            PipelineState::Idle => {
+                self.finish_operation_with_remote_check(operation_id, terminal_reason)
+            }
+            PipelineState::Error => {
+                self.finish_operation_with_remote_check(operation_id, TerminalReason::Failed)
+            }
             PipelineState::Listening => self
                 .operations
                 .transition(operation_id, OperationPhase::Recording),

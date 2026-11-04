@@ -117,6 +117,7 @@ pub struct DesktopSnapshot {
     session_preferences: Option<crate::application::application_profiles::SessionPreferences>,
     pretranscription: crate::pipeline::pretranscription::Status,
     auto_stop: crate::pipeline::auto_stop::Status,
+    remote_check: Option<crate::pipeline::remote_check::RemoteCheckSnapshot>,
     state: PipelineState,
     level: f32,
     last: Option<LastDictation>,
@@ -148,6 +149,9 @@ pub fn get_desktop_snapshot(app: AppHandle) -> DesktopSnapshot {
             .pretranscription_status_for(operation.as_ref().map_or(0, |operation| operation.id)),
         auto_stop: pipeline
             .auto_stop_status_for(operation.as_ref().map_or(0, |operation| operation.id)),
+        remote_check: operation
+            .as_ref()
+            .and_then(|operation| pipeline.remote_check_for(operation.id)),
         state: Pipeline::project_state(operation.as_ref()),
         level: pipeline.current_level().clamp(0.0, 1.0),
         last: app.state::<DesktopSession>().last.lock().clone(),

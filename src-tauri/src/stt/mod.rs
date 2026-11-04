@@ -16,6 +16,21 @@ pub use fono_stt::{
 };
 pub use paths::worker_paths_for_app;
 
+/// Read only the dedicated OS credential; never serialize a bearer into settings.
+pub(crate) fn remote_endpoint(
+    remote: &crate::types::RemoteSttSettings,
+) -> AppResult<fono_stt::remote::RemoteEndpoint> {
+    let token =
+        zeroize::Zeroizing::new(crate::secrets::load_stt_server_token()?.ok_or_else(|| {
+            crate::error::AppError::Config("Fono Server credential is not configured".into())
+        })?);
+    let mut endpoint = fono_stt::remote::RemoteEndpoint::new(&remote.url, &token)?;
+    if let Some(pem) = &remote.ca_pem {
+        endpoint = endpoint.with_ca_pem(pem.as_bytes())?;
+    }
+    Ok(endpoint)
+}
+
 pub mod offline_models {
     pub use fono_stt::offline_models::{OfflineArtifact, OfflineModelSpec};
     pub fn specifications() -> crate::error::AppResult<Vec<OfflineModelSpec>> {
@@ -122,17 +137,7 @@ impl SttEngine {
                         "Fono Server connection is not configured".into(),
                     )
                 })?;
-                let token = zeroize::Zeroizing::new(
-                    crate::secrets::load_stt_server_token()?.ok_or_else(|| {
-                        crate::error::AppError::Config(
-                            "Fono Server credential is not configured".into(),
-                        )
-                    })?,
-                );
-                let mut endpoint = fono_stt::remote::RemoteEndpoint::new(&remote.url, &token)?;
-                if let Some(pem) = &remote.ca_pem {
-                    endpoint = endpoint.with_ca_pem(pem.as_bytes())?;
-                }
+                let endpoint = remote_endpoint(remote)?;
                 self.inner
                     .ensure_remote_loaded(endpoint, &remote.model, cancellation)
                     .map_err(Into::into)

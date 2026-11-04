@@ -35,6 +35,7 @@ pub(super) struct Session {
     pub source: OperationSource,
     pub settings: Settings,
     pub cancellation: OperationCancellation,
+    pub remote_check: Option<crate::pipeline::remote_check::RemoteCheckSnapshot>,
 }
 
 impl Session {
@@ -51,6 +52,7 @@ impl Session {
             source: current.source,
             cancellation,
             settings,
+            remote_check: pipeline.remote_check_for(operation),
         })
     }
 

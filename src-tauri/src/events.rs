@@ -27,6 +27,7 @@ pub enum BackendEventV1 {
     Wake(WakeEventV1),
     Settings(Box<SettingsEventV1>),
     SttReadiness(SttReadinessEventV1),
+    RemoteServerCheck(crate::pipeline::remote_check::RemoteCheckSnapshot),
     ModelDownload(ModelDownloadEventV1),
     Service(ServiceEventV1),
     HistoryChanged(()),
@@ -254,6 +255,13 @@ pub(crate) fn emit_gpu_memory_changed(
 
 pub fn emit_audio_level(handle: &tauri::AppHandle, event: AudioLevelEventV1) {
     emit_v1(handle, BackendEventV1::AudioLevel(event));
+}
+
+pub(crate) fn emit_remote_server_check(
+    handle: &tauri::AppHandle,
+    snapshot: crate::pipeline::remote_check::RemoteCheckSnapshot,
+) {
+    emit_v1(handle, BackendEventV1::RemoteServerCheck(snapshot));
 }
 
 pub fn emit_error<R: Runtime>(
