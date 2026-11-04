@@ -17,6 +17,7 @@ use fono_core::OperationCancellation;
 
 mod paths;
 mod recognizer;
+pub mod remote;
 mod routing;
 mod worker;
 use paths::EngineCandidate;
@@ -35,8 +36,10 @@ pub use ports::{
     ActivityGuard, ActivityLease, ErrorMessage, GpuPackage, GpuPackageHandle, GpuPackageSource,
     NoGpuPackages, NoopActivity, SttEnvironment,
 };
-pub use recognizer::{CancellationSupport, RecognizerCapabilities};
-use recognizer::{RecognitionOptions, RecognizerLoad};
+use recognizer::RecognizerLoad;
+pub use recognizer::{
+    CancellationSupport, RecognitionOptions, RecognizerCapabilities, WindowOptions,
+};
 
 /// Probe only a package whose signature/files are already locked and verified.
 /// The shared session code performs the same strict hello as inference, and

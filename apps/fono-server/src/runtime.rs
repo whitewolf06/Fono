@@ -1134,7 +1134,18 @@ mod tests {
         recognizer: Arc<dyn InteractiveRecognizer>,
         body_read_timeout: Duration,
     ) -> (Router, Arc<HealthState>) {
-        let config = sample_config();
+        test_router_with_model_directory(recognizer, body_read_timeout, None)
+    }
+
+    fn test_router_with_model_directory(
+        recognizer: Arc<dyn InteractiveRecognizer>,
+        body_read_timeout: Duration,
+        directory: Option<&Path>,
+    ) -> (Router, Arc<HealthState>) {
+        let mut config = sample_config();
+        if let Some(directory) = directory {
+            config.models.dir = directory.to_owned();
+        }
         let plan = required_preload(&config).unwrap().remove(0);
         let activity = ServerActivity::new();
         let pool = Arc::new(
@@ -1212,6 +1223,126 @@ mod tests {
         let status = response.status();
         let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
         (status, serde_json::from_slice(&body).unwrap())
+    }
+
+    #[tokio::test]
+    async fn remote_recognizer_roundtrip_busy_and_cancel_use_the_production_http_routes() {
+        use fono_stt::remote::{RemoteEndpoint, RemoteErrorKind, RemoteRecognizer};
+        struct Directory(PathBuf);
+        impl Drop for Directory {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let directory = Directory(
+            std::env::temp_dir().join(format!("fono-remote-contract-{}", Uuid::new_v4())),
+        );
+        std::fs::create_dir(&directory.0).unwrap();
+        let artifact = fono_types::WhisperArtifact::all()
+            .unwrap()
+            .into_iter()
+            .find(|a| a.variant == "small")
+            .unwrap();
+        // Inventory checks metadata; no recognizer opens these sparse fixture weights.
+        std::fs::File::create(directory.0.join(&artifact.filename))
+            .unwrap()
+            .set_len(artifact.bytes)
+            .unwrap();
+        let started = Arc::new(AtomicBool::new(false));
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let cases: Vec<Arc<dyn InteractiveRecognizer>> = vec![
+            Arc::new(ReadyRecognizer),
+            Arc::new(BusyRecognizer),
+            Arc::new(CancelRecognizer {
+                started: started.clone(),
+                cancelled: cancelled.clone(),
+            }),
+        ];
+        for (case, recognizer) in cases.into_iter().enumerate() {
+            let (app, _) = test_router_with_model_directory(
+                recognizer,
+                Duration::from_secs(5),
+                Some(&directory.0),
+            );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let endpoint = RemoteEndpoint::new(
+                &format!("http://{}/", listener.local_addr().unwrap()),
+                "test-recognize-token",
+            )
+            .unwrap();
+            let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+            let host = tokio::spawn(async move {
+                axum::serve(listener, app)
+                    .with_graceful_shutdown(async {
+                        let _ = stop_rx.await;
+                    })
+                    .await
+                    .unwrap();
+            });
+            let id = artifact.id();
+            let client = tokio::task::spawn_blocking(move || {
+                RemoteRecognizer::connect(
+                    endpoint,
+                    id,
+                    Arc::new(fono_stt::NoopActivity),
+                    &OperationCancellation::default(),
+                )
+            })
+            .await
+            .unwrap()
+            .unwrap();
+            let cancel = OperationCancellation::default();
+            let token = cancel.clone();
+            let work = tokio::task::spawn_blocking(move || {
+                client.transcribe(
+                    &[0x1234; 160],
+                    fono_stt::RecognitionOptions {
+                        language: "en",
+                        decoding: Default::default(),
+                        glossary: &[],
+                    },
+                    &token,
+                )
+            });
+            if case == 2 {
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while !started.load(Ordering::Acquire) {
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                })
+                .await
+                .unwrap();
+                cancel.cancel();
+            }
+            match case {
+                0 => {
+                    let result = work.await.unwrap().unwrap();
+                    assert_eq!(result.text, "test transcript");
+                    assert_eq!(result.device.as_deref(), Some("remote:cpu"));
+                }
+                1 => assert!(
+                    matches!(work.await.unwrap(), Err(fono_stt::error::SttError::Remote(e)) if e.kind == RemoteErrorKind::Busy)
+                ),
+                _ => {
+                    assert!(matches!(
+                        work.await.unwrap(),
+                        Err(fono_stt::error::SttError::Cancelled(_))
+                    ));
+                    tokio::time::timeout(Duration::from_secs(2), async {
+                        while !cancelled.load(Ordering::Acquire) {
+                            tokio::time::sleep(Duration::from_millis(5)).await;
+                        }
+                    })
+                    .await
+                    .unwrap();
+                }
+            }
+            stop_tx.send(()).unwrap();
+            tokio::time::timeout(Duration::from_secs(2), host)
+                .await
+                .unwrap()
+                .unwrap();
+        }
     }
 
     #[tokio::test]

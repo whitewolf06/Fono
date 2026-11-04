@@ -2,6 +2,9 @@ use super::*;
 
 pub(super) enum EngineState {
     Empty,
+    Remote {
+        client: Arc<crate::remote::RemoteRecognizer>,
+    },
     #[cfg(feature = "offline-stt")]
     Offline {
         engine: Arc<super::offline::SherpaRecognizer>,
@@ -45,6 +48,7 @@ pub type SttReadinessObserver = Arc<dyn Fn(SttReadiness) + Send + Sync>;
 
 #[derive(Clone)]
 pub(super) enum ActiveEngine {
+    Remote(Arc<crate::remote::RemoteRecognizer>),
     #[cfg(feature = "offline-stt")]
     Offline(Arc<super::offline::SherpaRecognizer>),
     Embedded(Arc<EmbeddedRecognizer>),
@@ -56,6 +60,7 @@ impl EngineState {
         use super::recognizer::Recognizer;
         match self {
             Self::Empty => None,
+            Self::Remote { client } => Some(client.model()),
             Self::Embedded { engine, .. } => Some(engine.model()),
             Self::Worker { session, .. } => Some(session.model()),
             #[cfg(feature = "offline-stt")]
@@ -90,6 +95,7 @@ impl EngineState {
     pub(super) fn device(&self) -> String {
         match self {
             Self::Empty => "CPU".into(),
+            Self::Remote { client } => client.device_name(),
             #[cfg(feature = "offline-stt")]
             Self::Offline { .. } => "CPU".into(),
             Self::Embedded { device, .. } | Self::Worker { device, .. } => device.to_string(),
@@ -99,6 +105,7 @@ impl EngineState {
     pub(super) fn active(&self) -> Option<ActiveEngine> {
         match self {
             Self::Empty => None,
+            Self::Remote { client } => Some(ActiveEngine::Remote(Arc::clone(client))),
             #[cfg(feature = "offline-stt")]
             Self::Offline { engine, .. } => Some(ActiveEngine::Offline(Arc::clone(engine))),
             Self::Embedded { engine, .. } => Some(ActiveEngine::Embedded(Arc::clone(engine))),
@@ -110,6 +117,7 @@ impl EngineState {
 
     pub(super) fn contains(&self, active: &ActiveEngine) -> bool {
         match (self, active) {
+            (Self::Remote { client }, ActiveEngine::Remote(active)) => Arc::ptr_eq(client, active),
             #[cfg(feature = "offline-stt")]
             (Self::Offline { engine, .. }, ActiveEngine::Offline(active)) => {
                 Arc::ptr_eq(engine, active)
@@ -128,6 +136,7 @@ impl EngineState {
 impl ActiveEngine {
     pub(super) fn recognizer(&self) -> &dyn super::recognizer::Recognizer {
         match self {
+            Self::Remote(client) => client.as_ref(),
             #[cfg(feature = "offline-stt")]
             Self::Offline(engine) => engine.as_ref(),
             Self::Embedded(engine) => engine.as_ref(),
@@ -145,6 +154,13 @@ impl ActiveEngine {
         presentation: &crate::ports::ErrorMessage,
     ) -> SttHealth {
         match self {
+            Self::Remote(client) => {
+                if client.is_idle() {
+                    SttHealth::Ready { device }
+                } else {
+                    SttHealth::Busy { device }
+                }
+            }
             #[cfg(feature = "offline-stt")]
             Self::Offline(engine) => {
                 if engine.is_idle() {

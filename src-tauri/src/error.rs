@@ -291,6 +291,7 @@ impl From<fono_stt::error::SttError> for AppError {
     fn from(error: fono_stt::error::SttError) -> Self {
         use fono_stt::error::SttError as E;
         match error {
+            E::Remote(error) => Self::Stt(error.to_string()),
             E::Busy(message) => Self::Busy(message),
             E::Cancelled(message) => Self::Cancelled(message),
             E::Audio(message) => Self::Audio(message),
@@ -311,6 +312,7 @@ impl From<fono_stt::error::SttError> for AppError {
 pub(crate) fn stt_user_message(error: &fono_stt::error::SttError) -> String {
     use fono_stt::error::SttError as E;
     let (code, raw, backend) = match error {
+        E::Remote(_) => (UserErrorCode::Stt, None, None),
         E::Busy(message) => (UserErrorCode::Busy, Some(message), None),
         E::Cancelled(message) => (UserErrorCode::Cancelled, Some(message), None),
         E::Audio(message) => (UserErrorCode::Audio, Some(message), None),

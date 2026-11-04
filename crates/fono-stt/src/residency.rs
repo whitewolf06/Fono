@@ -16,7 +16,7 @@ fn exclusive<T>(handle: &Arc<T>) -> bool {
 
 fn resident_gpu(state: &EngineState) -> (bool, bool) {
     match state {
-        EngineState::Empty => (false, false),
+        EngineState::Empty | EngineState::Remote { .. } => (false, false),
         #[cfg(feature = "offline-stt")]
         EngineState::Offline { .. } => (false, false),
         EngineState::Worker { session, device } => {
@@ -33,6 +33,7 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
 fn idle_for_pool(state: &EngineState) -> bool {
     match state {
         EngineState::Empty => true,
+        EngineState::Remote { client } => exclusive(client) && client.is_idle(),
         #[cfg(feature = "offline-stt")]
         EngineState::Offline { engine, .. } => exclusive(engine) && engine.is_idle(),
         EngineState::Embedded { engine, .. } => exclusive(engine) && engine.is_idle(),

@@ -21,7 +21,9 @@ crossbeam-channel = { workspace = true }
 once_cell = { workspace = true }
 sha2 = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
-reqwest = { workspace = true, features = ["blocking"] }
+reqwest = { workspace = true, features = ["blocking", "rustls-tls"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
+zeroize = { workspace = true }
 whisper-rs = { workspace = true }
 sherpa-onnx = { workspace = true, optional = true }
 anyhow = { workspace = true }

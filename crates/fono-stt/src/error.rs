@@ -13,6 +13,8 @@ pub enum RecognitionBackend {
 
 #[derive(Debug, Error)]
 pub enum SttError {
+    #[error(transparent)]
+    Remote(#[from] crate::remote::RemoteError),
     #[error("операция уже выполняется: {0}")]
     Busy(String),
     #[error("операция отменена: {0}")]
@@ -54,7 +56,11 @@ impl SttError {
 
 impl From<&SttError> for CoreError {
     fn from(error: &SttError) -> Self {
+        if let SttError::Remote(error) = error {
+            return error.core_error();
+        }
         let (code, message, retryable) = match error {
+            SttError::Remote(_) => unreachable!(),
             SttError::Busy(_) => (ErrorCode::Busy, "The recognizer is busy", true),
             SttError::Cancelled(_) => (ErrorCode::Cancelled, "Recognition was cancelled", false),
             SttError::Audio(_) => (

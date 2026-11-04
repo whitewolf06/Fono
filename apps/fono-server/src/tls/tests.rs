@@ -289,3 +289,96 @@ async fn certificate_reload_is_transactional_and_keeps_existing_tls_connections(
         .unwrap();
     assert_eq!(activity.active(), 0);
 }
+
+#[tokio::test]
+async fn remote_recognizer_requires_trusted_tls_and_uses_private_ca_without_bypassing_validation() {
+    use fono_stt::remote::{RemoteEndpoint, RemoteErrorKind, RemoteRecognizer};
+    use fono_types::{ModelId, SttEngine};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let files = Files::new();
+    let (ca, ca_key) = root();
+    let (cert, key) = leaf(&ca, &ca_key, 11, false);
+    files.write(&cert, &key);
+    let state = Arc::new(TlsState::new(files.settings()).unwrap());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let requests = Arc::new(AtomicUsize::new(0));
+    let observed = requests.clone();
+    let router = Router::new()
+        .route("/v1/capabilities", axum::routing::get(move || {
+            observed.fetch_add(1, Ordering::AcqRel);
+            async { axum::Json(serde_json::json!({
+                "product":"fono-server", "api_version":2,
+                "audio_formats":["audio/L16;rate=16000;channels=1"],
+                "max_audio_seconds":30,"max_upload_bytes":960000,
+                "features":{"cancel_on_disconnect":true,"glossary":false,"timestamps":["none"],"decoding":["fast"]}
+            })) }
+        }))
+        .route("/v1/models", axum::routing::get(|| async { axum::Json(serde_json::json!({
+            "object":"list","data":[{"id":"whisper:tiny","object":"model","fono":{
+                "engine":"whisper","languages":["en"],"disk_state":"verified","state":"ready","device":"cpu",
+                "features":{"glossary":false,"timestamps":["none"],"decoding":["fast"]}}}]
+        })) }));
+    let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+    let host = tokio::spawn(serve(
+        router,
+        listener,
+        state,
+        ServerActivity::new(),
+        async {
+            let _ = stop_rx.await;
+        },
+    ));
+    let url = format!("https://localhost:{}/", address.port());
+    let model = ModelId {
+        engine: SttEngine::Whisper,
+        variant: "tiny".into(),
+    };
+    let (wrong_ca, _) = root();
+    for certificate in [None, Some(wrong_ca.to_pem().unwrap())] {
+        let mut endpoint = RemoteEndpoint::new(&url, "test-recognize-token").unwrap();
+        if let Some(pem) = certificate {
+            endpoint = endpoint.with_ca_pem(&pem).unwrap();
+        }
+        let id = model.clone();
+        let error = tokio::task::spawn_blocking(move || {
+            RemoteRecognizer::connect(
+                endpoint,
+                id,
+                Arc::new(fono_stt::NoopActivity),
+                &fono_core::OperationCancellation::default(),
+            )
+        })
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(
+            matches!(error, fono_stt::error::SttError::Remote(error) if error.kind == RemoteErrorKind::Network)
+        );
+    }
+    assert_eq!(requests.load(Ordering::Acquire), 0);
+    let endpoint = RemoteEndpoint::new(&url, "test-recognize-token")
+        .unwrap()
+        .with_ca_pem(&ca.to_pem().unwrap())
+        .unwrap();
+    let client = tokio::task::spawn_blocking(move || {
+        RemoteRecognizer::connect(
+            endpoint,
+            model,
+            Arc::new(fono_stt::NoopActivity),
+            &fono_core::OperationCancellation::default(),
+        )
+    })
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(client.device_name(), "remote:cpu");
+    assert_eq!(requests.load(Ordering::Acquire), 1);
+    drop(client);
+    stop_tx.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), host)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+}

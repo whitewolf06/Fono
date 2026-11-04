@@ -51,14 +51,14 @@ impl RecognizerCapabilities {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct RecognitionOptions<'a> {
+pub struct RecognitionOptions<'a> {
     pub language: &'a str,
     pub decoding: DecodingOptions,
     pub glossary: &'a [String],
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct WindowOptions<'a> {
+pub struct WindowOptions<'a> {
     pub recognition: RecognitionOptions<'a>,
     pub context: Option<&'a str>,
     pub operation_id: u64,
@@ -126,6 +126,12 @@ pub(super) fn load(request: RecognizerLoad<'_>) -> AppResult<EngineState> {
         request.cleanup.activity.as_ref(),
         request.cancellation,
         || {
+            if let EngineCandidate::Remote { .. } = request.candidate {
+                let client = super::remote::RemoteRecognizer::load(&request)?;
+                return Ok(EngineState::Remote {
+                    client: Arc::new(client),
+                });
+            }
             super::validate_model_selection(request.model)?;
             match request.candidate {
                 EngineCandidate::Embedded { use_gpu } => {
@@ -146,6 +152,7 @@ pub(super) fn load(request: RecognizerLoad<'_>) -> AppResult<EngineState> {
                         device,
                     })
                 }
+                EngineCandidate::Remote { .. } => unreachable!("remote factory handled above"),
                 #[cfg(feature = "offline-stt")]
                 EngineCandidate::Offline => {
                     let engine = super::offline::SherpaRecognizer::load(&request)?;
