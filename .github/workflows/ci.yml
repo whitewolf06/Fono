@@ -134,6 +134,7 @@ jobs:
           npm run typecheck:v3
           npm run lint
           npm run test:v3
+          npm run check:server-panel
           npm run test:release
           npm run test:quality:stage5
           node --test scripts/long-dictation-quality.test.mjs

@@ -128,6 +128,11 @@
   --fono-trainer-workspace-min-height: 220px;
   --fono-trainer-entry-list-compact-height: 300px;
   --fono-trainer-day-select-width: 160px;
+  --fono-panel-width: 1200px;
+  --fono-panel-login-width: 480px;
+  --fono-panel-brand-size: 44px;
+  --fono-panel-stat-size: 34px;
+  --fono-panel-response-height: 440px;
 
   --wl-bg: var(--fono-canvas);
   --wl-bg-soft: var(--fono-surface);

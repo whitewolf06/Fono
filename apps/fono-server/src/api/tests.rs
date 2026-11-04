@@ -414,6 +414,8 @@ fn openapi_references_resolve_and_cover_every_standalone_route() {
     let specification: serde_json::Value = serde_json::from_str(OPENAPI).unwrap();
     assert_eq!(specification["openapi"], "3.0.3");
     for path in [
+        "/",
+        "/panel/",
         "/healthz",
         "/v1/health",
         "/v1/capabilities",

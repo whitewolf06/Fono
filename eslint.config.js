@@ -9,6 +9,7 @@ export default [
     ignores: [
       "dist/**",
       "build/**",
+      "apps/fono-server/resources/panel/**",
       "node_modules/**",
       "src-tauri/**",
       "vendor/whisper.cpp/**",

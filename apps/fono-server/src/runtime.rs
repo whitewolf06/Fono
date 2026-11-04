@@ -680,6 +680,7 @@ fn server_router(
     jobs.merge(recognize)
         .merge(meta)
         .merge(api::routes(Arc::clone(&api_state)))
+        .merge(crate::web::routes())
         .layer(DefaultBodyLimit::max(
             max_file_bytes.saturating_add(MULTIPART_OVERHEAD_BYTES),
         ))
@@ -1233,6 +1234,28 @@ mod tests {
     #[tokio::test]
     async fn standalone_discovery_and_documentation_are_registered_and_protected() {
         let (app, _) = test_router();
+        for path in [
+            "/",
+            "/panel",
+            "/panel/",
+            "/panel/panel.js",
+            "/panel/panel.css",
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(path)
+                        .header("host", "localhost")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK, "{path}");
+            assert_eq!(response.headers()["cache-control"], "no-store");
+            assert_eq!(response.headers()["x-frame-options"], "DENY");
+        }
         for path in [
             "/v1/capabilities",
             "/v1/models",

@@ -37,6 +37,12 @@ Hash-маршруты задаются в `src/v3/app/router.ts`. Прямые �
 
 ## Слои и порты
 
+Веб-панель Fono Server использует отдельный composition root `src/v3/server.ts`
+и фичу `src/v3/features/serverPanel/`. Её HTTP-адаптер обращается к API того же
+сервера с токеном из памяти вкладки. Панель доступна по `/` и `/panel/` после
+сборки серверного бинарника; ресурсы Vue и WhiteUI встроены в него. Подробности
+сборки и проверки — в [руководстве панели](server-panel.md).
+
 ```text
 src/v3/
   app/                          # composition roots, router и оболочка

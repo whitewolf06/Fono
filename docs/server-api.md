@@ -4,6 +4,8 @@ The standalone server exposes speech recognition without Tauri or desktop
 settings. The machine-readable contract is
 [`apps/fono-server/openapi.json`](../apps/fono-server/openapi.json); authenticated
 clients can also read `/openapi.json` and the self-contained `/docs` page.
+The [web panel](server-panel.md) at `/` or `/panel/` provides token sign-in,
+live status, installed models, aggregate queues and an audio-file request playground.
 
 Keep the default loopback listener unless access is restricted by a protected
 network or tunnel. See [the network contract](server-security.md). The default
@@ -12,11 +14,13 @@ GPU workers. A successful API test does not confirm a permanent service installa
 
 ## Discovery and authentication
 
-`GET /healthz` is the only public route. It returns 200 when the default model is
+`GET /healthz` is the only public API data route. The panel login shell and its
+JavaScript/CSS assets are public static files; they expose no live server data.
+The health probe returns 200 when the default model is
 ready, or 503 while starting, failed, or stopping. `GET /v1/health` requires a
 bearer token and reports model readiness and aggregate queue state.
 
-Use `Authorization: Bearer <token>` for all other routes. Recognition tokens can
+Use `Authorization: Bearer <token>` for all other API/documentation routes. Recognition tokens can
 read capabilities, inventory, documentation and jobs. Admin tokens additionally
 access metrics and model load/unload. `GET /v1/capabilities` reports API version,
 worker protocol, body limits, formats, available devices and enabled feature

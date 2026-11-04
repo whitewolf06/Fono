@@ -1,5 +1,11 @@
 # Fono Server network security
 
+The [web panel](server-panel.md) adds a public static login shell at `/` and
+`/panel/`, with fixed same-origin assets. It grants no anonymous access to API
+data: detailed health, models, documentation and OpenAPI still require bearer
+authentication. Browser tokens and transcripts stay in tab memory; response
+caching is disabled. The existing bind, Host, TLS and scope policies apply.
+
 The standalone Ubuntu server listens on `127.0.0.1:17832` by default. Native
 rustls HTTPS is available through `[tls]`; see [TLS and renewal](server-tls.md).
 Keep the listener on loopback unless access is

@@ -16,8 +16,9 @@
   </head>
   <body>
     <h1>Fono Server API v2</h1>
-    <p>Standalone speech recognition. Fetch <code>/v1/capabilities</code> and <code>/v1/models</code> to discover this server's limits, available models, and feature gates. The current server build provides CPU recognition.</p>
-    <p>All routes except <code>/healthz</code> require <code>Authorization: Bearer &lt;token&gt;</code>. Administrative model commands and metrics require an admin token. Keep bearer tokens in your client or local environment; this page does not collect or store them.</p>
+    <p>Standalone speech recognition on CPU and, in the CUDA worker build, NVIDIA GPUs. Fetch <code>/v1/capabilities</code> and <code>/v1/models</code> to discover this server's observed devices, limits, installed models, and feature gates.</p>
+    <p>Open <a href="/panel/">the server panel</a> for token sign-in, status, installed models, aggregate queue counts, API documentation and an audio-file request playground. The public login shell contains no server data. Tokens and request results stay in tab memory and are cleared on sign-out or reload.</p>
+    <p>API data and this reference page require <code>Authorization: Bearer &lt;token&gt;</code>. <code>/healthz</code> and the panel login shell/assets are public. Administrative model commands and metrics require an admin token. Keep bearer tokens in your client or local environment; this reference page does not collect or store them.</p>
     <h2>Recognize an audio file</h2>
     <pre>curl -H "Authorization: Bearer $FONO_TOKEN" \
   -H 'Content-Type: audio/wav' --data-binary @speech.wav \
@@ -38,7 +39,7 @@ print(result.text)</pre>
       <tbody>
         <tr><td><code>GET /healthz</code></td><td>Public minimum readiness probe.</td></tr>
         <tr><td><code>GET /v1/health</code></td><td>Authenticated model and queue status.</td></tr>
-        <tr><td><code>GET /v1/capabilities</code></td><td>Version, formats, limits, CPU device and feature gates.</td></tr>
+        <tr><td><code>GET /v1/capabilities</code></td><td>Version, formats, limits, observed devices and feature gates.</td></tr>
         <tr><td><code>GET /v1/models</code></td><td>Installed models, checksum observation, runtime state and capabilities.</td></tr>
         <tr><td><code>POST /v1/recognize</code></td><td>Synchronous audio-body recognition.</td></tr>
         <tr><td><code>POST /v1/audio/transcriptions</code></td><td>OpenAI-compatible multipart recognition.</td></tr>
@@ -56,6 +57,7 @@ print(result.text)</pre>
     <p>Every response carries <code>X-Request-Id</code>. JSON errors contain a stable code and safe message. HTTP 401 means a missing or revoked token; 403 means insufficient scope or a disabled feature; 404 means an unknown or missing model; 408 means a body reception timeout; 413 means a size or duration limit; 429 means admission is busy and includes <code>Retry-After</code>. A slow upload has a total reception deadline, while recognition may continue longer.</p>
     <p>Disconnecting a synchronous recognition request cancels its operation. Native work holds admission until it actually returns. Batch jobs have an independent lifecycle and use explicit cancellation. Do not automatically repeat a request if the first operation's outcome is unknown.</p>
     <p>Client model control is disabled by default. Enable <code>models.client_model_load=true</code> explicitly to use admin load/unload. Model files are installed through the server CLI; the API never downloads them. Metrics are enabled independently with <code>metrics.enabled=true</code>.</p>
-    <p>The default listener is loopback. For a protected private network, configure the exact Host allowlist and explicit network assertion. This build does not provide TLS. CORS grants no cross-origin browser access. Read the network contract in the source documentation before changing the bind address.</p>
+    <p>The default listener is loopback. For a protected private network, configure the exact Host allowlist and explicit network assertion. Native rustls supports TLS 1.2/1.3 with HTTP/1.1 and HTTP/2. Configured certificate and key files are validated before startup; SIGHUP reloads a valid replacement without interrupting existing connections. An invalid replacement preserves the previous certificate. Certificate issuance and renewal scheduling are operator actions. CORS grants no cross-origin browser access.</p>
+    <p>Per-credential request quotas default to 120 requests/minute with burst 20. Exhaustion returns <code>429 rate_limited</code> and <code>Retry-After</code> before body extraction. Queue exhaustion returns the separate <code>429 busy</code> code. Health probes and the public panel assets require no token; API data, this reference page and OpenAPI require bearer authentication. The panel pauses automatic status polling for the advertised retry interval and never automatically repeats audio requests.</p>
   </body>
 </html>

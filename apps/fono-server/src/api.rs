@@ -9,7 +9,7 @@ use std::time::Instant;
 use axum::extract::{Path, Request, State};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::middleware::Next;
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use fono_core::OperationCancellation;
@@ -105,7 +105,10 @@ pub async fn observe_request(
     state.requests.inflight.fetch_add(1, Ordering::Relaxed);
     let _inflight = Inflight(Arc::clone(&state));
     let started = Instant::now();
-    let response = next.run(request).await;
+    let mut response = next.run(request).await;
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     state
         .activity
         .observability
@@ -648,7 +651,7 @@ async fn documentation(Extension(state): Extension<Arc<ApiState>>, headers: Head
     if let Err(error) = authorize(&state, &headers, TokenScope::Recognize).await {
         return error.response(&headers);
     }
-    Html(DOCUMENTATION).into_response()
+    crate::web::response(DOCUMENTATION.as_bytes(), "text/html; charset=utf-8")
 }
 
 #[cfg(test)]

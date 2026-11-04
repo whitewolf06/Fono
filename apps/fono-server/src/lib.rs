@@ -14,3 +14,4 @@ pub mod runtime;
 pub mod telemetry;
 pub mod tls;
 pub mod tokens;
+pub mod web;

@@ -1,5 +1,9 @@
 # Fono Server on Ubuntu
 
+For a browser interface, open `/` or `/panel/` on the running server and enter
+an API token. The [server panel](server-panel.md) shows real status, models,
+aggregate queues, API documentation and an audio-file request playground.
+
 Fono Server exposes [API v2](server-api.md) without Tauri, a microphone or a
 desktop session. The CUDA image runs Whisper in a supervised child process and
 keeps CPU Whisper and Sherpa offline recognition in the server process.
