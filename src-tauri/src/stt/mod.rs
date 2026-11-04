@@ -97,6 +97,49 @@ impl SttEngine {
             .map_err(Into::into)
     }
 
+    /// Blocking host adapter. All callers retain scheduler/admission ownership.
+    pub fn ensure_configured(
+        &self,
+        settings: &crate::types::Settings,
+        worker_paths: &WorkerPaths,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<()> {
+        if cancellation.is_cancelled() {
+            return Err(crate::error::AppError::Cancelled(
+                "STT preparation cancelled".into(),
+            ));
+        }
+        match settings.stt_source {
+            crate::types::SttSource::Local => {
+                let Some(model) = settings.selected_stt_model() else {
+                    return self.inner.clear_remote_if_idle().map_err(Into::into);
+                };
+                self.ensure_model_loaded(&model, settings.acceleration, worker_paths, cancellation)
+            }
+            crate::types::SttSource::FonoServer => {
+                let remote = settings.remote_stt.as_ref().ok_or_else(|| {
+                    crate::error::AppError::Config(
+                        "Fono Server connection is not configured".into(),
+                    )
+                })?;
+                let token = zeroize::Zeroizing::new(
+                    crate::secrets::load_stt_server_token()?.ok_or_else(|| {
+                        crate::error::AppError::Config(
+                            "Fono Server credential is not configured".into(),
+                        )
+                    })?,
+                );
+                let mut endpoint = fono_stt::remote::RemoteEndpoint::new(&remote.url, &token)?;
+                if let Some(pem) = &remote.ca_pem {
+                    endpoint = endpoint.with_ca_pem(pem.as_bytes())?;
+                }
+                self.inner
+                    .ensure_remote_loaded(endpoint, &remote.model, cancellation)
+                    .map_err(Into::into)
+            }
+        }
+    }
+
     pub fn transcribe(&self, samples: &[i16], language: &str) -> AppResult<Transcript> {
         self.inner.transcribe(samples, language).map_err(Into::into)
     }

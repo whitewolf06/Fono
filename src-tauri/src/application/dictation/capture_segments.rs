@@ -7,10 +7,16 @@ use crate::{
 use tauri::{AppHandle, Manager};
 
 pub(super) fn maybe_start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool> {
-    if !settings.pretranscription_enabled {
+    if !capture_pretranscription_enabled(settings) {
         return Ok(false);
     }
     start(app, operation, settings)
+}
+
+fn capture_pretranscription_enabled(settings: &Settings) -> bool {
+    // Remote capture pretranscription has a separate rollout. Keeping this
+    // preference must never start a dormant local model in server mode.
+    settings.stt_source == crate::types::SttSource::Local && settings.pretranscription_enabled
 }
 
 fn start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool> {
@@ -46,4 +52,21 @@ fn start(app: &AppHandle, operation: u64, settings: &Settings) -> AppResult<bool
             )
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn remote_source_does_not_admit_capture_pretranscription() {
+        let local = crate::types::Settings {
+            pretranscription_enabled: true,
+            ..Default::default()
+        };
+        let remote = crate::types::Settings {
+            stt_source: crate::types::SttSource::FonoServer,
+            ..local.clone()
+        };
+        assert!(!super::capture_pretranscription_enabled(&remote));
+        assert!(super::capture_pretranscription_enabled(&local));
+    }
 }

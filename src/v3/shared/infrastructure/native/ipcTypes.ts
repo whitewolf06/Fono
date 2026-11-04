@@ -130,6 +130,8 @@ export interface Settings {
   /** Путь к Whisper-модели (.bin) */
   whisper_model_path: string | null;
   stt_model?: SttModelSelection | null;
+  stt_source?: "local" | "fono_server";
+  remote_stt?: { url: string; model: ModelId; ca_pem?: string | null } | null;
   /** Язык распознавания ("auto", "ru", "en", ...) */
   language: string;
   /** Optional local final-text replacements, never applied to raw transcripts. */

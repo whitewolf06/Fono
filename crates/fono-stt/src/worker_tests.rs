@@ -40,6 +40,65 @@ const FIXTURE_STARTUP_TIMEOUTS: WorkerTimeouts = WorkerTimeouts {
 #[cfg(windows)]
 const EOF_FIXTURE_TIMEOUT: Duration = Duration::from_secs(5);
 
+#[cfg(windows)]
+#[test]
+fn source_switch_reaps_local_worker_and_restores_local_selection_on_return() {
+    let fixture = WorkerFixture::request_dispatcher();
+    let model_path = fixture.directory.join("ggml-small.bin");
+    fs::write(&model_path, b"protocol fixture, not neural weights").unwrap();
+    let selection = SttModelSelection::from_whisper_path(model_path.to_string_lossy().into_owned());
+    let paths = crate::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None);
+    let engine = crate::SttEngine::default();
+    let cancel = OperationCancellation::default();
+    engine
+        .ensure_model_loaded_with_paths(
+            &selection,
+            crate::types::AccelerationMode::Cuda,
+            &paths,
+            &cancel,
+        )
+        .unwrap();
+    let child = match &*engine.state.lock() {
+        crate::EngineState::Worker { session, .. } => session.child.clone(),
+        _ => panic!("expected fixture worker"),
+    };
+    let server = crate::remote::tests::Fixture::new();
+    let remote_model = ModelId {
+        engine: crate::types::SttEngine::Whisper,
+        variant: "tiny".into(),
+    };
+    // A retained active engine handle also prevents idle retirement, even if
+    // it has not submitted its native request yet.
+    let active = engine.state.lock().active().unwrap();
+    assert!(matches!(
+        engine.ensure_remote_loaded(server.endpoint(), &remote_model, &cancel),
+        Err(AppError::Busy(_))
+    ));
+    drop(active);
+    engine
+        .ensure_remote_loaded(server.endpoint(), &remote_model, &cancel)
+        .unwrap();
+    assert!(matches!(child.try_wait(), Ok(Some(_))));
+    assert!(engine.is_remote());
+    assert!(!engine.gpu_residency().resident);
+    assert!(!engine.gpu_residency().cleanup_pending);
+    engine
+        .ensure_model_loaded_with_paths(
+            &selection,
+            crate::types::AccelerationMode::Cuda,
+            &paths,
+            &cancel,
+        )
+        .unwrap();
+    assert!(!engine.is_remote());
+    assert_eq!(engine.model(), Some(selection.id));
+    assert_eq!(engine.device(), "CUDA");
+    assert!(matches!(
+        engine.readiness(),
+        crate::SttReadiness::Ready { .. }
+    ));
+}
+
 #[test]
 fn worker_writer_publishes_json_and_delimiter_together() {
     #[derive(Default)]

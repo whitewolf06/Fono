@@ -126,25 +126,39 @@ pub fn preload_configured_stt(app: AppHandle) {
         return;
     };
     let settings = app.state::<AppState>().settings();
-    let Some((model, acceleration)) = configured_stt_preload(&settings) else {
+    if configured_stt_preload(&settings).is_none() {
         return;
-    };
+    }
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
-    let worker_paths = crate::stt::worker_paths_for_app(&app);
 
     tauri::async_runtime::spawn(async move {
         let result = tauri::async_runtime::spawn_blocking(move || {
             let _activity = activity;
+            // A queued startup preload may run after the source was changed.
+            // Re-read the selection under the same transaction as settings
+            // writes so it cannot reactivate a dormant local backend.
+            let _transaction = tauri::async_runtime::block_on(
+                crate::application::updates::settings_transaction(&app),
+            );
+            let settings = app.state::<AppState>().settings();
+            let Some((model, acceleration)) = configured_stt_preload(&settings) else {
+                return Ok(false);
+            };
+            let worker_paths = crate::stt::worker_paths_for_app(&app);
             stt.ensure_model_loaded(
                 &model,
                 acceleration,
                 &worker_paths,
                 &fono_core::OperationCancellation::default(),
             )
+            .map(|()| true)
         })
         .await;
         match result {
-            Ok(Ok(())) => tracing::info!("configured STT model is ready after background preload"),
+            Ok(Ok(true)) => {
+                tracing::info!("configured STT model is ready after background preload")
+            }
+            Ok(Ok(false)) => {}
             Ok(Err(error)) => tracing::warn!(%error, "background STT preload failed"),
             Err(error) => tracing::warn!(%error, "background STT preload task failed"),
         }
@@ -154,6 +168,11 @@ pub fn preload_configured_stt(app: AppHandle) {
 fn configured_stt_preload(
     settings: &crate::types::Settings,
 ) -> Option<(SttModelSelection, crate::types::AccelerationMode)> {
+    // Remote selection retains the local preference for switching back, but
+    // neither startup preload nor crash recovery may activate it implicitly.
+    if settings.stt_source != crate::types::SttSource::Local {
+        return None;
+    }
     settings
         .selected_stt_model()
         .map(|model| (model, settings.acceleration))
@@ -221,12 +240,16 @@ fn set_model_blocking(
     let base = state.settings();
     let mut settings = base.clone();
     let same_selection = settings.selected_stt_model().as_ref() == Some(&selection);
-    if selection.id.engine != SttEngine::Whisper {
+    if settings.stt_source == crate::types::SttSource::Local
+        && selection.id.engine != SttEngine::Whisper
+    {
         // Explicit activation also selects the supported CPU route and automatic
         // language. Whisper-specific preferences remain available on return.
         settings.acceleration = crate::types::AccelerationMode::Auto;
         settings.language = "auto".into();
     }
+    settings.stt_model = Some(selection);
+    settings.reconcile_stt_model(Some(&base))?;
 
     let _configuration = super::capture_configuration::reserve_configuration(|| {
         if app
@@ -250,17 +273,20 @@ fn set_model_blocking(
     let worker_paths = crate::stt::worker_paths_for_app(app);
     let mut rollback = SelectionRollback::new(stt.clone(), base.clone(), worker_paths.clone());
     stt.reset_recovery_budget();
-    stt.ensure_model_loaded(
-        &selection,
-        acceleration,
+    stt.ensure_configured(
+        &settings,
         &worker_paths,
         &fono_core::OperationCancellation::default(),
     )?;
-    let prepared = stt.prepared_recovery_selection(&crate::stt::RecoverySelection {
-        model_path,
-        acceleration,
-        worker_paths,
-    });
+    let prepared = if settings.stt_source == crate::types::SttSource::Local {
+        stt.prepared_recovery_selection(&crate::stt::RecoverySelection {
+            model_path,
+            acceleration,
+            worker_paths,
+        })
+    } else {
+        None
+    };
 
     if same_selection {
         rollback.commit();
@@ -270,8 +296,6 @@ fn set_model_blocking(
         return Ok(());
     }
 
-    settings.stt_model = Some(selection);
-    settings.reconcile_stt_model(Some(&base))?;
     let settings = state.persist_settings_delta(&base, &settings)?;
     rollback.commit();
     if let Some(prepared) = prepared {
@@ -280,4 +304,31 @@ fn set_model_blocking(
     crate::events::emit_settings(app, &settings);
     tracing::info!(model = ?settings.whisper_model_path, "STT model selected and saved");
     Ok(())
+}
+
+#[cfg(test)]
+mod source_tests {
+    use super::*;
+
+    #[test]
+    fn remote_source_skips_dormant_local_preload_and_restores_its_selection_on_return() {
+        let local = crate::types::Settings {
+            whisper_model_path: Some("/models/ggml-small.bin".into()),
+            acceleration: crate::types::AccelerationMode::Cuda,
+            ..Default::default()
+        };
+        let remote = crate::types::Settings {
+            stt_source: crate::types::SttSource::FonoServer,
+            ..local.clone()
+        };
+        assert!(configured_stt_preload(&remote).is_none());
+        let restored = crate::types::Settings {
+            stt_source: crate::types::SttSource::Local,
+            ..remote
+        };
+        assert_eq!(
+            configured_stt_preload(&restored),
+            configured_stt_preload(&local)
+        );
+    }
 }

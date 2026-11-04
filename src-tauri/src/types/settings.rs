@@ -3,6 +3,24 @@
 use super::{defaults::*, *};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SttSource {
+    #[default]
+    Local,
+    FonoServer,
+}
+
+/// Public connection preferences only. The bearer stays in OS credentials.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RemoteSttSettings {
+    pub url: String,
+    pub model: ModelId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ca_pem: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
@@ -27,6 +45,10 @@ pub struct Settings {
     /// Canonical model selection; legacy path is retained as a compatibility mirror.
     #[serde(default)]
     pub stt_model: Option<SttModelSelection>,
+    #[serde(default)]
+    pub stt_source: SttSource,
+    #[serde(default)]
+    pub remote_stt: Option<RemoteSttSettings>,
     #[serde(default = "default_language")]
     pub language: String,
     /// Exact local canonical spellings; disabled by default, entries retained.
@@ -203,6 +225,8 @@ impl Default for Settings {
             audio_device_id: None,
             whisper_model_path: None,
             stt_model: None,
+            stt_source: SttSource::Local,
+            remote_stt: None,
             language: default_language(),
             personal_dictionary_enabled: false,
             personal_dictionary_llm_enabled: false,
@@ -301,6 +325,19 @@ impl Settings {
         Ok(())
     }
     pub fn decoding_options(&self) -> DecodingOptions {
+        if self.stt_source == SttSource::FonoServer {
+            return DecodingOptions {
+                strategy: if self
+                    .recognition_model_id()
+                    .is_some_and(|m| m.engine == super::SttEngine::Whisper)
+                {
+                    self.whisper_decoding
+                } else {
+                    DecodingStrategy::Fast
+                },
+                threads: None,
+            };
+        }
         if self
             .selected_stt_model()
             .is_some_and(|model| model.id.engine != super::SttEngine::Whisper)

@@ -24,7 +24,7 @@ pub(crate) async fn transcribe_test(
         let _admission = crate::application::capture_configuration::begin_capture()?;
         ensure_capture_allowed(&app)?;
         let settings = app.state::<AppState>().settings();
-        if settings.selected_stt_model().is_none() {
+        if settings.recognition_model_id().is_none() {
             let message = "Whisper model is not selected. Download and choose a model in settings.";
             emit_pipeline_error(&app, message);
             return Err(AppError::Stt(message.into()));

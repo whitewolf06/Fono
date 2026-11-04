@@ -170,7 +170,7 @@ fn worker_if_present(path: PathBuf) -> Option<PathBuf> {
 
 pub(super) enum EngineCandidate {
     Remote {
-        endpoint: crate::remote::RemoteEndpoint,
+        endpoint: Box<crate::remote::RemoteEndpoint>,
     },
     #[cfg(feature = "offline-stt")]
     Offline,

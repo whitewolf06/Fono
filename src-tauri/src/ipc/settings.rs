@@ -85,7 +85,19 @@ fn save_settings_blocking(
                 .is_some()
                 || app
                     .state::<crate::pipeline::Pipeline>()
-                    .has_active_service_operation(),
+                    .has_active_service_operation()
+                || app
+                    .state::<crate::pipeline::Pipeline>()
+                    .scheduler()
+                    .is_busy()
+                || {
+                    let queue = app
+                        .state::<crate::application::service_control::ServiceControl>()
+                        .snapshot()
+                        .snapshot
+                        .queue;
+                    queue.queued + queue.preparing + queue.transcribing > 0
+                },
             &old_settings,
             &settings,
         )
@@ -109,9 +121,13 @@ fn save_settings_blocking(
     let shortcuts_changed = shortcuts_changed
         || old_settings.selection_capture_enabled != settings.selection_capture_enabled
         || old_settings.selection_hotkey != settings.selection_hotkey;
-    let model_changed = old_settings.whisper_model_path != settings.whisper_model_path
-        || old_settings.stt_model != settings.stt_model
-        || old_settings.acceleration != settings.acceleration;
+    let model_changed = old_settings.stt_source != settings.stt_source
+        || (settings.stt_source == crate::types::SttSource::FonoServer
+            && old_settings.remote_stt != settings.remote_stt)
+        || (settings.stt_source == crate::types::SttSource::Local
+            && (old_settings.whisper_model_path != settings.whisper_model_path
+                || old_settings.stt_model != settings.stt_model
+                || old_settings.acceleration != settings.acceleration));
 
     let previous_secrets = profile_secret_snapshot(&old_settings, &settings)?;
     let persisted_settings = match prepare_secret_update(settings, &old_settings) {
@@ -134,17 +150,24 @@ fn save_settings_blocking(
         app.state::<crate::pipeline::Pipeline>()
             .stt()
             .reset_recovery_budget();
-        if let Some(model) = persisted_settings.selected_stt_model() {
+        if persisted_settings.recognition_model_id().is_some()
+            || old_settings.stt_source != persisted_settings.stt_source
+        {
             let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
             let acceleration = persisted_settings.acceleration;
             let worker_paths = crate::stt::worker_paths_for_app(app);
             let prepared = (|| {
-                stt.ensure_model_loaded(
-                    &model,
-                    acceleration,
+                stt.ensure_configured(
+                    &persisted_settings,
                     &worker_paths,
                     &fono_core::OperationCancellation::default(),
                 )?;
+                let Some(model) = persisted_settings
+                    .selected_stt_model()
+                    .filter(|_| persisted_settings.stt_source == crate::types::SttSource::Local)
+                else {
+                    return Ok(None);
+                };
                 Ok(
                     stt.prepared_recovery_selection(&crate::stt::RecoverySelection {
                         model_path: model.local_path.into(),

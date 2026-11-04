@@ -10,7 +10,7 @@ use crate::application::transcription_service::TranscriptionRuntime;
 use crate::error::{AppError, AppResult};
 use crate::pipeline::Pipeline;
 use crate::state::AppState;
-use crate::types::Transcript;
+use crate::types::{Settings, SttSource, Transcript};
 use fono_core::OperationCancellation;
 use fono_core::TerminalReason;
 
@@ -36,6 +36,7 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
 
     fn configured_model(&self) -> AppResult<String> {
         let settings = self.app.state::<AppState>().settings();
+        ensure_local_service_source(&settings)?;
         settings
             .selected_stt_model()
             .map(|m| m.id.public_id())
@@ -62,6 +63,7 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
         Transcript,
         Vec<super::transcription_contract::SubtitleSegment>,
     )> {
+        ensure_local_service_source(&self.app.state::<AppState>().settings())?;
         let pipeline = self.app.state::<Pipeline>();
         let (operation_id, operation_cancellation) = pipeline.start_service_transcription()?;
         // Worker request IDs already isolate cancellation. A separate namespace
@@ -75,6 +77,9 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                 ));
             }
             let settings = self.app.state::<AppState>().settings();
+            // Recheck after operation admission: settings may have committed
+            // between the initial source check and starting the service job.
+            ensure_local_service_source(&settings)?;
             let decoding = settings.decoding_options();
             let model = settings
                 .stt_model
@@ -208,5 +213,38 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
         };
         pipeline.finish_service_operation(operation_id, reason);
         result
+    }
+}
+
+fn ensure_local_service_source(settings: &Settings) -> AppResult<()> {
+    if settings.stt_source != SttSource::Local {
+        // Forwarding desktop API jobs to Fono Server is RC-11. Never reactivate
+        // a saved local backend as an implicit fallback in the meantime.
+        return Err(AppError::Config(
+            "Desktop API currently requires the local STT source".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod source_tests {
+    use super::*;
+
+    #[test]
+    fn desktop_api_does_not_fall_back_to_a_saved_local_model_in_remote_mode() {
+        let local = Settings {
+            whisper_model_path: Some("/models/ggml-small.bin".into()),
+            ..Default::default()
+        };
+        let remote = Settings {
+            stt_source: SttSource::FonoServer,
+            ..local.clone()
+        };
+        assert!(ensure_local_service_source(&local).is_ok());
+        assert!(matches!(
+            ensure_local_service_source(&remote),
+            Err(AppError::Config(_))
+        ));
     }
 }

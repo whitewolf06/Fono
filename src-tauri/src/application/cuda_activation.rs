@@ -26,10 +26,11 @@ pub(crate) fn activate(
         .with_cuda_package(fono_stt::ports::GpuPackageHandle::new(package.clone()));
     let stt = app.state::<Pipeline>().stt().clone();
     let selected = settings.whisper_model_path.as_deref().filter(|_| {
-        matches!(
-            settings.acceleration,
-            AccelerationMode::Auto | AccelerationMode::Cuda
-        )
+        settings.stt_source == crate::types::SttSource::Local
+            && matches!(
+                settings.acceleration,
+                AccelerationMode::Auto | AccelerationMode::Cuda
+            )
     });
     let prepared = if let Some(path) = selected {
         stt.reset_recovery_budget();

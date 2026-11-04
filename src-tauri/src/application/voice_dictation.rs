@@ -163,9 +163,9 @@ async fn run_once(
         return Ok(DictationOutcome::NoSpeech);
     }
 
-    if let Some(model) = settings.selected_stt_model() {
+    if settings.recognition_model_id().is_some() {
         let stt = pipeline.stt().clone();
-        let acceleration = settings.acceleration;
+        let load_settings = settings.clone();
         let worker_paths = stt::worker_paths_for_app(app);
         let scheduler = pipeline.scheduler();
         let load_cancel = cancellation.clone();
@@ -173,7 +173,7 @@ async fn run_once(
         let load = tauri::async_runtime::spawn_blocking(move || {
             let _activity = background_activity;
             let _permit = scheduler.acquire(true, &load_cancel)?;
-            stt.ensure_model_loaded(&model, acceleration, &worker_paths, &load_cancel)
+            stt.ensure_configured(&load_settings, &worker_paths, &load_cancel)
         });
         let load_result = tokio::select! {
             result = load => Some(result),

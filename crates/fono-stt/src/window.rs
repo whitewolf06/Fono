@@ -78,6 +78,10 @@ impl SttEngine {
         decoding: fono_stt_protocol::DecodingOptions,
         glossary: &[String],
     ) -> AppResult<WindowTranscript> {
+        let _source = self
+            .source_gate
+            .try_read()
+            .ok_or_else(super::source_change_busy)?;
         decoding.validate().map_err(AppError::Config)?;
         if self.cleanup.is_pending() {
             return Err(super::worker_cleanup_busy());

@@ -293,6 +293,12 @@ impl SttEngine {
         self.recovery.publication.lock()
     }
 
+    /// The caller holds recovery_publication while replacing the selected source.
+    pub(super) fn clear_recovery_selection(&self) {
+        self.recovery.published.lock().take();
+        self.recovery.manual_revision.fetch_add(1, Ordering::AcqRel);
+    }
+
     pub(super) fn load_readiness(
         &self,
         readiness: SttReadiness,

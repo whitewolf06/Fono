@@ -145,7 +145,7 @@ impl Runtime {
                 ));
             }
             let settings = state.settings();
-            if settings.selected_stt_model().is_none() {
+            if settings.recognition_model_id().is_none() {
                 return Err(AppError::Config(
                     "Сначала выберите модель распознавания.".into(),
                 ));

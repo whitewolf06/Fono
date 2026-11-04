@@ -21,6 +21,41 @@ pub fn validate_stt_selection(model: &SttModelSelection) -> AppResult<()> {
 }
 
 impl Settings {
+    pub fn recognition_model_id(&self) -> Option<ModelId> {
+        match self.stt_source {
+            super::SttSource::Local => self.selected_stt_model().map(|m| m.id),
+            super::SttSource::FonoServer => self.remote_stt.as_ref().map(|r| r.model.clone()),
+        }
+    }
+
+    pub fn validate_remote_stt(&self) -> AppResult<()> {
+        let Some(remote) = self.remote_stt.as_ref() else {
+            return if self.stt_source == super::SttSource::FonoServer {
+                Err(AppError::Config(
+                    "Fono Server connection is not configured".into(),
+                ))
+            } else {
+                Ok(())
+            };
+        };
+        let mut endpoint =
+            fono_stt::remote::RemoteEndpoint::new(&remote.url, "configuration-validation")?;
+        if let Some(pem) = &remote.ca_pem {
+            endpoint = endpoint.with_ca_pem(pem.as_bytes())?;
+        }
+        drop(endpoint);
+        if remote.model.variant.is_empty()
+            || remote.model.variant.len() > 128
+            || !remote
+                .model
+                .variant
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+        {
+            return Err(AppError::Config("Invalid remote model identifier".into()));
+        }
+        Ok(())
+    }
     pub fn selected_stt_model(&self) -> Option<SttModelSelection> {
         self.stt_model.clone().or_else(|| {
             self.whisper_model_path
@@ -30,6 +65,10 @@ impl Settings {
     }
 
     pub fn validate_stt_preferences(&self) -> AppResult<()> {
+        self.validate_remote_stt()?;
+        if self.stt_source == super::SttSource::FonoServer {
+            return Ok(());
+        }
         let Some(model) = self.selected_stt_model() else {
             return Ok(());
         };
@@ -84,6 +123,63 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remote_source_migration_and_return_preserve_dormant_local_preferences() {
+        let mut settings: Settings = serde_json::from_value(serde_json::json!({
+            "whisper_model_path":"D:/models/ggml-small.bin", "acceleration":"cuda",
+            "gpu_model_residency":"adaptive", "whisper_threads":4, "whisper_decoding":"accurate"
+        }))
+        .unwrap();
+        settings.reconcile_stt_model(None).unwrap();
+        assert_eq!(settings.stt_source, super::super::SttSource::Local);
+        let local = settings.selected_stt_model();
+        let original_decoding = settings.decoding_options();
+        settings.remote_stt = Some(super::super::RemoteSttSettings {
+            url: "http://127.0.0.1:17833".into(),
+            model: ModelId::whisper(WhisperModelSize::Tiny),
+            ca_pem: None,
+        });
+        settings.stt_source = super::super::SttSource::FonoServer;
+        settings.validate_stt_preferences().unwrap();
+        assert_eq!(
+            settings.recognition_model_id().unwrap(),
+            ModelId::whisper(WhisperModelSize::Tiny)
+        );
+        assert_eq!(settings.decoding_options().threads, None);
+        assert_eq!(settings.selected_stt_model(), local);
+        let encoded = serde_json::to_string(&settings).unwrap();
+        assert!(!encoded.contains("token"));
+        let mut restored: Settings = serde_json::from_str(&encoded).unwrap();
+        restored.stt_source = super::super::SttSource::Local;
+        assert_eq!(restored.selected_stt_model(), local);
+        assert_eq!(restored.decoding_options(), original_decoding);
+        assert_eq!(restored.acceleration, super::super::AccelerationMode::Cuda);
+        assert_eq!(
+            restored.gpu_model_residency,
+            super::super::GpuModelResidency::Adaptive
+        );
+    }
+
+    #[test]
+    fn remote_preferences_do_not_require_a_local_model_and_cannot_embed_a_bearer() {
+        let mut settings = Settings {
+            stt_source: super::super::SttSource::FonoServer,
+            ..Default::default()
+        };
+        assert!(settings.validate_stt_preferences().is_err());
+        settings.remote_stt = Some(super::super::RemoteSttSettings {
+            url: "http://127.0.0.1:17833".into(),
+            model: ModelId::whisper(WhisperModelSize::Tiny),
+            ca_pem: None,
+        });
+        assert!(settings.validate_stt_preferences().is_ok());
+        settings.remote_stt.as_mut().unwrap().url = "http://192.168.1.8:17832".into();
+        assert!(settings.validate_stt_preferences().is_err());
+        assert!(serde_json::from_value::<super::super::RemoteSttSettings>(serde_json::json!({
+            "url":"https://server.example", "model":{"engine":"whisper","variant":"tiny"}, "token":"PRIVATE"
+        })).is_err());
+    }
 
     #[test]
     fn desktop_validation_uses_the_enabled_offline_registry() {

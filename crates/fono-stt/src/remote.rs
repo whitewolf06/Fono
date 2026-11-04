@@ -11,7 +11,7 @@ use fono_stt_protocol::{BackendKind, DecodingStrategy, TimedSegment, WindowTrans
 use fono_types::{CoreError, ErrorCode, ModelId, SttEngine as ModelEngine, Transcript};
 
 use crate::{
-    error::{AppError, AppResult},
+    error::AppResult,
     recognizer::{self, Recognizer, RecognizerLoad},
     ActivityGuard, RecognitionOptions, RecognizerCapabilities, WindowOptions,
 };
@@ -237,6 +237,9 @@ impl RemoteRecognizer {
     pub fn is_idle(&self) -> bool {
         self.transport.is_idle()
     }
+    fn matches_configuration(&self, endpoint: &RemoteEndpoint, model: &ModelId) -> bool {
+        &self.model == model && self.transport.same_configuration(endpoint)
+    }
 
     pub fn transcribe(
         &self,
@@ -374,7 +377,7 @@ impl Recognizer for RemoteRecognizer {
             return failure(RemoteErrorKind::InvalidRequest);
         };
         Self::connect(
-            endpoint.clone(),
+            endpoint.as_ref().clone(),
             request.model.id.clone(),
             request.cleanup.activity.clone(),
             request.cancellation,
@@ -408,24 +411,96 @@ impl Recognizer for RemoteRecognizer {
 }
 
 impl crate::SttEngine {
-    /// Prepare an otherwise unloaded engine. Application settings, hotkey
-    /// routing and replacement of an active local backend belong to RC-02.
+    /// Backward-compatible initial connection entry point.
     pub fn connect_remote(
         &self,
         endpoint: RemoteEndpoint,
         model: ModelId,
         cancellation: &OperationCancellation,
     ) -> AppResult<()> {
+        self.ensure_remote_loaded(endpoint, &model, cancellation)
+    }
+
+    pub fn is_remote(&self) -> bool {
+        matches!(&*self.state.lock(), crate::EngineState::Remote { .. })
+    }
+
+    /// Returning to an unconfigured local source must not retain an old
+    /// remote route. It deliberately never unloads a local backend.
+    pub fn clear_remote_if_idle(&self) -> AppResult<()> {
+        let _gate = self.load_gate.lock();
+        if !self.is_remote() {
+            return Ok(());
+        }
+        let _source = self
+            .source_gate
+            .try_write()
+            .ok_or_else(crate::source_change_busy)?;
+        let _activity = self.environment.activity.lease()?;
+        let previous = {
+            let _publication = self.recovery_publication();
+            let mut state = self.state.lock();
+            if !crate::residency::idle_for_pool(&state) {
+                return Err(crate::source_change_busy());
+            }
+            let previous = std::mem::replace(&mut *state, crate::EngineState::Empty);
+            self.generation
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            self.clear_recovery_selection();
+            drop(state);
+            self.set_readiness(crate::SttReadiness::Unloaded);
+            previous
+        };
+        drop(previous);
+        Ok(())
+    }
+
+    /// Reuse an exact remote selection, or replace a quiescent source. Failed
+    /// discovery leaves the previous backend intact. The host also fences
+    /// recording, queues and settings persistence around this transaction.
+    pub fn ensure_remote_loaded(
+        &self,
+        endpoint: RemoteEndpoint,
+        model: &ModelId,
+        cancellation: &OperationCancellation,
+    ) -> AppResult<()> {
         let _gate = self.load_gate.lock();
         recognizer::check_cancellation(cancellation)?;
-        if self.is_loaded() {
-            return Err(AppError::Busy("STT engine is already loaded".into()));
+        self.reap_finished_worker();
+        if self.cleanup.is_pending() {
+            return Err(crate::worker_cleanup_busy());
         }
+        let matching_device = {
+            let state = self.state.lock();
+            match &*state {
+                crate::EngineState::Remote { client }
+                    if client.matches_configuration(&endpoint, model) =>
+                {
+                    Some(client.device_name())
+                }
+                _ => None,
+            }
+        };
+        if let Some(device) = matching_device {
+            self.load_readiness(crate::SttReadiness::Ready { device }, None, 0)?;
+            recognizer::check_cancellation(cancellation)?;
+            return Ok(());
+        }
+        let _source = self
+            .source_gate
+            .try_write()
+            .ok_or_else(crate::source_change_busy)?;
+        if !crate::residency::idle_for_pool(&self.state.lock()) {
+            return Err(crate::source_change_busy());
+        }
+        let _activity = self.environment.activity.lease()?;
         let selection = crate::types::SttModelSelection {
-            id: model,
+            id: model.clone(),
             local_path: String::new(),
         };
-        let candidate = crate::EngineCandidate::Remote { endpoint };
+        let candidate = crate::EngineCandidate::Remote {
+            endpoint: Box::new(endpoint),
+        };
         let loaded = recognizer::load(RecognizerLoad {
             model: &selection,
             candidate: &candidate,
@@ -434,16 +509,57 @@ impl crate::SttEngine {
             #[cfg(feature = "offline-stt")]
             speech_vad: None,
         })?;
-        let _publication = self.recovery_publication();
         recognizer::check_cancellation(cancellation)?;
         let device = loaded.device();
-        *self.state.lock() = loaded;
-        self.generation
-            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-        self.set_readiness(crate::SttReadiness::Ready { device });
+        let previous = {
+            let _publication = self.recovery_publication();
+            recognizer::check_cancellation(cancellation)?;
+            let mut state = self.state.lock();
+            if !crate::residency::idle_for_pool(&state) {
+                return Err(crate::source_change_busy());
+            }
+            let previous = std::mem::replace(&mut *state, crate::EngineState::Empty);
+            self.generation
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            self.clear_recovery_selection();
+            drop(state);
+            self.set_readiness(crate::SttReadiness::Loading);
+            previous
+        };
+        // Worker retirement/native destruction never owns the routing lock.
+        // A pending worker remains observable and prevents new loads until
+        // its supervisor confirms process exit and all stdio cleanup.
+        if let crate::EngineState::Worker { session, .. } = &previous {
+            if session.shutdown() == crate::worker::WorkerCleanupStatus::Pending {
+                *self.state.lock() = previous;
+                let error = crate::worker_cleanup_busy();
+                self.set_readiness(crate::SttReadiness::Failed {
+                    message: self.error_message(&error),
+                });
+                return Err(error);
+            }
+        }
+        drop(previous);
+        if self.cleanup.is_pending() {
+            self.set_readiness(crate::SttReadiness::Unloaded);
+            return Err(crate::worker_cleanup_busy());
+        }
+        if let Err(error) = recognizer::check_cancellation(cancellation) {
+            self.set_readiness(crate::SttReadiness::Unloaded);
+            return Err(error);
+        }
+        {
+            let _publication = self.recovery_publication();
+            if let Err(error) = recognizer::check_cancellation(cancellation) {
+                self.set_readiness(crate::SttReadiness::Unloaded);
+                return Err(error);
+            }
+            *self.state.lock() = loaded;
+            self.set_readiness(crate::SttReadiness::Ready { device });
+        }
         Ok(())
     }
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

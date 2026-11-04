@@ -28,16 +28,15 @@ impl Drop for SelectionRollback {
         if self.committed {
             return;
         }
-        let Some(model) = self.previous.selected_stt_model() else {
+        if self.previous.recognition_model_id().is_none() {
             self.engine
                 .reject_prepared_selection("Модель не выбрана. Выберите модель заново.");
             return;
-        };
+        }
         if self
             .engine
-            .ensure_model_loaded(
-                &model,
-                self.previous.acceleration,
+            .ensure_configured(
+                &self.previous,
                 &self.paths,
                 &fono_core::OperationCancellation::default(),
             )
@@ -46,12 +45,18 @@ impl Drop for SelectionRollback {
             self.engine.reject_prepared_selection(
                 "Не удалось восстановить модель после ошибки сохранения. Выберите модель заново.",
             );
-        } else if let Some(prepared) = self.engine.prepared_recovery_selection(&RecoverySelection {
-            model_path: model.local_path.into(),
-            acceleration: self.previous.acceleration,
-            worker_paths: self.paths.clone(),
-        }) {
-            self.engine.acknowledge_recovery_selection(prepared);
+        } else if let Some(model) = self
+            .previous
+            .selected_stt_model()
+            .filter(|_| self.previous.stt_source == crate::types::SttSource::Local)
+        {
+            if let Some(prepared) = self.engine.prepared_recovery_selection(&RecoverySelection {
+                model_path: model.local_path.into(),
+                acceleration: self.previous.acceleration,
+                worker_paths: self.paths.clone(),
+            }) {
+                self.engine.acknowledge_recovery_selection(prepared);
+            }
         }
     }
 }

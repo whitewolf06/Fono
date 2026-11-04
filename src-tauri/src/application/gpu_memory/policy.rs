@@ -1,6 +1,6 @@
 //! Conservative pressure policy. Durations use monotonic time; no process
 //! names, activity guesses or user content participate in the decision.
-use crate::types::GpuModelResidency;
+use crate::types::{GpuModelResidency, SttSource};
 use std::time::Duration;
 
 pub(super) const IDLE_HOLD: Duration = Duration::from_secs(60);
@@ -34,6 +34,7 @@ impl MemorySample {
 
 #[derive(Clone, Copy)]
 pub(super) struct Observation {
+    pub source: SttSource,
     pub mode: GpuModelResidency,
     pub gpu_resident: bool,
     pub exclusive: bool,
@@ -56,6 +57,12 @@ fn held(now: Duration, since: Option<Duration>, required: Duration) -> bool {
 
 impl Policy {
     pub fn observe(&mut self, now: Duration, observation: Observation) -> bool {
+        if observation.source != SttSource::Local {
+            // A return to local starts a new hold even if a caller has not yet
+            // published a new engine generation. Old pressure cannot carry over.
+            *self = Self::default();
+            return false;
+        }
         if self.generation != Some(observation.generation) {
             self.generation = Some(observation.generation);
             self.loaded_at = Some(now);
@@ -100,6 +107,7 @@ mod tests {
 
     fn observation() -> Observation {
         Observation {
+            source: SttSource::Local,
             mode: GpuModelResidency::Adaptive,
             gpu_resident: true,
             exclusive: true,
@@ -207,5 +215,19 @@ mod tests {
         assert!(!policy.observe(Duration::from_secs(500), headroom));
         assert!(!policy.observe(Duration::from_secs(1000), headroom));
         assert!(!policy.observe(Duration::ZERO, observation()));
+    }
+
+    #[test]
+    fn remote_source_clears_pressure_and_local_return_restarts_the_full_hold() {
+        let mut policy = Policy::default();
+        assert!(!policy.observe(Duration::ZERO, observation()));
+        assert!(policy.observe(LOAD_HOLD, observation()));
+        let mut remote = observation();
+        remote.source = SttSource::FonoServer;
+        assert!(!policy.observe(LOAD_HOLD, remote));
+        assert!(!policy.observe(LOAD_HOLD * 3, remote));
+        assert!(!policy.observe(LOAD_HOLD * 3, observation()));
+        assert!(!policy.observe(LOAD_HOLD * 3 + IDLE_HOLD, observation()));
+        assert!(policy.observe(LOAD_HOLD * 4, observation()));
     }
 }

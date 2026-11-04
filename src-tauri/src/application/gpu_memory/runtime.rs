@@ -88,7 +88,7 @@ fn tick(app: &AppHandle, sampler: &mut Sampler) {
     let pipeline = app.state::<Pipeline>();
     let gpu = pipeline.stt().gpu_residency();
     let cpu = settings.acceleration == AccelerationMode::Cpu || (gpu.loaded && !gpu.resident);
-    let adaptive = settings.gpu_model_residency == GpuModelResidency::Adaptive && !cpu;
+    let adaptive = adaptive_monitoring(settings.stt_source, settings.gpu_model_residency, cpu);
     let sample = if adaptive {
         sampler.sample()
     } else {
@@ -97,6 +97,7 @@ fn tick(app: &AppHandle, sampler: &mut Sampler) {
         Err("Адаптивный мониторинг выключен.")
     };
     let observation = Observation {
+        source: settings.stt_source,
         mode: settings.gpu_model_residency,
         gpu_resident: gpu.resident,
         exclusive: gpu.exclusive,
@@ -114,6 +115,8 @@ fn tick(app: &AppHandle, sampler: &mut Sampler) {
     }
     let message = if pipeline.stt().gpu_residency().cleanup_pending {
         "Завершаем процесс распознавания. Загрузка новой модели пока недоступна."
+    } else if settings.stt_source != SttSource::Local {
+        REMOTE_SOURCE_MESSAGE
     } else if released {
         "Модель освобождена из видеопамяти; загрузится при следующей диктовке."
     } else if sample.is_ok() && !gpu.resident {
@@ -154,8 +157,9 @@ fn release_idle(app: &AppHandle, expected_generation: u64) -> bool {
         .release_idle_gpu(expected_generation, |detach| {
             let admitted = activity::while_idle(
                 || {
-                    app.state::<AppState>().settings().gpu_model_residency
-                        == GpuModelResidency::Adaptive
+                    let settings = app.state::<AppState>().settings();
+                    settings.stt_source == SttSource::Local
+                        && settings.gpu_model_residency == GpuModelResidency::Adaptive
                         && !runtime_active(app)
                 },
                 detach,

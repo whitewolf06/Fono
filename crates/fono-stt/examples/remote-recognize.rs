@@ -15,8 +15,8 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    if args.len() != 4 {
-        return Err("Usage: remote-recognize <server-root-url> <token-file> <mono-16k-pcm16.wav> <model-id>".into());
+    if !(args.len() == 4 || (args.len() == 5 && args[4] == "--source-roundtrip")) {
+        return Err("Usage: remote-recognize <server-root-url> <token-file> <mono-16k-pcm16.wav> <model-id> [--source-roundtrip]".into());
     }
     let token =
         Zeroizing::new(fs::read_to_string(&args[1]).map_err(|_| "Cannot read the token file")?);
@@ -37,18 +37,33 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let samples = pcm_wav(&wav)?;
     let engine = SttEngine::default();
     let cancellation = OperationCancellation::default();
-    engine.connect_remote(endpoint, model, &cancellation)?;
+    engine.connect_remote(endpoint.clone(), model.clone(), &cancellation)?;
     let started = Instant::now();
-    let result = engine.transcribe_cancellable(&samples, "en", cancellation)?;
+    let result = engine.transcribe_cancellable(&samples, "en", cancellation.clone())?;
+    let request_elapsed_ms = started.elapsed().as_millis();
     if result.text.trim().is_empty() {
         return Err("The server returned an empty transcript".into());
+    }
+    let source_roundtrip = args.len() == 5;
+    if source_roundtrip {
+        engine.clear_remote_if_idle()?;
+        if engine.is_remote() || engine.is_loaded() {
+            return Err("Remote route was not cleared".into());
+        }
+        engine.ensure_remote_loaded(endpoint, &model, &cancellation)?;
+        let returned = engine.transcribe_cancellable(&samples, "en", cancellation)?;
+        if !engine.is_remote() || returned.text.trim().is_empty() || engine.gpu_residency().resident
+        {
+            return Err("Remote source return failed".into());
+        }
     }
     println!(
         "{}",
         serde_json::json!({
             "recognized":true, "text_chars":result.text.chars().count(), "device":result.device,
             "audio_seconds":result.audio_secs, "server_seconds":result.transcribe_secs,
-            "request_elapsed_ms":started.elapsed().as_millis(), "local_gpu_resident":engine.gpu_residency().resident
+            "request_elapsed_ms":request_elapsed_ms, "local_gpu_resident":engine.gpu_residency().resident,
+            "source_roundtrip":source_roundtrip
         })
     );
     Ok(())

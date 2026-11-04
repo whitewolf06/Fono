@@ -1,9 +1,44 @@
 # RemoteRecognizer (RC-01)
 
 `fono_stt::remote::RemoteRecognizer` implements the shared recognizer contract.
-`SttEngine::connect_remote` prepares an unloaded engine without opening local
-weights or starting a GPU worker. Source selection, replacing an active local
-backend, settings, credentials IPC and desktop controls are subsequent RC tasks.
+`SttEngine::ensure_remote_loaded` prepares or reuses the selected remote engine
+without opening local weights or starting a local GPU worker. The legacy
+`connect_remote` entry point delegates to it. Source changes require an idle
+engine; an active transcription or retained backend handle returns busy.
+Discovery completes before retiring the previous source. The old worker must
+confirm exit and I/O cleanup before the remote source becomes ready.
+
+## Desktop source selection (RC-02)
+
+Persisted settings default to `stt_source: "local"` for existing installations.
+The server source uses `stt_source: "fono_server"` and `remote_stt`:
+
+```json
+{
+  "url": "http://127.0.0.1:17833",
+  "model": { "engine": "whisper", "variant": "large_turbo" }
+}
+```
+
+An optional `ca_pem` contains the public CA certificate. A token is never part
+of this object: the desktop blocking adapter reads the existing OS credential
+`Fono/stt-server-token`. Missing credentials fail preparation without selecting
+a local fallback. The credential editor/IPC and server controls are RC-06/RC-05.
+
+The existing settings transaction prepares the new engine before persisting its
+source, and restores the old configured source when persistence fails. Active
+dictation, pending results, scheduler work and queued API jobs fence changes.
+Saved local model, acceleration, thread count and residency preferences survive
+the server round trip. Returning to local with no model clears the remote route
+and leaves STT unloaded until a local model is selected.
+
+Remote source disables local model preload/recovery, capture pretranscription
+and adaptive GPU monitoring. A delayed startup preload rechecks the current
+settings under the transaction before loading anything. Standard dictation,
+diagnostics and voice-command transcription use the configured source; capture
+and processing remain on the desktop. Forwarding local API jobs and background
+segments through a remote server belongs to RC-11: those API jobs currently fail
+explicitly in remote mode, and never load a dormant local model.
 
 ## Transport and discovery
 

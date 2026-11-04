@@ -11,6 +11,7 @@ use reqwest::{
     Client, RequestBuilder, Url,
 };
 use serde::de::DeserializeOwned;
+use sha2::{Digest, Sha256};
 use tokio::{runtime::Runtime, sync::Semaphore};
 use zeroize::Zeroizing;
 
@@ -20,7 +21,7 @@ use fono_core::OperationCancellation;
 
 const CONCURRENT_REQUESTS: usize = 2;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RemoteTimeouts {
     pub connect: Duration,
     pub response_base: Duration,
@@ -43,6 +44,7 @@ pub struct RemoteEndpoint {
     url: Url,
     authorization: HeaderValue,
     certificate: Option<reqwest::Certificate>,
+    certificate_identity: Option<[u8; 32]>,
     timeouts: RemoteTimeouts,
 }
 impl fmt::Debug for RemoteEndpoint {
@@ -84,6 +86,7 @@ impl RemoteEndpoint {
             url,
             authorization,
             certificate: None,
+            certificate_identity: None,
             timeouts: RemoteTimeouts::default(),
         })
     }
@@ -98,6 +101,7 @@ impl RemoteEndpoint {
             reqwest::Certificate::from_pem(pem)
                 .map_err(|_| RemoteError::new(RemoteErrorKind::InvalidEndpoint))?,
         );
+        self.certificate_identity = Some(Sha256::digest(pem).into());
         Ok(self)
     }
 
@@ -113,6 +117,13 @@ impl RemoteEndpoint {
         }
         self.timeouts = timeouts;
         Ok(self)
+    }
+
+    fn same_configuration(&self, other: &Self) -> bool {
+        self.url == other.url
+            && self.authorization == other.authorization
+            && self.certificate_identity == other.certificate_identity
+            && self.timeouts == other.timeouts
     }
 }
 
@@ -164,6 +175,9 @@ impl Transport {
 
     pub(super) fn is_idle(&self) -> bool {
         self.slots.available_permits() == CONCURRENT_REQUESTS
+    }
+    pub(super) fn same_configuration(&self, endpoint: &RemoteEndpoint) -> bool {
+        self.endpoint.same_configuration(endpoint)
     }
     pub(super) fn deadline(&self, samples: usize) -> Duration {
         self.endpoint.timeouts.response_base

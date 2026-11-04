@@ -1,4 +1,5 @@
 use super::*;
+use crate::error::AppError;
 use crate::ports::TestActivity;
 use serde_json::{json, Value};
 use std::{
@@ -43,7 +44,7 @@ struct Capture {
     headers: String,
     body: Vec<u8>,
 }
-struct Fixture {
+pub(crate) struct Fixture {
     endpoint: String,
     mode: Arc<Mutex<Mode>>,
     requests: Arc<Mutex<Vec<Capture>>>,
@@ -53,7 +54,7 @@ struct Fixture {
     worker: Option<thread::JoinHandle<()>>,
 }
 impl Fixture {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let endpoint = format!("http://{}/", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
@@ -107,6 +108,9 @@ impl Fixture {
             &OperationCancellation::default(),
         )
         .unwrap()
+    }
+    pub(crate) fn endpoint(&self) -> RemoteEndpoint {
+        RemoteEndpoint::new(&self.endpoint, TOKEN).unwrap()
     }
     fn recognition_count(&self) -> usize {
         self.requests
@@ -373,6 +377,151 @@ fn oversized_response_is_rejected_before_reading_the_body() {
         .kind,
         RemoteErrorKind::InvalidResponse
     );
+}
+
+#[test]
+fn repeated_remote_ensure_reuses_connection_but_configuration_changes_replace_it() {
+    let server = Fixture::new();
+    let engine = crate::SttEngine::default();
+    let cancel = OperationCancellation::default();
+    engine
+        .ensure_remote_loaded(server.endpoint(), &model(), &cancel)
+        .unwrap();
+    let generation = engine.gpu_residency().generation;
+    for _ in 0..3 {
+        engine
+            .ensure_remote_loaded(server.endpoint(), &model(), &cancel)
+            .unwrap();
+    }
+    assert_eq!(server.requests.lock().unwrap().len(), 2);
+    assert_eq!(engine.gpu_residency().generation, generation);
+    let changed_token = RemoteEndpoint::new(&server.endpoint, "different-test-token").unwrap();
+    engine
+        .ensure_remote_loaded(changed_token, &model(), &cancel)
+        .unwrap();
+    assert_eq!(server.requests.lock().unwrap().len(), 4);
+    assert!(engine.gpu_residency().generation > generation);
+    let changed_deadline = server
+        .endpoint()
+        .with_timeouts(RemoteTimeouts {
+            response_base: Duration::from_secs(6),
+            ..Default::default()
+        })
+        .unwrap();
+    engine
+        .ensure_remote_loaded(changed_deadline, &model(), &cancel)
+        .unwrap();
+    assert_eq!(server.requests.lock().unwrap().len(), 6);
+}
+
+#[test]
+fn failed_or_pre_cancelled_replacement_keeps_previous_remote_usable() {
+    let server = Fixture::new();
+    let other = Fixture::new();
+    let engine = crate::SttEngine::default();
+    engine
+        .ensure_remote_loaded(
+            server.endpoint(),
+            &model(),
+            &OperationCancellation::default(),
+        )
+        .unwrap();
+    let generation = engine.gpu_residency().generation;
+    other.metadata.lock().unwrap().1["data"] = json!([]);
+    assert!(engine
+        .ensure_remote_loaded(
+            other.endpoint(),
+            &model(),
+            &OperationCancellation::default()
+        )
+        .is_err());
+    let cancel = OperationCancellation::default();
+    cancel.cancel();
+    assert!(matches!(
+        engine.ensure_remote_loaded(other.endpoint(), &model(), &cancel),
+        Err(AppError::Cancelled(_))
+    ));
+    assert_eq!(engine.gpu_residency().generation, generation);
+    assert!(engine.is_remote());
+    assert!(matches!(
+        engine.readiness(),
+        crate::SttReadiness::Ready { .. }
+    ));
+    assert_eq!(
+        engine.transcribe(&[0; 160], "en").unwrap().text,
+        "fixture transcript"
+    );
+    assert_eq!(other.recognition_count(), 0);
+}
+
+#[test]
+fn active_remote_operation_blocks_source_change_without_cancelling_work() {
+    let server = Fixture::new();
+    let other = Fixture::new();
+    let engine = Arc::new(crate::SttEngine::default());
+    let cancellation = OperationCancellation::default();
+    engine
+        .ensure_remote_loaded(server.endpoint(), &model(), &cancellation)
+        .unwrap();
+    *server.mode.lock().unwrap() = Mode::Hang;
+    let (owned, token) = (engine.clone(), cancellation.clone());
+    let work = thread::spawn(move || owned.transcribe_cancellable(&[0; 160], "en", token));
+    server.wait_recognition(1);
+    // Exact ensures are harmless during an operation; replacements are not.
+    engine
+        .ensure_remote_loaded(
+            server.endpoint(),
+            &model(),
+            &OperationCancellation::default(),
+        )
+        .unwrap();
+    assert!(matches!(
+        engine.ensure_remote_loaded(
+            other.endpoint(),
+            &model(),
+            &OperationCancellation::default()
+        ),
+        Err(AppError::Busy(_))
+    ));
+    assert!(other.requests.lock().unwrap().is_empty());
+    assert!(matches!(
+        engine.clear_remote_if_idle(),
+        Err(AppError::Busy(_))
+    ));
+    assert!(!cancellation.is_cancelled());
+    cancellation.cancel();
+    assert!(matches!(work.join().unwrap(), Err(AppError::Cancelled(_))));
+    engine
+        .ensure_remote_loaded(
+            other.endpoint(),
+            &model(),
+            &OperationCancellation::default(),
+        )
+        .unwrap();
+    assert!(engine.is_remote());
+}
+
+#[test]
+fn returning_to_unconfigured_local_source_clears_the_remote_route() {
+    let server = Fixture::new();
+    let engine = crate::SttEngine::default();
+    engine
+        .ensure_remote_loaded(
+            server.endpoint(),
+            &model(),
+            &OperationCancellation::default(),
+        )
+        .unwrap();
+    engine.clear_remote_if_idle().unwrap();
+    assert!(!engine.is_remote());
+    assert!(!engine.is_loaded());
+    assert_eq!(engine.model(), None);
+    assert!(matches!(engine.readiness(), crate::SttReadiness::Unloaded));
+    assert!(matches!(
+        engine.transcribe(&[0; 160], "en"),
+        Err(AppError::ModelNotLoaded)
+    ));
+    engine.clear_remote_if_idle().unwrap();
 }
 
 #[test]

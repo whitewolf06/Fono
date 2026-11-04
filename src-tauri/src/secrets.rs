@@ -9,6 +9,10 @@ fn isolated_test_profile() -> bool {
 const LLM_API_KEY_TARGET: &str = "Fono/llm-api-key";
 const LLM_PROFILE_API_KEY_PREFIX: &str = "Fono/llm-profile/";
 
+pub(crate) fn load_stt_server_token() -> AppResult<Option<String>> {
+    load_secret("Fono/stt-server-token")
+}
+
 pub fn load_llm_profile_api_key(profile_id: &str) -> AppResult<Option<String>> {
     load_secret(&profile_secret_target(profile_id)?)
 }

@@ -8,6 +8,57 @@ const CLEANUP_TEST_BOUND: Duration = Duration::from_secs(5);
 const SHUTDOWN_ACK: &str =
     "echo {\"type\":\"shutting_down\",\"protocol_version\":4,\"request_id\":\"shutdown-3\"}";
 
+#[test]
+fn source_switch_waits_for_confirmed_worker_cleanup_before_publishing_remote() {
+    let fixture = WorkerFixture::create(":hang\r\ngoto hang");
+    let model_path = fixture.directory.join("ggml-small.bin");
+    fs::write(&model_path, b"protocol fixture, not neural weights").unwrap();
+    let selection = SttModelSelection::from_whisper_path(model_path.to_string_lossy().into_owned());
+    let paths = crate::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None);
+    let engine = crate::SttEngine::default();
+    let cancellation = OperationCancellation::default();
+    engine
+        .ensure_model_loaded_with_paths(
+            &selection,
+            crate::types::AccelerationMode::Cuda,
+            &paths,
+            &cancellation,
+        )
+        .unwrap();
+    let child = match &*engine.state.lock() {
+        crate::EngineState::Worker { session, .. } => session.child.clone(),
+        _ => panic!("expected protocol fixture"),
+    };
+    child.force_kill_fail.store(true, Ordering::Release);
+    let reset = ResetForcedKillFailure(child.clone());
+    let server = crate::remote::tests::Fixture::new();
+    let remote_model = ModelId {
+        engine: crate::types::SttEngine::Whisper,
+        variant: "tiny".into(),
+    };
+    assert!(matches!(
+        engine.ensure_remote_loaded(server.endpoint(), &remote_model, &cancellation),
+        Err(AppError::Busy(_))
+    ));
+    assert!(!engine.is_remote());
+    assert!(engine.gpu_residency().cleanup_pending);
+    assert!(!matches!(
+        engine.readiness(),
+        crate::SttReadiness::Ready { .. }
+    ));
+    assert!(matches!(
+        engine.ensure_remote_loaded(server.endpoint(), &remote_model, &cancellation),
+        Err(AppError::Busy(_))
+    ));
+    drop(reset);
+    wait_for_confirmed_cleanup(&child, &engine.cleanup);
+    engine
+        .ensure_remote_loaded(server.endpoint(), &remote_model, &cancellation)
+        .unwrap();
+    assert!(engine.is_remote());
+    assert!(!engine.gpu_residency().cleanup_pending);
+}
+
 struct ResetForcedKillFailure(Arc<WorkerChild>);
 
 impl Drop for ResetForcedKillFailure {

@@ -74,6 +74,7 @@ pub struct SttEngine {
     environment: SttEnvironment,
     state: Mutex<EngineState>,
     load_gate: Mutex<()>,
+    source_gate: parking_lot::RwLock<()>,
     readiness: Mutex<SttReadiness>,
     readiness_observer: Mutex<Option<SttReadinessObserver>>,
     generation: std::sync::atomic::AtomicU64,
@@ -81,6 +82,10 @@ pub struct SttEngine {
     recovery: Arc<recovery::RecoveryControl>,
     #[cfg(test)]
     before_recovery_arm: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
+}
+
+fn source_change_busy() -> AppError {
+    AppError::Busy("STT source cannot change while work is active".into())
 }
 
 impl SttEngine {
@@ -91,6 +96,7 @@ impl SttEngine {
             environment,
             state: Mutex::new(EngineState::Empty),
             load_gate: Mutex::new(()),
+            source_gate: parking_lot::RwLock::new(()),
             readiness: Mutex::new(SttReadiness::Unloaded),
             readiness_observer: Mutex::new(observer.clone()),
             generation: std::sync::atomic::AtomicU64::new(0),
@@ -123,6 +129,7 @@ impl SttEngine {
         cancellation: &OperationCancellation,
         decoding: fono_types::DecodingOptions,
     ) -> AppResult<WindowTranscript> {
+        let _source = self.source_gate.try_read().ok_or_else(source_change_busy)?;
         crate::segmented_transcription::transcribe_segments(
             samples,
             segments,
@@ -209,6 +216,19 @@ impl SttEngine {
         validate_model_selection(model)?;
         let model_path = Path::new(&model.local_path);
         let _activity = self.environment.activity.lease()?;
+        let _load_gate = self.load_gate.lock();
+        let _source_change = if self.is_remote() {
+            let guard = self
+                .source_gate
+                .try_write()
+                .ok_or_else(source_change_busy)?;
+            if !residency::idle_for_pool(&self.state.lock()) {
+                return Err(source_change_busy());
+            }
+            Some(guard)
+        } else {
+            None
+        };
         if self.cleanup.is_pending() {
             return Err(worker_cleanup_busy());
         }
@@ -258,7 +278,6 @@ impl SttEngine {
         // Serialize replacements separately, but do not hold the routing lock:
         // ongoing transcription and device/status reads keep using the previous
         // engine until the replacement is fully prepared.
-        let _load_gate = self.load_gate.lock();
         recognizer::check_cancellation(cancellation)?;
         if valid.is_some_and(|fence| !(fence.valid)(fence.generation)) {
             return Err(AppError::Cancelled(
@@ -480,6 +499,7 @@ impl SttEngine {
         decoding: fono_stt_protocol::DecodingOptions,
         glossary: &[String],
     ) -> AppResult<Transcript> {
+        let _source = self.source_gate.try_read().ok_or_else(source_change_busy)?;
         decoding.validate().map_err(AppError::Config)?;
         if self.cleanup.is_pending() {
             return Err(worker_cleanup_busy());

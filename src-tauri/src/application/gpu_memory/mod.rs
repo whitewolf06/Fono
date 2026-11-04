@@ -5,11 +5,17 @@ mod runtime;
 #[cfg(windows)]
 mod windows;
 
-use crate::{pipeline::Pipeline, state::AppState, types::GpuModelResidency};
+use crate::{
+    pipeline::Pipeline,
+    state::AppState,
+    types::{GpuModelResidency, SttSource},
+};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::{sync::atomic::AtomicBool, time::Instant};
 use tauri::{AppHandle, Manager};
+
+const REMOTE_SOURCE_MESSAGE: &str = "Выбран сервер Fono. Локальная STT-модель не используется.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -96,16 +102,8 @@ pub(crate) fn status(app: &AppHandle) -> SttMemoryStatus {
     let settings = app.state::<AppState>().settings();
     let pipeline = app.state::<Pipeline>();
     let gpu = pipeline.stt().gpu_residency();
-    if gpu.cleanup_pending {
-        return SttMemoryStatus {
-            mode: settings.gpu_model_residency,
-            residency: Residency::Active,
-            monitoring: Monitoring::Disabled,
-            message: "Завершаем процесс распознавания. Загрузка новой модели пока недоступна."
-                .into(),
-            used_bytes: None,
-            total_bytes: None,
-        };
+    if let Some(status) = source_status(settings.stt_source, settings.gpu_model_residency, &gpu) {
+        return status;
     }
     let cpu = settings.acceleration == crate::types::AccelerationMode::Cpu
         || (gpu.loaded && !gpu.resident);
@@ -132,7 +130,7 @@ pub(crate) fn status(app: &AppHandle) -> SttMemoryStatus {
         used_bytes: None,
         total_bytes: None,
     };
-    if settings.gpu_model_residency == GpuModelResidency::Adaptive && !cpu {
+    if adaptive_monitoring(settings.stt_source, settings.gpu_model_residency, cpu) {
         #[cfg(windows)]
         {
             let state = app.state::<SttMemoryRuntime>();
@@ -158,6 +156,44 @@ pub(crate) fn status(app: &AppHandle) -> SttMemoryStatus {
         }
     }
     result
+}
+
+fn adaptive_monitoring(source: SttSource, mode: GpuModelResidency, cpu: bool) -> bool {
+    source == SttSource::Local && mode == GpuModelResidency::Adaptive && !cpu
+}
+
+/// Source selection must not reuse a stale PDH sample or hide pending native
+/// cleanup. Residency still describes actual retained local GPU resources.
+fn source_status(
+    source: SttSource,
+    mode: GpuModelResidency,
+    gpu: &crate::stt::GpuResidency,
+) -> Option<SttMemoryStatus> {
+    let (residency, message) = if gpu.cleanup_pending {
+        (
+            Residency::Active,
+            "Завершаем процесс распознавания. Загрузка новой модели пока недоступна.",
+        )
+    } else if source != SttSource::Local {
+        if gpu.resident {
+            (
+                Residency::Active,
+                "Выбран сервер Fono. Локальная STT-модель ещё занимает видеопамять.",
+            )
+        } else {
+            (Residency::Unloaded, REMOTE_SOURCE_MESSAGE)
+        }
+    } else {
+        return None;
+    };
+    Some(SttMemoryStatus {
+        mode,
+        residency,
+        monitoring: Monitoring::Disabled,
+        message: message.into(),
+        used_bytes: None,
+        total_bytes: None,
+    })
 }
 
 fn idle_message(
@@ -223,5 +259,55 @@ mod tests {
         let message = idle_message(false, true, true, &failed);
         assert!(message.contains("Не удалось подготовить"));
         assert!(!message.contains("private path"));
+    }
+
+    #[test]
+    fn remote_source_disables_monitoring_and_omits_stale_memory_samples() {
+        let gpu = crate::stt::GpuResidency {
+            loaded: true,
+            resident: false,
+            exclusive: false,
+            generation: 9,
+            cleanup_pending: false,
+        };
+        for mode in [GpuModelResidency::Resident, GpuModelResidency::Adaptive] {
+            assert!(!adaptive_monitoring(SttSource::FonoServer, mode, false));
+            let status = source_status(SttSource::FonoServer, mode, &gpu).unwrap();
+            assert_eq!(status.residency, Residency::Unloaded);
+            assert_eq!(status.monitoring, Monitoring::Disabled);
+            assert_eq!(status.message, REMOTE_SOURCE_MESSAGE);
+            let encoded = serde_json::to_value(status).unwrap();
+            assert!(encoded.get("usedBytes").is_none());
+            assert!(encoded.get("totalBytes").is_none());
+        }
+        assert!(source_status(SttSource::Local, GpuModelResidency::Adaptive, &gpu).is_none());
+        assert!(adaptive_monitoring(
+            SttSource::Local,
+            GpuModelResidency::Adaptive,
+            false
+        ));
+    }
+
+    #[test]
+    fn pending_cleanup_and_retained_local_gpu_are_not_hidden_by_remote_selection() {
+        let mut gpu = crate::stt::GpuResidency {
+            loaded: true,
+            resident: true,
+            exclusive: false,
+            generation: 9,
+            cleanup_pending: true,
+        };
+        for source in [SttSource::Local, SttSource::FonoServer] {
+            let status = source_status(source, GpuModelResidency::Adaptive, &gpu).unwrap();
+            assert_eq!(status.residency, Residency::Active);
+            assert_eq!(status.monitoring, Monitoring::Disabled);
+            assert!(status.message.contains("Завершаем процесс"));
+        }
+        gpu.cleanup_pending = false;
+        let status =
+            source_status(SttSource::FonoServer, GpuModelResidency::Adaptive, &gpu).unwrap();
+        assert_eq!(status.residency, Residency::Active);
+        assert!(status.message.contains("ещё занимает"));
+        assert!(status.used_bytes.is_none() && status.total_bytes.is_none());
     }
 }

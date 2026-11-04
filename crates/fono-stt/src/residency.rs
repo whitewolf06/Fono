@@ -30,7 +30,7 @@ fn resident_gpu(state: &EngineState) -> (bool, bool) {
     }
 }
 
-fn idle_for_pool(state: &EngineState) -> bool {
+pub(super) fn idle_for_pool(state: &EngineState) -> bool {
     match state {
         EngineState::Empty => true,
         EngineState::Remote { client } => exclusive(client) && client.is_idle(),

@@ -11,13 +11,13 @@ pub struct OverlayRecognitionCapability {
 
 impl Settings {
     pub fn overlay_recognition_capability(&self) -> OverlayRecognitionCapability {
-        let (options, fixed_language) = match self.selected_stt_model() {
+        let (options, fixed_language) = match self.recognition_model_id() {
             Some(model)
-                if model.id.engine == SttEngine::Whisper && model.id.whisper_artifact().is_ok() =>
+                if model.engine == SttEngine::Whisper && model.whisper_artifact().is_ok() =>
             {
                 (vec!["ru".into(), "en".into(), "auto".into()], None)
             }
-            Some(model) => match crate::stt::offline_models::specification(&model.id) {
+            Some(model) => match crate::stt::offline_models::specification(&model) {
                 Ok(spec) => (
                     Vec::new(),
                     Some(if spec.languages.len() == 1 {
@@ -41,6 +41,37 @@ impl Settings {
 mod tests {
     use super::*;
     use crate::types::{ModelId, SttModelSelection};
+
+    #[test]
+    fn overlay_reads_the_active_source_model_and_preserves_the_dormant_local_choice() {
+        let settings = Settings {
+            whisper_model_path: Some("PRIVATE_DIRECTORY/custom.bin".into()),
+            stt_source: crate::types::SttSource::FonoServer,
+            remote_stt: Some(crate::types::RemoteSttSettings {
+                url: "https://PRIVATE_SERVER.invalid".into(),
+                model: ModelId {
+                    engine: SttEngine::Whisper,
+                    variant: "small".into(),
+                },
+                ca_pem: None,
+            }),
+            ..Settings::default()
+        };
+        let capability = settings.overlay_recognition_capability();
+        assert_eq!(capability.options, ["ru", "en", "auto"]);
+        assert!(!serde_json::to_string(&capability)
+            .unwrap()
+            .contains("PRIVATE"));
+        let local = Settings {
+            stt_source: crate::types::SttSource::Local,
+            ..settings
+        };
+        assert_eq!(
+            local.whisper_model_path.as_deref(),
+            Some("PRIVATE_DIRECTORY/custom.bin")
+        );
+        assert!(local.overlay_recognition_capability().options.is_empty());
+    }
 
     #[test]
     fn overlay_uses_backend_capability_without_paths_or_forced_offline_languages() {

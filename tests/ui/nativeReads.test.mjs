@@ -63,6 +63,40 @@ after(async () => {
   delete globalThis.window;
 });
 
+test("unrelated preference saves retain the remote source and dormant local selection", async () => {
+  const raw = structuredClone(rawDefaults);
+  raw.stt_source = "fono_server";
+  raw.remote_stt = {
+    url: "http://127.0.0.1:17833",
+    model: { engine: "whisper", variant: "large_turbo" },
+  };
+  raw.stt_model = {
+    id: { engine: "whisper", variant: "tiny" },
+    local_path: "D:/models/ggml-tiny.bin",
+  };
+  raw.whisper_model_path = raw.stt_model.local_path;
+  let saved;
+  const baseline = invoke;
+  invoke = async (name, args) => {
+    if (name === "get_settings") return structuredClone(raw);
+    if (name === "save_settings") saved = args.settings;
+    if (name === "list_audio_devices" || name === "get_dictation_history")
+      return [];
+    if (name === "get_stt_memory_status") return gpu("unloaded");
+    if (name === "get_selected_model_metadata") return null;
+    return baseline(name, args);
+  };
+  const target = state();
+  const context = createContext(target);
+  await context.save({ recordingSoundsEnabled: true });
+  assert.equal(saved.recording_sounds_enabled, true);
+  assert.equal(saved.stt_source, "fono_server");
+  assert.deepEqual(saved.remote_stt, raw.remote_stt);
+  assert.deepEqual(saved.stt_model, raw.stt_model);
+  assert.equal(saved.whisper_model_path, raw.whisper_model_path);
+  context.dispose();
+});
+
 test("desktop startup waits for native setup with one subscription and one read", async () => {
   let ready,
     released = 0,

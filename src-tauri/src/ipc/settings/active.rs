@@ -9,6 +9,8 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
         || previous.audio_device_id != next.audio_device_id
         || previous.whisper_model_path != next.whisper_model_path
         || previous.stt_model != next.stt_model
+        || previous.stt_source != next.stt_source
+        || previous.remote_stt != next.remote_stt
         || previous.language != next.language
         || previous.whisper_decoding != next.whisper_decoding
         || previous.whisper_threads != next.whisper_threads
@@ -40,6 +42,24 @@ pub(super) fn validate(active: bool, previous: &Settings, next: &Settings) -> Ap
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_and_connection_changes_are_fenced_by_active_operations() {
+        let previous = Settings::default();
+        let mut next = previous.clone();
+        next.stt_source = crate::types::SttSource::FonoServer;
+        assert!(validate(true, &previous, &next).is_err());
+        assert!(validate(false, &previous, &next).is_ok());
+        assert!(validate(true, &next, &previous).is_err());
+        let mut updated = next.clone();
+        updated.remote_stt = Some(crate::types::RemoteSttSettings {
+            url: "http://127.0.0.1:17833".into(),
+            model: crate::types::ModelId::whisper(crate::types::WhisperModelSize::Small),
+            ca_pem: None,
+        });
+        assert!(validate(true, &next, &updated).is_err());
+        assert!(validate(false, &next, &updated).is_ok());
+    }
 
     #[test]
     fn pretranscription_can_change_only_between_operations() {

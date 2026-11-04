@@ -50,7 +50,7 @@ pub struct DictationHistoryMetadata {
     pub backend: Option<DictationBackend>,
     #[serde(default)]
     pub recognizer: Option<super::SttEngine>,
-    /// File name only. The user's path is never stored in session metadata.
+    /// Local file name or remote public model ID, never the user's path or URL.
     #[serde(default)]
     pub model: Option<String>,
     pub requested_acceleration: AccelerationMode,
@@ -84,18 +84,26 @@ impl DictationHistoryMetadata {
         timings: DictationTimingMeasurements,
     ) -> Self {
         let selection = settings.selected_stt_model();
-        let recognizer = selection.as_ref().map(|m| m.id.engine);
-        let model = selection.as_ref().map(|m| {
-            if m.id.engine == super::SttEngine::Whisper {
-                m.local_path
-                    .rsplit(['/', '\\'])
-                    .next()
-                    .unwrap_or("")
-                    .to_owned()
-            } else {
-                m.id.public_id()
-            }
-        });
+        let active_model = settings.recognition_model_id();
+        let recognizer = active_model.as_ref().map(|model| model.engine);
+        let model = if settings.stt_source == super::SttSource::FonoServer {
+            active_model.map(|model| match model.engine {
+                super::SttEngine::Whisper => format!("whisper:{}", model.variant),
+                _ => model.public_id(),
+            })
+        } else {
+            selection.as_ref().map(|m| {
+                if m.id.engine == super::SttEngine::Whisper {
+                    m.local_path
+                        .rsplit(['/', '\\'])
+                        .next()
+                        .unwrap_or("")
+                        .to_owned()
+                } else {
+                    m.id.public_id()
+                }
+            })
+        };
         Self {
             schema_version: 1,
             application_context: None,
@@ -138,6 +146,35 @@ fn seconds_to_ms(seconds: Option<f32>) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn remote_history_uses_the_session_remote_model_without_exposing_dormant_local_paths_or_endpoint(
+    ) {
+        let settings = Settings {
+            whisper_model_path: Some("PRIVATE_DIRECTORY/ggml-small.bin".into()),
+            stt_source: super::super::SttSource::FonoServer,
+            remote_stt: Some(super::super::RemoteSttSettings {
+                url: "https://PRIVATE_SERVER.invalid".into(),
+                model: super::super::ModelId {
+                    engine: super::super::SttEngine::Whisper,
+                    variant: "large_turbo".into(),
+                },
+                ca_pem: None,
+            }),
+            ..Settings::default()
+        };
+        let result = Transcript {
+            device: Some("remote:cuda:0".into()),
+            ..transcript()
+        };
+        let metadata =
+            DictationHistoryMetadata::from_result(&settings, &result, Default::default());
+        assert_eq!(metadata.recognizer, Some(super::super::SttEngine::Whisper));
+        assert_eq!(metadata.model.as_deref(), Some("whisper:large_turbo"));
+        assert!(metadata.backend.is_none());
+        let json = serde_json::to_string(&metadata).unwrap();
+        assert!(!json.contains("PRIVATE"));
+        assert!(!json.contains("ggml-small.bin"));
+    }
     #[cfg(feature = "offline-stt")]
     #[test]
     fn offline_metadata_uses_session_identity_and_actual_device_without_package_path() {
