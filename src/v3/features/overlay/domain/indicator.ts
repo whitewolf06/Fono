@@ -14,6 +14,7 @@ export interface IndicatorChoice {
 }
 /** Presentation state shared by the real adapter and browser preview. */
 export interface IndicatorState extends IndicatorChoice {
+  recovery?: import("../../../shared/domain/recovery").RecoveryDictation | null;
   recognition?: import("../../../shared/domain/recognition").OverlayRecognitionCapability;
   phase: IndicatorPhase;
   sessionId: number;
@@ -24,5 +25,6 @@ export interface IndicatorState extends IndicatorChoice {
   insertionBlocked?: boolean;
   copying: boolean;
   status?: string;
+  wrapStatus?: boolean;
   applicationProfile?: string | null;
 }

@@ -143,6 +143,7 @@ mod tests {
             DictationOutcome::NoSpeech,
             DictationOutcome::Cancelled,
             DictationOutcome::Superseded,
+            DictationOutcome::RecoveryPending,
             DictationOutcome::Deferred(crate::types::Transcript {
                 text: "ожидает решения".into(),
                 detected_language: None,
@@ -186,6 +187,30 @@ mod tests {
         assert!(matches!(
             wait(gate.existing(4).unwrap()).await.unwrap(),
             DictationOutcome::NoSpeech
+        ));
+    }
+
+    #[tokio::test]
+    async fn recovery_cannot_overtake_the_original_stop_settlement() {
+        let gate = CompletionGate::default();
+        let FinishClaim::Owner(ticket) = gate.claim(12).unwrap() else {
+            panic!()
+        };
+        let receiver = gate.existing(12).unwrap();
+        let entered = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let retry_entered = entered.clone();
+        let retry = tokio::spawn(async move {
+            let _ = wait(receiver).await;
+            retry_entered.store(true, std::sync::atomic::Ordering::Release);
+        });
+        tokio::task::yield_now().await;
+        assert!(!entered.load(std::sync::atomic::Ordering::Acquire));
+        ticket.complete(&Ok(DictationOutcome::RecoveryPending));
+        retry.await.unwrap();
+        assert!(entered.load(std::sync::atomic::Ordering::Acquire));
+        assert!(matches!(
+            wait(gate.existing(12).unwrap()).await.unwrap(),
+            DictationOutcome::RecoveryPending
         ));
     }
 }

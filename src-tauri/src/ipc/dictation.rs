@@ -146,6 +146,14 @@ pub async fn resolve_pending_dictation(
 }
 
 #[tauri::command]
+pub async fn resolve_recovery_dictation(
+    app: AppHandle,
+    request: crate::application::dictation::recovery::RecoveryRequest,
+) -> AppResult<DictationOutcome> {
+    crate::application::dictation::recovery::resolve(app, request).await
+}
+
+#[tauri::command]
 pub async fn update_overlay_processing_choice(
     app: AppHandle,
     request: crate::application::dictation::workflow::OverlayProcessingChoiceRequest,

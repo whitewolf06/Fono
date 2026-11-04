@@ -137,6 +137,7 @@
     var(--fono-wave-height-max)
   );
 }
+.record-area:has(.recovery-actions),
 .record-area:has(.dictation-notice),
 .record-area:has(.pending-actions) {
   container-type: inline-size;

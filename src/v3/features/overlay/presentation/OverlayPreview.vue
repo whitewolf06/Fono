@@ -24,12 +24,19 @@ import {
   type OverlayRecognitionCapability,
 } from "../../../shared/domain/recognition";
 import OverlayIndicator from "./OverlayIndicator.vue";
+import {
+  recoveryTitle,
+  type RecoveryDictation,
+  type RecoveryRequest,
+} from "../../../shared/domain/recovery";
 const props = withDefaults(
   defineProps<{
     preferences: Preferences;
     phase?: Phase;
     sessionId?: number | null;
     remoteCheck?: RemoteCheckSnapshot | null;
+    remoteFallback?: "none" | "ask" | "local" | null;
+    recovery?: RecoveryDictation | null;
     outcome?: DictationOutcomeKind;
     level?: number;
     seconds?: number;
@@ -54,6 +61,7 @@ const emit = defineEmits<{
   resume: [];
   resolve: [request: PendingDictationRequest];
   copy: [text: string];
+  recover: [request: RecoveryRequest];
   processingChange: [choice: OverlayProcessingChoice];
   helpChange: [open: boolean];
 }>();
@@ -75,32 +83,45 @@ const choice = computed<OverlayProcessingChoice>(
 );
 const indicator = computed<IndicatorState>(() => {
   const pending = props.pending;
+  const recovery =
+    props.recovery?.session_id === props.sessionId ? props.recovery : null;
   const error = props.processingError || pending?.error || props.error || "";
   const serverStatus = !pending
-    ? remoteCheckStatus(props.remoteCheck, props.sessionId, props.phase)
+    ? remoteCheckStatus(
+        props.remoteCheck,
+        props.sessionId,
+        props.phase,
+        props.remoteFallback,
+      )
     : undefined;
   const silenceStatus =
     props.phase === "silence" && !pending
       ? uiMessage("ui.237038a7be", { v0: String(props.seconds) })
       : undefined;
-  const phase = pending
-    ? pending.phase === "processing"
-      ? "processing"
-      : error
-        ? "error"
-        : "ready"
-    : props.outcome === "no_speech" || props.outcome === "superseded"
-      ? "closed"
-      : ["listening", "silence", "idle"].includes(props.phase)
-        ? "recording"
-        : props.phase === "transcribing"
-          ? "transcribing"
-          : props.phase === "processing"
-            ? "processing"
-            : props.phase === "error"
-              ? "error"
-              : "closed";
+  const phase = recovery
+    ? recovery.phase === "recognizing"
+      ? "transcribing"
+      : "error"
+    : pending
+      ? pending.phase === "processing"
+        ? "processing"
+        : error
+          ? "error"
+          : "ready"
+      : props.outcome === "no_speech" || props.outcome === "superseded"
+        ? "closed"
+        : ["listening", "silence", "idle"].includes(props.phase)
+          ? "recording"
+          : props.phase === "transcribing"
+            ? "transcribing"
+            : props.phase === "processing"
+              ? "processing"
+              : props.phase === "error"
+                ? "error"
+                : "closed";
   return {
+    recovery,
+    wrapStatus: !!serverStatus || !!recovery,
     applicationProfile: props.applicationProfile,
     phase,
     sessionId: pending?.sessionId ?? props.sessionId ?? 0,
@@ -110,8 +131,9 @@ const indicator = computed<IndicatorState>(() => {
     error,
     insertionBlocked: pending?.insertionBlocked ?? false,
     copying: props.copying ?? false,
-    status:
-      props.outcome === "no_speech"
+    status: recovery
+      ? recoveryTitle(recovery)
+      : props.outcome === "no_speech"
         ? message("dictation.noSpeech")
         : [serverStatus, silenceStatus].filter(Boolean).join(" · ") ||
           undefined,
@@ -177,6 +199,7 @@ function choose(patch: Partial<IndicatorChoice>) {
       @cancel="emit('cancel')"
       @close="emit('cancel')"
       @copy="emit('copy', indicator.result)"
+      @recover="(request) => emit('recover', request)"
       @choose="choose"
       @retry="
         pending &&

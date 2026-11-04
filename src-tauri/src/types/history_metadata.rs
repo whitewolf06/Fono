@@ -26,6 +26,9 @@ impl DictationBackend {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DictationHistoryMetadata {
     pub schema_version: u16,
+    /// True only when this session actually succeeded using the local reserve.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fallback: bool,
     /// Separate opt-in from speech analytics. Never transmitted to an LLM/API.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub application_context: Option<super::ApplicationContext>,
@@ -106,6 +109,7 @@ impl DictationHistoryMetadata {
         };
         Self {
             schema_version: 1,
+            fallback: settings.stt_fallback,
             application_context: None,
             speech_timing: (settings.analytics_enabled && settings.speech_trainer_enabled)
                 .then_some(timings.speech_timing)
@@ -147,6 +151,24 @@ fn seconds_to_ms(seconds: Option<f32>) -> Option<u64> {
 mod tests {
     use super::*;
     #[test]
+    fn fallback_is_an_actual_session_fact_and_old_history_defaults_to_false() {
+        let settings = Settings {
+            stt_fallback: true,
+            acceleration: AccelerationMode::Cpu,
+            whisper_model_path: Some("PRIVATE/ggml-tiny.bin".into()),
+            ..Settings::default()
+        };
+        let metadata =
+            DictationHistoryMetadata::from_result(&settings, &transcript(), Default::default());
+        assert!(metadata.fallback);
+        assert_eq!(metadata.model.as_deref(), Some("ggml-tiny.bin"));
+        assert_eq!(metadata.requested_acceleration, AccelerationMode::Cpu);
+        let mut json = serde_json::to_value(metadata).unwrap();
+        json.as_object_mut().unwrap().remove("fallback");
+        let legacy: DictationHistoryMetadata = serde_json::from_value(json).unwrap();
+        assert!(!legacy.fallback);
+    }
+    #[test]
     fn remote_history_uses_the_session_remote_model_without_exposing_dormant_local_paths_or_endpoint(
     ) {
         let settings = Settings {
@@ -159,6 +181,7 @@ mod tests {
                     variant: "large_turbo".into(),
                 },
                 ca_pem: None,
+                fallback: Default::default(),
             }),
             ..Settings::default()
         };

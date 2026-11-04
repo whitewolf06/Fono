@@ -11,6 +11,7 @@ mod outcome;
 mod postprocess;
 mod processing_test;
 mod recognition;
+pub(crate) mod recovery;
 mod remote_check;
 #[cfg(feature = "speech-vad")]
 mod segment_completion;

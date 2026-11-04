@@ -26,6 +26,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     #[cfg(feature = "experimental-live")]
     app.manage(crate::application::live_dictation::LiveController::default());
     app.manage(crate::application::dictation::workflow::Runtime::default());
+    app.manage(crate::application::dictation::recovery::Runtime::default());
     app.manage(crate::application::dictation::ProcessingCaptureRuntime::default());
     app.manage(crate::application::dictation::wake_sample::Runtime::default());
     app.manage(crate::application::wake_lira::Runtime::default());
@@ -188,6 +189,7 @@ pub(crate) fn shutdown(app: &tauri::AppHandle) {
             events::emit_operation(app, event);
         }
     }
+    crate::application::dictation::recovery::shutdown(app);
     injection::shutdown();
     #[cfg(feature = "wake-word")]
     if let Some(wake) = app.try_state::<WakeWordHandle>() {

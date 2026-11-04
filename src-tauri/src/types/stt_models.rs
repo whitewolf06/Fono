@@ -54,6 +54,16 @@ impl Settings {
         {
             return Err(AppError::Config("Invalid remote model identifier".into()));
         }
+        if let super::RemoteFallback::Local(model) = &remote.fallback {
+            validate_stt_selection(&SttModelSelection {
+                id: model.clone(),
+                local_path: if model.engine == SttEngine::Whisper && model.variant != "custom" {
+                    model.whisper_artifact()?.filename
+                } else {
+                    "fallback-model".into()
+                },
+            })?;
+        }
         Ok(())
     }
     pub fn selected_stt_model(&self) -> Option<SttModelSelection> {
@@ -139,6 +149,7 @@ mod tests {
             url: "http://127.0.0.1:17833".into(),
             model: ModelId::whisper(WhisperModelSize::Tiny),
             ca_pem: None,
+            fallback: Default::default(),
         });
         settings.stt_source = super::super::SttSource::FonoServer;
         settings.validate_stt_preferences().unwrap();
@@ -172,6 +183,7 @@ mod tests {
             url: "http://127.0.0.1:17833".into(),
             model: ModelId::whisper(WhisperModelSize::Tiny),
             ca_pem: None,
+            fallback: Default::default(),
         });
         assert!(settings.validate_stt_preferences().is_ok());
         settings.remote_stt.as_mut().unwrap().url = "http://192.168.1.8:17832".into();

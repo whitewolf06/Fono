@@ -2168,5 +2168,20 @@
   "remoteCheck.unauthorized": "Server rejected the token",
   "remoteCheck.notConfigured": "Server connection is not configured",
   "remoteCheck.invalidResponse": "Could not check the server",
-  "remoteCheck.unavailable": "Server is unavailable"
+  "remoteCheck.unavailable": "Server is unavailable",
+  "recovery.recognizing": "Recognizing saved recording…",
+  "recovery.chooseSource": "Where should this recording be recognized?",
+  "recovery.serverFailed": "Server could not recognize the recording",
+  "recovery.serverUnavailable": "Server is unavailable",
+  "recovery.localFailed": "Local recognition failed",
+  "recovery.retained": "The recording stays in Fono memory until a result or cancellation. Choose what to do next.",
+  "recovery.localMissing": "A local model is not configured or installed. You can retry the server.",
+  "recovery.retry": "Retry on server",
+  "recovery.local": "Recognize locally",
+  "recovery.cancel": "Cancel dictation",
+  "recovery.actions": "Saved recording actions",
+  "recovery.historyTitle": "Recognition source",
+  "recovery.historyFallback": "Fallback · local CPU",
+  "remoteCheck.localFallback": "Server is not ready · will try local CPU fallback",
+  "remoteCheck.askFallback": "Server is not ready · choose recognition after recording"
 }

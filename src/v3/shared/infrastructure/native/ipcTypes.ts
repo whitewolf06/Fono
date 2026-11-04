@@ -131,7 +131,12 @@ export interface Settings {
   whisper_model_path: string | null;
   stt_model?: SttModelSelection | null;
   stt_source?: "local" | "fono_server";
-  remote_stt?: { url: string; model: ModelId; ca_pem?: string | null } | null;
+  remote_stt?: {
+    url: string;
+    model: ModelId;
+    ca_pem?: string | null;
+    fallback?: "none" | "ask" | { local: ModelId };
+  } | null;
   /** Язык распознавания ("auto", "ru", "en", ...) */
   language: string;
   /** Optional local final-text replacements, never applied to raw transcripts. */
@@ -485,6 +490,7 @@ export interface DictationHistoryEntry {
 }
 
 export interface DictationHistoryMetadata {
+  fallback?: boolean;
   application_context?:
     | import("../../../features/history/domain/applicationContext").ApplicationContext
     | null;

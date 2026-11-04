@@ -133,6 +133,9 @@ export function createNativeWorkspace(): Workspace {
   bind<PendingDictation | null>("pending-dictation", (value) => {
     if (visibility.visible()) dictation.pending(value);
   });
+  bind("recovery-dictation", () => {
+    if (visibility.visible()) dictation.recovery();
+  });
   if (
     typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
     __FONO_EXPERIMENTAL_LIVE__

@@ -1345,3 +1345,115 @@ test("native layout ignores invalid renderer measurements and retains its static
     globalThis.document = previousDocument;
   }
 });
+
+test("retained recording offers server retry, local fallback and cancel without text processing controls", async () => {
+  const recovery = {
+    session_id: 81,
+    phase: "awaiting_action",
+    reason: "server_failed",
+    audio_secs: 12,
+    local_available: true,
+  };
+  const html = await renderToString(
+    createSSRApp({
+      render: () =>
+        h(OverlayPreview, {
+          preferences: defaults,
+          sessionId: 81,
+          phase: "awaiting_action",
+          recovery,
+          interactive: true,
+        }),
+    }),
+  );
+  assert.match(html, /Повторить на сервере/);
+  assert.match(html, /Распознать локально/);
+  assert.match(html, /Отменить диктовку/);
+  assert.match(html, /Запись остаётся в памяти/);
+  assert.doesNotMatch(html, /overlay-indicator-toggles/);
+  const busy = await renderToString(
+    createSSRApp({
+      render: () =>
+        h(OverlayPreview, {
+          preferences: defaults,
+          sessionId: 81,
+          phase: "transcribing",
+          recovery: { ...recovery, phase: "recognizing" },
+          interactive: true,
+        }),
+    }),
+  );
+  assert.match(busy, /Распознаю сохранённую запись/);
+  assert.equal((busy.match(/<button[^>]* disabled/g) || []).length, 2);
+  const old = await renderToString(
+    createSSRApp({
+      render: () =>
+        h(OverlayPreview, {
+          preferences: defaults,
+          sessionId: 82,
+          phase: "listening",
+          recovery,
+          interactive: true,
+        }),
+    }),
+  );
+  assert.doesNotMatch(old, /recovery-actions/);
+});
+
+test("native overlay hydrates retained PCM and does not revive it from a late event after cancel", async () => {
+  const baseline = invoke;
+  let snapshot = {
+    state: "awaiting_action",
+    operation_id: 91,
+    source: "hotkey",
+    level: 0,
+    last: null,
+    recovery: {
+      session_id: 91,
+      phase: "awaiting_action",
+      reason: "choose_source",
+      audio_secs: 8,
+      local_available: false,
+    },
+  };
+  invoke = async (name, args) => {
+    if (name === "get_desktop_snapshot") return structuredClone(snapshot);
+    if (name === "resolve_recovery_dictation") {
+      snapshot = {
+        state: "idle",
+        operation_id: 0,
+        source: null,
+        level: 0,
+        last: null,
+        recovery: null,
+        outcome: { operation_id: 91, outcome: "cancelled" },
+      };
+      return { kind: "cancelled" };
+    }
+    return baseline(name, args);
+  };
+  const overlay = createNativeOverlay();
+  try {
+    await flush();
+    await flush();
+    assert.equal(overlay.state.recovery.session_id, 91);
+    assert.equal(overlay.state.phase, "awaiting_action");
+    await overlay.recover({ session_id: 91, action: "cancel" });
+    assert.equal(overlay.state.recovery, null);
+    assert.equal(overlay.state.phase, "cancelled");
+    listeners.get("recovery-dictation")?.({
+      payload: {
+        session_id: 90,
+        phase: "recognizing",
+        reason: "server_failed",
+        audio_secs: 8,
+        local_available: true,
+      },
+    });
+    await flush();
+    assert.equal(overlay.state.recovery, null);
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});

@@ -19,6 +19,7 @@ import { copyPendingText } from "../application/copyPendingText";
 import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
 import { dictationNotice } from "../../../shared/domain/dictationNotice";
 import { message } from "../../../shared/domain/messages";
+import RecoveryDictationActions from "../../../shared/presentation/RecoveryDictationActions.vue";
 const liveCompiled =
   typeof __FONO_EXPERIMENTAL_LIVE__ !== "undefined" &&
   __FONO_EXPERIMENTAL_LIVE__;
@@ -29,6 +30,7 @@ const LiveRecordingStatus =
     : null;
 const { run } = useFeedback();
 const workspace = useWorkspace();
+const recovery = computed(() => workspace.state.recoveryDictation);
 const pending = computed(() => {
   const value = workspace.state.pendingDictation;
   return value
@@ -76,12 +78,20 @@ async function copyPending(text: string, sessionId: number) {
 <template>
   <section class="record-area" :aria-label="$t('ui.7a38a67834')">
     <VoiceWave
-      v-if="!pending && !notice"
+      v-if="!pending && !notice && !recovery"
       :phase="workspace.state.phase"
       :level="workspace.state.audioLevel"
     />
+    <RecoveryDictationActions
+      v-if="recovery"
+      :recovery="recovery"
+      show-title
+      @resolve="
+        (request) => run(() => workspace.dictation.resolveRecovery?.(request))
+      "
+    />
     <PendingDictationActions
-      v-if="pending"
+      v-else-if="pending"
       :pending="pending"
       @resolve="
         (request) => run(() => workspace.dictation.resolvePending(request))
@@ -89,7 +99,7 @@ async function copyPending(text: string, sessionId: number) {
       @copy="copyPending"
     />
     <DictationNotice v-else-if="notice" :notice="notice" />
-    <div v-if="!pending" class="record-controls">
+    <div v-if="!pending && !recovery" class="record-controls">
       <span class="record-status" role="status" v-if="!notice"
         >{{ status
         }}<span v-if="recording" class="mono"

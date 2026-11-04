@@ -22,6 +22,8 @@ import DictationNotice from "../../../shared/presentation/DictationNotice.vue";
 import OverlayIndicatorToggles from "./OverlayIndicatorToggles.vue";
 import OverlayIndicatorHelp from "./OverlayIndicatorHelp.vue";
 import { recognitionOptions } from "../../../shared/domain/recognition";
+import RecoveryDictationActions from "../../../shared/presentation/RecoveryDictationActions.vue";
+import type { RecoveryRequest } from "../../../shared/domain/recovery";
 const props = withDefaults(
   defineProps<{
     state: IndicatorState;
@@ -43,6 +45,7 @@ const emit = defineEmits<{
   choose: [patch: Partial<IndicatorChoice>];
   panelChange: [open: boolean];
   retry: [];
+  recover: [request: RecoveryRequest];
 }>();
 const panel = ref<"help" | "processing" | "translation" | "recognition" | null>(
   null,
@@ -140,19 +143,22 @@ watch(recording, (value) => {
           >{{ $t("ui.db7ceb8f20") }} {{ state.applicationProfile }}</small
         >
         <div class="overlay-indicator-status">
-          <strong :title="status">{{ status }}</strong
+          <strong
+            :title="status"
+            :class="{ 'wrap-status': state.wrapStatus }"
+            >{{ status }}</strong
           ><small>{{ clock }}</small>
         </div>
         <p v-if="ready" class="overlay-indicator-result" :title="state.result">
           {{ state.result }}
         </p>
         <VoiceWave
-          v-else-if="!notice"
+          v-else-if="!notice && !state.recovery"
           :phase="wavePhase[state.phase]"
           :level="state.level"
         />
       </div>
-      <div class="overlay-indicator-right">
+      <div v-if="!state.recovery" class="overlay-indicator-right">
         <div v-if="quick" class="overlay-indicator-settings">
           <button
             v-if="state.recognition?.options.length"
@@ -253,7 +259,12 @@ watch(recording, (value) => {
         </div>
       </div>
     </div>
-    <DictationNotice v-if="notice" :notice="notice" :show-title="false" />
+    <RecoveryDictationActions
+      v-if="state.recovery"
+      :recovery="state.recovery"
+      @resolve="(request) => emit('recover', request)"
+    />
+    <DictationNotice v-else-if="notice" :notice="notice" :show-title="false" />
     <div v-if="panel" :id="panelId" class="overlay-indicator-panel">
       <OverlayIndicatorHelp
         v-if="panel === 'help'"

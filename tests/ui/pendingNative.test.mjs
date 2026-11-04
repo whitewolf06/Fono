@@ -5,6 +5,8 @@ import { createServer } from "vite";
 let server,
   nativeDictation,
   createPendingOverlay,
+  createRecoveryActions,
+  isRecoveryDictation,
   isBackendEventV1,
   defaults,
   invoke,
@@ -18,6 +20,12 @@ before(async () => {
     configFile: "vite.config.ts",
     server: { hmr: false, middlewareMode: true },
   });
+  ({ createRecoveryActions } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/recovery.ts",
+  ));
+  ({ isRecoveryDictation } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/recovery.ts",
+  ));
   ({ nativeDictation } = await server.ssrLoadModule(
     "/src/v3/shared/infrastructure/native/dictation.ts",
   ));
@@ -467,4 +475,154 @@ test("late processing failure after explicit cancellation is not surfaced again"
   assert.equal(state.pendingDictation, null);
   processing.reject(new Error("Request cancelled"));
   await assert.doesNotReject(work);
+});
+
+const recovery = (id = 41, patch = {}) => ({
+  session_id: id,
+  phase: "awaiting_action",
+  reason: "server_failed",
+  audio_secs: 12,
+  local_available: true,
+  ...patch,
+});
+const recoveryDesktop = (id = 41, patch = {}) => ({
+  operation_id: id,
+  state: "awaiting_action",
+  source: "hotkey",
+  level: 0,
+  last: null,
+  recovery: recovery(id),
+  ...patch,
+});
+test("recovery accepts only a bounded recording and known operation-scoped states", () => {
+  assert.equal(isRecoveryDictation(recovery()), true);
+  for (const patch of [
+    { session_id: 0 },
+    { session_id: 1.5 },
+    { audio_secs: NaN },
+    { audio_secs: 301 },
+    { audio_secs: 0 },
+    { reason: "raw error" },
+    { phase: "ready" },
+    { local_available: "true" },
+  ])
+    assert.equal(isRecoveryDictation(recovery(41, patch)), false);
+});
+test("retry is single-flight, Cancel remains available, and late success cannot undo it", async () => {
+  let current = recovery(),
+    op = 41;
+  const retry = deferred();
+  const outcomes = [];
+  invoke = async (name, args) => {
+    calls.push([name, args]);
+    return args.request.action === "cancel"
+      ? { kind: "cancelled" }
+      : retry.promise;
+  };
+  const resolve = createRecoveryActions({
+    current: () => current,
+    operation: () => op,
+    recognizing: (v) => {
+      current = v;
+    },
+    invalidate() {},
+    refresh: async () => {},
+    outcome: (id, value) => outcomes.push([id, value.kind]),
+  });
+  const first = resolve({ session_id: 41, action: "retry" });
+  await resolve({ session_id: 41, action: "retry" });
+  await resolve({ session_id: 41, action: "recognize_local" });
+  assert.equal(calls.length, 1);
+  await resolve({ session_id: 41, action: "cancel" });
+  retry.resolve({ kind: "completed", transcript: { text: "old" } });
+  await first;
+  assert.deepEqual(outcomes, [[41, "cancelled"]]);
+});
+test("a superseded recovery rejects neither into the successor nor into its result", async () => {
+  let current = recovery(),
+    op = 41;
+  const pending = deferred();
+  const outcomes = [];
+  invoke = () => pending.promise;
+  const resolve = createRecoveryActions({
+    current: () => current,
+    operation: () => op,
+    recognizing: (v) => {
+      current = v;
+    },
+    invalidate() {},
+    refresh: async () => {},
+    outcome: (...v) => outcomes.push(v),
+  });
+  const first = resolve({ session_id: 41, action: "recognize_local" });
+  current = recovery(42);
+  op = 42;
+  pending.reject(new Error("old failure"));
+  await first;
+  assert.deepEqual(outcomes, []);
+  assert.equal(current.session_id, 42);
+});
+test("main window restores retained audio with overlay disabled and never fabricates a transcript", async () => {
+  const state = {
+    preferences: { ...defaults, overlayEnabled: false },
+    phase: "idle",
+    last: {
+      entry: null,
+      variant: "result",
+      draft: "",
+      edited: false,
+      undo: null,
+    },
+    elapsed: 0,
+    audioLevel: 0,
+    error: "",
+    testSignal: 0,
+  };
+  const adapter = nativeDictation({
+    state,
+    readHistory: async () => {},
+    report: (error) => {
+      throw error;
+    },
+  });
+  adapter.snapshot(recoveryDesktop());
+  assert.equal(state.phase, "awaiting_action");
+  assert.equal(state.recoveryDictation.session_id, 41);
+  assert.equal(state.last.entry, null);
+  let value = recoveryDesktop();
+  const request = deferred();
+  invoke = async (name, args) => {
+    calls.push([name, args]);
+    if (name === "resolve_recovery_dictation") return request.promise;
+    if (name === "get_desktop_snapshot") return value;
+    return null;
+  };
+  const attempt = adapter.port.resolveRecovery({
+    session_id: 41,
+    action: "retry",
+  });
+  assert.equal(state.recoveryDictation.phase, "recognizing");
+  await adapter.port.resolveRecovery({ session_id: 41, action: "retry" });
+  assert.equal(
+    calls.filter(([name]) => name === "resolve_recovery_dictation").length,
+    1,
+  );
+  request.resolve({ kind: "recovery_pending" });
+  await attempt;
+  assert.equal(state.recoveryDictation.phase, "awaiting_action");
+  assert.equal(state.last.entry, null);
+  adapter.snapshot(recoveryDesktop(42));
+  adapter.snapshot(recoveryDesktop());
+  assert.equal(state.recoveryDictation.session_id, 42);
+  value = recoveryDesktop(42, {
+    state: "idle",
+    operation_id: 0,
+    recovery: null,
+    outcome: { operation_id: 42, outcome: "cancelled" },
+  });
+  adapter.recovery();
+  await new Promise((yes) => setImmediate(yes));
+  assert.equal(state.recoveryDictation, null);
+  assert.equal(state.phase, "cancelled");
+  adapter.dispose();
 });

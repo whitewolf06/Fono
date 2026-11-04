@@ -56,6 +56,7 @@ mod tests {
             url: "http://127.0.0.1:17833".into(),
             model: crate::types::ModelId::whisper(crate::types::WhisperModelSize::Small),
             ca_pem: None,
+            fallback: Default::default(),
         });
         assert!(validate(true, &next, &updated).is_err());
         assert!(validate(false, &next, &updated).is_ok());

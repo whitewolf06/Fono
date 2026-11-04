@@ -8,6 +8,8 @@ import type { DictationPort, Phase } from "../../domain/contracts";
 import type { DictationOutcomeEvent } from "../../domain/dictationOutcome";
 import type { PretranscriptionStatus } from "../../domain/pretranscription";
 import { call } from "./ipc";
+import { isRecoveryDictation } from "../../domain/recovery";
+import { createRecoveryActions } from "./recovery";
 import { createNativeSessionSync } from "./sessionSync";
 import { createNativeResultObserver } from "./sessionResult";
 import {
@@ -28,6 +30,7 @@ export type {
 } from "./dictationContracts";
 export function nativeDictation(ctx: NativeContext) {
   const { state } = ctx;
+  let disposed = false;
   let revision = 0;
   let started = 0;
   let currentOperation = -1;
@@ -64,6 +67,7 @@ export function nativeDictation(ctx: NativeContext) {
       state.phase = value.outcome === "cancelled" ? "cancelled" : "idle";
       state.error = "";
       state.audioLevel = 0;
+      state.recoveryDictation = null;
       if (
         state.pendingDictation &&
         state.pendingDictation.sessionId <= value.operation_id
@@ -142,6 +146,17 @@ export function nativeDictation(ctx: NativeContext) {
   }
   function snapshot(value: NativeSnapshot) {
     if (value.operation_id > 0 && value.operation_id < currentOperation) return;
+    state.recoveryDictation =
+      isRecoveryDictation(value.recovery) &&
+      value.recovery.session_id === value.operation_id &&
+      !(
+        value.outcome?.operation_id === value.operation_id &&
+        ["completed", "no_speech", "cancelled", "superseded"].includes(
+          value.outcome.outcome,
+        )
+      )
+        ? value.recovery
+        : null;
     if (value.pretranscription?.operation_id === value.operation_id)
       state.pretranscription = value.pretranscription;
     if (
@@ -187,6 +202,16 @@ export function nativeDictation(ctx: NativeContext) {
       state.phase = state.pendingDictation.phase;
       return;
     }
+    if (state.recoveryDictation) {
+      state.phase =
+        state.recoveryDictation.phase === "recognizing"
+          ? "transcribing"
+          : "awaiting_action";
+      state.elapsed = state.recoveryDictation.audio_secs;
+      state.audioLevel = 0;
+      state.error = "";
+      return;
+    }
     if (state.live && state.preferences.dictationMode === "live") return;
     state.recordingSource = value.source || undefined;
     if (value.source !== "wake_word")
@@ -221,6 +246,19 @@ export function nativeDictation(ctx: NativeContext) {
       outcome(value.outcome);
   }
   const port: DictationPort = {
+    resolveRecovery: createRecoveryActions({
+      disposed: () => disposed,
+      current: () => state.recoveryDictation,
+      operation: () => currentOperation,
+      recognizing: (value) => {
+        state.recoveryDictation = value;
+        state.phase = "transcribing";
+      },
+      invalidate: sync.invalidate,
+      refresh: sync.refresh,
+      outcome: (operation_id, result) =>
+        outcome({ operation_id, outcome: result.kind }),
+    }),
     async resolvePending(request) {
       if (state.pendingDictation?.sessionId !== request.sessionId) return;
       if (resolving.has(request.sessionId) && request.action !== "cancel")
@@ -349,7 +387,10 @@ export function nativeDictation(ctx: NativeContext) {
   }
   return {
     port,
-    dispose: () => sync.invalidate(),
+    dispose: () => {
+      disposed = true;
+      sync.invalidate();
+    },
     refresh: sync.refresh,
     accept: observe(accept),
     snapshot: observe(snapshot),
@@ -400,6 +441,10 @@ export function nativeDictation(ctx: NativeContext) {
       if (value) pending(value);
       // A nullable event carries no session id; confirm against native state.
       else void sync.refresh().catch(ctx.report);
+    },
+    recovery() {
+      sync.invalidate();
+      void sync.refresh().catch(ctx.report);
     },
   };
 }

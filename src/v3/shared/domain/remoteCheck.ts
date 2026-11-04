@@ -59,6 +59,7 @@ export function remoteCheckStatus(
   check: RemoteCheckSnapshot | null | undefined,
   operation: number | null | undefined,
   phase: Phase,
+  fallback?: "none" | "ask" | "local" | null,
 ): string | undefined {
   if (
     !isRemoteCheckSnapshot(check) ||
@@ -66,6 +67,14 @@ export function remoteCheckStatus(
     !["listening", "silence"].includes(phase)
   )
     return undefined;
+  if (
+    ["starting", "stopping", "model_not_ready", "unavailable"].includes(
+      check.state,
+    )
+  ) {
+    if (fallback === "local") return message("remoteCheck.localFallback");
+    if (fallback === "ask") return message("remoteCheck.askFallback");
+  }
   switch (check.state) {
     case "checking":
       return message("remoteCheck.checking");

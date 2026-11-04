@@ -28,6 +28,7 @@ mod history;
 mod models;
 mod overlay_recognition;
 mod processing;
+mod remote_fallback;
 mod settings;
 mod stt_models;
 mod triggers;

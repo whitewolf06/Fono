@@ -58,8 +58,16 @@ pub(super) async fn run_measured(
     samples: Vec<i16>,
     report: Option<&crate::application::diagnostic_report::telemetry::ReportTrace>,
 ) -> AppResult<Option<Transcript>> {
+    run_shared_measured(session, std::sync::Arc::new(samples), report).await
+}
+
+/// A recovery attempt borrows the exact retained recording instead of copying PCM.
+pub(super) async fn run_shared_measured(
+    session: &Session,
+    samples: std::sync::Arc<Vec<i16>>,
+    report: Option<&crate::application::diagnostic_report::telemetry::ReportTrace>,
+) -> AppResult<Option<Transcript>> {
     use crate::application::diagnostic_report::telemetry::ReportStage;
-    let samples = std::sync::Arc::new(samples);
     #[cfg(feature = "speech-vad")]
     {
         let _timer = report.map(|trace| trace.stage(ReportStage::Recognition));
@@ -189,5 +197,48 @@ mod tests {
         assert!(result.unwrap().is_none());
         assert!(!entered_before_release);
         assert!(entered.load(Ordering::Acquire));
+    }
+
+    #[tokio::test]
+    async fn cancellation_retires_the_waiter_but_pcm_and_physical_lease_survive_until_worker_exit()
+    {
+        struct PhysicalLease(Arc<AtomicBool>);
+        impl Drop for PhysicalLease {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::Release);
+            }
+        }
+        let dropped = Arc::new(AtomicBool::new(false));
+        let lease = PhysicalLease(dropped.clone());
+        let samples = Arc::new(vec![5_i16, 8, 13]);
+        let physical_samples = samples.clone();
+        let weak_samples = Arc::downgrade(&samples);
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
+        let task = tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
+            let _ = started_tx.send(());
+            let _ = release_rx.recv();
+            assert_eq!(physical_samples.as_slice(), &[5_i16, 8, 13]);
+            drop(physical_samples);
+            drop(_lease);
+            let _ = finished_tx.send(());
+            Ok(())
+        });
+        started_rx.await.unwrap();
+        let cancellation = OperationCancellation::default();
+        cancellation.cancel();
+        assert!(await_task(task, cancellation, "retained remote PCM")
+            .await
+            .unwrap()
+            .is_none());
+        drop(samples);
+        assert!(weak_samples.upgrade().is_some());
+        assert!(!dropped.load(Ordering::Acquire));
+        release_tx.send(()).unwrap();
+        finished_rx.await.unwrap();
+        assert!(weak_samples.upgrade().is_none());
+        assert!(dropped.load(Ordering::Acquire));
     }
 }

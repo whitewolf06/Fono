@@ -75,6 +75,11 @@ export function dictationFacts(
       value: m?.model || uiMessage("ui.bf2a878be5"),
     },
   ];
+  if (m?.fallback)
+    facts.push({
+      title: uiMessage("recovery.historyTitle"),
+      value: uiMessage("recovery.historyFallback"),
+    });
   if (m?.requestedAcceleration)
     facts.push({
       get title() {

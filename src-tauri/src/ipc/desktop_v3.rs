@@ -118,6 +118,8 @@ pub struct DesktopSnapshot {
     pretranscription: crate::pipeline::pretranscription::Status,
     auto_stop: crate::pipeline::auto_stop::Status,
     remote_check: Option<crate::pipeline::remote_check::RemoteCheckSnapshot>,
+    recovery: Option<crate::application::dictation::recovery::RecoverySnapshot>,
+    remote_fallback: Option<&'static str>,
     state: PipelineState,
     level: f32,
     last: Option<LastDictation>,
@@ -152,6 +154,20 @@ pub fn get_desktop_snapshot(app: AppHandle) -> DesktopSnapshot {
         remote_check: operation
             .as_ref()
             .and_then(|operation| pipeline.remote_check_for(operation.id)),
+        recovery: crate::application::dictation::recovery::snapshot(&app).filter(|recovery| {
+            operation
+                .as_ref()
+                .is_some_and(|operation| operation.id == recovery.session_id)
+        }),
+        remote_fallback: session_settings
+            .as_ref()
+            .filter(|settings| settings.stt_source == SttSource::FonoServer)
+            .and_then(|settings| settings.remote_stt.as_ref())
+            .map(|remote| match remote.fallback {
+                RemoteFallback::None => "none",
+                RemoteFallback::Ask => "ask",
+                RemoteFallback::Local(_) => "local",
+            }),
         state: Pipeline::project_state(operation.as_ref()),
         level: pipeline.current_level().clamp(0.0, 1.0),
         last: app.state::<DesktopSession>().last.lock().clone(),

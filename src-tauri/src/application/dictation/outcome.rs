@@ -8,6 +8,7 @@ use serde::Serialize;
 pub enum DictationOutcome {
     Completed(Transcript),
     Deferred(Transcript),
+    RecoveryPending,
     NoSpeech,
     Cancelled,
     Superseded,
@@ -18,6 +19,7 @@ pub enum DictationOutcome {
 pub enum DictationOutcomeKind {
     Completed,
     Deferred,
+    RecoveryPending,
     NoSpeech,
     Cancelled,
     Superseded,
@@ -28,6 +30,7 @@ impl DictationOutcome {
         match self {
             Self::Completed(_) => DictationOutcomeKind::Completed,
             Self::Deferred(_) => DictationOutcomeKind::Deferred,
+            Self::RecoveryPending => DictationOutcomeKind::RecoveryPending,
             Self::NoSpeech => DictationOutcomeKind::NoSpeech,
             Self::Cancelled => DictationOutcomeKind::Cancelled,
             Self::Superseded => DictationOutcomeKind::Superseded,
@@ -37,7 +40,9 @@ impl DictationOutcome {
     pub(crate) fn terminal_reason(&self) -> TerminalReason {
         match self {
             Self::Cancelled | Self::Superseded => TerminalReason::Cancelled,
-            Self::Completed(_) | Self::Deferred(_) | Self::NoSpeech => TerminalReason::Completed,
+            Self::Completed(_) | Self::Deferred(_) | Self::RecoveryPending | Self::NoSpeech => {
+                TerminalReason::Completed
+            }
         }
     }
 
@@ -73,6 +78,7 @@ mod tests {
                 "deferred",
             ),
             (DictationOutcome::NoSpeech, "no_speech"),
+            (DictationOutcome::RecoveryPending, "recovery_pending"),
             (DictationOutcome::Cancelled, "cancelled"),
             (DictationOutcome::Superseded, "superseded"),
         ] {

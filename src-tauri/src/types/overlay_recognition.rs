@@ -54,6 +54,7 @@ mod tests {
                     variant: "small".into(),
                 },
                 ca_pem: None,
+                fallback: Default::default(),
             }),
             ..Settings::default()
         };

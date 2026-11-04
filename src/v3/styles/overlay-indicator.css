@@ -108,6 +108,11 @@
   color: var(--fono-muted);
   font-variant-numeric: tabular-nums;
 }
+.overlay-indicator-status .wrap-status {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
 .overlay-indicator-summary > .voice-wave {
   width: var(--fono-overlay-wave-width);
   min-width: 0;

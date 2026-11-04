@@ -129,7 +129,7 @@ async fn stop_once(
     copy_only: bool,
     receipt: super::SettlementReceipt,
 ) -> AppResult<DictationOutcome> {
-    let mut session = match Session::current(app, operation) {
+    let session = match Session::current(app, operation) {
         Ok(session) => session,
         Err(crate::error::AppError::Cancelled(_)) => {
             return Ok(DictationOutcome::interrupted(
@@ -147,6 +147,17 @@ async fn stop_once(
         capture::CapturedSamples::Finished(outcome) => return Ok(outcome),
     };
     report.captured(diagnostic.captured_samples().unwrap_or(samples.len()));
+    if session.settings.stt_source == crate::types::SttSource::FonoServer {
+        return super::recovery::start(
+            session,
+            samples,
+            diagnostic,
+            report.clone(),
+            copy_only,
+            receipt,
+        )
+        .await;
+    }
     let transcript = match recognition::run_measured(&session, samples, Some(report)).await {
         Ok(Some(transcript)) => transcript,
         Ok(None) => {
@@ -159,6 +170,19 @@ async fn stop_once(
             return Err(error);
         }
     };
+    complete_transcript(session, transcript, diagnostic, report, copy_only, receipt).await
+}
+
+pub(super) async fn complete_transcript(
+    mut session: Session,
+    transcript: Transcript,
+    mut diagnostic: DictationTailDiagnostic,
+    report: &Arc<ReportTrace>,
+    copy_only: bool,
+    receipt: super::SettlementReceipt,
+) -> AppResult<DictationOutcome> {
+    let app = &session.app.clone();
+    let operation = session.operation;
     diagnostic.stt_succeeded(!transcript.text.trim().is_empty());
     tracing::info!(
         "transcript ready ({} chars)",

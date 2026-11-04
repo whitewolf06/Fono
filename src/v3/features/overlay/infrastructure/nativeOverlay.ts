@@ -1,5 +1,10 @@
 import { reactive } from "vue";
 import {
+  isRecoveryDictation,
+  type RecoveryDictation,
+} from "../../../shared/domain/recovery";
+import { createRecoveryActions } from "../../../shared/infrastructure/native/recovery";
+import {
   isRemoteCheckSnapshot,
   type RemoteCheckSnapshot,
 } from "../../../shared/domain/remoteCheck";
@@ -53,6 +58,8 @@ export function createNativeOverlay() {
     preview: null as Preview | null,
     sessionId: null as number | null,
     remoteCheck: null as RemoteCheckSnapshot | null,
+    remoteFallback: null as "none" | "ask" | "local" | null,
+    recovery: null as RecoveryDictation | null,
     processingChoice: null as OverlayProcessingChoice | null,
     sessionChoice: null as OverlayProcessingChoice | null,
     recognition: {
@@ -90,6 +97,8 @@ export function createNativeOverlay() {
       state.error = "";
       state.level = 0;
       state.remoteCheck = null;
+      state.remoteFallback = null;
+      state.recovery = null;
     }
   }
   const releases: (() => void)[] = [];
@@ -225,6 +234,10 @@ export function createNativeOverlay() {
   )
     bind<NativeLiveSnapshot>("dictation-live", applyLive);
   bind<PendingDictation | null>("pending-dictation", pending.apply);
+  bind<RecoveryDictation | null>("recovery-dictation", () => {
+    sessionRevision++;
+    void refreshSession().catch(fail);
+  });
   bind<Preview | null>("overlay-preview", hydration.previewChanged);
   if (typeof __FONO_WAKE_WORD__ !== "undefined" && __FONO_WAKE_WORD__)
     bind<{ remaining_ms: number; speaking: boolean }>(
@@ -268,6 +281,23 @@ export function createNativeOverlay() {
       if (v.operation_id > 0 && v.operation_id < operation) return;
       if (!pending.current(ticket)) return;
       state.sessionId = v.operation_id > 0 ? v.operation_id : null;
+      state.remoteFallback =
+        v.remote_fallback === "local" ||
+        v.remote_fallback === "ask" ||
+        v.remote_fallback === "none"
+          ? v.remote_fallback
+          : null;
+      state.recovery =
+        isRecoveryDictation(v.recovery) &&
+        v.recovery.session_id === v.operation_id &&
+        !(
+          v.outcome?.operation_id === v.operation_id &&
+          ["completed", "no_speech", "cancelled", "superseded"].includes(
+            v.outcome.outcome,
+          )
+        )
+          ? v.recovery
+          : null;
       state.remoteCheck =
         isRemoteCheckSnapshot(v.remote_check) &&
         v.remote_check.operation_id === v.operation_id
@@ -294,6 +324,17 @@ export function createNativeOverlay() {
         outcome(v.outcome);
       if (state.pending) {
         operation = Math.max(operation, state.pending.sessionId);
+        applySettings();
+        return;
+      }
+      if (state.recovery) {
+        operation = Math.max(operation, state.recovery.session_id);
+        state.phase =
+          state.recovery.phase === "recognizing"
+            ? "transcribing"
+            : "awaiting_action";
+        state.error = "";
+        state.elapsed = state.recovery.audio_secs;
         applySettings();
         return;
       }
@@ -395,6 +436,21 @@ export function createNativeOverlay() {
       .load(readiness)
       .then(() => refreshSession(false))
       .catch(fail);
+  const recover = createRecoveryActions({
+    current: () => state.recovery,
+    operation: () => state.sessionId || operation,
+    recognizing: (value) => {
+      state.recovery = value;
+      state.phase = "transcribing";
+    },
+    invalidate: () => {
+      sessionRevision++;
+    },
+    refresh: () => refreshSession(),
+    outcome: (operation_id, result) =>
+      outcome({ operation_id, outcome: result.kind }),
+    disposed: () => disposed,
+  });
   return {
     state,
     selection,
@@ -415,6 +471,8 @@ export function createNativeOverlay() {
     resolve: (request: Parameters<typeof pending.resolve>[0]) =>
       controls.resolve(request, pending.resolve).catch(fail),
     copy: pending.copy,
+    recover: (request: Parameters<typeof recover>[0]) =>
+      recover(request).catch(fail),
     finish: () => {
       const sessionId = state.sessionId;
       return controls
@@ -435,16 +493,18 @@ export function createNativeOverlay() {
     cancel: () => {
       controls.cancel();
       return (
-        state.pending
-          ? pending.resolve({
-              sessionId: state.pending.sessionId,
-              action: "cancel",
-            })
-          : ["idle", "done", "error", "cancelled"].includes(state.phase)
-            ? call("dismiss_dictation_overlay")
-            : state.sessionId !== null && state.sessionId > 0
-              ? call("cancel_dictation", { sessionId: state.sessionId })
-              : Promise.resolve()
+        state.recovery
+          ? recover({ session_id: state.recovery.session_id, action: "cancel" })
+          : state.pending
+            ? pending.resolve({
+                sessionId: state.pending.sessionId,
+                action: "cancel",
+              })
+            : ["idle", "done", "error", "cancelled"].includes(state.phase)
+              ? call("dismiss_dictation_overlay")
+              : state.sessionId !== null && state.sessionId > 0
+                ? call("cancel_dictation", { sessionId: state.sessionId })
+                : Promise.resolve()
       ).catch(fail);
     },
     dispose() {

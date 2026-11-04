@@ -16,6 +16,8 @@ export type NativeDictationOutcome =
   | { kind: "completed" | "deferred"; transcript: Transcript }
   | { kind: Exclude<DictationOutcomeKind, "completed" | "deferred"> };
 export interface NativeSnapshot {
+  recovery?: import("../../domain/recovery").RecoveryDictation | null;
+  remote_fallback?: "none" | "ask" | "local" | null;
   remote_check?: import("../../domain/remoteCheck").RemoteCheckSnapshot | null;
   auto_stop?: import("../../domain/toggleAutoStop").ToggleAutoStopStatus;
   recognition?: import("../../domain/recognition").OverlayRecognitionCapability;

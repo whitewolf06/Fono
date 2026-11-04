@@ -235,6 +235,7 @@ export interface WorkspaceState {
   gpuMemory?: GpuMemoryStatus;
   gpuMemoryError?: string;
   pendingDictation?: PendingDictation | null;
+  recoveryDictation?: import("./recovery").RecoveryDictation | null;
   wakeSetup?: WakeSetupState;
   wakeCapabilities?: WakeCapabilities;
   live?: LiveDictation | null;
@@ -293,6 +294,9 @@ export interface SettingsPort {
   removeProfile(id: string): void;
 }
 export interface DictationPort {
+  resolveRecovery?(
+    request: import("./recovery").RecoveryRequest,
+  ): Promise<void>;
   resolvePending(request: PendingDictationRequest): Promise<void>;
   start(): void;
   finish(): Promise<void>;

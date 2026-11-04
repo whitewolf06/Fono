@@ -23,6 +23,7 @@ export function historyMetadataFromNative(
   const m = entry.metadata;
   if (m)
     return {
+      fallback: m.fallback === true,
       speechTiming:
         entry.analytics_included !== false &&
         entry.original_text &&

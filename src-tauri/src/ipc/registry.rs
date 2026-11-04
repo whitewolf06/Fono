@@ -30,6 +30,7 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::dictation::transcribe_test,
         crate::ipc::dictation::get_pending_dictation,
         crate::ipc::dictation::resolve_pending_dictation,
+        crate::ipc::dictation::resolve_recovery_dictation,
         crate::ipc::dictation::update_overlay_processing_choice,
         crate::ipc::system::get_dictation_history,
         crate::ipc::history_rewrite::get_history_rewrite_context,

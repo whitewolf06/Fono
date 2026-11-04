@@ -1,5 +1,10 @@
 export type DictationOutcomeKind =
-  "completed" | "deferred" | "no_speech" | "cancelled" | "superseded";
+  | "completed"
+  | "deferred"
+  | "recovery_pending"
+  | "no_speech"
+  | "cancelled"
+  | "superseded";
 
 export interface DictationOutcomeEvent {
   operation_id: number;
@@ -14,8 +19,13 @@ export function isDictationOutcomeEvent(
   return (
     Number.isSafeInteger(event.operation_id) &&
     Number(event.operation_id) > 0 &&
-    ["completed", "deferred", "no_speech", "cancelled", "superseded"].includes(
-      String(event.outcome),
-    )
+    [
+      "completed",
+      "deferred",
+      "recovery_pending",
+      "no_speech",
+      "cancelled",
+      "superseded",
+    ].includes(String(event.outcome))
   );
 }

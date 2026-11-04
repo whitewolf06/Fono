@@ -97,4 +97,21 @@ export const ruMessages = {
   "notice.hasTextHint":
     "Текст доступен для копирования. Причина — в подробностях.",
   "notice.otherHint": "Посмотрите причину в подробностях и попробуйте ещё раз.",
+  "recovery.recognizing": "Распознаю сохранённую запись…",
+  "recovery.chooseSource": "Где распознать запись?",
+  "recovery.serverFailed": "Сервер не распознал запись",
+  "recovery.serverUnavailable": "Сервер недоступен",
+  "recovery.localFailed": "Локальное распознавание не удалось",
+  "recovery.retained":
+    "Запись остаётся в памяти Fono до результата или отмены. Выберите, что сделать дальше.",
+  "recovery.localMissing":
+    "Локальная модель не настроена или не установлена. Можно повторить запрос к серверу.",
+  "recovery.retry": "Повторить на сервере",
+  "recovery.local": "Распознать локально",
+  "recovery.cancel": "Отменить диктовку",
+  "recovery.actions": "Действия с сохранённой записью",
+  "recovery.historyTitle": "Источник распознавания",
+  "recovery.historyFallback": "Резерв · локально на CPU",
+  "remoteCheck.localFallback": "Сервер не готов · попробуем резерв на CPU",
+  "remoteCheck.askFallback": "Сервер не готов · после записи будет выбор",
 } as const;

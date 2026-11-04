@@ -58,7 +58,7 @@ pub(crate) fn snapshot(app: &AppHandle) -> Option<PendingDictation> {
     app.state::<Runtime>().store.lock().snapshot()
 }
 pub(crate) fn has_pending(app: &AppHandle) -> bool {
-    app.state::<Runtime>().store.lock().pending.is_some()
+    app.state::<Runtime>().store.lock().pending.is_some() || super::recovery::has_pending(app)
 }
 pub(crate) fn is_busy(app: &AppHandle) -> bool {
     has_pending(app)
@@ -70,6 +70,7 @@ pub(crate) fn retains(app: &AppHandle, operation: u64) -> bool {
         .pending
         .as_ref()
         .is_some_and(|pending| pending.snapshot.session_id == operation)
+        || super::recovery::retains(app, operation)
 }
 
 /// Run before showing the overlay. Captures identity, never field contents.
@@ -232,6 +233,7 @@ pub(super) fn preview_result(app: &AppHandle, operation: u64, text: String) {
 
 /// The caller cancels the operation first, so a late ASR cannot enqueue it again.
 pub(crate) fn cancelled(app: &AppHandle, operation: u64) {
+    super::recovery::cancelled(app, operation);
     let detached = {
         let runtime = app.state::<Runtime>();
         let mut store = runtime.store.lock();

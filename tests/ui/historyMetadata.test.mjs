@@ -101,3 +101,28 @@ test("unknown durations are explicit; zero and exact date seconds are preserved"
     [{ title: "Подготовка модели", value: "0 мс" }],
   );
 });
+
+test("fallback is explicit in history and is never inferred for older entries", () => {
+  const metadata = historyMetadataFromNative({
+    device: "CPU",
+    metadata: {
+      fallback: true,
+      backend: "cpu",
+      model: "gigaam-v3",
+      requested_acceleration: "cpu",
+    },
+  });
+  assert.equal(metadata.fallback, true);
+  assert.deepEqual(
+    dictationFacts({ duration: 1, metadata }).find(
+      (f) => f.title === "Источник распознавания",
+    ),
+    { title: "Источник распознавания", value: "Резерв · локально на CPU" },
+  );
+  assert.equal(
+    dictationFacts({ duration: 1, metadata: { backend: "cpu" } }).some(
+      (f) => f.title === "Источник распознавания",
+    ),
+    false,
+  );
+});

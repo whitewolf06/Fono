@@ -27,7 +27,7 @@ impl ReportOutcome {
         use crate::application::dictation::DictationOutcome;
         match result {
             Ok(DictationOutcome::Completed(_)) => Self::Completed,
-            Ok(DictationOutcome::Deferred(_)) => Self::Deferred,
+            Ok(DictationOutcome::Deferred(_) | DictationOutcome::RecoveryPending) => Self::Deferred,
             Ok(DictationOutcome::NoSpeech) => Self::NoSpeech,
             Ok(DictationOutcome::Cancelled) => Self::Cancelled,
             Ok(DictationOutcome::Superseded) => Self::Superseded,

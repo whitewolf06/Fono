@@ -11,6 +11,16 @@ pub enum SttSource {
     FonoServer,
 }
 
+/// Recovery is opt-in. Existing installations never silently change source.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RemoteFallback {
+    #[default]
+    None,
+    Ask,
+    Local(ModelId),
+}
+
 /// Public connection preferences only. The bearer stays in OS credentials.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -19,6 +29,8 @@ pub struct RemoteSttSettings {
     pub model: ModelId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ca_pem: Option<String>,
+    #[serde(default)]
+    pub fallback: RemoteFallback,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,6 +61,9 @@ pub struct Settings {
     pub stt_source: SttSource,
     #[serde(default)]
     pub remote_stt: Option<RemoteSttSettings>,
+    /// Per-session fact for history; never accepted from IPC or persisted.
+    #[serde(skip)]
+    pub(crate) stt_fallback: bool,
     #[serde(default = "default_language")]
     pub language: String,
     /// Exact local canonical spellings; disabled by default, entries retained.
@@ -227,6 +242,7 @@ impl Default for Settings {
             stt_model: None,
             stt_source: SttSource::Local,
             remote_stt: None,
+            stt_fallback: false,
             language: default_language(),
             personal_dictionary_enabled: false,
             personal_dictionary_llm_enabled: false,

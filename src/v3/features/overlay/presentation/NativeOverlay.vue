@@ -8,6 +8,7 @@ const showSelection = computed(
   () =>
     overlay.selection.state.current &&
     !overlay.state.pending &&
+    !overlay.state.recovery &&
     !["listening", "silence", "transcribing", "processing"].includes(
       overlay.state.phase,
     ),
@@ -45,6 +46,8 @@ onUnmounted(overlay.dispose);
       :phase="phase"
       :session-id="overlay.state.sessionId"
       :remote-check="overlay.state.remoteCheck"
+      :remote-fallback="overlay.state.remoteFallback"
+      :recovery="overlay.state.recovery"
       :outcome="overlay.state.dictationOutcome"
       :level="overlay.state.level"
       :seconds="overlay.state.seconds"
@@ -68,6 +71,7 @@ onUnmounted(overlay.dispose);
       @resume="overlay.resume"
       @resolve="overlay.resolve"
       @copy="overlay.copy"
+      @recover="overlay.recover"
       @processing-change="overlay.chooseProcessing"
       @help-change="overlay.setHelp"
     />

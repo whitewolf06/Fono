@@ -75,9 +75,8 @@ Cancel, abort and terminal completion retire the slot. A late response cannot
 change another capture, its status, PCM, phase or controls.
 
 Readiness failures remain advisory: the recording continues and Stop/Cancel
-remain available. No automatic fallback is claimed or selected (RC-04).
-Recognition makes an authoritative attempt at Stop even if the earlier probe
-failed or timed out. The indicator shows localized status while recording and
+remain available. RC-04 decides whether to ask, attempt the server, or use the
+configured CPU reserve at Stop. The indicator shows localized status while recording and
 keeps the silence countdown. No URL, device name, server error text or bearer
 is copied into the status event or preflight snapshot.
 
@@ -90,6 +89,51 @@ from that older response.
 For an explicit metadata-only Kari check, pass `-` instead of a WAV and add
 `--health-only` to the file-only example below. It reads the existing token file
 without printing its contents and sends just the health request.
+
+## Retained recording and CPU reserve (RC-04)
+
+`remote_stt.fallback` defaults to `"none"` and supports three policies:
+
+- `"none"`: attempt the server. If preparation or recognition fails, keep the
+  recording and offer Retry, Recognize locally and Cancel.
+- `"ask"`: at Stop, ask for the source before sending the recording. Retry
+  explicitly selects the server; Recognize locally selects the CPU reserve.
+- `{ "local": { "engine": "giga_am", "variant": "v3_e2e_rnnt_int8" } }`: use this exact
+  installed model when preflight reports an unavailable server, or after one
+  failed server attempt. A failed local attempt keeps the same recording and
+  offers the explicit actions; it never loops automatically.
+
+The local action uses the model named by the Local policy, or the saved local
+selection for None/Ask. Missing files, unsupported language or a load failure
+leave the recording available for server retry and cancellation. No model is
+downloaded. The reserve loads only when used, always on CPU; saved source,
+local model, GPU acceleration and residency preferences are unchanged. CPU
+weights follow the existing engine lifetime; the GPU residency policy still
+applies only to GPU models. The next server attempt restores the remote route
+through the normal scheduler and source gate.
+
+Only the original operation owns the retained mono 16 kHz PCM, bounded to the
+five-minute recording limit (9.6 MB of samples). Audio is not persisted and is
+lost when Fono exits. The snapshot/event contains duration and typed state,
+never PCM, URLs, tokens or server response text. The pending operation holds
+updater admission and blocks a new recording or source change until resolved.
+Cancellation clears it; physical inference retains its own lease until the
+worker actually finishes. Concurrent retry actions cannot run two attempts.
+
+Retries preserve the frozen processing choices and captured destination.
+Successful recognition rejoins ordinary processing, copy and checked insertion;
+history is created once after the accepted action. CPU reserve results carry
+`metadata.fallback: true` plus the actual local model/backend. Generation time
+continues to mean Stop to final text, including time spent choosing or retrying.
+
+Manual acceptance: configure each policy, then interrupt the server before
+recording, during capture and during upload/recognition. Check the retained
+recording can be retried, recognized locally or cancelled; repeat a failed
+retry and double-click Retry. Move focus to another field before resolving:
+insertion must be blocked and the text must remain available for Copy. Check
+one history entry after success, no entry after Cancel, and no late result in
+the next session. Repeat with the overlay disabled using the main window.
+Automated fixtures do not establish microphone, hotkey or external-field acceptance.
 
 ## Recognition and ownership
 
