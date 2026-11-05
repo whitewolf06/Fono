@@ -35,10 +35,11 @@ and leaves STT unloaded until a local model is selected.
 Remote source disables local model preload/recovery, capture pretranscription
 and adaptive GPU monitoring. A delayed startup preload rechecks the current
 settings under the transaction before loading anything. Standard dictation,
-diagnostics and voice-command transcription use the configured source; capture
-and processing remain on the desktop. Forwarding local API jobs and background
-segments through a remote server belongs to RC-11: those API jobs currently fail
-explicitly in remote mode, and never load a dormant local model.
+trial dictation, voice-command transcription and voice instructions for editing
+selected text use the configured source; capture and processing remain on the
+desktop. File forwarding is RC-08. Forwarding local API jobs is the separate
+RC-09 scope; those API jobs currently fail explicitly in remote mode and never
+load a dormant local model. Sending background capture segments is RC-11.
 
 ## Connection settings (RC-05)
 
@@ -213,6 +214,38 @@ server between sessions and confirm old entries retain their own facts. Check
 older records remain readable. Automated storage, HTTP and rendering tests do
 not establish microphone, hotkey, external insertion or real-window acceptance.
 
+## Scenario routing and acceptance (RC-08)
+
+Ordinary dictation prepares the frozen session's configured recognizer through
+the shared scheduler. Processing-test dictation reuses that recognition path
+without archiving, external insertion or last-session publication. Editing a
+selection by voice reuses the isolated trial capture. Voice commands prepare the
+configured recognizer through their existing interactive scheduler path, then
+keep the existing proposal/confirmation workflow.
+
+Files require server asynchronous batch jobs, with progress, explicit job
+cancellation and real returned subtitle segments. This is a different lifecycle
+from the interactive `/v1/recognize` request: closing a polling HTTP connection
+does not cancel a submitted job. When a job ID is known, cancellation is an
+explicit bounded best-effort request. If submission is accepted but its response
+is lost before the ID arrives, the client cannot identify that job for cleanup;
+inspect the server queue after reconnecting. Automatic resubmission could create
+duplicates and is not a recovery strategy. File support must not implicitly enable
+loopback API forwarding, reactivate a saved local model or turn ordinary-dictation
+CPU reserve into an automatic file fallback. The optional Windows API listener
+is not required for the Files screen.
+
+Lira's wake detector stays in its local worker; the microphone diagnostic test
+only measures local capture. Neither uses remote recognition because Fono Server
+is selected. Enabling the separately approved Lira beta does not open the legacy
+arbitrary wake-phrase gate.
+
+Use the [Windows/server checklist](qa/remote-stt.md) for all seven scenario rows,
+batch priority, cancellation, source return, reserve policies and metadata.
+Automated transport and queue fixtures confirm their own boundaries. Native
+microphone, hotkey, selection, overlay and external-insertion acceptance remains
+an explicit owner check.
+
 ## Recognition and ownership
 
 `RecognitionOptions` specifies language, decoding strategy and glossary. PCM is
@@ -255,6 +288,11 @@ device and nonempty-result metadata, without the token or recognized text.
 cargo run --locked -p fono-stt --no-default-features --example remote-recognize -- `
   http://127.0.0.1:17833 <private-token-file> <public-fixture.wav> whisper:large_turbo
 ```
+
+Append `--batch` to exercise the RC-08 asynchronous file route: WAV multipart
+submission, server job polling and a validated result with any real subtitle
+segments. The same example then reports `batch: true` and `local_stt_used: false`.
+It does not submit a second request to the interactive recognition endpoint.
 
 Contract tests in `fono-stt` use real HTTP listeners for success, endian order,
 metadata gates, auth, overload, deadlines, disconnect, cancellation, response

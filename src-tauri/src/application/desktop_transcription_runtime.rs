@@ -1,5 +1,7 @@
 //! API jobs share inference capacity while capture remains independent.
 
+#[path = "desktop_file_transcription.rs"]
+mod files;
 #[path = "service_windows.rs"]
 mod service_windows;
 
@@ -33,6 +35,15 @@ impl InteractiveActivity for DesktopTranscriptionRuntime {
 
 impl TranscriptionRuntime for DesktopTranscriptionRuntime {
     type Error = AppError;
+
+    fn transcribe_file_with_progress(
+        &self,
+        request: fono_types::TranscriptionRequest,
+        cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> fono_types::TranscriptionServiceResult<fono_types::TranscriptionResult> {
+        files::transcribe(self, request, cancellation, progress)
+    }
 
     fn configured_model(&self) -> AppResult<String> {
         let settings = self.app.state::<AppState>().settings();
@@ -219,7 +230,7 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
 
 fn ensure_local_service_source(settings: &Settings) -> AppResult<()> {
     if settings.stt_source != SttSource::Local {
-        // Forwarding desktop API jobs to Fono Server is RC-11. Never reactivate
+        // Forwarding desktop API jobs to Fono Server is RC-09. Never reactivate
         // a saved local backend as an implicit fallback in the meantime.
         return Err(AppError::Config(
             "Desktop API currently requires the local STT source".into(),

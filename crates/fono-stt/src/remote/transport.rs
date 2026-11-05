@@ -16,7 +16,7 @@ use tokio::{runtime::Runtime, sync::Semaphore};
 use zeroize::Zeroizing;
 
 use super::{failure, RemoteError, RemoteErrorKind};
-use crate::{error::AppResult, recognizer::check_cancellation, ActivityGuard};
+use crate::{error::AppResult, recognizer::check_cancellation, ActivityGuard, ActivityLease};
 use fono_core::OperationCancellation;
 
 const CONCURRENT_REQUESTS: usize = 2;
@@ -225,6 +225,37 @@ impl Transport {
     {
         check_cancellation(cancel)?;
         let lease = self.activity.lease()?;
+        self.call_with_lease(cancel, deadline, lease, prepare)
+    }
+
+    /// A known remote job must still be retired when ordinary admission has
+    /// closed for shutdown or an update. This does not admit new remote work.
+    pub(super) fn cleanup_call<T, F, Fut>(&self, deadline: Duration, prepare: F) -> AppResult<T>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> AppResult<Fut>,
+        Fut: Future<Output = AppResult<T>> + Send + 'static,
+    {
+        self.call_with_lease(
+            &OperationCancellation::default(),
+            deadline,
+            self.activity.cleanup_lease(),
+            prepare,
+        )
+    }
+
+    fn call_with_lease<T, F, Fut>(
+        &self,
+        cancel: &OperationCancellation,
+        deadline: Duration,
+        lease: ActivityLease,
+        prepare: F,
+    ) -> AppResult<T>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> AppResult<Fut>,
+        Fut: Future<Output = AppResult<T>> + Send + 'static,
+    {
         let permit = self
             .slots
             .clone()
@@ -251,7 +282,19 @@ impl Transport {
         request: RequestBuilder,
         limit: usize,
     ) -> AppResult<T> {
-        self.json_response(request, limit, false)
+        self.json_response(request, limit, 200, false)
+            .await
+            .map(|(_, body)| body)
+    }
+
+    /// Asynchronous transcription submission returns a job only at 202.
+    /// Existing synchronous/discovery routes continue to require 200.
+    pub(super) async fn accepted_json<T: DeserializeOwned>(
+        &self,
+        request: RequestBuilder,
+        limit: usize,
+    ) -> AppResult<T> {
+        self.json_response(request, limit, 202, false)
             .await
             .map(|(_, body)| body)
     }
@@ -263,13 +306,14 @@ impl Transport {
         request: RequestBuilder,
         limit: usize,
     ) -> AppResult<(u16, T)> {
-        self.json_response(request, limit, true).await
+        self.json_response(request, limit, 200, true).await
     }
 
     async fn json_response<T: DeserializeOwned>(
         &self,
         request: RequestBuilder,
         limit: usize,
+        expected_status: u16,
         health: bool,
     ) -> AppResult<(u16, T)> {
         let mut response = request
@@ -304,7 +348,7 @@ impl Transport {
             }
             .into());
         }
-        if (status.as_u16() != 200 && !health_unready)
+        if (status.as_u16() != expected_status && !health_unready)
             || response.content_length().is_some_and(|n| n > limit as u64)
             || response
                 .headers()

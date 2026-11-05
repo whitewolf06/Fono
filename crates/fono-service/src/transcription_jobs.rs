@@ -670,6 +670,7 @@ where
         drop(configuration);
         self.notify(&preparing);
         let outcome = (|| {
+            let host_file = matches!(&input, JobInput::File { .. });
             let request = match input {
                 JobInput::Pcm(request) => request,
                 JobInput::File { path, language } => {
@@ -705,28 +706,34 @@ where
                 job.clone()
             };
             self.notify(&transcribing);
-            self.service
-                .transcribe_with_progress(request, cancellation, &|fraction| {
-                    let changed = {
-                        let mut state = self.state.lock();
-                        state
-                            .jobs
-                            .get_mut(&id)
-                            .filter(|job| !job.is_terminal())
-                            .and_then(|job| {
-                                // Native events are bounded to percentage changes/window checkpoints.
-                                let fraction = (fraction.clamp(0.0, 0.99) * 100.0).floor() / 100.0;
-                                if job.progress.is_some_and(|old| old >= fraction) {
-                                    return None;
-                                }
-                                job.progress = Some(fraction);
-                                Some(job.clone())
-                            })
-                    };
-                    if let Some(job) = changed {
-                        self.notify(&job);
-                    }
-                })
+            let report_progress = |fraction: f32| {
+                let changed = {
+                    let mut state = self.state.lock();
+                    state
+                        .jobs
+                        .get_mut(&id)
+                        .filter(|job| !job.is_terminal())
+                        .and_then(|job| {
+                            // Native events are bounded to percentage changes/window checkpoints.
+                            let fraction = (fraction.clamp(0.0, 0.99) * 100.0).floor() / 100.0;
+                            if job.progress.is_some_and(|old| old >= fraction) {
+                                return None;
+                            }
+                            job.progress = Some(fraction);
+                            Some(job.clone())
+                        })
+                };
+                if let Some(job) = changed {
+                    self.notify(&job);
+                }
+            };
+            if host_file {
+                self.service
+                    .transcribe_file_with_progress(request, cancellation, &report_progress)
+            } else {
+                self.service
+                    .transcribe_with_progress(request, cancellation, &report_progress)
+            }
         })();
         let mut state = self.state.lock();
         let job = state.jobs.get_mut(&id)?;
@@ -788,6 +795,10 @@ where
         }
     }
 }
+
+#[cfg(test)]
+#[path = "transcription_jobs/file_tests.rs"]
+mod file_tests;
 
 impl<R, G> TranscriptionJobs for TranscriptionJobQueue<R, G>
 where

@@ -20,6 +20,8 @@ pub(super) struct Features {
     pub glossary: bool,
     pub timestamps: Vec<String>,
     pub decoding: Vec<String>,
+    #[serde(default)]
+    pub jobs: bool,
 }
 #[derive(Deserialize)]
 pub(super) struct Models {

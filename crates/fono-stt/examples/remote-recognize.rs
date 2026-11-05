@@ -16,9 +16,13 @@ fn main() {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     if !(args.len() == 4
-        || (args.len() == 5 && matches!(args[4].as_str(), "--source-roundtrip" | "--health-only")))
+        || (args.len() == 5
+            && matches!(
+                args[4].as_str(),
+                "--source-roundtrip" | "--health-only" | "--batch"
+            )))
     {
-        return Err("Usage: remote-recognize <server-root-url> <token-file> <mono-16k-pcm16.wav or -> <model-id> [--source-roundtrip|--health-only]".into());
+        return Err("Usage: remote-recognize <server-root-url> <token-file> <mono-16k-pcm16.wav or -> <model-id> [--source-roundtrip|--health-only|--batch]".into());
     }
     let token =
         Zeroizing::new(fs::read_to_string(&args[1]).map_err(|_| "Cannot read the token file")?);
@@ -51,6 +55,31 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let wav = fs::read(&args[2]).map_err(|_| "Cannot read the WAV file")?;
     let samples = pcm_wav(&wav)?;
+    if args.get(4).is_some_and(|arg| arg == "--batch") {
+        let started = Instant::now();
+        let cancellation = OperationCancellation::default();
+        let client = fono_stt::remote::RemoteTranscriptionClient::connect(
+            endpoint,
+            model,
+            std::sync::Arc::new(fono_stt::NoopActivity),
+            &cancellation,
+        )?;
+        let result = client.transcribe_pcm_job(&samples, "en", &cancellation, &|_| {})?;
+        if result.text.trim().is_empty() {
+            return Err("The server returned an empty transcript".into());
+        }
+        println!(
+            "{}",
+            serde_json::json!({
+                "recognized":true, "batch":true, "text_chars":result.text.chars().count(),
+                "backend":result.backend, "model":result.model,
+                "audio_seconds":result.audio_seconds, "transcribe_seconds":result.transcribe_seconds,
+                "subtitle_segments":result.segments.len(),
+                "request_elapsed_ms":started.elapsed().as_millis(), "local_stt_used":false
+            })
+        );
+        return Ok(());
+    }
     let engine = SttEngine::default();
     let cancellation = OperationCancellation::default();
     engine.connect_remote(endpoint.clone(), model.clone(), &cancellation)?;

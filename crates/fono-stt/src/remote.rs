@@ -2,6 +2,7 @@
 //! blocking executor, just like the other recognizers; no Tauri or settings I/O.
 mod health;
 mod inspection;
+mod jobs;
 mod transport;
 mod wire;
 pub use health::{
@@ -10,6 +11,7 @@ pub use health::{
 pub use inspection::{
     inspect_server, RemoteDevice, RemoteInspection, RemoteInspectionState, RemoteModel,
 };
+pub use jobs::RemoteTranscriptionClient;
 
 use std::{borrow::Cow, fmt, sync::Arc, time::Instant};
 

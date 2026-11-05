@@ -64,6 +64,52 @@ pub trait TranscriptionRuntime: Send + Sync {
     ) -> Result<(Transcript, Vec<SubtitleSegment>), Self::Error> {
         self.transcribe_with_progress(pcm_samples, language, cancellation, progress)
     }
+
+    /// Called only for a host-owned file selected through the file queue.
+    /// HTTP PCM/upload requests never receive this origin. The service has
+    /// validated the request and cancellation before invoking this hook.
+    fn transcribe_file_with_progress(
+        &self,
+        request: TranscriptionRequest,
+        cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> TranscriptionServiceResult<TranscriptionResult> {
+        transcribe_runtime_with_progress(self, request, cancellation, progress)
+    }
+}
+
+fn transcribe_runtime_with_progress<R: TranscriptionRuntime + ?Sized>(
+    runtime: &R,
+    request: TranscriptionRequest,
+    cancellation: OperationCancellation,
+    progress: &(dyn Fn(f32) + Sync),
+) -> TranscriptionServiceResult<TranscriptionResult> {
+    let configured_model = runtime.selected_model(request.model.as_deref())?;
+    let (transcript, segments) = runtime
+        .transcribe_selected_with_progress(
+            &configured_model,
+            &request.pcm_samples,
+            &request.language,
+            cancellation,
+            progress,
+        )
+        .map_err(Into::into)?;
+    let mut result = TranscriptionResult::from_transcript(transcript, configured_model);
+    result.segments = segments;
+    Ok(result)
+}
+
+fn validate_before_transcription(
+    request: &TranscriptionRequest,
+    cancellation: &OperationCancellation,
+) -> TranscriptionServiceResult<()> {
+    validate_request(request)?;
+    if cancellation.is_cancelled() {
+        return Err(TranscriptionServiceError::Cancelled(
+            "transcription cancelled before readiness check".into(),
+        ));
+    }
+    Ok(())
 }
 
 /// Adapter for the existing shared engine. It configures the same runtime used
@@ -151,28 +197,27 @@ where
         cancellation: OperationCancellation,
         progress: &(dyn Fn(f32) + Sync),
     ) -> TranscriptionServiceResult<TranscriptionResult> {
-        validate_request(&request)?;
-        if cancellation.is_cancelled() {
-            return Err(TranscriptionServiceError::Cancelled(
-                "transcription cancelled before readiness check".into(),
-            ));
-        }
-        let configured_model = self.runtime.selected_model(request.model.as_deref())?;
-        let (transcript, segments) = self
-            .runtime
-            .transcribe_selected_with_progress(
-                &configured_model,
-                &request.pcm_samples,
-                &request.language,
-                cancellation,
-                progress,
-            )
-            .map_err(Into::into)?;
-        let mut result = TranscriptionResult::from_transcript(transcript, configured_model);
-        result.segments = segments;
-        Ok(result)
+        validate_before_transcription(&request, &cancellation)?;
+        transcribe_runtime_with_progress(&self.runtime, request, cancellation, progress)
+    }
+
+    /// Preserve trusted file origin after the queue has decoded its local file.
+    /// A transport-controlled request has no field that selects this method.
+    pub fn transcribe_file_with_progress(
+        &self,
+        request: TranscriptionRequest,
+        cancellation: OperationCancellation,
+        progress: &(dyn Fn(f32) + Sync),
+    ) -> TranscriptionServiceResult<TranscriptionResult> {
+        validate_before_transcription(&request, &cancellation)?;
+        self.runtime
+            .transcribe_file_with_progress(request, cancellation, progress)
     }
 }
+
+#[cfg(test)]
+#[path = "transcription_service/file_tests.rs"]
+mod file_tests;
 
 pub fn configured_model_identifier(
     model_path: &std::path::Path,

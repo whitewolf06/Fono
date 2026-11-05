@@ -1,5 +1,6 @@
 use super::*;
 mod inspection_tests;
+mod job_tests;
 use crate::error::AppError;
 use crate::ports::TestActivity;
 use serde_json::{json, Value};
@@ -15,6 +16,7 @@ use std::{
 };
 
 const TOKEN: &str = "PRIVATE_fixture_bearer";
+type ReplyHandler = Arc<dyn Fn(&Capture) -> (u16, Value, Duration) + Send + Sync>;
 fn model() -> ModelId {
     ModelId {
         engine: ModelEngine::Whisper,
@@ -41,7 +43,9 @@ enum Mode {
     DelayedReply(Value, Duration),
     HealthReply(u16, Value),
     Oversized,
+    Handler(ReplyHandler),
 }
+#[derive(Clone)]
 struct Capture {
     path: String,
     headers: String,
@@ -235,6 +239,7 @@ fn serve(
         };
         let path = request.path.clone();
         let samples = request.body.len() / 2;
+        let handler_request = request.clone();
         requests.lock().unwrap().push(request);
         if path == "/v1/capabilities" || path == "/v1/models" {
             if let Mode::Status(status) = *mode.lock().unwrap() {
@@ -284,6 +289,11 @@ fn serve(
             }
             Mode::Oversized => {
                 let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 999999999\r\n\r\n");
+            }
+            Mode::Handler(handler) => {
+                let (status, value, delay) = handler(&handler_request);
+                thread::sleep(delay);
+                respond(&mut stream, status, &value.to_string(), "");
             }
             Mode::Redirect(url) => respond(&mut stream, 307, "", &format!("Location: {url}\r\n")),
             Mode::Disconnect => return,
