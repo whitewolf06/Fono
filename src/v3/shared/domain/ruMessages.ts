@@ -1,5 +1,16 @@
 /** Existing Russian UI wording. Keep identifiers stable for the future locale port. */
 export const ruMessages = {
+  "remoteHistory.backend": "Сервер Fono",
+  "remoteHistory.server": "Сервер",
+  "remoteHistory.device": "Устройство сервера",
+  "remoteHistory.acceleration": "Ускорение сервера",
+  "remoteHistory.decode": "Распознавание на сервере",
+  "remoteHistory.connection": "Подготовка подключения",
+  "remoteHistory.request": "Запрос к серверу",
+  "remoteHistory.serverTotal": "На сервере, всего",
+  "remoteHistory.network": "Передача по сети",
+  "remoteHistory.timingNote":
+    "Время сервера входит во время запроса. Отдельные этапы показаны, когда есть измерения.",
   "pretranscription.label": "Распознавать фразы во время записи",
   "pretranscription.saving": "Сохраняем настройку…",
   "pretranscription.ready": "Текст готов: выберите действие с диктовкой.",

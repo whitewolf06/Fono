@@ -173,6 +173,46 @@ one history entry after success, no entry after Cancel, and no late result in
 the next session. Repeat with the overlay disabled using the main window.
 Automated fixtures do not establish microphone, hotkey or external-field acceptance.
 
+## Session facts, history and diagnostics (RC-07)
+
+Every successful remote `Transcript` carries optional typed `remote` facts from
+that request: the actual model, physical backend and protocol device code.
+These facts travel with the transcript through processing and acceptance; they
+are not read from a shared last-response cache or today's connection settings.
+The desktop archives the server display name from the frozen session, without
+using its URL as a fallback label. Local reserve success records its actual local
+model/backend and `fallback: true`, with no stale server fields.
+
+History uses `backend: "remote"` plus optional `remote_name`, `remote_device`,
+`remote_backend`, `request_duration_ms`, `server_total_duration_ms`,
+`network_duration_ms` and `decode_duration_ms`. The request duration is measured
+on the client around the complete request, including client scheduling and
+serialization. Server total can include queueing and loading. Neither is a
+network-only or inference-only measurement. Only explicit server `decode_ms`
+populates remote `transcribe_secs` and `recognition_duration_ms`; missing decode
+and network measurements remain unknown. No RTT-minus-total estimate is used.
+
+The fields are optional additions to the existing SQLite JSON payload. Old
+records remain readable without a database migration. Known legacy `remote:*`
+device codes can identify a remote route; old server totals are not relabeled
+as decode time. Explicit future backend values stay unknown, and malformed or
+contradictory optional facts are discarded while keeping the history result.
+Actual measured zero is retained. History hides dormant local GPU preferences
+for remote results and displays request/server/individual stages separately.
+
+The local diagnostic export distinguishes the configured source from the actual
+backend of the last completed flow. A server selection never probes dormant
+local weights or claims fresh server availability. Public model labels and
+backend names use closed allowlists. Last-result telemetry accepts only enums,
+booleans and numeric measurements: no server labels, device/hardware names,
+endpoints, credentials, audio or transcript text enter the export.
+
+Manual acceptance: make one server dictation and one local reserve dictation,
+then inspect their history details and exported report. Rename/reconfigure the
+server between sessions and confirm old entries retain their own facts. Check
+older records remain readable. Automated storage, HTTP and rendering tests do
+not establish microphone, hotkey, external insertion or real-window acceptance.
+
 ## Recognition and ownership
 
 `RecognitionOptions` specifies language, decoding strategy and glossary. PCM is
@@ -201,7 +241,8 @@ Remote errors carry a bounded classification, HTTP status and optional numeric
 Retry-After. Conversion to `CoreError` preserves authorization, busy, model,
 network and worker failure codes. Error formatting never copies the URL, bearer,
 glossary, audio, transcript or arbitrary server error body. Desktop presentation
-currently uses its existing generic STT error; detailed IPC/UI mapping is RC-06.
+uses its existing generic STT error for dictation failures. Connection inspection
+has separate typed results; retained recording actions handle failed dictation.
 
 ## Explicit file-only smoke check
 

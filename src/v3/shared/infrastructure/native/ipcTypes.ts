@@ -509,7 +509,14 @@ export interface DictationHistoryMetadata {
   recognition_duration_ms: number | null;
   model_load_duration_ms: number | null;
   processing_duration_ms: number | null;
-  backend: "cpu" | "cuda" | "vulkan" | null;
+  backend: "cpu" | "cuda" | "vulkan" | "remote" | "unknown" | null;
+  remote_name?: string | null;
+  remote_device?: string | null;
+  remote_backend?: "cpu" | "cuda" | "vulkan" | null;
+  request_duration_ms?: number | null;
+  server_total_duration_ms?: number | null;
+  network_duration_ms?: number | null;
+  decode_duration_ms?: number | null;
   model: string | null;
   requested_acceleration: AccelerationMode;
   language: string;

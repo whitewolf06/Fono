@@ -326,6 +326,7 @@ impl WorkerSession {
                 && actual_operation_id == operation_id =>
             {
                 Ok(Transcript {
+                    remote: None,
                     text,
                     detected_language: None,
                     transcribe_secs: Some(transcribe_secs),

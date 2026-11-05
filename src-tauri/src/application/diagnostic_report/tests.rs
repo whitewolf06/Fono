@@ -12,7 +12,8 @@ fn snapshot() -> ReportSnapshot {
         phase: PipelineState::Idle,
         paused: false,
         model: "large_turbo",
-        model_available: true,
+        recognition_source: crate::types::SttSource::Local,
+        model_available: Some(true),
         language: "русский",
         acceleration: AccelerationMode::Auto,
         active_backend: "CUDA",
@@ -72,10 +73,66 @@ fn remote_connection_address_name_and_ca_are_not_exported() {
         ..Settings::default()
     };
     let mut data = snapshot();
+    data.recognition_source = settings.stt_source;
     data.model = model_label(&settings);
+    data.model_available = model_availability(&settings, |_| {
+        panic!("remote report must not inspect local weights")
+    });
+    data.active_backend = backend_label("remote:cuda:0");
     let text = render(&data, None);
     assert!(!text.contains("PRIVATE"));
     assert!(!text.contains("https://"));
+    assert!(text.contains("Модель: large_turbo"));
+    assert!(text.contains("на сервере не проверялась"));
+    assert!(text.contains("Fono Server (CUDA)"));
+    assert!(text.contains("Локальное ускорение: не применяется"));
+}
+
+#[test]
+fn remote_report_model_and_backend_are_closed_allowlists() {
+    let mut settings = Settings {
+        stt_source: crate::types::SttSource::FonoServer,
+        whisper_model_path: Some("PRIVATE/ggml-small.bin".into()),
+        remote_stt: Some(crate::types::RemoteSttSettings {
+            url: "https://PRIVATE.invalid".into(),
+            display_name: Some("PRIVATE_NAME".into()),
+            model: crate::types::ModelId {
+                engine: crate::types::SttEngine::Whisper,
+                variant: "PRIVATE_MODEL".into(),
+            },
+            ca_pem: None,
+            fallback: Default::default(),
+        }),
+        ..Settings::default()
+    };
+    assert_eq!(model_label(&settings), "другая модель сервера");
+    for device in [
+        "remote:cpu",
+        "remote:vulkan",
+        "remote:cuda",
+        "remote:cuda:17",
+    ] {
+        assert!(backend_label(device).starts_with("Fono Server"));
+    }
+    for device in [
+        "remote:PRIVATE_DEVICE",
+        "remote:cuda:PRIVATE",
+        "remote:cuda:1234",
+        "remote:cuda:-1",
+    ] {
+        assert_eq!(backend_label(device), "неизвестно");
+    }
+    assert_eq!(
+        model_availability(&settings, |_| panic!("no remote filesystem check")),
+        None
+    );
+    settings.stt_source = crate::types::SttSource::Local;
+    assert_eq!(model_label(&settings), "small");
+    assert_eq!(model_availability(&settings, |_| true), Some(true));
+    assert_eq!(
+        model_availability(&Settings::default(), |_| panic!("no selection")),
+        Some(false)
+    );
 }
 
 #[test]
@@ -140,6 +197,7 @@ fn report_distinguishes_audio_duration_from_finish_and_stage_latencies() {
         recognition_ms: Some(1300),
         processing_ms: None,
         insertion_ms: Some(100),
+        recognition: None,
     };
     let text = render(&snapshot(), Some(&last));
     assert!(text.contains("Длительность захваченного аудио: 10000 мс"));
@@ -152,4 +210,62 @@ fn report_distinguishes_audio_duration_from_finish_and_stage_latencies() {
     last.capture_dropped_packets = None;
     let unknown = render(&snapshot(), Some(&last));
     assert!(unknown.contains("Потери пакетов захвата в этой диктовке: не измерено"));
+}
+
+#[test]
+fn per_result_remote_measurements_export_only_actual_numbers_and_closed_backend() {
+    use super::telemetry::{DictationMeasurement, RecognitionMeasurement};
+    let mut transcript = crate::types::Transcript {
+        text: "PRIVATE_TRANSCRIPT sk-PRIVATE_TOKEN".into(),
+        detected_language: Some("PRIVATE_LANGUAGE".into()),
+        transcribe_secs: Some(900.0),
+        audio_secs: Some(1.0),
+        device: Some("PRIVATE_DEVICE_NAME".into()),
+        remote: Some(fono_types::RemoteTranscriptMetadata {
+            model: crate::types::ModelId {
+                engine: crate::types::SttEngine::Whisper,
+                variant: "PRIVATE_MODEL".into(),
+            },
+            backend: fono_types::RemoteBackend::Cuda,
+            device: "cuda:0".into(),
+            request_ms: 90,
+            server_total_ms: 60,
+            queue_ms: None,
+            load_ms: None,
+            decode_ms: None,
+            network_ms: None,
+        }),
+    };
+    let mut last = DictationMeasurement {
+        operation: 8,
+        source: fono_core::OperationSource::Hotkey,
+        outcome: ReportOutcome::Completed,
+        audio_ms: Some(1000),
+        capture_dropped_packets: None,
+        finish_ms: 100,
+        capture_finish_ms: None,
+        model_load_ms: None,
+        recognition_ms: Some(90),
+        processing_ms: None,
+        insertion_ms: None,
+        recognition: Some(RecognitionMeasurement::from_transcript(&transcript, false)),
+    };
+    let text = render(&snapshot(), Some(&last));
+    assert!(text.contains("Фактический backend: Fono Server"));
+    assert!(text.contains("Запрос к серверу целиком: 90 мс"));
+    assert!(text.contains("Общее время на сервере: 60 мс"));
+    assert!(text.contains("Сеть отдельно: не измерено"));
+    assert!(text.contains("Распознавание на сервере отдельно: не измерено"));
+    assert!(!text.contains("PRIVATE"));
+    assert!(!format!("{:?}", last.recognition).contains("PRIVATE"));
+    transcript.remote.as_mut().unwrap().decode_ms = Some(0);
+    last.recognition = Some(RecognitionMeasurement::from_transcript(&transcript, false));
+    assert!(render(&snapshot(), Some(&last)).contains("Распознавание на сервере отдельно: 0 мс"));
+    // A CPU reserve result cannot inherit the preceding server's timing facts.
+    transcript.remote = None;
+    transcript.device = Some("CPU".into());
+    last.recognition = Some(RecognitionMeasurement::from_transcript(&transcript, true));
+    let fallback = render(&snapshot(), Some(&last));
+    assert!(fallback.contains("Фактический backend: CPU | Локальный резерв: да"));
+    assert!(!fallback.contains("Запрос к серверу целиком"));
 }

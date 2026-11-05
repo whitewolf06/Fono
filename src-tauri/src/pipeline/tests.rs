@@ -119,6 +119,7 @@ fn deferred_claim_keeps_operation_until_the_owner_decides() {
         .transition(operation.id, OperationPhase::AwaitingAction)
         .unwrap();
     let transcript = crate::types::Transcript {
+        remote: None,
         text: "на решение".into(),
         detected_language: None,
         transcribe_secs: None,

@@ -65,6 +65,7 @@ impl Recognizer for OfflineFixture {
             cancellation.cancel();
         }
         Ok(Transcript {
+            remote: None,
             text: "offline fixture".into(),
             detected_language: Some("ru".into()),
             transcribe_secs: Some(0.1),

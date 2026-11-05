@@ -154,6 +154,7 @@ impl TranscriptionRuntime for DesktopTranscriptionRuntime {
                 let cues = super::transcript_export::cues(&result.words, pcm_samples.len() as u64);
                 return Ok((
                     Transcript {
+                        remote: None,
                         text: result.text,
                         detected_language: result.detected_language,
                         transcribe_secs: Some(result.transcribe_secs),

@@ -11,12 +11,15 @@ pub use inspection::{
     inspect_server, RemoteDevice, RemoteInspection, RemoteInspectionState, RemoteModel,
 };
 
-use std::{borrow::Cow, fmt, sync::Arc};
+use std::{borrow::Cow, fmt, sync::Arc, time::Instant};
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use fono_core::OperationCancellation;
 use fono_stt_protocol::{BackendKind, DecodingStrategy, TimedSegment, WindowTranscript};
-use fono_types::{CoreError, ErrorCode, ModelId, SttEngine as ModelEngine, Transcript};
+use fono_types::{
+    CoreError, ErrorCode, ModelId, RemoteBackend, RemoteTranscriptMetadata,
+    SttEngine as ModelEngine, Transcript,
+};
 
 use crate::{
     error::AppResult,
@@ -255,15 +258,40 @@ impl RemoteRecognizer {
         options: RecognitionOptions<'_>,
         cancellation: &OperationCancellation,
     ) -> AppResult<Transcript> {
-        let result = self.recognize(samples, options, false, cancellation)?;
+        let (result, request_ms) = self.recognize(samples, options, false, cancellation)?;
+        let device = result
+            .device
+            .as_deref()
+            .ok_or_else(|| RemoteError::new(RemoteErrorKind::InvalidResponse))?;
+        let remote = RemoteTranscriptMetadata {
+            model: self.model.clone(),
+            backend: match result.backend.as_deref() {
+                Some("cpu") => RemoteBackend::Cpu,
+                Some("cuda") => RemoteBackend::Cuda,
+                Some("vulkan") => RemoteBackend::Vulkan,
+                _ => return failure(RemoteErrorKind::InvalidResponse),
+            },
+            device: device.into(),
+            request_ms,
+            server_total_ms: result.timings.total_ms,
+            queue_ms: result.timings.queue_ms,
+            load_ms: result.timings.load_ms,
+            decode_ms: result.timings.decode_ms,
+            network_ms: None,
+        };
+        if !remote.valid() {
+            return failure(RemoteErrorKind::InvalidResponse);
+        }
         Ok(Transcript {
             text: result.text,
             detected_language: result.language,
-            transcribe_secs: Some(result.timings.total_ms as f32 / 1000.0),
+            transcribe_secs: result
+                .timings
+                .decode_ms
+                .map(|duration| duration as f32 / 1000.0),
             audio_secs: Some(samples.len() as f32 / 16_000.0),
-            device: Some(wire::device(result.device.as_deref().ok_or_else(
-                || RemoteError::new(RemoteErrorKind::InvalidResponse),
-            )?)?),
+            device: Some(wire::device(device)?),
+            remote: Some(remote),
         })
     }
 
@@ -276,7 +304,7 @@ impl RemoteRecognizer {
         if options.context.is_some() || !self.capabilities.window_transcription {
             return failure(RemoteErrorKind::InvalidRequest);
         }
-        let result = self.recognize(samples, options.recognition, true, cancellation)?;
+        let (result, _) = self.recognize(samples, options.recognition, true, cancellation)?;
         let segments = result
             .segments
             .into_iter()
@@ -316,7 +344,7 @@ impl RemoteRecognizer {
         options: RecognitionOptions<'_>,
         timestamps: bool,
         cancellation: &OperationCancellation,
-    ) -> AppResult<wire::Recognition> {
+    ) -> AppResult<(wire::Recognition, u64)> {
         recognizer::check_cancellation(cancellation)?;
         let strategy = match options.decoding.strategy {
             DecodingStrategy::Fast => "fast",
@@ -334,48 +362,54 @@ impl RemoteRecognizer {
         let http = self.transport.clone();
         let expected_model = self.wire_model.clone();
         let sample_count = samples.len();
-        self.transport
-            .call(cancellation, self.transport.deadline(sample_count), || {
-                // Admission is acquired before copying a bounded input. L16 is network byte order.
-                let bytes: Vec<u8> = samples.iter().flat_map(|s| s.to_be_bytes()).collect();
-                let mut request = http
-                    .post("v1/recognize")
-                    .header(reqwest::header::CONTENT_TYPE, PCM_TYPE)
-                    .query(&[
-                        ("model", self.wire_model.as_str()),
-                        ("language", options.language),
-                        ("timestamps", if timestamps { "segments" } else { "none" }),
-                        ("decoding", strategy),
-                        ("priority", "interactive"),
-                    ])
-                    .body(bytes);
-                if !options.glossary.is_empty() {
-                    if options.glossary.len() > 32
-                        || options.glossary.iter().any(|t| {
-                            t.is_empty() || t.len() > 896 || t.chars().any(char::is_control)
-                        })
-                    {
-                        return failure(RemoteErrorKind::InvalidRequest);
-                    }
-                    let json = serde_json::to_vec(options.glossary)
-                        .map_err(|_| RemoteError::new(RemoteErrorKind::InvalidRequest))?;
-                    if json.len() > 4096 {
-                        return failure(RemoteErrorKind::InvalidRequest);
-                    }
-                    let mut header =
-                        reqwest::header::HeaderValue::from_str(&URL_SAFE_NO_PAD.encode(json))
+        let started = Instant::now();
+        let result =
+            self.transport
+                .call(cancellation, self.transport.deadline(sample_count), || {
+                    // Admission is acquired before copying a bounded input. L16 is network byte order.
+                    let bytes: Vec<u8> = samples.iter().flat_map(|s| s.to_be_bytes()).collect();
+                    let mut request = http
+                        .post("v1/recognize")
+                        .header(reqwest::header::CONTENT_TYPE, PCM_TYPE)
+                        .query(&[
+                            ("model", self.wire_model.as_str()),
+                            ("language", options.language),
+                            ("timestamps", if timestamps { "segments" } else { "none" }),
+                            ("decoding", strategy),
+                            ("priority", "interactive"),
+                        ])
+                        .body(bytes);
+                    if !options.glossary.is_empty() {
+                        if options.glossary.len() > 32
+                            || options.glossary.iter().any(|t| {
+                                t.is_empty() || t.len() > 896 || t.chars().any(char::is_control)
+                            })
+                        {
+                            return failure(RemoteErrorKind::InvalidRequest);
+                        }
+                        let json = serde_json::to_vec(options.glossary)
                             .map_err(|_| RemoteError::new(RemoteErrorKind::InvalidRequest))?;
-                    header.set_sensitive(true);
-                    request = request.header("x-fono-glossary", header);
-                }
-                Ok(async move {
-                    let result = http
-                        .json::<wire::Recognition>(request, 4 * 1024 * 1024)
-                        .await?;
-                    result.validate(&expected_model, sample_count)?;
-                    Ok(result)
-                })
-            })
+                        if json.len() > 4096 {
+                            return failure(RemoteErrorKind::InvalidRequest);
+                        }
+                        let mut header =
+                            reqwest::header::HeaderValue::from_str(&URL_SAFE_NO_PAD.encode(json))
+                                .map_err(|_| RemoteError::new(RemoteErrorKind::InvalidRequest))?;
+                        header.set_sensitive(true);
+                        request = request.header("x-fono-glossary", header);
+                    }
+                    Ok(async move {
+                        let result = http
+                            .json::<wire::Recognition>(request, 4 * 1024 * 1024)
+                            .await?;
+                        result.validate(&expected_model, sample_count)?;
+                        Ok(result)
+                    })
+                })?;
+        Ok((
+            result,
+            started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
+        ))
     }
 }
 

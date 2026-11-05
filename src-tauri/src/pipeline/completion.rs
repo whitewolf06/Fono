@@ -108,6 +108,7 @@ mod tests {
             panic!()
         };
         ticket.complete(&Ok(DictationOutcome::Completed(crate::types::Transcript {
+            remote: None,
             text: "результат".into(),
             detected_language: None,
             transcribe_secs: None,
@@ -145,6 +146,7 @@ mod tests {
             DictationOutcome::Superseded,
             DictationOutcome::RecoveryPending,
             DictationOutcome::Deferred(crate::types::Transcript {
+                remote: None,
                 text: "ожидает решения".into(),
                 detected_language: None,
                 transcribe_secs: None,

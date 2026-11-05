@@ -3,7 +3,10 @@ use super::{
     AccelerationMode, AiMode, DictationMode, ProcessingWorkflow, Settings, TextPreset, Transcript,
     TranslationLanguage,
 };
-use serde::{Deserialize, Serialize};
+use fono_types::RemoteBackend;
+use serde::{Deserialize, Deserializer, Serialize};
+
+const MAX_DURATION_MS: u64 = 86_400_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -11,6 +14,9 @@ pub enum DictationBackend {
     Cpu,
     Cuda,
     Vulkan,
+    Remote,
+    /// Explicit future/invalid serialized values are not legacy missing data.
+    Unknown,
 }
 impl DictationBackend {
     pub fn from_device(device: Option<&str>) -> Option<Self> {
@@ -18,6 +24,7 @@ impl DictationBackend {
             Some("CPU") => Some(Self::Cpu),
             Some("CUDA") => Some(Self::Cuda),
             Some("Vulkan") => Some(Self::Vulkan),
+            Some(device) if remote_device(device).is_some() => Some(Self::Remote),
             _ => None,
         }
     }
@@ -49,8 +56,54 @@ pub struct DictationHistoryMetadata {
     #[serde(default)]
     pub processing_duration_ms: Option<u64>,
     /// Populated from the returned Transcript, never from the desired setting.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_backend")]
     pub backend: Option<DictationBackend>,
+    /// User-provided label from the frozen session. Never inferred from its URL.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_remote_name"
+    )]
+    pub remote_name: Option<String>,
+    /// Protocol device code, not a hardware name or a profile address.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_remote_device"
+    )]
+    pub remote_device: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_remote_backend"
+    )]
+    pub remote_backend: Option<RemoteBackend>,
+    /// End-to-end client request duration; not network-only time.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub request_duration_ms: Option<u64>,
+    /// Server total can include queueing, loading and inference.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub server_total_duration_ms: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub network_duration_ms: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub decode_duration_ms: Option<u64>,
     #[serde(default)]
     pub recognizer: Option<super::SttEngine>,
     /// Local file name or remote public model ID, never the user's path or URL.
@@ -81,15 +134,60 @@ pub struct DictationTimingMeasurements {
 }
 
 impl DictationHistoryMetadata {
+    /// Loading old/future JSON must keep the result while rejecting impossible
+    /// relationships between independently optional technical measurements.
+    pub(crate) fn normalize_remote_facts(&mut self) {
+        if self.backend != Some(DictationBackend::Remote) {
+            return;
+        }
+        if self
+            .remote_backend
+            .zip(self.remote_device.as_deref())
+            .is_some_and(|(backend, device)| !backend.valid_device(device))
+        {
+            self.remote_backend = None;
+            self.remote_device = None;
+        }
+        if self
+            .decode_duration_ms
+            .zip(self.server_total_duration_ms)
+            .is_some_and(|(decode, total)| decode > total)
+        {
+            self.decode_duration_ms = None;
+            self.recognition_duration_ms = None;
+        }
+        if self
+            .network_duration_ms
+            .zip(self.request_duration_ms)
+            .is_some_and(|(network, request)| network > request)
+        {
+            self.network_duration_ms = None;
+        }
+    }
+
     pub fn from_result(
         settings: &Settings,
         transcript: &Transcript,
         timings: DictationTimingMeasurements,
     ) -> Self {
         let selection = settings.selected_stt_model();
-        let active_model = settings.recognition_model_id();
+        let remote = transcript.remote.as_ref().filter(|remote| remote.valid());
+        let coded_device = remote
+            .map(|remote| remote.device.as_str())
+            .or_else(|| transcript.device.as_deref().and_then(remote_device));
+        let is_remote = coded_device.is_some();
+        let active_model = remote.map(|remote| remote.model.clone()).or_else(|| {
+            if is_remote {
+                settings
+                    .remote_stt
+                    .as_ref()
+                    .map(|remote| remote.model.clone())
+            } else {
+                selection.as_ref().map(|model| model.id.clone())
+            }
+        });
         let recognizer = active_model.as_ref().map(|model| model.engine);
-        let model = if settings.stt_source == super::SttSource::FonoServer {
+        let model = if is_remote {
             active_model.map(|model| match model.engine {
                 super::SttEngine::Whisper => format!("whisper:{}", model.variant),
                 _ => model.public_id(),
@@ -109,7 +207,7 @@ impl DictationHistoryMetadata {
         };
         Self {
             schema_version: 1,
-            fallback: settings.stt_fallback,
+            fallback: settings.stt_fallback && !is_remote,
             application_context: None,
             speech_timing: (settings.analytics_enabled && settings.speech_trainer_enabled)
                 .then_some(timings.speech_timing)
@@ -119,10 +217,36 @@ impl DictationHistoryMetadata {
                 .recording_duration_ms
                 .or_else(|| seconds_to_ms(transcript.audio_secs)),
             generation_duration_ms: timings.generation_duration_ms,
-            recognition_duration_ms: seconds_to_ms(transcript.transcribe_secs),
+            recognition_duration_ms: if is_remote {
+                remote.and_then(|remote| remote.decode_ms)
+            } else {
+                seconds_to_ms(transcript.transcribe_secs)
+            },
             model_load_duration_ms: timings.model_load_duration_ms,
             processing_duration_ms: timings.processing_duration_ms,
-            backend: DictationBackend::from_device(transcript.device.as_deref()),
+            backend: if is_remote {
+                Some(DictationBackend::Remote)
+            } else {
+                DictationBackend::from_device(transcript.device.as_deref())
+            },
+            remote_name: is_remote
+                .then(|| {
+                    settings
+                        .remote_stt
+                        .as_ref()?
+                        .display_name
+                        .as_deref()
+                        .and_then(safe_remote_name)
+                })
+                .flatten(),
+            remote_device: coded_device.map(str::to_owned),
+            remote_backend: remote
+                .map(|remote| remote.backend)
+                .or_else(|| coded_device.and_then(physical_backend)),
+            request_duration_ms: remote.map(|remote| remote.request_ms),
+            server_total_duration_ms: remote.map(|remote| remote.server_total_ms),
+            network_duration_ms: remote.and_then(|remote| remote.network_ms),
+            decode_duration_ms: remote.and_then(|remote| remote.decode_ms),
             recognizer,
             model,
             requested_acceleration: settings.acceleration,
@@ -141,11 +265,109 @@ impl DictationHistoryMetadata {
     }
 }
 
+fn remote_device(value: &str) -> Option<&str> {
+    value
+        .strip_prefix("remote:")
+        .filter(|device| physical_backend(device).is_some())
+}
+
+fn physical_backend(device: &str) -> Option<RemoteBackend> {
+    match device {
+        "cpu" => Some(RemoteBackend::Cpu),
+        "vulkan" => Some(RemoteBackend::Vulkan),
+        "cuda" => Some(RemoteBackend::Cuda),
+        device
+            if device.strip_prefix("cuda:").is_some_and(|index| {
+                !index.is_empty()
+                    && index.len() <= 3
+                    && index.bytes().all(|byte| byte.is_ascii_digit())
+            }) =>
+        {
+            Some(RemoteBackend::Cuda)
+        }
+        _ => None,
+    }
+}
+
+fn safe_remote_name(value: &str) -> Option<String> {
+    let name = value.trim();
+    (!name.is_empty()
+        && name.chars().count() <= 80
+        && !name.chars().any(char::is_control)
+        && !name.contains("://")
+        && !name.contains(['/', '\\', '@']))
+    .then(|| name.to_owned())
+}
+
+fn deserialize_backend<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<DictationBackend>, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value.map(|value| match value.as_str() {
+        Some("cpu") => DictationBackend::Cpu,
+        Some("cuda") => DictationBackend::Cuda,
+        Some("vulkan") => DictationBackend::Vulkan,
+        Some("remote") => DictationBackend::Remote,
+        _ => DictationBackend::Unknown,
+    }))
+}
+
+fn deserialize_remote_backend<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<RemoteBackend>, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value
+        .as_ref()
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| match value {
+            "cpu" => Some(RemoteBackend::Cpu),
+            "cuda" => Some(RemoteBackend::Cuda),
+            "vulkan" => Some(RemoteBackend::Vulkan),
+            _ => None,
+        }))
+}
+
+fn deserialize_remote_name<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value
+        .as_ref()
+        .and_then(serde_json::Value::as_str)
+        .and_then(safe_remote_name))
+}
+
+fn deserialize_remote_device<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value
+        .as_ref()
+        .and_then(serde_json::Value::as_str)
+        .filter(|device| physical_backend(device).is_some())
+        .map(str::to_owned))
+}
+
+fn deserialize_duration<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<u64>, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value
+        .as_ref()
+        .and_then(serde_json::Value::as_u64)
+        .filter(|value| *value <= MAX_DURATION_MS))
+}
+
 fn seconds_to_ms(seconds: Option<f32>) -> Option<u64> {
     seconds
         .filter(|s| s.is_finite() && *s >= 0.0)
         .map(|s| (f64::from(s) * 1000.0).round() as u64)
+        .filter(|duration| *duration <= MAX_DURATION_MS)
 }
+
+#[cfg(test)]
+#[path = "history_metadata/remote_tests.rs"]
+mod remote_tests;
 
 #[cfg(test)]
 mod tests {
@@ -194,7 +416,9 @@ mod tests {
             DictationHistoryMetadata::from_result(&settings, &result, Default::default());
         assert_eq!(metadata.recognizer, Some(super::super::SttEngine::Whisper));
         assert_eq!(metadata.model.as_deref(), Some("whisper:large_turbo"));
-        assert!(metadata.backend.is_none());
+        assert_eq!(metadata.backend, Some(DictationBackend::Remote));
+        assert_eq!(metadata.remote_device.as_deref(), Some("cuda:0"));
+        assert!(metadata.recognition_duration_ms.is_none());
         let json = serde_json::to_string(&metadata).unwrap();
         assert!(!json.contains("PRIVATE"));
         assert!(!json.contains("ggml-small.bin"));
@@ -247,6 +471,7 @@ mod tests {
             transcribe_secs: Some(1.25),
             audio_secs: Some(9.5),
             device: Some("CPU".into()),
+            remote: None,
         }
     }
     #[test]

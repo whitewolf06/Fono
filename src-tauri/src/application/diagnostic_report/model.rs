@@ -14,7 +14,8 @@ pub(super) struct ReportSnapshot {
     pub phase: PipelineState,
     pub paused: bool,
     pub model: &'static str,
-    pub model_available: bool,
+    pub recognition_source: crate::types::SttSource,
+    pub model_available: Option<bool>,
     pub language: &'static str,
     pub acceleration: AccelerationMode,
     pub active_backend: &'static str,
@@ -55,6 +56,12 @@ pub(super) fn language_label(language: &str) -> &'static str {
 }
 
 pub(super) fn model_label(settings: &Settings) -> &'static str {
+    if settings.stt_source == crate::types::SttSource::FonoServer {
+        return match settings.remote_stt.as_ref().map(|remote| &remote.model) {
+            Some(model) => public_remote_model_label(model),
+            None => "не выбрана",
+        };
+    }
     if let Some(model) = &settings.stt_model {
         match (model.id.engine, model.id.variant.as_str()) {
             (crate::types::SttEngine::GigaAm, "v3_e2e_rnnt_int8") => {
@@ -83,12 +90,51 @@ pub(super) fn model_label(settings: &Settings) -> &'static str {
         })
         .unwrap_or("пользовательская модель")
 }
+fn public_remote_model_label(model: &crate::types::ModelId) -> &'static str {
+    use crate::types::SttEngine;
+    match (model.engine, model.variant.as_str()) {
+        (SttEngine::GigaAm, "v3_e2e_rnnt_int8") => "GigaAM v3 e2e_rnnt INT8",
+        (SttEngine::Parakeet, "tdt_0.6b_v3_int8") => "Parakeet TDT 0.6B v3 INT8",
+        (SttEngine::Whisper, "small_q5_1") => "small_q5_1",
+        (SttEngine::Whisper, "small_q8_0") => "small_q8_0",
+        (SttEngine::Whisper, "large_turbo_q5_0") => "large_turbo_q5_0",
+        (SttEngine::Whisper, "large_turbo_q8_0") => "large_turbo_q8_0",
+        (SttEngine::Whisper, _) => model
+            .whisper_size()
+            .map(|size| size.api_identifier())
+            .unwrap_or("другая модель сервера"),
+        _ => "другая модель сервера",
+    }
+}
+
+/// Remote selection does not probe dormant local files or infer server readiness.
+pub(super) fn model_availability(
+    settings: &Settings,
+    exists: impl FnOnce(&crate::types::SttModelSelection) -> bool,
+) -> Option<bool> {
+    if settings.stt_source == crate::types::SttSource::FonoServer {
+        return None;
+    }
+    Some(settings.selected_stt_model().as_ref().is_some_and(exists))
+}
 pub(super) fn backend_label(device: &str) -> &'static str {
     match device {
         "CUDA" => "CUDA",
         "Vulkan" => "Vulkan",
         "CPU" => "CPU",
         "Metal" => "Metal",
+        "remote:cpu" => "Fono Server (CPU)",
+        "remote:vulkan" => "Fono Server (Vulkan)",
+        "remote:cuda" => "Fono Server (CUDA)",
+        value
+            if value.strip_prefix("remote:cuda:").is_some_and(|index| {
+                !index.is_empty()
+                    && index.len() <= 3
+                    && index.bytes().all(|byte| byte.is_ascii_digit())
+            }) =>
+        {
+            "Fono Server (CUDA)"
+        }
         _ => "неизвестно",
     }
 }

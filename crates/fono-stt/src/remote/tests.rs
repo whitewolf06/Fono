@@ -38,6 +38,7 @@ enum Mode {
     Disconnect,
     Redirect(String),
     Reply(Value),
+    DelayedReply(Value, Duration),
     HealthReply(u16, Value),
     Oversized,
 }
@@ -274,6 +275,10 @@ fn serve(
                 "Retry-After: 3\r\n",
             ),
             Mode::Reply(value) => respond(&mut stream, 200, &value.to_string(), ""),
+            Mode::DelayedReply(value, delay) => {
+                thread::sleep(delay);
+                respond(&mut stream, 200, &value.to_string(), "");
+            }
             Mode::HealthReply(status, value) => {
                 respond(&mut stream, status, &value.to_string(), "")
             }
@@ -618,6 +623,64 @@ fn real_http_windows_rebase_timestamps_and_do_not_claim_local_gpu() {
 }
 
 #[test]
+fn ordinary_transcript_keeps_actual_remote_facts_and_only_measured_stages() {
+    let server = Fixture::new();
+    let client = server.client(Arc::new(crate::NoopActivity));
+    // Discovery advertises CUDA, but this response actually ran on CPU.
+    let mut response = reply(160);
+    response["backend"] = json!("cpu");
+    response["device"] = json!("cpu");
+    response["timings"]["queue_ms"] = json!(3);
+    response["timings"]["load_ms"] = json!(2);
+    response["timings"]["decode_ms"] = json!(7);
+    // An unknown additive field is not proof of a client network measurement.
+    response["timings"]["network_ms"] = json!(999);
+    *server.mode.lock().unwrap() = Mode::DelayedReply(response, Duration::from_millis(45));
+    let started = Instant::now();
+    let transcript = client
+        .transcribe(&[0; 160], options(), &OperationCancellation::default())
+        .unwrap();
+    let observed_ms = started.elapsed().as_millis() as u64;
+    assert_eq!(transcript.transcribe_secs, Some(0.007));
+    assert_eq!(transcript.device.as_deref(), Some("remote:cpu"));
+    let remote = transcript.remote.unwrap();
+    assert_eq!(remote.model, model());
+    assert_eq!(remote.backend, RemoteBackend::Cpu);
+    assert_eq!(remote.device, "cpu");
+    assert_eq!(remote.server_total_ms, 25);
+    assert_eq!(remote.queue_ms, Some(3));
+    assert_eq!(remote.load_ms, Some(2));
+    assert_eq!(remote.decode_ms, Some(7));
+    assert_eq!(remote.network_ms, None);
+    assert!((40..=observed_ms).contains(&remote.request_ms));
+    assert!(remote.valid());
+
+    // A subsequent response must not inherit either the backend or durations.
+    let mut response = reply(160);
+    response["backend"] = json!("vulkan");
+    response["device"] = json!("vulkan");
+    response["timings"]["total_ms"] = json!(41);
+    *server.mode.lock().unwrap() = Mode::Reply(response);
+    let transcript = client
+        .transcribe(&[0; 160], options(), &OperationCancellation::default())
+        .unwrap();
+    assert_eq!(transcript.transcribe_secs, None);
+    let remote = transcript.remote.unwrap();
+    assert_eq!(remote.backend, RemoteBackend::Vulkan);
+    assert_eq!(remote.device, "vulkan");
+    assert_eq!(remote.server_total_ms, 41);
+    assert_eq!(
+        (
+            remote.queue_ms,
+            remote.load_ms,
+            remote.decode_ms,
+            remote.network_ms
+        ),
+        (None, None, None, None)
+    );
+}
+
+#[test]
 fn real_http_errors_keep_codes_and_never_echo_untrusted_sources() {
     let server = Fixture::new();
     let client = server.client(Arc::new(crate::NoopActivity));
@@ -675,13 +738,14 @@ fn cancel_closes_actual_socket_holds_admission_and_allows_next_operation() {
         assert!(!activity.is_busy());
         assert!(client.is_idle());
         *server.mode.lock().unwrap() = Mode::Ok;
-        assert_eq!(
-            client
-                .transcribe(&[0; 160], options(), &OperationCancellation::default())
-                .unwrap()
-                .text,
-            "fixture transcript"
-        );
+        let next = client
+            .transcribe(&[0; 160], options(), &OperationCancellation::default())
+            .unwrap();
+        assert_eq!(next.text, "fixture transcript");
+        let remote = next.remote.unwrap();
+        assert_eq!(remote.server_total_ms, 25);
+        assert_eq!(remote.decode_ms, None);
+        assert_eq!(remote.network_ms, None);
     }
 }
 
@@ -758,7 +822,23 @@ fn invalid_results_and_redirects_fail_without_following_or_replaying_audio() {
     wrong_clock["timings"]["audio_ms"] = json!(10000);
     let mut wrong_segment = reply(160);
     wrong_segment["segments"][0]["end_ms"] = json!(10000);
-    for response in [wrong_model, wrong_clock, wrong_segment] {
+    let mut wrong_backend = reply(160);
+    wrong_backend["backend"] = json!("cpu");
+    let mut wrong_queue = reply(160);
+    wrong_queue["timings"]["queue_ms"] = json!(26);
+    let mut wrong_load = reply(160);
+    wrong_load["timings"]["load_ms"] = json!(26);
+    let mut wrong_decode = reply(160);
+    wrong_decode["timings"]["decode_ms"] = json!(26);
+    for response in [
+        wrong_model,
+        wrong_clock,
+        wrong_segment,
+        wrong_backend,
+        wrong_queue,
+        wrong_load,
+        wrong_decode,
+    ] {
         *server.mode.lock().unwrap() = Mode::Reply(response);
         assert_eq!(
             kind(

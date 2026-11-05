@@ -77,7 +77,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "{}",
         serde_json::json!({
             "recognized":true, "text_chars":result.text.chars().count(), "device":result.device,
-            "audio_seconds":result.audio_secs, "server_seconds":result.transcribe_secs,
+            "audio_seconds":result.audio_secs, "decode_seconds":result.transcribe_secs,
+            "remote":result.remote,
             "request_elapsed_ms":request_elapsed_ms, "local_gpu_resident":engine.gpu_residency().resident,
             "source_roundtrip":source_roundtrip
         })

@@ -114,6 +114,7 @@ mod tests {
     #[test]
     fn result_conversion_keeps_existing_fields_and_does_not_invent_timing() {
         let transcript = Transcript {
+            remote: None,
             text: "Hello".into(),
             detected_language: Some("en".into()),
             transcribe_secs: Some(0.25),

@@ -69,6 +69,7 @@ pub(super) fn transcribe_windows(
     };
     Ok((
         Transcript {
+            remote: None,
             text: agreement.committed,
             detected_language,
             transcribe_secs: Some(inference_secs),

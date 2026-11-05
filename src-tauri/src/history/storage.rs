@@ -219,7 +219,11 @@ fn load_entries(connection: &Connection) -> AppResult<Vec<DictationHistoryEntry>
                 .ok_or_else(|| AppError::Internal("Invalid history database entry".into()))?
                 .extend(analytics);
         }
-        Ok(serde_json::from_value(entry)?)
+        let mut entry: DictationHistoryEntry = serde_json::from_value(entry)?;
+        if let Some(metadata) = &mut entry.metadata {
+            metadata.normalize_remote_facts();
+        }
+        Ok(entry)
     })
     .collect()
 }
@@ -348,6 +352,144 @@ mod tests {
     }
     fn entry(id: &str) -> DictationHistoryEntry {
         serde_json::from_value(serde_json::json!({"id":id,"text":"final","created_at":"2026-10-17T09:00:00Z","device":null,"original_text":"private transcript"})).unwrap()
+    }
+
+    #[test]
+    fn remote_session_facts_survive_sqlite_reopen_alongside_legacy_entries() {
+        let directory = Directory::new();
+        let mut remote = entry("remote");
+        remote.metadata = Some(
+            serde_json::from_value(serde_json::json!({
+                "schema_version": 1, "backend": "remote", "remote_name": "Kari",
+                "remote_device": "cuda:0", "remote_backend": "cuda",
+                "recognizer": "whisper", "model": "whisper:large_turbo",
+                "request_duration_ms": 1300, "server_total_duration_ms": 1100,
+                "decode_duration_ms": 700, "network_duration_ms": null,
+                "recognition_duration_ms": 700, "requested_acceleration": "cuda",
+                "language": "ru", "dictation_mode": "standard", "processing_mode": "off",
+                "dictionary_enabled": false
+            }))
+            .unwrap(),
+        );
+        let mut store = HistoryStore::open(directory.0.clone()).unwrap();
+        store.persist(&[remote, entry("legacy")], false).unwrap();
+        drop(store);
+        let reopened = HistoryStore::open(directory.0.clone()).unwrap();
+        assert_eq!(reopened.entries.len(), 2);
+        let metadata = reopened
+            .entries
+            .iter()
+            .find(|entry| entry.id == "remote")
+            .unwrap()
+            .metadata
+            .as_ref()
+            .unwrap();
+        assert_eq!(
+            metadata.backend,
+            Some(crate::types::DictationBackend::Remote)
+        );
+        assert_eq!(metadata.remote_name.as_deref(), Some("Kari"));
+        assert_eq!(metadata.remote_device.as_deref(), Some("cuda:0"));
+        assert_eq!(metadata.request_duration_ms, Some(1300));
+        assert_eq!(metadata.server_total_duration_ms, Some(1100));
+        assert_eq!(metadata.decode_duration_ms, Some(700));
+        assert!(metadata.network_duration_ms.is_none());
+        assert!(reopened
+            .entries
+            .iter()
+            .find(|entry| entry.id == "legacy")
+            .unwrap()
+            .metadata
+            .is_none());
+        assert_eq!(
+            reopened
+                .connection
+                .pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
+                .unwrap(),
+            2,
+            "additive JSON metadata needs no database migration"
+        );
+    }
+
+    #[test]
+    fn future_optional_remote_values_do_not_prevent_loading_authoritative_history() {
+        let directory = Directory::new();
+        let mut store = HistoryStore::open(directory.0.clone()).unwrap();
+        store.persist(&[entry("future")], false).unwrap();
+        let mut raw: serde_json::Value = serde_json::from_str(
+            &store
+                .connection
+                .query_row(
+                    "SELECT entry_json FROM history WHERE id='future'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        raw["metadata"] = serde_json::json!({
+            "schema_version": 1, "backend": "future_backend", "remote_backend": "metal",
+            "remote_device": "PRIVATE/device", "remote_name": "https://PRIVATE.invalid",
+            "request_duration_ms": "unknown", "server_total_duration_ms": -1,
+            "requested_acceleration": "auto", "language": "ru", "dictation_mode": "standard",
+            "processing_mode": "off", "dictionary_enabled": false
+        });
+        raw["device"] = serde_json::json!("remote:cuda:0");
+        store
+            .connection
+            .execute(
+                "UPDATE history SET entry_json=?1 WHERE id='future'",
+                [serde_json::to_string(&raw).unwrap()],
+            )
+            .unwrap();
+        drop(store);
+        let reopened = HistoryStore::open(directory.0.clone()).unwrap();
+        assert_eq!(reopened.entries.len(), 1);
+        assert_eq!(reopened.entries[0].text, "final");
+        let metadata = reopened.entries[0].metadata.as_ref().unwrap();
+        assert_eq!(
+            metadata.backend,
+            Some(crate::types::DictationBackend::Unknown)
+        );
+        assert_eq!(
+            serde_json::to_value(metadata).unwrap()["backend"],
+            "unknown"
+        );
+        assert_eq!(reopened.entries[0].device.as_deref(), Some("remote:cuda:0"));
+        assert!(metadata.remote_backend.is_none());
+        assert!(metadata.remote_device.is_none());
+        assert!(metadata.remote_name.is_none());
+        assert!(metadata.request_duration_ms.is_none());
+        assert!(metadata.server_total_duration_ms.is_none());
+    }
+
+    #[test]
+    fn impossible_remote_fact_relationships_remain_unknown_after_loading() {
+        let directory = Directory::new();
+        let mut stored = entry("timing");
+        stored.metadata = Some(
+            serde_json::from_value(serde_json::json!({
+                "schema_version": 1, "backend": "remote", "request_duration_ms": 100,
+            "remote_device": "cuda:0", "remote_backend": "cpu",
+                "server_total_duration_ms": 200, "network_duration_ms": 101,
+                "decode_duration_ms": 201, "recognition_duration_ms": 201,
+                "requested_acceleration": "auto", "language": "ru", "dictation_mode": "standard",
+                "processing_mode": "off", "dictionary_enabled": false
+            }))
+            .unwrap(),
+        );
+        let mut store = HistoryStore::open(directory.0.clone()).unwrap();
+        store.persist(&[stored], false).unwrap();
+        drop(store);
+        let reopened = HistoryStore::open(directory.0.clone()).unwrap();
+        let metadata = reopened.entries[0].metadata.as_ref().unwrap();
+        assert_eq!(metadata.request_duration_ms, Some(100));
+        assert_eq!(metadata.server_total_duration_ms, Some(200));
+        assert!(metadata.network_duration_ms.is_none());
+        assert!(metadata.decode_duration_ms.is_none());
+        assert!(metadata.recognition_duration_ms.is_none());
+        assert!(metadata.remote_device.is_none());
+        assert!(metadata.remote_backend.is_none());
     }
 
     #[test]

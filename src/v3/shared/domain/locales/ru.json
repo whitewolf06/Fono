@@ -2246,5 +2246,15 @@
   "recognitionSource.busy": "Сервер занят. Попробуйте проверить подключение позже.",
   "recognitionSource.serverFailed": "На сервере ошибка. Проверьте его состояние в веб-панели.",
   "recognitionSource.invalidSettings": "Проверьте адрес, модель и параметры резервного распознавания.",
-  "recognitionSource.invalidToken": "Введите токен без пробелов, до 4096 символов."
+  "recognitionSource.invalidToken": "Введите токен без пробелов, до 4096 символов.",
+  "remoteHistory.backend": "Сервер Fono",
+  "remoteHistory.server": "Сервер",
+  "remoteHistory.device": "Устройство сервера",
+  "remoteHistory.acceleration": "Ускорение сервера",
+  "remoteHistory.decode": "Распознавание на сервере",
+  "remoteHistory.connection": "Подготовка подключения",
+  "remoteHistory.request": "Запрос к серверу",
+  "remoteHistory.serverTotal": "На сервере, всего",
+  "remoteHistory.network": "Передача по сети",
+  "remoteHistory.timingNote": "Время сервера входит во время запроса. Отдельные этапы показаны, когда есть измерения."
 }

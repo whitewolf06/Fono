@@ -89,6 +89,34 @@ pub(super) struct DictationMeasurement {
     pub recognition_ms: Option<u64>,
     pub processing_ms: Option<u64>,
     pub insertion_ms: Option<u64>,
+    pub recognition: Option<RecognitionMeasurement>,
+}
+
+/// Closed numeric/enum facts only. Source names and devices cannot enter this store.
+#[derive(Debug, Clone)]
+pub(super) struct RecognitionMeasurement {
+    pub backend: Option<crate::types::DictationBackend>,
+    pub fallback: bool,
+    pub request_ms: Option<u64>,
+    pub server_total_ms: Option<u64>,
+    pub network_ms: Option<u64>,
+    pub decode_ms: Option<u64>,
+}
+impl RecognitionMeasurement {
+    pub(super) fn from_transcript(transcript: &crate::types::Transcript, fallback: bool) -> Self {
+        let remote = transcript.remote.as_ref().filter(|remote| remote.valid());
+        let backend = remote
+            .map(|_| crate::types::DictationBackend::Remote)
+            .or_else(|| crate::types::DictationBackend::from_device(transcript.device.as_deref()));
+        Self {
+            backend,
+            fallback: fallback && backend != Some(crate::types::DictationBackend::Remote),
+            request_ms: remote.map(|remote| remote.request_ms),
+            server_total_ms: remote.map(|remote| remote.server_total_ms),
+            network_ms: remote.and_then(|remote| remote.network_ms),
+            decode_ms: remote.and_then(|remote| remote.decode_ms),
+        }
+    }
 }
 impl DictationMeasurement {
     fn set_stage(&mut self, stage: ReportStage, duration: Duration) {
@@ -150,6 +178,7 @@ impl ReportTrace {
                 recognition_ms: None,
                 processing_ms: None,
                 insertion_ms: None,
+                recognition: None,
             })),
         }
     }
@@ -162,6 +191,11 @@ impl ReportTrace {
     }
     pub fn captured(&self, samples: usize) {
         self.data.lock().audio_ms = Some((samples as u64).saturating_mul(1000) / 16_000);
+    }
+    pub fn recognized(&self, transcript: &crate::types::Transcript, fallback: bool) {
+        self.data.lock().recognition = Some(RecognitionMeasurement::from_transcript(
+            transcript, fallback,
+        ));
     }
     pub fn speech_timing(&self, value: Option<crate::types::SpeechTimingSummary>) {
         *self.speech_timing.lock() = value;
@@ -234,6 +268,7 @@ mod tests {
             transcribe_secs: None,
             audio_secs: None,
             device: None,
+            remote: None,
         };
         for (outcome, expected) in [
             (
@@ -261,6 +296,7 @@ mod tests {
             recognition_ms: None,
             processing_ms: None,
             insertion_ms: None,
+            recognition: None,
         }
     }
     #[test]

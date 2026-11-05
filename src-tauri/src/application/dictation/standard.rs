@@ -144,7 +144,7 @@ async fn stop_once(
         capture::finish_samples_async(session.clone(), diagnostic, report.clone()).await?;
     let samples = match samples {
         capture::CapturedSamples::Speech(samples) => samples,
-        capture::CapturedSamples::Finished(outcome) => return Ok(outcome),
+        capture::CapturedSamples::Finished(outcome) => return Ok(*outcome),
     };
     report.captured(diagnostic.captured_samples().unwrap_or(samples.len()));
     if session.settings.stt_source == crate::types::SttSource::FonoServer {
@@ -183,6 +183,7 @@ pub(super) async fn complete_transcript(
 ) -> AppResult<DictationOutcome> {
     let app = &session.app.clone();
     let operation = session.operation;
+    report.recognized(&transcript, session.settings.stt_fallback);
     diagnostic.stt_succeeded(!transcript.text.trim().is_empty());
     tracing::info!(
         "transcript ready ({} chars)",

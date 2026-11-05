@@ -912,6 +912,7 @@ mod tests {
                 return Err(TranscriptionServiceError::Cancelled("cancelled".into()));
             }
             Ok(Transcript {
+                remote: None,
                 text: "ok".into(),
                 detected_language: None,
                 transcribe_secs: Some(0.1),
@@ -1116,6 +1117,7 @@ mod tests {
                     .unwrap();
                 Ok((
                     Transcript {
+                        remote: None,
                         text: "late".into(),
                         detected_language: None,
                         transcribe_secs: None,

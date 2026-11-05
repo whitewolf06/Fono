@@ -1029,6 +1029,7 @@ mod tests {
                         device: Some("cpu".into()),
                         result: TranscriptionResult::from_transcript(
                             Transcript {
+                                remote: None,
                                 text: "test transcript".into(),
                                 detected_language: Some(request.language),
                                 transcribe_secs: Some(0.001),

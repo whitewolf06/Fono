@@ -33,6 +33,7 @@ pub(super) fn complete(
         text.push_str(&agreement.draft);
     }
     let transcript = Transcript {
+        remote: None,
         text,
         detected_language: Some(session.settings.language.clone()),
         transcribe_secs: Some(session.data.lock().decode_seconds),

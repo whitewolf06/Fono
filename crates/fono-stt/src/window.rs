@@ -7,6 +7,7 @@ use super::{recognizer, RecognitionOptions, SttEngine};
 
 pub(super) fn to_transcript(result: WindowTranscript) -> Transcript {
     Transcript {
+        remote: None,
         text: result.text,
         detected_language: result.detected_language,
         transcribe_secs: Some(result.transcribe_secs),

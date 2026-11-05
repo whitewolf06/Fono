@@ -123,6 +123,7 @@ mod tests {
     #[test]
     fn replacement_is_independent_of_ai_mode_and_preserves_original_for_archive() {
         let original = Transcript {
+            remote: None,
             text: "Запусти фоно".into(),
             detected_language: Some("ru".into()),
             transcribe_secs: Some(0.1),

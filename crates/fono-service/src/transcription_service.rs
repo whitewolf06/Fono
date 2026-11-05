@@ -263,6 +263,7 @@ mod tests {
 
     fn transcript() -> Transcript {
         Transcript {
+            remote: None,
             text: "проверка контракта".into(),
             detected_language: Some("ru".into()),
             audio_secs: Some(0.5),

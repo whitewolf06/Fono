@@ -63,7 +63,8 @@ pub fn collect(app: &AppHandle) -> DiagnosticReport {
         phase: pipeline.state(),
         paused: state.is_dictation_paused(),
         model: model::model_label(&settings),
-        model_available: settings.selected_stt_model().is_some_and(|model| {
+        recognition_source: settings.stt_source,
+        model_available: model::model_availability(&settings, |model| {
             let path = std::path::Path::new(&model.local_path);
             if model.id.engine == crate::types::SttEngine::Whisper {
                 path.is_file()

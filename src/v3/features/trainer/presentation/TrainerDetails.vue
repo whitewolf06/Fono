@@ -52,7 +52,12 @@ const technicalFacts = computed(() => {
   if (metadata?.recognizer) facts.push(engineNames[metadata.recognizer]);
   if (metadata?.backend)
     facts.push(
-      { cpu: "CPU", cuda: "NVIDIA CUDA", vulkan: "Vulkan" }[metadata.backend],
+      {
+        cpu: "CPU",
+        cuda: "NVIDIA CUDA",
+        vulkan: "Vulkan",
+        remote: uiMessage("remoteHistory.backend"),
+      }[metadata.backend],
     );
   if (metadata?.model) facts.push(metadata.model);
   if (

@@ -45,6 +45,7 @@ impl TranscriptionRuntime for CompletingRuntime {
         *self.requested_language.lock().unwrap() = Some(language.into());
         *self.pcm_samples.lock().unwrap() = pcm_samples.to_vec();
         Ok(Transcript {
+            remote: None,
             text: "готово".into(),
             detected_language: Some(language.into()),
             audio_secs: Some(0.1),

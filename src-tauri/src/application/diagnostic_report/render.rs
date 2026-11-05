@@ -42,16 +42,34 @@ pub(super) fn render(snapshot: &ReportSnapshot, last: Option<&DictationMeasureme
     let _ = writeln!(text, "\nРаспознавание");
     let _ = writeln!(
         text,
-        "Модель: {} | Файл доступен: {} | Язык: {}",
-        s.model,
-        yes(s.model_available),
-        s.language
+        "Выбранный источник: {}",
+        match s.recognition_source {
+            crate::types::SttSource::Local => "этот компьютер",
+            crate::types::SttSource::FonoServer => "Fono Server",
+        }
     );
     let _ = writeln!(
         text,
-        "Ускорение: {:?} | Активный backend: {} | STT: {}",
-        s.acceleration, s.active_backend, s.stt_state
+        "Модель: {} | Доступность модели: {} | Язык: {}",
+        s.model,
+        s.model_available
+            .map(yes)
+            .unwrap_or("на сервере не проверялась"),
+        s.language
     );
+    if s.recognition_source == crate::types::SttSource::FonoServer {
+        let _ = writeln!(
+            text,
+            "Локальное ускорение: не применяется | Активный backend: {} | Клиент STT: {}",
+            s.active_backend, s.stt_state
+        );
+    } else {
+        let _ = writeln!(
+            text,
+            "Ускорение: {:?} | Активный backend: {} | STT: {}",
+            s.acceleration, s.active_backend, s.stt_state
+        );
+    }
     let _ = writeln!(
         text,
         "Доступные сборки: CPU; CUDA: {}; Vulkan: {} | Протокол worker: {}",
@@ -145,6 +163,31 @@ pub(super) fn render(snapshot: &ReportSnapshot, last: Option<&DictationMeasureme
             "Длительность захваченного аудио: {}",
             milliseconds(last.audio_ms)
         );
+        if let Some(recognition) = &last.recognition {
+            use crate::types::DictationBackend;
+            let backend = match recognition.backend {
+                Some(DictationBackend::Remote) => "Fono Server",
+                Some(DictationBackend::Cpu) => "CPU",
+                Some(DictationBackend::Cuda) => "CUDA",
+                Some(DictationBackend::Vulkan) => "Vulkan",
+                Some(DictationBackend::Unknown) | None => "неизвестно",
+            };
+            let _ = writeln!(
+                text,
+                "Фактический backend: {backend} | Локальный резерв: {}",
+                yes(recognition.fallback)
+            );
+            if recognition.backend == Some(DictationBackend::Remote) {
+                for (label, duration) in [
+                    ("Запрос к серверу целиком", recognition.request_ms),
+                    ("Общее время на сервере", recognition.server_total_ms),
+                    ("Сеть отдельно", recognition.network_ms),
+                    ("Распознавание на сервере отдельно", recognition.decode_ms),
+                ] {
+                    let _ = writeln!(text, "{label}: {}", milliseconds(duration));
+                }
+            }
+        }
         let _ = writeln!(
             text,
             "Потери пакетов захвата в этой диктовке: {}",

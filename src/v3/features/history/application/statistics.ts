@@ -41,6 +41,7 @@ export function dictationFacts(
   entry: Dictation,
 ): { title: string; value: string }[] {
   const m = entry.metadata;
+  const remote = m?.backend === "remote";
   const facts = [
     {
       get title() {
@@ -56,16 +57,25 @@ export function dictationFacts(
     },
     {
       get title() {
-        return uiMessage("ui.7894eb1ac6");
+        return remote
+          ? uiMessage("remoteHistory.decode")
+          : uiMessage("ui.7894eb1ac6");
       },
-      value: durationLabel(m?.recognitionDurationMs),
+      value: durationLabel(
+        remote ? m?.decodeDurationMs : m?.recognitionDurationMs,
+      ),
     },
     {
       get title() {
         return uiMessage("ui.d4df82f58c");
       },
       value: m?.backend
-        ? { cpu: "CPU", cuda: "NVIDIA CUDA", vulkan: "Vulkan" }[m.backend]
+        ? {
+            cpu: "CPU",
+            cuda: "NVIDIA CUDA",
+            vulkan: "Vulkan",
+            remote: uiMessage("remoteHistory.backend"),
+          }[m.backend]
         : uiMessage("ui.b5eede8dfc"),
     },
     {
@@ -75,12 +85,31 @@ export function dictationFacts(
       value: m?.model || uiMessage("ui.bf2a878be5"),
     },
   ];
+  if (remote) {
+    facts.push(
+      {
+        title: uiMessage("remoteHistory.server"),
+        value: m.remoteName || uiMessage("ui.c5805f8b9d"),
+      },
+      {
+        title: uiMessage("remoteHistory.device"),
+        value: m.remoteDevice || uiMessage("ui.c5805f8b9d"),
+      },
+    );
+    if (m.remoteBackend)
+      facts.push({
+        title: uiMessage("remoteHistory.acceleration"),
+        value: { cpu: "CPU", cuda: "NVIDIA CUDA", vulkan: "Vulkan" }[
+          m.remoteBackend
+        ],
+      });
+  }
   if (m?.fallback)
     facts.push({
       title: uiMessage("recovery.historyTitle"),
       value: uiMessage("recovery.historyFallback"),
     });
-  if (m?.requestedAcceleration)
+  if (m?.requestedAcceleration && !remote)
     facts.push({
       get title() {
         return uiMessage("ui.8e4f4c60d3");
@@ -190,10 +219,23 @@ export function dictationStages(
   entry: Dictation,
 ): { title: string; value: string }[] {
   const m = entry.metadata;
+  const remote = m?.backend === "remote";
   const stages = [];
   for (const [title, duration] of [
-    [uiMessage("ui.7c8a4ae5c5"), m?.modelLoadDurationMs],
+    [
+      remote
+        ? uiMessage("remoteHistory.connection")
+        : uiMessage("ui.7c8a4ae5c5"),
+      m?.modelLoadDurationMs,
+    ],
     [uiMessage("ui.d4a26d3502"), m?.processingDurationMs],
+    ...(remote
+      ? ([
+          [uiMessage("remoteHistory.request"), m?.requestDurationMs],
+          [uiMessage("remoteHistory.serverTotal"), m?.serverTotalDurationMs],
+          [uiMessage("remoteHistory.network"), m?.networkDurationMs],
+        ] as const)
+      : []),
   ] as const) {
     if (duration != null && Number.isFinite(duration) && duration >= 0)
       stages.push({ title, value: durationLabel(duration) });

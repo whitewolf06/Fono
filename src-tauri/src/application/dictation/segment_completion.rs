@@ -239,6 +239,7 @@ impl Combined {
     fn new(length: usize) -> Self {
         Self {
             transcript: Transcript {
+                remote: None,
                 text: String::new(),
                 detected_language: None,
                 transcribe_secs: Some(0.0),

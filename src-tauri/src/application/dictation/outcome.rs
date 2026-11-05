@@ -61,6 +61,7 @@ mod tests {
 
     fn transcript(text: &str) -> Transcript {
         Transcript {
+            remote: None,
             text: text.into(),
             detected_language: None,
             transcribe_secs: None,

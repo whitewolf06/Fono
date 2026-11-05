@@ -460,6 +460,7 @@ fn transcribe_scheduled_observed(
 
 fn transcript_from_window(result: &WindowTranscript) -> Transcript {
     Transcript {
+        remote: None,
         text: result.text.clone(),
         detected_language: result.detected_language.clone(),
         transcribe_secs: Some(result.transcribe_secs),
@@ -1340,6 +1341,7 @@ mod tests {
                     .recv_timeout(Duration::from_secs(2))
                     .unwrap();
                 Ok(Transcript {
+                    remote: None,
                     text: "batch".into(),
                     detected_language: None,
                     transcribe_secs: None,

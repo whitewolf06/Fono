@@ -99,6 +99,7 @@ fn only_first_success_can_archive_and_stale_output_cannot_replace_new_pending() 
     let mut store = Store::default();
     store.install(record(1)).unwrap();
     let transcript = Transcript {
+        remote: None,
         text: "final".into(),
         detected_language: None,
         transcribe_secs: None,

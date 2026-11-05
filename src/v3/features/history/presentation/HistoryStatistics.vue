@@ -33,6 +33,12 @@ const stages = computed(() => dictationStages(props.entry));
         $t("ui.600e1887b8")
       }}</template>
     </p>
+    <p
+      v-if="entry.metadata?.backend === 'remote'"
+      class="history-statistics-note muted"
+    >
+      {{ $t("remoteHistory.timingNote") }}
+    </p>
   </section>
 </template>
 

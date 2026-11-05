@@ -16,7 +16,7 @@ pub use acceleration::{AccelerationCapabilities, AccelerationMode};
 pub use error::{CoreError, CoreResult, ErrorCode};
 pub use fono_stt_protocol::{DecodingOptions, DecodingStrategy};
 pub use stt_models::{ModelId, SttEngine, SttModelSelection};
-pub use transcript::Transcript;
+pub use transcript::{RemoteBackend, RemoteTranscriptMetadata, Transcript};
 pub use transcription_contract::*;
 pub use whisper_artifacts::WhisperArtifact;
 pub use whisper_models::WhisperModelSize;

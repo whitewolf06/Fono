@@ -367,7 +367,7 @@ fn arm_recording_safety_timeout(app: AppHandle, operation: u64, command: bool) {
 
 pub(super) enum CapturedSamples {
     Speech(Vec<i16>),
-    Finished(super::DictationOutcome),
+    Finished(Box<super::DictationOutcome>),
 }
 
 pub(super) fn finish_samples(
@@ -388,7 +388,7 @@ pub(super) fn finish_samples(
     })?;
     let Some(samples) = samples else {
         diagnostic.stt_cancelled();
-        return Ok(CapturedSamples::Finished(session.interrupted()));
+        return Ok(CapturedSamples::Finished(Box::new(session.interrupted())));
     };
     diagnostic.record_capture(samples.len());
     if pipeline.recording_limit_reached() {
@@ -396,7 +396,7 @@ pub(super) fn finish_samples(
     }
     if !session.active("after recording") {
         diagnostic.stt_cancelled();
-        return Ok(CapturedSamples::Finished(session.interrupted()));
+        return Ok(CapturedSamples::Finished(Box::new(session.interrupted())));
     }
     crate::application::recording_sounds::play_for(
         &session.app,
@@ -405,13 +405,15 @@ pub(super) fn finish_samples(
         crate::audio::cues::Cue::Stop,
     );
     if samples.is_empty() {
-        return Ok(CapturedSamples::Finished(super::DictationOutcome::NoSpeech));
+        return Ok(CapturedSamples::Finished(Box::new(
+            super::DictationOutcome::NoSpeech,
+        )));
     }
     let mut speech_gate = crate::application::speech_gate::SpeechGate::new(&session.app)?;
     let Some(speech) =
         speech_gate.analyze_recording(&samples, || session.cancellation.is_cancelled())
     else {
-        return Ok(CapturedSamples::Finished(session.interrupted()));
+        return Ok(CapturedSamples::Finished(Box::new(session.interrupted())));
     };
     if !speech.has_speech {
         tracing::debug!(
@@ -419,17 +421,17 @@ pub(super) fn finish_samples(
             captured_samples = samples.len(),
             "dictation skipped: no confirmed speech in capture"
         );
-        return Ok(CapturedSamples::Finished(
+        return Ok(CapturedSamples::Finished(Box::new(
             if session.cancellation.is_cancelled() || !session.active("speech validation stopped") {
                 session.interrupted()
             } else {
                 super::DictationOutcome::NoSpeech
             },
-        ));
+        )));
     }
     if !session.active("after speech validation") {
         diagnostic.stt_cancelled();
-        return Ok(CapturedSamples::Finished(session.interrupted()));
+        return Ok(CapturedSamples::Finished(Box::new(session.interrupted())));
     }
     let captured_samples = samples.len();
     if session.settings.analytics_enabled && session.settings.speech_trainer_enabled {
@@ -451,11 +453,13 @@ pub(super) fn finish_samples(
         trimmed
     };
     if samples.is_empty() {
-        return Ok(CapturedSamples::Finished(super::DictationOutcome::NoSpeech));
+        return Ok(CapturedSamples::Finished(Box::new(
+            super::DictationOutcome::NoSpeech,
+        )));
     }
     if !session.transition(PipelineState::Transcribing, TerminalReason::Completed) {
         diagnostic.stt_cancelled();
-        return Ok(CapturedSamples::Finished(session.interrupted()));
+        return Ok(CapturedSamples::Finished(Box::new(session.interrupted())));
     }
     Ok(CapturedSamples::Speech(samples))
 }

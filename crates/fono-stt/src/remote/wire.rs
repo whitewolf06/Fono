@@ -2,7 +2,7 @@
 //! fields, bounded bodies and semantic validation reject malformed replies.
 use super::{failure, RemoteErrorKind};
 use crate::error::AppResult;
-use fono_types::{SttEngine, SubtitleSegment};
+use fono_types::{RemoteBackend, SttEngine, SubtitleSegment};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -61,6 +61,12 @@ pub(super) struct Recognition {
 pub(super) struct Timings {
     pub audio_ms: u64,
     pub total_ms: u64,
+    #[serde(default)]
+    pub queue_ms: Option<u64>,
+    #[serde(default)]
+    pub load_ms: Option<u64>,
+    #[serde(default)]
+    pub decode_ms: Option<u64>,
 }
 
 impl Recognition {
@@ -69,6 +75,14 @@ impl Recognition {
         if self.model != model
             || self.timings.audio_ms.abs_diff(duration) > 1
             || self.timings.total_ms > 86_400_000
+            || [
+                self.timings.queue_ms,
+                self.timings.load_ms,
+                self.timings.decode_ms,
+            ]
+            .into_iter()
+            .flatten()
+            .any(|duration| duration > self.timings.total_ms)
             || self.language.as_ref().is_some_and(|l| {
                 l.len() > 16 || !l.bytes().all(|b| b.is_ascii_lowercase() || b == b'-')
             })
@@ -77,6 +91,15 @@ impl Recognition {
             return failure(RemoteErrorKind::InvalidResponse);
         }
         device(self.device.as_deref().unwrap_or_default())?;
+        let backend = match self.backend.as_deref() {
+            Some("cpu") => RemoteBackend::Cpu,
+            Some("cuda") => RemoteBackend::Cuda,
+            Some("vulkan") => RemoteBackend::Vulkan,
+            _ => return failure(RemoteErrorKind::InvalidResponse),
+        };
+        if !backend.valid_device(self.device.as_deref().unwrap_or_default()) {
+            return failure(RemoteErrorKind::InvalidResponse);
+        }
         let mut previous_start = 0;
         for segment in &self.segments {
             if segment.start_ms < previous_start

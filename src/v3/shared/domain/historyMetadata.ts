@@ -1,4 +1,5 @@
-export type DictationBackend = "cpu" | "cuda" | "vulkan";
+export type LocalDictationBackend = "cpu" | "cuda" | "vulkan";
+export type DictationBackend = LocalDictationBackend | "remote";
 export interface DictationMetadata {
   fallback?: boolean;
   speechTiming?: SpeechTimingSummary | null;
@@ -9,6 +10,13 @@ export interface DictationMetadata {
   modelLoadDurationMs?: number | null;
   processingDurationMs?: number | null;
   backend?: DictationBackend | null;
+  remoteName?: string | null;
+  remoteDevice?: string | null;
+  remoteBackend?: LocalDictationBackend | null;
+  requestDurationMs?: number | null;
+  serverTotalDurationMs?: number | null;
+  networkDurationMs?: number | null;
+  decodeDurationMs?: number | null;
   model?: string | null;
   requestedAcceleration?: "auto" | "cpu" | "cuda" | "vulkan";
   language?: string;

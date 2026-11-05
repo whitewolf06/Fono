@@ -2246,5 +2246,15 @@
   "recognitionSource.busy": "Server busy. Try the connection check later.",
   "recognitionSource.serverFailed": "Server failed. Check its status in the web panel.",
   "recognitionSource.invalidSettings": "Check the address, model and reserve recognition settings.",
-  "recognitionSource.invalidToken": "Enter a token without spaces, up to 4096 characters."
+  "recognitionSource.invalidToken": "Enter a token without spaces, up to 4096 characters.",
+  "remoteHistory.backend": "Fono Server",
+  "remoteHistory.server": "Server",
+  "remoteHistory.device": "Server device",
+  "remoteHistory.acceleration": "Server acceleration",
+  "remoteHistory.decode": "Server recognition",
+  "remoteHistory.connection": "Connection preparation",
+  "remoteHistory.request": "Server request",
+  "remoteHistory.serverTotal": "Server total",
+  "remoteHistory.network": "Network transfer",
+  "remoteHistory.timingNote": "Server time is included in request time. Individual stages are shown when measurements are available."
 }

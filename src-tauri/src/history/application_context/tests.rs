@@ -27,6 +27,7 @@ fn settings() -> Settings {
 }
 fn entry(id: &str) -> DictationHistoryEntry {
     let transcript = Transcript {
+        remote: None,
         text: "Preserved text".into(),
         detected_language: None,
         transcribe_secs: None,
