@@ -97,6 +97,15 @@ fn classify(result: fono_stt::error::SttResult<RemoteHealth>) -> State {
             RemoteErrorKind::Unauthorized => State::Unavailable {
                 reason: Reason::Unauthorized,
             },
+            RemoteErrorKind::Incompatible => State::Unavailable {
+                reason: Reason::IncompatibleVersion,
+            },
+            RemoteErrorKind::UnsupportedCapabilities => State::Unavailable {
+                reason: Reason::UnsupportedCapabilities,
+            },
+            RemoteErrorKind::ModelNotFound
+            | RemoteErrorKind::ModelNotReady
+            | RemoteErrorKind::WorkerFailed => State::ModelNotReady,
             RemoteErrorKind::InvalidEndpoint | RemoteErrorKind::InvalidRequest => {
                 State::Unavailable {
                     reason: Reason::NotConfigured,
@@ -118,6 +127,42 @@ fn classify(result: fono_stt::error::SttResult<RemoteHealth>) -> State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn compatibility_failures_preserve_their_typed_action_without_server_details() {
+        for (kind, reason) in [
+            (RemoteErrorKind::Incompatible, Reason::IncompatibleVersion),
+            (
+                RemoteErrorKind::UnsupportedCapabilities,
+                Reason::UnsupportedCapabilities,
+            ),
+        ] {
+            let state = classify(Err(SttError::Remote(fono_stt::remote::RemoteError {
+                kind,
+                status: Some(404),
+                retry_after_seconds: None,
+            })));
+            assert_eq!(state, State::Unavailable { reason });
+            assert!(!serde_json::to_string(&state).unwrap().contains("404"));
+        }
+    }
+
+    #[test]
+    fn discovered_missing_or_failed_model_is_not_a_malformed_server_response() {
+        for kind in [
+            RemoteErrorKind::ModelNotFound,
+            RemoteErrorKind::ModelNotReady,
+            RemoteErrorKind::WorkerFailed,
+        ] {
+            assert_eq!(
+                classify(Err(SttError::Remote(fono_stt::remote::RemoteError {
+                    kind,
+                    status: Some(404),
+                    retry_after_seconds: None,
+                }))),
+                State::ModelNotReady,
+            );
+        }
+    }
     #[test]
     fn server_and_model_states_are_hints_without_inventing_a_local_fallback() {
         let mut health = RemoteHealth {

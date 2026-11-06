@@ -18,6 +18,7 @@ const errors = new Set<RemoteConnectionError>([
   "timeout",
   "unauthorized",
   "incompatible_version",
+  "unsupported_capabilities",
   "model_not_found",
   "invalid_response",
   "busy",
@@ -57,10 +58,11 @@ export function remoteConnectionFromNative(
   if (reply.kind !== "ok" || !reply.server || typeof reply.server !== "object")
     return invalid();
   const s = reply.server as Record<string, unknown>;
+  if (Number.isInteger(s.api_version) && Number(s.api_version) < 2)
+    return { kind: "error", error: "incompatible_version" };
   if (
     !bounded(s.version, 64) ||
     !Number.isInteger(s.api_version) ||
-    Number(s.api_version) < 2 ||
     !["ready", "starting", "busy", "failed", "stopping"].includes(
       String(s.state),
     ) ||

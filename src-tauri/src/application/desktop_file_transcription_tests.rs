@@ -229,6 +229,11 @@ fn file_errors_keep_classification_without_exposing_source_messages() {
         (SttError::Stt("PRIVATE_TRANSCRIPT".into()), "worker_failed"),
         (SttError::Internal("PRIVATE_SERVER_TOKEN".into()), "failed"),
         (remote(RemoteErrorKind::Busy), "busy"),
+        (remote(RemoteErrorKind::Incompatible), "invalid_request"),
+        (
+            remote(RemoteErrorKind::UnsupportedCapabilities),
+            "invalid_request",
+        ),
         (remote(RemoteErrorKind::ModelNotFound), "model_not_found"),
         (remote(RemoteErrorKind::ModelNotReady), "model_not_ready"),
         (remote(RemoteErrorKind::UnsupportedAudio), "invalid_request"),
@@ -239,5 +244,25 @@ fn file_errors_keep_classification_without_exposing_source_messages() {
         let encoded = serde_json::to_value(remote_error(error)).unwrap();
         assert_eq!(encoded["code"], code);
         assert!(!encoded.to_string().contains("PRIVATE_"));
+    }
+}
+
+#[test]
+fn incompatible_file_servers_keep_the_update_guidance() {
+    use fono_stt::remote::RemoteErrorKind;
+    for kind in [
+        RemoteErrorKind::Incompatible,
+        RemoteErrorKind::UnsupportedCapabilities,
+    ] {
+        let error = remote_error(fono_stt::error::SttError::Remote(
+            fono_stt::remote::RemoteError {
+                kind,
+                status: None,
+                retry_after_seconds: None,
+            },
+        ));
+        let encoded = serde_json::to_value(error).unwrap();
+        assert_eq!(encoded["code"], "invalid_request");
+        assert!(encoded["message"].as_str().unwrap().contains("Обновите"));
     }
 }

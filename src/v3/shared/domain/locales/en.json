@@ -2241,6 +2241,7 @@
   "recognitionSource.timeout": "Server response timed out. Try again.",
   "recognitionSource.unauthorized": "Server rejected the token. Check it and try again.",
   "recognitionSource.incompatible": "This Fono Server version is incompatible. Update the server.",
+  "recognitionSource.unsupportedCapabilities": "The server does not support the required recognition capabilities. Update Fono Server.",
   "recognitionSource.modelMissing": "The selected model is not installed on the server. Choose another from the returned inventory.",
   "recognitionSource.invalidResponse": "Server returned an unsupported response. Check the address and Fono Server version.",
   "recognitionSource.busy": "Server busy. Try the connection check later.",

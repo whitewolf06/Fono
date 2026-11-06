@@ -17,6 +17,7 @@ export function connectionErrorText(
     timeout: "recognitionSource.timeout",
     unauthorized: "recognitionSource.unauthorized",
     incompatible_version: "recognitionSource.incompatible",
+    unsupported_capabilities: "recognitionSource.unsupportedCapabilities",
     model_not_found: "recognitionSource.modelMissing",
     invalid_response: "recognitionSource.invalidResponse",
     busy: "recognitionSource.busy",
@@ -85,32 +86,53 @@ export function createRecognitionSourceController(options: {
       }
     },
     async check() {
-      if (disposed || state.checking || !options.port) return;
+      const port = options.port;
+      if (disposed || state.checking || !port) return;
       const ticket = ++revision;
       const submitted = signature();
       const draft = options.settings();
+      const selectedModel = draft.model;
+      const input = {
+        url: draft.url,
+        ...(draft.caPem.trim() ? { caPem: draft.caPem } : {}),
+        ...(state.token ? { token: state.token } : {}),
+      };
       state.result = null;
       state.checking = true;
       try {
-        // Discover inventory even if an old selected model no longer exists.
-        const result = await options.port.test({
-          url: draft.url,
-          ...(draft.caPem.trim() ? { caPem: draft.caPem } : {}),
-          ...(state.token ? { token: state.token } : {}),
+        const result = await port.test({
+          ...input,
+          ...(selectedModel ? { model: selectedModel } : {}),
         });
         if (disposed || ticket !== revision || submitted !== signature())
           return;
         state.result = result;
         state.server = result.kind === "ok" ? result.server : null;
-        options.checked?.(state.server);
         if (
           result.kind === "ok" &&
-          draft.model &&
+          selectedModel &&
           !result.server.models.some(
-            (model) => model.id === draft.model && model.installed,
+            (model) => model.id === selectedModel && model.installed,
           )
         )
           state.result = { kind: "error", error: "model_not_found" };
+        options.checked?.(state.result.kind === "ok" ? state.server : null);
+        if (
+          selectedModel &&
+          result.kind === "error" &&
+          ["model_not_found", "unsupported_capabilities"].includes(result.error)
+        ) {
+          // A rejected selection must not become a successful connection.
+          // Read inventory separately so the user can choose a replacement.
+          try {
+            const inventory = await port.test(input);
+            if (disposed || ticket !== revision || submitted !== signature())
+              return;
+            if (inventory.kind === "ok") state.server = inventory.server;
+          } catch {
+            // Keep the selected model's original failure if inventory fails.
+          }
+        }
       } catch {
         if (!disposed && ticket === revision && submitted === signature()) {
           state.result = { kind: "error", error: "network" };

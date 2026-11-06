@@ -109,14 +109,28 @@ fn file_job_uses_multipart_batch_queue_and_preserves_real_timestamps() {
 
 #[test]
 fn file_job_capabilities_and_bounds_fail_before_audio_upload() {
-    for change in [
-        |caps: &mut Value| caps["features"]["jobs"] = json!(false),
-        |caps: &mut Value| {
-            caps["features"].as_object_mut().unwrap().remove("jobs");
-        },
-        |caps: &mut Value| caps["audio_formats"] = json!([PCM_TYPE]),
-        |caps: &mut Value| caps["api_version"] = json!(1),
-    ] {
+    type CapabilityCase = (fn(&mut Value), RemoteErrorKind);
+    let cases: [CapabilityCase; 4] = [
+        (
+            |caps| caps["features"]["jobs"] = json!(false),
+            RemoteErrorKind::UnsupportedCapabilities,
+        ),
+        (
+            |caps| {
+                caps["features"].as_object_mut().unwrap().remove("jobs");
+            },
+            RemoteErrorKind::UnsupportedCapabilities,
+        ),
+        (
+            |caps| caps["audio_formats"] = json!([PCM_TYPE]),
+            RemoteErrorKind::UnsupportedCapabilities,
+        ),
+        (
+            |caps| caps["api_version"] = json!(1),
+            RemoteErrorKind::Incompatible,
+        ),
+    ];
+    for (change, expected) in cases {
         let fixture = fixture();
         change(&mut fixture.metadata.lock().unwrap().0);
         let error = RemoteTranscriptionClient::connect(
@@ -126,7 +140,7 @@ fn file_job_capabilities_and_bounds_fail_before_audio_upload() {
             &OperationCancellation::default(),
         )
         .unwrap_err();
-        assert_eq!(kind(error).kind, RemoteErrorKind::Incompatible);
+        assert_eq!(kind(error).kind, expected);
         assert!(!fixture
             .requests
             .lock()

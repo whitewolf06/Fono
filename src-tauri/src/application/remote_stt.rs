@@ -35,6 +35,7 @@ pub(crate) enum ConnectionError {
     Timeout,
     Unauthorized,
     IncompatibleVersion,
+    UnsupportedCapabilities,
     ModelNotFound,
     InvalidResponse,
     Busy,
@@ -130,6 +131,7 @@ fn map_error(error: fono_stt::error::SttError) -> ConnectionError {
             R::InvalidEndpoint | R::InvalidRequest => C::InvalidEndpoint,
             R::Unauthorized => C::Unauthorized,
             R::Incompatible => C::IncompatibleVersion,
+            R::UnsupportedCapabilities => C::UnsupportedCapabilities,
             R::ModelNotFound => C::ModelNotFound,
             R::Busy => C::Busy,
             R::Timeout => C::Timeout,
@@ -179,7 +181,6 @@ pub(crate) fn change_token(app: &AppHandle, token: Option<&str>) -> AppResult<()
             app.state::<crate::pipeline::Pipeline>()
                 .stt()
                 .clear_remote_if_idle()
-                .map_err(Into::into)
         },
         || match token {
             Some(token) => crate::secrets::store_stt_server_token(token),
@@ -304,5 +305,29 @@ mod tests {
         );
         let status = serde_json::to_value(CredentialStatus { has_token: true }).unwrap();
         assert_eq!(status, serde_json::json!({"has_token":true}));
+    }
+
+    #[test]
+    fn protocol_version_and_capability_failures_have_distinct_public_codes() {
+        use fono_stt::remote::RemoteError;
+        for (kind, expected) in [
+            (RemoteErrorKind::Incompatible, "incompatible_version"),
+            (
+                RemoteErrorKind::UnsupportedCapabilities,
+                "unsupported_capabilities",
+            ),
+        ] {
+            let result = TestResult::Error {
+                error: map_error(fono_stt::error::SttError::Remote(RemoteError {
+                    kind,
+                    status: Some(422),
+                    retry_after_seconds: Some(2),
+                })),
+            };
+            assert_eq!(
+                serde_json::to_value(result).unwrap(),
+                serde_json::json!({"kind":"error","error":expected})
+            );
+        }
     }
 }

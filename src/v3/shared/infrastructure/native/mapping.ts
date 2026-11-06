@@ -1,4 +1,4 @@
-import { message as uiMessage } from "../../domain/messages";
+import { message as uiMessage, translateAuthored } from "../../domain/messages";
 import {
   applyRecognitionSource,
   recognitionSourceFromNative,
@@ -434,7 +434,7 @@ export function jobFromNative(j: LocalTranscriptionJob): ServiceJob {
               ? "cancelled"
               : "running",
     text: j.result?.text,
-    error: j.error?.message,
+    error: j.error ? translateAuthored(j.error.message) : undefined,
     seconds: Math.round(j.result?.audio_seconds || 0),
   };
 }

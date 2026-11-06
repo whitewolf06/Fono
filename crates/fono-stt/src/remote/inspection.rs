@@ -1,7 +1,7 @@
 //! Bounded, metadata-only connection inspection; no audio or model activation.
 use super::{
-    failure, transport::Transport, wire, RemoteEndpoint, RemoteError, RemoteErrorKind,
-    RemoteServerHealth, PCM_TYPE,
+    compatibility, failure, transport::Transport, wire, RemoteEndpoint, RemoteError,
+    RemoteErrorKind, RemoteServerHealth,
 };
 use crate::{error::AppResult, ActivityGuard};
 use fono_core::OperationCancellation;
@@ -80,26 +80,16 @@ pub fn inspect_server(
     let task = http.clone();
     http.call(cancellation, http.discovery_deadline(), || {
         Ok(async move {
-            let description = task
-                .json::<Description>(task.get("v1/capabilities"), 64 * 1024)
-                .await
-                .map_err(|error| match error {
-                    crate::error::SttError::Remote(RemoteError {
-                        status: Some(404), ..
-                    }) => RemoteError::new(RemoteErrorKind::Incompatible).into(),
-                    other => other,
-                })?;
+            let description: Description = compatibility::description(&task).await?;
             validate_description(&description)?;
-            let models = task
-                .json::<wire::Models>(task.get("v1/models"), 512 * 1024)
-                .await?;
+            let models = compatibility::models(&task).await?;
             let (status, health) = task
                 .health_json::<Health>(task.get("v1/health"), 64 * 1024)
                 .await?;
             if (status == 200) != (health.status == RemoteServerHealth::Ready) {
                 return failure(RemoteErrorKind::InvalidResponse);
             }
-            let models = model_inventory(models)?;
+            let models = model_inventory(models, selected.as_ref())?;
             if let Some(selected) = selected {
                 let Some(model) = models
                     .iter()
@@ -158,16 +148,7 @@ pub fn inspect_server(
 
 fn validate_description(description: &Description) -> AppResult<()> {
     let server = &description.compatibility;
-    if server.product != "fono-server"
-        || server.api_version < 2
-        || !server.audio_formats.iter().any(|format| format == PCM_TYPE)
-        || !server.features.cancel_on_disconnect
-        || server.max_audio_seconds == 0
-        || server.max_upload_bytes < 2
-        || !server.features.decoding.iter().any(|mode| mode == "fast")
-    {
-        return failure(RemoteErrorKind::Incompatible);
-    }
+    compatibility::validate_server(server, compatibility::Route::Interactive)?;
     if description.version.is_empty()
         || description.version.len() > 64
         || !description
@@ -182,13 +163,17 @@ fn validate_description(description: &Description) -> AppResult<()> {
     Ok(())
 }
 
-fn model_inventory(models: wire::Models) -> AppResult<Vec<RemoteModel>> {
+fn model_inventory(
+    models: wire::Models,
+    selected: Option<&ModelId>,
+) -> AppResult<Vec<RemoteModel>> {
     if models.object != "list" || models.data.len() > 256 {
         return failure(RemoteErrorKind::InvalidResponse);
     }
     let mut identities = HashSet::new();
     let mut inventory = Vec::new();
     for model in models.data {
+        compatibility::validate_details(&model.fono)?;
         let engine = match model.fono.engine {
             SttEngine::Whisper => "whisper",
             SttEngine::GigaAm => "giga_am",
@@ -205,34 +190,21 @@ fn model_inventory(models: wire::Models) -> AppResult<Vec<RemoteModel>> {
                     })
             })
             .ok_or_else(|| RemoteError::new(RemoteErrorKind::InvalidResponse))?;
-        if model.object != "model"
-            || !identities.insert(model.id.clone())
-            || !matches!(
-                model.fono.state.as_str(),
-                "ready" | "busy" | "loading" | "retiring" | "unloaded" | "failed"
-            )
-            || !matches!(
-                model.fono.disk_state.as_str(),
-                "verified" | "present_unverified" | "missing" | "invalid"
-            )
-            || model.fono.languages.len() > 64
-            || model.fono.languages.iter().any(|language| {
-                language.is_empty()
-                    || language.len() > 16
-                    || !language
-                        .bytes()
-                        .all(|byte| byte.is_ascii_lowercase() || byte == b'-')
-            })
+        if model.object != "model" || !identities.insert(model.id.clone()) {
+            return failure(RemoteErrorKind::InvalidResponse);
+        }
+        if selected.is_some_and(|selected| {
+            selected.engine == model.fono.engine && selected.variant == variant
+        }) && (model.fono.languages.is_empty()
             || !model
                 .fono
                 .features
                 .decoding
                 .iter()
-                .any(|mode| mode == "fast")
+                .any(|mode| mode == "fast"))
         {
-            return failure(RemoteErrorKind::InvalidResponse);
+            return failure(RemoteErrorKind::UnsupportedCapabilities);
         }
-        wire::device(&model.fono.device)?;
         inventory.push(RemoteModel {
             id: ModelId {
                 engine: model.fono.engine,

@@ -182,3 +182,58 @@ test("legacy and versioned event subscriptions share safe mapping and retain ope
   assert.match(received[1].payload.message, /Скопируйте результат из Fono/);
   assert.ok(!JSON.stringify(received).includes("PRIVATE_KEY"));
 });
+
+test("runtime compatibility guidance survives IPC and readiness translation while appended details stay private", async () => {
+  const { bindMessageLocale, uiLocale } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/locale.ts",
+  );
+  const previous = uiLocale();
+  let language = "ru";
+  bindMessageLocale(() => language);
+  try {
+    for (const [detail, english] of [
+      [
+        "Эта версия Fono Server несовместима с приложением. Обновите сервер.",
+        "This Fono Server version is incompatible. Update the server.",
+      ],
+      [
+        "Сервер не поддерживает нужные возможности распознавания. Обновите Fono Server.",
+        "The server does not support the required recognition capabilities. Update Fono Server.",
+      ],
+    ]) {
+      for (const value of ["ru", "en"]) {
+        language = value;
+        const expected = language === "en" ? english : detail;
+        invoke = async (command) => {
+          if (command === "get_stt_readiness")
+            return { state: "failed", message: detail };
+          throw {
+            code: "config",
+            params: {
+              detail,
+              token: "PRIVATE_TOKEN",
+              url: "https://PRIVATE.invalid",
+            },
+          };
+        };
+        await assert.rejects(api.call("start_dictation"), (error) => {
+          assert.equal(error.code, "config");
+          assert.equal(error.message, expected);
+          assert.deepEqual(error.params, { detail });
+          assert.doesNotMatch(JSON.stringify(error), /PRIVATE|https:/);
+          return true;
+        });
+        assert.equal((await api.call("get_stt_readiness")).message, expected);
+        const dirty = `${detail} https://PRIVATE.invalid Bearer PRIVATE_TOKEN`;
+        const sanitized = new errors.NativeIpcError({
+          code: "config",
+          params: { detail: dirty },
+        });
+        assert.deepEqual(sanitized.params, {});
+        assert.doesNotMatch(sanitized.message, /PRIVATE|https:|Bearer /);
+      }
+    }
+  } finally {
+    bindMessageLocale(() => previous);
+  }
+});

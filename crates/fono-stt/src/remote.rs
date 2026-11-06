@@ -1,5 +1,6 @@
 //! Native Fono Server API v2 client. Blocking entry points belong on the host's
 //! blocking executor, just like the other recognizers; no Tauri or settings I/O.
+mod compatibility;
 mod health;
 mod inspection;
 mod jobs;
@@ -28,6 +29,7 @@ use crate::{
     recognizer::{self, Recognizer, RecognizerLoad},
     ActivityGuard, RecognitionOptions, RecognizerCapabilities, WindowOptions,
 };
+pub use compatibility::MIN_SERVER_API_VERSION;
 pub use transport::{RemoteEndpoint, RemoteTimeouts};
 
 const PCM_TYPE: &str = "audio/L16;rate=16000;channels=1";
@@ -48,6 +50,7 @@ pub enum RemoteErrorKind {
     InvalidEndpoint,
     InvalidRequest,
     Incompatible,
+    UnsupportedCapabilities,
     Unauthorized,
     Busy,
     ModelNotFound,
@@ -72,7 +75,10 @@ impl RemoteError {
     pub fn core_error(&self) -> CoreError {
         use RemoteErrorKind as K;
         let (code, message, retryable) = match self.kind {
-            K::InvalidEndpoint | K::InvalidRequest | K::Incompatible => (
+            K::InvalidEndpoint
+            | K::InvalidRequest
+            | K::Incompatible
+            | K::UnsupportedCapabilities => (
                 ErrorCode::InvalidRequest,
                 "Invalid Fono Server configuration or request",
                 false,
@@ -159,46 +165,20 @@ impl RemoteRecognizer {
         };
         let transport = Arc::new(transport::Transport::new(endpoint, activity)?);
         let http = transport.clone();
-        let (server, models) =
+        let model_engine = model.engine;
+        let discovery_model = wire_model.clone();
+        let (server, details) =
             transport.call(cancellation, transport.discovery_deadline(), || {
                 Ok(async move {
-                    let server = http
-                        .json::<wire::Capabilities>(http.get("v1/capabilities"), 64 * 1024)
-                        .await?;
-                    let models = http
-                        .json::<wire::Models>(http.get("v1/models"), 512 * 1024)
-                        .await?;
-                    Ok((server, models))
+                    compatibility::discover(
+                        &http,
+                        &discovery_model,
+                        model_engine,
+                        compatibility::Route::Interactive,
+                    )
+                    .await
                 })
             })?;
-        if server.product != "fono-server"
-            || server.api_version < 2
-            || !server.audio_formats.iter().any(|f| f == PCM_TYPE)
-            || !server.features.cancel_on_disconnect
-            || server.max_audio_seconds == 0
-            || server.max_upload_bytes < 2
-            || models.object != "list"
-        {
-            return failure(RemoteErrorKind::Incompatible);
-        }
-        let mut matches = models.data.into_iter().filter(|item| item.id == wire_model);
-        let Some(selected) = matches.next() else {
-            return failure(RemoteErrorKind::ModelNotFound);
-        };
-        if matches.next().is_some()
-            || selected.object != "model"
-            || selected.fono.engine != model.engine
-        {
-            return failure(RemoteErrorKind::InvalidResponse);
-        }
-        let details = selected.fono;
-        if !matches!(
-            details.disk_state.as_str(),
-            "verified" | "present_unverified"
-        ) || details.state == "failed"
-        {
-            return failure(RemoteErrorKind::ModelNotReady);
-        }
         let device = wire::device(&details.device)?;
         let max_segment_samples = (server.max_audio_seconds.saturating_mul(16_000))
             .min(server.max_upload_bytes / 2)
@@ -213,7 +193,7 @@ impl RemoteRecognizer {
             .filter(|v| server.features.decoding.contains(v))
             .collect();
         if !decoding.iter().any(|v| v == "fast") || max_segment_samples == 0 {
-            return failure(RemoteErrorKind::Incompatible);
+            return failure(RemoteErrorKind::UnsupportedCapabilities);
         }
         let decoding_options = decoding.iter().any(|v| v == "accurate");
         Ok(Self {
@@ -363,6 +343,9 @@ impl RemoteRecognizer {
         }
         let http = self.transport.clone();
         let expected_model = self.wire_model.clone();
+        let engine = self.model.engine;
+        let language = options.language.to_owned();
+        let request_cancellation = cancellation.clone();
         let sample_count = samples.len();
         let started = Instant::now();
         let result =
@@ -370,18 +353,7 @@ impl RemoteRecognizer {
                 .call(cancellation, self.transport.deadline(sample_count), || {
                     // Admission is acquired before copying a bounded input. L16 is network byte order.
                     let bytes: Vec<u8> = samples.iter().flat_map(|s| s.to_be_bytes()).collect();
-                    let mut request = http
-                        .post("v1/recognize")
-                        .header(reqwest::header::CONTENT_TYPE, PCM_TYPE)
-                        .query(&[
-                            ("model", self.wire_model.as_str()),
-                            ("language", options.language),
-                            ("timestamps", if timestamps { "segments" } else { "none" }),
-                            ("decoding", strategy),
-                            ("priority", "interactive"),
-                        ])
-                        .body(bytes);
-                    if !options.glossary.is_empty() {
+                    let glossary = if !options.glossary.is_empty() {
                         if options.glossary.len() > 32
                             || options.glossary.iter().any(|t| {
                                 t.is_empty() || t.len() > 896 || t.chars().any(char::is_control)
@@ -398,9 +370,46 @@ impl RemoteRecognizer {
                             reqwest::header::HeaderValue::from_str(&URL_SAFE_NO_PAD.encode(json))
                                 .map_err(|_| RemoteError::new(RemoteErrorKind::InvalidRequest))?;
                         header.set_sensitive(true);
-                        request = request.header("x-fono-glossary", header);
-                    }
+                        Some(header)
+                    } else {
+                        None
+                    };
                     Ok(async move {
+                        let (server, model) = compatibility::discover(
+                            &http,
+                            &expected_model,
+                            engine,
+                            compatibility::Route::Interactive,
+                        )
+                        .await?;
+                        compatibility::validate_request(
+                            &server,
+                            &model,
+                            compatibility::InteractiveRequest {
+                                samples: sample_count,
+                                language: &language,
+                                decoding: strategy,
+                                timestamps,
+                                glossary: glossary.is_some(),
+                            },
+                        )?;
+                        recognizer::check_cancellation(&request_cancellation)?;
+                        let mut request = http
+                            .post("v1/recognize")
+                            .header(reqwest::header::CONTENT_TYPE, PCM_TYPE)
+                            .query(&[
+                                ("model", expected_model.as_str()),
+                                ("language", language.as_str()),
+                                ("decoding", strategy),
+                                ("priority", "interactive"),
+                            ])
+                            .body(bytes);
+                        if timestamps {
+                            request = request.query(&[("timestamps", "segments")]);
+                        }
+                        if let Some(header) = glossary {
+                            request = request.header("x-fono-glossary", header);
+                        }
                         let result = http
                             .json::<wire::Recognition>(request, 4 * 1024 * 1024)
                             .await?;

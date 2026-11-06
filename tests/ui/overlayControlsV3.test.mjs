@@ -1056,6 +1056,74 @@ test("recording displays safe server status without blocking controls or leaking
   assert.ok(!malformed.includes("PRIVATE"));
 });
 
+test("recording compatibility failures keep their typed reason and update action without changing operation ownership", async () => {
+  const { isRemoteCheckSnapshot, remoteCheckStatus } =
+    await server.ssrLoadModule("/src/v3/shared/domain/remoteCheck.ts");
+  const { isBackendEventV1 } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/backendEvents.ts",
+  );
+  const { bindMessageLocale, uiLocale } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/locale.ts",
+  );
+  const previous = uiLocale();
+  let language = "ru";
+  bindMessageLocale(() => language);
+  try {
+    for (const [reason, russian, english] of [
+      [
+        "incompatible_version",
+        "Эта версия Fono Server несовместима с приложением. Обновите сервер.",
+        "This Fono Server version is incompatible. Update the server.",
+      ],
+      [
+        "unsupported_capabilities",
+        "Сервер не поддерживает нужные возможности распознавания. Обновите Fono Server.",
+        "The server does not support the required recognition capabilities. Update Fono Server.",
+      ],
+    ]) {
+      const check = { operation_id: 10, state: "unavailable", reason };
+      assert.equal(isRemoteCheckSnapshot(check), true);
+      assert.equal(
+        isBackendEventV1({
+          schema_version: 1,
+          kind: "remote_server_check",
+          payload: check,
+        }),
+        true,
+      );
+      language = "ru";
+      for (const fallback of ["none", "ask", "local"])
+        assert.equal(
+          remoteCheckStatus(check, 10, "listening", fallback),
+          russian,
+        );
+      const html = await render(
+        {},
+        {
+          sessionId: 10,
+          remoteCheck: check,
+          phase: "listening",
+          interactive: true,
+        },
+      );
+      assert.match(html, /Обновите/);
+      assert.ok(!html.includes('data-phase="error"'));
+      assert.doesNotMatch(html, /PRIVATE|Authorization:|Bearer /);
+      language = "en";
+      assert.equal(remoteCheckStatus(check, 10, "listening"), english);
+      assert.equal(remoteCheckStatus(check, 11, "listening"), undefined);
+      for (const phase of ["transcribing", "processing", "idle"])
+        assert.equal(remoteCheckStatus(check, 10, phase), undefined);
+      assert.equal(
+        isRemoteCheckSnapshot({ ...check, reason: "PRIVATE_UNSUPPORTED" }),
+        false,
+      );
+    }
+  } finally {
+    bindMessageLocale(() => previous);
+  }
+});
+
 test("native terminal Close dismisses the overlay; only positive active session IDs can stop/cancel a capture", async () => {
   const overlay = createNativeOverlay();
   try {

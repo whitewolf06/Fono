@@ -9,12 +9,17 @@ use serde::Deserialize;
 pub(super) struct Capabilities {
     pub product: String,
     pub api_version: u16,
+    #[serde(default)]
     pub audio_formats: Vec<String>,
+    #[serde(default)]
     pub max_audio_seconds: u64,
+    #[serde(default)]
     pub max_upload_bytes: u64,
+    #[serde(default)]
     pub features: Features,
 }
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
+#[serde(default)]
 pub(super) struct Features {
     pub cancel_on_disconnect: bool,
     pub glossary: bool,
@@ -41,9 +46,11 @@ pub(super) struct Details {
     pub state: String,
     pub disk_state: String,
     pub device: String,
+    #[serde(default)]
     pub features: ModelFeatures,
 }
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
+#[serde(default)]
 pub(super) struct ModelFeatures {
     pub glossary: bool,
     pub timestamps: Vec<String>,

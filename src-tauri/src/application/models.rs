@@ -100,10 +100,9 @@ pub async fn remove_stt_model(app: AppHandle, id: ModelId) -> AppResult<()> {
     .await
     .map_err(|_| AppError::Internal("model removal task failed".into()))?
 }
-/// Starts a best-effort background preload of the model selected in persisted
-/// settings.  It deliberately does not make application startup fail: the
-/// typed STT readiness IPC remains the source of truth for a missing model or
-/// unavailable worker, and dictation still uses the same load gate.
+/// Prepare the persisted source without blocking application startup: preload
+/// a local model, or verify the remote client's metadata without sending audio.
+/// Typed STT readiness keeps a remote startup error available to late UI reads.
 pub fn preload_configured_stt(app: AppHandle) {
     let recovery_app = app.clone();
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
@@ -126,7 +125,9 @@ pub fn preload_configured_stt(app: AppHandle) {
         return;
     };
     let settings = app.state::<AppState>().settings();
-    if configured_stt_preload(&settings).is_none() {
+    if settings.stt_source == crate::types::SttSource::Local
+        && configured_stt_preload(&settings).is_none()
+    {
         return;
     }
     let stt = app.state::<crate::pipeline::Pipeline>().stt().clone();
@@ -141,28 +142,57 @@ pub fn preload_configured_stt(app: AppHandle) {
                 crate::application::updates::settings_transaction(&app),
             );
             let settings = app.state::<AppState>().settings();
-            let Some((model, acceleration)) = configured_stt_preload(&settings) else {
-                return Ok(false);
-            };
-            let worker_paths = crate::stt::worker_paths_for_app(&app);
-            stt.ensure_model_loaded(
-                &model,
-                acceleration,
-                &worker_paths,
-                &fono_core::OperationCancellation::default(),
+            prepare_startup(
+                &settings,
+                |model, acceleration| {
+                    stt.ensure_model_loaded(
+                        model,
+                        acceleration,
+                        &crate::stt::worker_paths_for_app(&app),
+                        &fono_core::OperationCancellation::default(),
+                    )
+                },
+                |settings| {
+                    // Remote preparation performs metadata discovery only. It
+                    // never loads dormant local weights or a server model.
+                    let (attempt, result) = stt.ensure_configured_with_attempt(
+                        settings,
+                        &crate::stt::WorkerPaths::default(),
+                        &fono_core::OperationCancellation::default(),
+                    );
+                    if let Err(error) = &result {
+                        let _ = stt.report_remote_startup_failure(attempt, error, |readiness| {
+                            crate::events::emit_stt_readiness(&app, readiness);
+                        });
+                    }
+                    result
+                },
             )
-            .map(|()| true)
         })
         .await;
         match result {
             Ok(Ok(true)) => {
-                tracing::info!("configured STT model is ready after background preload")
+                tracing::info!("configured recognition source is ready after startup preparation")
             }
             Ok(Ok(false)) => {}
             Ok(Err(error)) => tracing::warn!(%error, "background STT preload failed"),
             Err(error) => tracing::warn!(%error, "background STT preload task failed"),
         }
     });
+}
+
+fn prepare_startup(
+    settings: &crate::types::Settings,
+    local: impl FnOnce(&SttModelSelection, crate::types::AccelerationMode) -> AppResult<()>,
+    remote: impl FnOnce(&crate::types::Settings) -> AppResult<()>,
+) -> AppResult<bool> {
+    match settings.stt_source {
+        crate::types::SttSource::FonoServer => remote(settings).map(|()| true),
+        crate::types::SttSource::Local => match configured_stt_preload(settings) {
+            Some((model, acceleration)) => local(&model, acceleration).map(|()| true),
+            None => Ok(false),
+        },
+    }
 }
 
 fn configured_stt_preload(
@@ -309,6 +339,86 @@ fn set_model_blocking(
 #[cfg(test)]
 mod source_tests {
     use super::*;
+
+    #[test]
+    fn remote_startup_checks_metadata_without_preparing_dormant_local_weights() {
+        let settings = crate::types::Settings {
+            stt_source: crate::types::SttSource::FonoServer,
+            whisper_model_path: Some("PRIVATE_LOCAL/ggml-small.bin".into()),
+            remote_stt: Some(crate::types::RemoteSttSettings {
+                url: "https://PRIVATE_SERVER.invalid".into(),
+                model: ModelId::whisper(WhisperModelSize::Tiny),
+                display_name: None,
+                ca_pem: None,
+                fallback: Default::default(),
+            }),
+            ..Default::default()
+        };
+        let called = std::cell::Cell::new(false);
+        assert!(prepare_startup(
+            &settings,
+            |_, _| panic!("remote startup must never load saved local weights"),
+            |selected| {
+                called.set(true);
+                assert_eq!(selected.remote_stt, settings.remote_stt);
+                Ok(())
+            },
+        )
+        .unwrap());
+        assert!(called.get());
+    }
+
+    #[test]
+    fn local_startup_never_enters_credential_or_remote_discovery_work() {
+        let configured = crate::types::Settings {
+            whisper_model_path: Some("PRIVATE_LOCAL/ggml-small.bin".into()),
+            acceleration: crate::types::AccelerationMode::Cpu,
+            ..Default::default()
+        };
+        assert!(prepare_startup(
+            &configured,
+            |model, acceleration| {
+                assert_eq!(model.id, ModelId::whisper(WhisperModelSize::Small));
+                assert_eq!(acceleration, crate::types::AccelerationMode::Cpu);
+                Ok(())
+            },
+            |_| panic!("a local source must not read remote credentials or contact a server"),
+        )
+        .unwrap());
+        assert!(!prepare_startup(
+            &crate::types::Settings::default(),
+            |_, _| panic!("there is no local model to preload"),
+            |_| panic!("missing local weights must not select a remote source"),
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn latest_source_selection_and_remote_failure_do_not_trigger_local_fallback() {
+        let initially_remote = crate::types::Settings {
+            stt_source: crate::types::SttSource::FonoServer,
+            ..Default::default()
+        };
+        let current = crate::types::Settings {
+            stt_source: crate::types::SttSource::Local,
+            ..initially_remote.clone()
+        };
+        // The blocking startup worker reads current settings under the settings
+        // transaction instead of capturing a source when the task is queued.
+        assert!(!prepare_startup(
+            &current,
+            |_, _| panic!("no model selected"),
+            |_| panic!("an old remote source must not start discovery"),
+        )
+        .unwrap());
+        let error = prepare_startup(
+            &initially_remote,
+            |_, _| panic!("a failed connection must not reactivate local weights"),
+            |_| Err(AppError::Config("fixture incompatibility".into())),
+        )
+        .unwrap_err();
+        assert!(matches!(error, AppError::Config(_)));
+    }
 
     #[test]
     fn remote_source_skips_dormant_local_preload_and_restores_its_selection_on_return() {

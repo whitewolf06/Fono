@@ -26,6 +26,7 @@ export type RemoteConnectionError =
   | "timeout"
   | "unauthorized"
   | "incompatible_version"
+  | "unsupported_capabilities"
   | "model_not_found"
   | "invalid_response"
   | "busy"

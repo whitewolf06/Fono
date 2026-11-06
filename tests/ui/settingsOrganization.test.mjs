@@ -325,6 +325,7 @@ test("recognition checks show every typed failure and do not persist settings or
     "timeout",
     "unauthorized",
     "incompatible_version",
+    "unsupported_capabilities",
     "model_not_found",
     "invalid_response",
     "busy",
@@ -350,6 +351,90 @@ test("recognition checks show every typed failure and do not persist settings or
     assert.doesNotMatch(JSON.stringify(controller.state.result), /DRAFT_ONLY/);
     controller.dispose();
     assert.equal(controller.state.token, "");
+  }
+});
+
+test("native compatibility mapping distinguishes legacy API and unsupported capabilities before exposing metadata", async () => {
+  const { remoteConnectionFromNative } = await server.ssrLoadModule(
+    "/src/v3/shared/infrastructure/native/recognitionSource.ts",
+  );
+  for (const api_version of [0, 1]) {
+    assert.deepEqual(
+      remoteConnectionFromNative({
+        kind: "ok",
+        server: {
+          api_version,
+          token: "PRIVATE_TOKEN",
+          address: "https://PRIVATE.invalid",
+        },
+      }),
+      { kind: "error", error: "incompatible_version" },
+    );
+  }
+  assert.deepEqual(
+    remoteConnectionFromNative({
+      kind: "error",
+      error: "unsupported_capabilities",
+      details: "PRIVATE_TOKEN https://PRIVATE.invalid",
+    }),
+    { kind: "error", error: "unsupported_capabilities" },
+  );
+  const compatible = {
+    version: "0.8.37",
+    api_version: 2,
+    state: "ready",
+    devices: [],
+    models: [],
+  };
+  assert.equal(
+    remoteConnectionFromNative({ kind: "ok", server: compatible }).kind,
+    "ok",
+  );
+  for (const api_version of ["1", null, 2.5]) {
+    assert.deepEqual(
+      remoteConnectionFromNative({
+        kind: "ok",
+        server: { ...compatible, api_version },
+      }),
+      { kind: "error", error: "invalid_response" },
+    );
+  }
+});
+
+test("compatibility alerts distinguish updating the server from unsupported recognition features", async () => {
+  const { bindMessageLocale, uiLocale } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/locale.ts",
+  );
+  const previous = uiLocale();
+  try {
+    bindMessageLocale(() => "ru");
+    for (const [error, text] of [
+      ["incompatible_version", /Эта версия Fono Server несовместима/],
+      [
+        "unsupported_capabilities",
+        /Сервер не поддерживает нужные возможности распознавания/,
+      ],
+    ]) {
+      const html = await renderRecognition(SourceFields, {
+        port: sourcePort({ test: async () => ({ kind: "error", error }) }),
+        prepare: (bindings) => bindings.controller.check(),
+      });
+      assert.match(html, /role="alert"/);
+      assert.match(html, text);
+      assert.match(html, /Обновите/);
+      assert.doesNotMatch(html, /PRIVATE|Authorization:|Bearer /);
+    }
+    bindMessageLocale(() => "en");
+    assert.match(
+      connectionErrorText("incompatible_version"),
+      /Update the server/,
+    );
+    assert.match(
+      connectionErrorText("unsupported_capabilities"),
+      /Update Fono Server/,
+    );
+  } finally {
+    bindMessageLocale(() => previous);
   }
 });
 
@@ -379,12 +464,14 @@ test("changed address, model, token and disposed form cannot accept a late conne
   }
 });
 
-test("missing selected model retains inventory so a replacement can be chosen", async () => {
+test("a fake successful reply missing the selected model retains inventory but cannot validate the connection", async () => {
   const settings = sourceSettings();
   settings.model = "removed_model";
   let request;
+  const checked = [];
   const controller = createSourceController({
     settings: () => settings,
+    checked: (value) => checked.push(value),
     port: sourcePort({
       test: async (input) => {
         request = input;
@@ -395,16 +482,168 @@ test("missing selected model retains inventory so a replacement can be chosen", 
   await controller.check();
   assert.equal(
     request.model,
-    undefined,
-    "discovery cannot be blocked by a removed model",
+    "removed_model",
+    "the selected model must reach the authoritative compatibility check",
   );
   assert.equal(controller.state.result.error, "model_not_found");
   assert.equal(controller.state.server.models[0].id, "large_turbo");
+  assert.deepEqual(checked, [null]);
   settings.model = "large_turbo";
   controller.invalidate(false);
   assert.ok(controller.state.server);
   await controller.check();
   assert.equal(controller.state.result.kind, "ok");
+  controller.dispose();
+});
+
+test("a compatible selected model is checked in one metadata request", async () => {
+  const settings = sourceSettings();
+  const requests = [];
+  const checked = [];
+  const controller = createSourceController({
+    settings: () => settings,
+    checked: (value) => checked.push(value),
+    port: sourcePort({
+      test: async (input) => {
+        requests.push(input);
+        return { kind: "ok", server: remoteServer() };
+      },
+    }),
+  });
+  controller.setToken("DRAFT_CREDENTIAL");
+  checked.length = 0;
+  await controller.check();
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0], {
+    url: settings.url,
+    token: "DRAFT_CREDENTIAL",
+    model: settings.model,
+  });
+  assert.equal(controller.state.result.kind, "ok");
+  assert.equal(checked.length, 1);
+  assert.equal(checked[0].models[0].id, settings.model);
+  assert.doesNotMatch(
+    JSON.stringify(controller.state.result),
+    /DRAFT_CREDENTIAL/,
+  );
+  controller.dispose();
+});
+
+test("a rejected selected model retains its error while separate metadata inventory offers replacements", async () => {
+  for (const error of ["unsupported_capabilities", "model_not_found"]) {
+    const settings = sourceSettings();
+    settings.model = "unsupported_model";
+    const requests = [];
+    const checked = [];
+    const controller = createSourceController({
+      settings: () => settings,
+      checked: (value) => checked.push(value),
+      port: sourcePort({
+        test: async (input) => {
+          requests.push(input);
+          return input.model === "unsupported_model"
+            ? { kind: "error", error }
+            : { kind: "ok", server: remoteServer() };
+        },
+      }),
+    });
+    const original = JSON.stringify(settings);
+    await controller.check();
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0].model, "unsupported_model");
+    assert.equal(requests[1].model, undefined);
+    assert.deepEqual(controller.state.result, { kind: "error", error });
+    assert.equal(controller.state.server.models[0].id, "large_turbo");
+    assert.deepEqual(
+      checked,
+      [null],
+      "inventory is not selected-model compatibility confirmation",
+    );
+    assert.equal(JSON.stringify(settings), original);
+    settings.model = "large_turbo";
+    controller.invalidate(false);
+    assert.equal(controller.state.server.models[0].id, "large_turbo");
+    await controller.check();
+    assert.equal(requests.length, 3);
+    assert.equal(controller.state.result.kind, "ok");
+    controller.dispose();
+  }
+});
+
+test("late replacement inventory cannot overwrite a changed connection or a newer check", async () => {
+  for (const change of ["url", "model", "token", "dispose", "new_check"]) {
+    const settings = sourceSettings();
+    const pending = deferred();
+    const enteredInventory = deferred();
+    const checked = [];
+    const controller = createSourceController({
+      settings: () => settings,
+      checked: (value) => checked.push(value),
+      port: sourcePort({
+        test: async (input) => {
+          if (!input.model) {
+            enteredInventory.resolve();
+            return pending.promise;
+          }
+          return input.model === "replacement"
+            ? {
+                kind: "ok",
+                server: {
+                  ...remoteServer(),
+                  models: [{ ...remoteServer().models[0], id: "replacement" }],
+                },
+              }
+            : { kind: "error", error: "unsupported_capabilities" };
+        },
+      }),
+    });
+    const first = controller.check();
+    await enteredInventory.promise;
+    if (change === "token") controller.setToken("CHANGED_CREDENTIAL");
+    else if (change === "dispose") controller.dispose();
+    else {
+      settings[change === "new_check" ? "model" : change] =
+        change === "new_check" ? "replacement" : "changed";
+      controller.invalidate();
+    }
+    if (change === "new_check") await controller.check();
+    pending.resolve({ kind: "ok", server: remoteServer() });
+    await first;
+    if (change === "new_check") {
+      assert.equal(controller.state.result.kind, "ok");
+      assert.equal(controller.state.server.models[0].id, "replacement");
+      assert.equal(checked.at(-1).models[0].id, "replacement");
+    } else {
+      if (change === "dispose")
+        assert.deepEqual(controller.state.result, {
+          kind: "error",
+          error: "unsupported_capabilities",
+        });
+      else assert.equal(controller.state.result, null);
+      assert.equal(controller.state.server, null);
+      assert.ok(checked.every((value) => value === null));
+    }
+    controller.dispose();
+  }
+});
+
+test("inventory network errors never replace the selected model compatibility failure", async () => {
+  const controller = createSourceController({
+    settings: sourceSettings,
+    port: sourcePort({
+      test: async (input) => {
+        if (!input.model) throw Error("PRIVATE_NETWORK_ERROR");
+        return { kind: "error", error: "unsupported_capabilities" };
+      },
+    }),
+  });
+  await controller.check();
+  assert.deepEqual(controller.state.result, {
+    kind: "error",
+    error: "unsupported_capabilities",
+  });
+  assert.equal(controller.state.server, null);
+  assert.doesNotMatch(JSON.stringify(controller.state.result), /PRIVATE/);
   controller.dispose();
 });
 

@@ -130,6 +130,15 @@ fn transcribe_remote(
 
 fn remote_error(error: fono_stt::error::SttError) -> TranscriptionServiceError {
     use fono_types::{CoreError, ErrorCode};
+    if matches!(&error, fono_stt::error::SttError::Remote(remote)
+        if matches!(remote.kind,
+            fono_stt::remote::RemoteErrorKind::Incompatible
+                | fono_stt::remote::RemoteErrorKind::UnsupportedCapabilities))
+    {
+        return TranscriptionServiceError::InvalidRequest(
+            crate::error::AppError::from(error).user_message(),
+        );
+    }
     let error = CoreError::from(&error);
     match error.code {
         ErrorCode::Cancelled => TranscriptionServiceError::Cancelled(error.message),

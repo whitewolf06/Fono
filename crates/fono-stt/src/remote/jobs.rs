@@ -12,7 +12,9 @@ use std::{
 use fono_core::OperationCancellation;
 use fono_types::{ModelId, SttEngine, TranscriptionResult};
 
-use super::{failure, transport::Transport, RemoteEndpoint, RemoteError, RemoteErrorKind};
+use super::{
+    compatibility, failure, transport::Transport, RemoteEndpoint, RemoteError, RemoteErrorKind,
+};
 use crate::{error::AppResult, recognizer::check_cancellation, ActivityGuard};
 
 const MAX_UPLOAD_BYTES: usize = 100 * 1024 * 1024;
@@ -28,6 +30,7 @@ pub struct RemoteTranscriptionClient {
     transport: Arc<Transport>,
     activity: Arc<dyn ActivityGuard>,
     wire_model: String,
+    model_engine: SttEngine,
     languages: Vec<String>,
     pub(super) max_samples: usize,
 }
@@ -73,62 +76,27 @@ impl RemoteTranscriptionClient {
         }
         let transport = Arc::new(Transport::new(endpoint, activity.clone())?);
         let http = transport.clone();
-        let (capabilities, models) =
+        let engine = model.engine;
+        let discovery_model = wire_model.clone();
+        let (capabilities, selected) =
             transport.call(cancellation, transport.discovery_deadline(), || {
                 Ok(async move {
-                    let capabilities = http
-                        .json::<super::wire::Capabilities>(http.get("v1/capabilities"), 64 * 1024)
-                        .await?;
-                    let models = http
-                        .json::<super::wire::Models>(http.get("v1/models"), 512 * 1024)
-                        .await?;
-                    Ok((capabilities, models))
+                    compatibility::discover(
+                        &http,
+                        &discovery_model,
+                        engine,
+                        compatibility::Route::Batch,
+                    )
+                    .await
                 })
             })?;
-        if capabilities.product != "fono-server"
-            || capabilities.api_version < 2
-            || !capabilities.features.jobs
-            || !capabilities
-                .audio_formats
-                .iter()
-                .any(|format| format == "audio/wav")
-            || capabilities.max_audio_seconds == 0
-            || capabilities.max_upload_bytes <= WAV_HEADER_BYTES as u64
-            || models.object != "list"
-        {
-            return failure(RemoteErrorKind::Incompatible);
-        }
-        let mut matches = models
-            .data
-            .into_iter()
-            .filter(|model| model.id == wire_model);
-        let Some(selected) = matches.next() else {
-            return failure(RemoteErrorKind::ModelNotFound);
-        };
-        if matches.next().is_some()
-            || selected.object != "model"
-            || selected.fono.engine != model.engine
-        {
-            return failure(RemoteErrorKind::InvalidResponse);
-        }
-        if !matches!(
-            selected.fono.disk_state.as_str(),
-            "verified" | "present_unverified"
-        ) || selected.fono.state == "failed"
-        {
-            return failure(RemoteErrorKind::ModelNotReady);
-        }
-        let upload_bytes = capabilities.max_upload_bytes.min(MAX_UPLOAD_BYTES as u64);
-        let max_samples = capabilities
-            .max_audio_seconds
-            .min(MAX_AUDIO_SECONDS)
-            .saturating_mul(16_000)
-            .min((upload_bytes - WAV_HEADER_BYTES as u64) / 2) as usize;
+        let max_samples = sample_capacity(&capabilities);
         Ok(Self {
             transport,
             activity,
             wire_model,
-            languages: selected.fono.languages,
+            model_engine: model.engine,
+            languages: selected.languages,
             max_samples,
         })
     }
@@ -167,9 +135,40 @@ impl RemoteTranscriptionClient {
         let http = self.transport.clone();
         let model = self.wire_model.clone();
         let language_owned = language.to_owned();
+        let model_engine = self.model_engine;
+        let sample_count = samples.len();
+        let fresh_http = http.clone();
+        let fresh_model = model.clone();
+        let (server, details) = self.transport.call(
+            cancellation,
+            deadline.min(self.transport.discovery_deadline()),
+            || {
+                Ok(async move {
+                    compatibility::discover(
+                        &fresh_http,
+                        &fresh_model,
+                        model_engine,
+                        compatibility::Route::Batch,
+                    )
+                    .await
+                })
+            },
+        )?;
+        if sample_count > sample_capacity(&server)
+            || !details
+                .languages
+                .iter()
+                .any(|value| value == &language_owned)
+        {
+            return failure(RemoteErrorKind::InvalidRequest);
+        }
+        let remaining = deadline.saturating_sub(started.elapsed());
+        if remaining.is_zero() {
+            return failure(RemoteErrorKind::Timeout);
+        }
         let submitted = self.transport.call(
             &OperationCancellation::default(),
-            deadline.min(Duration::from_secs(30)),
+            remaining.min(Duration::from_secs(30)),
             || {
                 check_cancellation(cancellation)?;
                 let boundary = format!("fono-{}", uuid::Uuid::new_v4().simple());
@@ -303,6 +302,15 @@ impl RemoteTranscriptionClient {
             })
         });
     }
+}
+
+fn sample_capacity(server: &super::wire::Capabilities) -> usize {
+    let upload_bytes = server.max_upload_bytes.min(MAX_UPLOAD_BYTES as u64);
+    server
+        .max_audio_seconds
+        .min(MAX_AUDIO_SECONDS)
+        .saturating_mul(16_000)
+        .min(upload_bytes.saturating_sub(WAV_HEADER_BYTES as u64) / 2) as usize
 }
 
 fn multipart(samples: &[i16], language: &str, model: &str, boundary: &str) -> Vec<u8> {

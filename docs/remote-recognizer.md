@@ -55,6 +55,10 @@ For a first connection: enter the token, **Check connection**, select an install
 server model and a reserve policy, **Save token**, then save the settings section.
 Checking a draft does not save it, send audio, load a model or switch the engine.
 The reply shows the actual server version, devices, inventory and readiness.
+When a model is selected, the check validates that model's required capabilities.
+If it was removed or is incompatible, a separate metadata request refreshes the
+replacement inventory while preserving the selected-model error. A late inventory
+reply cannot validate a changed draft.
 Server models are read-only; downloads and deletion remain server administration.
 Local GPU controls are hidden while using the server. An installed local model
 may be selected for the CPU reserve from RC-04.
@@ -98,12 +102,53 @@ no token getter. Public source preferences use the existing settings transaction
 upload and reading the complete response are inside the deadline. At most two
 requests per client can be active; additional work receives a busy error.
 
+## Version and capability compatibility (RC-10)
+
+Compatibility is checked when inspecting a connection, preparing a saved remote
+source at application startup, recording preflight, and before each interactive
+audio or file-job upload. Startup preparation exchanges metadata only; it does
+not capture audio, load local weights or activate the saved local reserve.
+Preparing a client once does not authorize future uploads against stale server
+capabilities. The client refreshes capabilities and the selected model before
+each upload, including after a server restart or downgrade.
+
+The version fields describe different contracts:
+
+| Field                         | Purpose                                              | Client rule                                                                                                 |
+| ----------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Product `version`             | Human-facing Fono release                            | May differ from the desktop version; equality is not required.                                              |
+| `api_version`                 | Native HTTP API generation                           | Versions below 2 fail as incompatible; versions 2 and above must still pass the required capability checks. |
+| `worker_protocol`             | Server-to-native-worker protocol, currently 4        | The server owns this handshake; the HTTP client does not require its local worker protocol to match.        |
+| Job-result `protocol_version` | Compatible asynchronous result envelope, currently 1 | Validated independently when reading a completed file result.                                               |
+
+API versions above 2 are accepted only with a compatible response shape and the
+required route capabilities. Unknown additive fields and optional feature values
+do not by themselves make a server incompatible. A minimal old API response can
+still be recognized as requiring a server update, rather than being reported as
+an unrelated malformed model catalog.
+
+Interactive recognition requires the native L16 format, cancellation on
+disconnect and the baseline fast decoding mode. Batch files instead require WAV
+upload and asynchronous jobs; they do not depend on the interactive cancellation
+contract. Installed-model and bounded-upload requirements still apply to both.
+Missing required capabilities fail as `UnsupportedCapabilities` before audio is
+sent. An old API version uses the separate incompatible-server error and directs
+the user to update Fono Server.
+
+Optional glossary, timestamp and decoding support is the intersection of the
+server-wide and selected-model declarations. Unsupported requested options fail
+before upload; unknown options are not guessed or silently enabled. The client
+omits the default `timestamps=none` parameter rather than sending an unadvertised
+optional value. A metadata or compatibility failure preserves the chosen source
+and local preferences for explicit recovery.
+
 ## Recording preflight (RC-03)
 
-After physical capture starts, a separate blocking worker checks `/v1/health`
-with authentication and an **800 ms network deadline**, parallel to audio and
-focus preparation. It uploads no audio, does not load a model, and does not wait
-on the interactive STT scheduler. Local source starts no probe.
+After physical capture starts, a separate blocking worker refreshes capabilities
+and the selected model, then checks `/v1/health` with authentication. The complete
+probe shares an **800 ms network deadline**, parallel to audio and focus
+preparation. It uploads no audio, does not load a model, and does not wait on the
+interactive STT scheduler. Local source starts no probe.
 
 The pipeline retains a typed, operation-scoped `remote_check` snapshot. Checking
 and completion publish through `backend-event-v1` (`remote_server_check`); the

@@ -70,6 +70,43 @@ timing is unknown, not zero and not a network-time estimate.
    next operation; do not infer that the ordinary-dictation reserve UI applies
    to every workflow.
 
+## Compatibility and server changes (RC-10)
+
+Use a disposable test server or the automated HTTP fixtures for incompatible
+responses. Do not downgrade or reconfigure the shared Kari service solely to
+complete these checks. Record which cases are automated and which are observed
+in the native desktop application.
+
+1. With a saved Fono Server source, restart Fono. Confirm startup performs only
+   metadata preparation, reports a useful failure for an unavailable or
+   incompatible server, and leaves the saved source and local preferences intact.
+   No microphone capture, local model load or reserve activation should occur.
+2. Inspect a minimal API-version-1 server response. The result should explain
+   that Fono Server needs updating. No recognition or batch upload may occur,
+   even when a previous connection was successful.
+3. Remove a required interactive capability: L16, cancellation on disconnect or
+   fast decoding. Check the unsupported-capabilities result is distinct from an
+   old API version and that the client sends no audio. Separately remove WAV or
+   jobs support and verify file uploads fail before submission.
+4. Remove glossary, timestamps or accurate decoding globally and then only from
+   the selected model. An unsupported requested option must fail before upload;
+   a supported basic request should still work. Default requests must not send
+   unadvertised optional parameters such as `timestamps=none`.
+5. Keep a prepared client, then restart the test server with an older API or
+   fewer capabilities. Try the next dictation and file upload without saving
+   settings again. Fresh metadata must prevent an upload that the new server
+   cannot support. Restore the server and check the next valid operation works.
+6. Test an API version above 2 with the required response fields/capabilities and
+   additional unknown fields or optional feature values. It should remain usable.
+   Product release versions may differ between desktop and server; API, worker
+   protocol and asynchronous result protocol must not be compared as one version.
+7. Cancel metadata preparation or attempt to change the selected source while
+   it is pending. If admission rejects a change as busy, confirmed settings must
+   remain selected without a partial commit. A late response must not overwrite
+   a newer source, validate a different connection draft or publish a result into
+   a later operation. Existing credential, updater-admission and
+   retained-recording checks still apply.
+
 ## Files, priority and cancellation
 
 1. Disable the Windows local API listener, then add public WAV/MP3/FLAC/OGG files

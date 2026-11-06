@@ -124,3 +124,42 @@ test("browser preview adds demo files with API disabled and never reads dropped 
     delete globalThis.window;
   }
 });
+
+test("file compatibility errors localize closed native guidance and keep results unchanged", async () => {
+  const { bindMessageLocale, uiLocale } = await server.ssrLoadModule(
+    "/src/v3/shared/domain/locale.ts",
+  );
+  const previous = uiLocale();
+  let language = "en";
+  bindMessageLocale(() => language);
+  const job = {
+    id: "file-compatibility",
+    state: "failed",
+    requested_language: "ru",
+    file_name: "fixture.wav",
+    result: { text: "PRIVATE_TRANSCRIPT", audio_seconds: 10 },
+    error: {
+      code: "invalid_request",
+      message:
+        "Сервер не поддерживает нужные возможности распознавания. Обновите Fono Server.",
+    },
+  };
+  try {
+    const english = jobFromNative(job);
+    assert.equal(
+      english.error,
+      "The server does not support the required recognition capabilities. Update Fono Server.",
+    );
+    assert.equal(english.text, "PRIVATE_TRANSCRIPT");
+    language = "ru";
+    const russian = jobFromNative({
+      ...job,
+      error: { ...job.error, message: english.error },
+    });
+    assert.equal(russian.error, job.error.message);
+    assert.equal(russian.text, job.result.text);
+    assert.equal(jobFromNative({ ...job, error: null }).error, undefined);
+  } finally {
+    bindMessageLocale(() => previous);
+  }
+});

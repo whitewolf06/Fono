@@ -205,6 +205,8 @@ export const ruMessages = {
     "Сервер не принял токен. Проверьте его и повторите подключение.",
   "recognitionSource.incompatible":
     "Эта версия Fono Server несовместима с приложением. Обновите сервер.",
+  "recognitionSource.unsupportedCapabilities":
+    "Сервер не поддерживает нужные возможности распознавания. Обновите Fono Server.",
   "recognitionSource.modelMissing":
     "Выбранная модель не установлена на сервере. Выберите другую из полученного списка.",
   "recognitionSource.invalidResponse":

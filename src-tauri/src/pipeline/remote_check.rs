@@ -31,6 +31,8 @@ pub enum RemoteCheckReason {
     Timeout,
     Unauthorized,
     NotConfigured,
+    IncompatibleVersion,
+    UnsupportedCapabilities,
     InvalidResponse,
 }
 

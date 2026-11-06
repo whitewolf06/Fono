@@ -1,4 +1,5 @@
 use super::*;
+mod compatibility_tests;
 mod inspection_tests;
 mod job_tests;
 use crate::error::AppError;
@@ -243,7 +244,12 @@ fn serve(
         requests.lock().unwrap().push(request);
         if path == "/v1/capabilities" || path == "/v1/models" {
             if let Mode::Status(status) = *mode.lock().unwrap() {
-                respond(&mut stream, status, "PRIVATE_metadata_error", "");
+                respond(
+                    &mut stream,
+                    status,
+                    "PRIVATE_metadata_error",
+                    "Retry-After: 3\r\n",
+                );
                 continue;
             }
             let data = metadata.lock().unwrap();
@@ -582,8 +588,11 @@ fn real_http_success_uses_network_endian_and_native_glossary() {
     assert!(!activity.is_busy());
     assert!(client.is_idle());
     let requests = server.requests.lock().unwrap();
-    assert_eq!(requests.len(), 3);
-    let request = &requests[2];
+    assert_eq!(requests.len(), 5);
+    let request = requests
+        .iter()
+        .find(|request| request.path.starts_with("/v1/recognize"))
+        .unwrap();
     assert!(request.path.contains("model=whisper%3Atiny"));
     assert!(request.path.contains("priority=interactive"));
     assert_eq!(
@@ -627,7 +636,13 @@ fn real_http_windows_rebase_timestamps_and_do_not_claim_local_gpu() {
         .unwrap();
     assert_eq!(result.segments[0].start_sample, 48000);
     assert_eq!(result.segments[0].end_sample, 64000);
-    assert!(server.requests.lock().unwrap()[2]
+    assert!(server
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|request| request.path.starts_with("/v1/recognize"))
+        .unwrap()
         .path
         .contains("timestamps=segments"));
 }
@@ -976,10 +991,17 @@ fn health_probe_is_authenticated_metadata_only_and_preserves_recognizer_state() 
     assert!(!encoded.contains("whisper"));
     {
         let requests = server.requests.lock().unwrap();
-        assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0].path, "/v1/health");
-        assert!(requests[0].headers.contains(&format!("Bearer {TOKEN}")));
-        assert!(requests[0].body.is_empty());
+        assert_eq!(
+            requests
+                .iter()
+                .map(|request| request.path.as_str())
+                .collect::<Vec<_>>(),
+            ["/v1/capabilities", "/v1/models", "/v1/health"]
+        );
+        assert!(requests.iter().all(|request| request
+            .headers
+            .contains(&format!("Bearer {TOKEN}"))
+            && request.body.is_empty()));
     }
     let client = server.client(activity);
     assert_eq!(
@@ -1138,12 +1160,20 @@ fn health_probe_cancellation_closes_socket_and_allows_another_probe() {
     let owned_activity = activity.clone();
     let job =
         thread::spawn(move || probe_health(endpoint, &model(), owned_activity, &cancellation));
-    wait(|| !server.requests.lock().unwrap().is_empty());
+    wait(|| {
+        server
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|request| request.path == "/v1/health")
+    });
     assert!(activity.is_busy());
     token.cancel();
     assert!(matches!(job.join().unwrap(), Err(AppError::Cancelled(_))));
     wait(|| server.disconnected.load(Ordering::Acquire));
     assert!(!activity.is_busy());
+    assert_eq!(server.recognition_count(), 0);
     *server.mode.lock().unwrap() = Mode::Ok;
     assert_eq!(
         probe_health(

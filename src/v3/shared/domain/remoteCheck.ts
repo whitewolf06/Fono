@@ -6,6 +6,8 @@ export type RemoteCheckReason =
   | "timeout"
   | "unauthorized"
   | "not_configured"
+  | "incompatible_version"
+  | "unsupported_capabilities"
   | "invalid_response";
 export type RemoteCheckSnapshot = { operation_id: number } & (
   | {
@@ -35,6 +37,8 @@ const reasons = new Set([
   "timeout",
   "unauthorized",
   "not_configured",
+  "incompatible_version",
+  "unsupported_capabilities",
   "invalid_response",
 ]);
 
@@ -67,6 +71,12 @@ export function remoteCheckStatus(
     !["listening", "silence"].includes(phase)
   )
     return undefined;
+  if (check.state === "unavailable") {
+    if (check.reason === "incompatible_version")
+      return message("recognitionSource.incompatible");
+    if (check.reason === "unsupported_capabilities")
+      return message("recognitionSource.unsupportedCapabilities");
+  }
   if (
     ["starting", "stopping", "model_not_ready", "unavailable"].includes(
       check.state,

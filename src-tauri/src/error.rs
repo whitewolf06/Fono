@@ -287,11 +287,28 @@ impl From<fono_stt::error::RecognitionBackend> for RecognitionBackend {
     }
 }
 
+pub(crate) const REMOTE_VERSION_GUIDANCE: &str =
+    "Эта версия Fono Server несовместима с приложением. Обновите сервер.";
+pub(crate) const REMOTE_CAPABILITIES_GUIDANCE: &str =
+    "Сервер не поддерживает нужные возможности распознавания. Обновите Fono Server.";
+
+fn remote_compatibility_guidance(kind: fono_stt::remote::RemoteErrorKind) -> Option<&'static str> {
+    use fono_stt::remote::RemoteErrorKind;
+    match kind {
+        RemoteErrorKind::Incompatible => Some(REMOTE_VERSION_GUIDANCE),
+        RemoteErrorKind::UnsupportedCapabilities => Some(REMOTE_CAPABILITIES_GUIDANCE),
+        _ => None,
+    }
+}
+
 impl From<fono_stt::error::SttError> for AppError {
     fn from(error: fono_stt::error::SttError) -> Self {
         use fono_stt::error::SttError as E;
         match error {
-            E::Remote(error) => Self::Stt(error.to_string()),
+            E::Remote(error) => match remote_compatibility_guidance(error.kind) {
+                Some(guidance) => Self::Config(guidance.into()),
+                None => Self::Stt(error.to_string()),
+            },
             E::Busy(message) => Self::Busy(message),
             E::Cancelled(message) => Self::Cancelled(message),
             E::Audio(message) => Self::Audio(message),
@@ -311,6 +328,11 @@ impl From<fono_stt::error::SttError> for AppError {
 
 pub(crate) fn stt_user_message(error: &fono_stt::error::SttError) -> String {
     use fono_stt::error::SttError as E;
+    if let E::Remote(error) = error {
+        if let Some(guidance) = remote_compatibility_guidance(error.kind) {
+            return guidance.into();
+        }
+    }
     let (code, raw, backend) = match error {
         E::Remote(_) => (UserErrorCode::Stt, None, None),
         E::Busy(message) => (UserErrorCode::Busy, Some(message), None),
@@ -423,6 +445,51 @@ pub type AppResult<T> = Result<T, AppError>;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remote_compatibility_errors_preserve_only_closed_update_guidance() {
+        use fono_stt::remote::{RemoteError, RemoteErrorKind};
+
+        for (kind, guidance) in [
+            (RemoteErrorKind::Incompatible, REMOTE_VERSION_GUIDANCE),
+            (
+                RemoteErrorKind::UnsupportedCapabilities,
+                REMOTE_CAPABILITIES_GUIDANCE,
+            ),
+        ] {
+            let remote = || {
+                fono_stt::error::SttError::Remote(RemoteError {
+                    kind,
+                    status: Some(422),
+                    retry_after_seconds: Some(9),
+                })
+            };
+            let error = AppError::from(remote());
+            assert!(matches!(&error, AppError::Config(_)));
+            assert_eq!(
+                serde_json::to_value(&error).unwrap(),
+                serde_json::json!({"code":"config","params":{"detail":guidance}})
+            );
+            assert_eq!(error.user_message(), guidance);
+            assert_eq!(stt_user_message(&remote()), guidance);
+            assert_eq!(safe_user_message(UserErrorCode::Stt, guidance), guidance);
+
+            let appended = format!("{guidance} https://PRIVATE.invalid Bearer PRIVATE_TOKEN");
+            let rejected = AppError::Config(appended.clone());
+            assert_eq!(
+                serde_json::to_value(rejected).unwrap(),
+                serde_json::json!({"code":"config","params":{}})
+            );
+            assert!(!safe_user_message(UserErrorCode::Stt, &appended).contains("PRIVATE"));
+        }
+        let other = AppError::from(fono_stt::error::SttError::Remote(RemoteError {
+            kind: RemoteErrorKind::Network,
+            status: None,
+            retry_after_seconds: None,
+        }));
+        assert!(matches!(other, AppError::Stt(_)));
+        assert_eq!(other.user_error().code, UserErrorCode::Stt);
+    }
 
     #[test]
     fn shared_engine_errors_keep_the_desktop_backend_and_safe_detail_contract() {

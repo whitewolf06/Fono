@@ -6,7 +6,9 @@ use fono_core::OperationCancellation;
 use fono_types::ModelId;
 use serde::{Deserialize, Serialize};
 
-use super::{failure, transport::Transport, RemoteEndpoint, RemoteErrorKind, RemoteRecognizer};
+use super::{
+    compatibility, failure, transport::Transport, RemoteEndpoint, RemoteErrorKind, RemoteRecognizer,
+};
 use crate::{error::AppResult, ActivityGuard};
 
 pub const REMOTE_HEALTH_TIMEOUT: Duration = Duration::from_millis(800);
@@ -66,9 +68,10 @@ pub fn probe_health(
     activity: Arc<dyn ActivityGuard>,
     cancellation: &OperationCancellation,
 ) -> AppResult<RemoteHealth> {
+    let engine = model.engine;
     let model = public_model_id(model)?;
     let transport = Arc::new(Transport::new(endpoint, activity)?);
-    probe(transport, model, cancellation)
+    probe(transport, model, engine, cancellation)
 }
 
 impl RemoteRecognizer {
@@ -78,6 +81,7 @@ impl RemoteRecognizer {
         probe(
             self.transport.clone(),
             self.wire_model.clone(),
+            self.model.engine,
             cancellation,
         )
     }
@@ -103,11 +107,14 @@ fn public_model_id(model: &ModelId) -> AppResult<String> {
 fn probe(
     http: Arc<Transport>,
     model: String,
+    engine: fono_types::SttEngine,
     cancellation: &OperationCancellation,
 ) -> AppResult<RemoteHealth> {
     let task = http.clone();
     http.call(cancellation, REMOTE_HEALTH_TIMEOUT, || {
         Ok(async move {
+            compatibility::discover(&task, &model, engine, compatibility::Route::Interactive)
+                .await?;
             let (status, response) = task
                 .health_json::<HealthResponse>(task.get("v1/health"), 64 * 1024)
                 .await?;
