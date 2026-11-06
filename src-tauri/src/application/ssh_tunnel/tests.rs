@@ -185,6 +185,17 @@ fn main() {
             io::stdout().write_all(&vec![42; 192 * 1024]).unwrap();
         },
         "print" => { io::stdout().write_all(args[2].as_bytes()).unwrap(); },
+        "error" => {
+            io::stderr().write_all(args[2].as_bytes()).unwrap();
+            std::process::exit(1);
+        },
+        "candidate" => {
+            std::fs::write(&args[2], args[3].as_bytes()).unwrap();
+            if args.get(4).map(String::as_str) == Some("blocked") {
+                loop { thread::sleep(Duration::from_secs(1)); }
+            }
+            std::process::exit(255);
+        },
         "blocked" => { loop { thread::sleep(Duration::from_secs(1)); } },
         _ => std::process::exit(2),
     }
@@ -333,7 +344,13 @@ fn keyscan_is_bounded_and_never_accepts_another_host_or_malformed_blob() {
     let mut command = child_command(&fixture, "print");
     command.arg(&valid);
     assert_eq!(
-        capture_host_key(command, "server.example", 22).unwrap(),
+        capture_host_key(
+            command,
+            "server.example",
+            22,
+            Instant::now() + PROBE_TIMEOUT
+        )
+        .unwrap(),
         parse_host_key(&key(7)).unwrap()
     );
     for output in [
@@ -345,8 +362,219 @@ fn keyscan_is_bounded_and_never_accepts_another_host_or_malformed_blob() {
         let mut command = child_command(&fixture, "print");
         command.arg(output);
         assert_eq!(
-            capture_host_key(command, "server.example", 22),
+            capture_host_key(
+                command,
+                "server.example",
+                22,
+                Instant::now() + PROBE_TIMEOUT
+            ),
+            Err(ScanFailure::Other(SshError::ConnectionFailed))
+        );
+    }
+}
+
+const UNSUPPORTED_KEX: &str =
+    "choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com\r\n";
+
+fn broken_scanner(fixture: &Fixture, diagnostic: &str) -> Command {
+    let mut command = child_command(fixture, "error");
+    command.arg(diagnostic);
+    command
+}
+
+fn candidate_process(fixture: &Fixture, file: &PrivateHostFile, contents: &str) -> Command {
+    let mut command = child_command(fixture, "candidate");
+    command.arg(&file.path).arg(contents).arg("blocked");
+    command
+}
+
+#[test]
+fn compatibility_probe_disables_all_credentials_and_cannot_start_a_session_or_forward() {
+    let file = PrivateHostFile::empty().unwrap();
+    assert_eq!(fs::read(&file.path).unwrap(), b"");
+    let command = discovery_command(
+        PathBuf::from("not-executed-ssh"),
+        "new.example",
+        2222,
+        &file.path,
+    );
+    let args: Vec<_> = command
+        .get_args()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(&args[..4], &["-F", null_device(), "-N", "-T"]);
+    for required in [
+        "BatchMode=yes",
+        "PubkeyAuthentication=no",
+        "PasswordAuthentication=no",
+        "KbdInteractiveAuthentication=no",
+        "GSSAPIAuthentication=no",
+        "GSSAPIDelegateCredentials=no",
+        "HostbasedAuthentication=no",
+        "PreferredAuthentications=none",
+        "IdentityFile=none",
+        "IdentityAgent=none",
+        "ForwardAgent=no",
+        "ForwardX11=no",
+        "ClearAllForwardings=yes",
+        "PermitLocalCommand=no",
+        "ProxyCommand=none",
+        "ProxyJump=none",
+        "StrictHostKeyChecking=accept-new",
+        "UpdateHostKeys=no",
+        "VerifyHostKeyDNS=no",
+        "CheckHostIP=no",
+        "HashKnownHosts=no",
+        "HostKeyAlgorithms=ssh-ed25519",
+        "HostKeyAlias=fono-untrusted-discovery",
+        "fono-host-key-probe",
+    ] {
+        assert!(
+            args.iter().any(|arg| arg == required),
+            "missing credential-free probe option"
+        );
+    }
+    assert!(args
+        .iter()
+        .any(|arg| arg == &format!("CertificateFile={}", null_device())));
+    assert!(args
+        .iter()
+        .any(|arg| arg == &format!("GlobalKnownHostsFile={}", null_device())));
+    assert!(!args
+        .iter()
+        .any(|arg| ["-i", "-L", "-R", "-D", "-W", "-A"].contains(&arg.as_str())));
+    assert_eq!(args.last().unwrap(), "new.example");
+    let known_hosts = args
+        .iter()
+        .find(|arg| arg.starts_with("UserKnownHostsFile="))
+        .unwrap();
+    assert_eq!(
+        known_hosts,
+        &format!(
+            "UserKnownHostsFile=\"{}\"",
+            file.path.to_string_lossy().replace('\\', "/")
+        )
+    );
+    assert_ne!(DISCOVERY_ALIAS, HOST_ALIAS);
+    for variable in [
+        "SSH_AUTH_SOCK",
+        "SSH_ASKPASS",
+        "SSH_ASKPASS_REQUIRE",
+        "SSH_SK_PROVIDER",
+    ] {
+        assert!(command
+            .get_envs()
+            .any(|(key, value)| key == variable && value.is_none()));
+    }
+}
+
+#[test]
+fn broken_windows_keyscan_uses_only_a_temporary_untrusted_candidate_and_cleans_it() {
+    let fixture = fixture();
+    let mut candidate_path = None;
+    let discovered = discover_host_key(
+        broken_scanner(&fixture, UNSUPPORTED_KEX),
+        "new.example",
+        22,
+        |file| {
+            candidate_path = Some(file.path.clone());
+            assert!(fs::read(&file.path).unwrap().is_empty());
+            Ok(candidate_process(
+                &fixture,
+                file,
+                &format!("{DISCOVERY_ALIAS} {}\n", key(9)),
+            ))
+        },
+    )
+    .unwrap();
+    assert_eq!(discovered, parse_host_key(&key(9)).unwrap());
+    let path = candidate_path.unwrap();
+    assert!(!path.exists());
+    assert!(!path.parent().unwrap().exists());
+}
+
+#[test]
+fn ordinary_scanner_results_and_failures_do_not_blindly_start_the_compatibility_probe() {
+    let fixture = fixture();
+    let mut command = child_command(&fixture, "print");
+    command.arg(format!("new.example {}\n", key(7)));
+    assert_eq!(
+        discover_host_key(command, "new.example", 22, |_| panic!(
+            "successful scan must not fallback"
+        ))
+        .unwrap(),
+        parse_host_key(&key(7)).unwrap()
+    );
+    for error in [
+        "Permission denied",
+        "Connection timed out",
+        "unsupported KEX method weak-algorithm",
+        "PRIVATE_HOST_PATH_KEY",
+    ] {
+        assert_eq!(
+            discover_host_key(
+                broken_scanner(&fixture, error),
+                "new.example",
+                22,
+                |_| panic!("generic failure must not fallback")
+            ),
             Err(SshError::ConnectionFailed)
         );
     }
+    let oversize = format!("{}{}", "x".repeat(MAX_KEYSCAN_BYTES), UNSUPPORTED_KEX);
+    assert_eq!(
+        discover_host_key(
+            broken_scanner(&fixture, &oversize),
+            "new.example",
+            22,
+            |_| panic!("oversized stderr must not fallback")
+        ),
+        Err(SshError::ConnectionFailed)
+    );
+}
+
+#[test]
+fn compatibility_candidate_rejects_other_hosts_ambiguity_bad_bytes_and_incomplete_output() {
+    let fixture = fixture();
+    for contents in [
+        format!("other-host {}\n", key(9)),
+        format!("{DISCOVERY_ALIAS} ssh-ed25519 AAAA\n"),
+        format!(
+            "{DISCOVERY_ALIAS} {}\n{DISCOVERY_ALIAS} {}\n",
+            key(9),
+            key(8)
+        ),
+        format!("{DISCOVERY_ALIAS} {}", key(9)),
+        "x".repeat(MAX_KEYSCAN_BYTES + 1),
+    ] {
+        let file = PrivateHostFile::empty().unwrap();
+        let command = candidate_process(&fixture, &file, &contents);
+        assert_eq!(
+            capture_discovery_candidate(
+                command,
+                &file.path,
+                Instant::now() + Duration::from_millis(200)
+            ),
+            Err(SshError::ConnectionFailed)
+        );
+    }
+}
+
+#[test]
+fn compatibility_probe_timeout_reaps_only_its_own_child_within_the_shared_deadline() {
+    let fixture = fixture();
+    let mut other = OwnedChild::spawn(&mut child_command(&fixture, "blocked")).unwrap();
+    let file = PrivateHostFile::empty().unwrap();
+    let started = Instant::now();
+    assert_eq!(
+        capture_discovery_candidate(
+            child_command(&fixture, "blocked"),
+            &file.path,
+            Instant::now() + Duration::from_millis(150)
+        ),
+        Err(SshError::ConnectionFailed)
+    );
+    assert!(started.elapsed() < Duration::from_secs(3));
+    assert!(other.child.try_wait().unwrap().is_none());
+    assert_eq!(fs::read(&file.path).unwrap(), b"");
 }

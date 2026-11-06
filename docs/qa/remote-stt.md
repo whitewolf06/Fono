@@ -90,6 +90,10 @@ installation or owner acceptance; the checklist below remains separate.
 1. From the native connection form, fetch the server key. Confirm that fetching
    alone does not mark the key trusted or enable an unpinned connection. Verify
    the fingerprint against an independently trusted value, then trust it.
+   On affected Windows OpenSSH versions, this must also succeed when the system
+   key scanner reports an unsupported KEX algorithm. The live automated SSH gate
+   must call production host-key retrieval and compare the observation to its
+   independently trusted fixture before any API credential is used.
 2. Select an existing identity and check the connection with the API token.
    Choose the server model, save the token, then save settings. No console or
    manually started SSH tunnel should be required. An unrelated tunnel already

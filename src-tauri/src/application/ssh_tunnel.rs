@@ -26,6 +26,7 @@ const IDLE_LIMIT: Duration = Duration::from_secs(10 * 60);
 const TICK: Duration = Duration::from_millis(20);
 const IO_TICK: Duration = Duration::from_millis(100);
 const HOST_ALIAS: &str = "fono-pinned-server";
+const DISCOVERY_ALIAS: &str = "fono-untrusted-discovery";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -264,28 +265,103 @@ pub(crate) fn probe_host_key(host: &str, port: u16) -> Result<HostKey, SshError>
         .arg(port.to_string())
         .arg(host)
         .stdout(Stdio::piped());
-    capture_host_key(command, host, port)
+    discover_host_key(command, host, port, |file| {
+        Ok(discovery_command(binary("ssh")?, host, port, &file.path))
+    })
 }
 
-fn capture_host_key(mut command: Command, host: &str, port: u16) -> Result<HostKey, SshError> {
-    let mut process = OwnedChild::spawn(&mut command)?;
-    let mut output = process
-        .child
-        .stdout
-        .take()
-        .ok_or(SshError::ConnectionFailed)?;
-    let reader = thread::Builder::new()
-        .name("fono-ssh-keyscan".into())
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ScanFailure {
+    UnsupportedKex,
+    Other(SshError),
+}
+
+impl From<SshError> for ScanFailure {
+    fn from(error: SshError) -> Self {
+        Self::Other(error)
+    }
+}
+
+fn discover_host_key(
+    command: Command,
+    host: &str,
+    port: u16,
+    fallback: impl FnOnce(&PrivateHostFile) -> Result<Command, SshError>,
+) -> Result<HostKey, SshError> {
+    let deadline = Instant::now() + PROBE_TIMEOUT;
+    match capture_host_key(command, host, port, deadline) {
+        Ok(key) => Ok(key),
+        Err(ScanFailure::Other(error)) => Err(error),
+        Err(ScanFailure::UnsupportedKex) => {
+            // Some Windows 9.x keyscan builds advertise a KEX they cannot run.
+            // ssh.exe filters its supported algorithms correctly. This file is
+            // only an untrusted observation, never the protected tunnel's pin.
+            let file = PrivateHostFile::empty()?;
+            capture_discovery_candidate(fallback(&file)?, &file.path, deadline)
+        }
+    }
+}
+
+fn capture_reader(
+    mut reader: impl Read + Send + 'static,
+    name: &'static str,
+) -> Result<JoinHandle<io::Result<Vec<u8>>>, SshError> {
+    thread::Builder::new()
+        .name(name.into())
         .spawn(move || {
             let mut bytes = Vec::new();
-            output
+            reader
                 .by_ref()
                 .take(MAX_KEYSCAN_BYTES as u64 + 1)
                 .read_to_end(&mut bytes)
                 .map(|_| bytes)
         })
-        .map_err(|_| SshError::Busy)?;
-    let deadline = Instant::now() + PROBE_TIMEOUT;
+        .map_err(|_| SshError::Busy)
+}
+
+fn join_capture(reader: JoinHandle<io::Result<Vec<u8>>>) -> Result<Vec<u8>, SshError> {
+    reader
+        .join()
+        .map_err(|_| SshError::ConnectionFailed)?
+        .map_err(|_| SshError::ConnectionFailed)
+}
+
+fn unsupported_keyscan_kex(stderr: &[u8]) -> bool {
+    let Ok(stderr) = std::str::from_utf8(stderr) else {
+        return false;
+    };
+    stderr.lines().any(|line| {
+        line.trim() == "choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com"
+    })
+}
+
+fn capture_host_key(
+    mut command: Command,
+    host: &str,
+    port: u16,
+    deadline: Instant,
+) -> Result<HostKey, ScanFailure> {
+    command.stderr(Stdio::piped());
+    let mut process = OwnedChild::spawn(&mut command)?;
+    let output = process
+        .child
+        .stdout
+        .take()
+        .ok_or(SshError::ConnectionFailed)?;
+    let errors = process
+        .child
+        .stderr
+        .take()
+        .ok_or(SshError::ConnectionFailed)?;
+    let reader = capture_reader(output, "fono-ssh-keyscan")?;
+    let error_reader = match capture_reader(errors, "fono-ssh-keyscan-error") {
+        Ok(reader) => reader,
+        Err(error) => {
+            process.stop();
+            let _ = join_capture(reader);
+            return Err(error.into());
+        }
+    };
     let success = loop {
         match process.child.try_wait() {
             Ok(Some(status)) => break status.success(),
@@ -295,14 +371,27 @@ fn capture_host_key(mut command: Command, host: &str, port: u16) -> Result<HostK
         }
     };
     process.stop();
-    let bytes = reader
-        .join()
-        .map_err(|_| SshError::ConnectionFailed)?
-        .map_err(|_| SshError::ConnectionFailed)?;
-    if !success || bytes.len() > MAX_KEYSCAN_BYTES {
-        return Err(SshError::ConnectionFailed);
+    // Join both actual readers before propagating any failure. IPC cancellation
+    // cannot detach either worker from its caller's admission lifetime.
+    let output = join_capture(reader);
+    let errors = join_capture(error_reader);
+    let bytes = output?;
+    let stderr = errors?;
+    if bytes.len() > MAX_KEYSCAN_BYTES || stderr.len() > MAX_KEYSCAN_BYTES {
+        return Err(SshError::ConnectionFailed.into());
     }
-    let text = std::str::from_utf8(&bytes).map_err(|_| SshError::ConnectionFailed)?;
+    if !success {
+        return if bytes.iter().all(u8::is_ascii_whitespace) && unsupported_keyscan_kex(&stderr) {
+            Err(ScanFailure::UnsupportedKex)
+        } else {
+            Err(SshError::ConnectionFailed.into())
+        };
+    }
+    parse_scanned_key(&bytes, host, port).map_err(Into::into)
+}
+
+fn parse_scanned_key(bytes: &[u8], host: &str, port: u16) -> Result<HostKey, SshError> {
+    let text = std::str::from_utf8(bytes).map_err(|_| SshError::ConnectionFailed)?;
     let bracketed = format!("[{host}]:{port}");
     let mut candidate = None;
     for line in text
@@ -325,6 +414,163 @@ fn capture_host_key(mut command: Command, host: &str, port: u16) -> Result<HostK
     candidate.ok_or(SshError::ConnectionFailed)
 }
 
+/// A credential-free compatibility probe, separate from strict SshProcess.
+/// OpenSSH records this temporary candidate during KEX, before user auth. We
+/// stop it as soon as the complete key appears. An initial protocol `none` auth
+/// request can race that stop; no credential authentication method is enabled.
+fn discovery_command(
+    executable: PathBuf,
+    host: &str,
+    port: u16,
+    candidate: &std::path::Path,
+) -> Command {
+    let mut command = Command::new(executable);
+    hidden(&mut command);
+    command
+        .args(["-F", null_device(), "-N", "-T"])
+        .args([
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "PubkeyAuthentication=no",
+            "-o",
+            "PasswordAuthentication=no",
+            "-o",
+            "KbdInteractiveAuthentication=no",
+            "-o",
+            "GSSAPIAuthentication=no",
+            "-o",
+            "GSSAPIDelegateCredentials=no",
+            "-o",
+            "HostbasedAuthentication=no",
+            "-o",
+            "PreferredAuthentications=none",
+            "-o",
+            "IdentityFile=none",
+            "-o",
+            "IdentityAgent=none",
+            "-o",
+            "NumberOfPasswordPrompts=0",
+            "-o",
+            "ForwardAgent=no",
+            "-o",
+            "ForwardX11=no",
+            "-o",
+            "ClearAllForwardings=yes",
+            "-o",
+            "PermitLocalCommand=no",
+            "-o",
+            "ProxyCommand=none",
+            "-o",
+            "ProxyJump=none",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            "UpdateHostKeys=no",
+            "-o",
+            "VerifyHostKeyDNS=no",
+            "-o",
+            "CheckHostIP=no",
+            "-o",
+            "HashKnownHosts=no",
+            "-o",
+            "HostKeyAlgorithms=ssh-ed25519",
+            "-o",
+            "ConnectTimeout=5",
+            "-o",
+            "ConnectionAttempts=1",
+            "-o",
+            "LogLevel=QUIET",
+            "-o",
+            "HostKeyAlias=fono-untrusted-discovery",
+        ])
+        .arg("-o")
+        .arg(format!("CertificateFile={}", null_device()))
+        .arg("-o")
+        .arg(format!("GlobalKnownHostsFile={}", null_device()))
+        .arg("-o")
+        .arg(format!(
+            "UserKnownHostsFile=\"{}\"",
+            candidate.to_string_lossy().replace('\\', "/")
+        ))
+        .args(["-p", &port.to_string(), "-l", "fono-host-key-probe"])
+        .arg(host)
+        .stdout(Stdio::null())
+        .env_remove("SSH_AUTH_SOCK")
+        .env_remove("SSH_ASKPASS")
+        .env_remove("SSH_ASKPASS_REQUIRE")
+        .env_remove("SSH_SK_PROVIDER");
+    command
+}
+
+fn read_discovery_candidate(path: &std::path::Path) -> Result<Option<HostKey>, SshError> {
+    let metadata = fs::symlink_metadata(path).map_err(|_| SshError::ConnectionFailed)?;
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() > MAX_KEYSCAN_BYTES as u64
+    {
+        return Err(SshError::ConnectionFailed);
+    }
+    let mut bytes = Vec::new();
+    let file = match fs::File::open(path) {
+        Ok(file) => file,
+        // OpenSSH's append handle may briefly deny sharing on Windows. Retry
+        // while the owned child is alive; the final post-stop read still fails
+        // closed if the file remains inaccessible.
+        Err(error) if cfg!(windows) && matches!(error.raw_os_error(), Some(32 | 33)) => {
+            return Ok(None);
+        }
+        Err(_) => return Err(SshError::ConnectionFailed),
+    };
+    file.take(MAX_KEYSCAN_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| SshError::ConnectionFailed)?;
+    if bytes.len() > MAX_KEYSCAN_BYTES {
+        return Err(SshError::ConnectionFailed);
+    }
+    if bytes.is_empty() || !bytes.ends_with(b"\n") {
+        return Ok(None);
+    }
+    let text = std::str::from_utf8(&bytes).map_err(|_| SshError::ConnectionFailed)?;
+    let lines: Vec<_> = text.lines().filter(|line| !line.is_empty()).collect();
+    if lines.len() != 1 {
+        return Err(SshError::ConnectionFailed);
+    }
+    let fields: Vec<_> = lines[0].split_ascii_whitespace().collect();
+    if fields.len() != 3 || fields[0] != DISCOVERY_ALIAS {
+        return Err(SshError::ConnectionFailed);
+    }
+    parse_host_key(&format!("{} {}", fields[1], fields[2]))
+        .map(Some)
+        .map_err(|_| SshError::ConnectionFailed)
+}
+
+fn capture_discovery_candidate(
+    mut command: Command,
+    candidate: &std::path::Path,
+    deadline: Instant,
+) -> Result<HostKey, SshError> {
+    if Instant::now() >= deadline {
+        return Err(SshError::ConnectionFailed);
+    }
+    let mut process = OwnedChild::spawn(&mut command)?;
+    loop {
+        if read_discovery_candidate(candidate)?.is_some() {
+            break;
+        }
+        match process.child.try_wait() {
+            Ok(Some(_)) => break,
+            Err(_) => return Err(SshError::ConnectionFailed),
+            Ok(None) if Instant::now() < deadline => thread::sleep(TICK),
+            Ok(None) => break,
+        }
+    }
+    process.stop();
+    // Re-read only after the exact child has stopped, so a partial or ambiguous
+    // final write cannot be returned as a trusted-looking key observation.
+    read_discovery_candidate(candidate)?.ok_or(SshError::ConnectionFailed)
+}
+
 struct PrivateHostFile {
     directory: PathBuf,
     path: PathBuf,
@@ -332,6 +578,14 @@ struct PrivateHostFile {
 
 impl PrivateHostFile {
     fn new(host_key: &str) -> Result<Self, SshError> {
+        Self::create(&format!("{HOST_ALIAS} {host_key}\n"))
+    }
+
+    fn empty() -> Result<Self, SshError> {
+        Self::create("")
+    }
+
+    fn create(contents: &str) -> Result<Self, SshError> {
         let directory = std::env::temp_dir().join(format!("fono-ssh-{}", uuid::Uuid::new_v4()));
         #[cfg(unix)]
         let mut builder = DirBuilder::new();
@@ -359,7 +613,9 @@ impl PrivateHostFile {
         let mut output = options
             .open(&file.path)
             .map_err(|_| SshError::ConnectionFailed)?;
-        writeln!(output, "{HOST_ALIAS} {host_key}").map_err(|_| SshError::ConnectionFailed)?;
+        output
+            .write_all(contents.as_bytes())
+            .map_err(|_| SshError::ConnectionFailed)?;
         Ok(file)
     }
 }

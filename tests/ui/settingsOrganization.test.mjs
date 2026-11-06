@@ -112,6 +112,33 @@ test("SSH host probe is a draft observation and only explicit trust pins the cur
   controller.dispose();
 });
 
+test("host-key retrieval failures explain the discovery step without blaming account credentials", async () => {
+  for (const probeSshHost of [
+    async () => ({ kind: "error", error: "ssh_connection_failed" }),
+    async () => {
+      throw new Error("PRIVATE_SSH_SERVER_STDERR");
+    },
+  ]) {
+    const settings = sourceSettings();
+    settings.ssh = sshSettings();
+    const controller = createSourceController({
+      settings: () => settings,
+      port: sourcePort({ probeSshHost }),
+    });
+    await controller.probeSshHost();
+    assert.match(controller.state.sshError, /Не удалось получить ключ сервера/);
+    assert.match(
+      controller.state.sshError,
+      /Личный ключ и токен на этом шаге не используются/,
+    );
+    assert.doesNotMatch(controller.state.sshError, /PRIVATE_|пользовател/);
+    assert.equal(settings.ssh.hostKey, "");
+    assert.equal(controller.state.hostKeyCandidate, null);
+    assert.equal(controller.state.probingHost, false);
+    controller.dispose();
+  }
+});
+
 test("SSH host probes and identity dialogs cannot update a changed or disposed draft", async () => {
   for (const change of ["host", "port", "dispose"]) {
     const settings = sourceSettings();

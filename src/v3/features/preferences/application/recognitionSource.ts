@@ -32,6 +32,14 @@ export function connectionErrorText(
   return message(keys[error]);
 }
 
+function hostKeyErrorText(
+  error: Extract<RemoteConnectionResult, { kind: "error" }>["error"],
+): string {
+  return ["ssh_client_missing", "ssh_busy", "busy"].includes(error)
+    ? connectionErrorText(error)
+    : message("recognitionSource.sshProbeFailed");
+}
+
 /** Draft checks are observations. They never save settings or select a source. */
 export function createRecognitionSourceController(options: {
   settings(): RecognitionSourceSettings;
@@ -198,10 +206,10 @@ export function createRecognitionSourceController(options: {
             fingerprint: result.fingerprint,
           };
           candidateAddress = submitted;
-        } else state.sshError = connectionErrorText(result.error);
+        } else state.sshError = hostKeyErrorText(result.error);
       } catch {
         if (!disposed && ticket === hostRevision)
-          state.sshError = message("recognitionSource.sshConnectionFailed");
+          state.sshError = message("recognitionSource.sshProbeFailed");
       } finally {
         if (ticket === hostRevision) state.probingHost = false;
       }

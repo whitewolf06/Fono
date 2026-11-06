@@ -504,9 +504,18 @@ mod tests {
             std::env::var_os("FONO_SSH_SMOKE_CONFIG").expect("explicit SSH fixture is required");
         let token_file = std::env::var_os("FONO_SSH_SMOKE_TOKEN_FILE")
             .expect("explicit API credential file is required");
-        let ssh: RemoteSshSettings =
+        let mut ssh: RemoteSshSettings =
             serde_json::from_slice(&std::fs::read(config_file).expect("cannot read SSH fixture"))
                 .expect("invalid trusted SSH fixture");
+        // Exercise the real first-use path, not only a pre-supplied pin. The
+        // observed candidate still needs independent trust before API traffic.
+        let observed = super::super::ssh_tunnel::probe_host_key(&ssh.host, ssh.port)
+            .expect("production host-key retrieval failed");
+        assert_eq!(
+            observed.host_key, ssh.host_key,
+            "observed host key differs from the independently trusted fixture"
+        );
+        ssh.host_key = observed.host_key;
         let token = Zeroizing::new(
             std::fs::read_to_string(token_file).expect("cannot read API credential fixture"),
         );

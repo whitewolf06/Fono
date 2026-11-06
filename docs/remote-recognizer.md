@@ -76,6 +76,18 @@ must already be available through the SSH agent. The API bearer remains in
 Windows Credential Manager. SSH addresses, usernames and key-file paths are
 native settings and stay out of browser persistence and diagnostic exports.
 
+Some Windows OpenSSH builds advertise an unsupported key-exchange algorithm in
+`ssh-keyscan` ([upstream issue 2140](https://github.com/PowerShell/Win32-OpenSSH/issues/2140)).
+If that specific scanner failure occurs, Fono retrieves the candidate with the
+Windows SSH client using a fresh, isolated temporary host-key file and disabled
+identity, certificate, agent, password and other credential authentication.
+The temporary observation is never used as a trusted pin. The process opens no
+remote shell or forwarding channel and is stopped after gathering the key; an
+initial SSH authentication-method discovery request may still reach the server.
+Normal API connections continue to require the explicitly accepted pinned key
+with strict checking. The user's SSH configuration and Kari's algorithms remain
+unchanged.
+
 Startup preparation, recording preflight and file jobs automatically use the
 saved channel. A broken connection remains a failed attempt: audio POSTs are not
 replayed automatically. The next explicit operation opens a new SSH connection.
