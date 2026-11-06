@@ -91,9 +91,12 @@ docker compose -f compose.example.yml run --rm \
 
 The token is printed once. Store it in the client credential store. The server
 persists salted digests only. The token file must be mode `0600` and owned by
-UID 10001. The Compose service mounts the **credential directory** read-only so
-CLI atomic replacement and revocation become visible on the next request.
-Rotate or revoke tokens with the same one-off writable mount. No secret belongs
+UID 10001. The Compose service mounts the **credential directory** writable so
+the authenticated server panel can issue and revoke application keys. Atomic
+replacement and revocation become visible on the next request.
+Create an administrative token once with `token create panel-admin --scope admin`,
+then use the panel's Applications section for ordinary consumer keys; see
+[application connections](server-clients.md). No secret belongs
 in `server.toml`, Compose environment variables, the image or Git.
 
 ```sh
@@ -116,9 +119,9 @@ checks. See [the doctor guide](server-doctor.md) for checks, timeouts and
 `--skip-self-test`. A configured TLS listener is validated with rustls as well
 as the certificate and key file checks.
 
-The service is non-root, has a read-only root filesystem and credentials,
-drops capabilities, and uses a bounded temporary filesystem. Only the model
-volume is persistent and writable. `restart: unless-stopped` applies after the
+The service is non-root, has a read-only root filesystem, drops capabilities,
+and uses a bounded temporary filesystem. Only the model volume and private
+credential directory are persistent and writable. `restart: unless-stopped` applies after the
 operator starts the service. Stop it with `docker compose -f compose.example.yml down`;
 the model volume and credentials are retained.
 

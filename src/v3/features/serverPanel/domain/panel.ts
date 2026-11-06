@@ -1,4 +1,11 @@
-export type PanelTab = "status" | "models" | "queue" | "docs";
+export type PanelTab = "status" | "models" | "queue" | "clients" | "docs";
+export interface ServerClient {
+  name: string;
+  scope: "recognize";
+  created_at: string;
+}
+export type ClientRequest =
+  { method: "GET" } | { method: "POST" | "DELETE"; name: string };
 export interface PanelResponse {
   status: number;
   data: unknown;
@@ -21,6 +28,12 @@ export interface PanelRequest {
   timestamps?: string;
 }
 export interface PanelPort {
+  requestClients(
+    request: ClientRequest,
+    token: string,
+    signal: AbortSignal,
+  ): Promise<PanelResponse>;
+  copyText(value: string): Promise<void>;
   request(
     request: PanelRequest,
     token: string,
@@ -31,6 +44,44 @@ export interface PanelPort {
   schedule(callback: () => void, delayMs: number): () => void;
   now(): number;
   connection: string;
+}
+export function validClientName(name: string): boolean {
+  return (
+    typeof name === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(name)
+  );
+}
+/** A single dotenv-safe origin, never a URL inferred from the browser tunnel. */
+export function apiBaseUrl(value: string): string | null {
+  if (
+    !/^https?:\/\/(?:[A-Za-z0-9][A-Za-z0-9._-]*|\[[A-Fa-f0-9:]+\])(?::[0-9]{1,5})?\/?$/.test(
+      value,
+    )
+  )
+    return null;
+  try {
+    const url = new URL(value);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== "/" ||
+      ["0.0.0.0", "[::]"].includes(url.hostname) ||
+      url.port === "0" ||
+      !/^https?:\/\//.test(value)
+    )
+      return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+export function clientEnvironment(url: string, token: string): string | null {
+  const origin = apiBaseUrl(url);
+  return origin && /^fono_[a-f0-9]{64}$/.test(token)
+    ? `FONO_HOST=${origin}\nFONO_TOKEN=${token}`
+    : null;
 }
 export interface ServerCapabilities {
   version: string;

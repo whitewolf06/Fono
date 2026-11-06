@@ -16,11 +16,12 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      # Only this private directory is writable for panel-issued client keys.
       # Mount the directory so atomic token rotation is visible immediately.
       - type: bind
         source: ./credentials
         target: /etc/fono/credentials
-        read_only: true
+        read_only: false
         bind:
           create_host_path: false
     environment:

@@ -281,6 +281,24 @@ body {
 .panel-empty {
   padding: var(--fono-space-6) 0;
 }
+.panel-client-list li {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.panel-client-secret,
+.panel-client-confirm {
+  margin-top: var(--fono-space-5);
+  padding: var(--fono-space-4);
+  border: 1px solid var(--fono-border);
+  border-radius: var(--fono-radius-sm);
+}
+.panel-client-secret h3 {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+}
+.panel-client-confirm .panel-actions {
+  margin-top: var(--fono-space-4);
+}
 @media (max-width: 760px) {
   .server-panel {
     padding: var(--fono-space-4);

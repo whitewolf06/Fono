@@ -114,6 +114,7 @@ fn configuration(directory: &Directory, model: &Path) -> ServerConfig {
     ServerConfig {
         server: ServerSettings {
             bind: "127.0.0.1:0".parse().unwrap(),
+            client_url: None,
             allowed_hosts: vec!["127.0.0.1".into()],
             trusted_private_network: false,
             tokens_file: directory.0.join("tokens"),

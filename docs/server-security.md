@@ -49,6 +49,15 @@ These settings can also be supplied through `FONO_SERVER_BIND`,
 literal), and `FONO_SERVER_BODY_READ_TIMEOUT`. Environment overrides go through
 the same validation as the TOML file.
 
+## Application keys
+
+Application keys can be issued and revoked from the panel or the admin-only
+`/v1/clients` API. These operations create recognition credentials only; the
+initial administrator remains a CLI operation. Existing salted-digest storage,
+atomic replacement, permissions and immediate next-request revocation apply.
+The runtime requires write access only to its private token directory; no
+consumer application is modified. See [application connections](server-clients.md).
+
 ## Per-credential request rate
 
 ```toml

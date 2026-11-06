@@ -19,6 +19,7 @@ const tabs: { id: PanelTab; label: string }[] = [
   { id: "status", label: "Статус" },
   { id: "models", label: "Модели" },
   { id: "queue", label: "Очередь" },
+  { id: "clients", label: "Приложения" },
   { id: "docs", label: "API и проверка" },
 ];
 const endpointOptions = [
@@ -349,6 +350,165 @@ onUnmounted(() => panel.dispose());
           Здесь показаны общие счётчики. Получить результат конкретного задания
           можно по его ID через API.
         </p>
+      </section>
+
+      <section
+        v-if="state.tab === 'clients'"
+        class="panel-docs"
+        aria-label="Приложения и ключи API"
+      >
+        <article class="panel-card">
+          <h2>Подключить приложение</h2>
+          <p class="panel-muted">
+            Создайте отдельный ключ и скопируйте адрес с токеном в .env
+            приложения. Ключ разрешает распознавание, но не управление сервером.
+          </p>
+          <p
+            v-if="state.clientError"
+            class="panel-error panel-message"
+            role="alert"
+          >
+            {{ state.clientError }}
+          </p>
+          <p v-if="state.clientsAllowed === false" class="panel-muted">
+            Обычный токен подходит для распознавания. Создавать и отзывать ключи
+            может администратор.
+          </p>
+          <form
+            v-else
+            class="panel-form"
+            @submit.prevent="panel.createClient()"
+          >
+            <WlField
+              id="client-api-url"
+              v-slot="field"
+              label="Адрес API для приложения"
+            >
+              <WlInput
+                v-bind="field"
+                v-model="state.clientUrl"
+                placeholder="http://fono-server:17832"
+                :spellcheck="false"
+                :disabled="state.clientsBusy || !!state.clientEnv"
+              />
+            </WlField>
+            <p class="panel-muted">
+              Укажите адрес, доступный из самого приложения. Для программы на
+              сервере это может быть http://127.0.0.1:17832. В Docker localhost
+              указывает внутрь контейнера: нужен доступный сетевой адрес Fono.
+              Адрес панели через SSH-туннель может отличаться.
+            </p>
+            <WlField id="client-name" v-slot="field" label="Имя приложения">
+              <WlInput
+                v-bind="field"
+                v-model="state.clientName"
+                placeholder="Например, my-app"
+                autocomplete="off"
+                :spellcheck="false"
+                :disabled="state.clientsBusy || !!state.clientEnv"
+              />
+            </WlField>
+            <p class="panel-muted">
+              До 64 латинских букв, цифр, дефисов и подчёркиваний. Начните с
+              буквы или цифры.
+            </p>
+            <WlButton
+              type="submit"
+              :loading="state.clientsBusy"
+              :disabled="
+                !state.clientsAllowed ||
+                state.clientsBusy ||
+                !!state.clientEnv ||
+                !state.clientName.trim() ||
+                !state.clientUrl
+              "
+              >Создать ключ</WlButton
+            >
+          </form>
+          <div v-if="state.clientEnv" class="panel-client-secret">
+            <h3>Ключ для {{ state.issuedClient }}</h3>
+            <p class="panel-muted">
+              Сохраните обе строки. При смене раздела, выходе или перезагрузке
+              страницы ключ будет скрыт. На сервере хранится только его хэш.
+            </p>
+            <pre tabindex="0" aria-label="Настройки подключения для .env">{{
+              state.clientEnv
+            }}</pre>
+            <div class="panel-actions">
+              <WlButton @click="panel.copyClientEnvironment()"
+                >Скопировать .env</WlButton
+              >
+              <WlButton severity="secondary" @click="panel.clearClientSecret()"
+                >Скрыть ключ</WlButton
+              >
+            </div>
+          </div>
+          <p v-if="state.clientNotice" class="panel-footnote" role="status">
+            {{ state.clientNotice }}
+          </p>
+        </article>
+        <article class="panel-card">
+          <div class="panel-actions">
+            <h2>Ключи приложений</h2>
+            <WlButton
+              severity="secondary"
+              size="sm"
+              :loading="state.clientsBusy"
+              :disabled="state.clientsBusy"
+              @click="panel.loadClients()"
+              >Обновить список</WlButton
+            >
+          </div>
+          <p
+            v-if="
+              state.clientsLoaded &&
+              !state.clients.length &&
+              state.clientsAllowed
+            "
+            class="panel-empty panel-muted"
+          >
+            Ключей приложений пока нет.
+          </p>
+          <ul class="panel-list panel-client-list">
+            <li v-for="client in state.clients" :key="client.name">
+              <div>
+                <strong>{{ client.name }}</strong
+                ><span>Распознавание · создан {{ client.created_at }}</span>
+              </div>
+              <WlButton
+                severity="secondary"
+                size="sm"
+                :disabled="state.clientsBusy"
+                @click="panel.askRevoke(client.name)"
+                >Отозвать ключ</WlButton
+              >
+            </li>
+          </ul>
+          <div
+            v-if="state.revokeCandidate"
+            class="panel-client-confirm"
+            role="alert"
+          >
+            <p>
+              Отозвать ключ приложения
+              <strong>{{ state.revokeCandidate }}</strong
+              >? Следующие запросы с этим ключом будут отклонены.
+            </p>
+            <div class="panel-actions">
+              <WlButton
+                :disabled="state.clientsBusy"
+                @click="panel.revokeClient()"
+                >Подтвердить отзыв</WlButton
+              >
+              <WlButton
+                severity="secondary"
+                :disabled="state.clientsBusy"
+                @click="panel.cancelRevoke()"
+                >Отмена</WlButton
+              >
+            </div>
+          </div>
+        </article>
       </section>
 
       <section

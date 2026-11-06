@@ -14,6 +14,25 @@
     "/v1/health": { "get": { "summary": "Model readiness and queue state", "responses": { "429": { "$ref": "#/components/responses/Busy" }, "200": { "description": "Ready", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "503": { "description": "Starting or failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } } } } },
     "/v1/capabilities": { "get": { "summary": "Discover API version, limits, devices and feature gates", "responses": { "429": { "$ref": "#/components/responses/Busy" }, "200": { "description": "Current server capabilities", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Capabilities" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" } } } },
     "/v1/models": { "get": { "summary": "List installed models and their live state", "description": "OpenAI-shaped list with Fono metadata. Only present artifacts or active pool reservations are returned. disk_state=present_unverified is a size/layout observation, not a checksum claim.", "responses": { "429": { "$ref": "#/components/responses/Busy" }, "200": { "description": "Model inventory", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ModelList" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "500": { "$ref": "#/components/responses/Internal" } } } },
+    "/v1/clients": {
+      "get": {
+        "summary": "List recognition clients and the configured client API origin",
+        "description": "Admin token required. Returns recognition-client names and creation dates only, never token secrets, salts, digests or administrator identities. api_base_url comes only from server.client_url and is null when unset; incoming Host and forwarding headers never set it.",
+        "responses": { "200": { "description": "Client inventory", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClientList" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "429": { "$ref": "#/components/responses/Busy" }, "503": { "$ref": "#/components/responses/ClientStoreUnavailable" } }
+      },
+      "post": {
+        "summary": "Create a named recognition client and return its token once",
+        "description": "Admin token required. Creates recognize scope only, after bounded JSON parsing (1024 bytes and configured body-read deadline). The token is returned once after durable atomic publication; only salted digests are stored. Never retry creation automatically after an unknown result: inspect the client inventory first. New credentials work without restarting the server.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["name"], "properties": { "name": { "$ref": "#/components/schemas/ClientName" } } } } } },
+        "responses": { "201": { "description": "Created; secret is returned once", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatedClient" } } } }, "400": { "$ref": "#/components/responses/InvalidRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "408": { "$ref": "#/components/responses/BodyTimeout" }, "409": { "description": "Client name already exists (client_exists) or store size/client limit reached (client_limit)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }, "413": { "$ref": "#/components/responses/TooLarge" }, "429": { "$ref": "#/components/responses/Busy" }, "503": { "$ref": "#/components/responses/ClientStoreUnavailable" } }
+      }
+    },
+    "/v1/clients/{name}": { "delete": {
+      "summary": "Revoke one recognition client without restarting the server",
+      "description": "Admin token required. Only recognition credentials can be revoked through this API. Administrator credentials are protected and remain CLI-managed. Revocation takes effect on the next authorization; already admitted work retains its existing lifecycle.",
+      "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/ClientName" } }],
+      "responses": { "204": { "description": "Client revoked" }, "400": { "$ref": "#/components/responses/InvalidRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "description": "Admin token required, or the target is a protected admin credential (admin_client_protected)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }, "404": { "description": "Client not found (client_not_found)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }, "429": { "$ref": "#/components/responses/Busy" }, "503": { "$ref": "#/components/responses/ClientStoreUnavailable" } }
+    } },
     "/v1/recognize": {
       "post": {
         "summary": "Recognize one audio body synchronously",
@@ -97,10 +116,15 @@
       "ModelNotReady": { "description": "The selected model is not ready", "headers": { "Retry-After": { "schema": { "type": "integer", "example": 1 } } } },
       "WorkerFailed": { "description": "Recognizer or worker failed; no transcript is returned" },
       "Internal": { "description": "Server operation failed without exposing internal paths or errors" },
+      "ClientStoreUnavailable": { "description": "Credential store is unavailable or cannot be updated (client_store_unavailable); no secret or internal storage path is returned", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
       "JobAccepted": { "description": "Queued", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } },
       "ModelCommand": { "description": "Current model state", "content": { "application/json": { "schema": { "type": "object", "required": ["id", "state"], "properties": { "id": { "type": "string" }, "state": { "type": "string", "enum": ["ready", "unloaded", "retiring"] } } } } } }
     },
     "schemas": {
+      "ClientName": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$", "example": "my-app" },
+      "Client": { "type": "object", "required": ["name", "scope", "created_at"], "properties": { "name": { "$ref": "#/components/schemas/ClientName" }, "scope": { "type": "string", "enum": ["recognize"] }, "created_at": { "type": "string", "format": "date-time" } } },
+      "ClientList": { "type": "object", "required": ["data", "api_base_url"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Client" } }, "api_base_url": { "type": "string", "format": "uri", "nullable": true, "description": "Configured server.client_url origin; null when unset. Not a network reachability claim." } } },
+      "CreatedClient": { "allOf": [{ "$ref": "#/components/schemas/Client" }, { "type": "object", "required": ["token"], "properties": { "token": { "type": "string", "pattern": "^fono_[0-9a-f]{64}$", "description": "Secret returned once after successful publication; never included in client inventory." } } }] },
       "Error": { "type": "object", "required": ["error"], "properties": { "error": { "type": "object", "required": ["code", "message", "retryable", "request_id"], "properties": { "code": { "type": "string" }, "message": { "type": "string" }, "retryable": { "type": "boolean" }, "request_id": { "type": "string" } } } } },
       "OpenAIError": { "type": "object", "required": ["error"], "properties": { "error": { "type": "object", "required": ["message", "type", "param", "code", "request_id"], "properties": { "message": { "type": "string" }, "type": { "type": "string", "enum": ["invalid_request_error", "server_error", "rate_limit_error"] }, "param": { "type": "string", "nullable": true }, "code": { "type": "string" }, "request_id": { "type": "string" } } } } },
       "PublicHealth": { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["ok", "starting", "failed"] } } },

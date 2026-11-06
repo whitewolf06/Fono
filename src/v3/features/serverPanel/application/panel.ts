@@ -1,7 +1,11 @@
-import { reactive, type InjectionKey, inject } from "vue";
+import { reactive, watch, type InjectionKey, inject } from "vue";
 import {
+  apiBaseUrl,
+  clientEnvironment,
   operationsFrom,
+  validClientName,
   type ApiOperation,
+  type ClientRequest,
   type PanelAudio,
   type PanelPort,
   type PanelRequest,
@@ -10,6 +14,7 @@ import {
   type ServerCapabilities,
   type ServerHealth,
   type ServerModel,
+  type ServerClient,
 } from "../domain/panel";
 
 export function createServerPanel(port: PanelPort) {
@@ -32,6 +37,17 @@ export function createServerPanel(port: PanelPort) {
     response: null as PanelResponse | null,
     audio: null as PanelAudio | null,
     connection: port.connection,
+    clients: [] as ServerClient[],
+    clientsAllowed: null as boolean | null,
+    clientsBusy: false,
+    clientsLoaded: false,
+    clientUrl: "",
+    clientName: "",
+    clientError: "",
+    clientNotice: "",
+    clientEnv: "",
+    issuedClient: "",
+    revokeCandidate: "",
   });
   let token = "",
     generation = 0,
@@ -40,6 +56,22 @@ export function createServerPanel(port: PanelPort) {
   let stopTimer = () => {};
   const controllers = new Set<AbortController>();
   let requestController: AbortController | null = null;
+  let clientGeneration = 0;
+  let clientController: AbortController | null = null;
+
+  function clearClientSecret() {
+    state.clientEnv = "";
+    state.issuedClient = "";
+    state.clientNotice = "";
+  }
+  function leaveClients() {
+    clientGeneration++;
+    clientController?.abort();
+    clientController = null;
+    state.clientsBusy = false;
+    state.revokeCandidate = "";
+    clearClientSecret();
+  }
 
   function clearSession() {
     generation++;
@@ -49,6 +81,7 @@ export function createServerPanel(port: PanelPort) {
     for (const controller of controllers) controller.abort();
     controllers.clear();
     requestController = null;
+    leaveClients();
     Object.assign(state, {
       authenticated: false,
       signingIn: false,
@@ -66,6 +99,12 @@ export function createServerPanel(port: PanelPort) {
       response: null,
       audio: null,
       tab: "status",
+      clients: [],
+      clientsAllowed: null,
+      clientsLoaded: false,
+      clientUrl: "",
+      clientName: "",
+      clientError: "",
     });
   }
   function current(id: number) {
@@ -253,6 +292,190 @@ export function createServerPanel(port: PanelPort) {
     state.requestError =
       "Ожидание отменено. Повторная отправка доступна вручную.";
   }
+  async function clientAction(
+    request: ClientRequest,
+    accept: (response: PanelResponse) => void,
+  ) {
+    if (
+      disposed ||
+      !state.authenticated ||
+      state.tab !== "clients" ||
+      state.clientsBusy
+    )
+      return;
+    if (state.retryAt > port.now()) {
+      state.clientError = "Дождитесь восстановления лимита запросов.";
+      return;
+    }
+    const id = generation,
+      operation = ++clientGeneration;
+    const controller = new AbortController();
+    clientController = controller;
+    controllers.add(controller);
+    state.clientsBusy = true;
+    state.clientError = "";
+    const active = () =>
+      current(id) && operation === clientGeneration && state.tab === "clients";
+    try {
+      const response = await port.requestClients(
+        request,
+        token,
+        controller.signal,
+      );
+      if (!active() || !inspect(response)) return;
+      if (response.status === 403) {
+        state.clientsAllowed = false;
+        state.clients = [];
+        clearClientSecret();
+        state.clientError =
+          "Для управления приложениями войдите с admin-токеном сервера.";
+        return;
+      }
+      if (response.status >= 400) {
+        const code = (response.data as { error?: { code?: string } })?.error
+          ?.code;
+        state.clientError =
+          response.status === 409
+            ? "Приложение с таким именем уже есть. Выберите другое имя или отзовите прежний ключ."
+            : response.status === 404
+              ? "Ключ не найден. Обновите список приложений."
+              : code === "invalid_client_name"
+                ? "Укажите имя из латинских букв, цифр, дефиса и подчёркивания."
+                : "Не удалось изменить ключи. Проверьте доступ сервера к хранилищу ключей.";
+        return;
+      }
+      accept(response);
+    } catch {
+      if (active())
+        state.clientError =
+          request.method === "GET"
+            ? "Не удалось получить список приложений. Повторите обновление."
+            : "Ответ не получен. Операция могла выполниться: обновите список перед повтором. Новый ключ можно отозвать и создать заново.";
+    } finally {
+      controllers.delete(controller);
+      if (active()) {
+        state.clientsBusy = false;
+        clientController = null;
+      }
+    }
+  }
+  async function loadClients() {
+    await clientAction({ method: "GET" }, (response) => {
+      const value = response.data as {
+        data?: ServerClient[];
+        api_base_url?: string | null;
+      };
+      if (
+        response.status !== 200 ||
+        !Array.isArray(value?.data) ||
+        value.data.some(
+          (item) =>
+            !item ||
+            !validClientName(item.name) ||
+            item.scope !== "recognize" ||
+            typeof item.created_at !== "string",
+        )
+      )
+        throw new Error("Invalid client inventory");
+      state.clients = value.data.map(({ name, scope, created_at }) => ({
+        name,
+        scope,
+        created_at,
+      }));
+      state.clientsAllowed = true;
+      state.clientsLoaded = true;
+      if (!state.clientUrl && value.api_base_url)
+        state.clientUrl = apiBaseUrl(value.api_base_url) ?? "";
+    });
+  }
+  async function createClient() {
+    if (!state.clientsAllowed || state.clientEnv) return;
+    const name = state.clientName.trim();
+    if (!validClientName(name)) {
+      state.clientError =
+        "Имя: 1–64 латинские буквы, цифры, дефис или подчёркивание; первый символ — буква или цифра.";
+      return;
+    }
+    const origin = apiBaseUrl(state.clientUrl);
+    if (!origin) {
+      state.clientError =
+        "Укажите адрес API: http:// или https://, без пути, пароля и параметров.";
+      return;
+    }
+    await clientAction({ method: "POST", name }, (response) => {
+      const value = response.data as ServerClient & { token?: string };
+      const env = clientEnvironment(origin, value?.token ?? "");
+      if (
+        response.status !== 201 ||
+        value?.name !== name ||
+        value.scope !== "recognize" ||
+        typeof value.created_at !== "string" ||
+        !env
+      )
+        throw new Error("Invalid created key");
+      state.clientEnv = env;
+      state.issuedClient = name;
+      state.clients = [
+        ...state.clients.filter((client) => client.name !== name),
+        { name, scope: "recognize", created_at: value.created_at },
+      ];
+      state.clientName = "";
+      state.clientNotice =
+        "Ключ создан. Скопируйте .env: после скрытия получить этот ключ повторно нельзя.";
+    });
+  }
+  function askRevoke(name: string) {
+    if (
+      !state.clientsBusy &&
+      state.clients.some((client) => client.name === name)
+    )
+      state.revokeCandidate = name;
+  }
+  async function revokeClient() {
+    const name = state.revokeCandidate;
+    if (!name || !state.clientsAllowed) return;
+    await clientAction({ method: "DELETE", name }, (response) => {
+      if (response.status !== 204)
+        throw new Error("Unexpected revocation response");
+      state.clients = state.clients.filter((client) => client.name !== name);
+      if (state.issuedClient === name) clearClientSecret();
+      state.revokeCandidate = "";
+      state.clientNotice = `Ключ приложения ${name} отозван.`;
+    });
+  }
+  async function copyClientEnvironment() {
+    if (!state.clientEnv || state.tab !== "clients" || !state.authenticated)
+      return;
+    const id = generation,
+      operation = clientGeneration;
+    const env = state.clientEnv;
+    try {
+      await port.copyText(env);
+      if (
+        current(id) &&
+        operation === clientGeneration &&
+        state.clientEnv === env
+      )
+        state.clientNotice =
+          ".env скопирован. Добавьте обе строки в настройки приложения.";
+    } catch {
+      if (
+        current(id) &&
+        operation === clientGeneration &&
+        state.clientEnv === env
+      )
+        state.clientNotice =
+          "Не удалось скопировать автоматически. Выделите и скопируйте обе строки ниже.";
+    }
+  }
+  const stopTabWatch = watch(
+    () => state.tab,
+    (tab, previous) => {
+      if (previous === "clients") leaveClients();
+      if (tab === "clients") void loadClients();
+    },
+    { flush: "sync" },
+  );
   return {
     state,
     login,
@@ -260,12 +483,22 @@ export function createServerPanel(port: PanelPort) {
     run,
     chooseAudio,
     cancelRequest,
+    loadClients,
+    createClient,
+    askRevoke,
+    revokeClient,
+    copyClientEnvironment,
+    clearClientSecret,
+    cancelRevoke() {
+      state.revokeCandidate = "";
+    },
     logout: clearSession,
     setAutoRefresh(value: boolean) {
       state.autoRefresh = value;
       schedule();
     },
     dispose() {
+      stopTabWatch();
       clearSession();
       disposed = true;
     },

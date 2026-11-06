@@ -5,7 +5,7 @@ settings. The machine-readable contract is
 [`apps/fono-server/openapi.json`](../apps/fono-server/openapi.json); authenticated
 clients can also read `/openapi.json` and the self-contained `/docs` page.
 The [web panel](server-panel.md) at `/` or `/panel/` provides token sign-in,
-live status, installed models, aggregate queues and an audio-file request playground.
+live status, installed models, aggregate queues, application keys and an audio-file request playground.
 
 Keep the default loopback listener unless access is restricted by a protected
 network or tunnel. See [the network contract](server-security.md). The default
@@ -22,7 +22,9 @@ bearer token and reports model readiness and aggregate queue state.
 
 Use `Authorization: Bearer <token>` for all other API/documentation routes. Recognition tokens can
 read capabilities, inventory, documentation and jobs. Admin tokens additionally
-access metrics and model load/unload. `GET /v1/capabilities` reports API version,
+access metrics, model load/unload and [application key management](server-clients.md)
+through `GET/POST /v1/clients` and `DELETE /v1/clients/{name}`.
+`GET /v1/capabilities` reports API version,
 worker protocol, body limits, formats, available devices and enabled feature
 gates. `GET /v1/models` reports installed public model IDs, engine, languages,
 size, placement, live runtime state and per-model feature support. Local paths

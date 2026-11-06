@@ -16,6 +16,9 @@ allowed_hosts = ["localhost", "127.0.0.1", "::1"]
 # Enable only when access is restricted to a protected private network/tunnel.
 trusted_private_network = false
 tokens_file = "/etc/fono/tokens"
+# Optional address copied into application .env snippets by the server panel.
+# Set once to the origin reachable FROM consumers, not a browser SSH tunnel.
+# client_url = "http://fono-server:17832"
 max_upload_mb = 100
 max_audio_seconds = 300
 body_read_timeout = "60s"

@@ -5,7 +5,13 @@ import { createSSRApp, h } from "vue";
 import { renderToString } from "@vue/server-renderer";
 import { WlConfig } from "@whitelife-core/ui-kit";
 
-let server, createServerPanel, createHttpPanel, serverPanelKey, operationsFrom;
+let server,
+  createServerPanel,
+  createHttpPanel,
+  serverPanelKey,
+  operationsFrom,
+  apiBaseUrl,
+  clientEnvironment;
 const capabilities = {
   version: "0.8.30",
   api_version: 2,
@@ -60,7 +66,10 @@ function fixture() {
   let now = 100000,
     handler;
   const calls = [],
+    clientCalls = [],
+    clipboard = [],
     timers = new Set();
+  let clientHandler;
   const data = {
     "/v1/capabilities": capabilities,
     "/v1/health": health,
@@ -68,6 +77,15 @@ function fixture() {
     "/openapi.json": spec,
   };
   const port = {
+    copyText: async (value) => {
+      clipboard.push(value);
+    },
+    requestClients: async (request, token, signal) => {
+      clientCalls.push({ ...request, token, signal });
+      return clientHandler
+        ? clientHandler(request, token, signal)
+        : response(200, { data: [], api_base_url: "http://fono-server:17832" });
+    },
     connection: "HTTPS",
     now: () => now,
     schedule(callback, delay) {
@@ -92,9 +110,14 @@ function fixture() {
   return {
     port,
     calls,
+    clientCalls,
+    clipboard,
     timers,
     setHandler(value) {
       handler = value;
+    },
+    setClientHandler(value) {
+      clientHandler = value;
     },
     advance(ms) {
       now += ms;
@@ -113,9 +136,8 @@ before(async () => {
   ({ createHttpPanel } = await server.ssrLoadModule(
     "/src/v3/features/serverPanel/infrastructure/httpPanel.ts",
   ));
-  ({ operationsFrom } = await server.ssrLoadModule(
-    "/src/v3/features/serverPanel/domain/panel.ts",
-  ));
+  ({ operationsFrom, apiBaseUrl, clientEnvironment } =
+    await server.ssrLoadModule("/src/v3/features/serverPanel/domain/panel.ts"));
 });
 after(async () => server?.close());
 
@@ -461,5 +483,286 @@ test("Vue panel renders login and real snapshots with escaped server text", asyn
   assert.match(await render(), /Интерактивные запросы/);
   panel.state.tab = "docs";
   assert.match(await render(), /Пробный запрос/);
+  panel.state.tab = "clients";
+  await new Promise(setImmediate);
+  const clients = await render();
+  assert.equal((clients.match(/Подключить приложение/g) ?? []).length, 1);
+  assert.match(clients, /Адрес API для приложения/);
+  assert.match(clients, /В Docker localhost/);
   panel.dispose();
+});
+
+const issuedToken = `fono_${"a".repeat(64)}`;
+function created(name = "my-app") {
+  return response(201, {
+    name,
+    scope: "recognize",
+    created_at: "2026-11-06T12:00:00Z",
+    token: issuedToken,
+  });
+}
+async function clientFixture() {
+  const f = fixture(),
+    panel = createServerPanel(f.port);
+  await panel.login("admin-token");
+  assert.equal(
+    f.clientCalls.length,
+    0,
+    "management is not probed during ordinary login",
+  );
+  panel.state.tab = "clients";
+  await new Promise(setImmediate);
+  return { f, panel };
+}
+test("client onboarding creates one key, copies env, and clears the secret when hidden", async () => {
+  const { f, panel } = await clientFixture();
+  assert.equal(panel.state.clientUrl, "http://fono-server:17832");
+  f.setClientHandler((request) => created(request.name));
+  panel.state.clientName = "my-app";
+  await panel.createClient();
+  assert.equal(
+    panel.state.clientEnv,
+    `FONO_HOST=http://fono-server:17832\nFONO_TOKEN=${issuedToken}`,
+  );
+  assert.equal(panel.state.clients[0].scope, "recognize");
+  assert.equal(
+    JSON.stringify(panel.state.clients).includes(issuedToken),
+    false,
+  );
+  assert.equal(JSON.stringify(panel.state).includes("admin-token"), false);
+  await panel.copyClientEnvironment();
+  assert.equal(f.clipboard[0], panel.state.clientEnv);
+  await panel.createClient();
+  assert.equal(
+    f.clientCalls.filter((request) => request.method === "POST").length,
+    1,
+  );
+  panel.state.tab = "status";
+  assert.equal(panel.state.clientEnv, "");
+  assert.equal(panel.state.issuedClient, "");
+  panel.dispose();
+});
+test("client address is never inferred from the browser tunnel and dotenv injection is rejected", async () => {
+  assert.equal(
+    apiBaseUrl("https://fono.internal:17832/"),
+    "https://fono.internal:17832",
+  );
+  assert.equal(apiBaseUrl("http://[::1]:17832"), "http://[::1]:17832");
+  for (const url of [
+    "",
+    "http://host\nINJECT=1",
+    "http://user:pass@host",
+    "https://host/api",
+    "https://host?",
+    "https://host#",
+    "http://0.0.0.0:17832",
+    "http://[::]:17832",
+    "http://host:0",
+    "http://host/$(cmd)",
+    "file:///host",
+    "//host",
+    "https://host\\evil",
+    "http://host;command",
+    "http://host&command",
+    "http://host|command",
+  ]) {
+    assert.equal(apiBaseUrl(url), null, url);
+    assert.equal(clientEnvironment(url, issuedToken), null, url);
+  }
+  assert.equal(clientEnvironment("http://host", "token\nEVIL=1"), null);
+  const { f, panel } = await clientFixture();
+  f.setClientHandler(() => response(200, { data: [], api_base_url: null }));
+  panel.state.clientUrl = "";
+  await panel.loadClients();
+  assert.equal(panel.state.clientUrl, "");
+  panel.state.clientName = "my-app";
+  await panel.createClient();
+  assert.match(panel.state.clientError, /Укажите адрес/);
+  assert.equal(
+    f.clientCalls.filter((request) => request.method === "POST").length,
+    0,
+  );
+  panel.dispose();
+});
+test("ordinary recognition credentials see an admin explanation and cannot create keys", async () => {
+  const { f, panel } = await clientFixture();
+  f.setClientHandler(() => response(403, { error: { code: "forbidden" } }));
+  await panel.loadClients();
+  assert.equal(panel.state.clientsAllowed, false);
+  assert.match(panel.state.clientError, /admin-токеном/);
+  panel.state.clientName = "my-app";
+  await panel.createClient();
+  assert.equal(
+    f.clientCalls.filter((request) => request.method === "POST").length,
+    0,
+  );
+  assert.equal(panel.state.authenticated, true);
+  panel.dispose();
+});
+test("late created secrets are discarded after switching tabs, logout, or a new session", async () => {
+  for (const leave of [
+    (panel) => {
+      panel.state.tab = "status";
+    },
+    (panel) => panel.logout(),
+  ]) {
+    const { f, panel } = await clientFixture();
+    let finish;
+    f.setClientHandler(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    panel.state.clientName = "my-app";
+    const pending = panel.createClient();
+    const signal = f.clientCalls.at(-1).signal;
+    await panel.createClient();
+    assert.equal(
+      f.clientCalls.filter((request) => request.method === "POST").length,
+      1,
+    );
+    leave(panel);
+    assert.equal(signal.aborted, true);
+    finish(created());
+    await pending;
+    assert.equal(panel.state.clientEnv, "");
+    assert.equal(panel.state.issuedClient, "");
+    panel.dispose();
+  }
+});
+test("revocation requires a selected confirmation and clears a newly issued secret", async () => {
+  const { f, panel } = await clientFixture();
+  f.setClientHandler((request) =>
+    request.method === "DELETE" ? response(204, null) : created(request.name),
+  );
+  panel.state.clientName = "my-app";
+  await panel.createClient();
+  await panel.revokeClient();
+  assert.equal(
+    f.clientCalls.filter((request) => request.method === "DELETE").length,
+    0,
+  );
+  panel.askRevoke("unknown-admin");
+  assert.equal(panel.state.revokeCandidate, "");
+  panel.askRevoke("my-app");
+  panel.cancelRevoke();
+  await panel.revokeClient();
+  assert.equal(
+    f.clientCalls.filter((request) => request.method === "DELETE").length,
+    0,
+  );
+  panel.askRevoke("my-app");
+  await panel.revokeClient();
+  assert.equal(panel.state.clients.length, 0);
+  assert.equal(panel.state.clientEnv, "");
+  assert.equal(
+    f.clientCalls.filter((request) => request.method === "DELETE").length,
+    1,
+  );
+  panel.dispose();
+});
+test("clipboard failures preserve selectable credentials without leaking native error text", async () => {
+  const { f, panel } = await clientFixture();
+  f.setClientHandler(() => created());
+  f.port.copyText = async () => {
+    throw new Error("private-browser-detail");
+  };
+  panel.state.clientName = "my-app";
+  await panel.createClient();
+  await panel.copyClientEnvironment();
+  assert.match(panel.state.clientNotice, /Выделите и скопируйте/);
+  assert.equal(
+    panel.state.clientNotice.includes("private-browser-detail"),
+    false,
+  );
+  assert.ok(panel.state.clientEnv.includes(issuedToken));
+  panel.dispose();
+  assert.equal(panel.state.clientEnv, "");
+});
+test("revoked sessions and quotas prevent key mutations without replay", async () => {
+  const { f, panel } = await clientFixture();
+  panel.state.clientName = "my-app";
+  f.setClientHandler(() => response(429, {}, 60));
+  await panel.createClient();
+  assert.equal(panel.state.retryAt, 160000);
+  const count = f.clientCalls.length;
+  await panel.createClient();
+  assert.equal(f.clientCalls.length, count);
+  f.advance(60000);
+  f.setClientHandler(() => response(401, {}));
+  await panel.createClient();
+  assert.equal(panel.state.authenticated, false);
+  assert.equal(panel.state.clientEnv, "");
+  panel.dispose();
+});
+test("unknown mutation outcome is not automatically retried and raw errors stay private", async () => {
+  const { f, panel } = await clientFixture();
+  f.setClientHandler(() => {
+    throw new Error("private-store-path");
+  });
+  panel.state.clientName = "my-app";
+  await panel.createClient();
+  assert.match(panel.state.clientError, /могла выполниться/);
+  assert.equal(panel.state.clientError.includes("private-store-path"), false);
+  assert.equal(
+    f.clientCalls.filter((request) => request.method === "POST").length,
+    1,
+  );
+  panel.dispose();
+});
+test("client HTTP requests use fixed routes, bounded names and admin JSON without changing playground", async () => {
+  const calls = [],
+    signal = new AbortController().signal;
+  const port = createHttpPanel(async (path, options) => {
+    calls.push({ path, options });
+    return new Response(null, { status: 204 });
+  });
+  await port.requestClients({ method: "GET" }, "admin-token", signal);
+  await port.requestClients(
+    { method: "POST", name: "my-app" },
+    "admin-token",
+    signal,
+  );
+  await port.requestClients(
+    { method: "DELETE", name: "my-app" },
+    "admin-token",
+    signal,
+  );
+  assert.deepEqual(
+    calls.map((call) => call.path),
+    ["/v1/clients", "/v1/clients", "/v1/clients/my-app"],
+  );
+  assert.equal(calls[1].options.body, '{"name":"my-app"}');
+  assert.equal(
+    calls[1].options.headers.get("Content-Type"),
+    "application/json",
+  );
+  for (const { options } of calls) {
+    assert.equal(options.headers.get("Authorization"), "Bearer admin-token");
+    assert.equal(options.redirect, "error");
+    assert.equal(options.credentials, "omit");
+    assert.equal(options.mode, "same-origin");
+    assert.equal(options.cache, "no-store");
+  }
+  for (const request of [
+    { method: "GET", name: "x" },
+    { method: "POST", name: "../admin" },
+    { method: "POST", name: "x", scope: "admin" },
+    { method: "POST", name: "x\r\n" },
+    { method: "POST", name: "x".repeat(65) },
+    { method: "DELETE", name: "x?admin=1" },
+    { method: "PUT", name: "x" },
+    { method: "GET", path: "https://evil.test" },
+  ]) {
+    await assert.rejects(port.requestClients(request, "admin-token", signal));
+  }
+  await assert.rejects(
+    port.request(
+      { method: "POST", path: "/v1/clients" },
+      "admin-token",
+      signal,
+    ),
+  );
+  assert.equal(calls.length, 3);
 });

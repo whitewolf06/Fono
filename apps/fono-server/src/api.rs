@@ -78,6 +78,8 @@ impl ApiState {
 
 pub fn routes(state: Arc<ApiState>) -> Router<RestApiState> {
     Router::new()
+        .route("/v1/clients", get(clients::list).post(clients::create))
+        .route("/v1/clients/:name", axum::routing::delete(clients::revoke))
         .route("/v1/capabilities", get(capabilities))
         .route("/v1/models", get(list_models))
         .route("/v1/models/:id/load", post(load_model))
@@ -656,3 +658,5 @@ async fn documentation(Extension(state): Extension<Arc<ApiState>>, headers: Head
 
 #[cfg(test)]
 mod tests;
+
+mod clients;

@@ -25,6 +25,7 @@ pub struct ServerConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServerSettings {
     pub bind: SocketAddr,
+    pub client_url: Option<String>,
     pub allowed_hosts: Vec<String>,
     pub trusted_private_network: bool,
     pub tokens_file: PathBuf,
@@ -247,6 +248,7 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
             table,
             &[
                 "bind",
+                "client_url",
                 "allowed_hosts",
                 "trusted_private_network",
                 "tokens_file",
@@ -269,6 +271,7 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
             }
         };
     let allowed_hosts = allowed_hosts_or(server, bind.ip().is_loopback())?;
+    let client_url = client_url(server)?;
     let trusted_private_network = boolean_or(
         server,
         "trusted_private_network",
@@ -449,6 +452,7 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
     Ok(ServerConfig {
         server: ServerSettings {
             bind,
+            client_url,
             allowed_hosts,
             trusted_private_network,
             tokens_file,
@@ -481,6 +485,7 @@ fn environment_field(name: &str) -> Option<(&'static str, &'static str, Environm
 
     Some(match name {
         "FONO_SERVER_BIND" => ("server", "bind", String),
+        "FONO_SERVER_CLIENT_URL" => ("server", "client_url", String),
         "FONO_SERVER_ALLOWED_HOSTS" => ("server", "allowed_hosts", TomlArray),
         "FONO_SERVER_TRUSTED_PRIVATE_NETWORK" => ("server", "trusted_private_network", Boolean),
         "FONO_SERVER_TOKENS_FILE" => ("server", "tokens_file", String),
@@ -609,6 +614,7 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
         "server" => matches!(
             key,
             "bind"
+                | "client_url"
                 | "allowed_hosts"
                 | "trusted_private_network"
                 | "tokens_file"
@@ -678,6 +684,56 @@ fn string_or(
         Some(Value::String(value)) if !value.trim().is_empty() => Ok(value.to_owned()),
         Some(_) => Err(ConfigError::new(path, "expected a non-empty string")),
     }
+}
+
+/// Advertise an operator-selected API origin, never an incoming Host header or
+/// the browser's possibly forwarded address. This does not change exposure.
+fn client_url(table: Option<&Table>) -> Result<Option<String>, ConfigError> {
+    const PATH: &str = "server.client_url";
+    let Some(value) = table.and_then(|table| table.get("client_url")) else {
+        return Ok(None);
+    };
+    let invalid = || {
+        ConfigError::new(
+            PATH,
+            "expected an absolute HTTP(S) origin without credentials",
+        )
+    };
+    let raw = value.as_str().ok_or_else(invalid)?;
+    if raw.is_empty()
+        || raw.len() > 2048
+        || raw
+            .bytes()
+            .any(|byte| byte.is_ascii_control() || byte.is_ascii_whitespace())
+        || raw.contains(['@', '#', '\\'])
+    {
+        return Err(invalid());
+    }
+    let uri = raw.parse::<axum::http::Uri>().map_err(|_| invalid())?;
+    if !matches!(uri.scheme_str(), Some("http" | "https"))
+        || uri.query().is_some()
+        || !matches!(uri.path(), "" | "/")
+    {
+        return Err(invalid());
+    }
+    let authority = uri.authority().ok_or_else(invalid)?;
+    normalize_host_name(authority.host()).ok_or_else(invalid)?;
+    // Authority parsing permits nonnumeric or empty ports; the copied URL must
+    // name an actual endpoint. IPv6 host() retains its brackets.
+    let suffix = authority
+        .as_str()
+        .strip_prefix(authority.host())
+        .ok_or_else(invalid)?;
+    if !suffix.is_empty() {
+        let port = suffix.strip_prefix(':').ok_or_else(invalid)?;
+        if port.is_empty()
+            || !port.bytes().all(|byte| byte.is_ascii_digit())
+            || port.parse::<u16>().ok().is_none_or(|port| port == 0)
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(Some(raw.trim_end_matches('/').to_owned()))
 }
 
 fn required_string(table: &Table, key: &str, path: &str) -> Result<String, ConfigError> {
@@ -991,6 +1047,74 @@ mod tests {
 
     fn error_path(source: &str) -> String {
         parse_and_validate(source).unwrap_err().path
+    }
+
+    #[test]
+    fn advertised_client_url_accepts_only_explicit_http_origins() {
+        assert!(parse_and_validate("").unwrap().server.client_url.is_none());
+        for origin in [
+            "http://127.0.0.1:17832",
+            "http://fono:17832",
+            "https://fono.internal",
+            "http://[::1]:17832/",
+        ] {
+            let source = format!("[server]\nclient_url = '{origin}'");
+            assert_eq!(
+                parse_and_validate(&source)
+                    .unwrap()
+                    .server
+                    .client_url
+                    .as_deref(),
+                Some(origin.trim_end_matches('/'))
+            );
+        }
+        for invalid in [
+            "",
+            "//fono:17832",
+            "ftp://fono",
+            "http://user:secret@fono",
+            "http://fono/v1",
+            "http://fono?secret=value",
+            "http://fono#secret",
+            "http://0.0.0.0:17832",
+            "http://[::]:17832",
+            "http://*.internal",
+            "http://fono:0",
+            "http://fono:",
+            "http://fono:65536",
+            "http://fono:secret",
+            " http://fono",
+            "http://fono\\secret",
+        ] {
+            let source = format!("[server]\nclient_url = '{invalid}'");
+            let error = parse_and_validate(&source).unwrap_err();
+            assert_eq!(error.path, "server.client_url", "{invalid}");
+            assert!(!error.message.contains("secret"));
+        }
+        let error = parse_and_validate("[server]\nclient_url = 123").unwrap_err();
+        assert_eq!(error.path, "server.client_url");
+        let configured = parse_and_validate_with_env(
+            "[server]\nclient_url = 'http://old.internal'",
+            [(
+                OsString::from("FONO_SERVER_CLIENT_URL"),
+                OsString::from("http://fono:17832"),
+            )],
+        )
+        .unwrap();
+        assert_eq!(
+            configured.server.client_url.as_deref(),
+            Some("http://fono:17832")
+        );
+        let error = parse_and_validate_with_env(
+            "",
+            [(
+                OsString::from("FONO_SERVER_CLIENT_URL"),
+                OsString::from("http://fono\nFONO_TOKEN=secret"),
+            )],
+        )
+        .unwrap_err();
+        assert_eq!(error.path, "server.client_url");
+        assert!(!error.message.contains("secret"));
     }
 
     #[test]

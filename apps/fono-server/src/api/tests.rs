@@ -10,6 +10,9 @@ use std::path::{Path as FilePath, PathBuf};
 use std::time::Duration;
 use tower::ServiceExt;
 
+#[path = "client_tests.rs"]
+mod clients;
+
 struct Tokens;
 impl TokenVerifier for Tokens {
     fn verify(&self, token: &str) -> bool {

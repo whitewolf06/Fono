@@ -57,6 +57,21 @@ model, language, native timestamp mode or OpenAI response format. Server-side
 size, duration, format, capability, queue and rate checks remain authoritative.
 The result shows HTTP status, elapsed request time, request ID and text/JSON.
 
+## Application keys
+
+The **Приложения** section lets an administrator create a recognition-only key
+for an application, copy `FONO_HOST` and `FONO_TOKEN` as a ready `.env` snippet,
+and revoke individual keys. The secret is returned once, remains in tab memory,
+and is cleared when leaving the section or ending the session. Ordinary
+recognition tokens cannot manage keys. Administrative mutations are separate
+from the documentation playground and are never automatically replayed.
+
+Set `server.client_url` once to the API origin reachable from consuming
+applications, or enter it before creating a key. The panel does not use the
+browser's SSH-forwarded address as the consumer endpoint. A Docker consumer
+needs its own reachable address; `localhost` belongs to that container.
+See [application connections](server-clients.md) for setup and network examples.
+
 ## Building and checking
 
 The panel uses Vue 3 and WhiteUI 0.6.0 in `src/v3/features/serverPanel`, with a

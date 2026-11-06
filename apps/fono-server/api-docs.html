@@ -33,6 +33,9 @@ with open("speech.wav", "rb") as audio:
         model="whisper:tiny", file=audio, language="ru")
 print(result.text)</pre>
     <p><code>POST /v1/audio/transcriptions</code> accepts multipart <code>file</code>, <code>model</code>, optional <code>language</code>, <code>prompt</code>, <code>response_format</code>, <code>timestamp_granularities[]</code> and <code>temperature</code>. A prompt is limited to <strong>224 UTF-8 bytes</strong> and requires a model with initial-prompt support. Larger prompts are rejected instead of silently truncated. Formats: <code>json</code>, <code>text</code>, <code>srt</code>, <code>vtt</code>, <code>verbose_json</code>. Temperature from 0 through 1 is accepted and ignored. Timestamp arrays in verbose JSON use seconds; Fono recognition segments use milliseconds.</p>
+    <h2>Application keys</h2>
+    <p>Sign in to the server panel with an admin token and open Applications to create a recognition-only key and copy a ready <code>FONO_HOST</code>/<code>FONO_TOKEN</code> environment snippet. Set <code>server.client_url</code> once to the origin reachable from consumers, or enter that address in the panel. The browser's SSH-forwarded address is not inferred. Inside a Docker container, localhost points to that container.</p>
+    <p>The clients API is admin-only: <code>POST /v1/clients</code> accepts <code>{"name":"my-app"}</code> and returns HTTP 201 with the one-time secret. <code>GET /v1/clients</code> returns names, creation dates and the optional configured origin, never secrets or hashes. <code>DELETE /v1/clients/my-app</code> returns 204 and revokes the key for subsequent requests. Administrative keys cannot be issued or revoked through this API. Secrets are stored only as salted digests; the panel clears a new secret when leaving Applications or ending the session. The private credential directory must be writable by the server account.</p>
     <h2>Routes</h2>
     <table>
       <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
@@ -49,6 +52,9 @@ print(result.text)</pre>
         <tr><td><code>POST /v1/transcription-jobs/{id}/cancel</code></td><td>Cancel a queued or active job.</td></tr>
         <tr><td><code>POST /v1/models/{id}/load</code></td><td>Admin: verify and load an installed model.</td></tr>
         <tr><td><code>POST /v1/models/{id}/unload</code></td><td>Admin: unload an idle model; default model stays resident.</td></tr>
+        <tr><td><code>GET /v1/clients</code></td><td>Admin: list recognition credentials without secrets.</td></tr>
+        <tr><td><code>POST /v1/clients</code></td><td>Admin: issue one recognition key and return its secret once.</td></tr>
+        <tr><td><code>DELETE /v1/clients/{name}</code></td><td>Admin: revoke one recognition key.</td></tr>
         <tr><td><code>GET /metrics</code></td><td>Admin: Prometheus counters and gauges when enabled.</td></tr>
         <tr><td><code>GET /openapi.json</code></td><td>Complete machine-readable API v2 specification.</td></tr>
       </tbody>

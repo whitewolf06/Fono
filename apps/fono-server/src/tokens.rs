@@ -27,6 +27,7 @@ pub enum TokenError {
     InvalidName,
     DuplicateName,
     NotFound,
+    ProtectedAdmin,
     MissingFile,
     UnsafeFile,
     InvalidFile,
@@ -40,6 +41,7 @@ impl fmt::Display for TokenError {
             Self::InvalidName => "client name must use 1-64 ASCII letters, digits, _ or -",
             Self::DuplicateName => "client name already exists",
             Self::NotFound => "client name not found",
+            Self::ProtectedAdmin => "admin credentials cannot be managed through the clients API",
             Self::MissingFile => "token file does not exist",
             Self::UnsafeFile => "token file or its path is unsafe",
             Self::InvalidFile => "token file contains an invalid record",
@@ -123,11 +125,26 @@ impl TokenVerifier for FileTokenVerifier {
 }
 
 pub fn create(path: &Path, name: &str, scope: TokenScope) -> Result<String, TokenError> {
+    create_record(path, name, scope, true).map(|(_, secret)| secret)
+}
+
+/// The web panel can issue recognition credentials only. Unlike the bootstrap
+/// CLI, it must not recreate a disappeared store without its administrators.
+pub fn create_client(path: &Path, name: &str) -> Result<(TokenSummary, String), TokenError> {
+    create_record(path, name, TokenScope::Recognize, false)
+}
+
+fn create_record(
+    path: &Path,
+    name: &str,
+    scope: TokenScope,
+    allow_missing: bool,
+) -> Result<(TokenSummary, String), TokenError> {
     if !valid_name(name) {
         return Err(TokenError::InvalidName);
     }
     let _lock = lock_file(path)?;
-    let mut records = read_records(path, true)?;
+    let mut records = read_records(path, allow_missing)?;
     if records.iter().any(|record| record.name == name) {
         return Err(TokenError::DuplicateName);
     }
@@ -141,19 +158,37 @@ pub fn create(path: &Path, name: &str, scope: TokenScope) -> Result<String, Toke
     );
     let salt = Uuid::new_v4().simple().to_string();
     let digest = digest_token(&salt, &secret);
+    let created_at = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     records.push(TokenRecord {
         name: name.to_owned(),
         scope,
         salt,
         digest,
-        created_at: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+        created_at: created_at.clone(),
     });
     write_records(path, &records)?;
-    Ok(secret)
+    Ok((
+        TokenSummary {
+            name: name.to_owned(),
+            scope,
+            created_at,
+        },
+        secret,
+    ))
 }
 
 pub fn list(path: &Path) -> Result<Vec<TokenSummary>, TokenError> {
-    let mut summaries: Vec<_> = read_records(path, true)?
+    summaries(path, true)
+}
+
+pub fn list_clients(path: &Path) -> Result<Vec<TokenSummary>, TokenError> {
+    let mut entries = summaries(path, false)?;
+    entries.retain(|entry| entry.scope == TokenScope::Recognize);
+    Ok(entries)
+}
+
+fn summaries(path: &Path, allow_missing: bool) -> Result<Vec<TokenSummary>, TokenError> {
+    let mut summaries: Vec<_> = read_records(path, allow_missing)?
         .into_iter()
         .map(|record| TokenSummary {
             name: record.name,
@@ -166,11 +201,26 @@ pub fn list(path: &Path) -> Result<Vec<TokenSummary>, TokenError> {
 }
 
 pub fn revoke(path: &Path, name: &str) -> Result<(), TokenError> {
+    revoke_record(path, name, false)
+}
+
+pub fn revoke_client(path: &Path, name: &str) -> Result<(), TokenError> {
+    revoke_record(path, name, true)
+}
+
+fn revoke_record(path: &Path, name: &str, protect_admin: bool) -> Result<(), TokenError> {
     if !valid_name(name) {
         return Err(TokenError::InvalidName);
     }
     let _lock = lock_file(path)?;
     let mut records = read_records(path, false)?;
+    if protect_admin
+        && records
+            .iter()
+            .any(|record| record.name == name && record.scope == TokenScope::Admin)
+    {
+        return Err(TokenError::ProtectedAdmin);
+    }
     let previous_len = records.len();
     records.retain(|record| record.name != name);
     if records.len() == previous_len {
@@ -661,6 +711,55 @@ mod tests {
             revoke(&fixture.tokens, "client"),
             Err(TokenError::MissingFile)
         ));
+    }
+
+    #[test]
+    fn web_clients_preserve_admins_and_never_bootstrap_a_missing_store() {
+        let fixture = Fixture::new();
+        assert_eq!(
+            create_client(&fixture.tokens, "app"),
+            Err(TokenError::MissingFile)
+        );
+        let admin = create(&fixture.tokens, "operator", TokenScope::Admin).unwrap();
+        let (metadata, client) = create_client(&fixture.tokens, "app").unwrap();
+        assert_eq!(metadata.scope, TokenScope::Recognize);
+        let inventory = list_clients(&fixture.tokens).unwrap();
+        assert_eq!(inventory, vec![metadata]);
+        let before = fs::read(&fixture.tokens).unwrap();
+        assert_eq!(
+            revoke_client(&fixture.tokens, "operator"),
+            Err(TokenError::ProtectedAdmin)
+        );
+        assert_eq!(fs::read(&fixture.tokens).unwrap(), before);
+        let verifier = FileTokenVerifier::open(&fixture.tokens).unwrap();
+        assert!(verifier.verify(&admin));
+        assert!(verifier.verify(&client));
+        revoke_client(&fixture.tokens, "app").unwrap();
+        assert!(!verifier.verify(&client));
+        assert!(verifier.verify(&admin));
+    }
+
+    #[test]
+    fn simultaneous_client_creations_preserve_every_record() {
+        let fixture = Fixture::new();
+        create(&fixture.tokens, "operator", TokenScope::Admin).unwrap();
+        let writers: Vec<_> = (0..6)
+            .map(|index| {
+                let path = fixture.tokens.clone();
+                std::thread::spawn(move || {
+                    create_client(&path, &format!("client-{index}")).unwrap()
+                })
+            })
+            .collect();
+        let created: Vec<_> = writers
+            .into_iter()
+            .map(|writer| writer.join().unwrap())
+            .collect();
+        assert_eq!(list_clients(&fixture.tokens).unwrap().len(), created.len());
+        let verifier = FileTokenVerifier::open(&fixture.tokens).unwrap();
+        for (_, token) in created {
+            assert_eq!(verifier.scope(&token), Some(TokenScope::Recognize));
+        }
     }
 
     #[test]
