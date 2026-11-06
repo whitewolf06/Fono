@@ -57,6 +57,7 @@ mod tests {
             display_name: None,
             model: crate::types::ModelId::whisper(crate::types::WhisperModelSize::Small),
             ca_pem: None,
+            ssh: None,
             fallback: Default::default(),
         });
         assert!(validate(true, &next, &updated).is_err());

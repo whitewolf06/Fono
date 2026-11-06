@@ -404,6 +404,7 @@ mod tests {
                     variant: "large_turbo".into(),
                 },
                 ca_pem: None,
+                ssh: None,
                 fallback: Default::default(),
             }),
             ..Settings::default()

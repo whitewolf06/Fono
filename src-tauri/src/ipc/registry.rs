@@ -9,6 +9,8 @@ pub(crate) fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         crate::ipc::remote_stt::list_remote_stt_models,
         crate::ipc::remote_stt::set_remote_stt_token,
         crate::ipc::remote_stt::clear_remote_stt_token,
+        crate::ipc::remote_stt::probe_remote_stt_ssh_host,
+        crate::ipc::remote_stt::pick_remote_stt_identity_file,
         crate::ipc::desktop_v3::get_ui_locale,
         crate::ipc::desktop_v3::get_desktop_snapshot,
         crate::ipc::memory::get_stt_memory_status,

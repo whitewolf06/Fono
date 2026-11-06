@@ -15,6 +15,7 @@ fn remote_settings() -> Settings {
             display_name: Some("Kari".into()),
             model: ModelId::whisper(WhisperModelSize::Tiny),
             ca_pem: Some("PRIVATE_CA".into()),
+            ssh: None,
             fallback: Default::default(),
         }),
         acceleration: AccelerationMode::Cuda,

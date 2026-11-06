@@ -73,12 +73,42 @@ installation or owner acceptance; the checklist below remains separate.
 - Use a recognition token and a server model already installed. Check the
   connection in Settings, save the token and source, and keep the local model
   and GPU preferences available for the return-to-local check.
+- For managed SSH, select SSH in the connection form, enter the host/user, choose
+  the identity file and explicitly verify/trust the host-key fingerprint. Check
+  and save the connection in Fono. No terminal or separate tunnel launcher is
+  part of this flow. The private key must be usable directly or through an
+  already unlocked SSH agent; the Windows OpenSSH client must be installed.
 - For Kari, the protected loopback tunnel may use port 17833. The Windows local
   API and the server tunnel must not compete for port 17832. Follow the existing
   [connection contract](../remote-recognizer.md#connection-settings-rc-05) and
   [server network rules](../server-security.md).
 - Configure an exact installed local model if testing the CPU reserve. No test
   should download a model or silently change the saved acceleration preference.
+
+## Managed SSH acceptance
+
+1. From the native connection form, fetch the server key. Confirm that fetching
+   alone does not mark the key trusted or enable an unpinned connection. Verify
+   the fingerprint against an independently trusted value, then trust it.
+2. Select an existing identity and check the connection with the API token.
+   Choose the server model, save the token, then save settings. No console or
+   manually started SSH tunnel should be required. An unrelated tunnel already
+   using port 17833 must keep working independently.
+3. Reopen/reset the form and restart Fono. The unchanged saved SSH target keeps
+   its pin, and startup prepares the connection automatically. Dictation and
+   file jobs must use that channel through their normal remote routes.
+4. Change the host or port in a draft. The previous pin and successful check must
+   be invalidated. Changing user, identity, remote API port or pin must also
+   invalidate the checked connection. The stored API token is not reused for a
+   different draft SSH identity. Cancel the edit and verify the saved connection
+   still works.
+5. Use disposable fixtures for a changed host key, missing identity or failed
+   authentication. Check that failures are useful and contain no raw SSH stderr,
+   private-key data or token. Do not change Kari's host key for this test.
+6. Interrupt an owned SSH channel during a request, then explicitly retry after
+   restoring reachability. There must be no automatic duplicate audio submission.
+   Switching to direct/local mode and exiting Fono must close only Fono's owned
+   channels. Apply the cancellation, history and reserve checks below as well.
 
 ## Scenario matrix
 

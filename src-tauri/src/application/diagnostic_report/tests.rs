@@ -67,6 +67,14 @@ fn remote_connection_address_name_and_ca_are_not_exported() {
             url: "https://PRIVATE_SERVER.invalid".into(),
             display_name: Some("PRIVATE_SERVER_NAME".into()),
             ca_pem: Some("PRIVATE_CA".into()),
+            ssh: Some(crate::types::RemoteSshSettings {
+                host: "PRIVATE_SSH_HOST".into(),
+                port: 22,
+                user: "PRIVATE_SSH_USER".into(),
+                server_port: 17832,
+                identity_file: Some(std::path::PathBuf::from(r"C:\PRIVATE_SSH_IDENTITY")),
+                host_key: "PRIVATE_SSH_PIN".into(),
+            }),
             model: crate::types::ModelId::whisper(crate::types::WhisperModelSize::LargeTurbo),
             fallback: Default::default(),
         }),
@@ -101,6 +109,7 @@ fn remote_report_model_and_backend_are_closed_allowlists() {
                 variant: "PRIVATE_MODEL".into(),
             },
             ca_pem: None,
+            ssh: None,
             fallback: Default::default(),
         }),
         ..Settings::default()

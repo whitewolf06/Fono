@@ -21,6 +21,19 @@ pub enum RemoteFallback {
     Local(ModelId),
 }
 
+/// Public SSH preferences. Private key bytes and passphrases are never stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RemoteSshSettings {
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity_file: Option<std::path::PathBuf>,
+    pub server_port: u16,
+    pub host_key: String,
+}
+
 /// Public connection preferences only. The bearer stays in OS credentials.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,6 +44,8 @@ pub struct RemoteSttSettings {
     pub model: ModelId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ca_pem: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh: Option<RemoteSshSettings>,
     #[serde(default)]
     pub fallback: RemoteFallback,
 }

@@ -51,6 +51,10 @@ impl Settings {
             endpoint = endpoint.with_ca_pem(pem.as_bytes())?;
         }
         drop(endpoint);
+        if let Some(ssh) = &remote.ssh {
+            crate::application::ssh_tunnel::validate(ssh)
+                .map_err(|_| AppError::Config("Invalid SSH connection settings".into()))?;
+        }
         if remote.model.variant.is_empty()
             || remote.model.variant.len() > 128
             || !remote
@@ -157,6 +161,7 @@ mod tests {
             display_name: None,
             model: ModelId::whisper(WhisperModelSize::Tiny),
             ca_pem: None,
+            ssh: None,
             fallback: Default::default(),
         });
         settings.stt_source = super::super::SttSource::FonoServer;
@@ -192,6 +197,7 @@ mod tests {
             display_name: None,
             model: ModelId::whisper(WhisperModelSize::Tiny),
             ca_pem: None,
+            ssh: None,
             fallback: Default::default(),
         });
         assert!(settings.validate_stt_preferences().is_ok());

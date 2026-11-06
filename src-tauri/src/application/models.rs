@@ -350,6 +350,7 @@ mod source_tests {
                 model: ModelId::whisper(WhisperModelSize::Tiny),
                 display_name: None,
                 ca_pem: None,
+                ssh: None,
                 fallback: Default::default(),
             }),
             ..Default::default()

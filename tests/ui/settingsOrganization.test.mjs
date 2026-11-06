@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, after, test } from "node:test";
 import { createServer } from "vite";
-import { createSSRApp, h } from "vue";
+import { createSSRApp, h, reactive } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createRouter, createMemoryHistory, RouterView } from "vue-router";
 import { WlConfig, WlToastService } from "@whitelife-core/ui-kit";
@@ -67,6 +67,165 @@ before(async () => {
   ));
 });
 after(async () => await server?.close());
+
+function sshSettings() {
+  return {
+    host: "server.example",
+    port: 22,
+    user: "fono",
+    identityFile: "C:/keys/private",
+    serverPort: 17832,
+    hostKey: "",
+  };
+}
+const sshCandidate = {
+  kind: "ok",
+  hostKey: "ssh-ed25519 " + "A".repeat(68),
+  fingerprint: "SHA256:" + "A".repeat(43),
+};
+
+test("SSH host probe is a draft observation and only explicit trust pins the current address", async () => {
+  const settings = sourceSettings();
+  settings.ssh = sshSettings();
+  const controller = createSourceController({
+    settings: () => settings,
+    port: sourcePort({ probeSshHost: async () => sshCandidate }),
+  });
+  await controller.probeSshHost();
+  assert.equal(settings.ssh.hostKey, "");
+  assert.equal(
+    controller.state.hostKeyCandidate.fingerprint,
+    sshCandidate.fingerprint,
+  );
+  controller.trustHostKey();
+  assert.equal(settings.ssh.hostKey, sshCandidate.hostKey);
+  assert.equal(controller.state.hostKeyCandidate, null);
+  settings.ssh.host = "replacement.example";
+  controller.invalidate();
+  assert.equal(
+    settings.ssh.hostKey,
+    "",
+    "a different SSH host cannot inherit an accepted pin",
+  );
+  controller.trustHostKey();
+  assert.equal(settings.ssh.hostKey, "");
+  controller.dispose();
+});
+
+test("SSH host probes and identity dialogs cannot update a changed or disposed draft", async () => {
+  for (const change of ["host", "port", "dispose"]) {
+    const settings = sourceSettings();
+    settings.ssh = sshSettings();
+    const pending = deferred();
+    const controller = createSourceController({
+      settings: () => settings,
+      port: sourcePort({ probeSshHost: () => pending.promise }),
+    });
+    const checking = controller.probeSshHost();
+    if (change === "dispose") controller.dispose();
+    else {
+      settings.ssh[change] = change === "host" ? "changed.example" : 2222;
+      controller.invalidate();
+    }
+    pending.resolve(sshCandidate);
+    await checking;
+    assert.equal(controller.state.hostKeyCandidate, null);
+    assert.equal(settings.ssh.hostKey, "");
+    controller.dispose();
+  }
+  const settings = sourceSettings();
+  settings.ssh = sshSettings();
+  const pending = deferred();
+  const controller = createSourceController({
+    settings: () => settings,
+    port: sourcePort({ pickIdentityFile: () => pending.promise }),
+  });
+  const choosing = controller.pickIdentityFile();
+  settings.ssh.user = "replacement";
+  controller.invalidate();
+  pending.resolve("C:/keys/late-private-key");
+  await choosing;
+  assert.equal(settings.ssh.identityFile, "C:/keys/private");
+  controller.dispose();
+});
+
+test("every SSH setting participates in the pending connection check signature", async () => {
+  for (const key of [
+    "host",
+    "port",
+    "user",
+    "identityFile",
+    "serverPort",
+    "hostKey",
+  ]) {
+    const settings = sourceSettings();
+    settings.ssh = { ...sshSettings(), hostKey: sshCandidate.hostKey };
+    const pending = deferred();
+    let request;
+    const controller = createSourceController({
+      settings: () => settings,
+      port: sourcePort({
+        test: async (input) => {
+          request = input;
+          return pending.promise;
+        },
+      }),
+    });
+    const checking = controller.check();
+    settings.ssh[key] = typeof settings.ssh[key] === "number" ? 42 : "changed";
+    pending.resolve({ kind: "ok", server: remoteServer() });
+    await checking;
+    assert.equal(controller.state.result, null, key);
+    assert.notEqual(
+      request.ssh[key],
+      settings.ssh[key],
+      "the native request owns an immutable SSH snapshot",
+    );
+    controller.dispose();
+  }
+});
+
+test("SSH settings render key choice and explicit host trust without a manual tunnel URL", async () => {
+  const settings = sourceSettings();
+  settings.ssh = sshSettings();
+  const html = await renderRecognition(SourceFields, {
+    settings,
+    port: sourcePort({ probeSshHost: async () => sshCandidate }),
+    prepare: async (bindings) => {
+      await bindings.controller.probeSshHost();
+    },
+  });
+  assert.match(html, /Адрес SSH-сервера/);
+  assert.match(html, /Выбрать файл ключа/);
+  assert.match(html, /Доверять этому ключу/);
+  assert.match(html, /SHA256:/);
+  assert.match(html, /id="remote-server-name"/);
+  assert.doesNotMatch(html, /id="remote-server-url"/);
+  assert.doesNotMatch(html, /ssh -|powershell|PRIVATE_TOKEN/);
+});
+
+test("replacing the preferences draft preserves a trusted SSH address while editing its host clears the pin", async () => {
+  const settings = sourceSettings();
+  settings.ssh = { ...sshSettings(), hostKey: sshCandidate.hostKey };
+  await renderRecognition(SourceFields, {
+    settings,
+    reactiveModel: true,
+    prepare: (bindings) => {
+      const current = bindings.connection.value;
+      bindings.draft.value.recognitionSource = {
+        ...current,
+        ssh: { ...current.ssh },
+      };
+      assert.equal(
+        bindings.connection.value.ssh.hostKey,
+        sshCandidate.hostKey,
+        "Save/Reset replaces a draft without revoking the same host pin",
+      );
+      bindings.connection.value.ssh.host = "changed.example";
+      assert.equal(bindings.connection.value.ssh.hostKey, "");
+    },
+  });
+});
 
 async function renderSection(
   section,
@@ -691,6 +850,7 @@ async function renderRecognition(
     prepare,
     props = {},
     native = true,
+    reactiveModel = false,
   } = {},
 ) {
   const previousWindow = globalThis.window;
@@ -699,7 +859,8 @@ async function renderRecognition(
   workspace.native = native;
   workspace.recognition = port;
   workspace.state.preferences.recognitionSource = settings;
-  const model = JSON.parse(JSON.stringify(workspace.state.preferences));
+  const initialModel = JSON.parse(JSON.stringify(workspace.state.preferences));
+  const model = reactiveModel ? reactive(initialModel) : initialModel;
   const Probe = prepare
     ? {
         ...Component,

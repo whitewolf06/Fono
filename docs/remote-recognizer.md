@@ -51,6 +51,38 @@ public CA PEM supports private certificates without disabling TLS verification.
 OpenAI-compatible servers and Opus compression remain separate tasks; this
 connection sends the existing PCM format.
 
+### Managed SSH connection
+
+Choose **SSH** as the connection method to let Fono establish the protected
+channel itself. Enter the SSH host, port and user, select an existing private-key
+file (or use an already unlocked SSH agent), and keep the server API port at
+17832 unless the server administrator configured another port. The API is
+forwarded only from the remote loopback interface. No terminal command or
+separately started tunnel is needed after saving the connection.
+
+Request the server's public host key in the form, compare its SHA-256 fingerprint
+with a trusted value supplied by the server administrator, and explicitly trust
+that key. Fetching a key is an observation, not authentication; Fono does not
+silently trust a first key or replace a changed one. Check the connection with
+the API token, choose the installed model, save the token and save the settings.
+Changing the SSH target, user, key or port invalidates the check and cannot reuse
+the stored API credential for a draft destination.
+
+The Windows OpenSSH client is required. Fono starts hidden, owned SSH processes
+with strict host-key checking and public-key authentication. It does not store
+private-key contents or an SSH password, run a remote shell, alter the user's SSH
+configuration, or adopt an independently started tunnel. A protected private key
+must already be available through the SSH agent. The API bearer remains in
+Windows Credential Manager. SSH addresses, usernames and key-file paths are
+native settings and stay out of browser persistence and diagnostic exports.
+
+Startup preparation, recording preflight and file jobs automatically use the
+saved channel. A broken connection remains a failed attempt: audio POSTs are not
+replayed automatically. The next explicit operation opens a new SSH connection.
+Switching to a direct connection or the local recognizer retires Fono's relay;
+application shutdown closes its owned sockets and processes. Existing manual
+tunnels remain separate.
+
 For a first connection: enter the token, **Check connection**, select an installed
 server model and a reserve policy, **Save token**, then save the settings section.
 Checking a draft does not save it, send audio, load a model or switch the engine.

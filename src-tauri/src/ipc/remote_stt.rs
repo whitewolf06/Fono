@@ -3,7 +3,7 @@ use crate::{
     application::remote_stt::{self, CredentialStatus, TestRequest, TestResult},
     error::AppResult,
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, WebviewWindow};
 use zeroize::Zeroizing;
 
 #[tauri::command]
@@ -64,4 +64,29 @@ async fn change(app: AppHandle, token: Option<Zeroizing<String>>) -> AppResult<(
         remote_stt::change_token(&app, token.as_deref().map(String::as_str))
     })
     .await
+}
+
+#[tauri::command]
+pub(crate) async fn probe_remote_stt_ssh_host(
+    request: remote_stt::HostKeyRequest,
+) -> AppResult<remote_stt::HostKeyResult> {
+    let activity = crate::application::updates::activity::lease()?;
+    super::blocking::run_admitted(activity, move || Ok(remote_stt::probe_host_key(request))).await
+}
+
+#[tauri::command]
+pub(crate) async fn pick_remote_stt_identity_file(
+    app: AppHandle,
+    window: WebviewWindow,
+) -> AppResult<Option<String>> {
+    if window.label() != "settings" {
+        return Err(crate::error::AppError::Config(
+            "SSH identity selection requires the main window".into(),
+        ));
+    }
+    Ok(
+        crate::application::file_transcription::ssh_identity_dialog(app)
+            .await?
+            .map(|path| path.to_string_lossy().into_owned()),
+    )
 }

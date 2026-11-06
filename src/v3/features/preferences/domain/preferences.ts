@@ -2,6 +2,7 @@ import { message as uiMessage } from "../../../shared/domain/messages";
 import {
   defaultRecognitionSource,
   validRemoteEndpoint,
+  validRemoteSsh,
 } from "../../../shared/domain/recognitionSource";
 import { validToggleAutoStop } from "../../../shared/domain/toggleAutoStop";
 import { validRecordingSoundsVolume } from "../../../shared/domain/recordingSounds";
@@ -268,6 +269,7 @@ export function validatePreferences(p: Preferences): string | null {
   if (
     p.recognitionSource?.source === "fono_server" &&
     (!validRemoteEndpoint(p.recognitionSource.url) ||
+      (p.recognitionSource.ssh && !validRemoteSsh(p.recognitionSource.ssh)) ||
       !p.recognitionSource.model ||
       p.recognitionSource.displayName.length > 80 ||
       p.recognitionSource.caPem.length > 256 * 1024 ||

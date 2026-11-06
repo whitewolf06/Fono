@@ -3,7 +3,11 @@ import type {
   RemoteConnectionError,
   RemoteServerInfo,
 } from "../domain/recognitionSource";
-import { validRemoteEndpoint } from "../domain/recognitionSource";
+import {
+  validRemoteEndpoint,
+  validRemoteSsh,
+  validSshHost,
+} from "../domain/recognitionSource";
 import type { WorkspaceState } from "../domain/contracts";
 import { message } from "../domain/messages";
 const wait = () => new Promise<void>((resolve) => setTimeout(resolve, 180));
@@ -36,10 +40,19 @@ export function createMockRecognitionSource(
       await wait();
       if (!validRemoteEndpoint(input.url))
         return { kind: "error", error: "invalid_endpoint" };
+      if (input.ssh && !validRemoteSsh(input.ssh))
+        return {
+          kind: "error",
+          error: input.ssh.hostKey
+            ? "ssh_invalid_configuration"
+            : "ssh_host_key_required",
+        };
       if (
         !input.token &&
         (!hasToken ||
           input.url !== state.preferences.recognitionSource.url ||
+          JSON.stringify(input.ssh ?? null) !==
+            JSON.stringify(state.preferences.recognitionSource.ssh ?? null) ||
           (input.caPem || "") !== state.preferences.recognitionSource.caPem)
       )
         return { kind: "error", error: "not_configured" };
@@ -108,6 +121,20 @@ export function createMockRecognitionSource(
       await wait();
       guard();
       hasToken = false;
+    },
+    async probeSshHost(input) {
+      await wait();
+      if (!validSshHost(input.host, input.port))
+        return { kind: "error", error: "ssh_invalid_configuration" };
+      return {
+        kind: "ok",
+        hostKey: "ssh-ed25519 " + "A".repeat(68),
+        fingerprint: "SHA256:" + "A".repeat(43),
+      };
+    },
+    async pickIdentityFile() {
+      await wait();
+      return null;
     },
   };
 }

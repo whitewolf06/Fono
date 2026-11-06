@@ -16,6 +16,7 @@ pub struct SubmitFilesResult {
 #[derive(Clone, Copy)]
 enum DialogKind {
     Audio,
+    SshIdentity,
     Transcript(ExportFormat),
     Json { save: bool },
 }
@@ -37,6 +38,13 @@ pub async fn dialog(app: AppHandle, export: Option<ExportFormat>) -> AppResult<V
 
 pub async fn json_dialog(app: AppHandle, save: bool) -> AppResult<Vec<PathBuf>> {
     run_dialog(app, DialogKind::Json { save }).await
+}
+
+pub(crate) async fn ssh_identity_dialog(app: AppHandle) -> AppResult<Option<PathBuf>> {
+    Ok(run_dialog(app, DialogKind::SshIdentity)
+        .await?
+        .into_iter()
+        .next())
 }
 
 async fn run_dialog(app: AppHandle, kind: DialogKind) -> AppResult<Vec<PathBuf>> {
@@ -70,6 +78,7 @@ fn native_dialog(app: &AppHandle, kind: DialogKind) -> AppResult<Vec<PathBuf>> {
     let filter = match kind {
         DialogKind::Json { .. } => "JSON сниппетов\0*.json\0\0".to_string(),
         DialogKind::Audio => "Аудиофайлы\0*.wav;*.mp3;*.flac;*.ogg\0\0".to_string(),
+        DialogKind::SshIdentity => "SSH-ключ\0*\0\0".to_string(),
         DialogKind::Transcript(format) => format!(
             "{}\0*.{}\0\0",
             format.extension().to_uppercase(),
@@ -79,7 +88,7 @@ fn native_dialog(app: &AppHandle, kind: DialogKind) -> AppResult<Vec<PathBuf>> {
     .encode_utf16()
     .collect::<Vec<_>>();
     let extension = match kind {
-        DialogKind::Audio => None,
+        DialogKind::Audio | DialogKind::SshIdentity => None,
         DialogKind::Json { .. } => Some("json"),
         DialogKind::Transcript(format) => Some(format.extension()),
     }

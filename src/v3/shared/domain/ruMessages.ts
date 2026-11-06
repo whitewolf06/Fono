@@ -197,7 +197,7 @@ export const ruMessages = {
   "recognitionSource.invalidEndpoint":
     "Проверьте адрес: нужен HTTPS либо HTTP на 127.0.0.1 или localhost через SSH-туннель, без пути и параметров.",
   "recognitionSource.notConfigured":
-    "Для нового адреса или сертификата введите токен и проверьте подключение. Сохранённый токен используется только для сохранённого подключения.",
+    "Для изменённого подключения введите токен и проверьте его. Сохранённый токен используется только для сохранённого подключения.",
   "recognitionSource.network":
     "Сервер недоступен. Проверьте адрес, сеть и SSH-туннель.",
   "recognitionSource.timeout": "Сервер не ответил вовремя. Попробуйте ещё раз.",
@@ -219,4 +219,38 @@ export const ruMessages = {
     "Проверьте адрес, модель и параметры резервного распознавания.",
   "recognitionSource.invalidToken":
     "Введите токен без пробелов, до 4096 символов.",
+  "recognitionSource.transport": "Как подключаться",
+  "recognitionSource.directTransport": "По адресу сервера",
+  "recognitionSource.sshTransport": "Через SSH · подключается Fono",
+  "recognitionSource.sshHint":
+    "Сохраните подключение один раз. Fono сам откроет защищённый канал при обращении к серверу. Нужен OpenSSH Client в Windows.",
+  "recognitionSource.sshHost": "Адрес SSH-сервера",
+  "recognitionSource.sshUser": "Пользователь SSH",
+  "recognitionSource.sshIdentity": "Файл личного SSH-ключа",
+  "recognitionSource.sshIdentityHint":
+    "Выберите существующий ключ. Для ключа с паролем нужен разблокированный SSH-агент Windows. Если поле пустое, используется ключ агента.",
+  "recognitionSource.sshChooseIdentity": "Выбрать файл ключа",
+  "recognitionSource.sshPorts": "Порты подключения",
+  "recognitionSource.sshPort": "Порт SSH",
+  "recognitionSource.sshServerPort": "Порт Fono Server",
+  "recognitionSource.sshServerPortHint":
+    "Порт API на самом сервере. Обычно 17832.",
+  "recognitionSource.sshProbeHost": "Получить ключ сервера",
+  "recognitionSource.sshFingerprint": "Отпечаток ключа сервера",
+  "recognitionSource.sshTrustHint":
+    "Сверьте отпечаток с данными владельца сервера. Подтверждайте только знакомый ключ: по нему Fono проверяет, к какому серверу подключается.",
+  "recognitionSource.sshTrustHost": "Доверять этому ключу",
+  "recognitionSource.sshTrusted": "Ключ сервера выбран. Сохраните настройки.",
+  "recognitionSource.sshInvalidConfiguration":
+    "Проверьте адрес, пользователя, порты и файл SSH-ключа.",
+  "recognitionSource.sshClientMissing":
+    "В Windows не найден OpenSSH Client. Установите этот дополнительный компонент Windows и повторите подключение.",
+  "recognitionSource.sshIdentityMissing":
+    "Файл SSH-ключа недоступен. Выберите существующий файл.",
+  "recognitionSource.sshHostKeyRequired":
+    "Получите ключ сервера, сверьте отпечаток и подтвердите доверие.",
+  "recognitionSource.sshConnectionFailed":
+    "SSH-соединение не открылось. Проверьте сеть, пользователя, ключ и доступ к серверу. Изменившийся ключ сервера нужно проверить заново.",
+  "recognitionSource.sshBusy":
+    "SSH-подключение занято. Завершите текущую операцию и попробуйте ещё раз.",
 } as const;

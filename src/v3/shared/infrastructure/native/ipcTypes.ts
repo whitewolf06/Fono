@@ -136,6 +136,14 @@ export interface Settings {
     display_name?: string | null;
     model: ModelId;
     ca_pem?: string | null;
+    ssh?: {
+      host: string;
+      port: number;
+      user: string;
+      identity_file: string | null;
+      server_port: number;
+      host_key: string;
+    } | null;
     fallback?: "none" | "ask" | { local: ModelId };
   } | null;
   /** Язык распознавания ("auto", "ru", "en", ...) */

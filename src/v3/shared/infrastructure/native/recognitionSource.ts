@@ -4,7 +4,11 @@ import type {
   RemoteConnectionResult,
   RemoteServerInfo,
 } from "../../domain/recognitionSource";
-import { validRemoteEndpoint } from "../../domain/recognitionSource";
+import {
+  validRemoteEndpoint,
+  validRemoteSsh,
+  validSshHost,
+} from "../../domain/recognitionSource";
 import { modelId, modelKey } from "../../domain/speechModels";
 import type { ModelId } from "./ipcTypes";
 import { call } from "./ipc";
@@ -22,6 +26,12 @@ const errors = new Set<RemoteConnectionError>([
   "model_not_found",
   "invalid_response",
   "busy",
+  "ssh_invalid_configuration",
+  "ssh_client_missing",
+  "ssh_identity_missing",
+  "ssh_host_key_required",
+  "ssh_connection_failed",
+  "ssh_busy",
   "server_failed",
 ]);
 const bounded = (value: unknown, max: number): value is string =>
@@ -135,6 +145,13 @@ export function createNativeRecognitionSource(
     async test(input) {
       if (!validRemoteEndpoint(input.url))
         return { kind: "error", error: "invalid_endpoint" };
+      if (input.ssh && !validRemoteSsh(input.ssh))
+        return {
+          kind: "error",
+          error: input.ssh.hostKey
+            ? "ssh_invalid_configuration"
+            : "ssh_host_key_required",
+        };
       try {
         return remoteConnectionFromNative(
           await invoke("test_remote_stt_server", {
@@ -143,6 +160,18 @@ export function createNativeRecognitionSource(
               ...(input.token ? { token: input.token } : {}),
               ...(input.caPem ? { ca_pem: input.caPem } : {}),
               ...(input.model ? { model: modelId(input.model) } : {}),
+              ...(input.ssh
+                ? {
+                    ssh: {
+                      host: input.ssh.host,
+                      port: input.ssh.port,
+                      user: input.ssh.user,
+                      identity_file: input.ssh.identityFile || null,
+                      server_port: input.ssh.serverPort,
+                      host_key: input.ssh.hostKey,
+                    },
+                  }
+                : {}),
             },
           }),
         );
@@ -159,6 +188,55 @@ export function createNativeRecognitionSource(
     },
     async clearToken() {
       await serialize(() => invoke<void>("clear_remote_stt_token"));
+    },
+    async probeSshHost(input) {
+      if (!validSshHost(input.host, input.port))
+        return { kind: "error", error: "ssh_invalid_configuration" };
+      try {
+        const value = await invoke<unknown>("probe_remote_stt_ssh_host", {
+          request: { host: input.host, port: input.port },
+        });
+        if (!value || typeof value !== "object")
+          return { kind: "error", error: "invalid_response" };
+        const result = value as Record<string, unknown>;
+        if (
+          result.kind === "error" &&
+          typeof result.error === "string" &&
+          errors.has(result.error as RemoteConnectionError)
+        )
+          return {
+            kind: "error",
+            error: result.error as RemoteConnectionError,
+          };
+        if (
+          result.kind !== "ok" ||
+          typeof result.host_key !== "string" ||
+          !/^ssh-ed25519 [A-Za-z0-9+/]{68}$/.test(result.host_key) ||
+          typeof result.fingerprint !== "string" ||
+          !/^SHA256:[A-Za-z0-9+/]{43}$/.test(result.fingerprint)
+        )
+          return { kind: "error", error: "invalid_response" };
+        return {
+          kind: "ok",
+          hostKey: result.host_key,
+          fingerprint: result.fingerprint,
+        };
+      } catch (error) {
+        return {
+          kind: "error",
+          error:
+            error instanceof NativeIpcError && error.code === "busy"
+              ? "busy"
+              : "ssh_connection_failed",
+        };
+      }
+    },
+    async pickIdentityFile() {
+      const selected = await invoke<unknown>("pick_remote_stt_identity_file");
+      if (selected === null) return null;
+      if (!bounded(selected, 4096))
+        throw new Error(message("recognitionSource.sshIdentityMissing"));
+      return selected;
     },
   };
 }

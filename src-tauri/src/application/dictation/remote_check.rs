@@ -60,7 +60,11 @@ fn probe(settings: &Settings, cancellation: &OperationCancellation) -> State {
         Ok(endpoint) => endpoint,
         Err(_) => {
             return State::Unavailable {
-                reason: Reason::NotConfigured,
+                reason: if remote.ssh.is_some() {
+                    Reason::Network
+                } else {
+                    Reason::NotConfigured
+                },
             }
         }
     };

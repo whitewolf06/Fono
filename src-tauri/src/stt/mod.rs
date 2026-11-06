@@ -24,7 +24,15 @@ pub(crate) fn remote_endpoint(
         zeroize::Zeroizing::new(crate::secrets::load_stt_server_token()?.ok_or_else(|| {
             crate::error::AppError::Config("Fono Server credential is not configured".into())
         })?);
-    let mut endpoint = fono_stt::remote::RemoteEndpoint::new(&remote.url, &token)?;
+    let resolved;
+    let url = if let Some(ssh) = &remote.ssh {
+        resolved = crate::application::ssh_tunnel::resolve_saved(ssh)
+            .map_err(crate::application::remote_stt::ssh_app_error)?;
+        resolved.as_str()
+    } else {
+        remote.url.as_str()
+    };
+    let mut endpoint = fono_stt::remote::RemoteEndpoint::new(url, &token)?;
     if let Some(pem) = &remote.ca_pem {
         endpoint = endpoint.with_ca_pem(pem.as_bytes())?;
     }

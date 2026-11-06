@@ -55,6 +55,7 @@ mod tests {
                     variant: "small".into(),
                 },
                 ca_pem: None,
+                ssh: None,
                 fallback: Default::default(),
             }),
             ..Settings::default()

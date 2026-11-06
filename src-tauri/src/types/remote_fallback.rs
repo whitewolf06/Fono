@@ -97,6 +97,7 @@ mod tests {
                 display_name: None,
                 model: ModelId::whisper(WhisperModelSize::LargeTurbo),
                 ca_pem: None,
+                ssh: None,
                 fallback: RemoteFallback::None,
             }),
             acceleration: AccelerationMode::Cuda,

@@ -13,6 +13,7 @@ fn settings() -> Settings {
             display_name: Some("fixture server".into()),
             model: ModelId::whisper(WhisperModelSize::LargeTurbo),
             ca_pem: Some("PRIVATE_CA".into()),
+            ssh: None,
             fallback: RemoteFallback::Local(ModelId::whisper(WhisperModelSize::Tiny)),
         }),
         ..Settings::default()

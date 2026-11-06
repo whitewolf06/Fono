@@ -190,6 +190,7 @@ pub(crate) fn shutdown(app: &tauri::AppHandle) {
         }
     }
     crate::application::dictation::recovery::shutdown(app);
+    crate::application::ssh_tunnel::shutdown();
     injection::shutdown();
     #[cfg(feature = "wake-word")]
     if let Some(wake) = app.try_state::<WakeWordHandle>() {

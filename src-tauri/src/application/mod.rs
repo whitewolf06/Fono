@@ -36,6 +36,7 @@ pub mod service_control;
 pub mod snippets;
 pub mod speech_analysis_queue;
 pub mod speech_gate;
+pub(crate) mod ssh_tunnel;
 pub(crate) mod trainer_ai;
 pub(crate) mod trainer_report;
 pub mod transcript_export;

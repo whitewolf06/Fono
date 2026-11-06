@@ -3,6 +3,7 @@ import { computed, onMounted, onScopeDispose, watch } from "vue";
 import { WlButton, WlField, WlInput, WlTextarea } from "@whitelife-core/ui-kit";
 import type { Preferences } from "../../../shared/domain/contracts";
 import type { RemoteServerInfo } from "../../../shared/domain/recognitionSource";
+import { defaultRemoteSsh } from "../../../shared/domain/recognitionSource";
 import { message as $t } from "../../../shared/domain/messages";
 import { useWorkspace } from "../../../shared/application/workspace";
 import SelectField from "../../../shared/presentation/SelectField.vue";
@@ -17,6 +18,16 @@ const emit = defineEmits<{ checked: [server: RemoteServerInfo | null] }>();
 const workspace = useWorkspace();
 const connection = computed(() => draft.value.recognitionSource);
 const remote = computed(() => connection.value.source === "fono_server");
+const transport = computed<string | number>({
+  get: () => (connection.value.ssh ? "ssh" : "direct"),
+  set: (value) => {
+    if (value === "ssh") {
+      connection.value.ssh = defaultRemoteSsh();
+      connection.value.url = "http://127.0.0.1:17832";
+      connection.value.caPem = "";
+    } else delete connection.value.ssh;
+  },
+});
 const controller = createRecognitionSourceController({
   settings: () => connection.value,
   port: workspace.recognition,
@@ -41,6 +52,10 @@ const fallbackOptions = computed(() => [
   { value: "none", label: $t("recognitionSource.fallbackNone") },
   { value: "ask", label: $t("recognitionSource.fallbackAsk") },
   { value: "local", label: $t("recognitionSource.fallbackLocal") },
+]);
+const transportOptions = computed(() => [
+  { value: "direct", label: $t("recognitionSource.directTransport") },
+  { value: "ssh", label: $t("recognitionSource.sshTransport") },
 ]);
 const installed = computed(() =>
   workspace.state.models
@@ -72,6 +87,20 @@ watch(
   { flush: "sync" },
 );
 watch(
+  () =>
+    JSON.stringify([connection.value.ssh?.host, connection.value.ssh?.port]),
+  () => {
+    if (connection.value.ssh) connection.value.ssh.hostKey = "";
+    controller.invalidate();
+  },
+  { flush: "sync" },
+);
+watch(
+  () => JSON.stringify(connection.value.ssh ?? null),
+  () => controller.invalidate(),
+  { flush: "sync" },
+);
+watch(
   () => connection.value.model,
   () => controller.invalidate(false),
   { flush: "sync" },
@@ -90,6 +119,13 @@ onScopeDispose(controller.dispose);
     />
     <p v-if="locked" class="muted">{{ $t("recognitionSource.locked") }}</p>
     <template v-if="remote">
+      <SelectField
+        id="remote-server-transport"
+        v-model="transport"
+        :label="$t('recognitionSource.transport')"
+        :options="transportOptions"
+        :disabled="locked"
+      />
       <div class="form-grid">
         <WlField
           v-slot="field"
@@ -103,6 +139,7 @@ onScopeDispose(controller.dispose);
             :placeholder="$t('recognitionSource.namePlaceholder')"
         /></WlField>
         <WlField
+          v-if="!connection.ssh"
           v-slot="field"
           id="remote-server-url"
           :label="$t('recognitionSource.url')"
@@ -115,6 +152,147 @@ onScopeDispose(controller.dispose);
             autocomplete="off"
             placeholder="http://127.0.0.1:17833"
         /></WlField>
+      </div>
+      <div v-if="connection.ssh" class="form-stack">
+        <p class="muted">{{ $t("recognitionSource.sshHint") }}</p>
+        <div class="form-grid">
+          <WlField
+            v-slot="field"
+            id="remote-ssh-host"
+            :label="$t('recognitionSource.sshHost')"
+          >
+            <WlInput
+              v-bind="field"
+              v-model="connection.ssh.host"
+              :disabled="locked"
+              maxlength="253"
+              autocomplete="off"
+              placeholder="server.example"
+            />
+          </WlField>
+          <WlField
+            v-slot="field"
+            id="remote-ssh-user"
+            :label="$t('recognitionSource.sshUser')"
+          >
+            <WlInput
+              v-bind="field"
+              v-model="connection.ssh.user"
+              :disabled="locked"
+              maxlength="64"
+              autocomplete="off"
+            />
+          </WlField>
+        </div>
+        <WlField
+          v-slot="field"
+          id="remote-ssh-identity"
+          :label="$t('recognitionSource.sshIdentity')"
+          :hint="$t('recognitionSource.sshIdentityHint')"
+        >
+          <WlInput
+            v-bind="field"
+            v-model="connection.ssh.identityFile"
+            :disabled="locked || state.identityBusy"
+            maxlength="4096"
+            autocomplete="off"
+          />
+        </WlField>
+        <div class="actions">
+          <WlButton
+            size="sm"
+            variant="ghost"
+            :loading="state.identityBusy"
+            :disabled="
+              locked ||
+              !workspace.native ||
+              !workspace.recognition ||
+              state.identityBusy
+            "
+            @click="controller.pickIdentityFile"
+            >{{ $t("recognitionSource.sshChooseIdentity") }}</WlButton
+          >
+        </div>
+        <SettingsDisclosure
+          id="remote-ssh-ports"
+          :title="$t('recognitionSource.sshPorts')"
+        >
+          <div class="form-grid">
+            <WlField
+              v-slot="field"
+              id="remote-ssh-port"
+              :label="$t('recognitionSource.sshPort')"
+            >
+              <WlInput
+                v-bind="field"
+                :model-value="String(connection.ssh.port)"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                max="65535"
+                :disabled="locked"
+                @update:model-value="connection.ssh.port = Number($event)"
+              />
+            </WlField>
+            <WlField
+              v-slot="field"
+              id="remote-ssh-server-port"
+              :label="$t('recognitionSource.sshServerPort')"
+              :hint="$t('recognitionSource.sshServerPortHint')"
+            >
+              <WlInput
+                v-bind="field"
+                :model-value="String(connection.ssh.serverPort)"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                max="65535"
+                :disabled="locked"
+                @update:model-value="connection.ssh.serverPort = Number($event)"
+              />
+            </WlField>
+          </div>
+        </SettingsDisclosure>
+        <div class="actions">
+          <WlButton
+            size="sm"
+            :loading="state.probingHost"
+            :disabled="
+              locked ||
+              !workspace.recognition ||
+              !connection.ssh.host ||
+              state.probingHost
+            "
+            @click="controller.probeSshHost"
+            >{{ $t("recognitionSource.sshProbeHost") }}</WlButton
+          >
+          <small v-if="connection.ssh.hostKey">{{
+            $t("recognitionSource.sshTrusted")
+          }}</small>
+        </div>
+        <div
+          v-if="state.hostKeyCandidate"
+          class="form-stack notice"
+          role="status"
+        >
+          <strong>{{ $t("recognitionSource.sshFingerprint") }}</strong>
+          <code class="ssh-fingerprint">{{
+            state.hostKeyCandidate.fingerprint
+          }}</code>
+          <p>{{ $t("recognitionSource.sshTrustHint") }}</p>
+          <WlButton
+            size="sm"
+            :disabled="locked"
+            @click="controller.trustHostKey"
+            >{{ $t("recognitionSource.sshTrustHost") }}</WlButton
+          >
+        </div>
+        <p v-else-if="!connection.ssh.hostKey" class="muted">
+          {{ $t("recognitionSource.sshHostKeyRequired") }}
+        </p>
+        <p v-if="state.sshError" class="error-text" role="alert">
+          {{ state.sshError }}
+        </p>
       </div>
       <p class="notice">
         {{
@@ -184,6 +362,7 @@ onScopeDispose(controller.dispose);
         {{ state.tokenError }}
       </p>
       <SettingsDisclosure
+        v-if="!connection.ssh"
         id="remote-server-ca"
         :title="$t('recognitionSource.ca')"
         ><WlField
@@ -203,7 +382,11 @@ onScopeDispose(controller.dispose);
           size="sm"
           :loading="state.checking"
           :disabled="
-            !workspace.recognition || !connection.url.trim() || state.tokenBusy
+            !workspace.recognition ||
+            locked ||
+            !connection.url.trim() ||
+            state.tokenBusy ||
+            (connection.ssh && !connection.ssh.hostKey)
           "
           @click="controller.check"
           >{{ $t("recognitionSource.check") }}</WlButton
@@ -266,6 +449,9 @@ onScopeDispose(controller.dispose);
   </section>
 </template>
 <style scoped>
+.ssh-fingerprint {
+  overflow-wrap: anywhere;
+}
 .remote-server-summary {
   overflow-wrap: anywhere;
   padding: var(--fono-space-3);

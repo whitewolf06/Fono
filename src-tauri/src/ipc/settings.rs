@@ -267,6 +267,14 @@ fn save_settings_blocking(
     if let Some(rollback) = &mut model_rollback {
         rollback.commit();
     }
+    if persisted_settings.stt_source != crate::types::SttSource::FonoServer
+        || persisted_settings
+            .remote_stt
+            .as_ref()
+            .map_or(true, |remote| remote.ssh.is_none())
+    {
+        crate::application::ssh_tunnel::shutdown();
+    }
     if let Some(prepared) = prepared_recovery {
         app.state::<crate::pipeline::Pipeline>()
             .stt()

@@ -117,11 +117,43 @@ test("remote preferences are in-memory demo data and never enter browser persist
   try {
     const browser=await server.ssrLoadModule("/src/v3/shared/infrastructure/browser.ts");
     const value=structuredClone(defaults);
-    value.recognitionSource={...value.recognitionSource,source:"fono_server",url:"https://PRIVATE_SERVER.example",caPem:"PRIVATE_CA",token:"PRIVATE_TOKEN"};
+    value.recognitionSource={...value.recognitionSource,source:"fono_server",url:"https://PRIVATE_SERVER.example",caPem:"PRIVATE_CA",token:"PRIVATE_TOKEN",ssh:{host:"PRIVATE_HOST",port:22,user:"PRIVATE_USER",identityFile:"PRIVATE_KEY_PATH",serverPort:17832,hostKey:"PRIVATE_HOST_PIN"}};
     browser.persistPreferences(value);
     assert.ok(!serialized.includes("PRIVATE"));
     assert.deepEqual(browser.readPreferences().recognitionSource,defaults.recognitionSource);
   } finally { if(storage===undefined)delete globalThis.localStorage;else globalThis.localStorage=storage; }
+});
+
+test("SSH settings roundtrip only explicit public native fields and reject an untrusted host", () => {
+  const ssh={host:"server.example",port:2222,user:"fono",identityFile:"C:/keys/id_ed25519",serverPort:17832,hostKey:"ssh-ed25519 "+"A".repeat(68)};
+  const value={...defaults.recognitionSource,source:"fono_server",url:"http://127.0.0.1:17832",model:"large_turbo",ssh:{...ssh,privateKey:"NEVER_PERSIST",passphrase:"NEVER_PERSIST"}};
+  const saved=mapping.applyPreferences(structuredClone(rawDefaults),{recognitionSource:value},[]);
+  assert.deepEqual(saved.remote_stt.ssh,{host:ssh.host,port:2222,user:"fono",identity_file:ssh.identityFile,server_port:17832,host_key:ssh.hostKey});
+  assert.doesNotMatch(JSON.stringify(saved),/NEVER_PERSIST/);
+  assert.deepEqual(mapping.preferencesFromNative(saved,[]).recognitionSource.ssh,ssh);
+  assert.throws(()=>mapping.applyPreferences(structuredClone(rawDefaults),{recognitionSource:{...value,ssh:{...ssh,hostKey:""}}},[]));
+});
+
+test("SSH native adapter validates before IPC and keeps probe, pin and file selection separate", async () => {
+  const {createNativeRecognitionSource}=await server.ssrLoadModule("/src/v3/shared/infrastructure/native/recognitionSource.ts");
+  const sent=[];
+  const candidate={kind:"ok",host_key:"ssh-ed25519 "+"A".repeat(68),fingerprint:"SHA256:"+"A".repeat(43),private_debug:"NEVER_EXPOSE"};
+  const port=createNativeRecognitionSource(async(command,args)=>{sent.push([command,args]);return command==="probe_remote_stt_ssh_host"?candidate:command==="pick_remote_stt_identity_file"?"C:/keys/id_ed25519":{kind:"error",error:"ssh_connection_failed"};});
+  assert.deepEqual(await port.probeSshHost({host:"-oProxyCommand=bad",port:22}),{kind:"error",error:"ssh_invalid_configuration"});
+  assert.equal(sent.length,0);
+  assert.deepEqual(await port.probeSshHost({host:"server.example",port:22}),{kind:"ok",hostKey:candidate.host_key,fingerprint:candidate.fingerprint});
+  assert.deepEqual(sent[0],["probe_remote_stt_ssh_host",{request:{host:"server.example",port:22}}]);
+  assert.equal(await port.pickIdentityFile(),"C:/keys/id_ed25519");
+  const ssh={host:"server.example",port:22,user:"fono",identityFile:"C:/keys/id_ed25519",serverPort:17832,hostKey:candidate.host_key};
+  assert.deepEqual(await port.test({url:"http://127.0.0.1:17832",token:"DRAFT",ssh}),{kind:"error",error:"ssh_connection_failed"});
+  assert.deepEqual(sent.at(-1),["test_remote_stt_server",{request:{url:"http://127.0.0.1:17832",token:"DRAFT",ssh:{host:ssh.host,port:22,user:ssh.user,identity_file:ssh.identityFile,server_port:17832,host_key:ssh.hostKey}}}]);
+  const before=sent.length;
+  assert.deepEqual(await port.test({url:"http://127.0.0.1:17832",ssh:{...ssh,hostKey:""}}),{kind:"error",error:"ssh_host_key_required"});
+  assert.equal(sent.length,before);
+  for(const invalid of [{...candidate,fingerprint:"server said PRIVATE"},{...candidate,host_key:"ssh-rsa AAAA"},{kind:"error",error:"PRIVATE"}]) {
+    const malformed=createNativeRecognitionSource(async()=>invalid);
+    assert.deepEqual(await malformed.probeSshHost({host:"server.example",port:22}),{kind:"error",error:"invalid_response"});
+  }
 });
 test("native preference mapping exposes, saves and preserves every selected trigger", () => {
   for (const trigger of [
