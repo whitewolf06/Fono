@@ -982,6 +982,11 @@ async fn drain_pool(pool: &Arc<ModelPool>, deadline: Instant) -> bool {
 }
 
 #[cfg(test)]
+mod client_cpu;
+#[cfg(test)]
+mod client_e2e;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::recognition_options::{RecognitionOptions, RecognitionOutput};

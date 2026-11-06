@@ -14,6 +14,55 @@ Agents may use synthetic fixtures and public WAV files without operating the
 owner's application. No microphone or personal recording is needed for automated
 transport and queue tests.
 
+## Automated client-server gates (TST-02-WIN)
+
+`cargo test --locked -p fono-server --lib runtime::client_e2e` exercises the
+Windows client's `RemoteRecognizer` and `RemoteTranscriptionClient` against an
+ephemeral loopback listener with the production router, authentication, discovery,
+audio decoding, admission and job queue. Only the inference ports are controlled
+fakes. On Windows, invoke Cargo through `scripts/test-native.ps1` so the verified
+native runtime is staged beside test executables:
+
+```powershell
+./scripts/test-native.ps1 -CargoArguments @('--locked', '-p', 'fono-server', '--lib') -TestArguments @('runtime::client_e2e')
+```
+
+These tests cover PCM/options and actual backend metadata, timestamp offsets,
+authentication and token revocation, typed errors, advertised limits, explicit
+retry, multipart upload and job polling. Cancellation, deadline and TCP-disconnect
+cases deliberately keep inference alive after the client stops waiting. They
+verify server activity and the per-client admission remain held until actual
+completion, a premature retry receives 429, and a later explicit retry cannot
+receive the cancelled result.
+
+A separate real-inference gate runs the same native clients through production
+`ServerJobs` and `ModelPool` on CPU, including interactive and queued file
+transcription. It requires the SHA-256-pinned Tiny model and public JFK WAV from
+`apps/fono-server/tests/fixtures/remote-client-cpu.json`. Preparing resources does
+not access the network unless `--download` is explicit. Existing verified local
+resources can be reused without copying:
+
+```powershell
+node scripts/remote-client-cpu-resources.mjs --model build/stt-quality/ggml-tiny.bin --wav build/server-panel-linux-qa/jfk.wav
+$env:FONO_TST02_MODEL = (Resolve-Path build/stt-quality/ggml-tiny.bin).Path
+$env:FONO_TST02_WAV = (Resolve-Path build/server-panel-linux-qa/jfk.wav).Path
+$env:FONO_TST02_REPORT = Join-Path (Get-Location).Path 'build/remote-client-cpu/windows.json'
+./scripts/test-native.ps1 -CargoArguments @('--locked', '-p', 'fono-server', '--lib') -TestArguments @('runtime::client_cpu::real_cpu_remote_client_roundtrip', '--ignored', '--exact', '--nocapture')
+```
+
+On Linux, set the same absolute resource paths and run:
+
+```sh
+cargo test --locked -p fono-server --lib runtime::client_cpu::real_cpu_remote_client_roundtrip -- --ignored --exact --nocapture
+```
+
+The resource-gated test is ignored by ordinary Cargo runs, but both Windows and
+Linux CI explicitly execute it after fixture verification. Missing or changed
+resources fail the explicit gate. Its optional JSON receipt contains hashes and
+numeric measurements, without tokens, endpoints or transcripts. These automated
+gates do not establish microphone, hotkey, insertion, overlay, GPU, clean Windows
+installation or owner acceptance; the checklist below remains separate.
+
 ## Preparation
 
 - Record desktop version/commit, server version/API version, selected model and

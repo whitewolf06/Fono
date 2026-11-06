@@ -76,6 +76,22 @@ jobs:
         run: cargo build --locked -p fono-server
       - name: Test Fono Server CLI
         run: cargo test --locked -p fono-server --all-targets
+      - name: Cache pinned public CPU fixtures
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            build/remote-client-cpu/ggml-tiny.bin
+            build/remote-client-cpu/jfk.wav
+          key: remote-client-cpu-${{ runner.os }}-${{ hashFiles('apps/fono-server/tests/fixtures/remote-client-cpu.json') }}
+      - name: Verify public CPU client-server fixtures
+        run: |
+          node --test scripts/remote-client-cpu-resources.test.mjs
+          node scripts/remote-client-cpu-resources.mjs --download --out-dir build/remote-client-cpu --github-env "$GITHUB_ENV"
+      - name: Recognize public audio through the real CPU server
+        timeout-minutes: 5
+        env:
+          FONO_TST02_REPORT: ${{ github.workspace }}/build/remote-client-cpu/linux.json
+        run: cargo test --locked -p fono-server --lib runtime::client_cpu::real_cpu_remote_client_roundtrip -- --ignored --exact --nocapture
       - name: Test shared Rust crates
         working-directory: .
         run: |
@@ -181,6 +197,20 @@ jobs:
       - name: Verify CPU contributor launcher on Windows
         shell: pwsh
         run: node --test scripts/dev-cpu.test.mjs
+      - name: Cache pinned public CPU fixtures
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            build/remote-client-cpu/ggml-tiny.bin
+            build/remote-client-cpu/jfk.wav
+          key: remote-client-cpu-${{ runner.os }}-${{ hashFiles('apps/fono-server/tests/fixtures/remote-client-cpu.json') }}
+      - name: Verify public CPU client-server fixtures
+        shell: pwsh
+        run: |
+          node --test scripts/remote-client-cpu-resources.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/remote-client-cpu-resources.mjs --download --out-dir build/remote-client-cpu --github-env "$env:GITHUB_ENV"
+          exit $LASTEXITCODE
       - name: Test and lint native workspace
         working-directory: .
         shell: pwsh
@@ -191,6 +221,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo clippy --locked --workspace --all-targets -- -D warnings
           exit $LASTEXITCODE
+      - name: Recognize public audio through the real CPU server
+        timeout-minutes: 5
+        shell: pwsh
+        env:
+          FONO_TST02_REPORT: ${{ github.workspace }}/build/remote-client-cpu/windows.json
+        run: ./scripts/test-native.ps1 -CargoArguments @('--locked', '-p', 'fono-server', '--lib') -TestArguments @('runtime::client_cpu::real_cpu_remote_client_roundtrip', '--ignored', '--exact', '--nocapture')
       - name: Verify resource pin and public feature combinations
         shell: pwsh
         run: |

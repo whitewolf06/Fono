@@ -160,6 +160,78 @@ function checkLinuxContract(source) {
   return job;
 }
 
+function checkRemoteCpuContract(source, platform) {
+  const jobs = [...source.matchAll(/^ {2}([a-z][\w-]*):\n/gm)];
+  const index = jobs.findIndex((match) => match[1] === platform);
+  assert.notEqual(index, -1);
+  const job = source.slice(jobs[index].index, jobs[index + 1]?.index);
+  assert.doesNotMatch(job, /^\s+(?:if|continue-on-error):/m);
+  const fixtures = job.indexOf(
+    "node scripts/remote-client-cpu-resources.mjs --download --out-dir build/remote-client-cpu --github-env",
+  );
+  const exercise = job.indexOf(
+    "runtime::client_cpu::real_cpu_remote_client_roundtrip",
+  );
+  const cache = job.indexOf(
+    "uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684",
+  );
+  assert.ok(
+    cache >= 0 && cache < fixtures,
+    "restore only pinned public fixtures before verification",
+  );
+  assert.match(
+    job,
+    /path: \|\s+build\/remote-client-cpu\/ggml-tiny\.bin\s+build\/remote-client-cpu\/jfk\.wav\n/,
+  );
+  assert.ok(
+    job.includes(
+      "hashFiles('apps/fono-server/tests/fixtures/remote-client-cpu.json')",
+    ),
+  );
+  assert.ok(
+    fixtures >= 0 && exercise > fixtures,
+    "verify resources before real inference",
+  );
+  assert.match(
+    job,
+    /node --test scripts\/remote-client-cpu-resources\.test\.mjs/,
+  );
+  assert.match(
+    job,
+    /FONO_TST02_REPORT: \$\{\{ github.workspace \}\}\/build\/remote-client-cpu\//,
+  );
+  if (platform === "linux") {
+    assert.match(
+      job,
+      /cargo test --locked -p fono-server --lib runtime::client_cpu::real_cpu_remote_client_roundtrip -- --ignored --exact --nocapture/,
+    );
+  } else {
+    assert.match(
+      job,
+      /test-native\.ps1 -CargoArguments @\('--locked', '-p', 'fono-server', '--lib'\) -TestArguments @\('runtime::client_cpu::real_cpu_remote_client_roundtrip', '--ignored', '--exact', '--nocapture'\)/,
+    );
+  }
+}
+
+test("Windows and Linux CI explicitly run real client-server CPU inference after fixture verification", () => {
+  for (const platform of ["linux", "native"]) {
+    checkRemoteCpuContract(workflow, platform);
+    for (const [before, after] of [
+      [
+        "node scripts/remote-client-cpu-resources.mjs --download",
+        "echo skipped-fixtures",
+      ],
+      ["--ignored", "--include-ignored"],
+      ["real_cpu_remote_client_roundtrip", "fake_cpu_roundtrip"],
+    ]) {
+      const start = workflow.indexOf(`  ${platform}:\n`);
+      const mutated =
+        workflow.slice(0, start) + workflow.slice(start).replace(before, after);
+      assert.throws(() => checkRemoteCpuContract(mutated, platform));
+    }
+  }
+});
+
 test("Linux CI checks the normal workspace after verified native bootstrap", () => {
   checkLinuxContract(workflow);
   for (const [before, after] of [
