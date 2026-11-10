@@ -837,6 +837,89 @@ test("a terminal outcome cannot clear a successor pending event that arrived bef
   }
 });
 
+test("a completed paste retires pending text before late events can show it again", async () => {
+  const overlay = createNativeOverlay();
+  try {
+    for (let index = 0; index < 4; index++) await flush();
+    listeners.get("pending-dictation")({ payload: pending(10) });
+    listeners.get("backend-event-v1")({
+      payload: {
+        schema_version: 1,
+        kind: "dictation_outcome",
+        payload: { operation_id: 10, outcome: "completed" },
+      },
+    });
+    assert.equal(overlay.state.pending, null);
+    assert.equal(overlay.state.phase, "done");
+    listeners.get("pending-dictation")({ payload: pending(10) });
+    assert.equal(overlay.state.pending, null);
+    listeners.get("pending-dictation")({ payload: pending(11) });
+    assert.equal(overlay.state.pending.sessionId, 11);
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("an inserting snapshot cannot flash the older awaiting-action text", async () => {
+  const baseline = invoke;
+  invoke = async (name, args) =>
+    name === "get_pending_dictation"
+      ? pending(9)
+      : name === "get_desktop_snapshot"
+        ? {
+            state: "injecting",
+            operation_id: 9,
+            level: 0,
+            source: "hotkey",
+            last: null,
+          }
+        : baseline(name, args);
+  const overlay = createNativeOverlay();
+  try {
+    for (let index = 0; index < 4; index++) await flush();
+    const html = await render(
+      {},
+      {
+        phase: overlay.state.phase,
+        pending: overlay.state.pending,
+        sessionId: overlay.state.sessionId,
+      },
+    );
+    assert.doesNotMatch(html, /overlay-indicator-result/);
+    assert.match(html, /data-phase="processing"/);
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
+test("a completed snapshot ignores the adjacent older pending getter", async () => {
+  const baseline = invoke;
+  invoke = async (name, args) =>
+    name === "get_pending_dictation"
+      ? pending(9)
+      : name === "get_desktop_snapshot"
+        ? {
+            state: "idle",
+            operation_id: 0,
+            level: 0,
+            source: null,
+            last: null,
+            outcome: { operation_id: 9, outcome: "completed" },
+          }
+        : baseline(name, args);
+  const overlay = createNativeOverlay();
+  try {
+    for (let index = 0; index < 4; index++) await flush();
+    assert.equal(overlay.state.pending, null);
+    assert.equal(overlay.state.dictationOutcome, "completed");
+  } finally {
+    overlay.dispose();
+    await flush();
+  }
+});
+
 test("overlay hydration honors terminal snapshot even when the adjacent pending read is older", async () => {
   const baseline = invoke;
   invoke = async (name, args) =>

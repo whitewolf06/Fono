@@ -91,9 +91,18 @@ export function createNativeOverlay() {
       return;
     operation = value.operation_id;
     state.dictationOutcome = value.outcome;
-    if (["no_speech", "cancelled", "superseded"].includes(value.outcome)) {
+    if (
+      ["completed", "no_speech", "cancelled", "superseded"].includes(
+        value.outcome,
+      )
+    ) {
       pending.retire(value.operation_id);
-      state.phase = value.outcome === "cancelled" ? "cancelled" : "idle";
+      state.phase =
+        value.outcome === "completed"
+          ? "done"
+          : value.outcome === "cancelled"
+            ? "cancelled"
+            : "idle";
       state.error = "";
       state.level = 0;
       state.remoteCheck = null;
@@ -313,13 +322,23 @@ export function createNativeOverlay() {
       state.applicationProfile =
         session?.sessionId === state.sessionId ? session.profileName : null;
       pending.observeOperation(v.operation_id);
-      pending.apply(dictation, ticket);
+      // Separate getters can pair an older waiting record with a newer send.
+      // Keep the indicator busy until insertion finishes or actually fails.
+      pending.apply(
+        dictation?.sessionId === v.operation_id &&
+          ["transcribing", "processing", "injecting"].includes(v.state)
+          ? { ...dictation, phase: "processing", error: null }
+          : dictation,
+        ticket,
+      );
       // Pending and snapshot are separate native reads. A terminal snapshot
       // retires an adjacent older pending value before it can take ownership.
       if (
         v.outcome &&
         (v.operation_id === 0 || v.operation_id === v.outcome.operation_id) &&
-        ["no_speech", "cancelled", "superseded"].includes(v.outcome.outcome)
+        ["completed", "no_speech", "cancelled", "superseded"].includes(
+          v.outcome.outcome,
+        )
       )
         outcome(v.outcome);
       if (state.pending) {

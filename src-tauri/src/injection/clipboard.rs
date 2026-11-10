@@ -11,7 +11,11 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 use fono_core::OperationCancellation;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use std::{marker::PhantomData, rc::Rc, time::Duration};
+use std::{
+    marker::PhantomData,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 use windows::{
     core::w,
     Win32::{
@@ -42,6 +46,8 @@ mod selection;
 const WAKE: u32 = WM_APP + 31;
 const RESTORE_TIMER: usize = 1;
 const RESTORE_DELAY_MS: u32 = 300;
+const OPEN_TIMEOUT: Duration = Duration::from_millis(120);
+const OPEN_RETRY: Duration = Duration::from_millis(10);
 const MAX_FORMATS: usize = 64;
 const MAX_FORMAT_BYTES: usize = 16 * 1024 * 1024;
 // A 4K screenshot can expose bitmap, DIB and DIBV5 simultaneously.
@@ -403,7 +409,13 @@ impl Owner {
         // Allocate everything before changing the clipboard. If a format cannot
         // be duplicated safely, leave the entire original clipboard untouched.
         let mut data = text_formats(text)?;
-        let opened = Opened::new(self.window)?;
+        let started = Instant::now();
+        let opened = open_for_injection(
+            || Opened::new(self.window),
+            || guard.is_some_and(|(_, cancel, _)| cancel.is_cancelled()),
+            || started.elapsed(),
+            std::thread::sleep,
+        )?;
         let backup = Backup::capture()?;
         let publication = replace_open(&mut data);
         drop(opened);
@@ -418,18 +430,9 @@ impl Owner {
             self.restore();
             return Err(error);
         }
-        if sequence == 0
-            || unsafe { GetForegroundWindow() } != window
-            || ensure_target(guard).is_err()
-        {
+        if sequence == 0 || unsafe { GetForegroundWindow() } != window {
             self.restore();
             return Err(failure("clipboard destination changed before input"));
-        }
-        // Set up cleanup before sending anything. Failure cannot leave an
-        // untracked clipboard snapshot or release its updater fence early.
-        if unsafe { SetTimer(self.window, RESTORE_TIMER, RESTORE_DELAY_MS, None) } == 0 {
-            self.restore();
-            return Err(failure("clipboard restoration could not be scheduled"));
         }
         if let Err(error) = ensure_target(guard) {
             self.restore();
@@ -452,6 +455,20 @@ impl Owner {
                     "Поле или выделение изменилось. Выделите фрагмент заново.",
                 ));
             }
+        }
+        // Start the consumption grace interval after slow focus/selection
+        // checks, immediately before input. Otherwise those checks consume it
+        // and Windows can restore the clipboard before the target reads it.
+        if unsafe { SetTimer(self.window, RESTORE_TIMER, RESTORE_DELAY_MS, None) } == 0 {
+            self.restore();
+            return Err(failure("clipboard restoration could not be scheduled"));
+        }
+        if guard.is_some_and(|(target, cancel, _)| {
+            cancel.is_cancelled() || !super::target::has_native_focus(target)
+        }) || unsafe { GetForegroundWindow() } != window
+        {
+            self.restore();
+            return Err(failure("clipboard injection was cancelled before input"));
         }
         match super::send_ctrl_v() {
             Ok(()) => {
@@ -562,6 +579,41 @@ fn ensure_target(guard: Option<&InputGuard>) -> AppResult<()> {
 }
 
 struct Opened;
+
+/// Retry only opening the clipboard, before taking a backup or publishing text.
+/// This never retries a possibly submitted paste or borrows another field.
+fn open_for_injection<T>(
+    mut open: impl FnMut() -> AppResult<T>,
+    cancelled: impl Fn() -> bool,
+    elapsed: impl Fn() -> Duration,
+    mut sleep: impl FnMut(Duration),
+) -> AppResult<T> {
+    loop {
+        if cancelled() {
+            return Err(AppError::Cancelled(
+                "clipboard injection was cancelled before input".into(),
+            ));
+        }
+        match open() {
+            Ok(opened) => {
+                if cancelled() {
+                    return Err(AppError::Cancelled(
+                        "clipboard injection was cancelled before input".into(),
+                    ));
+                }
+                return Ok(opened);
+            }
+            Err(error) => {
+                let remaining = OPEN_TIMEOUT.saturating_sub(elapsed());
+                if remaining.is_zero() {
+                    return Err(error);
+                }
+                sleep(OPEN_RETRY.min(remaining));
+            }
+        }
+    }
+}
+
 impl Opened {
     fn new(window: HWND) -> AppResult<Self> {
         unsafe { OpenClipboard(window) }
@@ -831,6 +883,50 @@ mod tests {
         atomic::{AtomicBool, Ordering},
         Arc,
     };
+
+    #[test]
+    fn a_brief_clipboard_lock_waits_before_publication_instead_of_abandoning_the_text() {
+        use std::cell::Cell;
+        let elapsed = Cell::new(Duration::ZERO);
+        let calls = Cell::new(0);
+        let result = open_for_injection(
+            || {
+                calls.set(calls.get() + 1);
+                if elapsed.get() < Duration::from_millis(30) {
+                    Err(failure("busy"))
+                } else {
+                    Ok("opened")
+                }
+            },
+            || false,
+            || elapsed.get(),
+            |wait| elapsed.set(elapsed.get() + wait),
+        );
+        assert_eq!(result.unwrap(), "opened");
+        assert_eq!(elapsed.get(), Duration::from_millis(30));
+        assert_eq!(calls.get(), 4);
+    }
+
+    #[test]
+    fn a_busy_clipboard_has_a_bound_and_cancel_never_reaches_publication() {
+        use std::cell::Cell;
+        for cancel in [false, true] {
+            let elapsed = Cell::new(Duration::ZERO);
+            let result = open_for_injection::<()>(
+                || Err(failure("busy")),
+                || cancel && elapsed.get() >= Duration::from_millis(20),
+                || elapsed.get(),
+                |wait| elapsed.set(elapsed.get() + wait),
+            );
+            if cancel {
+                assert!(matches!(result, Err(AppError::Cancelled(_))));
+                assert_eq!(elapsed.get(), Duration::from_millis(20));
+            } else {
+                assert!(matches!(result, Err(AppError::Injection(_))));
+                assert_eq!(elapsed.get(), OPEN_TIMEOUT);
+            }
+        }
+    }
 
     #[test]
     fn restore_uses_sequence_identity_even_if_user_copied_equal_text() {

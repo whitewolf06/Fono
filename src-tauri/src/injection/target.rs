@@ -38,6 +38,13 @@ pub fn matches(target: &TextTarget) -> bool {
     platform::capture().ok().flatten().as_ref() == Some(target)
 }
 
+/// A cheap final race check after the full UIA identity check. This alone never
+/// authorizes a paste, because two fields can share the same native handle.
+#[cfg(windows)]
+pub(super) fn has_native_focus(target: &TextTarget) -> bool {
+    platform::has_native_focus(target)
+}
+
 #[cfg(windows)]
 pub(super) unsafe fn selection_target(
     automation: &windows::Win32::UI::Accessibility::IUIAutomation,
@@ -64,7 +71,7 @@ pub(crate) fn append_with_preflight(
     cancel: &OperationCancellation,
     preflight: Option<InputPreflight>,
 ) -> AppResult<AppendResult> {
-    if cancel.is_cancelled() || !matches(target) {
+    if cancel.is_cancelled() {
         return Ok(AppendResult {
             bytes: 0,
             paused: true,
@@ -72,6 +79,8 @@ pub(crate) fn append_with_preflight(
         });
     }
     match mode {
+        // Both backends check the complete field identity at their send boundary.
+        // Do not add another provider round trip before the clipboard owner.
         InjectionMode::SendInput => platform::append(target, text, cancel, preflight.as_deref()),
         InjectionMode::Clipboard => {
             super::inject_via_clipboard_preflight(text, target.clone(), cancel.clone(), preflight)?;
@@ -107,7 +116,7 @@ mod platform {
     use super::*;
     use crossbeam_channel::{bounded, Sender};
     use once_cell::sync::Lazy;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
     use windows::Win32::{
         System::Com::{
             CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
@@ -116,8 +125,11 @@ mod platform {
             SafeArrayDestroy, SafeArrayGetElement, SafeArrayGetLBound, SafeArrayGetUBound,
         },
         UI::Accessibility::{
-            CUIAutomation, IUIAutomation, IUIAutomationTextEditPattern, IUIAutomationValuePattern,
-            UIA_DocumentControlTypeId, UIA_EditControlTypeId, UIA_TextEditPatternId,
+            CUIAutomation, IUIAutomation, IUIAutomationCacheRequest, IUIAutomationValuePattern,
+            TreeScope_Element, UIA_ControlTypePropertyId, UIA_DocumentControlTypeId,
+            UIA_EditControlTypeId, UIA_HasKeyboardFocusPropertyId, UIA_IsEnabledPropertyId,
+            UIA_IsPasswordPropertyId, UIA_IsTextEditPatternAvailablePropertyId,
+            UIA_ProcessIdPropertyId, UIA_RuntimeIdPropertyId, UIA_ValueIsReadOnlyPropertyId,
             UIA_ValuePatternId,
         },
         UI::Input::KeyboardAndMouse::{SendInput, INPUT},
@@ -125,8 +137,59 @@ mod platform {
             GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, GUITHREADINFO,
         },
     };
-    static PROBE: Lazy<std::io::Result<Sender<Sender<Option<TextTarget>>>>> = Lazy::new(|| {
-        let (tx, rx) = bounded::<Sender<Option<TextTarget>>>(1);
+    const PROBE_TIMEOUT: Duration = Duration::from_millis(250);
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    struct NativeFocus {
+        window: isize,
+        focus: isize,
+        process: u32,
+    }
+    impl NativeFocus {
+        unsafe fn capture() -> Option<Self> {
+            let window = GetForegroundWindow();
+            if window.0.is_null() {
+                return None;
+            }
+            let mut process = 0;
+            let thread = GetWindowThreadProcessId(window, Some(&mut process));
+            if thread == 0 || process == 0 || process == std::process::id() {
+                return None;
+            }
+            let mut info = GUITHREADINFO {
+                cbSize: std::mem::size_of::<GUITHREADINFO>() as u32,
+                ..Default::default()
+            };
+            GetGUIThreadInfo(thread, &mut info).ok()?;
+            if GetForegroundWindow() != window {
+                return None;
+            }
+            Some(Self {
+                window: window.0 as isize,
+                focus: info.hwndFocus.0 as isize,
+                process,
+            })
+        }
+
+        fn matches(self, target: &TextTarget) -> bool {
+            self.window == target.window
+                && self.focus == target.focus
+                && self.process == target.process
+        }
+    }
+
+    struct ProbeRequest {
+        native: NativeFocus,
+        deadline: Instant,
+        reply: Sender<Option<TextTarget>>,
+    }
+
+    pub(super) fn has_native_focus(target: &TextTarget) -> bool {
+        unsafe { NativeFocus::capture() }.is_some_and(|focus| focus.matches(target))
+    }
+
+    static PROBE: Lazy<std::io::Result<Sender<ProbeRequest>>> = Lazy::new(|| {
+        let (tx, rx) = bounded::<ProbeRequest>(1);
         std::thread::Builder::new()
             .name("fono-focus-owner".into())
             .spawn(move || unsafe {
@@ -136,10 +199,16 @@ mod platform {
                 } else {
                     None
                 };
-                while let Ok(reply) = rx.recv() {
-                    let _ =
-                        reply.send(automation.as_ref().and_then(|automation| query(automation)));
+                let cache = automation.as_ref().and_then(|a| cache_request(a).ok());
+                while let Ok(request) = rx.recv() {
+                    let target = answer_probe(&request, || {
+                        query_cached(automation.as_ref()?, cache.as_ref()?)
+                            .map(|(target, _)| target)
+                    });
+                    let _ = request.reply.send(target);
                 }
+                drop(cache);
+                drop(automation);
                 if initialized {
                     windows::Win32::System::Com::CoUninitialize();
                 }
@@ -147,21 +216,65 @@ mod platform {
         Ok(tx)
     });
 
+    fn answer_probe(
+        request: &ProbeRequest,
+        query: impl FnOnce() -> Option<TextTarget>,
+    ) -> Option<TextTarget> {
+        if Instant::now() >= request.deadline {
+            return None;
+        }
+        let target = query()?;
+        // A late provider reply must never authorize a different foreground or
+        // a subsequent operation which happened to enqueue another probe.
+        (Instant::now() < request.deadline && request.native.matches(&target)).then_some(target)
+    }
+
     pub fn capture() -> AppResult<Option<TextTarget>> {
+        let Some(native) = (unsafe { NativeFocus::capture() }) else {
+            return Ok(None);
+        };
+        let deadline = Instant::now() + PROBE_TIMEOUT;
         let probe = PROBE.as_ref().map_err(|_| {
             AppError::Injection(
                 "Не удалось запустить проверку поля ввода. Перезапустите Fono".into(),
             )
         })?;
         let (tx, rx) = bounded(1);
-        if probe.try_send(tx).is_err() {
+        if probe
+            .try_send(ProbeRequest {
+                native,
+                deadline,
+                reply: tx,
+            })
+            .is_err()
+        {
             return Ok(None);
         }
-        Ok(rx.recv_timeout(Duration::from_millis(100)).ok().flatten())
+        Ok(rx
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .ok()
+            .flatten())
     }
 
-    unsafe fn query(automation: &IUIAutomation) -> Option<TextTarget> {
-        query_element(automation).map(|(target, _)| target)
+    unsafe fn cache_request(
+        automation: &IUIAutomation,
+    ) -> windows::core::Result<IUIAutomationCacheRequest> {
+        let cache = automation.CreateCacheRequest()?;
+        cache.SetTreeScope(TreeScope_Element)?;
+        for property in [
+            UIA_ProcessIdPropertyId,
+            UIA_ControlTypePropertyId,
+            UIA_IsEnabledPropertyId,
+            UIA_IsPasswordPropertyId,
+            UIA_HasKeyboardFocusPropertyId,
+            UIA_RuntimeIdPropertyId,
+            UIA_ValueIsReadOnlyPropertyId,
+            UIA_IsTextEditPatternAvailablePropertyId,
+        ] {
+            cache.AddProperty(property)?;
+        }
+        cache.AddPattern(UIA_ValuePatternId)?;
+        Ok(cache)
     }
 
     pub(super) unsafe fn query_element(
@@ -170,39 +283,41 @@ mod platform {
         TextTarget,
         windows::Win32::UI::Accessibility::IUIAutomationElement,
     )> {
-        let window = GetForegroundWindow();
-        if window.0.is_null() {
-            return None;
-        }
-        let mut process = 0;
-        let thread = GetWindowThreadProcessId(window, Some(&mut process));
-        if process == std::process::id() {
-            return None;
-        }
-        let mut info = GUITHREADINFO {
-            cbSize: std::mem::size_of::<GUITHREADINFO>() as u32,
-            ..Default::default()
-        };
-        GetGUIThreadInfo(thread, &mut info).ok()?;
-        let element = automation.GetFocusedElement().ok()?;
-        if element.CurrentProcessId().ok()? as u32 != process
-            || !element.CurrentIsEnabled().ok()?.as_bool()
-            || element.CurrentIsPassword().ok()?.as_bool()
+        query_cached(automation, &cache_request(automation).ok()?)
+    }
+
+    unsafe fn query_cached(
+        automation: &IUIAutomation,
+        cache: &IUIAutomationCacheRequest,
+    ) -> Option<(
+        TextTarget,
+        windows::Win32::UI::Accessibility::IUIAutomationElement,
+    )> {
+        let native = NativeFocus::capture()?;
+        // One fresh provider snapshot per check, rather than separate remote
+        // calls for every property. Cached here never means a previous check.
+        let element = automation.GetFocusedElementBuildCache(cache).ok()?;
+        if element.CachedProcessId().ok()? as u32 != native.process
+            || !element.CachedHasKeyboardFocus().ok()?.as_bool()
+            || !element.CachedIsEnabled().ok()?.as_bool()
+            || element.CachedIsPassword().ok()?.as_bool()
         {
             return None;
         }
-        let kind = element.CurrentControlType().ok()?;
+        let kind = element.CachedControlType().ok()?;
         if kind != UIA_EditControlTypeId && kind != UIA_DocumentControlTypeId {
             return None;
         }
         let editable = element
-            .GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId)
+            .GetCachedPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId)
             .ok()
-            .and_then(|pattern| pattern.CurrentIsReadOnly().ok())
+            .and_then(|pattern| pattern.CachedIsReadOnly().ok())
             .is_some_and(|readonly| !readonly.as_bool())
             || element
-                .GetCurrentPatternAs::<IUIAutomationTextEditPattern>(UIA_TextEditPatternId)
-                .is_ok();
+                .GetCachedPropertyValue(UIA_IsTextEditPatternAvailablePropertyId)
+                .ok()
+                .and_then(|value| bool::try_from(&value).ok())
+                .unwrap_or(false);
         if !editable {
             return None;
         }
@@ -222,14 +337,14 @@ mod platform {
                 SafeArrayGetElement(array, &index, (&mut value as *mut i32).cast()).ok()?;
                 runtime_id.push(value);
             }
-            if runtime_id.is_empty() || GetForegroundWindow() != window {
+            if runtime_id.is_empty() || NativeFocus::capture() != Some(native) {
                 return None;
             }
             Some((
                 TextTarget {
-                    window: window.0 as isize,
-                    focus: info.hwndFocus.0 as isize,
-                    process,
+                    window: native.window,
+                    focus: native.focus,
+                    process: native.process,
                     runtime_id,
                 },
                 element,
@@ -298,6 +413,65 @@ mod platform {
             paused: false,
             uncertain: false,
         })
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::cell::Cell;
+
+        fn request(deadline: Instant) -> ProbeRequest {
+            ProbeRequest {
+                native: NativeFocus {
+                    window: 1,
+                    focus: 2,
+                    process: 3,
+                },
+                deadline,
+                reply: bounded(1).0,
+            }
+        }
+        fn target() -> TextTarget {
+            TextTarget {
+                window: 1,
+                focus: 2,
+                process: 3,
+                runtime_id: vec![4, 5],
+            }
+        }
+
+        #[test]
+        fn expired_queued_probes_do_not_call_a_slow_provider_again() {
+            let calls = Cell::new(0);
+            let result = answer_probe(&request(Instant::now()), || {
+                calls.set(calls.get() + 1);
+                Some(target())
+            });
+            assert!(result.is_none());
+            assert_eq!(calls.get(), 0);
+        }
+
+        #[test]
+        fn provider_reply_for_another_native_field_is_rejected() {
+            let request = request(Instant::now() + Duration::from_secs(5));
+            assert!(answer_probe(&request, || Some(target())).is_some());
+            for target in [
+                TextTarget {
+                    window: 9,
+                    ..target()
+                },
+                TextTarget {
+                    focus: 9,
+                    ..target()
+                },
+                TextTarget {
+                    process: 9,
+                    ..target()
+                },
+            ] {
+                assert!(answer_probe(&request, || Some(target)).is_none());
+            }
+            assert!(answer_probe(&request, || None).is_none());
+        }
     }
 }
 
