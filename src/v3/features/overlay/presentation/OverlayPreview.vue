@@ -85,6 +85,13 @@ const indicator = computed<IndicatorState>(() => {
   const pending = props.pending;
   const recovery =
     props.recovery?.session_id === props.sessionId ? props.recovery : null;
+  const waitingRecovery = recovery?.phase === "awaiting_action";
+  const automaticPending =
+    pending?.source === "hotkey" &&
+    props.preferences.processingTrigger === "automatic" &&
+    !pending.insertionBlocked &&
+    !pending.copyOnly &&
+    !pending.error;
   const error = props.processingError || pending?.error || props.error || "";
   const serverStatus = !pending
     ? remoteCheckStatus(
@@ -103,7 +110,7 @@ const indicator = computed<IndicatorState>(() => {
       ? "transcribing"
       : "error"
     : pending
-      ? pending.phase === "processing"
+      ? pending.phase === "processing" || automaticPending
         ? "processing"
         : error
           ? "error"
@@ -121,7 +128,7 @@ const indicator = computed<IndicatorState>(() => {
                 : "closed";
   return {
     recovery,
-    wrapStatus: !!serverStatus || !!recovery,
+    wrapStatus: !!waitingRecovery,
     applicationProfile: props.applicationProfile,
     phase,
     sessionId: pending?.sessionId ?? props.sessionId ?? 0,
@@ -130,13 +137,15 @@ const indicator = computed<IndicatorState>(() => {
     result: pending?.resultText || pending?.originalText || "",
     error,
     insertionBlocked: pending?.insertionBlocked ?? false,
+    copyOnly: pending?.copyOnly ?? false,
     copying: props.copying ?? false,
-    status: recovery
-      ? recoveryTitle(recovery)
-      : props.outcome === "no_speech"
-        ? message("dictation.noSpeech")
-        : [serverStatus, silenceStatus].filter(Boolean).join(" · ") ||
-          undefined,
+    status:
+      waitingRecovery && recovery
+        ? recoveryTitle(recovery)
+        : props.outcome === "no_speech"
+          ? message("dictation.noSpeech")
+          : [serverStatus, silenceStatus].filter(Boolean).join(" · ") ||
+            undefined,
     postprocessingOn:
       choice.value.processingEnabled ?? props.preferences.processingEnabled,
     translationOn:

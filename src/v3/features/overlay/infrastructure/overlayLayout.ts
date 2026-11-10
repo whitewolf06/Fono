@@ -25,18 +25,21 @@ export function bindOverlayLayout(
   let appliedRevision = -1;
   let observer: ResizeObserver | null = null;
   let widget: Element | null = null;
+  let appliedLayout: string | null = null;
+
+  function readHeight() {
+    if (!widget) return null;
+    // The rectangle includes CSS zoom. Applying user scale again would double it.
+    const height = Math.ceil(widget.getBoundingClientRect().height);
+    return Number.isFinite(height) && height >= 32 && height <= 1600
+      ? height
+      : null;
+  }
 
   function measure() {
     if (disposed || appliedRevision !== revision || !widget) return;
-    // The rectangle includes CSS zoom. Applying user scale again would double it.
-    const height = Math.ceil(widget.getBoundingClientRect().height);
-    if (
-      !Number.isFinite(height) ||
-      height < 32 ||
-      height > 1600 ||
-      height === contentHeight
-    )
-      return;
+    const height = readHeight();
+    if (height === null || height === contentHeight) return;
     contentHeight = height;
     void resize();
   }
@@ -58,7 +61,6 @@ export function bindOverlayLayout(
         observer.observe(widget);
       }
     }
-    measure();
   }
   function resize() {
     queued = true;
@@ -70,19 +72,37 @@ export function bindOverlayLayout(
       while (!disposed && queued) {
         queued = false;
         const currentRevision = revision;
-        const measured = contentHeight;
         try {
-          await call("set_overlay_layout", {
-            layout: {
-              helpOpen: state.helpOpen,
-              errorVisible: !!(state.error || processingError()),
-              contentHeight: measured,
-            },
-          });
+          // Vue must finish the new state before measuring. A phase change
+          // never clears a valid height and flashes a larger native fallback.
+          await nextTick();
+          if (disposed) break;
+          if (currentRevision !== revision) {
+            queued = true;
+            continue;
+          }
+          observe();
+          contentHeight = readHeight();
+          const layout = {
+            helpOpen: state.helpOpen,
+            errorVisible:
+              state.helpOpen && !!(state.error || processingError()),
+            contentHeight,
+          };
+          const signature = JSON.stringify([
+            layout,
+            state.preferences.overlayCompact,
+            state.preferences.overlayScale,
+            state.preferences.overlayQuickProcessing,
+            state.preferences.processingEnabled,
+            state.preferences.hotkeyMode,
+          ]);
+          if (signature !== appliedLayout) {
+            await call("set_overlay_layout", { layout });
+            appliedLayout = signature;
+          }
           if (!disposed && currentRevision === revision) {
             appliedRevision = currentRevision;
-            await nextTick();
-            observe();
           }
         } catch (error) {
           if (!disposed) fail(error);
@@ -110,8 +130,6 @@ export function bindOverlayLayout(
       () => !!(state.error || processingError()),
     ],
     () => {
-      // Give a newly expanded panel space while its natural height is measured.
-      contentHeight = null;
       revision++;
       void resize();
     },

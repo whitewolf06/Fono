@@ -251,9 +251,9 @@ test("overlay uses a short insertion status and does not offer processing retry"
   );
   assert.match(html, /Вставка остановлена/);
   assert.match(html, /Скопировать текст и закрыть/);
-  assert.match(html, /Подробнее/);
+  assert.doesNotMatch(html, /Подробнее|dictation-notice-summary/);
   assert.doesNotMatch(html, /Повторить обработку без вставки|voice-wave/);
-  assert.equal(html.split(pending.error).length - 1, 1);
+  assert.equal(html.includes(pending.error), false);
 });
 
 test("manual setting does not hold a dictation when processing is disabled", async () => {

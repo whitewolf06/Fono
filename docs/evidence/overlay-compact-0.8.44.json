@@ -1,0 +1,60 @@
+{
+  "schema": "fono-scoped-verification-v1",
+  "date": "2026-11-11",
+  "version": "0.8.44",
+  "scope": [
+    "Show a progress wave and short status throughout remote recognition, processing and insertion",
+    "Show retained-recording recovery controls only when a source decision is required",
+    "Keep waveform and two-line result preview in the same fixed-height area",
+    "Show dictation text for blocked insertion or explicit copy-only acceptance",
+    "Keep detailed notices behind the explicitly opened help panel",
+    "Measure the rendered widget before native layout updates and deduplicate unchanged busy geometry",
+    "Load the prepared Lira dev runtime from an ignored local launch configuration"
+  ],
+  "automated": {
+    "v3": { "passed": 491, "failed": 0 },
+    "focused_overlay_after_final_layout_change": { "passed": 54, "failed": 0 },
+    "release_and_ci_contracts": { "passed": 53, "failed": 0 },
+    "typecheck_v3": "passed",
+    "lint": "passed",
+    "frontend_build": "passed",
+    "format_check": "passed",
+    "powershell_syntax": "passed",
+    "browser_mock": {
+      "viewports": [
+        [720, 560],
+        [900, 720],
+        [1440, 900]
+      ],
+      "density_modes": ["normal", "compact"],
+      "hotkey_modes": ["hold", "toggle"],
+      "states_checked": 72,
+      "height_changes_between_recording_processing_and_fallback": false,
+      "result_preview_max_lines": 2,
+      "copy_preserves_full_result": true,
+      "working_wave_changes_color": true,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    "lira_dev_environment": {
+      "configured_python_is_absolute_and_exists": true,
+      "local_config_ignored_by_git": true,
+      "numpy_scipy_torch_onnxruntime_versions_match_frozen_config": true,
+      "candidate_model_exists": true,
+      "ctc_config_exists": true,
+      "detector_started": false
+    }
+  },
+  "manual_acceptance": {
+    "status": "pending_owner_retest",
+    "microphone_recorded_by_agent": false,
+    "user_clipboard_accessed_by_agent": false,
+    "external_input_sent_by_agent": false,
+    "native_windows_operated_by_agent": false,
+    "scenarios": [
+      "Ordinary remote dictation keeps a compact progress wave until insertion completes",
+      "Changing focus retains a two-line copy preview without enlarging the indicator",
+      "Lira appears on Home after launch with its prepared dev runtime and starts only by explicit switch"
+    ]
+  }
+}

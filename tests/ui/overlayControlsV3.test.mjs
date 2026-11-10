@@ -617,6 +617,7 @@ test("saving blocks Finish and switches but Cancel remains available; ready resu
     {
       phase: "awaiting_action",
       pending: pending(20, {
+        copyOnly: true,
         preset: "formal",
         targetLanguage: "en",
         resultText: "Обработанный вариант",
@@ -1377,7 +1378,7 @@ test("a late clipboard response cannot complete or close a successor pending ses
   }
 });
 
-test("native layout measures the mounted widget, expands before measurement and disposes its observer", async () => {
+test("native layout measures before resizing and keeps busy phases at the measured height", async () => {
   const previousDocument = globalThis.document;
   let height = 126,
     notify,
@@ -1422,7 +1423,7 @@ test("native layout measures the mounted widget, expands before measurement and 
       calls
         .filter(([name]) => name === "set_overlay_layout")
         .map(([, args]) => args.layout);
-    assert.equal(layouts()[0].contentHeight, null);
+    assert.equal(layouts()[0].contentHeight, 126);
     assert.equal(
       layouts().at(-1).contentHeight,
       126,
@@ -1437,14 +1438,35 @@ test("native layout measures the mounted widget, expands before measurement and 
       baseline,
       "unchanged bounds do not cause resize loops",
     );
+    for (const phase of ["transcribing", "processing"]) {
+      const beforePhase = layouts().length;
+      state.phase = phase;
+      await flush();
+      assert.deepEqual(
+        layouts()
+          .slice(beforePhase)
+          .map((layout) => layout.contentHeight),
+        [],
+        "a busy phase must not briefly resize to an unmeasured fallback",
+      );
+    }
+    const beforeDensity = layouts().length;
+    state.preferences.overlayCompact = true;
+    await flush();
+    assert.equal(
+      layouts().length,
+      beforeDensity + 1,
+      "a width-changing preference must reach native even if measured height is unchanged",
+    );
+    const beforeHelp = layouts().length;
     height = 274;
     state.helpOpen = true;
     await flush();
     assert.deepEqual(
       layouts()
-        .slice(baseline)
+        .slice(beforeHelp)
         .map((layout) => layout.contentHeight),
-      [null, 274],
+      [274],
     );
     height = 94;
     state.helpOpen = false;
@@ -1534,8 +1556,13 @@ test("retained recording offers server retry, local fallback and cancel without 
         }),
     }),
   );
-  assert.match(busy, /Распознаю сохранённую запись/);
-  assert.equal((busy.match(/<button[^>]* disabled/g) || []).length, 2);
+  assert.match(busy, /Распознаю речь/);
+  assert.match(busy, /class="voice-wave"/);
+  assert.doesNotMatch(
+    busy,
+    /recovery-actions|Запись остаётся в памяти|Повторить на сервере|Распознать локально/,
+  );
+  assert.match(busy, /overlay-indicator-action cancel/);
   const old = await renderToString(
     createSSRApp({
       render: () =>
@@ -1549,6 +1576,47 @@ test("retained recording offers server retry, local fallback and cancel without 
     }),
   );
   assert.doesNotMatch(old, /recovery-actions/);
+});
+
+test("automatic pending text stays behind the progress wave until insertion is blocked", async () => {
+  const value = pending(92, {
+    originalText: "Private dictation text",
+    processingEnabled: false,
+  });
+  const working = await render(
+    { processingTrigger: "automatic" },
+    {
+      phase: "awaiting_action",
+      pending: value,
+      sessionId: 92,
+    },
+  );
+  assert.match(working, /data-phase="processing"/);
+  assert.match(working, /class="voice-wave"/);
+  assert.doesNotMatch(
+    working,
+    /Private dictation text|overlay-indicator-result|Текст готов/,
+  );
+
+  const blocked = await render(
+    {},
+    {
+      phase: "awaiting_action",
+      sessionId: 92,
+      pending: {
+        ...value,
+        insertionBlocked: true,
+        error: "Поле для вставки изменилось",
+      },
+    },
+  );
+  assert.match(blocked, /overlay-indicator-result/);
+  assert.match(blocked, /Private dictation text/);
+  assert.match(blocked, /Скопировать текст и закрыть/);
+  assert.doesNotMatch(
+    blocked,
+    /dictation-notice-summary|dictation-notice-details/,
+  );
 });
 
 test("native overlay hydrates retained PCM and does not revive it from a late event after cancel", async () => {

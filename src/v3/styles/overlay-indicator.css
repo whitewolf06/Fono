@@ -113,11 +113,23 @@
   overflow: visible;
   overflow-wrap: anywhere;
 }
-.overlay-indicator-summary > .voice-wave {
+.overlay-indicator-content {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+  height: var(--fono-indicator-wave-height);
+  overflow: hidden;
+}
+.overlay-indicator-content > .voice-wave {
   width: var(--fono-overlay-wave-width);
   min-width: 0;
   height: var(--fono-indicator-wave-height);
   margin: 0 auto;
+}
+.overlay-indicator[data-phase="transcribing"] .voice-wave,
+.overlay-indicator[data-phase="processing"] .voice-wave {
+  --fono-accent: var(--fono-indicator-working-wave);
+  --fono-electric-soft: var(--fono-indicator-working-wave);
 }
 .overlay-indicator-result {
   display: -webkit-box;
@@ -125,8 +137,8 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
-  min-height: var(--fono-indicator-wave-height);
-  margin-block: var(--fono-space-2);
+  max-height: var(--fono-indicator-wave-height);
+  margin: 0;
   color: var(--fono-secondary);
   font-size: var(--fono-type-xs);
   line-height: 1.5;

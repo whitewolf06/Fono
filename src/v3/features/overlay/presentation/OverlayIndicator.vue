@@ -82,6 +82,15 @@ const wavePhase: Record<IndicatorPhase, Phase> = {
 const ready = computed(
   () => !!props.state.result && ["ready", "error"].includes(props.state.phase),
 );
+const showResult = computed(
+  () => ready.value && (props.state.insertionBlocked || props.state.copyOnly),
+);
+const waitingRecovery = computed(
+  () => props.state.recovery?.phase === "awaiting_action",
+);
+const working = computed(() =>
+  ["transcribing", "processing"].includes(props.state.phase),
+);
 const recording = computed(() => props.state.phase === "recording");
 const notice = computed(() =>
   dictationNotice(props.state.error, {
@@ -90,7 +99,10 @@ const notice = computed(() =>
   }),
 );
 const status = computed(
-  () => notice.value?.title || props.state.status || labels[props.state.phase],
+  () =>
+    (!working.value && notice.value?.title) ||
+    props.state.status ||
+    labels[props.state.phase],
 );
 const clock = computed(() => {
   const seconds = Math.floor(props.state.elapsedMs / 1000);
@@ -149,16 +161,22 @@ watch(recording, (value) => {
             >{{ status }}</strong
           ><small>{{ clock }}</small>
         </div>
-        <p v-if="ready" class="overlay-indicator-result" :title="state.result">
-          {{ state.result }}
-        </p>
-        <VoiceWave
-          v-else-if="!notice && !state.recovery"
-          :phase="wavePhase[state.phase]"
-          :level="state.level"
-        />
+        <div class="overlay-indicator-content">
+          <p
+            v-if="showResult"
+            class="overlay-indicator-result"
+            :title="state.result"
+          >
+            {{ state.result }}
+          </p>
+          <VoiceWave
+            v-else-if="!waitingRecovery"
+            :phase="wavePhase[state.phase]"
+            :level="state.level"
+          />
+        </div>
       </div>
-      <div v-if="!state.recovery" class="overlay-indicator-right">
+      <div v-if="!waitingRecovery" class="overlay-indicator-right">
         <div v-if="quick" class="overlay-indicator-settings">
           <button
             v-if="state.recognition?.options.length"
@@ -260,12 +278,16 @@ watch(recording, (value) => {
       </div>
     </div>
     <RecoveryDictationActions
-      v-if="state.recovery"
+      v-if="waitingRecovery && state.recovery"
       :recovery="state.recovery"
       @resolve="(request) => emit('recover', request)"
     />
-    <DictationNotice v-else-if="notice" :notice="notice" :show-title="false" />
     <div v-if="panel" :id="panelId" class="overlay-indicator-panel">
+      <DictationNotice
+        v-if="panel === 'help' && notice"
+        :notice="notice"
+        :show-title="false"
+      />
       <OverlayIndicatorHelp
         v-if="panel === 'help'"
         :hotkey-mode="hotkeyMode"

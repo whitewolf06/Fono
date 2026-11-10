@@ -1,13 +1,13 @@
 {
   "name": "fono",
-  "version": "0.8.43",
+  "version": "0.8.44",
   "private": true,
   "description": "Голосовой ввод и голосовое управление компьютером для Windows",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:ui": "vite --mode ui",
-    "dev:desktop:v3": "tauri dev",
+    "dev:desktop:v3": "pwsh -NoProfile -File ./scripts/dev-desktop.ps1",
     "build": "tsc && vue-tsc --noEmit -p tsconfig.v3.json && vite build",
     "build:workers": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-stt-workers.ps1",
     "prepare:release-resources": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prepare-release-resources.ps1",

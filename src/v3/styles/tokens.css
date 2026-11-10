@@ -69,6 +69,7 @@
   --fono-indicator-toggle-width: 104px;
   --fono-indicator-option: 28px;
   --fono-indicator-wave-height: 38px;
+  --fono-indicator-working-wave: var(--fono-warning);
   --fono-overlay-finish-background: color-mix(
     in srgb,
     var(--fono-success) 12%,
