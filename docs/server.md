@@ -36,6 +36,25 @@ stage. The host does not need the CUDA toolkit.
 
 ## Build and configure
 
+The [0.9.0 release candidate](releases/0.9.0.md) includes this server and the
+Windows remote client. A local build is tagged `fono-server:0.9.0-cuda`.
+Image publication to `ghcr.io/whitewolf06/fono-server:0.9.0-cuda` is a separate
+operation; check the release page before pulling it. Existing deployments do
+not need to match the desktop's patch version: the client negotiates API v2
+and the selected model's capabilities.
+
+If you received a release image archive, load it and select its exact tag:
+
+```sh
+docker load --input fono-server-0.9.0-cuda.tar.gz
+export FONO_IMAGE=fono-server:0.9.0-cuda
+```
+
+The archive contains the image only. It does not include API keys, private
+certificates, model downloads or deployment data. Configure these below and
+start Compose with `--no-build` to use the loaded image. For a source build,
+use the following commands instead.
+
 From the repository root:
 
 ```sh

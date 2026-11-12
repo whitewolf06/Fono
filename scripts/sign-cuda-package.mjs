@@ -27,6 +27,21 @@ export const CUDA_NOTICES = [
   "DEPENDENCY-NOTICES.txt",
 ];
 
+export function fileSigningEnvironment(source = process.env) {
+  const environment = { ...source };
+  for (const name of Object.keys(environment)) {
+    const normalized = name.toUpperCase();
+    if (
+      normalized === "TAURI_SIGNING_PRIVATE_KEY" ||
+      normalized === "TAURI_SIGNING_PRIVATE_KEY_PATH"
+    ) {
+      // Even an empty value is a CLI option and conflicts with the explicit file.
+      delete environment[name];
+    }
+  }
+  return environment;
+}
+
 function exactKeys(value, keys, label) {
   if (
     !value ||
@@ -187,11 +202,7 @@ async function main() {
     ],
     {
       cwd: repo,
-      env: {
-        ...process.env,
-        TAURI_SIGNING_PRIVATE_KEY: "",
-        TAURI_SIGNING_PRIVATE_KEY_PATH: "",
-      },
+      env: fileSigningEnvironment(),
       encoding: "utf8",
       windowsHide: true,
     },

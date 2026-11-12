@@ -31,6 +31,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+          submodules: recursive
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22.23.3"
@@ -50,7 +51,7 @@ jobs:
       - name: Frontend gates
         shell: pwsh
         run: |
-          foreach ($command in @('typecheck:v3', 'lint', 'test:v3', 'test:cpu', 'docs:check', 'format:check', 'build')) {
+          foreach ($command in @('typecheck:v3', 'lint', 'test:v3', 'test:cpu', 'check:server-panel', 'docs:check', 'format:check', 'build')) {
             npm run $command
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }

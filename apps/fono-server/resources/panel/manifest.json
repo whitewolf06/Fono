@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "source_sha256": "76d7ea9fa5d30c425fba306cd11d81d43bf1d8841f6183db41d267771082154e",
+  "source_sha256": "38cf72624c77acb58dab13418d010bca3f521b1d67ce3b1d9f35023dafa7f555",
   "files": {
     "panel.js": "59eed19dfedc1d12677629b5716f89438d273a0be2c3df9ba876cdacfb12d706",
-    "panel.css": "09fb634cd4ba1546b19e6ade610840f99b68cf2392cf9db176cad78ab5f4d241",
+    "panel.css": "c5aeac6ebafac482d4f234b957402b806a39967b40c8dcf16df89a4e1629bca9",
     "index.html": "6b9a5e7b05288e7390d79be065d37988ebd7d29dc774e81bb76976d7d38bbb64"
   }
 }

@@ -7,11 +7,28 @@ import test from "node:test";
 import {
   CUDA_FILES,
   CUDA_NOTICES,
+  fileSigningEnvironment,
   validateCudaManifest,
   verifyCudaArchive,
 } from "./sign-cuda-package.mjs";
 import { signerFixture } from "./release-test-fixtures.mjs";
 import { verifyInstaller } from "./release-support.mjs";
+
+test("file signing unsets inherited key options, including empty and Windows-cased names", () => {
+  const source = {
+    PATH: "runtime-path",
+    TAURI_SIGNING_PRIVATE_KEY: "inherited-key",
+    TAURI_SIGNING_PRIVATE_KEY_PATH: "",
+    tauri_signing_private_key: "another-inherited-key",
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "key-password",
+  };
+  assert.deepEqual(fileSigningEnvironment(source), {
+    PATH: "runtime-path",
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "key-password",
+  });
+  assert.equal(source.TAURI_SIGNING_PRIVATE_KEY, "inherited-key");
+  assert.equal(source.TAURI_SIGNING_PRIVATE_KEY_PATH, "");
+});
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 function manifest(bytes = Buffer.from("archive fixture never executed")) {
