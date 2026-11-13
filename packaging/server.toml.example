@@ -32,6 +32,8 @@ shutdown_grace = "10s"
 
 [models]
 dir = "/var/lib/fono/models"
+# Default for models without explicit placement: auto (Vulkan or CPU).
+# device = "auto"
 default = "whisper:large_turbo"
 preload = ["whisper:large_turbo"]
 max_loaded = 2
@@ -40,7 +42,7 @@ client_model_load = false
 
 [[models.placement]]
 model = "whisper:large_turbo"
-device = "cpu" # The default build is CPU-only; the CUDA image also accepts cuda:N.
+device = "cpu" # Explicit portable CPU example. Use auto/vulkan for GPU, cuda:N in the CUDA image.
 residency = "resident" # The default model stays loaded to keep /healthz ready.
 
 [[models.placement]]

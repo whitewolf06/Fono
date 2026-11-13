@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "source_sha256": "38cf72624c77acb58dab13418d010bca3f521b1d67ce3b1d9f35023dafa7f555",
+  "source_sha256": "31b52e90f056d37ab1526b3b98cd2bdd291e2f9344a0f6bf03372f059d8d4468",
   "files": {
-    "panel.js": "59eed19dfedc1d12677629b5716f89438d273a0be2c3df9ba876cdacfb12d706",
+    "panel.js": "33abe7cc2ea56f4ef9cea4aad13ea277af9d4404b56a04df31bbd644542d6f0d",
     "panel.css": "c5aeac6ebafac482d4f234b957402b806a39967b40c8dcf16df89a4e1629bca9",
     "index.html": "6b9a5e7b05288e7390d79be065d37988ebd7d29dc774e81bb76976d7d38bbb64"
   }

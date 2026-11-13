@@ -1,4 +1,4 @@
-//! Fixed installed workers and device-scoped CUDA selection for the server.
+//! Installed GPU workers, physical device discovery and explicit placement.
 
 use std::fs::{self, File};
 use std::io::Read;
@@ -21,6 +21,97 @@ pub fn cuda_enabled() -> bool {
     ))
 }
 
+pub fn vulkan_enabled() -> bool {
+    cfg!(all(
+        target_os = "linux",
+        feature = "vulkan-worker",
+        not(feature = "cpu-only")
+    ))
+}
+
+pub fn vulkan_worker_path() -> Result<PathBuf, String> {
+    if !vulkan_enabled() {
+        return Err("Vulkan worker is unavailable in this build".into());
+    }
+    let executable = std::env::current_exe().map_err(|_| "Cannot locate server executable")?;
+    let path = executable
+        .parent()
+        .ok_or("Cannot locate server directory")?
+        .join("fono-stt-vulkan-worker");
+    validate_worker_path(&path).map_err(|_| "Vulkan worker installation is missing or unsafe")?;
+    Ok(path)
+}
+
+pub fn vulkan_worker_available() -> bool {
+    selected_vulkan_device().is_ok_and(|device| device.is_some())
+}
+
+pub fn vulkan_devices() -> Result<Vec<fono_stt::vulkan::VulkanDevice>, String> {
+    fono_stt::vulkan::devices(&vulkan_worker_path()?).map_err(|_| {
+        "Vulkan driver inventory is unavailable; check the driver and GPU device mapping".into()
+    })
+}
+
+pub fn selected_vulkan_device() -> Result<Option<fono_stt::vulkan::VulkanDevice>, String> {
+    fono_stt::vulkan::selected_device(&vulkan_worker_path()?)
+        .map_err(|_| "Selected Vulkan GPU or driver inventory is unavailable".into())
+}
+
+/// Parsing and token/model CLI operations remain independent of GPU drivers.
+/// Explicit backends never fall back; Auto is resolved before startup.
+pub fn resolve_auto_config(mut config: ServerConfig) -> Result<ServerConfig, String> {
+    let needs_auto = config.models.device == "auto"
+        || config
+            .models
+            .placement
+            .iter()
+            .any(|placement| placement.device == "auto");
+    if !needs_auto {
+        return Ok(config);
+    }
+    let device = if vulkan_enabled() && vulkan_worker_path().is_ok() {
+        if selected_vulkan_device()?.is_some() {
+            "vulkan"
+        } else {
+            "cpu"
+        }
+    } else {
+        "cpu"
+    };
+    resolve_auto_with_device(&mut config, device);
+    Ok(config)
+}
+
+fn resolve_auto_with_device(config: &mut ServerConfig, device: &str) {
+    if config.models.device == "auto" {
+        config.models.device = device.into();
+    }
+    for placement in &mut config.models.placement {
+        if placement.device == "auto" {
+            placement.device = if placement.model.starts_with("whisper:") {
+                device
+            } else {
+                "cpu"
+            }
+            .into();
+        }
+    }
+}
+
+pub fn device_for<'a>(config: &'a ServerConfig, model: &str) -> &'a str {
+    let explicit = config
+        .models
+        .placement
+        .iter()
+        .find(|entry| entry.model == model);
+    let device = explicit.map_or(config.models.device.as_str(), |entry| entry.device.as_str());
+    if device == "auto" || (explicit.is_none() && !model.starts_with("whisper:")) {
+        "cpu"
+    } else {
+        device
+    }
+}
+
 pub fn cuda_index(device: &str) -> Option<u32> {
     let index = device.strip_prefix("cuda:")?;
     if index.is_empty() || !index.bytes().all(|byte| byte.is_ascii_digit()) {
@@ -36,6 +127,7 @@ pub fn configured_cuda_devices(config: &ServerConfig) -> Vec<u32> {
         .placement
         .iter()
         .filter_map(|placement| cuda_index(&placement.device))
+        .chain(cuda_index(&config.models.device))
         .collect();
     indices.sort_unstable();
     indices.dedup();
@@ -157,6 +249,15 @@ pub fn worker_paths(config: &ServerConfig) -> Result<WorkerPaths, String> {
     if needs_cuda || (cuda_enabled() && installed_worker().is_ok()) {
         paths = paths.with_cuda_package(installed_worker()?);
     }
+    if config.models.device == "vulkan"
+        || config
+            .models
+            .placement
+            .iter()
+            .any(|placement| placement.device == "vulkan")
+    {
+        paths.vulkan = Some(vulkan_worker_path()?);
+    }
     if let Ok(executable) = std::env::current_exe() {
         if let Some(parent) = executable.parent() {
             let vad = parent.join("silero_vad.onnx");
@@ -266,6 +367,16 @@ pub fn cuda_devices() -> Result<Vec<CudaDevice>, String> {
 }
 
 pub fn validate_devices(config: &ServerConfig) -> Result<(), String> {
+    if (config.models.device == "vulkan"
+        || config
+            .models
+            .placement
+            .iter()
+            .any(|placement| placement.device == "vulkan"))
+        && selected_vulkan_device()?.is_none()
+    {
+        return Err("No supported discrete Vulkan GPU is available".into());
+    }
     let requested = configured_cuda_devices(config);
     if requested.is_empty() {
         return Ok(());
@@ -289,6 +400,40 @@ pub fn probe_worker(activity: Arc<dyn fono_stt::ActivityGuard>) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn automatic_placement_preserves_explicit_cuda_and_keeps_offline_models_on_cpu() {
+        let mut config = crate::config::parse_and_validate(
+            r#"
+[models]
+device = "auto"
+[[models.placement]]
+model = "whisper:tiny"
+device = "cuda:2"
+residency = "resident"
+[[models.placement]]
+model = "whisper:base"
+device = "cpu"
+residency = "resident"
+[[models.placement]]
+model = "giga_am:v3_e2e_rnnt_int8"
+device = "auto"
+residency = "resident"
+"#,
+        )
+        .unwrap();
+        resolve_auto_with_device(&mut config, "vulkan");
+        assert_eq!(device_for(&config, "whisper:large_turbo"), "vulkan");
+        assert_eq!(device_for(&config, "whisper:tiny"), "cuda:2");
+        assert_eq!(device_for(&config, "whisper:base"), "cpu");
+        assert_eq!(device_for(&config, "giga_am:v3_e2e_rnnt_int8"), "cpu");
+        assert_eq!(configured_cuda_devices(&config), vec![2]);
+    }
+    #[test]
+    fn auto_without_a_discrete_gpu_resolves_to_cpu() {
+        let mut config = crate::config::parse_and_validate("").unwrap();
+        resolve_auto_with_device(&mut config, "cpu");
+        assert_eq!(device_for(&config, "whisper:large_turbo"), "cpu");
+    }
     #[test]
     fn gpu_inventory_preserves_observed_values_and_rejects_invalid_metrics() {
         let devices = parse_devices("0, NVIDIA GeForce RTX 3060 Ti, 8192, 6944, 595.84\n").unwrap();

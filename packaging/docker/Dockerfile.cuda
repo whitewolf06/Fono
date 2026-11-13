@@ -19,7 +19,7 @@ ARG FONO_BUILD_REVISION=unknown
 ENV FONO_BUILD_REVISION=${FONO_BUILD_REVISION}
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=/src/src-tauri/target,sharing=locked \
+    --mount=type=cache,id=fono-cargo-ubuntu2204,target=/src/src-tauri/target,sharing=locked \
     bash packaging/docker/build-cuda.sh
 
 FROM nvidia/cuda:12.8.1-runtime-ubuntu22.04@sha256:4a801ef9232d2b05e69df4eb8aa054dbbe2824e5499e1e6e857320bb01ac41a9 AS runtime

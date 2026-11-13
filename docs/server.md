@@ -5,10 +5,37 @@ an API token. The [server panel](server-panel.md) shows real status, models,
 aggregate queues, API documentation and an audio-file request playground.
 
 Fono Server exposes [API v2](server-api.md) without Tauri, a microphone or a
-desktop session. The CUDA image runs Whisper in a supervised child process and
-keeps CPU Whisper and Sherpa offline recognition in the server process.
+desktop session. The default image uses a supervised Vulkan worker for Whisper
+on a suitable physical discrete GPU; CPU is available when no such GPU exists.
+CUDA remains an optional, separately built image. Both distributions keep the
+same API, model store and credentials format. Offline Sherpa models use CPU.
 
-## Requirements
+## Default Vulkan distribution
+
+Use `packaging/docker/Dockerfile.vulkan` and `server.profile-vulkan.toml`.
+`models.device = "auto"` selects a supported discrete Vulkan GPU, or CPU when
+none is available. Use `device = "vulkan"` to require the GPU explicitly and
+fail when it is unavailable. Per-model placements override the default.
+
+The worker requires Vulkan 1.2, compute queues and 16-bit storage-buffer access.
+It excludes CPU/software Vulkan and integrated GPUs from automatic selection.
+The image includes the loader and Mesa drivers, with no CUDA runtime layers.
+Expose the host's matching graphics driver and GPU: NVIDIA CDI needs graphics
+libraries as well as compute; AMD/Intel use `/dev/dri` and the render-node group.
+Actual NVIDIA hardware has been exercised; AMD/Intel acceptance remains open.
+
+The worker's `--devices-json` command reports physical adapters without loading
+a model. An installed loader or a successful protocol handshake alone does not
+establish GPU acceleration. Failed model load or GPU allocation is surfaced;
+Auto does not silently retry it on CPU.
+
+Model loading includes bounded internal warm-up before inference readiness.
+Compose persists shader cache in `fono-cache`, mounted at `/var/lib/fono/cache`.
+For manual runs mount that directory too; the image uses it as `XDG_CACHE_HOME`.
+Driver updates may invalidate cached shaders. Vulkan allocation-budget metrics
+are per process, so unavailable global free VRAM is omitted from metrics.
+
+## Optional CUDA distribution requirements
 
 - Linux x86_64, Ubuntu 22.04 or 24.04, Docker Engine 28.3 or newer and Compose v2
   or newer with CDI device support.
@@ -36,18 +63,18 @@ stage. The host does not need the CUDA toolkit.
 
 ## Build and configure
 
-The [0.9.0 release candidate](releases/0.9.0.md) includes this server and the
-Windows remote client. A local build is tagged `fono-server:0.9.0-cuda`.
-Image publication to `ghcr.io/whitewolf06/fono-server:0.9.0-cuda` is a separate
-operation; check the release page before pulling it. Existing deployments do
+The [0.9.0 release candidate](releases/0.9.0.md) contains the earlier CUDA server
+and Windows remote client. The new default Vulkan distribution is prepared
+after that candidate. Image publication is a separate operation; check the
+release page before pulling a tag. Existing deployments do
 not need to match the desktop's patch version: the client negotiates API v2
 and the selected model's capabilities.
 
 If you received a release image archive, load it and select its exact tag:
 
 ```sh
-docker load --input fono-server-0.9.0-cuda.tar.gz
-export FONO_IMAGE=fono-server:0.9.0-cuda
+docker load --input fono-server-0.9.1-vulkan.tar.gz
+export FONO_IMAGE=fono-server:0.9.1-vulkan
 ```
 
 The archive contains the image only. It does not include API keys, private
@@ -58,20 +85,25 @@ use the following commands instead.
 From the repository root:
 
 ```sh
-docker build -f packaging/docker/Dockerfile.cuda -t fono-server:cuda-local .
+docker build -f packaging/docker/Dockerfile.vulkan -t fono-server:vulkan-local .
 cd packaging/docker
-cp server.profile-a.toml server.toml
+cp server.profile-vulkan.toml server.toml
 install -d -m 700 credentials
 sudo chown 10001:10001 credentials
 docker compose -f compose.example.yml config --quiet
 ```
 
+For the optional CUDA distribution, build `Dockerfile.cuda` as
+`fono-server:cuda-local`, copy `server.profile-a.toml` to `server.toml`, and use
+both `-f compose.example.yml -f compose.cuda.example.yml` on every Compose
+command below. The CUDA configuration selects `cuda:0` explicitly. To use the
+frozen 0.9.0 candidate, keep its matching configuration from the release record.
+
 The image has a fixed UID/GID of **10001:10001**, an API healthcheck and a fixed
 worker path next to the server in `/usr/lib/fono`. Sherpa and Silero downloads
 are checked against pinned SHA-256 digests. The build invokes Cargo separately
-for the server and CUDA worker, preventing CUDA libraries from being linked
-into the server. CUDA build and runtime bases and the Rust toolchain image are
-pinned by digest.
+for the server and GPU worker, preventing GPU libraries from being linked into
+the server. Ubuntu/CUDA bases and the Rust toolchain images are pinned by digest.
 
 Build once before the initialization commands below, or pass `--build` to the
 first Compose run. This build includes native server contract tests and can
@@ -139,12 +171,16 @@ checks. See [the doctor guide](server-doctor.md) for checks, timeouts and
 as the certificate and key file checks.
 
 The service is non-root, has a read-only root filesystem, drops capabilities,
-and uses a bounded temporary filesystem. Only the model volume and private
-credential directory are persistent and writable. `restart: unless-stopped` applies after the
+and uses a bounded temporary filesystem. The model and shader-cache volumes and
+private credential directory are persistent and writable. `restart: unless-stopped` applies after the
 operator starts the service. Stop it with `docker compose -f compose.example.yml down`;
 the model volume and credentials are retained.
 
 ## Profiles and device placement
+
+The default Vulkan profile uses `models.device = "auto"`: a supported discrete
+Vulkan GPU, or CPU when none is available. The following A/B profiles belong to
+the optional CUDA image.
 
 Profile A keeps `whisper:large_turbo` resident on `cuda:0`. GigaAM v3 is an
 optional second CPU recognizer; install it before requesting its model ID:
@@ -174,10 +210,10 @@ configured for an explicit CUDA placement. A failed GPU worker produces
 Structured JSON logs and protected queue, timing, RTF and driver metrics are
 described in [the observability guide](server-observability.md).
 
-Run the reproducible CPU smoke against the CUDA image without GPU access:
+Run the reproducible CPU smoke against either image without GPU access:
 
 ```sh
-python3 scripts/smoke-server-container.py --image fono-server:cuda-local
+python3 scripts/smoke-server-container.py --image fono-server:vulkan-local
 ```
 
 Run this command from the repository root on Linux. It creates temporary
@@ -191,7 +227,9 @@ and tests only. Publication requires a manual `workflow_dispatch` on the exact
 `v<package.json version>` tag, `publish=true`, and the matching full commit SHA.
 Configure required reviewers for the `fono-server-release` GitHub environment.
 Only that separate publication job receives `packages: write`; it publishes
-the tested artifact as `:<version>-cuda` and `:cuda`. Creating the workflow or a
+each tested artifact as `:<version>-vulkan` / `:vulkan` and
+`:<version>-cuda` / `:cuda`. The default `:<version>` and `:latest` aliases
+point only to the tested Vulkan distribution. Creating the workflow or a
 local image does not publish to GHCR. Image signing and SBOM are subsequent work.
 
 For GPU acceptance, inspect `doctor`, capabilities, a real GPU recognition

@@ -143,6 +143,7 @@ impl ActivityGuard for ServerActivity {
 pub fn acceleration_for_device(device: &str) -> Result<AccelerationMode, String> {
     match device {
         "cpu" => Ok(AccelerationMode::Cpu),
+        "vulkan" if crate::backends::vulkan_enabled() => Ok(AccelerationMode::Vulkan),
         _ if crate::backends::cuda_enabled() && crate::backends::cuda_index(device).is_some() => {
             Ok(AccelerationMode::Cuda)
         }
@@ -153,6 +154,9 @@ pub fn acceleration_for_device(device: &str) -> Result<AccelerationMode, String>
 fn scheduler_device(device: &str) -> SttResult<DeviceId> {
     if device == "cpu" {
         return Ok(DeviceId::Cpu);
+    }
+    if device == "vulkan" && crate::backends::vulkan_enabled() {
+        return Ok(DeviceId::Vulkan);
     }
     crate::backends::cuda_index(device)
         .map(DeviceId::Cuda)
@@ -372,7 +376,13 @@ fn server_model_scheduler(
     if configured_cpu_parallel == 0 {
         return Err(SttError::Config("cpu_parallel must be positive".into()));
     }
-    DeviceScheduler::new(1, cuda_devices).map(Arc::new)
+    DeviceScheduler::new(1, cuda_devices).map(|scheduler| {
+        Arc::new(if crate::backends::vulkan_enabled() {
+            scheduler.with_vulkan_device()
+        } else {
+            scheduler
+        })
+    })
 }
 
 /// Keep a device slot only for the current inference window. The segmented
@@ -776,6 +786,7 @@ impl ServerJobs {
                     .into_iter()
                     .map(DeviceId::Cuda),
             )
+            .chain(crate::backends::vulkan_enabled().then_some(DeviceId::Vulkan))
             .filter_map(|device| self.runtime.scheduler.status(device))
             .map(|status| status.queued_interactive)
             .sum()

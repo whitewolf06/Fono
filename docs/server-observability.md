@@ -87,6 +87,13 @@ blocking worker, outside HTTP handling. A failed sample removes memory series
 instead of inventing zero free memory. These are host GPU measurements, not
 Fono worker allocations or a promise about a concurrent LLM's memory budget.
 
+Vulkan builds sample the selected physical adapter through the worker's bounded
+inventory command and label the memory series `device="vulkan"`. Total device
+memory is observed. Global free VRAM remains absent when it is unknown;
+`VK_EXT_memory_budget` is a per-process allocation budget and is not substituted
+for that value. Doctor exposes both the physical-device classification and the
+separately named allocation budget.
+
 Metrics reset on process restart and are independent of log level. Scraping
 `/metrics` itself is counted when its handler completes, after that scrape's
 snapshot. No logging setting changes authentication, model placement, scheduler

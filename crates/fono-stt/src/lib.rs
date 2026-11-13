@@ -19,6 +19,7 @@ mod paths;
 mod recognizer;
 pub mod remote;
 mod routing;
+pub mod vulkan;
 mod worker;
 use paths::EngineCandidate;
 pub use paths::WorkerPaths;
@@ -417,7 +418,12 @@ impl SttEngine {
                         return Err(self.pending_load_error(valid));
                     }
                     errors.push(error.to_string());
-                    if acceleration != AccelerationMode::Auto {
+                    if acceleration != AccelerationMode::Auto
+                        || !matches!(
+                            error,
+                            AppError::BackendUnavailable(RecognitionBackend::Vulkan)
+                        )
+                    {
                         break;
                     }
                 }

@@ -1,6 +1,7 @@
 // The same process contract runs against both shipped worker implementations.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -18,6 +19,24 @@ const responseLimit = 1024 * 1024;
 
 export async function workerContract(executable, backend) {
   assert.ok(["cuda", "vulkan", "cpu"].includes(backend));
+  if (backend === "vulkan") {
+    const { stdout } = await promisify(execFile)(
+      path.resolve(executable),
+      ["--devices-json"],
+      {
+        cwd: path.dirname(path.resolve(executable)),
+        windowsHide: true,
+        encoding: "utf8",
+        timeout: 15_000,
+        maxBuffer: 65_536,
+      },
+    );
+    const inventory = JSON.parse(stdout);
+    assert.equal(inventory.schema_version, 1);
+    assert.ok(Array.isArray(inventory.devices));
+    assert.equal(inventory.gpu_policy, "discrete_only");
+    assert.deepEqual(inventory.load_warmup, ["classic", "windowed"]);
+  }
   const child = spawn(path.resolve(executable), [], {
     cwd: path.dirname(path.resolve(executable)),
     windowsHide: true,
@@ -28,6 +47,8 @@ export async function workerContract(executable, backend) {
     failure;
   const responses = [],
     cases = [];
+  if (backend === "vulkan")
+    cases.push("physical_inventory_and_load_warmup_contract");
   const fail = (error) => {
     failure ??= error;
     if (waiting) {
@@ -208,7 +229,7 @@ export async function workerContract(executable, backend) {
       cases,
       passed: true,
       scope:
-        "process framing/control; no model load, inference, microphone or GPU quality acceptance",
+        "process framing/control and Vulkan inventory; no model load, inference, microphone or GPU quality acceptance",
     };
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill();

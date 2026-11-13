@@ -35,22 +35,28 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [vulkan, cuda]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+          submodules: recursive
       - name: Verify publication policy
         run: node --test scripts/server-container-workflow.test.mjs
       - name: Make room for the CUDA build on the disposable hosted runner
         run: |
           sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet
           df -h /
-      - name: Build CUDA image and native contracts
+      - name: Build selected image and native contracts
         env:
           REVISION: ${{ github.sha }}
+          BACKEND: ${{ matrix.backend }}
         run: |
           docker build --build-arg FONO_BUILD_REVISION="$REVISION" --build-arg BUILD_JOBS=4 \
-            -f packaging/docker/Dockerfile.cuda -t fono-server:verified .
+            -f "packaging/docker/Dockerfile.$BACKEND" -t fono-server:verified .
       - name: CPU API smoke without GPU
         run: python3 scripts/smoke-server-container.py --image fono-server:verified
       - name: Save tested image
@@ -59,7 +65,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         with:
-          name: fono-server-tested-image
+          name: fono-server-tested-image-${{ matrix.backend }}
           path: fono-server-tested.tar.gz
           retention-days: 1
           compression-level: 0
@@ -69,6 +75,10 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     environment: fono-server-release
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [vulkan, cuda]
     permissions:
       contents: read
       packages: write
@@ -94,16 +104,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}
           GH_REPO: ${{ github.repository }}
-        run: gh run download "$RUN_ID" --name fono-server-tested-image
+          BACKEND: ${{ matrix.backend }}
+        run: gh run download "$RUN_ID" --name "fono-server-tested-image-$BACKEND"
       - name: Publish tested image
         env:
           GH_TOKEN: ${{ github.token }}
           GH_ACTOR: ${{ github.actor }}
           VERSION: ${{ steps.version.outputs.version }}
+          BACKEND: ${{ matrix.backend }}
         run: |
           gzip -dc fono-server-tested.tar.gz | docker load
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GH_ACTOR" --password-stdin
-          docker tag fono-server:verified "ghcr.io/whitewolf06/fono-server:$VERSION-cuda"
-          docker tag fono-server:verified ghcr.io/whitewolf06/fono-server:cuda
-          docker push "ghcr.io/whitewolf06/fono-server:$VERSION-cuda"
-          docker push ghcr.io/whitewolf06/fono-server:cuda
+          docker tag fono-server:verified "ghcr.io/whitewolf06/fono-server:$VERSION-$BACKEND"
+          docker tag fono-server:verified "ghcr.io/whitewolf06/fono-server:$BACKEND"
+          docker push "ghcr.io/whitewolf06/fono-server:$VERSION-$BACKEND"
+          docker push "ghcr.io/whitewolf06/fono-server:$BACKEND"
+          if [ "$BACKEND" = vulkan ]; then
+            docker tag fono-server:verified "ghcr.io/whitewolf06/fono-server:$VERSION"
+            docker tag fono-server:verified ghcr.io/whitewolf06/fono-server:latest
+            docker push "ghcr.io/whitewolf06/fono-server:$VERSION"
+            docker push ghcr.io/whitewolf06/fono-server:latest
+          fi

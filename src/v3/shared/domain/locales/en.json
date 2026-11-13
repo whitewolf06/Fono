@@ -229,7 +229,7 @@
   "ui.004bee73d9": "CUDA is unavailable in this build.",
   "ui.b19128b679": "Verifying the signed CUDA package…",
   "ui.67c88d72c8": "NVIDIA CUDA acceleration",
-  "ui.31a6a5c909": "CUDA is downloaded separately. Until installed, Auto uses Vulkan or the CPU.",
+  "ui.31a6a5c909": "CUDA is an optional package selected manually. Auto uses Vulkan, or the CPU when no suitable discrete GPU is available.",
   "ui.962fac93a6": "An NVIDIA GPU was found. You can install the CUDA package for local recognition.",
   "ui.3dc37e1b4c": "Downloading CUDA package",
   "ui.db491ef503": "Downloading…",

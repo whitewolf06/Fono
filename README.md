@@ -22,7 +22,10 @@ listed in [GitHub Releases](https://github.com/whitewolf06/Fono/releases).
   Server mode does not load local speech-model weights; a local CPU reserve is
   used only when explicitly configured or selected after a failure.
 - CPU and Vulkan in the base installer; a separately signed CUDA package
-  installed explicitly from audio settings. Auto uses available backends.
+  installed explicitly from audio settings. Auto uses Vulkan on a suitable
+  discrete GPU, or CPU when none is available; CUDA is selected manually.
+  Fono Server has separate Vulkan and CUDA Docker distributions; see
+  [the GPU distribution decision](docs/adr/0006-vulkan-default-optional-cuda.md).
 - **“Привет, Лира” voice activation — beta.** Enable it explicitly and wait for
   the ready sound or indicator before dictating. Wake latency and recognition
   across different voices still need improvement.

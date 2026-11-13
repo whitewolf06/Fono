@@ -72,7 +72,9 @@ pub struct Report {
     pub product_version: &'static str,
     pub ready: bool,
     pub cuda_build: bool,
+    pub vulkan_build: bool,
     pub devices: Vec<backends::CudaDevice>,
+    pub vulkan_devices: Vec<fono_stt::vulkan::VulkanDevice>,
     pub models: Vec<ModelCheck>,
     pub workers: Vec<WorkerCheck>,
     pub storage: Vec<Storage>,
@@ -86,7 +88,9 @@ impl Report {
             product_version: env!("FONO_PRODUCT_VERSION"),
             ready: false,
             cuda_build: backends::cuda_enabled(),
+            vulkan_build: backends::vulkan_enabled(),
             devices: Vec::new(),
+            vulkan_devices: Vec::new(),
             models: Vec::new(),
             workers: Vec::new(),
             storage: Vec::new(),
@@ -118,6 +122,16 @@ impl Report {
 }
 
 pub fn inspect(config: &ServerConfig, config_path: &Path, options: Options) -> Report {
+    let resolved = match backends::resolve_auto_config(config.clone()) {
+        Ok(config) => config,
+        Err(_) => {
+            let mut report = Report::new();
+            report.check("automatic_device", true, false, "Cannot resolve automatic GPU selection",
+                "Check the Vulkan worker, graphics driver and physical GPU mapping; select cpu explicitly for a CPU-only host.");
+            return report;
+        }
+    };
+    let config = &resolved;
     let mut report = inspect_preflight(config);
     if options.skip_self_test {
         report.check(
@@ -304,4 +318,33 @@ fn inspect_workers(config: &ServerConfig, report: &mut Report) {
         },
         "Use the matching CUDA image/worker and expose the NVIDIA driver libraries through CDI.",
     );
+    let needs_vulkan = config.models.device == "vulkan"
+        || config
+            .models
+            .placement
+            .iter()
+            .any(|placement| placement.device == "vulkan");
+    if backends::vulkan_enabled() || needs_vulkan {
+        let selected = backends::selected_vulkan_device();
+        let ok = selected.as_ref().is_ok_and(|device| device.is_some());
+        if let Ok(devices) = backends::vulkan_devices() {
+            report.vulkan_devices = devices;
+        }
+        report.workers.push(WorkerCheck {
+            device: "vulkan".into(),
+            ok,
+        });
+        report.check("vulkan_device", needs_vulkan, ok,
+            if ok { "Supported physical discrete Vulkan GPU observed" } else { "No supported discrete Vulkan GPU is available" },
+            "Expose the GPU and its Vulkan ICD; software Vulkan/llvmpipe is not GPU acceleration. Use the Vulkan image for automatic selection.");
+        let persistent_cache = fono_stt::vulkan::cache_directory().is_some_and(|directory| {
+            std::fs::create_dir_all(&directory).is_ok()
+                && directory
+                    .metadata()
+                    .is_ok_and(|metadata| metadata.is_dir() && !metadata.permissions().readonly())
+        });
+        report.check("vulkan_shader_cache", false, persistent_cache,
+            if persistent_cache { "Vulkan shader-cache directory is available" } else { "Persistent shader-cache directory is unavailable" },
+            "Mount a writable persistent XDG_CACHE_HOME; model warm-up runs before inference readiness.");
+    }
 }

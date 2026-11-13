@@ -129,3 +129,24 @@ fn blocked_log_consumer_drops_events_without_blocking_inference_threads() {
     drop(resume_tx);
     guard.finish();
 }
+
+#[test]
+fn vulkan_allocation_budget_is_not_reported_as_adapter_free_vram() {
+    let telemetry = Observability::default();
+    telemetry.observe_vulkan_gpu(Some(fono_stt::vulkan::VulkanDevice {
+        index: 0,
+        name: "private GPU name".into(),
+        uuid: "00112233445566778899aabbccddeeff".into(),
+        driver: "fixture".into(),
+        discrete: true,
+        supported: true,
+        memory_total_bytes: 8192,
+        memory_free_bytes: None,
+        memory_budget_free_bytes: Some(8000),
+    }));
+    let mut output = String::new();
+    telemetry.render(&mut output);
+    assert!(output.contains("fono_gpu_memory_total_bytes{device=\"vulkan\"} 8192\n"));
+    assert!(!output.contains("fono_gpu_memory_free_bytes{device="));
+    assert!(!output.contains("private GPU name"));
+}

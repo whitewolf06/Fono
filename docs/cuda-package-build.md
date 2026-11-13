@@ -6,6 +6,10 @@ not sign them, publish a release, install a package, or prove GPU operation.
 
 ## Base resources
 
+Vulkan is the default GPU backend. Installing this optional package does not
+switch Auto to CUDA: users select CUDA explicitly. The package, its signing
+contract and isolated worker remain supported. See [ADR 0006](adr/0006-vulkan-default-optional-cuda.md).
+
 `prepare-release-resources.ps1` builds Vulkan with `-SkipCuda`, then calls
 `cuda-package.py stage-base`. The raw build directory
 `src-tauri/resources/stt-workers/` can retain CUDA products from another build.

@@ -227,7 +227,7 @@ onUnmounted(() => panel.dispose());
                 v-for="device in state.capabilities?.devices"
                 :key="device.id"
               >
-                <AppIcon :name="device.kind === 'cuda' ? 'chart' : 'server'" />
+                <AppIcon :name="device.kind === 'cpu' ? 'server' : 'chart'" />
                 <div>
                   <strong>{{ device.name || device.id }}</strong
                   ><span class="panel-muted"

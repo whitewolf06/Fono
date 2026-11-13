@@ -1,15 +1,16 @@
 services:
   fono:
-    image: ${FONO_IMAGE:-fono-server:cuda-local}
+    image: ${FONO_IMAGE:-fono-server:vulkan-local}
     build:
       context: ../..
-      dockerfile: packaging/docker/Dockerfile.cuda
+      dockerfile: packaging/docker/Dockerfile.vulkan
     # Default publication is local. For LAN set FONO_BIND_IP to the private IP
     # and add that exact IP to server.toml's allowed_hosts.
     ports:
       - "${FONO_BIND_IP:-127.0.0.1}:17832:17832"
     volumes:
       - fono-models:/var/lib/fono/models
+      - fono-cache:/var/lib/fono/cache
       - type: bind
         source: ./server.toml
         target: /etc/fono/server.toml
@@ -26,7 +27,9 @@ services:
           create_host_path: false
     environment:
       FONO_SERVER_TOKENS_FILE: /etc/fono/credentials/tokens
-    # Docker Engine >=28.3 with a generated NVIDIA CDI specification.
+    # NVIDIA: the CDI specification must expose graphics/Vulkan driver files.
+    # For AMD/Intel replace this mapping with /dev/dri:/dev/dri and grant the
+    # container user the host render-node group. See docs/server.md.
     devices:
       - "nvidia.com/gpu=all"
     init: true
@@ -46,3 +49,4 @@ services:
 
 volumes:
   fono-models: {}
+  fono-cache: {}

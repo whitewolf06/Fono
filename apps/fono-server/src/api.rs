@@ -285,6 +285,19 @@ async fn capabilities(Extension(state): Extension<Arc<ApiState>>, headers: Heade
             }));
         }
     }
+    if crate::backends::vulkan_enabled() {
+        if let Ok(Ok(Some(gpu))) =
+            tokio::task::spawn_blocking(crate::backends::selected_vulkan_device).await
+        {
+            devices.push(Device {
+                id: "vulkan".into(),
+                kind: "vulkan",
+                threads: None,
+                name: Some(gpu.name),
+                memory_total_mb: Some(gpu.memory_total_bytes / 1024 / 1024),
+            });
+        }
+    }
     Json(Capabilities {
         product: "fono-server",
         version: env!("FONO_PRODUCT_VERSION"),
@@ -384,13 +397,7 @@ fn inventory(state: &ApiState) -> Result<ModelList, ApiError> {
         if row.state == DiskState::Missing && reservation.is_none() {
             continue;
         }
-        let configured_device = state
-            .config
-            .models
-            .placement
-            .iter()
-            .find(|placement| placement.model == public_id)
-            .map_or("cpu", |placement| placement.device.as_str());
+        let configured_device = crate::backends::device_for(&state.config, &public_id);
         let (model_state, device) = match health {
             Some(SttHealth::Ready { device }) => (
                 "ready",

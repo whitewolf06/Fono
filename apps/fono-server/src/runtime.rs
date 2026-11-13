@@ -170,6 +170,10 @@ async fn serve_observed(
     shutdown: impl Future<Output = ()> + Send,
     observability: Arc<Observability>,
 ) -> Result<(), RuntimeError> {
+    let config = tokio::task::spawn_blocking(move || crate::backends::resolve_auto_config(config))
+        .await
+        .map_err(|_| RuntimeError::Task("Automatic device discovery task failed"))?
+        .map_err(RuntimeError::Model)?;
     let mut shutdown = Box::pin(shutdown);
     let tls = match config.tls.clone() {
         None => None,
@@ -343,10 +347,14 @@ async fn serve_observed(
             loop {
                 tokio::select! {
                     _ = &mut maintenance_stop_rx => break,
-                    _ = gpu_tick.tick(), if crate::backends::cuda_enabled() => {
+                    _ = gpu_tick.tick(), if crate::backends::cuda_enabled() || crate::backends::vulkan_enabled() => {
                         let sampler = observability.clone();
                         if tokio::task::spawn_blocking(move || {
-                            sampler.observe_gpu(crate::backends::cuda_devices().ok());
+                            if crate::backends::vulkan_enabled() {
+                                sampler.observe_vulkan_gpu(crate::backends::selected_vulkan_device().ok().flatten());
+                            } else {
+                                sampler.observe_gpu(crate::backends::cuda_devices().ok());
+                            }
                         }).await.is_err() { observability.observe_gpu(None); }
                     }
                     _ = tick.tick() => {

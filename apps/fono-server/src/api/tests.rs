@@ -1,4 +1,20 @@
 use super::*;
+
+#[test]
+fn discovery_schema_includes_every_shipped_backend_class() {
+    let schema: serde_json::Value = serde_json::from_str(OPENAPI).unwrap();
+    let kinds = schema["components"]["schemas"]["Capabilities"]["properties"]["devices"]["items"]
+        ["properties"]["kind"]["enum"]
+        .as_array()
+        .unwrap();
+    for backend in [
+        fono_stt_protocol::BackendKind::Cpu,
+        fono_stt_protocol::BackendKind::Cuda,
+        fono_stt_protocol::BackendKind::Vulkan,
+    ] {
+        assert!(kinds.contains(&serde_json::to_value(backend).unwrap()));
+    }
+}
 use axum::body::{to_bytes, Body};
 use axum::http::Request;
 use axum::middleware;

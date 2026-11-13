@@ -67,8 +67,18 @@ void reader(const std::shared_ptr<Control> & control) {
     for (const auto & entry : control->cancellations) { entry.second->store(true); }
     control->changed.notify_all();
 }
-int main() {
+int main(int argc, char ** argv) {
     std::ios::sync_with_stdio(false);
+    if (argc == 2 && std::string(argv[1]) == "--devices-json") {
+        try { std::cout << adapter_inventory().dump() << '\n'; return 0; }
+        catch (const VulkanDriverUnavailable &) {
+            std::cout << json{{"schema_version", 1}, {"devices", json::array()}, {"driver_available", false},
+                {"gpu_policy", "discrete_only"}, {"load_warmup", {"classic", "windowed"}}}.dump() << '\n';
+            return 0;
+        }
+        catch (const std::exception &) { std::cerr << "Vulkan driver inventory is unavailable\n"; return 1; }
+    }
+    if (argc != 1) { return 2; }
     auto control = std::make_shared<Control>();
     std::thread(reader, control).detach();
     std::optional<LoadedModel> loaded;
@@ -84,6 +94,8 @@ int main() {
         try {
             auto response = handle(job.request, loaded, *job.cancelled);
             output(control, response.first); shutdown = response.second;
+        } catch (const NoVulkanGpu & error) {
+            output(control, worker_error(job.request.value("request_id", "unparsed"), "gpu_unavailable", error.what()));
         } catch (const std::exception & error) {
             output(control, worker_error(job.request.value("request_id", "unparsed"), "transcribe", error.what()));
         }

@@ -42,7 +42,9 @@ serde_json = { workspace = true }
 futures-util = { workspace = true }
 
 [features]
-default = ["cpu-only"]
+default = ["vulkan-worker"]
 cpu-only = ["fono-stt/cpu-only"]
 # Process-isolated CUDA: the server itself does not link the CUDA toolkit.
 cuda-worker = []
+# Process-isolated Vulkan; the server does not link a graphics driver.
+vulkan-worker = []

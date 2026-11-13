@@ -1,0 +1,27 @@
+# Auto selects a supported physical discrete Vulkan GPU. CPU is used when none
+# is available. Select device = "vulkan" to require GPU and fail without it.
+[server]
+bind = "0.0.0.0:17832"
+allowed_hosts = ["localhost", "127.0.0.1"]
+trusted_private_network = true
+tokens_file = "/etc/fono/tokens"
+max_upload_mb = 100
+max_audio_seconds = 300
+body_read_timeout = "60s"
+shutdown_grace = "10s"
+
+[models]
+dir = "/var/lib/fono/models"
+device = "auto"
+default = "whisper:large_turbo"
+preload = ["whisper:large_turbo"]
+max_loaded = 2
+client_model_load = false
+
+[queue]
+max_queued = 32
+max_inflight_per_token = 2
+cpu_parallel = 2
+
+[metrics]
+enabled = false

@@ -1,0 +1,7 @@
+# Optional CUDA distribution. Use with compose.example.yml and the CUDA profile:
+# docker compose -f compose.example.yml -f compose.cuda.example.yml up -d --build
+services:
+  fono:
+    image: ${FONO_IMAGE:-fono-server:cuda-local}
+    build:
+      dockerfile: packaging/docker/Dockerfile.cuda

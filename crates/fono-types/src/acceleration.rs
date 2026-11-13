@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Preferred Whisper acceleration. `Auto` uses the GPU backend compiled into
-/// this release (CUDA or Vulkan) and falls back to CPU when there is none.
+/// Preferred Whisper acceleration. `Auto` prefers available Vulkan. Installing
+/// the optional CUDA package never enables CUDA without explicit selection.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AccelerationMode {
@@ -18,7 +18,7 @@ impl AccelerationMode {
     pub fn use_gpu(self, capabilities: AccelerationCapabilities) -> bool {
         match self {
             Self::Cpu => false,
-            Self::Auto => capabilities.cuda || capabilities.vulkan,
+            Self::Auto => capabilities.vulkan,
             Self::Cuda => capabilities.cuda,
             Self::Vulkan => capabilities.vulkan,
         }
@@ -50,7 +50,7 @@ mod tests {
             vulkan: true,
         };
         assert!(!AccelerationMode::Auto.use_gpu(cpu));
-        assert!(AccelerationMode::Auto.use_gpu(cuda));
+        assert!(!AccelerationMode::Auto.use_gpu(cuda));
         assert!(AccelerationMode::Auto.use_gpu(vulkan));
         assert!(AccelerationMode::Cuda.use_gpu(cuda));
         assert!(!AccelerationMode::Cuda.use_gpu(vulkan));
