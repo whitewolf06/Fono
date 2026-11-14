@@ -86,26 +86,16 @@ impl WorkerPaths {
                 AccelerationMode::Cuda | AccelerationMode::Vulkan => Vec::new(),
             };
         }
-        let embedded_gpu = gpu_backend_compiled();
         match mode {
             AccelerationMode::Auto => {
                 let mut candidates = Vec::new();
-                if let Some(path) = self.cuda.as_ref() {
-                    candidates.push(EngineCandidate::Worker {
-                        backend: BackendKind::Cuda,
-                        path: path.clone(),
-                        package: self.cuda_package.clone().map(Box::new),
-                    });
-                }
+                // Installing the optional CUDA package never changes Auto.
                 if let Some(path) = self.vulkan.as_ref() {
                     candidates.push(EngineCandidate::Worker {
                         backend: BackendKind::Vulkan,
                         path: path.clone(),
                         package: None,
                     });
-                }
-                if embedded_gpu {
-                    candidates.push(EngineCandidate::Embedded { use_gpu: true });
                 }
                 candidates.push(EngineCandidate::Embedded { use_gpu: false });
                 candidates

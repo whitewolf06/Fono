@@ -646,12 +646,32 @@ fn recovery_fixture_with_worker(
     Arc<crate::SttEngine>,
     Arc<Mutex<Option<crate::RecoverySelection>>>,
 ) {
+    recovery_fixture_for_backend(fixture, BackendKind::Cuda)
+}
+
+#[cfg(windows)]
+fn recovery_fixture_for_backend(
+    fixture: WorkerFixture,
+    backend: BackendKind,
+) -> (
+    WorkerFixture,
+    Arc<crate::SttEngine>,
+    Arc<Mutex<Option<crate::RecoverySelection>>>,
+) {
     let model_path = fixture.directory.join("fixture-model.bin");
     fs::write(&model_path, []).unwrap();
     let selection = crate::RecoverySelection {
         model_path: model_path.clone(),
-        acceleration: crate::types::AccelerationMode::Cuda,
-        worker_paths: crate::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None),
+        acceleration: if backend == BackendKind::Vulkan {
+            crate::types::AccelerationMode::Vulkan
+        } else {
+            crate::types::AccelerationMode::Cuda
+        },
+        worker_paths: if backend == BackendKind::Vulkan {
+            crate::WorkerPaths::for_test_workers(None, Some(fixture.script.clone()))
+        } else {
+            crate::WorkerPaths::for_test_workers(Some(fixture.script.clone()), None)
+        },
     };
     let provider = Arc::new(Mutex::new(Some(selection.clone())));
     let selected = provider.clone();
@@ -973,11 +993,16 @@ fn explicit_acceleration_change_replaces_compatible_worker_and_recovers_saved_se
     // This fixture has no request after Load until explicit cleanup. Do not
     // model Shutdown with a cmd `set /p` counter: an independently delivered
     // trailing newline could advance that counter without a third JSON frame.
-    let (_fixture, engine, provider) = recovery_fixture(":hang\r\ngoto hang");
+    let fixture = WorkerFixture::create(":hang\r\ngoto hang");
+    let script = fs::read_to_string(&fixture.script)
+        .unwrap()
+        .replace("\"backend\":\"cuda\"", "\"backend\":\"vulkan\"");
+    fs::write(&fixture.script, script).unwrap();
+    let (_fixture, engine, provider) = recovery_fixture_for_backend(fixture, BackendKind::Vulkan);
     let mut selected = provider.lock().clone().unwrap();
     for acceleration in [
         crate::types::AccelerationMode::Auto,
-        crate::types::AccelerationMode::Cuda,
+        crate::types::AccelerationMode::Vulkan,
     ] {
         let old_generation = engine.generation.load(Ordering::Acquire);
         engine

@@ -18,6 +18,7 @@ use crate::error::{SttError, SttResult};
 pub enum DeviceId {
     Cpu,
     Cuda(u32),
+    Vulkan,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -139,6 +140,16 @@ impl DeviceScheduler {
             }),
             changed: Condvar::new(),
         })
+    }
+
+    /// One physical Vulkan adapter selected by the worker. Its own lane keeps
+    /// interactive/API inference within the device's admission capacity.
+    pub fn with_vulkan_device(mut self) -> Self {
+        self.state
+            .get_mut()
+            .lanes
+            .insert(DeviceId::Vulkan, DeviceLane::new(1));
+        self
     }
 
     pub fn status(&self, device: DeviceId) -> Option<DeviceQueueStatus> {

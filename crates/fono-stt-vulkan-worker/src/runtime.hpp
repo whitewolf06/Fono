@@ -5,6 +5,9 @@
 #include "timestamps.hpp"
 #include "decoding.hpp"
 #include "prompt.hpp"
+#include "devices.hpp"
+#include "ggml-vulkan.h"
+#include <filesystem>
 #include <atomic>
 #include <chrono>
 #include <cctype>
@@ -29,13 +32,47 @@ inline json worker_error(const std::string & request_id, const std::string & cod
     return {{"type", "error"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", request_id}, {"operation_id", operation_id.empty() ? json(nullptr) : json(operation_id)}, {"code", code}, {"message", message}};
 }
 
-inline bool ensure_model(const std::string & path, std::optional<LoadedModel> & loaded) {
+inline bool ensure_model(const std::string & path, std::optional<LoadedModel> & loaded, std::atomic_bool & cancelled) {
     if (loaded && loaded->path == path) { return true; }
     if (path.empty()) { return false; }
+    const auto device = select_vulkan_adapter();
+    pin_vulkan_adapter(device);
+    // Admit the weights plus a minimum reserve; runtime allocation can still
+    // fail and must be surfaced rather than silently falling back to CPU.
+    std::error_code size_error;
+    const auto bytes = std::filesystem::file_size(path, size_error);
+    if (!size_error && device.free && (*device.free < bytes || *device.free - bytes < 256 * 1024 * 1024)) {
+        throw std::runtime_error("Insufficient Vulkan GPU memory for model weights and reserve");
+    }
+    if (ggml_backend_vk_get_device_count() != 1) { throw std::runtime_error("Selected Vulkan GPU is unavailable"); }
+    auto backend = ggml_backend_vk_init(0);
+    if (!backend) { throw std::runtime_error("Cannot initialize selected Vulkan GPU"); }
+    ggml_backend_free(backend);
     auto params = whisper_context_default_params();
     params.use_gpu = true;
+    params.gpu_device = 0;
     std::unique_ptr<whisper_context, WhisperDeleter> context(whisper_init_from_file_with_params(path.c_str(), params));
     if (!context) { return false; }
+    // Compile first-inference pipelines before model_loaded/readiness. This
+    // stays internal: no VAD, history, user transcript or external insertion.
+    auto warm = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    warm.n_threads = std::min(8, std::max(1, static_cast<int>(std::thread::hardware_concurrency())));
+    warm.no_context = true;
+    warm.print_progress = false; warm.print_realtime = false;
+    warm.print_timestamps = false; warm.print_special = false;
+    warm.max_tokens = 32; warm.language = "en";
+    warm.no_speech_thold = 1.0f;
+    warm.abort_callback = [](void * signal) { return static_cast<std::atomic_bool *>(signal)->load(); };
+    warm.abort_callback_user_data = &cancelled;
+    std::vector<float> silence(16000, 0.0f);
+    // Classic and segmented/API recognition use different prompt lengths and
+    // timestamp graphs. Warm both before publishing the model as ready.
+    for (const bool timed : {false, true}) {
+        warm.single_segment = !timed;
+        warm.no_timestamps = !timed;
+        warm.token_timestamps = timed;
+        if (whisper_full(context.get(), warm, silence.data(), static_cast<int>(silence.size())) != 0 || cancelled.load()) { return false; }
+    }
     loaded = LoadedModel{path, std::move(context), {}};
     return true;
 }
@@ -63,7 +100,7 @@ inline json transcribe(const json & request, std::optional<LoadedModel> & loaded
     if (!samples) { return worker_error(id, "audio", audio_error, operation); }
     if (timed && samples->size() > 30 * 16000) { return worker_error(id, "audio", "window exceeds 30 seconds", operation); }
     if (cancelled.load()) { return worker_error(id, "cancelled", "request cancelled", operation); }
-    if (!ensure_model(request.value("model_path", ""), loaded)) { return worker_error(id, "model_load", "could not load Whisper model", operation); }
+    if (!ensure_model(request.value("model_path", ""), loaded, cancelled)) { return worker_error(id, "model_load", "could not load or warm Whisper model", operation); }
     loaded->pcm.clear();
     for (const auto sample : *samples) { loaded->pcm.push_back(static_cast<float>(sample) / 32768.0f); }
     auto params = whisper_full_default_params(decoding->accurate ? WHISPER_SAMPLING_BEAM_SEARCH : WHISPER_SAMPLING_GREEDY);
@@ -127,7 +164,7 @@ inline std::pair<json, bool> handle(const json & request, std::optional<LoadedMo
     if (type == "hello") { return {{{"type", "ready"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", id}, {"backend", "vulkan"}, {"capabilities", {{"protocol_version", PROTOCOL_VERSION}, {"supports_health", true}, {"supports_shutdown", true}, {"supports_window", true}, {"supports_cancel", true}, {"supports_token_timestamps", true}, {"supports_decoding_options", true}, {"maximum_request_bytes", MAX_REQUEST_FRAME_BYTES}, {"maximum_response_bytes", MAX_RESPONSE_FRAME_BYTES}}}}, false}; }
     if (type == "ping") { return {{{"type", "pong"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", id}, {"backend", "vulkan"}}, false}; }
     if (type == "load") {
-        if (!ensure_model(request.value("model_path", ""), loaded)) { return {worker_error(id, "model_load", "could not load Whisper model"), false}; }
+        if (!ensure_model(request.value("model_path", ""), loaded, cancelled)) { return {worker_error(id, "model_load", "could not load or warm Whisper model"), false}; }
         return {{{"type", "model_loaded"}, {"protocol_version", PROTOCOL_VERSION}, {"request_id", id}, {"backend", "vulkan"}}, false};
     }
     if (type == "transcribe" || type == "transcribe_window") { return {transcribe(request, loaded, cancelled), false}; }

@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+# Default server: Vulkan + CPU, with no CUDA toolkit or CUDA runtime layers.
+ARG UBUNTU_IMAGE=ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5
+FROM rust:1.96.1-bookworm@sha256:a339861ae23e9abb272cea45dfafde21760d2ce6577a70f8a926153677902663 AS rust-toolchain
+FROM ${UBUNTU_IMAGE} AS build
+ENV DEBIAN_FRONTEND=noninteractive \
+    CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup \
+    PATH=/usr/local/cargo/bin:${PATH}
+COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
+COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential clang cmake curl ca-certificates pkg-config python3 \
+      libasound2-dev libopus-dev libssl-dev libvulkan-dev glslc spirv-headers \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+ARG BUILD_JOBS=4
+ARG FONO_BUILD_REVISION=unknown
+ENV FONO_BUILD_REVISION=${FONO_BUILD_REVISION} CARGO_BUILD_JOBS=${BUILD_JOBS} CMAKE_BUILD_PARALLEL_LEVEL=${BUILD_JOBS}
+RUN --mount=type=cache,id=fono-registry-ubuntu2404,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=fono-git-ubuntu2404,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=fono-cargo-ubuntu2404,target=/src/src-tauri/target,sharing=locked \
+    --mount=type=cache,id=fono-vulkan-ubuntu2404,target=/tmp/fono-vulkan-build,sharing=locked \
+    bash packaging/docker/build-vulkan.sh
+
+FROM ${UBUNTU_IMAGE} AS runtime
+ENV DEBIAN_FRONTEND=noninteractive LD_LIBRARY_PATH=/usr/lib/fono:/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
+    NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility \
+    FONO_CONFIG=/etc/fono/server.toml XDG_CACHE_HOME=/var/lib/fono/cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl libasound2t64 libopus0 libssl3t64 libgomp1 libstdc++6 \
+      libegl1 libxext6 libvulkan1 mesa-vulkan-drivers \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 fono \
+    && useradd --uid 10001 --gid 10001 --home-dir /var/lib/fono --no-create-home fono \
+    && install -d -o fono -g fono /var/lib/fono/models /var/lib/fono/cache \
+    && install -d -o root -g root /etc/fono /usr/lib/fono
+COPY --from=build /out/ /usr/lib/fono/
+COPY packaging/docker/server.profile-vulkan.toml /etc/fono/server.toml
+RUN ln -s /usr/lib/fono/fono-server /usr/bin/fono-server && ldconfig \
+    && ldd /usr/lib/fono/fono-server | tee /tmp/fono-ldd \
+    && ! grep -q 'not found' /tmp/fono-ldd \
+    && ! grep -Eiq 'libcuda|libcublas|libcudart' /tmp/fono-ldd \
+    && ldd /usr/lib/fono/fono-stt-vulkan-worker | tee /tmp/fono-worker-ldd \
+    && ! grep -q 'not found' /tmp/fono-worker-ldd \
+    && ! find /usr/lib/fono -iname '*cuda*' -print -quit | grep -q . \
+    && rm /tmp/fono-ldd /tmp/fono-worker-ldd
+USER 10001:10001
+WORKDIR /var/lib/fono
+VOLUME ["/var/lib/fono/models", "/var/lib/fono/cache"]
+EXPOSE 17832
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+    CMD curl --fail --silent --max-time 4 http://127.0.0.1:17832/healthz || exit 1
+ENTRYPOINT ["fono-server"]
+CMD ["serve"]

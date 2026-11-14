@@ -3,6 +3,7 @@ package-lock.json text eol=lf
 Cargo.lock text eol=lf
 tools/fono-setup/Cargo.lock text eol=lf
 scripts/bootstrap-ci-linux.sh text eol=lf
+packaging/docker/*.sh text eol=lf
 apps/fono-server/resources/panel/* text eol=lf
 
 # The reviewed verifier point and source hashes must survive Windows/Linux checkout.

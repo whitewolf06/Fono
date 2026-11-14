@@ -26,15 +26,16 @@ def docker(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", required=True)
-    parser.add_argument("--device", default="cpu", help="cpu or cuda:N (requires NVIDIA CDI)")
+    parser.add_argument("--device", default="cpu", help="cpu, vulkan, or cuda:N; GPU evidence currently uses NVIDIA")
+    parser.add_argument("--gpu-device", default="nvidia.com/gpu=all", help="Docker GPU/CDI mapping for this isolated test")
     parser.add_argument("--model", default="whisper:tiny", help="Managed Whisper ID for the English public fixture")
     parser.add_argument("--models-dir", type=Path, help="Reuse this isolated model directory instead of downloading into temporary storage")
     parser.add_argument("--crash-worker", action="store_true", help="Kill only this container's GPU worker during a request")
     args = parser.parse_args()
-    if not re.fullmatch(r"cpu|cuda:(?:0|[1-9][0-9]*)", args.device):
-        parser.error("--device must be cpu or a canonical cuda:N ordinal")
+    if not re.fullmatch(r"cpu|vulkan|cuda:(?:0|[1-9][0-9]*)", args.device):
+        parser.error("--device must be cpu, vulkan or a canonical cuda:N ordinal")
     if args.crash_worker and args.device == "cpu":
-        parser.error("--crash-worker requires cuda:N")
+        parser.error("--crash-worker requires a GPU backend")
     if not re.fullmatch(r"whisper:[a-z0-9_]{1,64}", args.model):
         parser.error("--model must be a managed Whisper ID")
     image = args.image
@@ -47,11 +48,15 @@ def main():
         root = Path(temporary)
         (root / "models").mkdir()
         (root / "credentials").mkdir()
+        (root / "cache").mkdir()
         (root / "server.toml").write_text('''[server]
 bind = "0.0.0.0:17832"
 allowed_hosts = ["127.0.0.1"]
 trusted_private_network = true
 tokens_file = "/qa/credentials/tokens"
+[rate_limit]
+requests_per_minute = 6000
+burst = 256
 [models]
 dir = "/qa/models"
 default = "MODEL"
@@ -63,9 +68,9 @@ residency = "resident"
 '''.replace("DEVICE", args.device).replace("MODEL", args.model), encoding="utf-8")
         run = ["run", "--rm", "--user", f"{os.getuid()}:{os.getgid()}",
                "--mount", f"type=bind,src={root},dst=/qa",
-               "-e", "FONO_CONFIG=/qa/server.toml"]
+               "-e", "FONO_CONFIG=/qa/server.toml", "-e", "XDG_CACHE_HOME=/qa/cache"]
         if args.device != "cpu":
-            run.extend(["--device", "nvidia.com/gpu=all"])
+            run.extend(["--device", args.gpu_device])
         if args.models_dir:
             models_dir = args.models_dir.resolve(strict=True)
             if not models_dir.is_dir() or "," in str(models_dir):
@@ -121,19 +126,25 @@ residency = "resident"
                        "device": result["device"], "audio_ms": result["timings"]["audio_ms"],
                        "doctor": diagnosis["ready"], "doctor_probe": probe["status"], "model": args.model}
             if args.device != "cpu":
-                gpu_processes = docker("exec", container, "nvidia-smi",
-                                       "--query-compute-apps=process_name,used_gpu_memory", "--format=csv,noheader,nounits")
-                workers = [line for line in gpu_processes.splitlines() if "fono-stt-cuda-worker" in line]
-                if not workers:
+                worker_name = "fono-stt-vulkan" if args.device == "vulkan" else "fono-stt-cuda-w"
+                processes = docker("top", container, "-eo", "pid,comm")
+                pids = {int(fields[0]) for line in processes.splitlines()[1:]
+                        if len(fields := line.split()) == 2 and fields[1].startswith(worker_name)}
+                gpu_processes = subprocess.run(["nvidia-smi", "pmon", "-c", "1", "-s", "m"],
+                                               check=True, text=True, capture_output=True).stdout
+                workers = [fields for line in gpu_processes.splitlines()
+                           if len(fields := line.split()) >= 4 and fields[1].isdigit() and int(fields[1]) in pids]
+                if len(workers) != 1 or not workers[0][3].isdigit():
                     raise RuntimeError("NVIDIA driver did not observe the Fono worker")
-                summary["gpu_worker_memory_mb"] = int(workers[0].rsplit(",", 1)[1].strip())
+                summary["gpu_worker_memory_mb"] = int(workers[0][3])
+                summary["gpu_evidence"] = "nvidia-smi pmon matched to this container's worker PID"
             if args.crash_worker:
                 crash_and_recover(port, container, secret, speech, args.device)
                 summary["worker_crash"] = 502
                 summary["worker_recovery"] = 200
             print(json.dumps(summary))
         finally:
-            subprocess.run(["docker", "rm", "--force", container], check=False,
+            subprocess.run(["docker", "rm", "--force", "--volumes", container], check=False,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -159,13 +170,13 @@ def crash_and_recover(port, container, secret, speech, device):
 found=0
 for directory in /proc/[0-9]*; do
   read -r name < "$directory/comm" || continue
-  if [ "$name" = fono-stt-cuda-w ]; then
+  if [ "$name" = "$1" ]; then
     kill -9 "${directory##*/}"
     found=1
   fi
 done
 test "$found" = 1
-''')
+''', "fono-smoke", "fono-stt-vulkan" if device == "vulkan" else "fono-stt-cuda-w")
                 break
             if time.monotonic() >= deadline:
                 raise RuntimeError("GPU request never became busy")
@@ -177,7 +188,7 @@ test "$found" = 1
             raise RuntimeError("Worker crash did not return 502 worker_failed")
     status, payload = request(port, "POST", "/v1/recognize?language=en", speech, headers)
     if status != 200 or json.loads(payload).get("device") != device:
-        raise RuntimeError("The next request did not recover the CUDA worker")
+        raise RuntimeError("The next request did not recover the selected GPU worker")
 
 
 def request(port, method, path, body=None, headers=None):

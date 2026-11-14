@@ -59,6 +59,12 @@ impl WorkerSession {
         cleanup: Arc<WorkerCleanupSupervisor>,
         package: Option<crate::ports::GpuPackageHandle>,
     ) -> AppResult<Self> {
+        // Do not create a supervised inference session when Auto needs CPU.
+        // This also avoids a pending cleanup ticket preventing CPU fallback.
+        #[cfg(not(test))]
+        if backend == BackendKind::Vulkan && crate::vulkan::selected_device(&path)?.is_none() {
+            return Err(AppError::BackendUnavailable(crate::error::RecognitionBackend::Vulkan));
+        }
         let mut worker = Self::connect(path, backend, model_path, timeouts, cleanup, package)?;
         let load_meta = worker.next_meta("load", None);
         match worker.request(&WorkerRequest::Load {
@@ -68,6 +74,9 @@ impl WorkerSession {
             WorkerResponse::ModelLoaded {
                 backend: actual, ..
             } if actual == backend => {}
+            WorkerResponse::Error { code, .. } if code == "gpu_unavailable" && backend == BackendKind::Vulkan => {
+                return Err(AppError::BackendUnavailable(crate::error::RecognitionBackend::Vulkan));
+            }
             WorkerResponse::Error { message, .. } => {
                 return Err(AppError::Stt(format!(
                     "{} worker could not load model: {message}",
@@ -108,6 +117,9 @@ impl WorkerSession {
             package.validate_layout()?;
         }
         let mut command = Command::new(&path);
+        if backend == BackendKind::Vulkan {
+            crate::vulkan::configure_cache(&mut command);
+        }
         if let Some(device) = package.as_ref().and_then(|package| package.cuda_device()) {
             command.env("CUDA_DEVICE_ORDER", "PCI_BUS_ID");
             command.env("CUDA_VISIBLE_DEVICES", device.to_string());

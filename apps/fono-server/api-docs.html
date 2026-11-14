@@ -16,7 +16,7 @@
   </head>
   <body>
     <h1>Fono Server API v2</h1>
-    <p>Standalone speech recognition on CPU and, in the CUDA worker build, NVIDIA GPUs. Fetch <code>/v1/capabilities</code> and <code>/v1/models</code> to discover this server's observed devices, limits, installed models, and feature gates.</p>
+    <p>Standalone speech recognition with Vulkan as the default GPU backend, CPU fallback when no suitable discrete GPU is available, and a separate optional NVIDIA CUDA image. Fetch <code>/v1/capabilities</code> and <code>/v1/models</code> to discover this server's observed devices, limits, installed models, and feature gates.</p>
     <p>Open <a href="/panel/">the server panel</a> for token sign-in, status, installed models, aggregate queue counts, API documentation and an audio-file request playground. The public login shell contains no server data. Tokens and request results stay in tab memory and are cleared on sign-out or reload.</p>
     <p>API data and this reference page require <code>Authorization: Bearer &lt;token&gt;</code>. <code>/healthz</code> and the panel login shell/assets are public. Administrative model commands and metrics require an admin token. Keep bearer tokens in your client or local environment; this reference page does not collect or store them.</p>
     <h2>Recognize an audio file</h2>

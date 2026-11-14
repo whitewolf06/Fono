@@ -2,7 +2,7 @@ use super::*;
 use parking_lot::Mutex;
 
 #[test]
-fn auto_prefers_cuda_worker_before_vulkan_worker() {
+fn auto_uses_vulkan_and_never_selects_the_optional_cuda_package() {
     let paths = WorkerPaths::for_test_workers(
         Some(PathBuf::from("cuda.exe")),
         Some(PathBuf::from("vulkan.exe")),
@@ -11,17 +11,21 @@ fn auto_prefers_cuda_worker_before_vulkan_worker() {
     assert!(matches!(
         candidates.first(),
         Some(EngineCandidate::Worker {
-            backend: BackendKind::Cuda,
-            ..
-        })
-    ));
-    assert!(matches!(
-        candidates.get(1),
-        Some(EngineCandidate::Worker {
             backend: BackendKind::Vulkan,
             ..
         })
     ));
+    assert!(matches!(
+        candidates.last(),
+        Some(EngineCandidate::Embedded { use_gpu: false })
+    ));
+    assert!(!candidates.iter().any(|candidate| matches!(
+        candidate,
+        EngineCandidate::Worker {
+            backend: BackendKind::Cuda,
+            ..
+        }
+    )));
 }
 
 #[test]
@@ -31,6 +35,28 @@ fn explicit_vulkan_never_adds_cpu_fallback() {
         .candidates(AccelerationMode::Vulkan)
         .iter()
         .all(|candidate| { !matches!(candidate, EngineCandidate::Embedded { use_gpu: false }) }));
+}
+
+#[test]
+fn installing_only_cuda_keeps_auto_on_cpu_until_cuda_is_selected_explicitly() {
+    let paths = WorkerPaths::for_test_workers(Some(PathBuf::from("cuda.exe")), None);
+    assert!(paths
+        .candidates(AccelerationMode::Auto)
+        .iter()
+        .all(|candidate| !matches!(
+            candidate,
+            EngineCandidate::Worker {
+                backend: BackendKind::Cuda,
+                ..
+            }
+        )));
+    assert!(matches!(
+        paths.candidates(AccelerationMode::Cuda).first(),
+        Some(EngineCandidate::Worker {
+            backend: BackendKind::Cuda,
+            ..
+        })
+    ));
 }
 
 #[test]

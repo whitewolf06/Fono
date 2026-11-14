@@ -127,6 +127,12 @@ impl Histogram {
     }
 }
 
+struct GpuMemorySample {
+    device: String,
+    total: u64,
+    free: Option<u64>,
+}
+
 pub struct Observability {
     level: LogLevel,
     sender: Mutex<Option<mpsc::SyncSender<Record>>>,
@@ -141,7 +147,7 @@ pub struct Observability {
     outcomes: [AtomicU64; 5],
     waiting: [AtomicU64; 2],
     active: [AtomicU64; 2],
-    gpu: Mutex<Option<Vec<(u32, u64, u64)>>>,
+    gpu: Mutex<Option<Vec<GpuMemorySample>>>,
 }
 
 impl Default for Observability {
@@ -323,13 +329,22 @@ impl Observability {
             devices
                 .into_iter()
                 .map(|device| {
-                    Some((
-                        device.index,
-                        device.memory_total_mb.checked_mul(1024 * 1024)?,
-                        device.memory_free_mb.checked_mul(1024 * 1024)?,
-                    ))
+                    Some(GpuMemorySample {
+                        device: format!("cuda:{}", device.index),
+                        total: device.memory_total_mb.checked_mul(1024 * 1024)?,
+                        free: Some(device.memory_free_mb.checked_mul(1024 * 1024)?),
+                    })
                 })
                 .collect()
+        });
+    }
+    pub fn observe_vulkan_gpu(&self, device: Option<fono_stt::vulkan::VulkanDevice>) {
+        *self.gpu.lock().unwrap_or_else(|p| p.into_inner()) = device.map(|device| {
+            vec![GpuMemorySample {
+                device: "vulkan".into(),
+                total: device.memory_total_bytes,
+                free: device.memory_free_bytes,
+            }]
         });
     }
     pub fn render(&self, output: &mut String) {
@@ -391,9 +406,15 @@ impl Observability {
             ("fono_gpu_memory_free_bytes", 1),
         ] {
             let _ = writeln!(output, "# TYPE {name} gauge");
-            for (index, total, free) in gpu.iter().flatten() {
-                let value = if position == 0 { total } else { free };
-                let _ = writeln!(output, "{name}{{device=\"cuda:{index}\"}} {value}");
+            for sample in gpu.iter().flatten() {
+                let value = if position == 0 {
+                    Some(sample.total)
+                } else {
+                    sample.free
+                };
+                if let Some(value) = value {
+                    let _ = writeln!(output, "{name}{{device=\"{}\"}} {value}", sample.device);
+                }
             }
         }
     }

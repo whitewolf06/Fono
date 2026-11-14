@@ -210,7 +210,7 @@ pub fn validate_configuration(config: &ServerConfig) -> Result<(), String> {
                 "models.placement[{index}].model: unknown managed model ID"
             ));
         }
-        if placement.device != "cpu"
+        if !matches!(placement.device.as_str(), "auto" | "cpu")
             && resolve(&placement.model)?.model_id().engine != fono_types::SttEngine::Whisper
         {
             return Err(format!(
@@ -312,8 +312,7 @@ pub fn resolve_preload(config: &ServerConfig) -> Result<Vec<PreloadPlan>, String
                 .placement
                 .iter()
                 .find(|placement| placement.model == *id);
-            let device =
-                placement.map_or_else(|| "cpu".to_owned(), |placement| placement.device.clone());
+            let device = crate::backends::device_for(config, id).to_owned();
             let residency = match placement.map(|placement| placement.residency) {
                 None | Some(config::ModelResidency::Resident) => ModelResidency::Resident,
                 Some(config::ModelResidency::IdleUnload) => ModelResidency::IdleUnload(

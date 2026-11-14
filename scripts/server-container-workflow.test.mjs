@@ -33,9 +33,19 @@ function verify(source) {
   }
   assert.match(
     publish,
-    /gh run download "\$RUN_ID" --name fono-server-tested-image/,
+    /gh run download "\$RUN_ID" --name "fono-server-tested-image-\$BACKEND"/,
   );
   assert.match(publish, /gzip -dc fono-server-tested\.tar\.gz \| docker load/);
+  assert.match(
+    publish,
+    /if \[ "\$BACKEND" = vulkan \]; then[\s\S]*docker push ghcr\.io\/whitewolf06\/fono-server:latest[\s\S]*fi/,
+  );
+  assert.match(build, /backend: \[vulkan, cuda\]/);
+  assert.match(publish, /backend: \[vulkan, cuda\]/);
+  assert.match(
+    build,
+    /name: fono-server-tested-image-\$\{\{ matrix.backend \}\}/,
+  );
 }
 
 test("container publication is manual, exact-revision and follows CPU smoke", () => {
@@ -59,6 +69,7 @@ test("publication policy rejects removed gates and privileges in PR builds", () 
     (s) =>
       s.replace('test "$REF_NAME" = "v$version"', ": version gate removed"),
     (s) => s.replace("    needs: build", "    needs: []"),
+    (s) => s.replace('if [ "$BACKEND" = vulkan ]; then', "if true; then"),
     (s) =>
       s.replace("python3 scripts/smoke-server-container.py", "echo skip-smoke"),
   ]) {

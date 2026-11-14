@@ -125,6 +125,7 @@ fn configuration(directory: &Directory, model: &Path) -> ServerConfig {
         },
         tls: None,
         models: ModelSettings {
+            device: "cpu".into(),
             // The fixture remains in its verified cache and is read in place.
             dir: model.parent().unwrap().to_owned(),
             default: "whisper:tiny".into(),

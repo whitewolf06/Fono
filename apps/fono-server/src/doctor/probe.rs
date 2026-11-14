@@ -78,12 +78,7 @@ pub(super) fn run_child(
         Ok(reply) => reply,
         Err(detail) => return ProbeResult::failed(detail),
     };
-    let device = config
-        .models
-        .placement
-        .iter()
-        .find(|entry| entry.model == config.models.default)
-        .map_or("cpu", |entry| entry.device.as_str());
+    let device = crate::backends::device_for(config, &config.models.default);
     if reply.protocol_version != fono_stt_protocol::PROTOCOL_VERSION
         || reply.model != config.models.default
         || reply.device != device
@@ -174,12 +169,9 @@ fn terminate(child: &mut Child) {
 /// Run only in the private child. No token, HTTP, history or microphone I/O.
 pub fn run_native_probe(config: &ServerConfig) -> ProbeReply {
     let start = Instant::now();
-    let planned_device = config
-        .models
-        .placement
-        .iter()
-        .find(|entry| entry.model == config.models.default)
-        .map_or_else(|| "cpu".to_owned(), |entry| entry.device.clone());
+    let resolved = crate::backends::resolve_auto_config(config.clone());
+    let config = resolved.as_ref().unwrap_or(config);
+    let planned_device = crate::backends::device_for(config, &config.models.default).to_owned();
     let mut reply = ProbeReply {
         protocol_version: fono_stt_protocol::PROTOCOL_VERSION,
         passed: false,
@@ -189,6 +181,9 @@ pub fn run_native_probe(config: &ServerConfig) -> ProbeReply {
         elapsed_ms: 0,
     };
     let result: Result<bool, ()> = (|| {
+        if resolved.is_err() {
+            return Err(());
+        }
         let plan = models::resolve_installed(config, &config.models.default).map_err(|_| ())?;
         let acceleration = acceleration_for_device(&plan.device).map_err(|_| ())?;
         let russian = if plan.selection.id.engine == fono_types::SttEngine::Whisper {

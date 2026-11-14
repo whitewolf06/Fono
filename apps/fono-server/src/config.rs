@@ -43,6 +43,7 @@ pub struct TlsSettings {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelSettings {
+    pub device: String,
     pub dir: PathBuf,
     pub default: String,
     pub preload: Vec<String>,
@@ -138,7 +139,7 @@ pub fn load_and_validate_with_env(
 }
 
 #[cfg(test)]
-fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
+pub(crate) fn parse_and_validate(source: &str) -> Result<ServerConfig, ConfigError> {
     parse_and_validate_with_env(source, std::iter::empty())
 }
 
@@ -343,6 +344,7 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
             table,
             &[
                 "dir",
+                "device",
                 "default",
                 "preload",
                 "max_loaded",
@@ -362,7 +364,15 @@ fn validate_table(root: &Table) -> Result<ServerConfig, ConfigError> {
         ));
     }
     let placement = model_placements(models)?;
+    let device = string_or(models, "device", "models.device", "auto")?;
+    if !valid_device(&device) {
+        return Err(ConfigError::new(
+            "models.device",
+            "expected auto, cpu, vulkan or cuda:N",
+        ));
+    }
     let models = ModelSettings {
+        device,
         dir: path_or(models, "dir", "models.dir", "/var/lib/fono/models")?,
         default,
         preload,
@@ -501,6 +511,7 @@ fn environment_field(name: &str) -> Option<(&'static str, &'static str, Environm
         "FONO_MODELS_MAX_LOADED" => ("models", "max_loaded", Integer),
         "FONO_MODELS_CLIENT_MODEL_LOAD" => ("models", "client_model_load", Boolean),
         "FONO_MODELS_PLACEMENT" => ("models", "placement", TomlArray),
+        "FONO_MODELS_DEVICE" => ("models", "device", String),
         "FONO_QUEUE_MAX_QUEUED" => ("queue", "max_queued", Integer),
         "FONO_QUEUE_MAX_INFLIGHT_PER_TOKEN" => ("queue", "max_inflight_per_token", Integer),
         "FONO_QUEUE_CPU_PARALLEL" => ("queue", "cpu_parallel", Integer),
@@ -626,7 +637,13 @@ fn syntax_error_path(source: &str, span: Option<std::ops::Range<usize>>) -> Stri
         "tls" => matches!(key, "cert" | "key"),
         "models" => matches!(
             key,
-            "dir" | "default" | "preload" | "max_loaded" | "placement" | "client_model_load"
+            "dir"
+                | "device"
+                | "default"
+                | "preload"
+                | "max_loaded"
+                | "placement"
+                | "client_model_load"
         ),
         "models.placement" => {
             matches!(key, "model" | "device" | "residency" | "idle_unload_after")
@@ -1028,7 +1045,7 @@ fn model_placements(models: Option<&Table>) -> Result<Vec<ModelPlacement>, Confi
 }
 
 fn valid_device(device: &str) -> bool {
-    if device == "cpu" {
+    if matches!(device, "auto" | "cpu" | "vulkan") {
         return true;
     }
     device.strip_prefix("cuda:").is_some_and(|index| {

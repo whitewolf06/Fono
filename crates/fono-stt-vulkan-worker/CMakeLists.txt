@@ -23,7 +23,8 @@ target_include_directories(fono-stt-vulkan-worker PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/../../vendor/whisper.cpp/include"
     "${CMAKE_CURRENT_LIST_DIR}/../../vendor/whisper.cpp/examples"
 )
-target_link_libraries(fono-stt-vulkan-worker PRIVATE whisper)
+find_package(Vulkan REQUIRED)
+target_link_libraries(fono-stt-vulkan-worker PRIVATE whisper Vulkan::Vulkan)
 
 # Keep the normal `int main()` entry point while linking as a GUI executable.
 if (MSVC)
