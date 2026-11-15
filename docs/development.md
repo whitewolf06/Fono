@@ -1,122 +1,92 @@
-# Разработка и release Fono
+# Разработка Fono
 
-## Версия приложения
+В репозитории находятся Windows Desktop на Tauri/Vue и отдельный headless
+Fono Server. Для работы с исходниками не нужен аккаунт Кворума.
+Начните с [архитектуры](architecture.md) и [правил кода](code-rules.md);
+[проверки](testing.md) и [выпуск](delivery.md) описаны отдельно.
 
-`package.json` задаёт версию Fono. `npm run version:check` проверяет её совпадение
-с метаданными Tauri, Cargo и lock-файлами. Новая схема начинается с `0.5.0`;
-актуальную версию всегда читайте из `package.json`.
-В приложении показывается одна пользовательская версия; ревизии frontend/backend
-доступны в раскрываемых сведениях о сборке.
+## Workspace и зависимости
 
-Каждый новый коммит должен содержать следующую patch-версию и `vX.Y.Z` в теме:
+Корневые `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml` и `.cargo/config.toml`
+задают общий Rust workspace. Библиотеки и workers находятся в `crates/`,
+Desktop — в `src-tauri/`, Server — в `apps/fono-server/`.
+Версии общих зависимостей и профили сборки находятся в корне.
+
+Cargo по умолчанию пишет в `src-tauri/target`. Для отдельного прогона задайте
+абсолютный `CARGO_TARGET_DIR`; не смешивайте чужие и свои временные сборки.
+C++ Vulkan worker собирается через CMake отдельно от Rust workspace.
+`tools/fono-setup` — самостоятельный workspace со своим lockfile и статическим
+CRT; его Cargo-команды запускаются из этого каталога.
+
+Frontend устанавливается командой `npm ci` из публичного npm.
+Точный архив WhiteUI **0.6.0** находится в
+[vendor/whiteui](../vendor/whiteui/README.md). Приватный npm-токен не требуется.
+Версию UI Kit и его содержимое не меняйте вместе с обычной правкой Fono.
+
+## Выберите путь запуска
+
+| Задача                | Окружение                                                                                                                              | Запуск                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Интерфейс в браузере  | Node.js 22, npm                                                                                                                        | `npm run dev:ui`                                   |
+| Настоящий CPU Desktop | Windows x64, Node.js 22, закреплённый Rust, MSVC C++ x64/Windows SDK, CMake, LLVM/libclang, PowerShell 7, Python 3.12+, curl, WebView2 | `npm run dev:cpu`                                  |
+| Desktop с GPU         | Окружение Desktop, Vulkan SDK; для отдельной CUDA-сборки также CUDA Toolkit                                                            | Подготовка workers, затем `npm run dev:desktop:v3` |
+| Linux Server          | Ubuntu и зависимости из Linux CI или Docker                                                                                            | [Руководство сервера](server.md)                   |
+
+Точные версии и хэши native-зависимостей закреплены в
+[scripts/ci-native-dependencies.json](../scripts/ci-native-dependencies.json)
+и workflow. Используйте их вместо случайного системного ONNX runtime.
+На Windows CPU тоже нужен libclang: готовые bindings Whisper имеют другой ABI.
+
+### Только интерфейс
 
 ```powershell
-npm run version:bump -- patch
-npm run version:check
-git add <файлы задачи и версии>
-git commit -m "fix(scope): описание [v0.5.1]"
+npm ci
+npm run dev:ui
 ```
 
-Выполните `npm run hooks:install` один раз в локальном checkout, чтобы Git
-отклонял коммит с несогласованной или неувеличенной версией. Перед публикацией
-предложите следующую minor-версию и согласуйте её состав; после согласования
-используйте `npm run version:bump -- minor`. Публикация выполняется отдельно.
+Откройте `http://127.0.0.1:1420/v3.html`. Это Vue V3 с mock-портами
+и демонстрационными данными. Микрофон, глобальная клавиша, Rust IPC и внешняя
+вставка здесь не работают. Предпросмотр индикатора доступен через `#/overlay`.
 
-## Rust workspace
-
-Общий Rust workspace находится в корне: `Cargo.toml`, `Cargo.lock` и
-`rust-toolchain.toml`. Общие библиотеки и workers лежат в `crates/`,
-а desktop-приложение остаётся в `src-tauri/`. Общие версии зависимостей
-задаются в `[workspace.dependencies]`.
-
-Из корня можно проверить весь workspace:
-
-```powershell
-cargo check --locked --workspace
-cargo test --locked -p fono-core -p fono-stt-protocol --all-targets
-```
-
-Корневой `.cargo/config.toml` сохраняет сборки в `src-tauri/target`.
-Для изолированной проверки задайте абсолютный `CARGO_TARGET_DIR`, указывающий
-на `src-tauri/target-codex-review`. Ресурсы и Tauri-конфиги по-прежнему
-задают пути относительно `src-tauri`.
-
-`tools/fono-setup` остаётся отдельным workspace со своим lockfile и
-статическим CRT. Запускайте его Cargo-команды из `tools/fono-setup`,
-чтобы применялись его настройки и каталог `tools/fono-setup/target`.
-
-## Требования машины сборки
-
-| Режим              | Окружение                                                                                                                                                            |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UI в браузере      | Node.js 22, npm                                                                                                                                                      |
-| CPU desktop        | Windows x64, Node.js 22, закреплённый Rust toolchain, MSVC Build Tools с C++ x64 и Windows SDK, CMake, LLVM/libclang, PowerShell 7, Python 3.12+, curl.exe, WebView2 |
-| Сборка GPU workers | Дополнительно LLVM/libclang, CUDA Toolkit для CUDA и Vulkan SDK для Vulkan; закреплённый submodule whisper.cpp                                                       |
-
-CPU launcher генерирует Windows bindings закреплённого `whisper-rs-sys`,
-поэтому LLVM/libclang остаётся обязательным. Готовые bindings из crate
-используют другой C ABI и на Windows не применяются.
-CUDA Toolkit, Vulkan SDK и GPU workers CPU-профилю не нужны.
-Речевой VAD остаётся настоящим: bootstrap скачивает закреплённые Sherpa/ONNX
-runtime и модель с проверкой SHA256. Поэтому первый запуск требует сеть.
-Точные версии и хэши находятся в `scripts/ci-native-dependencies.json`.
-
-Для интерфейса не нужен Rust. Для запуска настоящей диктовки используйте
-CPU desktop; browser mock работает с демонстрационными данными.
-
-## Локальная разработка
-
-Зависимости frontend устанавливаются из публичного npm без credentials. Точная
-WhiteUI 0.6.0 хранится локальным архивом в [vendor/whiteui](../vendor/whiteui/README.md).
-Её содержимое и версия сохранены; обновление библиотеки требует отдельного решения.
-Чистый clone не требует доступа к GitHub Packages или npm-токена.
-
-Минимальный desktop-путь:
+### Настоящий CPU Desktop
 
 ```powershell
 npm ci
 npm run dev:cpu
 ```
 
-`dev:cpu` включает отдельный feature `cpu-only` с речевым VAD, отключает GPU
-в сборке и поиске workers и убирает их из Tauri resources. Даже найденный
-рядом CUDA/Vulkan worker не используется; Auto выбирает embedded CPU.
-Явный выбор недоступного GPU возвращает ошибку, а не меняет ускорение молча.
-На старте выберите Whisper-модель и отключите обработку/перевод для проверки
-диктовки без LLM. Модели Whisper не входят в Git.
+Launcher получает проверенные по SHA-256 Sherpa/ONNX-ресурсы, включает speech VAD
+и `cpu-only`, исключает GPU workers и использует изолированный debug-профиль
+`build/dev-cpu-profile` с API-портом 17833. Первый bootstrap требует сеть.
+Модель выбирается и загружается отдельно в приложении; для первой диктовки
+можно выключить LLM-обработку и перевод.
 
-По умолчанию CPU launcher использует отдельный debug-профиль
-`build/dev-cpu-profile` и API-порт 17833. В нём недоступны настоящие Windows
-credentials и автозапуск; микрофон, hotkey и IPC остаются настоящими.
-Абсолютный `FONO_TEST_DATA_DIR` и свободный `FONO_API_PORT` можно задать заранее.
-После выхода launcher восстанавливает окружение своего процесса.
+В этом профиле микрофон, hotkey и Tauri настоящие. Windows credentials
+и автозапуск недоступны. CUDA Toolkit и Vulkan SDK CPU-пути не нужны.
 
-Для работы над GPU или полной поставкой сначала подготовьте дополнительные
-зависимости и выполните `git submodule update --init --recursive`, затем
-используйте `npm run dev:desktop:v3`. Подробнее о проверках — [testing](testing.md).
+### GPU Desktop
 
-### Уровни тестирования
+Подготовьте SDK нужных backend и закреплённый submodule:
 
-Используйте подходящий уровень, а не installer по умолчанию:
+```powershell
+git submodule update --init --recursive
+powershell -NoProfile -File scripts/build-stt-workers.ps1 -SkipCuda
+npm run dev:desktop:v3
+```
 
-1. **Только UI в браузере:** `npm run dev:ui`, затем
-   `http://127.0.0.1:1420/v3.html`. Это mock-режим для быстрой визуальной и
-   интерактивной проверки Vue-интерфейса, включая `#/overlay`; Rust, Tauri IPC,
-   микрофон, hotkey и нативное окно индикатора в нём не проверяются.
-2. **Desktop без установки:** `npm run dev:desktop:v3` для разработки или прямой
-   запуск `src-tauri\target\release\fono.exe` после production-сборки. Это
-   настоящий Tauri-процесс с Rust-бэкендом; на нём проверяются основное и
-   overlay-окна и нативные сценарии.
-3. **Installer:** `npm run release` создаёт NSIS/MSI и используется для
-   финального release smoke-test: упаковки ресурсов, установки и запуска в
-   пользовательском окружении. Его не нужно запускать для каждой UI-итерации.
+`-SkipCuda` собирает основной Vulkan worker. `npm run build:workers` собирает
+оба backend и требует оба SDK. CUDA в приложении активируется через проверенный
+дополнительный пакет; наличие EXE в raw build-каталоге не заменяет установку
+пакета. Ресурсы полной поставки, runtime Лиры и упаковка описаны в
+[delivery.md](delivery.md).
 
-### Изоляция debug-данных
+Перед сменой dev/установленного приложения завершите предыдущий Fono:
+защита от второго экземпляра иначе передаст управление уже работающему процессу.
+Выбирайте конкретный EXE и проверяйте его версию.
 
-Для отдельной debug-копии задайте абсолютный `FONO_TEST_DATA_DIR` и свободный
-`FONO_API_PORT` до запуска. Настройки и история будут находиться в выбранном
-каталоге; операции с настоящими Windows credentials и автозапуском заблокированы.
-Release игнорирует тестовый каталог.
+## Изоляция debug-данных
+
+Для отдельной debug-копии задайте абсолютный каталог и свободный API-порт:
 
 ```powershell
 $env:FONO_TEST_DATA_DIR = "C:\Temp\Fono-debug"
@@ -124,97 +94,51 @@ $env:FONO_API_PORT = "17833"
 npm run dev:desktop:v3
 ```
 
-Микрофон, глобальная клавиша и внешняя вставка остаются настоящими. Изолированный
-каталог не превращает desktop в browser mock. После проверки уберите переменные
-из текущего PowerShell-сеанса. Приложение и установку пользователь проверяет сам.
+Настройки и история попадут в этот каталог; операции с настоящими credentials
+и автозапуском заблокированы. Release игнорирует тестовый каталог.
+После проверки уберите переменные из своего PowerShell-сеанса.
+Этот режим не подменяет настоящий микрофон, hotkey или вставку.
 
-Автоматические команды и матрица Rust features — в [testing.md](testing.md).
+## Версии и коммиты
 
-## Release
-
-Единый путь release-сборки:
-
-```powershell
-npm run release
-```
-
-Команда подключает `src-tauri/tauri.lira.conf.json`: переносимый runtime и
-модели Лиры входят в NSIS/MSI. Закреплённые зависимости описаны в
-`tools/wake-release/dependencies.json`, сборка проверяет состав и SHA256.
-Обычный CPU dev и release с Лирой — разные конфигурации;
-[контракт beta](wake-lira.md) описывает их границы.
-
-Если frontend и release resources уже подготовлены и проверены отдельно, повторную упаковку
-можно запустить через Tauri CLI с `src-tauri/tauri.prebuilt.conf.json`; этот
-override пропускает их повторную подготовку, но перед bundling удаляет только
-известные legacy-артефакты предыдущего имени приложения из `target\release`.
-Rust build и bundling при этом остаются обязательными.
-
-Для повторной упаковки выпуска с Лирой сохраните также
-`src-tauri/tauri.lira.conf.json` в конфигурациях Tauri; один prebuilt override
-сам по себе не добавляет этот ресурсный пакет.
-
-Он запускает frontend build, затем `scripts/prepare-release-resources.ps1` и
-Tauri bundle. Подготовительный скрипт очищает только generated `.exe`/`.dll` в
-явно заданных staging-каталогах, пересобирает workers, отдельным release build
-получает Sherpa runtime и формирует закрытый manifest. Он создаёт:
-
-- `fono-stt-cuda-worker.exe` + CUDA runtime DLL;
-- `fono-stt-vulkan-worker.exe` на актуальном `vendor/whisper.cpp`.
-
-Не заменяйте worker-файлы вручную в installer: `build.rs` определяет реальный
-Cargo output через `OUT_DIR`, проверяет release-manifest и синхронизирует workers
-с `<target-dir>/<profile>/resources/stt-workers` для прямого запуска EXE. Сам
-`build.rs` не меняет source tree: `tauri.conf.json` кладёт только подготовленный
-manifest в bundle. Неполный или содержащий посторонние `.exe`/`.dll` набор
-workers либо Sherpa runtime завершает release-сборку ошибкой.
-
-Release использует зафиксированные `Cargo.lock` и toolchain. Политика обновления
-зависимостей и лицензий находится в `docs/dependency-policy.md`.
-
-MSI и NSIS устанавливаются для всех пользователей в `Program Files\Fono`.
-Пользовательские данные (settings, модели, API token и история) остаются в
-`%APPDATA%\Fono` и не служат install directory. Custom WiX template намеренно
-не читает legacy HKCU `InstallDir` от прежних current-user пакетов, чтобы MSI
-не попытался записать программу в каталог данных.
-
-Готовые артефакты:
-
-```text
-src-tauri\target\release\bundle\nsis\
-src-tauri\target\release\bundle\msi\
-```
-
-## Runtime smoke-test
-
-1. Запустить Fono и выбрать модель Whisper.
-2. Проверить CUDA, Vulkan, Auto и CPU через тест диктовки.
-3. Убедиться, что в логах есть `STT backend selected: CUDA` либо `Vulkan`.
-4. В сборке с runtime Лиры проверить явное включение beta, «Слушаю», сигнал
-   готовности и несколько пробуждений подряд. Обычный CPU dev без подготовленного
-   wake-runtime эту проверку не подтверждает; legacy-мастер своей фразы выключен.
-5. Проверить оба режима hotkey: удержание и повторное нажатие. Экспериментальная поэтапная вставка скрыта.
-6. Для command hotkey убедиться, что действие выполняется только после preview и confirm; смена настроек либо ожидание более 30 секунд инвалидирует preview.
-7. Проверить, что worker не открывает Terminal.
-
-Логи находятся в `%APPDATA%\Fono\logs`.
-
-## Локальный REST API
-
-Desktop runtime запускает API на `127.0.0.1:17832`. Для одновременной работы
-нескольких dev-копий до старта Fono задайте другой порт:
+Источник версии — `package.json`. `npm run version:check` сверяет его
+с `package-lock.json`, Tauri config, Cargo manifest и записью `fono` в lockfile.
+Каждый новый коммит поднимает patch ровно на один и содержит `vX.Y.Z` в теме:
 
 ```powershell
-$env:FONO_API_PORT = "17833"
-npm run tauri dev
+npm run hooks:install
+npm run version:bump -- patch
+npm run version:check
+git add <изменённые файлы и файлы версии>
+git commit -m "docs(scope): описание [vX.Y.Z]"
 ```
 
-Контракт и ручной smoke-test: [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md).
+Внутренние версии crates не следуют автоматически за версией приложения.
+Minor и публикация согласуются отдельно. Более высокая версия в исходниках
+не означает новый опубликованный выпуск.
 
-API key каждого LLM-профиля хранится в Windows Credential Manager под target
-`Fono/llm-profile/<id>`. Прежний target `Fono/llm-api-key` поддерживается для
-миграции; `settings.json`, IPC и диагностические логи ключей не содержат.
+## Изменение зависимостей
 
-## Фронтенд
+Обновляйте зависимости вместе с lockfile, notices и закреплёнными ресурсами.
+Для Rust используйте `--locked`, проверьте feature matrix, строгий Clippy
+и `cargo deny --config deny.toml check`. Учитывайте native-библиотеки,
+лицензии, advisories, build scripts и новые дубли major-версий.
 
-Единственный frontend — Vue в `src/v3/`. Корневой URL и `v3.html` открывают один интерфейс. `package-lock.json` и `npm ci` задают воспроизводимые зависимости. `npm run test:ui` запускает V3-тесты. Маршруты, слои и правила данных — в [frontend-architecture.md](frontend-architecture.md).
+Исключение advisory должно указывать владельца, причину и срок в `deny.toml`.
+Прежний успешный аудит не подтверждает сегодняшнюю базу advisories.
+Недоступный инструмент или база означает непроведённую проверку.
+Условия сторонних компонентов находятся в
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) и `licenses/`.
+
+## Документация и рабочий контекст
+
+Действующее поведение хранится в основных руководствах рядом с кодом.
+План большого изменения и промежуточные результаты относятся к временной
+`.work/`; правила жизненного цикла этого контекста задаёт
+[AGENTS.md](../AGENTS.md). Статус задач, приоритеты и итоги конкретных прогонов
+ведутся отдельно от руководств. Не добавляйте новый постоянный MD после каждой
+итерации и не превращайте инструкцию в журнал прошедших тестов.
+
+Не публикуйте модели, секреты, личное аудио, пользовательские профили или
+signing key. В описании изменения укажите поведение, выполненные проверки
+и оставшуюся приёмку; подробности — в [testing.md](testing.md).

@@ -13,4 +13,8 @@ tools/wake-training/lira-ctc-exact/config.json -text -whitespace
 # Preserve upstream notice bytes and whitespace as supplied by their authors.
 licenses/dependency-notices.txt -text -whitespace
 licenses/upstream/*.txt -text -whitespace
+licenses/*-NOTICE.md -text -whitespace
+licenses/perf04-voxforge-GPL-3.0.txt -text -whitespace
+licenses/BRAND.md -text -whitespace
+scripts/fixtures/stt-quality/*.json -text -whitespace
 src-tauri/tests/fixtures/stt-quality/LICENSE-CC-BY-4.0.txt -text -whitespace

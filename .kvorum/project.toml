@@ -1,0 +1,3 @@
+# Non-secret binding. Bootstrap resolves scope and verifies actual permissions.
+project_id = "fe2ac5b4-8c4e-488d-ac94-7a6f818b9b7c"
+space_id = "1d34a079-5b7f-4881-9e54-fea373f1a842"

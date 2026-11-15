@@ -156,9 +156,10 @@ jobs:
           node --test scripts/long-dictation-quality.test.mjs
           npm run test:soak:contracts
           npm run test:cpu
+          node --test scripts/check-doc-links.test.mjs
           npm run docs:check
           npm run format:check
-          npx prettier --check '.github/workflows/*.yml' 'scripts/*release*.mjs' scripts/check-crate-boundaries.mjs scripts/check-crate-boundaries.test.mjs scripts/update-manifest.mjs scripts/ci-native-dependencies.json src-tauri/update-channel.json tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs docs/fono-ci-updates.md docs/fono-quality-enhancements.md
+          npx prettier --check '.github/workflows/*.yml' 'scripts/*release*.mjs' scripts/check-crate-boundaries.mjs scripts/check-crate-boundaries.test.mjs scripts/update-manifest.mjs scripts/ci-native-dependencies.json src-tauri/update-channel.json tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs docs/delivery.md docs/user-guide.md
           npm run version:check
           npm run build
 

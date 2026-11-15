@@ -94,10 +94,12 @@ last argument. In that mode an original PCM16 mono WAV must match the declared
 VoxForge audio and archives remain under ignored `build/perf04/`. Reference
 transcripts also appear in the committed numerical JSON reports and retain
 GPL-3.0-or-later independently of both these CC BY 4.0 fixtures and the Fono MIT
-code. The reports include [original notices and attribution](../../../../docs/evidence/licenses/perf04-data-NOTICE.md)
-and the [full GPLv3 text](../../../../docs/evidence/licenses/perf04-voxforge-GPL-3.0.txt). See the
-[PERF-04 report](../../../../docs/archive/improvement-plan/improvement-perf04.md) for selection,
-negative diagnostic results and acceptance limits.
+code. Keep the [original notices and attribution](../../../../licenses/perf04-data-NOTICE.md)
+and the [full GPLv3 text](../../../../licenses/perf04-voxforge-GPL-3.0.txt) with reused data.
+The retained [numerical fixtures](../../../../scripts/fixtures/stt-quality/README.md)
+exercise the quality tools; they are not current acceptance results. Current
+selection and acceptance boundaries are in the [STT guide](../../../../docs/stt.md)
+and [testing guide](../../../../docs/testing.md).
 
 The fixed FLEURS comparison measures the shared **CPU protocol inference engine plus FIR replay**.
 It does not run the native VAD gate, Tauri IPC, microphone capture, or Windows

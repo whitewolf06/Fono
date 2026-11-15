@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 const BUFFER_BYTES: usize = 64 * 1024;
 const PROGRESS_BYTES: u64 = 1024 * 1024;
 const NOTICE_NAME: &str = "FONO-MODEL-NOTICE.md";
-const NOTICE: &str = include_str!("../../../../docs/evidence/licenses/offline-stt-NOTICE.md");
+const NOTICE: &str = include_str!("../../../../licenses/offline-stt-NOTICE.md");
 const STAGING_NAME: &str = ".fono-server-downloads";
 
 struct HttpSource {

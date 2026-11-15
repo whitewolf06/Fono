@@ -51,13 +51,15 @@ jobs:
       - name: Frontend gates
         shell: pwsh
         run: |
+          node --test scripts/check-doc-links.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           foreach ($command in @('typecheck:v3', 'lint', 'test:v3', 'test:cpu', 'check:server-panel', 'docs:check', 'format:check', 'build')) {
             npm run $command
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           npm run test:release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npx prettier --check '.github/workflows/*.yml' 'scripts/*release*.mjs' scripts/update-manifest.mjs scripts/ci-native-dependencies.json src-tauri/update-channel.json tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs docs/fono-ci-updates.md docs/fono-quality-enhancements.md
+          npx prettier --check '.github/workflows/*.yml' 'scripts/*release*.mjs' scripts/update-manifest.mjs scripts/ci-native-dependencies.json src-tauri/update-channel.json tests/ui/diagnosticReport.test.mjs tests/ui/personalDictionary.test.mjs tests/ui/historyMetadata.test.mjs tests/ui/updates.test.mjs docs/delivery.md docs/user-guide.md
           exit $LASTEXITCODE
       - name: Install pinned Rust toolchain
         shell: pwsh

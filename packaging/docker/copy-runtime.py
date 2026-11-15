@@ -21,8 +21,8 @@ with open(vad, 'rb') as source:
         raise SystemExit('Silero VAD SHA-256 mismatch')
 shutil.copyfile(vad, '/out/silero_vad.onnx')
 shutil.copyfile('LICENSE', '/out/LICENSE')
-shutil.copyfile('docs/evidence/licenses/offline-stt-NOTICE.md', '/out/offline-stt-NOTICE.md')
-shutil.copyfile('docs/evidence/licenses/server-doctor-NOTICE.md', '/out/server-doctor-NOTICE.md')
+shutil.copyfile('licenses/offline-stt-NOTICE.md', '/out/offline-stt-NOTICE.md')
+shutil.copyfile('licenses/server-doctor-NOTICE.md', '/out/server-doctor-NOTICE.md')
 for path in glob.glob('apps/fono-server/resources/doctor-*-LICENSE.txt'):
     shutil.copyfile(path, '/out/' + os.path.basename(path))
 shutil.copyfile('licenses/dependency-notices.txt', '/out/dependency-notices.txt')

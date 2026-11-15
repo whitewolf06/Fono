@@ -1,248 +1,98 @@
-# Fono Server on Ubuntu
+# Fono Server
 
-For a browser interface, open `/` or `/panel/` on the running server and enter
-an API token. The [server panel](server-panel.md) shows real status, models,
-aggregate queues, API documentation and an audio-file request playground.
+Самостоятельный HTTP-сервер распознаёт аудио без Tauri, микрофона и рабочего стола. Встроенная панель на / или /panel/ предоставляет вход по токену, статус, модели, очередь, ключи приложений и пробный запрос. Контракты — в [API](api.md).
 
-Fono Server exposes [API v2](server-api.md) without Tauri, a microphone or a
-desktop session. The default image uses a supervised Vulkan worker for Whisper
-on a suitable physical discrete GPU; CPU is available when no such GPU exists.
-CUDA remains an optional, separately built image. Both distributions keep the
-same API, model store and credentials format. Offline Sherpa models use CPU.
+## Поставка и GPU
 
-## Default Vulkan distribution
+Готовая поставка — Linux x86_64 Docker на основе Ubuntu. Основные теги ghcr.io/whitewolf06/fono-server:0.9.1 и :0.9.1-vulkan содержат Vulkan + CPU. Отдельный :0.9.1-cuda предназначен для NVIDIA CUDA. latest, vulkan и cuda обновляемые; для воспроизводимости закрепляйте версию или digest. Моделей, ключей и сертификатов в образах нет.
 
-Use `packaging/docker/Dockerfile.vulkan` and `server.profile-vulkan.toml`.
-`models.device = "auto"` selects a supported discrete Vulkan GPU, or CPU when
-none is available. Use `device = "vulkan"` to require the GPU explicitly and
-fail when it is unavailable. Per-model placements override the default.
+Windows CPU-сервер проверяется в CI, но готовой Windows GPU-поставки и службы нет. WSL2/Docker Desktop не объявляются аппаратно проверенным окружением.
 
-The worker requires Vulkan 1.2, compute queues and 16-bit storage-buffer access.
-It excludes CPU/software Vulkan and integrated GPUs from automatic selection.
-The image includes the loader and Mesa drivers, with no CUDA runtime layers.
-Expose the host's matching graphics driver and GPU: NVIDIA CDI needs graphics
-libraries as well as compute; AMD/Intel use `/dev/dri` and the render-node group.
-Actual NVIDIA hardware has been exercised; AMD/Intel acceptance remains open.
+models.device = "auto" выбирает поддержанную физическую дискретную Vulkan GPU, иначе CPU. Программные и интегрированные Vulkan-устройства исключены из Auto. Явный vulkan требует GPU; ошибка загрузки/выделения памяти не вызывает скрытого повтора на CPU. GPU используется для Whisper, offline Sherpa-модели работают на CPU. [STT](stt.md) описывает протоколы и ограничения.
 
-The worker's `--devices-json` command reports physical adapters without loading
-a model. An installed loader or a successful protocol handshake alone does not
-establish GPU acceleration. Failed model load or GPU allocation is surfaced;
-Auto does not silently retry it on CPU.
+Хост предоставляет драйвер и доступ к устройству. Для NVIDIA Vulkan через CDI нужны графические библиотеки, для AMD/Intel — /dev/dri и права render-группы. Испытания NVIDIA не подтверждают все AMD/Intel. CUDA требует совместимых драйвера, NVIDIA Container Toolkit и CDI; версии закреплены в [Dockerfile](../packaging/docker/Dockerfile.cuda).
 
-Model loading includes bounded internal warm-up before inference readiness.
-Compose persists shader cache in `fono-cache`, mounted at `/var/lib/fono/cache`.
-For manual runs mount that directory too; the image uses it as `XDG_CACHE_HOME`.
-Driver updates may invalidate cached shaders. Vulkan allocation-budget metrics
-are per process, so unavailable global free VRAM is omitted from metrics.
+## Первый запуск Docker
 
-## Optional CUDA distribution requirements
+Базовый Compose настроен на NVIDIA CDI и без него не запустит даже служебный контейнер. До команд ниже выберите доступ к устройству: для CPU удалите секцию `devices` из своей копии Compose и задайте `models.device = "cpu"` в server.toml. Для дискретной AMD/Intel замените NVIDIA mapping на `/dev/dri:/dev/dri` и добавьте через `group_add` числовой GID render-группы хоста. Эти GPU требуют отдельной аппаратной проверки. Для NVIDIA сохраните mapping и заранее проверьте доступность CDI-устройства.
 
-- Linux x86_64, Ubuntu 22.04 or 24.04, Docker Engine 28.3 or newer and Compose v2
-  or newer with CDI device support.
-- An NVIDIA GPU with compute capability 7.5 or newer. The image contains CUDA
-  12.8.1, with kernels for SM 75, 80, 86, 89, 90, 100 and 120; RTX 3060 Ti is SM 86.
-- NVIDIA Linux driver **570.124.06 or newer**, the matching full CUDA 12.8 Update 1
-  driver baseline. See [NVIDIA's release notes](https://docs.nvidia.com/cuda/archive/12.8.1/cuda-toolkit-release-notes/index.html).
-- NVIDIA Container Toolkit or its `nvidia-container-toolkit-base` package and a
-  generated CDI specification. Follow [NVIDIA's CDI instructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/cdi-support.html).
-  Docker supports `--device=nvidia.com/gpu=all` through
-  [native CDI support](https://docs.docker.com/reference/cli/docker/container/run/#cdi-devices).
-
-Check the host and container before building Fono:
+На подготовленном Linux-хосте из каталога исходников:
 
 ```sh
-nvidia-smi
-nvidia-ctk cdi list
-docker run --rm --device=nvidia.com/gpu=all \
-  nvidia/cuda:12.8.1-runtime-ubuntu22.04 nvidia-smi -L
-```
-
-Updating a host driver or restarting Docker affects other workloads and is a
-separate maintenance operation. A CUDA compiler is only needed inside the build
-stage. The host does not need the CUDA toolkit.
-
-## Build and configure
-
-The [0.9.0 release candidate](releases/0.9.0.md) contains the earlier CUDA server
-and Windows remote client. The new default Vulkan distribution is prepared
-after that candidate. Image publication is a separate operation; check the
-release page before pulling a tag. Existing deployments do
-not need to match the desktop's patch version: the client negotiates API v2
-and the selected model's capabilities.
-
-If you received a release image archive, load it and select its exact tag:
-
-```sh
-docker load --input fono-server-0.9.1-vulkan.tar.gz
-export FONO_IMAGE=fono-server:0.9.1-vulkan
-```
-
-The archive contains the image only. It does not include API keys, private
-certificates, model downloads or deployment data. Configure these below and
-start Compose with `--no-build` to use the loaded image. For a source build,
-use the following commands instead.
-
-From the repository root:
-
-```sh
-docker build -f packaging/docker/Dockerfile.vulkan -t fono-server:vulkan-local .
 cd packaging/docker
 cp server.profile-vulkan.toml server.toml
 install -d -m 700 credentials
 sudo chown 10001:10001 credentials
+export FONO_IMAGE=ghcr.io/whitewolf06/fono-server:0.9.1
 docker compose -f compose.example.yml config --quiet
-```
-
-For the optional CUDA distribution, build `Dockerfile.cuda` as
-`fono-server:cuda-local`, copy `server.profile-a.toml` to `server.toml`, and use
-both `-f compose.example.yml -f compose.cuda.example.yml` on every Compose
-command below. The CUDA configuration selects `cuda:0` explicitly. To use the
-frozen 0.9.0 candidate, keep its matching configuration from the release record.
-
-The image has a fixed UID/GID of **10001:10001**, an API healthcheck and a fixed
-worker path next to the server in `/usr/lib/fono`. Sherpa and Silero downloads
-are checked against pinned SHA-256 digests. The build invokes Cargo separately
-for the server and GPU worker, preventing GPU libraries from being linked into
-the server. Ubuntu/CUDA bases and the Rust toolchain images are pinned by digest.
-
-Build once before the initialization commands below, or pass `--build` to the
-first Compose run. This build includes native server contract tests and can
-take considerably longer than starting the prepared image.
-
-```sh
-docker compose -f compose.example.yml build
-```
-
-The default port publication is `127.0.0.1:17832`. For a protected LAN or private
-tunnel, add the exact server IP or DNS name to `server.toml`'s `allowed_hosts`,
-then set `FONO_BIND_IP` to the private interface address:
-
-```sh
-export FONO_BIND_IP=192.168.1.8
-```
-
-The container listens on `0.0.0.0` so Docker port forwarding works. The host
-publication controls which interface is reachable. Plain HTTP is intended for
-a protected private network; use a TLS reverse proxy or encrypted tunnel when
-transport protection is required. Native `[tls]` is supported; see
-[TLS setup and certificate renewal](server-tls.md) and
-[the network contract](server-security.md).
-
-## Initialize models and credentials
-
-The model volume is populated with the image directory's UID/GID on first use.
-Download the default model and create a credential with a one-off container:
-
-```sh
-docker compose -f compose.example.yml run --rm fono models pull whisper:large_turbo
-docker compose -f compose.example.yml run --rm \
-  --volume "$PWD/credentials:/etc/fono/credentials:rw" \
-  fono token create main-pc
-```
-
-The token is printed once. Store it in the client credential store. The server
-persists salted digests only. The token file must be mode `0600` and owned by
-UID 10001. The Compose service mounts the **credential directory** writable so
-the authenticated server panel can issue and revoke application keys. Atomic
-replacement and revocation become visible on the next request.
-Create an administrative token once with `token create panel-admin --scope admin`,
-then use the panel's Applications section for ordinary consumer keys; see
-[application connections](server-clients.md). No secret belongs
-in `server.toml`, Compose environment variables, the image or Git.
-
-```sh
-docker compose -f compose.example.yml run --rm fono doctor
+docker compose -f compose.example.yml pull
+docker compose -f compose.example.yml run --rm --no-build fono config check
+docker compose -f compose.example.yml run --rm --no-build fono models pull whisper:large_turbo
+docker compose -f compose.example.yml run --rm --no-build fono token create panel-admin --scope admin
+docker compose -f compose.example.yml run --rm --no-build fono doctor
 docker compose -f compose.example.yml up -d --no-build
-docker compose -f compose.example.yml ps
 curl --fail http://127.0.0.1:17832/healthz
 ```
 
-If the port is published on a LAN interface, use that IP in the curl URL.
-`/healthz` returns 503 while the default model loads and 200 after it becomes
-ready. All detailed API routes require a bearer token.
+Секрет admin-токена выводится один раз. Сохраните его отдельно; не помещайте в Git, образ или server.toml. Контейнер работает с UID/GID 10001:10001. Каталог credentials должен разрешать ему запись, файл токенов — принадлежать ему и иметь 0600. Монтируется каталог, чтобы атомарная замена была видна процессу. Хранятся salted hashes.
 
-`doctor` is a full preflight check: credentials, model hashes, directories and
-free space, listener availability, network exposure, TLS files, driver inventory,
-worker handshakes and recognition of embedded public speech on the default
-model. Run it before starting the service, as the same service account. It
-prints JSON with remediation hints and returns nonzero for failed required
-checks. See [the doctor guide](server-doctor.md) for checks, timeouts and
-`--skip-self-test`. A configured TLS listener is validated with rustls as well
-as the certificate and key file checks.
+Модельный volume и fono-cache сохраняют веса и shader cache. Корневая файловая система read-only, capabilities сброшены. Команда down сохраняет именованные volumes; не добавляйте --volumes, если данные нужны.
 
-The service is non-root, has a read-only root filesystem, drops capabilities,
-and uses a bounded temporary filesystem. The model and shader-cache volumes and
-private credential directory are persistent and writable. `restart: unless-stopped` applies after the
-operator starts the service. Stop it with `docker compose -f compose.example.yml down`;
-the model volume and credentials are retained.
+Для CUDA задайте FONO_IMAGE=ghcr.io/whitewolf06/fono-server:0.9.1-cuda, используйте server.profile-a.toml и добавляйте -f compose.cuda.example.yml к каждому Compose-вызову. Исходные сборки и Docker-архивы описаны в [поставке](delivery.md).
 
-## Profiles and device placement
+## Конфигурация и защищённый доступ
 
-The default Vulkan profile uses `models.device = "auto"`: a supported discrete
-Vulkan GPU, or CPU when none is available. The following A/B profiles belong to
-the optional CUDA image.
+Полный [образец TOML](../packaging/server.toml.example) описывает listener, модели, очередь и ограничения. CLI: fono-server --config /path/server.toml config check. Окружение переопределяет поддержанные поля; неверное значение указывает на поле.
 
-Profile A keeps `whisper:large_turbo` resident on `cuda:0`. GigaAM v3 is an
-optional second CPU recognizer; install it before requesting its model ID:
+По умолчанию сервер слушает loopback. В контейнере listener доступен Docker-сети, а [Compose](../packaging/docker/compose.example.yml) публикует порт хоста только на 127.0.0.1. Другой интерфейс требует явных trusted_private_network = true, allowed_hosts и защищённой сети. HTTP в обычной LAN не является шифрованным транспортом; между машинами используйте HTTPS или туннель.
 
-```sh
-docker compose -f compose.example.yml run --rm fono models pull giga_am:v3_e2e_rnnt_int8
+TLS не заменяет bearer, Host allowlist, ограничения размера/времени и контроль сети. Не выставляйте API в Интернет только из-за наличия сертификата. CORS не разрешает произвольные origin.
+
+## Панель и потребители
+
+Войдите admin-токеном и откройте «Приложения». Задайте уникальное имя: 1–64 ASCII-символа из букв, цифр, "_" и "-", начиная с буквы или цифры. Укажите origin, доступный потребителю, без /v1 и пути маршрута. Создайте ключ и скопируйте .env до закрытия раздела:
+
+```dotenv
+FONO_HOST=http://fono-server:17832
+FONO_TOKEN=<application-key>
 ```
 
-Profile B uses resident GigaAM on CPU as the default and lets CUDA Whisper unload
-after 60 seconds idle. This keeps readiness stable while freeing speech GPU
-weights for a separately managed LLM. Copy `server.profile-b.toml` to
-`server.toml`, pull **both** models and restart the Fono service. Request
-`model=whisper:large_turbo` explicitly to use GPU recognition with this profile.
-The LLM is configured and started separately. An 8 GB GPU does not guarantee
-that Whisper and a 7–8B LLM fit simultaneously; measure actual free memory and
-choose the model size and context accordingly.
+Потребитель должен поддерживать эти переменные или сопоставить их своей конфигурации. Панель не меняет другое приложение и не создаёт сетевой маршрут. В контейнере 127.0.0.1 означает этот контейнер: нужен явно общий защищённый Docker network или иной достижимый адрес. SSH-forward Windows не является адресом серверного потребителя.
 
-`device = "cuda:N"` selects an observed NVIDIA ordinal. Only that worker receives
-`CUDA_DEVICE_ORDER=PCI_BUS_ID` and `CUDA_VISIBLE_DEVICES=N`; server and sibling
-workers keep their own environment. CPU and each GPU have separate inference
-lanes. Offline Sherpa models support CPU placement only. No CPU fallback is
-configured for an explicit CUDA placement. A failed GPU worker produces
-`502 worker_failed`; the next request reloads its model in a new worker.
+server.client_url или FONO_SERVER_CLIENT_URL задаёт origin для примера в панели. Это не listener, proxy или firewall; hostname должен входить в allowed_hosts. По входящему Host адрес не угадывается.
 
-## Verification and publication
+Панель выдаёт recognize-ключи, не создаёт и не отзывает admin-ключи. Утерянный секрет отозвать и создать заново. Отзыв запрещает следующую авторизацию, но не отменяет уже принятую работу. HTTP-операции управления описаны в [API](api.md).
 
-Structured JSON logs and protected queue, timing, RTF and driver metrics are
-described in [the observability guide](server-observability.md).
+## TLS и обновление сертификатов
 
-Run the reproducible CPU smoke against either image without GPU access:
+На Ubuntu native rustls TLS включается настройкой:
 
-```sh
-python3 scripts/smoke-server-container.py --image fono-server:vulkan-local
+```toml
+[tls]
+cert = "/etc/fono/tls/cert.pem"
+key = "/etc/fono/tls/key.pem"
 ```
 
-Run this command from the repository root on Linux. It creates temporary
-credentials and model storage, checks authenticated CPU recognition using a
-[pinned public sample](evidence/licenses/server-smoke-NOTICE.md), and removes its
-container and temporary files. No host service or microphone is used.
+Сертификат содержит leaf и intermediate chain. Незашифрованный PEM-ключ должен соответствовать ему; неверные, просроченные и небезопасные файлы отклоняются. Обычно ключ имеет права 0600. Клиент должен доверять CA и проверять hostname; отключать TLS-проверку нельзя. На Windows native TLS сервера не реализован.
 
-[The container workflow](../.github/workflows/server-container.yml) builds on
-GitHub-hosted runners and executes the CPU smoke. A pushed release tag builds
-and tests only. Publication requires a manual `workflow_dispatch` on the exact
-`v<package.json version>` tag, `publish=true`, and the matching full commit SHA.
-Configure required reviewers for the `fono-server-release` GitHub environment.
-Only that separate publication job receives `packages: write`; it publishes
-each tested artifact as `:<version>-vulkan` / `:vulkan` and
-`:<version>-cuda` / `:cuda`. The default `:<version>` and `:latest` aliases
-point only to the tested Vulkan distribution. Creating the workflow or a
-local image does not publish to GHCR. Image signing and SBOM are subsequent work.
+Для Compose добавьте [TLS override](../packaging/docker/compose.tls.example.yml). Монтируйте каталог сертификатов, а не отдельные файлы, чтобы замена через rename была видна. FONO_TLS_SERVER_NAME задаёт имя проверки healthcheck; FONO_TLS_CA_FILE — публичный CA частной PKI.
 
-For GPU acceptance, inspect `doctor`, capabilities, a real GPU recognition
-request, the worker process in `nvidia-smi`, and worker crash/recovery. CPU CI
-smoke proves API and packaging compatibility; it does not provide GPU evidence.
-
-On an isolated GPU test host, the same smoke can exercise the worker failure
-contract. It terminates only the GPU worker in its own temporary container:
+После установки согласованной пары cert/key отправьте сигнал:
 
 ```sh
-python3 scripts/smoke-server-container.py --image fono-server:cuda-local \
-  --device cuda:0 --crash-worker
+docker compose -f compose.example.yml -f compose.tls.example.yml kill -s HUP fono
 ```
 
-The [recorded Ubuntu/CUDA acceptance](qa/server-cuda.md) identifies the tested
-candidate, artifacts and limits of the checks.
+Неверное обновление сохраняет прежнюю конфигурацию. SIGHUP не сбрасывает quotas. Выпуск/продление сертификатов выполняет оператор, встроенного ACME нет. Без tls используется HTTP; с TLS plaintext fallback отсутствует.
+
+## Модели, doctor и наблюдаемость
+
+CLI предоставляет models list/pull/verify/remove. Артефакты проверяются по SHA256 и устанавливаются атомарно; прерванная загрузка не считается установленной. Настройте default, preload и max_loaded. Административные load/unload по API выключены по умолчанию и не скачивают веса.
+
+healthz возвращает 503 при запуске, ошибке или остановке и 200 после готовности default-модели. Доступный процесс или handshake не подтверждает загруженную GPU-модель. Загрузка включает прогрев, shader cache нужно сохранять.
+
+doctor проверяет конфигурацию, модельные хеши, права, каталоги, порт, сеть, TLS, runtime, handshake и ограниченную речевую пробу. Запускайте до сервиса тем же пользователем. --skip-self-test явно пропускает речевую пробу. Подсказки не раскрывают секреты; параметры и таймауты описаны в CLI-справке.
+
+Логи и метрики ограничены техническими полями; аудио, текст, glossary и токены в них не включаются. /metrics требует admin и metrics.enabled = true; по умолчанию выключен. Неизвестная свободная GPU-память не подменяется нулём.
+
+Лимиты по проверенному credential применяются до чтения тела. 429 rate_limited отличается от 429 busy очереди; уважайте Retry-After. Интерактивная работа получает приоритет на границе batch-окна. Уровни автоматической и ручной проверки описаны в [testing](testing.md).

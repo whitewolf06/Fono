@@ -40,11 +40,9 @@ test("current quality lineage includes the portable engine, scheduling and share
 // because they lack the new common-run lineage; these copies exercise mutations.
 function fixture(runId = "unit-test-candidate-run") {
   const resampling = read(
-    "../docs/archive/improvement-plan/evidence/stage2-stt-quality-final.json",
+    "./fixtures/stt-quality/stage2-stt-quality-final.json",
   );
-  const vad = read(
-    "../docs/archive/improvement-plan/evidence/stage4-quality.json",
-  );
+  const vad = read("./fixtures/stt-quality/stage4-quality.json");
   const lineage = {
     run_id: runId,
     source_revision: "1".repeat(40),

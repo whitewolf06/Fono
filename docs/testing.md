@@ -1,23 +1,40 @@
-# Проверки и ручная приёмка Fono
+# Проверки Fono
 
-Fono использует классическую диктовку с hotkey `hold`/`toggle` и отдельное
-opt-in [пробуждение Лирой beta](wake-lira.md). Старый мастер своей wake-фразы
-и поэтапный вывод «На лету» скрыты. Методики будущих экспериментов находятся
-в [QA голосового ядра](qa/voice-reliability.md); они не включают эти функции.
+Выбирайте проверки по изменению и фиксируйте фактически выполненный уровень.
+Сборка, публикация, развёртывание и ручная приёмка — отдельные результаты.
 
-Проверяйте три уровня отдельно:
+| Уровень                  | Что проверяет                                            | Что требует отдельной проверки                                |
+| ------------------------ | -------------------------------------------------------- | ------------------------------------------------------------- |
+| Browser UI               | Vue, mock-порты, состояния, компоновку                   | Rust, микрофон, глобальную клавишу, внешнюю вставку           |
+| Native unit/process/HTTP | Настоящие модули, протоколы, listener и владение работой | Физические устройства, голос, поля и установленное приложение |
+| Публичный WAV с моделью  | Конкретные модель, backend и fixture                     | Произвольную речь, остальные GPU и долгую работу              |
+| Owner Desktop/installer  | Действия в настоящем приложении и окружении              | Непройденные строки аппаратной и отказной матрицы             |
 
-| Уровень               | Как запустить                                                              | Что подтверждает                                                      |
-| --------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| UI в браузере         | `npm run dev:ui`, `http://127.0.0.1:1420/v3.html`                          | Vue, mock-контракты, состояния, компоновку и browser adapters         |
-| Desktop без установки | `npm run dev:desktop:v3` или собранный `src-tauri/target/release/fono.exe` | Настоящие Rust/Tauri, микрофон, hotkey, индикатор и внешнюю вставку   |
-| Поставляемая сборка   | `npm run release`, затем пользовательская установка                        | Ресурсы NSIS/MSI, установку, запуск и обновление установленной версии |
+Пользователь самостоятельно управляет Fono, микрофоном, чужими полями, UAC
+и установкой. Автоматические сценарии используют fake-порты и публичные WAV;
+они не должны неявно записывать личный голос.
 
-Агент не записывает микрофон и не управляет пользовательским приложением ради UAT. Окна, голос, поля, UAC и установку пользователь проверяет самостоятельно. Приёмка на чистой Windows остаётся отдельным отложенным этапом.
+## Лёгкие проверки документации
 
-## Автоматические проверки
+Для текста и ссылок без изменения runtime достаточно:
 
-Из корня репозитория:
+```powershell
+npm run docs:check
+npm run version:check
+```
+
+Проверьте Prettier для изменённых Markdown и конфигов. При перемещении файлов
+найдите старые пути во всём коде, скриптах, README и AGENTS. Если перемещались
+фикстуры, сравните их SHA-256 до и после и выполните адресные тесты потребителей.
+
+Лицензии и notices, читаемые через `include_str!`, входят в сборочные входы.
+Сохраните их содержимое и согласуйте пути в потребителях.
+Рефакторинг документации сам по себе не требует installer, Docker, полной
+Rust-сборки или GPU-прогона.
+
+## Frontend и release scripts
+
+После изменения V3:
 
 ```powershell
 npm run typecheck:v3
@@ -29,160 +46,138 @@ npm run version:check
 npm run format:check
 ```
 
-`test:ui` запускает тот же набор, что `test:v3`. Проверки форматирования охватывают Vue V3, конфиг ESLint, README, документацию и правила агентов. Результат конкретного прогона относится к проверенному commit и окружению.
+`test:ui` — тот же набор, что `test:v3`.
+`test:release` проверяет инструменты выпуска, а не установленный пакет.
+Для CPU launcher есть `npm run test:cpu`.
 
-[Отдельный стенд WakeWord](../tools/wake-bench/README.md) проверяет корпус,
-изоляцию выборок и replay-метрики без приложения и микрофона. Его Python
-contracts выполняются в CI без моделей. Полный baseline требует реального
-согласованного корпуса; инженерный smoke не открывает legacy-мастер своей фразы.
+После изменения серверной панели дополнительно выполните:
 
-Численные контракты `tools/wake-training` требуют Python 3.12, NumPy/SciPy из
-`tools/wake-training/requirements-ci.txt` и PyTorch 2.7.1. В CI PyTorch ставится
-из CPU-only индекса; модели и микрофон для этих контрактов не нужны.
+```powershell
+npm run test:server-panel
+npm run check:server-panel
+```
 
-Для release-пакета Лиры отдельно запускается `python scripts/test-wake-runtime.py`.
-Проверка файлов и короткий replay не закрывают качество на личном голосе,
-длительные negatives, hotplug и sleep/resume. Прогон выполняет пользователь;
-контракт и оставшиеся критерии — в [wake-lira.md](wake-lira.md).
+Проверка встроенных panel assets обнаруживает расхождение с исходниками.
+Пересоберите их через `npm run build:server-panel`, если менялись панель,
+общие стили или её зависимости.
 
-### Rust и native runtime
+## Rust и workers
 
-В PowerShell 7 с установленными build-зависимостями, из корня:
+Windows-тесты запускаются с проверенными Sherpa/ONNX DLL:
 
 ```powershell
 ./scripts/bootstrap-ci-resources.ps1
-./scripts/test-native.ps1 -CargoArguments @('--locked', '--workspace', '--all-targets', '--target-dir', 'target-codex-review')
-Push-Location src-tauri
-try {
-    cargo fmt --all --check
-    cargo clippy --locked --workspace --all-targets --target-dir target-codex-review -- -D warnings
-    cargo check --locked -p fono --no-default-features --all-targets --target-dir target-codex-review
-    cargo check --locked -p fono --no-default-features --features wake-word --all-targets --target-dir target-codex-review
-    cargo check --locked -p fono --no-default-features --features sherpa-wake --all-targets --target-dir target-codex-review
-    cargo check --locked -p fono --no-default-features --features experimental-live --all-targets --target-dir target-codex-review
-    cargo check --locked -p fono --no-default-features --features experimental-live,sherpa-wake --all-targets --target-dir target-codex-review
-    cargo check --locked -p fono --target-dir target-codex-review
-    cargo deny --config deny.toml check
-} finally {
-    Pop-Location
-}
+./scripts/test-native.ps1
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-Wrapper собирает выбранные тесты и размещает закреплённые Sherpa/ONNX DLL рядом с executable. Одного `PATH` на Windows недостаточно: системный ONNX runtime может оказаться несовместимым. Подробности — [CI и ресурсы](fono-ci-updates.md), политика лицензий и advisories — [dependency-policy.md](dependency-policy.md).
+Wrapper собирает test executables и кладёт pinned runtime рядом с ними:
+одного PATH недостаточно при наличии несовместимой системной DLL.
+Для адресного прогона используйте `-CargoArguments` и `-TestArguments`
+из `scripts/test-native.ps1`.
 
-Обычная сборка включает `speech-vad`, а её dependency tree не содержит
-`fono-wake`. Feature `wake-word` проверяет совместимость без engine;
-`sherpa-wake` добавляет только исследовательские потоковые RU/EN backends.
-Устаревшие Whisper Experimental и KWS удалены. Эти compile-проверки и
-`experimental-live` не включают замороженные функции в интерфейсе и не заменяют
-проверку качества на голосе владельца.
+После изменений native features проверьте CPU-only и затронутые комбинации
+`wake-word`, `sherpa-wake`, `experimental-live` через
+`cargo check --locked -p fono --no-default-features --features <набор>`.
+Компиляция исследовательской feature не включает её в продукте.
 
-Тесты покрывают владение операциями и leases, stale/duplicate Stop и Cancel, ошибки LLM transport, отказ окна индикатора, readiness и protocol-4 worker fixtures. Они используют адаптеры и проверяют отдельные контракты; работа настоящего Whisper, микрофона и GPU требует desktop-проверки.
-
-Размер JSON/base64 transport для типичных длительностей и предел кадра проверяются воспроизводимым тестом:
-
-```powershell
-./scripts/test-native.ps1 -CargoArguments @('--locked', '-p', 'fono', 'stt::worker::tests::base64_transport_measurement_for_typical_recording_lengths', '--target-dir', 'target-codex-review') -TestArguments @('--nocapture')
-```
-
-После `npm run prepare:release-resources` закрытый manifest ресурсов дополнительно проверяется командой `cargo check --locked -p fono --release` из `src-tauri`. Эта проверка не создаёт installer и не подтверждает установку.
-
-### Общий process contract workers
-
-После штатной пересборки `npm run build:workers` один набор проверок запускается против обоих EXE. Его можно повторить без загрузки модели:
+Worker protocol и бинарники меняются вместе. После пересборки проверьте
+поставляемый backend, например базовый Vulkan:
 
 ```powershell
-./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-workers -Backends @('cuda', 'vulkan')
 ./scripts/verify-stt-workers.ps1 -WorkersDirectory src-tauri/resources/stt-base -Backends @('vulkan')
 ```
 
-`scripts/worker-contract.mjs` проверяет protocol/capabilities, health, неверную версию, PCM/base64/JSON, decoding options и число потоков, границу wire frame с LF, восстановление, idle cancel и shutdown. Активный inference проверяется отдельно. Изменение protocol contract требует пересборки workers; worker без `supports_decoding_options` отклоняет нестандартный выбор до отправки запроса.
+Для полного подготовленного набора используйте каталог
+`src-tauri/resources/stt-workers` и оба backend. Process contract проверяет
+handshake, capabilities, frames, ошибки, idle cancel и shutdown без загрузки
+модели. Отмену активного inference и GPU-драйвер проверяют отдельно.
 
-### Качество и задержка STT
+## Server и удалённый клиент
 
-Сравнивайте одинаковые pinned model/corpus и явно выбранные decoding options. Фиксируйте WER и CER отдельно, результаты по языкам и условиям, полный PCM и каждый эксперимент с обрезкой. Измерения готовых 16 кГц WAV не заменяют проверку ресемплера или личного голоса.
+Обязательный Linux CPU-путь и контейнерные проверки описаны в
+[CI workflow](../.github/workflows/ci.yml) и
+[container workflow](../.github/workflows/server-container.yml).
+Для серверного кода выполняются:
 
-В [четвёртом этапе](archive/improvement-plan/improvement-stage-4.md) pre-roll 150 мс и 2 с ухудшили WER и были отклонены. Итог использует Silero для допуска речи и диагностики границ; STT получает полный PCM. [Финальный quality JSON](archive/improvement-plan/evidence/stage4-quality.json) и отрицательные результаты [150 мс](archive/improvement-plan/evidence/stage4-quality-preroll-150ms.json)/[2 с](archive/improvement-plan/evidence/stage4-quality-preroll-2s.json) сохранены.
-
-Контракты отчёта пятого этапа запускаются командой `npm run test:quality:stage5`. `scripts/stage5-quality.mjs --run` собирает свежий общий replay ресемплера, Silero и fast/accurate; укажите CPU runner, resampler, trimmer и отдельные пути отчётов. Один run ID, версия, исходники, модель, corpus и фактические параметры связывают все шесть вариантов.
-
-WER/CER пересчитываются из эталона и гипотезы. У прежнего CI-03 есть допуск WER +1 п.п.; ARC-09 и PERF-04 используют собственные строгие критерии. Cold/model-load и warm p50/p95/p99 описывают измеренный запуск. Для проверки задержки нужен отдельный совместимый same-hardware baseline и явно заданные пороги; без него задержка остаётся наблюдением.
-
-#### Проверка ресемплера PERF-04
-
-Для отдельного cardinal-сравнения запускайте fixed corpus с обоими явными флагами:
-
-```powershell
-$env:CARGO_TARGET_DIR = "$PWD/src-tauri/target-codex-review"
-cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features -p fono-audio --example resample-wav -p fono-stt-worker --bin fono-stt-quality
-node scripts/stt-quality.mjs --target src-tauri/target-codex-review/release --download-model --require-no-wer-regression --bandlimited-reconstruction --report build/stt-quality/perf04-report.json
-npm run cache:maintain
+```sh
+cargo test --locked -p fono-server --all-targets
+cargo clippy --locked -p fono-server --all-targets -- -D warnings
 ```
 
-`--require-no-wer-regression` требует WER не хуже same-run legacy и замороженного `baseline.json`: допуск равен нулю. CER сохраняется отдельным числом. `--bandlimited-reconstruction` строит одинаковый для обоих вариантов 48 кГц вход через cardinal Blackman-windowed sinc: Nyquist исходника 8 кГц, половина поддержки 48 исходных кадров, unity каждой фазы. На целых исходных позициях сохраняется точный PCM16 sample. Все 20 legacy WAV остаются byte-exact замороженной базе; исходные WAV, references и порог не меняются.
+`runtime::client_e2e` использует production router, настоящий HTTP listener
+и управляемый inference. Сценарии проверяют успех, авторизацию, очередь,
+cancel, deadline, TCP disconnect и удержание admission до фактического
+возврата native-работы.
 
-Пятиаргументный вызов `resample-wav` и `stt-quality.mjs` без нового флага сохраняют прежнюю линейную реконструкцию. На ней финальный Blackman дал 85→86 ошибок на 450 слов: исходный строгий gate по-прежнему не выполнен. Для его повторения уберите только `--bandlimited-reconstruction` и задайте отдельный путь `--report`; ожидаемый результат кандидата — exit code 1. `stage5-quality.mjs --run` использует этот прежний режим; для отдельного cardinal-сравнения нужен прямой вызов выше. Уже полученные same-run отчёты можно объединять `stage5-quality.mjs` без `--run` с явными `--resampling-report` и `--vad-report`; происхождение обоих должно совпадать.
+Отдельный `runtime::client_cpu::real_cpu_remote_client_roundtrip` помечен
+`ignored`, чтобы обычные тесты не загружали модель. CI явно получает
+публичные Tiny/JFK fixtures через
+[scripts/remote-client-cpu-resources.mjs](../scripts/remote-client-cpu-resources.mjs),
+проверяет хэши и запускает этот gate на Linux и Windows.
+Успех одного WAV не является полной пользовательской приёмкой Windows.
 
-Workflow `stt-quality.yml` запускает оба метода отдельными обязательными заданиями матрицы: `legacy_linear` и `cardinal_sinc`. У каждого свой runner, run ID и artifact `stt-quality-cpu-<метод>`, поэтому WAV и отчёты разных методов не перезаписывают друг друга. `fail-fast: false` даёт второму заданию закончить измерения после отрицательного результата первого. Ошибки сборки, загрузки модели и строгого WER gate сохраняют failed-статус; отчёт загружается через `always()`. Итоговая проверка с прежним именем `quality` требует `success` всей матрицы; failed, skipped и cancelled её не проходят. Успешный cardinal-результат не делает исторический gate зелёным. Поле `acceptance` в JSON описывает только явно названный `reconstruction_policy`; общая приёмка PERF-04 учитывается отдельно.
+Для готового контейнера существует CPU smoke:
 
-Для настоящего входного WAV 44,1/48/96 кГц example принимает `--native-input` последним аргументом. Он проверяет частоту заголовка и не реконструирует файл из 16 кГц. Этот флаг и `--bandlimited-reconstruction` взаимоисключающие. Архивы и native VoxForge WAV остаются в `build/perf04/`; обычный CI их не скачивает. Эталонные тексты входят в переносимые JSON и сохраняют GPL-3.0-or-later отдельно от MIT-кода. [Исходные notices и атрибуция](evidence/licenses/perf04-data-NOTICE.md), [полный GPLv3](evidence/licenses/perf04-voxforge-GPL-3.0.txt) включены рядом с отчётами.
+```sh
+python3 scripts/smoke-server-container.py --image fono-server:verified
+```
 
-[Отчёт PERF-04](archive/improvement-plan/improvement-perf04.md) сохраняет все сравнения. Отдельный cardinal replay дал 85→85 ошибок на 450 слов, CER изменился 207→209 на 2846 символов. Он не заменяет исходный linear gate с 85→86. Дополнительный native diagnostic ухудшился относительно unfiltered linear 72→78/255 и улучшился относительно поставлявшегося FIR 79→78/255. На свежем native holdout Blackman дал 81/341 ошибок слов против 80 у обеих баз. **PERF-04 остаётся открытым: исходный и финальный native строгие WER gates не выполнены.** Эти результаты относятся к разным входам и базам; общего вывода о качестве на любом микрофоне из них не следует.
+Он использует собственный временный контейнер, credentials и модель.
+GPU-вариант с `--device` и `--crash-worker` запускайте только явно
+на выделенном GPU-окружении: он завершает собственный worker.
+CPU CI не доказывает доступность CUDA/Vulkan на реальном устройстве.
 
-### Lifecycle soak
+## Качество и длительная работа
 
-Ручной workflow `lifecycle-soak.yml` собирает CPU worker и отдельный native test executable. Отдельный шаг `native-test-runtime.mjs` размещает проверенные VAD DLL рядом с executable. `scripts/lifecycle-soak.ps1` проверяет emitted Cargo artifact, pinned модель и worker через Node guards, затем запускает ровно `stt::worker::lifecycle_soak::cpu_worker_lifecycle_soak`. Обычная native-матрица исключает этот тяжёлый ignored test; его выбирают явно.
+`npm run test:quality:stage5` проверяет контракты quality-инструментов.
+Полный replay и lifecycle soak — отдельные тяжёлые прогоны.
+Используйте workflow `stt-quality.yml` и `lifecycle-soak.yml`
+или заранее согласованное тестовое окружение.
 
-Параметры по умолчанию: 1000 start/cancel и 100 kill/reap/restart. Физический AudioRecorder заменён публичным WAV; coordinator, bounded writer, scheduler, transport и CPU Whisper остаются настоящими. Runner проверяет хэши, счётчики и raw resource measurements, сохраняет отчёт даже при неуспешном gate и завершает собственные дочерние процессы. Границы handles/threads и private bytes объявлены в отчёте. Микрофон, desktop, автоматический recovery router и ручная STAB-06 проверяются отдельно.
+Сохраняйте точные модель, корпус, SHA, код, decoding options, устройство
+и параметры запуска. Отделяйте cold/model-load от warm inference,
+WER от CER, наблюдаемую latency от прохождения заданного порога.
 
-## UI в браузере
+Для PERF-04 исходный нулевой допуск WER остаётся самостоятельным критерием.
+Cardinal-реконструкция не подменяет исходную linear-базу. Отрицательные
+результаты и исходные данные не переписываются ради успешного gate.
+Soak должен измерять память, потоки, handles и дочерние процессы;
+наличие цикла из 1000 операций само по себе не доказывает отсутствие роста.
 
-На размерах 720×560, 900×720 и 1440×900 проверьте страницы из [карты маршрутов](frontend-architecture.md):
+## Короткая ручная регрессия
 
-1. Отсутствие горизонтальной прокрутки, длинные названия моделей и большой последний текст.
-2. Диалоги и селекты: Tab/Shift+Tab, Escape, возврат фокуса и положение страницы.
-3. Общий черновик настроек, сохранение, отмену, защиту несохранённых правок и откат выключателя при ошибке.
-4. Запись на главной, редактирование, улучшение, отмену и копирование отображаемого текста.
-5. Историю, поиск, отсутствие исходной версии без согласия, тренер, словарь, команды и очередь API.
-6. Первоначальную настройку, прямые маршруты, «Назад», обновления и состояния ожидания/ошибки.
-7. Общий компонент индикатора через `#/overlay`: компактный/подробный вид, настройки, принятие и отмену.
-8. Демосценарии через `#/scenarios`, сброс mock и отсутствие ошибок приложения в консоли.
+Откройте browser UI на 720×560, 900×720 и 1440×900:
+длинные данные, прокрутку, диалоги/Teleport, клавиатуру, сохранение/отмену
+и состояния ошибок. Затем отдельно проверьте настоящий Desktop:
 
-Для [периодного тренера](speech-trainer.md) проверьте 7/30/90 дней, пустой период,
-маленькую выборку, рейтинг и переход к диктовкам. Добавление данных должно
-показывать устаревший снимок до обновления; исключение и удаление должны убирать
-связанные примеры. AI запускается отдельной кнопкой: проверьте состав передачи,
-облачное согласие, запрет повторного запроса, ошибку, отмену и смену периода во
-время запроса. Сохранение после перезапуска и настоящее AI-подключение проверяют
-отдельно в Tauri.
+1. Hold/toggle, пустую запись, тихий конец, cancel и быстрый новый старт.
+2. Вставку в исходное поле; смену цели, недоступное поле, Copy и ошибку Copy.
+   Галочка overlay не вставляет текст наружу; старый результат не закрывает
+   новую сессию.
+3. Автоматическую обработку без скачка текста в компактном overlay.
+   При заблокированной вставке результат остаётся доступен для копирования.
+4. Сохранение настроек, rollback после ошибки и перезапуск.
+5. Локальный/серверный источник, реальную модель/backend, отказ сервера,
+   повтор и выбранный CPU-резерв без дублирующей вставки.
+6. Файловую очередь, отмену, поздние результаты и экспорт только настоящих
+   временных меток.
+7. LLM raw/перевод/отключение, ошибку, черновой prompt test и отсутствие
+   побочной истории/вставки. Команды требуют preview и явного подтверждения.
+8. Удаление истории, отзыв согласия аналитики и безопасный диагностический отчёт.
 
-Browser mock не подтверждает native IPC, глобальную клавишу, запись аудио, распознавание, сетевой API, VRAM или установку.
+Для Лиры нужны отдельные положительные/отрицательные серии, независимые
+голоса и длительное прослушивание. Короткий replay не подтверждает recall,
+false activations, sleep/resume или hotplug. Legacy-мастер и «На лету»
+остаются выключенными.
 
-## Desktop: подготовка и сценарии
+Поставка требует своей проверки install/run/upgrade/uninstall, сохранения
+настроек и истории, UAC, подписи и запрета отката. Чистая Windows, AMD/Intel,
+полная матрица clipboard/повышенных прав, VRAM и аппаратный soak учитываются
+отдельно от базовой диктовки.
 
-Перед переключением dev/installer полностью завершите Fono через tray. Для прямого запуска используйте точный путь собранного EXE и сверьте его версию. Выберите микрофон, установленную Whisper-модель и нужное ускорение. Изоляция debug-настроек через `FONO_TEST_DATA_DIR` и отдельный API-порт описаны в [development.md](development.md).
-
-| Сценарий                                                                      | Инструкция                                                   |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Удержание/повторное нажатие, отмена, ручной выбор, история и смена поля       | [Диктовка](qa/dictation-controls.md)                         |
-| Индикатор без перехвата фокуса, сохранение выбора, промпты и пробная диктовка | [Overlay и промпты](qa/overlay-prompts.md)                   |
-| Память Whisper, legacy WakeWord и проверка обновлений                         | [Память и обновления](qa/memory-updates.md)                  |
-| Метаданные истории, локальный словарь и отчёт диагностики                     | [fono-quality-enhancements.md](fono-quality-enhancements.md) |
-| Health, WAV upload/polling, очередь и отмена API                              | [LOCAL_TRANSCRIPTION_API.md](LOCAL_TRANSCRIPTION_API.md)     |
-| Загрузчик, продолжение загрузки, подпись, UAC и NSIS                          | [online-installer.md](online-installer.md)                   |
-
-Для каждого ускорения Auto/CUDA/Vulkan/CPU сверяйте выбранный режим и фактический backend. Явный CUDA/Vulkan при недоступности возвращает ошибку; Auto может выбрать следующий доступный backend. Отдельно нужны AMD/Intel и чистая Windows.
-
-Проверьте тихое окончание фразы, короткую паузу, полезные короткие слова, тишину и случайный щелчок. Длительная обработка не должна блокировать UI. Cancel запрещает позднюю вставку; следующий запуск после отмены должен работать. При изменении исходного поля или частичной отправке результат остаётся для копирования, автоматическая повторная вставка блокируется. Worker-процессы не открывают Terminal.
-
-### Диагностика окончания фразы
-
-Для локальной диагностики после Stop найдите в `%APPDATA%\Fono\logs` запись `event="dictation_tail_diagnostic"` с тем же `operation`. Сравните `source`, `stop_reason`, `captured_ms`, VAD-поля, `stt`, `postprocessor` и `first_suspected_layer`. Значение `none` означает, что числовые измерения не обнаружили подозрительного этапа.
-
-В классической диктовке Silero определяет наличие речи, а STT получает полный PCM; при найденной речи `vad_trailing_after_ms` должен совпадать с `vad_trailing_before_ms`. Запись содержит длительности, счётчики и статусы, без аудио и фрагментов транскрипта. Это техническая подсказка, а не измерение точности распознавания.
-
-## Что сохранить по итогам приёмки
-
-Укажите версию/ревизию, уровень проверки, Windows/GPU/driver, выбранный и фактический backend, шаги воспроизведения, ожидаемый и полученный результат. Для отчёта используйте «Настройки → Диагностика»: разрешённые технические поля собираются без пользовательских текстов, ключей, путей и сырых логов. При необходимости добавьте проверенный пользователем screenshot.
-
-Пройденные unit tests, сборка EXE, публикация release и ручная приёмка фиксируются отдельно. Числа старого прогона не переносятся на новую версию.
+В результате укажите ревизию, окружение, уровень проверки, ожидаемое
+и наблюдаемое поведение. Передавайте технические идентификаторы и безопасный
+отчёт, без личных текстов, аудио или ключей. Незавершённый сценарий остаётся
+незавершённым после выпуска новой версии.

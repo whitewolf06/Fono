@@ -13,7 +13,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-const NOTICE: &str = include_str!("../../../../docs/evidence/licenses/offline-stt-NOTICE.md");
+const NOTICE: &str = include_str!("../../../../licenses/offline-stt-NOTICE.md");
 
 pub fn is_installed(path: &Path, spec: &OfflineModelSpec) -> bool {
     // Listing is cheap. Activation always rechecks SHA256 under native file guards.

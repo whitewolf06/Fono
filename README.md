@@ -1,119 +1,148 @@
 # Fono
 
-[Русский](README.ru.md) · [Download for Windows x64](https://github.com/whitewolf06/Fono/releases/latest) · [Documentation](docs/README.md)
+[Русский](README.ru.md) · [Windows downloads](https://github.com/whitewolf06/Fono/releases/latest) · [Documentation](docs/README.md)
 
-Voice input for Windows with local recognition or your own Fono Server on
-Ubuntu. Dictate into a text field with a hotkey and optionally edit or translate
-the result through your chosen LLM connection. The interface supports Russian
-and English.
+Voice input for Windows, with local recognition or your own Fono Server.
+Record with a hotkey, insert the result into a text field, and optionally edit
+or translate it through your chosen LLM connection. The interface supports
+Russian and English.
 
-This repository contains both **Fono Desktop** and the headless **Fono Server**.
-The [0.9.0 release candidate](docs/releases/0.9.0.md) brings the server API,
-web panel and Windows remote recognition together. Published installers are
-listed in [GitHub Releases](https://github.com/whitewolf06/Fono/releases).
+This repository contains **Fono Desktop** and the headless **Fono Server**.
+The latest published release is
+[0.9.1](https://github.com/whitewolf06/Fono/releases/tag/v0.9.1), including Windows
+installers and public Linux API images. A newer source version does not imply
+another published release.
 
-## Features
+## Choose where recognition runs
 
-- Hold-to-talk or press-to-start/press-to-stop, with a floating recording indicator.
-- Local Whisper recognition on CPU, Vulkan or CUDA; offline GigaAM and Parakeet
-  recognition on CPU. Models are downloaded separately in the app.
-- Remote recognition through Fono Server, with connection settings, server-model
-  selection and an optional managed SSH tunnel in the Windows interface.
-  Server mode does not load local speech-model weights; a local CPU reserve is
-  used only when explicitly configured or selected after a failure.
-- CPU and Vulkan in the base installer; a separately signed CUDA package
-  installed explicitly from audio settings. Auto uses Vulkan on a suitable
-  discrete GPU, or CPU when none is available; CUDA is selected manually.
-  Fono Server has separate Vulkan and CUDA Docker distributions; see
-  [the GPU distribution decision](docs/adr/0006-vulkan-default-optional-cuda.md).
-- **“Привет, Лира” voice activation — beta.** Enable it explicitly and wait for
-  the ready sound or indicator before dictating. Wake latency and recognition
-  across different voices still need improvement.
-- Optional text cleanup, formatting, task and formal styles, translation, and
-  editable prompts. Basic dictation works without an LLM connection.
-- Application profiles, a personal dictionary, session history and a speech
-  trainer. History and analytics have separate controls.
-- A loopback REST API for transcription jobs and a limited, confirmed
-  voice-command flow.
-- Windows Credential Manager for connection keys. Local recognition keeps audio
-  on the PC; remote recognition sends audio to your configured Fono Server.
-  External LLM processing sends text to the selected provider.
+|                  | Windows Desktop                                        | Fono Server                                               |
+| ---------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| Runtime          | Windows x64, microphone, hotkey and overlay            | Headless Linux x86_64 container; no Tauri or microphone   |
+| Default GPU path | Vulkan + embedded CPU                                  | Vulkan + CPU image                                        |
+| Optional CUDA    | Separately signed package, installed in audio settings | Separate CUDA image                                       |
+| Client access    | Local speech or configured Fono Server                 | Bearer-token API, embedded web panel and application keys |
 
-Classic dictation recognizes after recording ends. Experimental live insertion
-and the older custom-phrase WakeWord setup remain unavailable. Lira beta is a
-separate, fixed-phrase implementation; see [its scope and limits](docs/wake-lira.md).
+Auto uses Vulkan on a suitable physical discrete GPU, or CPU when none is
+available. Installing CUDA does not change Auto; CUDA is selected explicitly.
+GigaAM and Parakeet run on CPU. Model weights are downloaded separately.
 
-## Install and start
+In server mode, speech-model weights stay on the server. The Windows client
+does not load local recognition weights unless an explicitly selected CPU
+reserve is used. LLM processing remains a separate connection.
+
+Standalone Windows GPU Server, Linux Desktop and macOS Desktop are outside
+this release's supported distribution. The Linux container can be hosted in a
+suitable Linux environment; Windows/WSL2 GPU support has not been qualified.
+
+## Install and dictate
 
 1. Download `FonoSetup.exe` or a full Windows x64 installer from
-   [GitHub Releases](https://github.com/whitewolf06/Fono/releases/latest).
-2. Select a microphone and a recognition source: download a local model, or
-   connect to Fono Server in the app. Server mode needs an API token and an
-   installed server model; no local speech model is required.
-3. Configure a hotkey and try a first dictation with text processing off.
-4. Open your target field, record, and release the hotkey or press it again,
-   depending on the selected mode.
+   [Releases](https://github.com/whitewolf06/Fono/releases/latest).
+2. Select a microphone. Download a local model, or configure Fono Server
+   with its address, token and installed model.
+3. Choose hold-to-talk or press-to-start/press-to-stop.
+4. Focus your text field and dictate. Recognition starts after recording ends.
 
-The [user guide](docs/user-guide.md) covers result actions, settings, Lira,
-history, privacy and updates. Secondary settings are grouped under “Advanced”.
+The Windows interface supports direct HTTPS and a managed SSH connection.
+Save the connection once; Fono opens the tunnel when needed. An SSH host-key
+fingerprint establishes server identity; it is **not** the API token.
 
-Update checks do not install anything. Automatic checks are opt-in; installation
-is a separate user action after active work ends. A source version does not
-necessarily have a corresponding published installer.
+The compact overlay keeps a wave and status while processing. If the original
+field becomes unavailable, the result remains available to copy.
+See the [user guide](docs/user-guide.md) for result actions and settings.
 
-## Fono Server on Ubuntu
+## Other features and privacy
 
-Fono Server runs without Tauri, a microphone or a desktop session. Its CUDA
-Docker image supports GPU Whisper and CPU recognition. The embedded web panel
-provides token login, status, models, queues, API documentation and a trial
-audio-file request. Administrators can create and revoke a separate recognition
-key for each application and copy its host/token configuration.
+- Optional cleanup, formatting, task/formal styles, translation and custom prompts.
+  Basic dictation works without an LLM.
+- Application profiles, personal dictionary, snippets, history and speech trainer.
+  History and analytics have separate consent controls.
+- **“Привет, Лира” voice activation — beta.** Explicit opt-in; wake latency,
+  independent voices and long negative runs remain acceptance work.
+- Authenticated loopback API and a limited voice-command flow with confirmation.
+- Windows Credential Manager for connection keys; local sanitized diagnostics.
 
-Start with [deployment and Docker configuration](docs/server.md), then
-[the panel](docs/server-panel.md) and [application keys](docs/server-clients.md).
-Windows connects through HTTPS or its managed SSH connection. Applications on
-the server can call the API directly over a reachable protected endpoint;
-Windows does not need to relay their requests.
+Local recognition keeps audio on the PC. Remote recognition sends audio to your
+configured server; external LLM processing sends text to the selected provider.
+The server panel is not a transcript archive. Experimental live insertion
+and the legacy arbitrary-phrase WakeWord setup remain disabled.
 
-## Development
+Basic local and remote dictation has been checked by the owner. Clean-Windows
+installation, the full GPU/device matrix and extended failure/soak scenarios
+remain separate acceptance work. Update checks do not install anything;
+installation requires a user action after active operations finish.
 
-Frontend dependencies install from public npm. The exact WhiteUI 0.6.0 archive
-is included in [vendor/whiteui](vendor/whiteui/README.md); no npm token is needed.
+## Use the API
 
-For a Windows CPU development copy, install Node.js 22, the pinned Rust toolchain,
-MSVC C++ Build Tools and Windows SDK, CMake, LLVM/libclang, PowerShell 7, Python
-3.12+ and WebView2, then run:
+Run Fono Server from
+[`ghcr.io/whitewolf06/fono-server`](https://github.com/whitewolf06/Fono/pkgs/container/fono-server):
 
-```powershell
-npm ci
-npm run dev:cpu
+- `:0.9.1` or `:0.9.1-vulkan`: Vulkan + CPU.
+- `:0.9.1-cuda`: optional CUDA distribution.
+- Moving aliases: `:latest`, `:vulkan`, `:cuda`. Pin a version or digest
+  for reproducible deployment.
+
+Follow the [server guide](docs/server.md) to configure volumes, models,
+credentials, GPU access and protected networking. Open `/panel/` with an admin
+token, create an application key and copy its host/token configuration:
+
+```dotenv
+FONO_HOST=http://127.0.0.1:17832
+FONO_TOKEN=<your-application-key>
 ```
 
-The launcher obtains hash-pinned native resources and uses an isolated debug
-profile. It runs real dictation; its test profile blocks real credentials and
-autostart. CUDA/Vulkan SDKs are not needed for this CPU path.
+Use an endpoint reachable from the consumer's runtime. The loopback HTTP example
+assumes the same host/network namespace; use TLS or a protected tunnel for
+transport protection. Consumers call the server directly without Windows Fono.
 
-For UI work, use `npm run dev:ui` and open
-`http://127.0.0.1:1420/v3.html`. This browser view uses mock ports and demo data.
-[Development and packaging](docs/development.md) describes native dev, GPU
-workers and the separate Lira release resources.
+```sh
+curl --fail-with-body \
+  -H "Authorization: Bearer $FONO_TOKEN" \
+  -H "Content-Type: audio/wav" \
+  --data-binary @speech.wav \
+  "$FONO_HOST/v1/recognize?language=ru"
+```
 
-## Project documentation
+[API documentation](docs/api.md) covers discovery, formats, jobs, cancellation,
+OpenAI-compatible transcription and errors. Read the service's `/openapi.json`
+or `/docs` with a token; `/healthz` is the public readiness probe.
 
-- [Documentation index](docs/README.md), [user guide](docs/user-guide.md).
-- [Architecture](docs/architecture.md), [ADRs](docs/adr/README.md).
-- [Contributing](CONTRIBUTING.md), [checks and CI](docs/testing.md).
-- [Ubuntu API server](docs/server.md), [web panel](docs/server-panel.md),
-  [application keys](docs/server-clients.md), [server API v2](docs/server-api.md).
-- [Windows server connection](docs/user-guide.md#fono-server-распознавание-на-сервере),
-  [remote recognition contract](docs/remote-recognizer.md).
-- [Current status](docs/STATUS.md), [remaining work](docs/roadmap.md).
-- [Historical UI captures](docs/assets/README.md), with dates and demo provenance.
-- [Historical implementation reports and measurements](docs/archive/README.md).
-  Measurements describe their recorded models, corpus, hardware and revision.
-- [Security reporting](SECURITY.md). Keep private audio, transcripts and
-  credentials out of public issues.
+## Develop
+
+Frontend dependencies install without private npm credentials. The exact
+WhiteUI **0.6.0** archive is included in
+[vendor/whiteui](vendor/whiteui/README.md).
+
+For UI work:
+
+```sh
+npm ci
+npm run dev:ui
+```
+
+Open `http://127.0.0.1:1420/v3.html`. This is a browser mock; it does not run
+the microphone, Rust IPC, hotkeys or Windows insertion.
+
+For real Windows CPU development, install the prerequisites in
+[development.md](docs/development.md), then run `npm run dev:cpu`.
+No CUDA/Vulkan SDK is needed for that path. It uses real native devices
+with an isolated debug profile.
+
+## Documentation
+
+- [User guide](docs/user-guide.md), [server deployment](docs/server.md),
+  [API](docs/api.md).
+- [Architecture](docs/architecture.md), [code rules](docs/code-rules.md),
+  [frontend](docs/frontend-architecture.md), [STT](docs/stt.md),
+  [remote client](docs/remote-recognizer.md).
+- [Development](docs/development.md), [testing](docs/testing.md),
+  [delivery and signing](docs/delivery.md), [contributing](CONTRIBUTING.md).
+
+These guides work without a Kvorum account. Project tracking and acceptance
+records do not replace the public technical contracts.
 
 Code and documentation use [MIT](LICENSE). The name and graphics have
-[separate brand terms](docs/brand-assets.md); dependencies and models retain
-their own terms in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[separate brand terms](licenses/BRAND.md); third-party components retain their
+[own notices](THIRD_PARTY_NOTICES.md).
+Report vulnerabilities through [SECURITY.md](SECURITY.md). Keep private audio,
+transcripts and credentials out of public issues.

@@ -1,5 +1,5 @@
 # Fono Server example for /etc/fono/server.toml.
-# Network contract: docs/server-security.md.
+# Network contract: docs/server.md.
 # Keep the loopback bind unless access from another host is explicitly needed.
 # Set FONO_CONFIG to use another file, or pass --config to the CLI.
 # Individual fields can be overridden with FONO_<SECTION>_<KEY>.

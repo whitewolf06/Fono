@@ -1,75 +1,69 @@
-# Contributing to Fono
+# Участие в разработке Fono
 
-Fono is a Windows x64 Tauri application with a Vue 3 frontend. Start with the
-[README](README.md), [documentation index](docs/README.md), and
-[architecture](docs/architecture.md). Existing architectural decisions are in
-[docs/adr](docs/adr/README.md).
+В репозитории находятся Windows Desktop и headless Fono Server.
+Начните с [README](README.md), [архитектуры](docs/architecture.md)
+и [правил кода](docs/code-rules.md). Публичные руководства и исходники
+достаточны для работы без аккаунта Кворума.
 
-## Choose a development path
+## Выберите подходящий запуск
 
-- **Frontend:** install Node.js 22, run `npm ci`, then `npm run dev:ui`.
-  Open `http://127.0.0.1:1420/v3.html`. This uses demo data and never proves
-  microphone, hotkey, Tauri IPC, or Windows insertion behavior.
-- **CPU desktop:** follow [development.md](docs/development.md) and run
-  `npm run dev:cpu`. This uses real embedded Whisper, speech VAD and native
-  devices, with an isolated debug data directory. GPU SDKs are not required.
-- **GPU or packaging:** use the separate prerequisites and resource preparation
-  in the development guide. A normal contribution does not require an installer.
+- **Интерфейс:** Node.js 22, `npm ci`, `npm run dev:ui`.
+  Адрес `http://127.0.0.1:1420/v3.html` использует mock runtime.
+- **Настоящий CPU Desktop:** установите зависимости из
+  [development.md](docs/development.md), выполните `npm run dev:cpu`.
+  GPU SDK не нужен; устройства и диктовка настоящие, debug-профиль изолирован.
+- **GPU или поставка:** подготовьте workers и ресурсы по
+  [delivery.md](docs/delivery.md). Installer нужен для проверки поставки,
+  а не для каждой правки интерфейса.
+- **Сервер:** используйте [server.md](docs/server.md) и [api.md](docs/api.md).
 
-Dependency installation follows `package-lock.json` and uses the public npm
-registry without credentials. The original WhiteUI **0.6.0** archive is included
-in [vendor/whiteui](vendor/whiteui/README.md), with its origin and hashes. Fork
-pull requests run the frontend checks without secrets. Do not commit npm tokens,
-API credentials, signing keys, audio models, Cargo targets or local profiles.
-Read [dependency-policy.md](docs/dependency-policy.md) before changing packages
-or vendored components. Keep the effective WhiteUI version at **0.6.0**.
+Frontend устанавливается из публичного npm. Точный архив WhiteUI **0.6.0**
+включён в [vendor/whiteui](vendor/whiteui/README.md). Сохраняйте его версию;
+обновление зависимости требует отдельного решения. Не добавляйте в Git токены,
+signing keys, модели, Cargo targets, личное аудио и пользовательские профили.
 
-## Before submitting
+## Перед отправкой изменения
 
-Run the checks relevant to the change:
+Выберите проверки по затронутому слою из [testing.md](docs/testing.md).
+Для документации достаточно ссылок, форматирования, версии и адресных
+потребителей перемещённых файлов. Для V3 нужны frontend tests/build;
+для native — Rust tests, строгий Clippy и затронутые feature configurations.
+Используйте pinned Sherpa/ONNX runtime.
 
-```sh
-npm run typecheck:v3
-npm run lint
-npm run test:v3
-npm run test:release
-npm run test:cpu
-npm run docs:check
-npm run format:check
-npm run version:check
-npm run build
-```
+В описании укажите конкретную проблему, новое поведение, выполненные команды
+и оставшуюся ручную приёмку. Browser mock не подтверждает микрофон, hotkey
+или внешнюю вставку. Публичный WAV не заменяет матрицу GPU и установленной Windows.
 
-Native changes also require the Rust workspace tests, strict Clippy and affected
-feature configurations in [testing.md](docs/testing.md). Tests use pinned
-Sherpa/ONNX resources, not a random system runtime. Report which commands ran
-and which Windows scenarios remain untested. Do not substitute mock results
-for native acceptance. The [QA index](docs/qa/README.md) describes those scenarios.
+Сохраняйте operation IDs, cancellation, порядок сессий и владение ресурсами.
+Vue работает через типизированные порты. Блокирующий I/O выполняется вне
+UI-потока; activity lease живёт до фактического завершения фоновой работы.
 
-## Versions and commits
+## Версии и коммиты
 
-`package.json` is the source of the app version. Each new commit increments the
-patch exactly once and includes `[vX.Y.Z]` in its subject. Use the repository
-commands so all five application manifests and lock entries stay synchronized:
+Источник версии — `package.json`. Каждый новый коммит увеличивает patch ровно
+на один и содержит `vX.Y.Z` в теме. Версии внутренних crates независимы.
 
-```sh
+```powershell
 npm run hooks:install
 npm run version:bump -- patch
 npm run version:check
 ```
 
-Stage the intended code and version files together. Internal Rust crate versions
-are independent. Minor versions, publication and installation are separate
-owner decisions. Do not publish packages or releases as part of a routine PR.
+Включайте изменения и все файлы версии в один коммит. Minor, публикация
+и установка — отдельные решения владельца; обычный PR их не запускает.
+Текущая версия исходников может быть выше последнего публичного выпуска.
 
-## Keep changes reviewable
+Для крупной задачи используйте временный контекст по [AGENTS.md](AGENTS.md).
+Итоговое действующее поведение обновляйте в существующем руководстве;
+не создавайте постоянный отчёт после каждой итерации.
 
-Explain the concrete problem, resulting behavior, validation and remaining
-limits. Preserve operation IDs, cancellation and resource ownership. Vue
-components use typed ports rather than Tauri IPC or browser storage directly.
-Long or blocking I/O belongs outside the UI thread; update activity leases stay
-alive until background work actually ends.
+## Лицензии и обращения
 
-For defects, provide steps, app version, model/backend and a sanitized technical
-report. Public issues must not contain private dictations or credentials.
-Report vulnerabilities using [SECURITY.md](SECURITY.md).
+Собственный код и документация используют [MIT](LICENSE).
+Название и графика имеют [отдельные условия](licenses/BRAND.md);
+зависимости и модели сохраняют [свои notices](THIRD_PARTY_NOTICES.md).
+При обновлении пакетов проверьте lockfile, licenses и advisories.
+
+Для ошибки достаточно версии, модели/backend, шагов и безопасного
+технического отчёта. Не публикуйте личные диктовки, ключи или содержимое чужих
+полей. Для уязвимости используйте [SECURITY.md](SECURITY.md).

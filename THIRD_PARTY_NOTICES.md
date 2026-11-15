@@ -3,7 +3,7 @@
 Корневой [MIT](LICENSE) распространяется на собственный код и документацию Fono.
 Сторонние библиотеки, модели, runtime и исходники сохраняют свои лицензии и
 copyright notices. Наличие MIT у Fono не означает, что весь установщик имеет одну
-лицензию. Название и графика описаны в [отдельных условиях](docs/brand-assets.md).
+лицензию. Название и графика описаны в [отдельных условиях](licenses/BRAND.md).
 
 Это исходный реестр и результаты аудита от 17 октября 2026 года. Он отделяет
 кодовые зависимости из lock-файлов от реально подготовленных native-файлов и
@@ -186,9 +186,10 @@ Apache-2.0, установленный пакет кода содержит Apac
 20 публичных RU/EN PCM replay FLEURS, CC-BY-4.0, revision
 `437d9e667fa3a2a08a1957f810bf2c3b5050d221`; upstream test назначен wake train,
 FLEURS не считается независимым wake test. Условия и источники FLEURS
-сохранены в [описании проверочного корпуса](docs/archive/improvement-plan/improvement-fono119.md).
+сохранены в [описании проверочного корпуса](src-tauri/tests/fixtures/stt-quality/README.md).
 Личные записи владельца остаются только dev. Кандидат не принят и не
-поставляется с приложением: [результат Лиры](docs/archive/improvement-plan/improvement-wake-lira-evaluation.md).
+поставляется с приложением. Это результат исследовательского этапа v0.7.70;
+текущий пользовательский режим описан в [руководстве](docs/user-guide.md).
 
 В v0.7.71 файловый CTC-verifier использует уже закреплённую русскую
 [T-one](https://github.com/voicekit-team/T-one), Apache-2.0, Copyright 2025
@@ -196,7 +197,8 @@ T-Software DC. Архив — существующий `sherpa-onnx-streaming-t-
 SHA256 `b9c907450e99a6e5049e279bf18368a17db0bdc5e63b7fa978943138debbe3ae`.
 Файлы модели, tokens и LICENSE побайтно сверены с архивом и закреплены
 отдельными SHA256 в research-коде. Веса не переобучались и не включались
-в приложение или Git; [границы проверки](docs/archive/improvement-plan/improvement-wake-lira-ctc.md).
+в приложение или Git. Файловая CTC-проверка того этапа не заменяет
+[приёмку текущего runtime](docs/testing.md).
 
 ## Microsoft и установщики
 
